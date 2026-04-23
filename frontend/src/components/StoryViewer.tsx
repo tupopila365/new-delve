@@ -1,0 +1,185 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
+import type { StorySlide } from '../data/homeStories'
+
+type Props = {
+  open: boolean
+  onClose: () => void
+  channelLabel: string
+  explorePath: string
+  slides: StorySlide[]
+  /** When set, replaces the default “Explore {channel}” footer label. */
+  ctaLabel?: string
+}
+
+export function StoryViewer({ open, onClose, channelLabel, explorePath, slides, ctaLabel }: Props) {
+  const [index, setIndex] = useState(0)
+  const [videoProgress, setVideoProgress] = useState(0)
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  const slide = slides[index]
+  const isVideo = slide?.kind === 'video'
+  const imageDuration = slide?.durationMs ?? 5200
+  const videoCapMs = slide?.durationMs ?? 15000
+
+  const go = useCallback(
+    (delta: number) => {
+      setVideoProgress(0)
+      setIndex((i) => {
+        const next = i + delta
+        if (next < 0) {
+          onClose()
+          return i
+        }
+        if (next >= slides.length) {
+          onClose()
+          return i
+        }
+        return next
+      })
+    },
+    [slides.length, onClose],
+  )
+
+  useEffect(() => {
+    if (!open) return
+    setIndex(0)
+    setVideoProgress(0)
+  }, [open, slides])
+
+  useEffect(() => {
+    if (!open) return
+    closeRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowRight') go(1)
+      if (e.key === 'ArrowLeft') go(-1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose, go])
+
+  useEffect(() => {
+    if (!open) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open || !slide || slide.kind !== 'image') return
+    const t = window.setTimeout(() => {
+      if (index >= slides.length - 1) {
+        onClose()
+        return
+      }
+      setIndex((i) => i + 1)
+    }, imageDuration)
+    return () => window.clearTimeout(t)
+  }, [open, index, slide?.id, slide?.kind, imageDuration, slides.length, onClose])
+
+  useEffect(() => {
+    if (!open || !isVideo) return
+    const t = window.setTimeout(() => {
+      if (index >= slides.length - 1) {
+        onClose()
+        return
+      }
+      setIndex((i) => i + 1)
+      setVideoProgress(0)
+    }, videoCapMs)
+    return () => window.clearTimeout(t)
+  }, [open, isVideo, index, slides.length, videoCapMs, onClose, slide?.id])
+
+  if (!open || slides.length === 0 || !slide) return null
+
+  return createPortal(
+    <div className="story-viewer" role="dialog" aria-modal="true" aria-label={`${channelLabel} highlights`}>
+      <div className="story-viewer__progress" aria-hidden>
+        {slides.map((_, i) => {
+          const done = i < index
+          const active = i === index
+          return (
+            <div key={i} className="story-viewer__seg">
+              <div
+                className={
+                  done
+                    ? 'story-viewer__fill story-viewer__fill--done'
+                    : active
+                      ? isVideo
+                        ? 'story-viewer__fill story-viewer__fill--video'
+                        : 'story-viewer__fill story-viewer__fill--active'
+                      : 'story-viewer__fill story-viewer__fill--idle'
+                }
+                style={
+                  active && isVideo
+                    ? { transform: `scaleX(${Math.max(0.02, videoProgress)})` }
+                    : active && !isVideo
+                      ? { animationDuration: `${imageDuration}ms` }
+                      : undefined
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+
+      <header className="story-viewer__head">
+        <span className="story-viewer__brand">DELVE</span>
+        <span className="story-viewer__channel">{channelLabel}</span>
+        <button ref={closeRef} type="button" className="story-viewer__close" onClick={onClose} aria-label="Close stories">
+          ×
+        </button>
+      </header>
+
+      <div className="story-viewer__media">
+        {slide.kind === 'image' ? (
+          <img key={slide.id} className="story-viewer__img" src={slide.src} alt="" />
+        ) : (
+          <video
+            key={slide.id}
+            className="story-viewer__video"
+            src={slide.src}
+            autoPlay
+            playsInline
+            muted
+            onEnded={() => {
+              if (index >= slides.length - 1) onClose()
+              else {
+                setIndex((i) => i + 1)
+                setVideoProgress(0)
+              }
+            }}
+            onTimeUpdate={(e) => {
+              const v = e.currentTarget
+              if (v.duration && Number.isFinite(v.duration)) {
+                setVideoProgress(v.currentTime / v.duration)
+              }
+            }}
+          />
+        )}
+        <div className="story-viewer__scrim" />
+        <div className="story-viewer__caption">
+          <h2 className="story-viewer__headline">{slide.headline}</h2>
+          {slide.sub && <p className="story-viewer__sub">{slide.sub}</p>}
+        </div>
+      </div>
+
+      <button type="button" className="story-viewer__zone story-viewer__zone--left" aria-label="Previous" onClick={() => go(-1)} />
+      <button type="button" className="story-viewer__zone story-viewer__zone--right" aria-label="Next" onClick={() => go(1)} />
+
+      <footer className="story-viewer__footer">
+        <Link to={slide?.ctaPath ?? explorePath} className="story-viewer__cta" onClick={onClose}>
+          {slide?.ctaLabel ?? ctaLabel ?? `Explore ${channelLabel}`}
+        </Link>
+      </footer>
+    </div>,
+    document.body,
+  )
+}
