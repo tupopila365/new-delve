@@ -19,6 +19,28 @@ class VehicleRentalListing(models.Model):
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
     region = models.CharField(max_length=120)
     city = models.CharField(max_length=120, blank=True)
+    vehicle_type = models.CharField(
+        max_length=40,
+        blank=True,
+        default="",
+        help_text="e.g. 4x4, sedan, van — used for filters",
+    )
+    description = models.TextField(blank=True)
+    pickup_location = models.CharField(
+        max_length=400,
+        blank=True,
+        help_text="Where the renter collects the vehicle",
+    )
+    included_features = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of short labels, e.g. ["Airport pickup", "Full insurance"]',
+    )
+    gallery_images = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of image URLs or relative media paths",
+    )
     cover_image = models.ImageField(upload_to="vehicles/", blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -77,6 +99,16 @@ class BusRoute(models.Model):
     origin = models.CharField(max_length=120)
     destination = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    cover_image = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text="Optional coach or route photo URL for listings.",
+    )
+    gallery_images = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Optional list of interior/route image URLs for trip detail gallery.",
+    )
 
     def __str__(self):
         return f"{self.origin} → {self.destination}"
@@ -92,6 +124,11 @@ class BusTrip(models.Model):
     arrives_at = models.DateTimeField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     total_seats = models.PositiveSmallIntegerField(default=40)
+    amenities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='e.g. ["Air conditioning", "Onboard toilet", "WiFi"]',
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:

@@ -1,7 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
-import { SidebarNav } from './SidebarNav'
+import { TopNav } from './TopNav'
 
 const hideNavPaths = ['/login', '/register', '/verify-email']
 
@@ -23,13 +23,17 @@ export function AppLayout() {
 
   return (
     <div className="app-shell">
-      <SidebarNav />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <MobileTopBar />
-        <main className={homeMain ? 'app-main app-main--home' : 'app-main'}>
-          <Outlet />
-        </main>
-      </div>
+      {/* Desktop: sticky top nav bar */}
+      <TopNav />
+
+      {/* Mobile: sticky top bar with logo + icons */}
+      <MobileTopBar />
+
+      <main className={homeMain ? 'app-main app-main--home' : 'app-main'}>
+        <Outlet />
+      </main>
+
+      {/* Mobile only: floating bottom nav */}
       <BottomNav />
     </div>
   )

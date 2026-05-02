@@ -16,6 +16,11 @@ from .models import (
 
 class VehicleRentalListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
+    owner_display_name = serializers.SerializerMethodField()
+    owner_bio = serializers.SerializerMethodField()
+    owner_region = serializers.SerializerMethodField()
+    owner_city = serializers.SerializerMethodField()
+    owner_avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = VehicleRentalListing
@@ -23,12 +28,22 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "id",
             "owner",
             "owner_username",
+            "owner_display_name",
+            "owner_bio",
+            "owner_region",
+            "owner_city",
+            "owner_avatar",
             "title",
             "make",
             "model",
             "year",
             "transmission",
             "seats",
+            "vehicle_type",
+            "description",
+            "pickup_location",
+            "included_features",
+            "gallery_images",
             "price_per_day",
             "region",
             "city",
@@ -37,6 +52,36 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("owner", "created_at")
+
+    def get_owner_display_name(self, obj):
+        profile = getattr(obj.owner, "profile", None)
+        if profile and getattr(profile, "display_name", "").strip():
+            return profile.display_name.strip()
+        return obj.owner.username
+
+    def get_owner_bio(self, obj):
+        profile = getattr(obj.owner, "profile", None)
+        if profile and profile.bio:
+            return profile.bio.strip()
+        return ""
+
+    def get_owner_region(self, obj):
+        profile = getattr(obj.owner, "profile", None)
+        return profile.region if profile else ""
+
+    def get_owner_city(self, obj):
+        profile = getattr(obj.owner, "profile", None)
+        return profile.city if profile else ""
+
+    def get_owner_avatar(self, obj):
+        profile = getattr(obj.owner, "profile", None)
+        if not profile or not profile.avatar:
+            return None
+        request = self.context.get("request")
+        url = profile.avatar.url
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
     def create(self, validated_data):
         user = self.context["request"].user
@@ -108,12 +153,22 @@ class BusRouteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BusRoute
-        fields = ("id", "operator", "operator_name", "origin", "destination", "description")
+        fields = (
+            "id",
+            "operator",
+            "operator_name",
+            "origin",
+            "destination",
+            "description",
+            "cover_image",
+            "gallery_images",
+        )
 
 
 class BusTripSerializer(serializers.ModelSerializer):
     route_detail = BusRouteSerializer(source="route", read_only=True)
     available_seats = serializers.SerializerMethodField()
+    occupied_seats = serializers.SerializerMethodField()
 
     class Meta:
         model = BusTrip
@@ -125,8 +180,10 @@ class BusTripSerializer(serializers.ModelSerializer):
             "arrives_at",
             "price",
             "total_seats",
+            "amenities",
             "is_active",
             "available_seats",
+            "occupied_seats",
         )
 
     def get_available_seats(self, obj):
@@ -134,6 +191,15 @@ class BusTripSerializer(serializers.ModelSerializer):
             status__in=[BookingStatus.PENDING, BookingStatus.CONFIRMED]
         ).count()
         return max(0, obj.total_seats - taken)
+
+    def get_occupied_seats(self, obj):
+        return list(
+            obj.reservations.filter(
+                status__in=[BookingStatus.PENDING, BookingStatus.CONFIRMED]
+            )
+            .order_by("seat_number")
+            .values_list("seat_number", flat=True)
+        )
 
 
 class SeatReservationSerializer(serializers.ModelSerializer):

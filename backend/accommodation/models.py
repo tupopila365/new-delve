@@ -109,6 +109,30 @@ class AccommodationListing(models.Model):
         super().save(*args, **kwargs)
 
 
+class AccommodationListingLike(models.Model):
+    """A user's like (heart) on a stay listing — used for public like counts."""
+
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="user_likes",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accommodation_listing_likes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("listing", "user"),
+                name="accommodation_listing_like_listing_user_uniq",
+            ),
+        ]
+
+
 class BookingStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     CONFIRMED = "confirmed", "Confirmed"
@@ -136,6 +160,12 @@ class AccommodationBooking(models.Model):
         default=BookingStatus.PENDING,
     )
     mock_payment_ref = models.CharField(max_length=64, blank=True)
+    special_requests = models.TextField(blank=True)
+    room_type_name = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Selected room/unit category from the listing's room_types JSON, if any.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

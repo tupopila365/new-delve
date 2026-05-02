@@ -21,10 +21,227 @@ type MockState = {
   saves: Record<string, number[]>
 }
 
-const KEY = 'delve_mock_state_v4'
+const KEY = 'delve_mock_state_v6'
+
+/** In-memory accommodation bookings for mock API (session only). */
+type MockAccBookingRow = {
+  id: number
+  listing: number
+  listing_title: string
+  check_in: string
+  check_out: string
+  guests: number
+  total_price: string
+  special_requests: string
+  room_type_name: string
+  status: 'pending' | 'confirmed'
+  mock_payment_ref: string
+}
+const mockAccBookings = new Map<number, MockAccBookingRow>()
+let mockAccNextBookingId = 1
+
+/** Mock guide bookings (session only). */
+type MockGuideBookingRow = {
+  id: number
+  guide: number
+  guide_headline: string
+  total_price: string
+  status: string
+  mock_payment_ref: string
+}
+const mockGuideBookings = new Map<number, MockGuideBookingRow & Record<string, unknown>>()
+let mockGuideBookingNextId = 1
+
+/** Extra seats taken during this mock session (reservations not stored past ids map). */
+const mockBusSessionTaken = new Map<number, Set<number>>()
+let nextBusReservationId = 7000
+const mockBusReservationRows = new Map<
+  number,
+  {
+    id: number
+    trip: number
+    seat_number: number
+    status: 'pending' | 'confirmed'
+    mock_payment_ref: string
+  }
+>()
+
+function busTripOccupied(tripId: number): number[] {
+  const t = mockBusTrips.find((x) => x.id === tripId)
+  const s = new Set<number>([...(t?.occupied_seats ?? [])])
+  const extra = mockBusSessionTaken.get(tripId)
+  extra?.forEach((n) => s.add(n))
+  return [...s].sort((a, b) => a - b)
+}
+
+function busTripDetailForApi(t: (typeof mockBusTrips)[number]) {
+  const occ = busTripOccupied(t.id)
+  const available = Math.max(0, t.total_seats - occ.length)
+  return {
+    id: t.id,
+    route: t.id,
+    route_detail: t.route_detail,
+    departs_at: t.departs_at,
+    arrives_at: t.arrives_at,
+    price: t.price,
+    total_seats: t.total_seats,
+    amenities: t.amenities ?? [],
+    is_active: t.is_active,
+    occupied_seats: occ,
+    available_seats: available,
+  }
+}
+
+function formatBusReservationRow(row: {
+  id: number
+  trip: number
+  seat_number: number
+  status: string
+  mock_payment_ref: string
+}) {
+  return {
+    id: row.id,
+    trip: row.trip,
+    seat_number: row.seat_number,
+    passenger: 1,
+    status: row.status,
+    mock_payment_ref: row.mock_payment_ref,
+    created_at: nowIso(),
+  }
+}
 
 function nowIso() {
   return new Date().toISOString()
+}
+
+/** Session-local likes on accommodation listings (listing id → usernames). */
+const mockListingLikes = new Map<number, Set<string>>()
+
+function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[number]) {
+  const likers = mockListingLikes.get(row.id)
+  return {
+    ...row,
+    likes_count: likers?.size ?? 0,
+    liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
+  }
+}
+
+// ---- Mock messaging (session; mirrors backend ConversationSerializer / MessageSerializer) ----
+
+type MockMessagingConv = {
+  id: number
+  participantIds: number[]
+  created_at: string
+  updated_at: string
+}
+
+type MockMessagingMsg = {
+  id: number
+  senderId: number
+  body: string
+  created_at: string
+}
+
+const mockMessagingConversations = new Map<number, MockMessagingConv>()
+const mockMessagingMessages = new Map<number, MockMessagingMsg[]>()
+let mockMessagingConvSeq = 1
+let mockMessagingMsgSeq = 1
+
+function messagingNumericIdForUsername(username: string): number {
+  if (username === 'demo_user') return 1
+  if (username === 'demo_provider') return 2
+  let h = 2166136261
+  for (let i = 0; i < username.length; i++) {
+    h ^= username.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return 10_000 + (Math.abs(h) % 900_000)
+}
+
+function messagingParticipantDetail(s: MockState, userId: number) {
+  for (const username of Object.keys(s.profiles)) {
+    if (messagingNumericIdForUsername(username) === userId) {
+      const p = s.profiles[username]
+      return { id: userId, username: p.username, display_name: p.display_name }
+    }
+  }
+  return { id: userId, username: `user_${userId}`, display_name: `User ${userId}` }
+}
+
+function messagingUsernameForId(s: MockState, userId: number): string {
+  return messagingParticipantDetail(s, userId).username
+}
+
+function messagingUserExists(s: MockState, userId: number): boolean {
+  return Object.keys(s.profiles).some((u) => messagingNumericIdForUsername(u) === userId)
+}
+
+function messagingEnsureSeed() {
+  if (mockMessagingConversations.size > 0) return
+  const id = mockMessagingConvSeq++
+  const t = nowIso()
+  mockMessagingConversations.set(id, {
+    id,
+    participantIds: [1, 2].sort((a, b) => a - b),
+    created_at: t,
+    updated_at: t,
+  })
+  mockMessagingMessages.set(id, [
+    {
+      id: mockMessagingMsgSeq++,
+      senderId: 2,
+      body: 'Hi! Thanks for your interest in a desert tour — let me know your dates.',
+      created_at: t,
+    },
+  ])
+}
+
+function messagingFindConvBetween(a: number, b: number): MockMessagingConv | undefined {
+  const x = Math.min(a, b)
+  const y = Math.max(a, b)
+  for (const c of mockMessagingConversations.values()) {
+    if (c.participantIds.length === 2 && c.participantIds[0] === x && c.participantIds[1] === y) {
+      return c
+    }
+  }
+  return undefined
+}
+
+function messagingLastMessage(convId: number): MockMessagingMsg | null {
+  const arr = mockMessagingMessages.get(convId) ?? []
+  if (!arr.length) return null
+  return [...arr].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+}
+
+function messagingSerializeConversation(s: MockState, conv: MockMessagingConv) {
+  const last = messagingLastMessage(conv.id)
+  return {
+    id: conv.id,
+    participants_detail: conv.participantIds.map((pid) => messagingParticipantDetail(s, pid)),
+    created_at: conv.created_at,
+    updated_at: conv.updated_at,
+    last_message: last
+      ? {
+          id: last.id,
+          sender: last.senderId,
+          sender_username: messagingUsernameForId(s, last.senderId),
+          body: last.body,
+          read: false,
+          created_at: last.created_at,
+        }
+      : null,
+  }
+}
+
+function messagingSerializeMessage(s: MockState, m: MockMessagingMsg) {
+  return {
+    id: m.id,
+    sender: m.senderId,
+    sender_username: messagingUsernameForId(s, m.senderId),
+    body: m.body,
+    read: false,
+    created_at: m.created_at,
+  }
 }
 
 function loadState(): MockState {
@@ -109,6 +326,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         bio: '',
         region: 'Khomas',
         city: 'Windhoek',
+        country_code: '',
+        preferred_currency: '',
         avatar: null,
         email_verified: true,
       }
@@ -148,6 +367,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       bio: '',
       region: '',
       city: '',
+      country_code: '',
+      preferred_currency: '',
       avatar: null,
       email_verified: true,
     }
@@ -209,6 +430,46 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const list = s.posts.filter((p) => p.author.username.toLowerCase() === unLower)
     const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, sorted).slice(0, 60)
+  }
+
+  const postSimilarMatch = pathname.match(/^\/api\/social\/posts\/(\d+)\/similar\/?$/)
+  if (postSimilarMatch && method === 'GET') {
+    const id = Number(postSimilarMatch[1])
+    const post = s.posts.find((p) => p.id === id)
+    if (!post) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const board = (post.delvers_board || '').trim().toLowerCase()
+    const regionLower = (post.region || '').trim().toLowerCase()
+    const authorU = post.author.username.toLowerCase()
+    const others = s.posts.filter((p) => p.id !== id && !p.is_accommodation_story)
+    const ordered: typeof s.posts = []
+    const seen = new Set<number>()
+
+    const take = (pred: (p: (typeof s.posts)[0]) => boolean, limit: number) => {
+      let n = 0
+      for (const p of others) {
+        if (seen.has(p.id)) continue
+        if (!pred(p)) continue
+        seen.add(p.id)
+        ordered.push(p)
+        n += 1
+        if (n >= limit) break
+      }
+    }
+
+    if (post.is_delvers && board) {
+      take((p) => Boolean(p.is_delvers && (p.delvers_board || '').trim().toLowerCase() === board), 14)
+    }
+    take((p) => p.author.username.toLowerCase() === authorU, 10)
+    if (regionLower) {
+      take((p) => (p.region || '').trim().toLowerCase() === regionLower, 10)
+    }
+    take((p) => Boolean(p.is_delvers), 12)
+    take(() => true, 24)
+
+    const slice = ordered.slice(0, 20)
+    return withMeFlags(s, slice)
   }
 
   const postDetailMatch = pathname.match(/^\/api\/social\/posts\/(\d+)\/?$/)
@@ -330,6 +591,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   // ---- Accommodation ----
+  const stayLikeMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/like\/$/)
+  if (stayLikeMatch && method === 'POST') {
+    requireAuth(s)
+    const lid = Number(stayLikeMatch[1])
+    if (!mockStays.some((x) => x.id === lid)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const me = s.currentUser as string
+    let likers = mockListingLikes.get(lid)
+    if (!likers) {
+      likers = new Set<string>()
+      mockListingLikes.set(lid, likers)
+    }
+    if (likers.has(me)) {
+      likers.delete(me)
+      return { liked: false, likes_count: likers.size }
+    }
+    likers.add(me)
+    return { liked: true, likes_count: likers.size }
+  }
+
   if (pathname === '/api/accommodation/listings/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const cityQ = (q.get('city') || '').trim()
@@ -384,13 +666,122 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       list = [...list].sort((a, b) => Number(b.price_per_night) - Number(a.price_per_night))
     }
 
-    return list
+    return list.map((row) => enrichAccommodationListingRow(s, row))
   }
   const stayMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/$/)
   if (stayMatch && method === 'GET') {
     const id = Number(stayMatch[1])
     const s2 = mockStays.find((x) => x.id === id)
-    return s2 || { detail: 'Not found' }
+    return s2 ? enrichAccommodationListingRow(s, s2) : { detail: 'Not found' }
+  }
+
+  if (pathname === '/api/accommodation/bookings/' && method === 'POST') {
+    requireAuth(s)
+    const prof = s.currentUser ? s.profiles[s.currentUser] : undefined
+    if (!prof?.email_verified) {
+      throw new ApiError('Verify your email before booking.', 400, { detail: 'Email not verified.' })
+    }
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Invalid body', 400, null)
+    }
+    const body = JSON.parse(init.body) as {
+      listing?: number
+      check_in?: string
+      check_out?: string
+      guests?: number
+      special_requests?: string
+      room_type_name?: string
+    }
+    const listingId = Number(body.listing)
+    const listing = mockStays.find((x) => x.id === listingId)
+    if (!listing) {
+      throw new ApiError('Not found', 404, { detail: 'Listing not found.' })
+    }
+    const checkIn = (body.check_in || '').trim()
+    const checkOut = (body.check_out || '').trim()
+    const guests = Math.max(1, Number(body.guests ?? 1) || 1)
+    if (!checkIn || !checkOut) {
+      throw new ApiError('Invalid dates', 400, { detail: 'check_in and check_out required.' })
+    }
+    const t0 = new Date(`${checkIn}T12:00:00`).getTime()
+    const t1 = new Date(`${checkOut}T12:00:00`).getTime()
+    if (!(t1 > t0)) {
+      throw new ApiError('Invalid dates', 400, { detail: 'check_out must be after check_in.' })
+    }
+    const roomTypeName = typeof body.room_type_name === 'string' ? body.room_type_name.trim() : ''
+    let maxGuests = listing.max_guests
+    let nightly = Number(listing.price_per_night)
+    if (roomTypeName && Array.isArray(listing.room_types)) {
+      const match = (listing.room_types as { name?: string; max_guests?: number; price_per_night?: string | number }[]).find(
+        (r) => r && typeof r.name === 'string' && r.name.trim() === roomTypeName,
+      )
+      if (!match) {
+        throw new ApiError('Invalid room', 400, { detail: 'Unknown room type for this listing.' })
+      }
+      if (match.max_guests != null && Number.isFinite(Number(match.max_guests))) {
+        maxGuests = Math.min(maxGuests, Number(match.max_guests))
+      }
+      if (match.price_per_night != null && String(match.price_per_night).trim() !== '') {
+        nightly = Number(match.price_per_night)
+      }
+    }
+    if (guests > maxGuests) {
+      throw new ApiError('Too many guests', 400, { detail: 'Too many guests for this listing.' })
+    }
+    const nights = Math.max(1, Math.round((t1 - t0) / (1000 * 60 * 60 * 24)))
+    const total = (nightly * nights).toFixed(2)
+    const special_requests = typeof body.special_requests === 'string' ? body.special_requests.trim() : ''
+    const id = mockAccNextBookingId++
+    const row: MockAccBookingRow = {
+      id,
+      listing: listingId,
+      listing_title: listing.title,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests,
+      total_price: total,
+      special_requests,
+      room_type_name: roomTypeName,
+      status: 'pending',
+      mock_payment_ref: '',
+    }
+    mockAccBookings.set(id, row)
+    return {
+      id: row.id,
+      listing: row.listing,
+      listing_title: row.listing_title,
+      guest: s.currentUser,
+      check_in: row.check_in,
+      check_out: row.check_out,
+      guests: row.guests,
+      total_price: row.total_price,
+      special_requests: row.special_requests,
+      room_type_name: row.room_type_name,
+      status: row.status,
+      mock_payment_ref: row.mock_payment_ref,
+      created_at: nowIso(),
+    }
+  }
+
+  const accMockPay = pathname.match(/^\/api\/accommodation\/bookings\/(\d+)\/mock_pay\/$/)
+  if (accMockPay && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(accMockPay[1])
+    const b = mockAccBookings.get(bid)
+    if (!b) {
+      throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
+    }
+    if (b.status !== 'pending') {
+      throw new ApiError('Bad request', 400, { detail: 'Booking not payable.' })
+    }
+    b.status = 'confirmed'
+    b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    mockAccBookings.set(bid, b)
+    return {
+      detail: 'Payment successful (mock).',
+      status: b.status,
+      mock_payment_ref: b.mock_payment_ref,
+    }
   }
 
   // ---- Transport ----
@@ -398,9 +789,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const region = (q.get('region') || '').trim()
     const min = Number(q.get('min_price') || '0')
     const max = Number(q.get('max_price') || '999999')
+    const minSeats = Number(q.get('min_seats') || '0')
+    const types = q.getAll('vehicle_type').filter(Boolean)
     return mockVehicles
       .filter((v) => (region ? textMatch(v.region, region) || textMatch(v.city, region) : true))
       .filter((v) => Number(v.price_per_day) >= min && Number(v.price_per_day) <= max)
+      .filter((v) => (minSeats > 0 ? v.seats >= minSeats : true))
+      .filter((v) => (types.length ? types.includes(v.vehicle_type) : true))
   }
   const vehMatch = pathname.match(/^\/api\/transport\/vehicles\/(\d+)\/$/)
   if (vehMatch && method === 'GET') {
@@ -410,12 +805,151 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/transport/bus/trips/' && method === 'GET') {
     const o = (q.get('route_origin') || '').trim()
     const d = (q.get('route_destination') || '').trim()
-    return mockBusTrips.filter((t) => (o ? textMatch(t.route_detail.origin, o) : true)).filter((t) => (d ? textMatch(t.route_detail.destination, d) : true))
+    const travelDate = (q.get('travel_date') || '').trim()
+    return mockBusTrips
+      .filter((t) => (o ? textMatch(t.route_detail.origin, o) : true))
+      .filter((t) => (d ? textMatch(t.route_detail.destination, d) : true))
+      .filter((t) => {
+        if (!travelDate) return true
+        const dep = new Date(t.departs_at)
+        const y = dep.getFullYear()
+        const m = String(dep.getMonth() + 1).padStart(2, '0')
+        const day = String(dep.getDate()).padStart(2, '0')
+        return `${y}-${m}-${day}` === travelDate
+      })
+      .map((t) => busTripDetailForApi(t))
   }
   const tripMatch = pathname.match(/^\/api\/transport\/bus\/trips\/(\d+)\/$/)
   if (tripMatch && method === 'GET') {
     const id = Number(tripMatch[1])
-    return mockBusTrips.find((t) => t.id === id) || { detail: 'Not found' }
+    const t = mockBusTrips.find((tr) => tr.id === id)
+    return t ? busTripDetailForApi(t) : { detail: 'Not found' }
+  }
+
+  if (pathname === '/api/transport/bus/reservations/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Invalid body', 400, null)
+    }
+    const prof = s.currentUser ? s.profiles[s.currentUser] : undefined
+    if (!prof?.email_verified) {
+      throw new ApiError('Verify your email before booking.', 400, { detail: 'Email not verified.' })
+    }
+    const body = JSON.parse(init.body) as { trip?: number; seat_numbers?: unknown }
+    const tripId = body.trip
+    const rawSeats = body.seat_numbers
+    if (tripId == null || !Array.isArray(rawSeats)) {
+      throw new ApiError('Provide trip and seat_numbers.', 400, null)
+    }
+    const trip = mockBusTrips.find((x) => x.id === tripId)
+    if (!trip) {
+      throw new ApiError('Trip not found.', 404, { detail: 'Not found' })
+    }
+    let seats: number[]
+    try {
+      seats = rawSeats.map((n) => Number(n))
+    } catch {
+      throw new ApiError('Invalid seat numbers.', 400, null)
+    }
+    if (seats.some((n) => Number.isNaN(n))) {
+      throw new ApiError('Invalid seat numbers.', 400, null)
+    }
+    seats = [...seats].sort((a, b) => a - b)
+    if (seats.length < 1 || seats.length > 4) {
+      throw new ApiError('Book 1 to 4 seats.', 400, null)
+    }
+    if (new Set(seats).size !== seats.length) {
+      throw new ApiError('Duplicate seats.', 400, null)
+    }
+    for (let i = 0; i < seats.length - 1; i += 1) {
+      if (seats[i + 1] !== seats[i] + 1) {
+        throw new ApiError('Seats must be adjacent (one block).', 400, null)
+      }
+    }
+    const occ = new Set(busTripOccupied(tripId))
+    for (const n of seats) {
+      if (n < 1 || n > trip.total_seats) {
+        throw new ApiError('Invalid seat number.', 400, null)
+      }
+      if (occ.has(n)) {
+        throw new ApiError('One or more seats are no longer available.', 400, null)
+      }
+    }
+    if (!mockBusSessionTaken.has(tripId)) {
+      mockBusSessionTaken.set(tripId, new Set())
+    }
+    const add = mockBusSessionTaken.get(tripId)!
+    for (const n of seats) {
+      add.add(n)
+    }
+    const reservations = seats.map((seat_number) => {
+      const rid = nextBusReservationId++
+      const row = {
+        id: rid,
+        trip: tripId,
+        seat_number,
+        status: 'pending' as const,
+        mock_payment_ref: '',
+      }
+      mockBusReservationRows.set(rid, row)
+      return formatBusReservationRow(row)
+    })
+    const total_price = (Number(trip.price) * seats.length).toFixed(2)
+    return { reservations, total_price, seat_count: seats.length }
+  }
+
+  if (pathname === '/api/transport/bus/reservations/bulk-mock-pay/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Invalid body', 400, null)
+    }
+    const body = JSON.parse(init.body) as { reservation_ids?: unknown }
+    const ids = body.reservation_ids
+    if (!Array.isArray(ids) || !ids.length) {
+      throw new ApiError('reservation_ids required.', 400, null)
+    }
+    const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    const out: ReturnType<typeof formatBusReservationRow>[] = []
+    let tripIdForBatch: number | null = null
+    for (const raw of ids) {
+      const id = Number(raw)
+      const row = mockBusReservationRows.get(id)
+      if (!row || row.status !== 'pending') {
+        throw new ApiError('Invalid or non-pending reservation.', 400, null)
+      }
+      row.status = 'confirmed'
+      row.mock_payment_ref = ref
+      if (tripIdForBatch == null) {
+        tripIdForBatch = row.trip
+      } else if (tripIdForBatch !== row.trip) {
+        throw new ApiError('All reservations must be for the same trip.', 400, null)
+      }
+      out.push(formatBusReservationRow(row))
+    }
+    return {
+      detail: 'Payment successful (mock).',
+      status: 'confirmed',
+      mock_payment_ref: ref,
+      reservations: out,
+    }
+  }
+
+  const busResMockPay = pathname.match(/^\/api\/transport\/bus\/reservations\/(\d+)\/mock_pay\/$/)
+  if (busResMockPay && method === 'POST') {
+    requireAuth(s)
+    const rid = Number(busResMockPay[1])
+    const row = mockBusReservationRows.get(rid)
+    if (!row || row.status !== 'pending') {
+      throw new ApiError('Not payable.', 400, null)
+    }
+    const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    row.status = 'confirmed'
+    row.mock_payment_ref = ref
+    return {
+      detail: 'Payment successful (mock).',
+      status: 'confirmed',
+      mock_payment_ref: ref,
+    }
   }
 
   // ---- Events ----
@@ -448,12 +982,225 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   // ---- Guides ----
   if (pathname === '/api/guides/profiles/' && method === 'GET') {
-    return mockGuides
+    const langQ = (q.get('language') || '').trim()
+    const regionQ = (q.get('region') || '').trim()
+    const searchQ = (q.get('search') || '').trim()
+    let list = [...mockGuides]
+    if (langQ) {
+      list = list.filter((g) => (g.languages || []).some((l) => textMatch(l, langQ)))
+    }
+    if (regionQ) {
+      list = list.filter((g) => (g.regions || []).some((r) => textMatch(r, regionQ)))
+    }
+    if (searchQ) {
+      list = list.filter(
+        (g) =>
+          textMatch(g.headline, searchQ) ||
+          textMatch(g.bio, searchQ) ||
+          textMatch(g.username, searchQ) ||
+          (g.languages || []).some((l) => textMatch(l, searchQ)) ||
+          (g.regions || []).some((r) => textMatch(r, searchQ)),
+      )
+    }
+    return list
   }
   const guideMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/$/)
   if (guideMatch && method === 'GET') {
     const id = Number(guideMatch[1])
     return mockGuides.find((g) => g.id === id) || { detail: 'Not found' }
+  }
+
+  if (pathname === '/api/guides/bookings/' && method === 'POST') {
+    requireAuth(s)
+    const prof = s.currentUser ? s.profiles[s.currentUser] : undefined
+    if (!prof?.email_verified) {
+      throw new ApiError('Verify your email before booking.', 400, { detail: 'Email not verified.' })
+    }
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Invalid body', 400, null)
+    }
+    const body = JSON.parse(init.body) as {
+      guide?: number
+      date?: string
+      group_size?: number
+      duration_hours?: number
+      package_id?: string
+      start_time?: string | null
+      meeting_point?: string
+      notes?: string
+    }
+    const gid = Number(body.guide)
+    const guide = mockGuides.find((x) => x.id === gid)
+    if (!guide) {
+      throw new ApiError('Not found', 404, { detail: 'Guide not found.' })
+    }
+    const groupSize = Math.max(1, Number(body.group_size ?? 1))
+    let durationHours = Math.max(1, Number(body.duration_hours ?? 4))
+    const packageId = (body.package_id || '').trim()
+    const pkgs = guide.tour_packages || []
+    let matched: (typeof pkgs)[0] | undefined
+    if (packageId) {
+      matched = pkgs.find((p) => String(p.id) === packageId)
+    }
+    let total: number
+    if (matched) {
+      total = Number(matched.price)
+      durationHours = Math.max(1, Number(matched.hours))
+    } else {
+      const rate = Number(guide.hourly_rate || 0)
+      total = rate * durationHours * groupSize
+    }
+    const id = mockGuideBookingNextId++
+    const row = {
+      id,
+      guide: gid,
+      guide_headline: guide.headline,
+      client: s.currentUser,
+      date: body.date || new Date().toISOString().slice(0, 10),
+      start_time: body.start_time || null,
+      duration_hours: durationHours,
+      group_size: groupSize,
+      meeting_point: body.meeting_point || '',
+      package_id: packageId,
+      notes: body.notes || '',
+      total_price: total.toFixed(2),
+      status: 'pending',
+      mock_payment_ref: '',
+      created_at: nowIso(),
+    }
+    mockGuideBookings.set(id, row)
+    return row
+  }
+
+  const guideMockPay = pathname.match(/^\/api\/guides\/bookings\/(\d+)\/mock_pay\/$/)
+  if (guideMockPay && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(guideMockPay[1])
+    const b = mockGuideBookings.get(bid)
+    if (!b) {
+      throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
+    }
+    if (b.status !== 'pending') {
+      throw new ApiError('Bad request', 400, { detail: 'Booking not payable.' })
+    }
+    b.status = 'confirmed'
+    b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    mockGuideBookings.set(bid, b)
+    return {
+      detail: 'Payment successful (mock).',
+      status: b.status,
+      mock_payment_ref: b.mock_payment_ref,
+    }
+  }
+
+  // ---- Messaging ----
+  if (pathname.startsWith('/api/messaging/')) {
+    messagingEnsureSeed()
+  }
+
+  if (pathname === '/api/messaging/conversations/' && method === 'GET') {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const list = [...mockMessagingConversations.values()]
+      .filter((c) => c.participantIds.includes(me))
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .map((c) => messagingSerializeConversation(s, c))
+    return list
+  }
+
+  const convDetail = pathname.match(/^\/api\/messaging\/conversations\/(\d+)\/$/)
+  if (convDetail && method === 'GET') {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const cid = Number(convDetail[1])
+    const conv = mockMessagingConversations.get(cid)
+    if (!conv || !conv.participantIds.includes(me)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    return messagingSerializeConversation(s, conv)
+  }
+
+  if (pathname === '/api/messaging/start/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Invalid body', 400, null)
+    }
+    const payload = JSON.parse(init.body) as { user_id?: unknown }
+    let otherId: number
+    try {
+      otherId = Number(payload.user_id)
+    } catch {
+      throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
+    }
+    if (!Number.isFinite(otherId)) {
+      throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
+    }
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    if (otherId === me) {
+      throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
+    }
+    if (!messagingUserExists(s, otherId)) {
+      throw new ApiError('Not found', 404, { detail: 'user not found' })
+    }
+    const existing = messagingFindConvBetween(me, otherId)
+    if (existing) {
+      return messagingSerializeConversation(s, existing)
+    }
+    const t = nowIso()
+    const id = mockMessagingConvSeq++
+    const a = Math.min(me, otherId)
+    const b = Math.max(me, otherId)
+    const conv: MockMessagingConv = {
+      id,
+      participantIds: [a, b],
+      created_at: t,
+      updated_at: t,
+    }
+    mockMessagingConversations.set(id, conv)
+    mockMessagingMessages.set(id, [])
+    return messagingSerializeConversation(s, conv)
+  }
+
+  const convMsgs = pathname.match(/^\/api\/messaging\/conversations\/(\d+)\/messages\/$/)
+  if (convMsgs) {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const cid = Number(convMsgs[1])
+    const conv = mockMessagingConversations.get(cid)
+    if (!conv || !conv.participantIds.includes(me)) {
+      throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    }
+    if (method === 'GET') {
+      const arr = [...(mockMessagingMessages.get(cid) ?? [])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      )
+      return arr.map((m) => messagingSerializeMessage(s, m))
+    }
+    if (method === 'POST') {
+      if (!isJsonBody(init.body)) {
+        throw new ApiError('Invalid body', 400, null)
+      }
+      const payload = JSON.parse(init.body) as { body?: string }
+      const text = (payload.body ?? '').trim()
+      if (!text) {
+        throw new ApiError('Bad request', 400, { detail: 'body required' })
+      }
+      const msg: MockMessagingMsg = {
+        id: mockMessagingMsgSeq++,
+        senderId: me,
+        body: text,
+        created_at: nowIso(),
+      }
+      const list = mockMessagingMessages.get(cid) ?? []
+      list.push(msg)
+      mockMessagingMessages.set(cid, list)
+      const c = mockMessagingConversations.get(cid)
+      if (c) {
+        c.updated_at = msg.created_at
+        mockMessagingConversations.set(cid, c)
+      }
+      return { detail: 'sent' }
+    }
   }
 
   // ---- Search ----
@@ -465,7 +1212,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return {
       accommodation: mockStays.filter((s2) => textMatch(s2.title, qq) || textMatch(s2.region, qq)).slice(0, 8),
       vehicles: mockVehicles.filter((v) => textMatch(v.title, qq) || textMatch(v.region, qq)).slice(0, 8),
-      bus_trips: mockBusTrips.filter((t) => textMatch(t.route_detail.origin, qq) || textMatch(t.route_detail.destination, qq)).slice(0, 8),
+      bus_trips: mockBusTrips
+        .filter((t) => textMatch(t.route_detail.origin, qq) || textMatch(t.route_detail.destination, qq))
+        .slice(0, 8)
+        .map((t) => busTripDetailForApi(t)),
       events: mockEvents.filter((e) => textMatch(e.title, qq) || textMatch(e.region, qq)).slice(0, 8),
       food: mockFood.filter((f) => textMatch(f.name, qq) || textMatch(f.region, qq)).slice(0, 8),
       guides: mockGuides.filter((g) => textMatch(g.headline, qq)).slice(0, 8),

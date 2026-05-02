@@ -3,13 +3,19 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from accommodation.models import AccommodationListing
+from accommodation.models import AccommodationListing, BookingStatus
 from accounts.models import Profile, User, UserType
 from events_app.models import Event, EventCategory
 from food.models import CuisineType, FoodVenue
 from guides.models import TourGuideProfile
 from social.models import Post
-from transport.models import BusOperator, BusRoute, BusTrip, VehicleRentalListing
+from transport.models import (
+    BusOperator,
+    BusRoute,
+    BusTrip,
+    SeatReservation,
+    VehicleRentalListing,
+)
 
 
 class Command(BaseCommand):
@@ -28,6 +34,8 @@ class Command(BaseCommand):
         p1.region = "Khomas"
         p1.city = "Windhoek"
         p1.display_name = "Demo Explorer"
+        p1.country_code = "NA"
+        p1.preferred_currency = "NAD"
         p1.email_verified = True
         p1.save()
 
@@ -42,6 +50,8 @@ class Command(BaseCommand):
         p2.user_type = UserType.SERVICE_PROVIDER
         p2.region = "Erongo"
         p2.display_name = "Desert Stays"
+        p2.country_code = "NA"
+        p2.preferred_currency = "NAD"
         p2.email_verified = True
         p2.save()
 
@@ -380,6 +390,24 @@ class Command(BaseCommand):
         for title, patch in _listing_extras.items():
             AccommodationListing.objects.filter(title=title).update(**patch)
 
+        _hilux_features = {
+            "description": (
+                "Double-cab 4x4 with canopy — handles gravel and washaways with ease. "
+                "Ideal for Etosha runs and coastal strips."
+            ),
+            "pickup_location": "Windhoek CBD — exact street address shared on confirmation.",
+            "included_features": [
+                "Airport pickup",
+                "Full comprehensive insurance",
+                "Unlimited kilometres",
+                "Child seat on request",
+            ],
+            "gallery_images": [
+                "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=900&q=70",
+                "https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=900&q=70",
+                "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=900&q=70",
+            ],
+        }
         if not VehicleRentalListing.objects.filter(title="Toyota Hilux 4x4").exists():
             VehicleRentalListing.objects.create(
                 owner=u2,
@@ -389,18 +417,50 @@ class Command(BaseCommand):
                 year=2022,
                 transmission="manual",
                 seats=5,
+                vehicle_type="4x4",
                 price_per_day=780,
                 region="Khomas",
                 city="Windhoek",
+                **_hilux_features,
             )
+        else:
+            VehicleRentalListing.objects.filter(title="Toyota Hilux 4x4").update(**_hilux_features)
 
         op, _ = BusOperator.objects.get_or_create(owner=u2, name="Namibia Link Coaches", defaults={"region": "Khomas"})
         route, _ = BusRoute.objects.get_or_create(
             operator=op,
             origin="Windhoek",
             destination="Swakopmund",
-            defaults={"description": "Scenic coastal route."},
+            defaults={
+                "description": "Scenic coastal route.",
+                "cover_image": (
+                    "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957"
+                    "?auto=format&fit=crop&w=900&q=72"
+                ),
+                "gallery_images": [
+                    "https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=900&q=72",
+                    "https://images.unsplash.com/photo-1519999482648-25049ddd37b1?auto=format&fit=crop&w=900&q=72",
+                    "https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=900&q=72",
+                ],
+            },
         )
+        BusRoute.objects.filter(pk=route.pk).update(
+            cover_image=(
+                "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957"
+                "?auto=format&fit=crop&w=900&q=72"
+            ),
+            gallery_images=[
+                "https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=900&q=72",
+                "https://images.unsplash.com/photo-1519999482648-25049ddd37b1?auto=format&fit=crop&w=900&q=72",
+                "https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=900&q=72",
+            ],
+        )
+        _trip_amenities = [
+            "Air conditioning",
+            "Onboard toilet",
+            "Luggage hold",
+            "USB charging",
+        ]
         if not BusTrip.objects.filter(route=route).exists():
             dep = timezone.now() + timedelta(days=1)
             BusTrip.objects.create(
@@ -409,7 +469,21 @@ class Command(BaseCommand):
                 arrives_at=dep + timedelta(hours=4),
                 price=180,
                 total_seats=32,
+                amenities=_trip_amenities,
             )
+        else:
+            BusTrip.objects.filter(route=route).update(amenities=_trip_amenities)
+
+        for trip in BusTrip.objects.filter(route=route):
+            for sn in (1, 2, 16):
+                SeatReservation.objects.get_or_create(
+                    trip=trip,
+                    seat_number=sn,
+                    defaults={
+                        "passenger": u1,
+                        "status": BookingStatus.CONFIRMED,
+                    },
+                )
 
         if not Event.objects.filter(title="Windhoek Night Market").exists():
             Event.objects.create(
@@ -442,6 +516,34 @@ class Command(BaseCommand):
                 languages=["English", "Afrikaans"],
                 regions=["Hardap", "Khomas"],
                 hourly_rate=450,
+                response_hours_typical=2,
+                years_guiding=12,
+                licensed_guide=True,
+                certifications=["First aid certified", "4×4 recovery training"],
+                languages_detail=[
+                    {"language": "English", "level": "Fluent"},
+                    {"language": "Afrikaans", "level": "Fluent"},
+                ],
+                guest_reviews=[
+                    {
+                        "name": "Sarah M.",
+                        "place": "Cape Town",
+                        "rating": 5,
+                        "body": "Unforgettable dunes at golden hour — our guide knew every viewpoint.",
+                    }
+                ],
+                tour_packages=[
+                    {"id": "dunes-half", "title": "Dunes & deadvlei half-day", "hours": 4, "price": "1800"},
+                    {"id": "dunes-full", "title": "Full Namib loop & picnic", "hours": 8, "price": "3200"},
+                ],
+                portfolio_gallery=[
+                    {
+                        "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                        "caption": "Sossusvlei at sunrise",
+                    }
+                ],
+                default_meeting_point="Sesriem gate visitor parking — look for the silver Land Cruiser.",
+                specialities=["Photography", "Family-friendly", "Nature"],
             )
 
         feed_posts = [

@@ -11,7 +11,7 @@ from .serializers import GuideBookingSerializer, TourGuideProfileSerializer
 
 
 class TourGuideProfileViewSet(viewsets.ModelViewSet):
-    queryset = TourGuideProfile.objects.filter(is_active=True).select_related("user")
+    queryset = TourGuideProfile.objects.filter(is_active=True).select_related("user", "user__profile")
     serializer_class = TourGuideProfileSerializer
     search_fields = ("headline", "bio", "regions")
     ordering = ["-created_at"]

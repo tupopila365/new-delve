@@ -23,6 +23,35 @@ class TourGuideProfile(models.Model):
         help_text="Average client rating 0–5",
     )
     rating_count = models.PositiveIntegerField(default=0)
+    guest_reviews = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Reviews: [{"name": "...", "place": "...", "rating": 4.5, "body": "..."}]',
+    )
+    response_hours_typical = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="Typical first reply time in hours (for social proof).",
+    )
+    tour_packages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Named tours: [{"id": "slug", "title": "...", "hours": 2, "price": "40.00"}]',
+    )
+    years_guiding = models.PositiveSmallIntegerField(null=True, blank=True)
+    certifications = models.JSONField(default=list, blank=True)
+    licensed_guide = models.BooleanField(default=False)
+    languages_detail = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='[{"language": "English", "level": "Fluent"}]',
+    )
+    portfolio_gallery = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='[{"src": "url", "caption": ""}]',
+    )
+    default_meeting_point = models.CharField(max_length=300, blank=True)
+    specialities = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -42,6 +71,11 @@ class GuideBooking(models.Model):
         related_name="guide_bookings",
     )
     date = models.DateField()
+    start_time = models.TimeField(null=True, blank=True)
+    duration_hours = models.PositiveSmallIntegerField(default=4)
+    group_size = models.PositiveSmallIntegerField(default=1)
+    meeting_point = models.TextField(blank=True)
+    package_id = models.CharField(max_length=64, blank=True)
     notes = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     mock_payment_ref = models.CharField(max_length=64, blank=True)

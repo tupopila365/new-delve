@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Case, Count, F, FloatField, Q, Value, When
+from django.db.models import Case, Count, F, FloatField, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -172,6 +172,65 @@ class PostViewSet(viewsets.ModelViewSet):
             s.delete()
             return Response({"saved": False})
         return Response({"saved": True})
+
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[permissions.AllowAny],
+        url_path="similar",
+    )
+    def similar(self, request, pk=None):
+        """Related posts: same Delvers board (if any), then author, region, then Delvers feed."""
+        post = self.get_object()
+        base = (
+            Post.objects.exclude(pk=post.pk)
+            .exclude(is_accommodation_story=True)
+            .select_related("author", "author__profile")
+            .annotate(
+                likes_count=Count("likes", distinct=True),
+                saves_count=Count("saves", distinct=True),
+                comments_count=Count("comments", distinct=True),
+            )
+        )
+        ordered_ids: list[int] = []
+        seen: set[int] = set()
+
+        def take_from(qs, limit: int) -> None:
+            n = 0
+            for row in qs:
+                if row.pk in seen:
+                    continue
+                seen.add(row.pk)
+                ordered_ids.append(row.pk)
+                n += 1
+                if n >= limit:
+                    break
+
+        board = (post.delvers_board or "").strip()
+        if post.is_delvers and board:
+            take_from(
+                base.filter(is_delvers=True, delvers_board__iexact=board).order_by("-created_at"),
+                14,
+            )
+        take_from(base.filter(author=post.author).order_by("-created_at"), 10)
+        if (post.region or "").strip():
+            take_from(
+                base.filter(region__iexact=post.region.strip()).order_by("-created_at"),
+                10,
+            )
+        take_from(base.filter(is_delvers=True).order_by("-created_at"), 12)
+        take_from(base.order_by("-created_at"), 16)
+
+        if not ordered_ids:
+            return Response([])
+
+        top_ids = ordered_ids[:20]
+        order_case = Case(
+            *[When(pk=uid, then=pos) for pos, uid in enumerate(top_ids)],
+            output_field=IntegerField(),
+        )
+        qs = base.filter(pk__in=top_ids).order_by(order_case)
+        return Response(PostSerializer(qs, many=True, context={"request": request}).data)
 
     @action(detail=True, methods=["get", "post"], permission_classes=[permissions.IsAuthenticated])
     def comments(self, request, pk=None):

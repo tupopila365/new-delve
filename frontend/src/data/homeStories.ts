@@ -129,9 +129,9 @@ export function buildSlidesForChannel(id: StoryChannelId, preview: StoryPreviewM
 
 export const STORY_CHANNELS: { id: StoryChannelId; label: string; emoji: string; explorePath: string }[] = [
   { id: 'stays', label: 'Stays', emoji: '🛏', explorePath: '/accommodation' },
-  { id: 'go', label: 'Go', emoji: '🚐', explorePath: '/transport' },
-  { id: 'live', label: 'Live', emoji: '✨', explorePath: '/events' },
-  { id: 'eat', label: 'Eat', emoji: '🍽', explorePath: '/food' },
-  { id: 'tours', label: 'Tours', emoji: '🧭', explorePath: '/guides' },
-  { id: 'pins', label: 'Pins', emoji: '📌', explorePath: '/delvers' },
+  { id: 'go', label: 'Transport', emoji: '🚐', explorePath: '/transport' },
+  { id: 'live', label: 'Events', emoji: '✨', explorePath: '/events' },
+  { id: 'eat', label: 'Food', emoji: '🍽', explorePath: '/food' },
+  { id: 'tours', label: 'Guides', emoji: '🧭', explorePath: '/guides' },
+  { id: 'pins', label: 'Delvers', emoji: '📌', explorePath: '/delvers' },
 ]

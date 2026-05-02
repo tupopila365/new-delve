@@ -16,11 +16,13 @@ export function Messages() {
   const qc = useQueryClient()
   const [uid, setUid] = useState('')
 
-  const { data } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['conversations'],
     enabled: !!profile,
     queryFn: () => apiFetch<Conv[]>('/api/messaging/conversations/'),
   })
+
+  const conversations = Array.isArray(data) ? data : []
 
   const startMut = useMutation({
     mutationFn: () => apiFetch<Conv>('/api/messaging/start/', { method: 'POST', body: JSON.stringify({ user_id: Number(uid) }) }),
@@ -50,15 +52,20 @@ export function Messages() {
           </button>
         </div>
       </div>
+      {isLoading && <p style={{ color: 'var(--text-secondary)' }}>Loading conversations…</p>}
+      {isError && <p style={{ color: 'var(--danger, crimson)' }}>Could not load messages.</p>}
       <div style={{ display: 'grid', gap: 8 }}>
-        {data?.map((c) => {
+        {conversations.map((c) => {
           const other = c.participants_detail.find((p) => p.username !== profile.username)
           const label = other?.display_name || other?.username || 'Chat'
+          const previewBody = c.last_message?.body?.slice(0, 60) ?? ''
           return (
             <Link key={c.id} to={`/messages/${c.id}`} className="card" style={{ padding: '0.85rem', textDecoration: 'none', color: 'inherit' }}>
               <strong>{label}</strong>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                {c.last_message ? `${c.last_message.sender_username}: ${c.last_message.body.slice(0, 60)}` : 'No messages yet'}
+                {c.last_message
+                  ? `${c.last_message.sender_username}: ${previewBody}${previewBody.length >= 60 ? '…' : ''}`
+                  : 'No messages yet'}
               </div>
             </Link>
           )

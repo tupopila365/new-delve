@@ -29,6 +29,16 @@ class Profile(models.Model):
     region = models.CharField(max_length=120, blank=True, help_text="e.g. Windhoek, Swakopmund")
     city = models.CharField(max_length=120, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        help_text="ISO 3166-1 alpha-2; used for region and price display preferences.",
+    )
+    preferred_currency = models.CharField(
+        max_length=3,
+        blank=True,
+        help_text="ISO 4217; how prices should be shown to this user.",
+    )
     email_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

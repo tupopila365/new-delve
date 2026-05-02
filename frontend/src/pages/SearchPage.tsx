@@ -41,21 +41,31 @@ export function SearchPage() {
   }
 
   return (
-    <div>
-      <h1 className="display" style={{ fontSize: '1.65rem', marginBottom: 4 }}>
-        Explore
-      </h1>
-      <p className="page-sub" style={{ marginBottom: 16 }}>
+    <div className="acc-page search-page">
+      <h1 className="display search-page__title">Explore</h1>
+      <p className="page-sub search-page__sub">
         Search across stays, transport, events, food, guides, and posts.
       </p>
-      <form onSubmit={onSubmit} style={{ marginBottom: '1.25rem' }}>
-        <input
-          className="input"
-          placeholder="Windhoek, braai, bus, lodge…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '0.65rem' }}>
+      <form className="search-page__form" onSubmit={onSubmit}>
+        <div className="acc-page__search">
+          <label className="visually-hidden" htmlFor="global-search-q">
+            Search DELVE
+          </label>
+          <div className="acc-page__search-inner">
+            <span className="acc-page__search-icon" aria-hidden>⌕</span>
+            <input
+              id="global-search-q"
+              type="search"
+              className="acc-page__search-input input"
+              placeholder="Paris, Tokyo, hotel, bus…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+          </div>
+        </div>
+        <button type="submit" className="btn btn-primary btn-block search-page__submit">
           Search
         </button>
       </form>

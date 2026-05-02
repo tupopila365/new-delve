@@ -7,9 +7,11 @@ type Props = {
   /** Resolved gallery items (from API `media_gallery` or built from `cover_image`). */
   items: GalleryItem[]
   title: string
+  /** `hero` fills a `.td-hero` (Journey detail–style immersive header). */
+  variant?: 'default' | 'hero'
 }
 
-export function AccommodationGallery({ items, title }: Props) {
+export function AccommodationGallery({ items, title, variant = 'default' }: Props) {
   const [index, setIndex] = useState(0)
   const n = items.length
 
@@ -40,6 +42,7 @@ export function AccommodationGallery({ items, title }: Props) {
   }, [go, n])
 
   if (n === 0) {
+    if (variant === 'hero') return null
     return (
       <div className="acc-detail__hero acc-detail__hero--placeholder" aria-label={`${title} — no photos yet`}>
         <span>Photo coming from host</span>
@@ -50,8 +53,17 @@ export function AccommodationGallery({ items, title }: Props) {
   const current = items[index]
   const resolved = mediaUrl(current.src) || ''
 
+  const rootClass =
+    variant === 'hero' ? 'acc-gallery acc-gallery--hero' : 'acc-gallery'
+  const metaClass =
+    n > 1
+      ? variant === 'hero'
+        ? 'acc-gallery__meta acc-gallery__meta--hero'
+        : 'acc-gallery__meta'
+      : ''
+
   return (
-    <div className="acc-gallery" aria-roledescription="carousel" aria-label={`Photos and video of ${title}`}>
+    <div className={rootClass} aria-roledescription="carousel" aria-label={`Photos and video of ${title}`}>
       <div className="acc-gallery__viewport">
         {current.kind === 'video' ? (
           <video
@@ -86,7 +98,7 @@ export function AccommodationGallery({ items, title }: Props) {
       </div>
 
       {n > 1 ? (
-        <div className="acc-gallery__meta">
+        <div className={metaClass}>
           <div className="acc-gallery__dots" role="tablist" aria-label="Gallery slides">
             {items.map((_, i) => (
               <button

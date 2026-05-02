@@ -1,5 +1,6 @@
 import uuid
 
+from django.db.models import Count, Exists, OuterRef
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -7,7 +8,12 @@ from rest_framework.response import Response
 from accounts.permissions import IsEmailVerified
 
 from .filters import AccommodationListingFilter
-from .models import AccommodationBooking, AccommodationListing, BookingStatus
+from .models import (
+    AccommodationBooking,
+    AccommodationListing,
+    AccommodationListingLike,
+    BookingStatus,
+)
 from .serializers import AccommodationBookingSerializer, AccommodationListingSerializer
 
 
@@ -22,13 +28,41 @@ class AccommodationListingViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [permissions.IsAuthenticated()]
+        if self.action == "like":
+            return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = AccommodationListing.objects.filter(is_active=True).select_related("owner")
+        qs = qs.annotate(likes_count=Count("user_likes", distinct=True))
+        user = self.request.user
+        if user.is_authenticated:
+            qs = qs.annotate(
+                liked_by_me=Exists(
+                    AccommodationListingLike.objects.filter(
+                        listing_id=OuterRef("pk"),
+                        user_id=user.id,
+                    )
+                )
+            )
         if self.action in ("update", "partial_update", "destroy"):
-            return AccommodationListing.objects.filter(owner=self.request.user)
+            return qs.filter(owner=self.request.user)
         return qs
+
+    @action(detail=True, methods=["post"])
+    def like(self, request, pk=None):
+        listing = self.get_object()
+        like_obj, created = AccommodationListingLike.objects.get_or_create(
+            listing=listing,
+            user=request.user,
+        )
+        if not created:
+            like_obj.delete()
+            liked = False
+        else:
+            liked = True
+        likes_count = AccommodationListingLike.objects.filter(listing=listing).count()
+        return Response({"liked": liked, "likes_count": likes_count})
 
     def perform_destroy(self, instance):
         instance.delete()

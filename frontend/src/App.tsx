@@ -6,6 +6,7 @@ import { AccommodationDetail } from './pages/AccommodationDetail'
 import { AccommodationList } from './pages/AccommodationList'
 import { AccommodationStoryNew } from './pages/AccommodationStoryNew'
 import { BusTripDetail } from './pages/BusTripDetail'
+import { Community } from './pages/Community'
 import { CreatePost } from './pages/CreatePost'
 import { Delvers } from './pages/Delvers'
 import { DelversNew } from './pages/DelversNew'
@@ -24,6 +25,8 @@ import { Register } from './pages/Register'
 import { SearchPage } from './pages/SearchPage'
 import { Settings } from './pages/Settings'
 import { Transport } from './pages/Transport'
+import { TripDetail } from './pages/TripDetail'
+import { TripsList } from './pages/TripsList'
 import { UserProfile } from './pages/UserProfile'
 import { VehicleDetail } from './pages/VehicleDetail'
 import { VerifyEmail } from './pages/VerifyEmail'
@@ -41,8 +44,11 @@ export default function App() {
         <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />
         <Route path="/accommodation/:id" element={<AccommodationDetail />} />
         <Route path="/accommodation/:id/book" element={<AccommodationBook />} />
+        <Route path="/journeys" element={<TripsList />} />
+        <Route path="/journeys/:id" element={<TripDetail />} />
         <Route path="/delvers" element={<Delvers />} />
         <Route path="/delvers/new" element={<DelversNew />} />
+        <Route path="/community" element={<Community />} />
         <Route path="/transport" element={<Transport />} />
         <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
         <Route path="/transport/bus/:id" element={<BusTripDetail />} />

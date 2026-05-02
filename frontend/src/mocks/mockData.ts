@@ -1,4 +1,5 @@
 import type { HostStoryPost } from '../data/hostAccommodationStories'
+import type { TransportStoryPost } from '../data/hostTransportStories'
 
 export type MockProfile = {
   username: string
@@ -8,6 +9,8 @@ export type MockProfile = {
   bio: string
   region: string
   city: string
+  country_code: string
+  preferred_currency: string
   avatar: string | null
   email_verified: boolean
 }
@@ -98,20 +101,40 @@ export type MockVehicle = {
   year: number
   transmission: string
   seats: number
+  vehicle_type: string
   price_per_day: string
   region: string
   city: string
   cover_image: string | null
+  description?: string
+  pickup_location?: string
+  included_features?: string[]
+  gallery_images?: string[]
+  owner_username?: string
+  owner_display_name?: string
+  owner_bio?: string
+  owner_region?: string
+  owner_city?: string
+  owner_avatar?: string | null
 }
 
 export type MockBusTrip = {
   id: number
-  route_detail: { origin: string; destination: string; operator_name: string }
+  route_detail: {
+    origin: string
+    destination: string
+    operator_name: string
+    cover_image?: string | null
+    gallery_images?: string[]
+  }
   departs_at: string
   arrives_at: string
   price: string
   total_seats: number
+  /** Seed occupied seats; availability is recomputed in mock API when session bookings exist. */
+  occupied_seats: number[]
   available_seats: number
+  amenities?: string[]
   is_active: boolean
 }
 
@@ -145,6 +168,7 @@ export type MockFoodVenue = {
 
 export type MockGuide = {
   id: number
+  user: number
   headline: string
   bio: string
   languages: string[]
@@ -152,8 +176,19 @@ export type MockGuide = {
   hourly_rate: string | null
   photo: string | null
   username: string
+  display_name?: string | null
   rating_avg: string
   rating_count: number
+  guest_reviews?: unknown
+  response_hours_typical?: number
+  tour_packages?: { id: string; title: string; hours: number; price: string }[]
+  years_guiding?: number | null
+  certifications?: string[]
+  licensed_guide?: boolean
+  languages_detail?: { language: string; level: string }[]
+  portfolio_gallery?: { src: string; caption?: string }[]
+  default_meeting_point?: string
+  specialities?: string[]
 }
 
 const U = {
@@ -168,8 +203,13 @@ const U = {
   stay2: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=70',
 }
 
+/** Short CC0 / demo MP4s for Delvers video pins (URLs pass through `mediaUrl`). */
 const V = {
   flower: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+  joyrides: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+  blazes: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  escapes: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+  fun: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
 }
 
 /** Profile photos for story rings (full URLs so `mediaUrl` passes them through). */
@@ -245,6 +285,50 @@ export const mockHostAccommodationStoryPins: HostStoryPost[] = [
   },
 ]
 
+/** Demo provider stories on Transport — rings + viewer; no API. */
+export const mockTransportStoryPins: TransportStoryPost[] = [
+  {
+    id: 9601,
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
+    body: 'Hilux back from service — diff lock checked, tyres fresh for gravel runs.',
+    region: 'Khomas',
+    image: U.wheel,
+    video: null,
+    vehicle: { id: 201, title: 'Toyota Hilux 4x4' },
+    created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+  },
+  {
+    id: 9602,
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
+    body: 'Coast-to-dune run tips: tyre pressures, spare water, and where we refuel.',
+    region: 'Erongo',
+    image: U.map,
+    video: null,
+    vehicle: { id: 202, title: 'Compact City Runner' },
+    created_at: new Date(Date.now() - 1000 * 60 * 190).toISOString(),
+  },
+  {
+    id: 9603,
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
+    body: 'Weekend handover: walk-around checklist with every renter.',
+    region: 'Erongo',
+    image: null,
+    video: V.flower,
+    vehicle: { id: 201, title: 'Toyota Hilux 4x4' },
+    created_at: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+  },
+  {
+    id: 9610,
+    author: { username: 'windhoek_inns', display_name: 'Windhoek Inns', avatar: HOST_STORY_AVATARS.windhoekInns },
+    body: 'Airport runs and day hires — keys sanitized, tanks topped before pickup.',
+    region: 'Khomas',
+    image: U.city,
+    video: null,
+    vehicle: { id: 201, title: 'Toyota Hilux 4x4' },
+    created_at: new Date(Date.now() - 1000 * 60 * 310).toISOString(),
+  },
+]
+
 export const mockProfiles: Record<string, MockProfile> = {
   demo_user: {
     username: 'demo_user',
@@ -254,6 +338,8 @@ export const mockProfiles: Record<string, MockProfile> = {
     bio: 'Chasing sunsets, good coffee, and hidden stays.',
     region: 'Khomas',
     city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
     avatar: null,
     email_verified: true,
   },
@@ -265,6 +351,8 @@ export const mockProfiles: Record<string, MockProfile> = {
     bio: 'Boutique stays and guided tours across Namibia.',
     region: 'Erongo',
     city: 'Swakopmund',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
     avatar: HOST_STORY_AVATARS.desertStays,
     email_verified: true,
   },
@@ -649,28 +737,98 @@ export const mockStays: MockStay[] = [
 export const mockVehicles: MockVehicle[] = [
   {
     id: 201,
+    owner_username: 'demo_provider',
+    owner_display_name: 'Namibia Wheels Hire',
+    owner_bio:
+      'Family-run rentals since 2014 — airport handovers, cross-country kits, and honest advice before you hit gravel.',
+    owner_region: 'Khomas',
+    owner_city: 'Windhoek',
+    owner_avatar: null,
     title: 'Toyota Hilux 4x4',
     make: 'Toyota',
     model: 'Hilux',
     year: 2022,
     transmission: 'manual',
     seats: 5,
+    vehicle_type: '4x4',
     price_per_day: '780',
     region: 'Khomas',
     city: 'Windhoek',
     cover_image: U.wheel,
+    description:
+      'Double-cab 4x4 with canopy — gravel roads and washaways are no problem. Popular for Etosha and the coast.',
+    pickup_location: 'Windhoek CBD — exact street shared on confirmation.',
+    included_features: [
+      'Airport pickup',
+      'Full comprehensive insurance',
+      'Unlimited kilometres',
+      'Child seat on request',
+    ],
+    gallery_images: [
+      'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=900&q=70',
+      'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=900&q=70',
+      'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=900&q=70',
+    ],
   },
   {
     id: 202,
+    owner_username: 'coastal_rentals',
+    owner_display_name: 'Coastal Rentals Swakop',
+    owner_bio: 'Small fleet focused on coast & desert loops — flexible returns and WhatsApp support.',
+    owner_region: 'Erongo',
+    owner_city: 'Swakopmund',
+    owner_avatar: null,
     title: 'Compact City Runner',
     make: 'VW',
     model: 'Polo',
     year: 2021,
     transmission: 'automatic',
     seats: 5,
+    vehicle_type: 'hatchback',
     price_per_day: '420',
     region: 'Erongo',
     city: 'Swakopmund',
+    cover_image: null,
+  },
+  {
+    id: 203,
+    owner_username: 'demo_provider',
+    owner_display_name: 'Namibia Wheels Hire',
+    owner_bio:
+      'Family-run rentals since 2014 — airport handovers, cross-country kits, and honest advice before you hit gravel.',
+    owner_region: 'Khomas',
+    owner_city: 'Windhoek',
+    owner_avatar: null,
+    title: 'Mercedes V-Class People Mover',
+    make: 'Mercedes-Benz',
+    model: 'V-Class',
+    year: 2020,
+    transmission: 'automatic',
+    seats: 7,
+    vehicle_type: 'van',
+    price_per_day: '1250',
+    region: 'Khomas',
+    city: 'Windhoek',
+    cover_image: U.wheel,
+  },
+  {
+    id: 204,
+    owner_username: 'luxdrive_na',
+    owner_display_name: 'LuxDrive Namibia',
+    owner_bio: 'Executive sedans and SUVs for corporate travel and events — meet & greet at Hosea Kutako.',
+    owner_region: 'Khomas',
+    owner_city: 'Windhoek',
+    owner_avatar: null,
+    title: 'BMW 5 Series',
+    make: 'BMW',
+    model: '520d',
+    year: 2023,
+    transmission: 'automatic',
+    seats: 5,
+    vehicle_type: 'luxury',
+    price_per_day: '980',
+    region: 'Khomas',
+    city: 'Windhoek',
     cover_image: null,
   },
 ]
@@ -678,22 +836,69 @@ export const mockVehicles: MockVehicle[] = [
 export const mockBusTrips: MockBusTrip[] = [
   {
     id: 301,
-    route_detail: { origin: 'Windhoek', destination: 'Swakopmund', operator_name: 'Namibia Link Coaches' },
+    route_detail: {
+      origin: 'Windhoek',
+      destination: 'Swakopmund',
+      operator_name: 'Namibia Link Coaches',
+      cover_image:
+        'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=900&q=72',
+      gallery_images: [
+        'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=900&q=72',
+        'https://images.unsplash.com/photo-1519999482648-25049ddd37b1?auto=format&fit=crop&w=900&q=72',
+        'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=900&q=72',
+      ],
+    },
     departs_at: new Date(Date.now() + 1000 * 60 * 60 * 26).toISOString(),
     arrives_at: new Date(Date.now() + 1000 * 60 * 60 * 30).toISOString(),
     price: '180',
     total_seats: 32,
-    available_seats: 12,
+    occupied_seats: [1, 2, 16],
+    available_seats: 29,
+    amenities: ['Air conditioning', 'Onboard toilet', 'Luggage hold', 'USB charging'],
     is_active: true,
   },
   {
     id: 302,
-    route_detail: { origin: 'Windhoek', destination: 'Oshakati', operator_name: 'Northern Express' },
+    route_detail: {
+      origin: 'Windhoek',
+      destination: 'Oshakati',
+      operator_name: 'Northern Express',
+      cover_image:
+        'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=900&q=72',
+      gallery_images: [
+        'https://images.unsplash.com/photo-1520437358207-323b43b50729?auto=format&fit=crop&w=900&q=72',
+        'https://images.unsplash.com/photo-1524401596648-3b9b0f24d1f4?auto=format&fit=crop&w=900&q=72',
+      ],
+    },
     departs_at: new Date(Date.now() + 1000 * 60 * 60 * 40).toISOString(),
     arrives_at: new Date(Date.now() + 1000 * 60 * 60 * 46).toISOString(),
     price: '240',
     total_seats: 40,
-    available_seats: 18,
+    occupied_seats: [4, 5, 6, 20],
+    available_seats: 36,
+    amenities: ['Air conditioning', 'Luggage hold'],
+    is_active: true,
+  },
+  {
+    id: 303,
+    route_detail: {
+      origin: 'Windhoek',
+      destination: 'Swakopmund',
+      operator_name: 'Namibia Link Coaches',
+      cover_image:
+        'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=72',
+      gallery_images: [
+        'https://images.unsplash.com/photo-1494515843206-f3117d3f51b7?auto=format&fit=crop&w=900&q=72',
+        'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=900&q=72',
+      ],
+    },
+    departs_at: new Date(Date.now() + 1000 * 60 * 60 * 50).toISOString(),
+    arrives_at: new Date(Date.now() + 1000 * 60 * 60 * 54).toISOString(),
+    price: '180',
+    total_seats: 32,
+    occupied_seats: [],
+    available_seats: 32,
+    amenities: ['Air conditioning', 'Onboard toilet', 'Luggage hold', 'USB charging'],
     is_active: true,
   },
 ]
@@ -759,27 +964,155 @@ export const mockFood: MockFoodVenue[] = [
 export const mockGuides: MockGuide[] = [
   {
     id: 601,
-    headline: 'Sossusvlei & Namib tours',
-    bio: 'Ten years guiding photographers and families across the desert.',
+    user: 2,
+    headline: 'Sossusvlei & Namib desert',
+    bio: 'Ten years guiding photographers and families across the dunes.',
     languages: ['English', 'Afrikaans'],
-    regions: ['Hardap', 'Khomas'],
+    regions: ['Africa', 'Southern Africa'],
     hourly_rate: '450',
     photo: U.safari,
     username: 'demo_provider',
+    display_name: 'Desert Stays',
     rating_avg: '4.95',
     rating_count: 142,
+    response_hours_typical: 2,
+    years_guiding: 12,
+    licensed_guide: true,
+    certifications: ['First aid certified', '4×4 recovery training'],
+    languages_detail: [
+      { language: 'English', level: 'Fluent' },
+      { language: 'Afrikaans', level: 'Fluent' },
+    ],
+    guest_reviews: [
+      {
+        name: 'Sarah M.',
+        place: 'Cape Town',
+        rating: 5,
+        body:
+          'Unforgettable dunes at golden hour — our guide knew every viewpoint and kept the pace perfect for our family. Kids still talk about the oryx sighting.',
+      },
+      {
+        name: 'Jonas K.',
+        place: 'Berlin',
+        rating: 4.8,
+        body: 'Professional, warm, and deeply knowledgeable about the desert ecology. Worth every minute.',
+      },
+    ],
+    tour_packages: [
+      { id: 'dunes-half', title: 'Dunes & deadvlei half-day', hours: 4, price: '1800' },
+      { id: 'dunes-full', title: 'Full Namib loop & picnic', hours: 8, price: '3200' },
+    ],
+    portfolio_gallery: [
+      { src: U.dunes, caption: 'Sossusvlei at sunrise' },
+      { src: U.safari, caption: 'Guests at Deadvlei' },
+    ],
+    default_meeting_point: 'Sesriem gate visitor parking — look for the silver Land Cruiser with DELVE sign.',
+    specialities: ['Photography', 'Family-friendly', 'Nature'],
   },
   {
     id: 602,
-    headline: 'City walks: Windhoek stories',
-    bio: 'Architecture, culture, and hidden food spots.',
+    user: 1,
+    headline: 'Windhoek — architecture & culture',
+    bio: 'City walks, galleries, and the stories behind the streets.',
     languages: ['English'],
-    regions: ['Khomas'],
+    regions: ['Africa', 'Southern Africa'],
     hourly_rate: '280',
     photo: null,
     username: 'demo_user',
+    display_name: 'Kaoko Explorer',
     rating_avg: '4.70',
     rating_count: 38,
+    response_hours_typical: 4,
+    years_guiding: 5,
+    licensed_guide: false,
+    certifications: [],
+    guest_reviews: [],
+    tour_packages: [],
+    portfolio_gallery: [],
+    default_meeting_point: 'Independence Memorial Museum steps',
+    specialities: ['Urban walks', 'History'],
+  },
+  {
+    id: 603,
+    user: 2,
+    headline: 'Tokyo after dark — food & neon',
+    bio: 'Small groups through izakaya alleys, late trains, and quiet shrines.',
+    languages: ['English', 'Japanese'],
+    regions: ['Asia'],
+    hourly_rate: '85',
+    photo: U.city,
+    username: 'demo_provider',
+    display_name: 'Desert Stays',
+    rating_avg: '4.88',
+    rating_count: 512,
+    response_hours_typical: 1,
+    years_guiding: 8,
+    licensed_guide: true,
+    certifications: ['Japan National Guide (EN)', 'Food safety'],
+    languages_detail: [
+      { language: 'English', level: 'Native' },
+      { language: 'Japanese', level: 'Fluent' },
+    ],
+    guest_reviews: [
+      {
+        name: 'Alex P.',
+        place: 'London',
+        rating: 5,
+        body: 'Best food crawl we have done anywhere. Felt like a night out with a friend who happens to know every hidden spot.',
+      },
+    ],
+    tour_packages: [
+      { id: 'tokyo-neon', title: 'Neon & izakaya trail', hours: 3, price: '240' },
+      { id: 'tokyo-late', title: 'Late-night Shinjuku deep dive', hours: 4, price: '320' },
+    ],
+    portfolio_gallery: [{ src: U.city, caption: 'Shinjuku crossing' }],
+    default_meeting_point: 'Shinjuku Station — east exit, central pillar B',
+    specialities: ['Food', 'Night photography'],
+  },
+  {
+    id: 604,
+    user: 1,
+    headline: 'Lisbon tiles, light & Atlantic breeze',
+    bio: 'Alfama to Belém: history without the lecture, with tram and pastry stops.',
+    languages: ['English', 'Portuguese'],
+    regions: ['Europe'],
+    hourly_rate: '55',
+    photo: U.coast,
+    username: 'demo_user',
+    display_name: 'Kaoko Explorer',
+    rating_avg: '4.92',
+    rating_count: 203,
+    response_hours_typical: 3,
+    years_guiding: 6,
+    tour_packages: [
+      { id: 'lisbon-tiles', title: 'Old City tiles & viewpoints', hours: 2, price: '90' },
+      { id: 'lisbon-food', title: 'Sunset food trail', hours: 4, price: '175' },
+    ],
+    portfolio_gallery: [{ src: U.coast, caption: 'Belém waterfront' }],
+    default_meeting_point: 'Praça do Comércio, south side fountain',
+    specialities: ['History', 'Food'],
+  },
+  {
+    id: 605,
+    user: 2,
+    headline: 'NYC bridges & downtown rhythm',
+    bio: 'Photography-friendly routes through Manhattan and Brooklyn waterfronts.',
+    languages: ['English', 'Spanish'],
+    regions: ['Americas'],
+    hourly_rate: '120',
+    photo: U.map,
+    username: 'demo_provider',
+    display_name: 'Desert Stays',
+    rating_avg: '4.85',
+    rating_count: 891,
+    response_hours_typical: 2,
+    tour_packages: [
+      { id: 'nyc-bridges', title: 'Brooklyn Bridge & DUMBO', hours: 2, price: '240' },
+      { id: 'nyc-downtown', title: 'Downtown skyline walk', hours: 3, price: '360' },
+    ],
+    portfolio_gallery: [{ src: U.map, caption: 'Manhattan skyline' }],
+    default_meeting_point: 'City Hall Park — north entrance',
+    specialities: ['Photography', 'Architecture'],
   },
 ]
 
@@ -821,8 +1154,8 @@ export const mockPosts: MockPost[] = [
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
     body: 'Road trip mood: pack water, playlist, and your camera.',
     region: 'Khomas',
-    image: U.map,
-    video: null,
+    image: null,
+    video: V.joyrides,
     delvers_board: 'Weekend trips',
     is_delvers: true,
     created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
@@ -869,8 +1202,8 @@ export const mockPosts: MockPost[] = [
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
     body: 'Dune ridge at golden hour — no filter needed.',
     region: 'Hardap',
-    image: U.dunes,
-    video: null,
+    image: null,
+    video: V.escapes,
     delvers_board: 'Namibia views',
     is_delvers: true,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
@@ -917,8 +1250,8 @@ export const mockPosts: MockPost[] = [
     author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
     body: 'Safari drive pause — elephants at the waterhole.',
     region: 'Oshikoto',
-    image: U.safari,
-    video: null,
+    image: null,
+    video: V.fun,
     delvers_board: 'Wild Namibia',
     is_delvers: true,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
@@ -933,8 +1266,8 @@ export const mockPosts: MockPost[] = [
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
     body: 'Road trip fuel stop views — long roads, good radio.',
     region: 'Khomas',
-    image: U.wheel,
-    video: null,
+    image: null,
+    video: V.joyrides,
     delvers_board: 'On the road',
     is_delvers: true,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
@@ -997,8 +1330,8 @@ export const mockPosts: MockPost[] = [
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
     body: 'Street braai smoke and laughter — Friday energy.',
     region: 'Windhoek',
-    image: U.food,
-    video: null,
+    image: null,
+    video: V.blazes,
     delvers_board: 'Eat local',
     is_delvers: true,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 68).toISOString(),
@@ -1061,8 +1394,8 @@ export const mockPosts: MockPost[] = [
     author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
     body: 'Skeleton Coast mist rolling in — jacket weather, big sky.',
     region: 'Erongo',
-    image: U.dunes,
-    video: null,
+    image: null,
+    video: V.escapes,
     delvers_board: 'Namibia views',
     is_delvers: true,
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 84).toISOString(),

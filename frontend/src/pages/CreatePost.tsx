@@ -168,7 +168,7 @@ export function CreatePost() {
           rows={4}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder={dest === 'feed' ? 'What’s happening near you?' : 'What should people feel?'}
+          placeholder={dest === 'feed' ? "What's happening near you?" : "What should people feel?"}
         />
       </div>
 

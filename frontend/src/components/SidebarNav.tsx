@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom'
 const links: { to: string; label: string; end?: boolean; Icon: FC }[] = [
   { to: '/', label: 'Home', end: true, Icon: IHome },
   { to: '/accommodation', label: 'Accommodation', Icon: IBed },
+  { to: '/journeys', label: 'Journeys', Icon: IJourney },
   { to: '/delvers', label: 'Delvers', Icon: IPin },
   { to: '/transport', label: 'Transport', Icon: ICar },
   { to: '/events', label: 'Events', Icon: ICal },
@@ -42,6 +43,14 @@ function IBed() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden {...ik}>
       <path d="M3 14v7M3 14l4-6h10l4 6M7 8V5a2 2 0 012-2h6a2 2 0 012 2v3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+function IJourney() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden {...ik}>
+      <path d="M3 12h18M3 6h18M3 18h12" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="20" cy="18" r="2" />
     </svg>
   )
 }
@@ -95,7 +104,11 @@ function ISearch() {
 function IMsg() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden {...ik}>
-      <path d="M21 12a8 8 0 01-8 8H6l-4 3V8a8 8 0 018-8h9a8 8 0 018 8z" strokeLinejoin="round" />
+      <path
+        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

@@ -50,7 +50,7 @@ export function MessageThread() {
         ← Inbox
       </Link>
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {messages?.map((m) => (
+        {(Array.isArray(messages) ? messages : []).map((m) => (
           <div
             key={m.id}
             className="card"

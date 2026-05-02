@@ -1,12 +1,15 @@
 from datetime import date
+from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import AccommodationBooking, AccommodationListing, BookingStatus
+from .models import AccommodationBooking, AccommodationListing, AccommodationListingLike, BookingStatus
 
 
 class AccommodationListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = AccommodationListing
@@ -42,8 +45,25 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "rating_count",
             "is_active",
             "created_at",
+            "likes_count",
+            "liked_by_me",
         )
-        read_only_fields = ("owner", "created_at")
+        read_only_fields = ("owner", "created_at", "likes_count", "liked_by_me")
+
+    def get_likes_count(self, obj):
+        v = getattr(obj, "likes_count", None)
+        if v is not None:
+            return int(v)
+        return AccommodationListingLike.objects.filter(listing_id=obj.pk).count()
+
+    def get_liked_by_me(self, obj):
+        v = getattr(obj, "liked_by_me", None)
+        if v is not None:
+            return bool(v)
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return AccommodationListingLike.objects.filter(listing_id=obj.pk, user=request.user).exists()
 
     def create(self, validated_data):
         user = self.context["request"].user
@@ -67,6 +87,8 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "check_out",
             "guests",
             "total_price",
+            "special_requests",
+            "room_type_name",
             "status",
             "mock_payment_ref",
             "created_at",
@@ -78,9 +100,31 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
         check_in = attrs["check_in"]
         check_out = attrs["check_out"]
         guests = attrs.get("guests", 1)
+        room_type_name = (attrs.get("room_type_name") or "").strip()
         if check_out <= check_in:
             raise serializers.ValidationError("check_out must be after check_in.")
-        if guests > listing.max_guests:
+        max_guests_allowed = listing.max_guests
+        if room_type_name:
+            found = False
+            for row in listing.room_types or []:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name", "")).strip()
+                if name != room_type_name:
+                    continue
+                found = True
+                mg = row.get("max_guests")
+                if mg is not None:
+                    try:
+                        max_guests_allowed = min(max_guests_allowed, int(mg))
+                    except (TypeError, ValueError):
+                        pass
+                break
+            if not found:
+                raise serializers.ValidationError(
+                    {"room_type_name": "Unknown room type for this listing."}
+                )
+        if guests > max_guests_allowed:
             raise serializers.ValidationError("Too many guests for this listing.")
         return attrs
 
@@ -94,8 +138,22 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
         nights = (check_out - check_in).days
         if nights < 1:
             nights = 1
-        total = listing.price_per_night * nights
+        nightly = listing.price_per_night
+        room_type_name = (validated_data.get("room_type_name") or "").strip()
+        if room_type_name:
+            for row in listing.room_types or []:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("name", "")).strip() != room_type_name:
+                    continue
+                p = row.get("price_per_night")
+                if p is not None and str(p).strip() != "":
+                    nightly = Decimal(str(p))
+                break
+        total = nightly * nights
         validated_data["guest"] = request.user
         validated_data["total_price"] = total
         validated_data["status"] = BookingStatus.PENDING
+        if "room_type_name" in validated_data and not validated_data["room_type_name"]:
+            validated_data["room_type_name"] = ""
         return super().create(validated_data)

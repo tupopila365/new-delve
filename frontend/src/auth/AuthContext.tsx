@@ -19,6 +19,8 @@ export type Profile = {
   bio: string
   region: string
   city: string
+  country_code: string
+  preferred_currency: string
   avatar: string | null
   email_verified: boolean
 }
@@ -45,7 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       const me = await apiFetch<Profile>('/api/accounts/me/')
-      setProfile(me)
+      setProfile({
+        ...me,
+        country_code: me.country_code ?? '',
+        preferred_currency: me.preferred_currency ?? '',
+      })
     } catch {
       setProfile(null)
       clearTokens()
@@ -66,7 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     setTokens(tokens.access, tokens.refresh)
     const me = await apiFetch<Profile>('/api/accounts/me/')
-    setProfile(me)
+    setProfile({
+      ...me,
+      country_code: me.country_code ?? '',
+      preferred_currency: me.preferred_currency ?? '',
+    })
   }, [])
 
   const logout = useCallback(() => {

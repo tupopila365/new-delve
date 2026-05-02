@@ -4,6 +4,8 @@ import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { PostMedia } from './PostMedia'
 
+export type PostMediaVariant = 'feed' | 'pin' | 'detail'
+
 export type FeedPost = {
   id: number
   author: { username: string; display_name: string; avatar?: string | null }
@@ -29,11 +31,14 @@ export function IgPostCard({
   post,
   queryKey,
   linkMedia = true,
+  mediaVariant = 'feed',
 }: {
   post: FeedPost
   queryKey: unknown[]
   /** When false, media is not wrapped in a link (e.g. on the post detail page). */
   linkMedia?: boolean
+  /** Detail page uses `detail` for sharp media + controls over a blurred backdrop. */
+  mediaVariant?: PostMediaVariant
 }) {
   const { profile } = useAuth()
   const qc = useQueryClient()
@@ -82,13 +87,13 @@ export function IgPostCard({
       {linkMedia ? (
         <Link to={`/posts/${post.id}`} className="ig-post__media-link">
           {hasMedia ? (
-            <PostMedia image={post.image} video={post.video} variant="feed" alt="" />
+            <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
           ) : (
             <div className="post-media-placeholder">No photo or video — tap to open post</div>
           )}
         </Link>
       ) : hasMedia ? (
-        <PostMedia image={post.image} video={post.video} variant="feed" alt="" />
+        <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
       ) : (
         <div className="post-media-placeholder">No photo or video</div>
       )}
@@ -157,7 +162,11 @@ function HeartIcon({ filled }: { filled: boolean }) {
 function CommentIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M21 12a8 8 0 01-8 8H8l-5 3V8a8 8 0 018-8h10a8 8 0 018 8z" strokeLinejoin="round" />
+      <path
+        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
@@ -18,6 +20,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             "bio",
             "region",
             "city",
+            "country_code",
+            "preferred_currency",
             "avatar",
             "email_verified",
         )
@@ -57,9 +61,34 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+    def validate_country_code(self, value: str) -> str:
+        v = (value or "").strip().upper()
+        if not v:
+            return ""
+        if not re.fullmatch(r"[A-Z]{2}", v):
+            raise serializers.ValidationError("Use a 2-letter country code (ISO 3166-1).")
+        return v
+
+    def validate_preferred_currency(self, value: str) -> str:
+        v = (value or "").strip().upper()
+        if not v:
+            return ""
+        if not re.fullmatch(r"[A-Z]{3}", v):
+            raise serializers.ValidationError("Use a 3-letter currency code (ISO 4217).")
+        return v
+
     class Meta:
         model = Profile
-        fields = ("display_name", "bio", "region", "city", "avatar", "user_type")
+        fields = (
+            "display_name",
+            "bio",
+            "region",
+            "city",
+            "country_code",
+            "preferred_currency",
+            "avatar",
+            "user_type",
+        )
 
 
 class PublicProfileSerializer(serializers.ModelSerializer):
