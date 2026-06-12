@@ -4,6 +4,13 @@ import { mockTrips, type MockTrip, type TripCost } from '../data/mockTrips'
 import { findUserTrip } from '../data/userTrips'
 import { journeyHook } from '../utils/journeyDisplay'
 import { useAuth } from '../auth/AuthContext'
+import {
+  CommentBox,
+  DetailActionCard,
+  DetailLayout,
+  DetailPage,
+  MobileStickyCTA,
+} from '../components/detail'
 
 const COST_COLORS: Record<TripCost['category'], string> = {
   stay: '#f07830',
@@ -231,7 +238,7 @@ export function TripDetail() {
   const route = routeLabel(trip)
 
   return (
-    <div className="td td--premium">
+    <DetailPage prefix="td" className="td--premium" toast={shareMsg || null}>
       {/* Hero */}
       <div className="td-hero">
         <img className="td-hero__img" src={trip.cover_image || allPhotos[0] || ''} alt="" />
@@ -318,8 +325,9 @@ export function TripDetail() {
         </div>
       </section>
 
-      <div className="td-layout">
-        <main className="td-main">
+      <DetailLayout
+        main={
+          <>
           {/* Route at a glance */}
           <section className="detail-section td-route-strip-section">
             <h2 className="td-section-title">Route at a glance</h2>
@@ -561,46 +569,27 @@ export function TripDetail() {
             </ul>
           </section>
 
-          {/* Questions */}
-          <section className="detail-section td-questions">
-            <h2 className="td-section-title">Questions about this route</h2>
-            <p className="td-section-sub">
-              Ask the traveller or help others planning the same route.
-            </p>
-
-            <textarea
-              className="td-comment-input"
-              placeholder="How much was fuel? Where did you sleep? Was a 4×4 required?"
-              value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
-              rows={3}
-            />
-
-            <div className="td-questions__actions">
-              <button type="button" className="btn btn-primary" onClick={postQuestion} disabled={!commentDraft.trim()}>
-                Post question
-              </button>
+          <CommentBox
+            title="Questions about this route"
+            subtitle="Ask the traveller or help others planning the same route."
+            placeholder="How much was fuel? Where did you sleep? Was a 4×4 required?"
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postQuestion}
+            postLabel="Post question"
+            comments={questions.map((q) => ({
+              id: q.id,
+              author: q.author,
+              body: q.body,
+              ago: q.ago,
+            }))}
+            className="td-questions"
+            footer={
               <button type="button" className="td-plan-card__secondary" onClick={handleAskAuthor}>
                 Ask author
               </button>
-            </div>
-
-            <div className="td-comment-list">
-              {questions.map((q) => (
-                <article key={q.id} className="td-comment">
-                  <div className="td-comment__avatar" aria-hidden>
-                    {q.author.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="td-comment__meta">
-                      <strong>{q.author}</strong> · {q.ago}
-                    </p>
-                    <p className="td-comment__body">{q.body}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
+            }
+          />
 
           {/* Similar journeys */}
           {similarJourneys.length > 0 ? (
@@ -621,13 +610,10 @@ export function TripDetail() {
               </div>
             </section>
           ) : null}
-        </main>
-
-        {/* Sticky plan card */}
-        <aside className="td-sidebar">
-          <div className="td-plan-card">
-            <p className="td-plan-card__kicker">Plan this journey</p>
-            <h2>N${trip.total_cost.toLocaleString()}</h2>
+          </>
+        }
+        sidebar={
+          <DetailActionCard kicker="Plan this journey" title={`N$${trip.total_cost.toLocaleString()}`} className="td-plan-card">
             <p className="td-plan-card__sub">
               {trip.days} days · {trip.stops.length} stops
             </p>
@@ -652,9 +638,9 @@ export function TripDetail() {
             <button type="button" className="td-plan-card__secondary" onClick={handleAskAuthor}>
               Ask author
             </button>
-          </div>
-        </aside>
-      </div>
+          </DetailActionCard>
+        }
+      />
 
       {/* Photo viewer */}
       {viewerIdx != null && photoItems[viewerIdx] && (() => {
@@ -737,19 +723,17 @@ export function TripDetail() {
         )
       })()}
 
-      {/* Mobile sticky bar */}
-      <div className="td-mobile-bar">
-        <div>
-          <strong>
-            {trip.days} days · N${trip.total_cost.toLocaleString()}
-          </strong>
-          <span>{trip.stops.length} stops</span>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={handleSave}>
-          {saved ? 'Saved' : 'Save route'}
-        </button>
-      </div>
-    </div>
+      <MobileStickyCTA
+        title={`${trip.days} days · N$${trip.total_cost.toLocaleString()}`}
+        subtitle={`${trip.stops.length} stops`}
+        action={
+          <button type="button" className="btn btn-primary" onClick={handleSave}>
+            {saved ? 'Saved' : 'Save route'}
+          </button>
+        }
+        className="td-mobile-bar"
+      />
+    </DetailPage>
   )
 }
 

@@ -5,6 +5,17 @@ import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { FoodVenueGallery } from '../components/food/FoodVenueGallery'
 import {
+  CommentBox,
+  DelversMoments,
+  DetailActionCard,
+  DetailHeroWrap,
+  DetailLayout,
+  DetailPage,
+  DetailSkeleton,
+  MobileStickyCTA,
+  SocialActionRow,
+} from '../components/detail'
+import {
   photoCategoryLabel,
   resolveVenuePhotos,
   type DelversMoment,
@@ -167,9 +178,9 @@ export function FoodDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="fd-detail">
-        <div className="skeleton fd-detail__skeleton" />
-      </div>
+      <DetailPage prefix="fd-detail">
+        <DetailSkeleton className="fd-detail__skeleton" />
+      </DetailPage>
     )
   }
 
@@ -214,36 +225,21 @@ export function FoodDetail() {
     : null
 
   return (
-    <div className="fd-detail">
-      {shareMsg ? (
-        <p className="fd-detail__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
-
-      <div className="fd-detail__gallery-wrap">
-        <Link to="/food" className="fd-detail__hero-back">
-          ← Food &amp; drink
-        </Link>
-
-        <div className="fd-detail__hero-actions">
-          <button
-            type="button"
-            className={`fd-detail__hero-action${saved ? ' fd-detail__hero-action--saved' : ''}`}
-            onClick={() => setSaved((v) => !v)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" className="fd-detail__hero-action" onClick={() => onShare(data.name)}>
-            ↗ Share
-          </button>
-        </div>
-
+    <DetailPage prefix="fd-detail" toast={shareMsg || null}>
+      <DetailHeroWrap
+        className="fd-detail__gallery-wrap"
+        backTo="/food"
+        backLabel="Food & drink"
+        saved={saved}
+        onSave={() => setSaved((v) => !v)}
+        onShare={() => onShare(data.name)}
+      >
         <FoodVenueGallery photos={photos} venueName={data.name} openLabel={openLabel} />
-      </div>
+      </DetailHeroWrap>
 
-      <div className="fd-detail__layout">
-        <main className="fd-detail__main">
+      <DetailLayout
+        main={
+          <>
           <section className="fd-detail__identity detail-section">
             <div className="fd-detail__meta-row">
               <span className="fd-detail__cuisine-chip">
@@ -274,19 +270,9 @@ export function FoodDetail() {
               </div>
             )}
 
-            <div className="fd-detail__social-row">
-              <button
-                type="button"
-                className={saved ? 'fd-detail__social-btn--saved' : ''}
-                onClick={() => setSaved((v) => !v)}
-              >
-                {saved ? '♥ Saved' : '♡ Save'}
-              </button>
-              <button type="button" onClick={() => onShare(data.name)}>
-                ↗ Share
-              </button>
+            <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.name)}>
               <Link to="/community">Ask locals</Link>
-            </div>
+            </SocialActionRow>
           </section>
 
           <section className="detail-section fd-detail__known-for">
@@ -384,32 +370,16 @@ export function FoodDetail() {
             </section>
           )}
 
-          <section className="detail-section fd-detail__moments">
-            <div className="fd-detail__section-head">
-              <div>
-                <h2 className="fd-detail__section-title">Delvers moments here</h2>
-                <p className="fd-detail__section-sub">Real posts from travellers — not owner photos.</p>
-              </div>
-              <Link to="/delvers">See more</Link>
-            </div>
-
-            <div className="fd-detail__moments-grid">
-              {delversMoments.map((m) => (
-                <div key={m.id} className="fd-detail__moment-card">
-                  {m.image ? (
-                    <img src={photoSrc(m.image)} alt="" />
-                  ) : (
-                    <div className="fd-detail__moment-placeholder" aria-hidden>
-                      📸
-                    </div>
-                  )}
-                  <p>
-                    <strong>@{m.author_username}</strong> {m.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
+          <DelversMoments
+            title="Delvers moments here"
+            moments={delversMoments.map((m) => ({
+              id: m.id,
+              image: m.image ? photoSrc(m.image) : null,
+              author: m.author_username,
+              body: m.body,
+            }))}
+            className="fd-detail__moments"
+          />
 
           {reviews.length > 0 && breakdown && (
             <section className="detail-section fd-detail__reviews">
@@ -449,41 +419,18 @@ export function FoodDetail() {
             </section>
           )}
 
-          <section className="detail-section fd-detail__comments">
-            <div className="fd-detail__section-head">
-              <div>
-                <h2 className="fd-detail__section-title">Local tips &amp; comments</h2>
-                <p className="fd-detail__section-sub">Ask recent visitors or share what others should know.</p>
-              </div>
-            </div>
-
-            <div className="fd-detail__comment-box">
-              <textarea
-                placeholder="Share a tip, question, opening time, price, or food recommendation…"
-                value={commentDraft}
-                onChange={(e) => setCommentDraft(e.target.value)}
-              />
-              <button type="button" className="btn btn-primary" onClick={postComment} disabled={!commentDraft.trim()}>
-                Post comment
-              </button>
-            </div>
-
-            <div className="fd-detail__comment-list">
-              {allComments.map((c) => (
-                <article key={c.id} className="fd-detail__comment">
-                  <div className="fd-detail__comment-avatar" aria-hidden>
-                    {c.author_name.trim().charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="fd-detail__comment-meta">
-                      <strong>{c.author_name}</strong> · {timeAgo(c.created_at)}
-                    </p>
-                    <p>{c.body}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
+          <CommentBox
+            className="fd-detail__comments"
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postComment}
+            comments={allComments.map((c) => ({
+              id: c.id,
+              author: c.author_name,
+              body: c.body,
+              ago: timeAgo(c.created_at),
+            }))}
+          />
 
           {(data.phone || data.website) && (
             <div className="fd-detail__contact detail-section">
@@ -504,13 +451,10 @@ export function FoodDetail() {
               </div>
             </div>
           )}
-        </main>
-
-        <aside className="fd-detail__sidebar">
-          <div className="fd-detail__action-card">
-            <p className="fd-detail__action-kicker">Ready to eat?</p>
-            <h2>{data.name}</h2>
-
+          </>
+        }
+        sidebar={
+          <DetailActionCard kicker="Ready to eat?" title={data.name}>
             {ratingVal && (
               <div className="fd-detail__action-stats">
                 <span>★ {ratingVal}</span>
@@ -554,22 +498,21 @@ export function FoodDetail() {
                 {saved ? 'Saved' : 'Save'}
               </button>
             </div>
-          </div>
-        </aside>
-      </div>
+          </DetailActionCard>
+        }
+      />
 
-      <div className="fd-detail__mobile-bar">
-        <div>
-          <strong>{data.name}</strong>
-          <span>
-            {price} · {data.is_open ? 'Open now' : 'Check hours'}
-          </span>
-        </div>
-        <a href={mapUrl} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-          Directions
-        </a>
-      </div>
-    </div>
+      <MobileStickyCTA
+        title={data.name}
+        subtitle={`${price} · ${data.is_open ? 'Open now' : 'Check hours'}`}
+        action={
+          <a href={mapUrl} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            Directions
+          </a>
+        }
+        className="fd-detail__mobile-bar"
+      />
+    </DetailPage>
   )
 }
 

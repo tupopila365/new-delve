@@ -7,6 +7,7 @@ import { AccommodationList } from './pages/AccommodationList'
 import { AccommodationStoryNew } from './pages/AccommodationStoryNew'
 import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
+import { CreateHub } from './pages/CreateHub'
 import { CreatePost } from './pages/CreatePost'
 import { Delvers } from './pages/Delvers'
 import { DelversNew } from './pages/DelversNew'
@@ -55,7 +56,8 @@ export default function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/create" element={<CreatePost />} />
+        <Route path="/create" element={<CreateHub />} />
+        <Route path="/create/post" element={<CreatePost />} />
         <Route path="/posts/:id" element={<PostDetail />} />
         <Route path="/u/:username" element={<UserProfile />} />
         <Route path="/search" element={<SearchPage />} />

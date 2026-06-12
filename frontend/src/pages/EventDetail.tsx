@@ -1,5 +1,15 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import {
+  CommentBox,
+  DelversMoments,
+  DetailActionCard,
+  DetailLayout,
+  DetailPage,
+  DetailSkeleton,
+  MobileStickyCTA,
+  SocialActionRow,
+} from '../components/detail'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -145,9 +155,9 @@ export function EventDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="ev-detail ev-detail--premium">
-        <div className="skeleton ev-detail__skeleton" />
-      </div>
+      <DetailPage prefix="ev-detail" className="ev-detail--premium">
+        <DetailSkeleton className="ev-detail__skeleton" />
+      </DetailPage>
     )
   }
 
@@ -162,12 +172,7 @@ export function EventDetail() {
   const priceLabel = admissionLabel(data)
 
   return (
-    <div className="ev-detail ev-detail--premium">
-      {shareMsg ? (
-        <p className="ev-detail__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
+    <DetailPage prefix="ev-detail" className="ev-detail--premium" toast={shareMsg || null}>
 
       <div className="evd-hero">
         <Link to="/events" className="evd-hero__back">
@@ -226,25 +231,16 @@ export function EventDetail() {
           {data.capacity ? <span>{data.capacity} capacity</span> : null}
         </div>
 
-        <div className="evd-social-row">
-          <button
-            type="button"
-            className={saved ? 'evd-social-btn--saved' : ''}
-            onClick={() => setSaved((v) => !v)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" onClick={() => onShare(data.title)}>
-            ↗ Share
-          </button>
+        <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.title)}>
           <a href={gcalUrl} target="_blank" rel="noopener noreferrer">
             Add to calendar
           </a>
-        </div>
+        </SocialActionRow>
       </section>
 
-      <div className="evd-layout">
-        <main className="evd-main">
+      <DetailLayout
+        main={
+          <>
           <section className="detail-section evd-expect">
             <h2 className="evd-section-title">What to expect</h2>
             <div className="evd-expect-grid">
@@ -323,70 +319,39 @@ export function EventDetail() {
             </Link>
           </section>
 
-          <section className="detail-section evd-moments">
-            <div className="evd-section-head">
-              <h2 className="evd-section-title">Delvers moments from this event</h2>
-              <Link to="/delvers">See more</Link>
-            </div>
-            <div className="evd-moments-grid">
-              <div className="evd-moment-card">
-                {data.cover_image ? (
-                  <img src={mediaUrl(data.cover_image) || ''} alt="" />
-                ) : (
-                  <div className="evd-moment-placeholder">📸</div>
-                )}
-                <p>
-                  <strong>@localguide</strong> Saved this for the weekend.
-                </p>
-              </div>
-              <div className="evd-moment-card">
-                <div className="evd-moment-placeholder">🎟</div>
-                <p>
-                  <strong>@traveller</strong> Who else is going?
-                </p>
-              </div>
-            </div>
-          </section>
+          <DelversMoments
+            title="Delvers moments from this event"
+            moments={[
+              {
+                id: 'm1',
+                image: data.cover_image ? mediaUrl(data.cover_image) : null,
+                author: 'localguide',
+                body: 'Saved this for the weekend.',
+              },
+              { id: 'm2', author: 'traveller', body: 'Who else is going?' },
+            ]}
+            className="evd-moments"
+          />
 
-          <section className="detail-section evd-comments">
-            <h2 className="evd-section-title">Questions & comments</h2>
-            <p className="evd-section-sub">Ask the organiser or share tips for people attending.</p>
-
-            <textarea
-              className="evd-comment-input"
-              placeholder="Ask about parking, tickets, dress code, food, or arrival time..."
-              value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
-              rows={3}
-            />
-
-            <button type="button" className="btn btn-primary evd-comment-btn" onClick={postComment} disabled={!commentDraft.trim()}>
-              Post comment
-            </button>
-
-            <div className="evd-comment-list">
-              {comments.map((c) => (
-                <article key={c.id} className="evd-comment">
-                  <div className="evd-comment__avatar" aria-hidden>
-                    {c.author.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="evd-comment__meta">
-                      <strong>{c.author}</strong> · {c.ago}
-                    </p>
-                    <p className="evd-comment__body">{c.body}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        </main>
-
-        <aside className="evd-sidebar">
-          <div className="evd-ticket-card">
-            <p className="evd-ticket-card__kicker">Ready to attend?</p>
-            <h2>{priceLabel}</h2>
-
+          <CommentBox
+            title="Questions & comments"
+            subtitle="Ask the organiser or share tips for people attending."
+            placeholder="Ask about parking, tickets, dress code, food, or arrival time..."
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postComment}
+            comments={comments.map((c) => ({
+              id: c.id,
+              author: c.author,
+              body: c.body,
+              ago: c.ago,
+            }))}
+            className="evd-comments"
+          />
+          </>
+        }
+        sidebar={
+          <DetailActionCard kicker="Ready to attend?" title={priceLabel} className="evd-ticket-card">
             <div className="evd-ticket-card__meta">
               <span>
                 {start.month} {start.day}
@@ -416,28 +381,27 @@ export function EventDetail() {
             <a href={gcalUrl} className="evd-ticket-card__secondary" target="_blank" rel="noopener noreferrer">
               Add to calendar
             </a>
-          </div>
-        </aside>
-      </div>
+          </DetailActionCard>
+        }
+      />
 
-      <div className="evd-mobile-bar">
-        <div>
-          <strong>{priceLabel}</strong>
-          <span>
-            {start.month} {start.day} · {start.time}
-          </span>
-        </div>
-        {data.ticket_url ? (
-          <a href={data.ticket_url} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-            Tickets
-          </a>
-        ) : (
-          <Link to={`/u/${encodeURIComponent(data.organizer_username)}`} className="btn btn-primary">
-            Contact
-          </Link>
-        )}
-      </div>
-    </div>
+      <MobileStickyCTA
+        title={priceLabel}
+        subtitle={`${start.month} ${start.day} · ${start.time}`}
+        action={
+          data.ticket_url ? (
+            <a href={data.ticket_url} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+              Tickets
+            </a>
+          ) : (
+            <Link to={`/u/${encodeURIComponent(data.organizer_username)}`} className="btn btn-primary">
+              Contact
+            </Link>
+          )
+        }
+        className="evd-mobile-bar"
+      />
+    </DetailPage>
   )
 }
 

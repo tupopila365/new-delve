@@ -82,17 +82,15 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
             <span>@{profile.username}</span>
           </div>
 
+          <p className="profile-menu__section-label">You</p>
           <Link to={`/u/${profile.username}`} className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
             View profile
           </Link>
           <Link to="/dashboard" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
-            My dashboard
-          </Link>
-          <Link to="/dashboard#bookings" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
-            My bookings
+            My trips &amp; bookings
           </Link>
           <Link to="/dashboard#saved" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
-            Saved
+            Saved places
           </Link>
           <Link to="/messages" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
             Messages
@@ -101,9 +99,9 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
           {isProvider ? (
             <>
               <div className="profile-menu__divider" role="separator" />
-              <p className="profile-menu__section-label">Provider</p>
+              <p className="profile-menu__section-label">Provider tools</p>
               <Link to="/provider" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
-                Provider dashboard
+                Business dashboard
               </Link>
               {businesses.map((b) => (
                 <Link
@@ -116,15 +114,24 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
                   {b.business_name}
                 </Link>
               ))}
+              <Link to="/provider/listings" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+                All listings
+              </Link>
+            </>
+          ) : null}
+
+          {profile.is_staff ? (
+            <>
+              <div className="profile-menu__divider" role="separator" />
+              <p className="profile-menu__section-label">Admin tools</p>
+              <Link to="/admin" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
+                Platform admin
+              </Link>
             </>
           ) : null}
 
           <div className="profile-menu__divider" role="separator" />
-          {profile.is_staff ? (
-            <Link to="/admin" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
-              Platform admin
-            </Link>
-          ) : null}
+          <p className="profile-menu__section-label">Account</p>
           <Link to="/settings" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
             Account settings
           </Link>

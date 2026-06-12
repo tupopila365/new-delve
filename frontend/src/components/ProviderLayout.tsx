@@ -39,13 +39,13 @@ export function ProviderLayout() {
   const isModule = MODULE_LINKS.some((m) => location.pathname.startsWith(m.to))
 
   return (
-    <div className="prov-shell">
+    <div className="prov-shell prov-shell--polished">
       <aside className={`prov-sidebar${mobileOpen ? ' prov-sidebar--open' : ''}`}>
         <div className="prov-sidebar__brand">
           <Link to="/" className="prov-sidebar__home">
             ← DELVE
           </Link>
-          <span className="prov-sidebar__tag">Provider</span>
+          <span className="prov-sidebar__tag">Business dashboard</span>
         </div>
 
         {businesses.length > 0 ? (
@@ -92,7 +92,7 @@ export function ProviderLayout() {
         </nav>
 
         <div className="prov-sidebar__modules">
-          <p className="prov-sidebar__modules-label">Modules</p>
+          <p className="prov-sidebar__modules-label">Categories</p>
           {MODULE_LINKS.map((m) => (
             <NavLink
               key={m.to}
@@ -110,7 +110,7 @@ export function ProviderLayout() {
         <div className="prov-sidebar__foot">
           {resolvedBusiness ? (
             <Link to={`/business/${resolvedBusiness.id}`} className="prov-sidebar__public" onClick={() => setMobileOpen(false)}>
-              View public profile
+              View public business profile
             </Link>
           ) : null}
           {!canManageBookings ? (

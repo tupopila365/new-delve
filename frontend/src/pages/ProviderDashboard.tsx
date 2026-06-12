@@ -10,6 +10,17 @@ const QUICK = [
   { label: 'Create event', to: '/events/new', emoji: '🎟' },
 ]
 
+const TODAY_TASKS = [
+  { label: 'Confirm booking — Anna K., Freesia Hotel', urgency: 'Today' },
+  { label: 'Update weekend availability for Desert tour', urgency: 'Due' },
+  { label: 'Reply to parking question on event listing', urgency: 'New' },
+]
+
+const MESSAGES = [
+  { from: 'James O.', preview: 'Can we check in early on May 14?', ago: '2h ago' },
+  { from: 'Sara M.', preview: 'Is the guide package still available?', ago: '5h ago' },
+]
+
 export function ProviderDashboard() {
   const { activeBusiness } = useOutletContext<ProviderOutletContext>()
   const owner = activeBusiness?.owner_username
@@ -33,8 +44,8 @@ export function ProviderDashboard() {
           <span>Bookings pending</span>
         </div>
         <div className="prov-page__stat">
-          <strong>8</strong>
-          <span>Messages</span>
+          <strong>3</strong>
+          <span>Messages needing reply</span>
         </div>
         <div className="prov-page__stat">
           <strong>N$12,400</strong>
@@ -45,6 +56,94 @@ export function ProviderDashboard() {
           <span>Reviews</span>
         </div>
       </div>
+
+      <div className="prov-overview-grid">
+        <section className="prov-overview-card">
+          <h2>Today&apos;s tasks</h2>
+          <ul className="prov-task-list">
+            {TODAY_TASKS.map((t) => (
+              <li key={t.label}>
+                {t.label}
+                <span>{t.urgency}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="prov-overview-card">
+          <h2>Messages needing reply</h2>
+          <div className="prov-message-preview">
+            {MESSAGES.map((m) => (
+              <div key={m.from} className="prov-message-preview__row">
+                <div>
+                  <strong>{m.from}</strong>
+                  <span>{m.preview}</span>
+                </div>
+                <span>{m.ago}</span>
+              </div>
+            ))}
+          </div>
+          <Link to="/messages" className="prov-page__link">
+            Open inbox →
+          </Link>
+        </section>
+      </div>
+
+      <section className="prov-overview-card">
+        <h2>Listing health</h2>
+        <div className="prov-health-row">
+          <div className="prov-health-item">
+            <span>Photos &amp; cover completeness</span>
+            <strong>82%</strong>
+            <div className="prov-health-bar" aria-hidden>
+              <i style={{ width: '82%' }} />
+            </div>
+          </div>
+          <div className="prov-health-item">
+            <span>Availability up to date</span>
+            <strong>68%</strong>
+            <div className="prov-health-bar" aria-hidden>
+              <i style={{ width: '68%' }} />
+            </div>
+          </div>
+          <div className="prov-health-item">
+            <span>Response rate (7 days)</span>
+            <strong>94%</strong>
+            <div className="prov-health-bar" aria-hidden>
+              <i style={{ width: '94%' }} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="prov-overview-card">
+        <h2>Booking status summary</h2>
+        <div className="prov-booking-summary">
+          <div className="prov-booking-summary__item">
+            <strong>4</strong>
+            <small>Pending</small>
+          </div>
+          <div className="prov-booking-summary__item">
+            <strong>12</strong>
+            <small>Confirmed</small>
+          </div>
+          <div className="prov-booking-summary__item">
+            <strong>2</strong>
+            <small>Checked in</small>
+          </div>
+          <div className="prov-booking-summary__item">
+            <strong>1</strong>
+            <small>Cancelled</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="prov-overview-card">
+        <h2>Revenue</h2>
+        <div className="prov-chart-placeholder" aria-hidden>
+          <p>Revenue chart — connect payouts to see trends here</p>
+        </div>
+      </section>
 
       <section className="prov-overview-card">
         <h2>Listings snapshot</h2>

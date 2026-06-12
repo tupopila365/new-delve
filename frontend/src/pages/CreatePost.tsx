@@ -72,7 +72,10 @@ export function CreatePost() {
     <div className="feed-max">
       <header className="page-header">
         <div>
-          <h1 className="display">Create</h1>
+          <Link to="/create" className="page-back">
+            ← Create
+          </Link>
+          <h1 className="display">Delvers post</h1>
           <p className="page-sub">Post to your local feed or to Delvers pins</p>
         </div>
         <div className="segmented" role="tablist" aria-label="Destination">

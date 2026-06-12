@@ -6,6 +6,16 @@ import { RoomPhotoCarousel } from '../components/RoomPhotoCarousel'
 import { AccommodationGallery, buildGalleryItems } from '../components/AccommodationGallery'
 import { GuestReviewCard, normalizeReviews } from '../components/GuestReviewCard'
 import { MiniRating } from '../components/MiniRating'
+import {
+  DelversMoments,
+  DetailActionCard,
+  DetailHeroWrap,
+  DetailLayout,
+  DetailPage,
+  DetailSkeleton,
+  MobileStickyCTA,
+  SocialActionRow,
+} from '../components/detail'
 
 const PROPERTY_LABELS: Record<string, string> = {
   hotel: 'Hotel',
@@ -201,9 +211,9 @@ export function AccommodationDetail() {
 
   if (isLoading || !data) {
     return (
-      <div className="td acc-detail-page">
-        <div className="skeleton acc-page__detail-skeleton" />
-      </div>
+      <DetailPage prefix="acc-detail-page" className="td">
+        <DetailSkeleton className="acc-page__detail-skeleton" />
+      </DetailPage>
     )
   }
 
@@ -220,32 +230,28 @@ export function AccommodationDetail() {
   const bookQs = bookParams.toString()
   const bookHref = `/accommodation/${id}/book${bookQs ? `?${bookQs}` : ''}`
 
-  return (
-    <div className="td acc-detail-page">
-      {shareMsg ? (
-        <p className="acc-detail__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
+  const delversMoments = [
+    ...galleryItems.slice(0, 2).map((item, index) => ({
+      id: `g-${index}`,
+      image: mediaUrl(item.src) || item.src,
+      author: `guest${index + 1}`,
+      body: 'Saved this stay for a quiet weekend.',
+    })),
+    { id: 'placeholder', author: 'traveller', body: 'Morning view from the room.' },
+  ]
 
-      <div className="acc-detail__gallery-wrap">
-        <Link to="/accommodation" className="acc-detail__gallery-back">
-          ← Stays
-        </Link>
-        <div className="acc-detail__gallery-actions">
-          <button
-            type="button"
-            className={`td-hero__action${saved ? ' td-hero__action--saved' : ''}`}
-            onClick={() => setSaved((v) => !v)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" className="td-hero__action" onClick={() => onShare(data.title)}>
-            ↗ Share
-          </button>
-        </div>
+  return (
+    <DetailPage prefix="acc-detail-page" className="td" toast={shareMsg || null}>
+      <DetailHeroWrap
+        className="acc-detail__gallery-wrap"
+        backTo="/accommodation"
+        backLabel="Stays"
+        saved={saved}
+        onSave={() => setSaved((v) => !v)}
+        onShare={() => onShare(data.title)}
+      >
         <AccommodationGallery variant="detail" items={galleryItems} title={data.title} />
-      </div>
+      </DetailHeroWrap>
 
       <section className="acc-detail__identity detail-section">
         <div className="acc-detail__meta-row">
@@ -277,23 +283,14 @@ export function AccommodationDetail() {
           {data.pool ? <span>Pool</span> : null}
         </div>
 
-        <div className="acc-detail__social-row">
-          <button
-            type="button"
-            className={saved ? 'acc-detail__social-btn--saved' : ''}
-            onClick={() => setSaved((v) => !v)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" onClick={() => onShare(data.title)}>
-            ↗ Share
-          </button>
+        <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.title)}>
           <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>Message host</Link>
-        </div>
+        </SocialActionRow>
       </section>
 
-      <div className="acc-detail__layout">
-        <main className="acc-detail__main">
+      <DetailLayout
+        main={
+          <>
           <section className="detail-section acc-detail__love">
             <h2 className="acc-detail__section-title">Why guests love it</h2>
             <div className="acc-detail__love-grid">
@@ -426,31 +423,12 @@ export function AccommodationDetail() {
             </a>
           </section>
 
-          <section className="detail-section acc-detail__moments">
-            <div className="acc-detail__section-head">
-              <div>
-                <h2 className="acc-detail__section-title">Delvers moments from this stay</h2>
-                <p className="acc-detail__section-sub">Guest photos, room views, and nearby places — not host gallery shots.</p>
-              </div>
-              <Link to="/delvers">See more</Link>
-            </div>
-            <div className="acc-detail__moments-grid">
-              {galleryItems.slice(0, 2).map((item, index) => (
-                <div key={index} className="acc-detail__moment-card">
-                  <img src={mediaUrl(item.src) || item.src} alt="" />
-                  <p>
-                    <strong>@guest{index + 1}</strong> Saved this stay for a quiet weekend.
-                  </p>
-                </div>
-              ))}
-              <div className="acc-detail__moment-card acc-detail__moment-card--placeholder">
-                <div aria-hidden>📸</div>
-                <p>
-                  <strong>@traveller</strong> Morning view from the room.
-                </p>
-              </div>
-            </div>
-          </section>
+          <DelversMoments
+            title="Delvers moments from this stay"
+            subtitle="Guest photos, room views, and nearby places — not host gallery shots."
+            moments={delversMoments}
+            className="acc-detail__moments"
+          />
 
           <section className="detail-section acc-detail__reviews">
             <h2 className="acc-detail__section-title">Guest reviews</h2>
@@ -500,16 +478,10 @@ export function AccommodationDetail() {
               </div>
             </section>
           ) : null}
-        </main>
-
-        <aside className="acc-detail__sidebar">
-          <div className="acc-detail__booking-card">
-            <p className="acc-detail__booking-kicker">Ready to stay?</p>
-            <h2>
-              <span>${data.price_per_night}</span>
-              <small> / night</small>
-            </h2>
-
+          </>
+        }
+        sidebar={
+          <DetailActionCard kicker="Ready to stay?" title={<><span>${data.price_per_night}</span><small> / night</small></>} className="acc-detail__booking-card">
             <div className="acc-detail__booking-meta">
               {data.rating_avg && <span>★ {data.rating_avg}</span>}
               <span>{data.max_guests} guests</span>
@@ -551,21 +523,20 @@ export function AccommodationDetail() {
             <Link to={`/u/${encodeURIComponent(data.owner_username)}`} className="acc-detail__message-host">
               Message host
             </Link>
-          </div>
-        </aside>
-      </div>
+          </DetailActionCard>
+        }
+      />
 
-      <div className="acc-detail__mobile-bar">
-        <div>
-          <strong>${data.price_per_night} / night</strong>
-          <span>
-            {data.max_guests} guests · {locationLine}
-          </span>
-        </div>
-        <Link to={bookHref} className="btn btn-primary">
-          Reserve
-        </Link>
-      </div>
-    </div>
+      <MobileStickyCTA
+        title={`$${data.price_per_night} / night`}
+        subtitle={`${data.max_guests} guests · ${locationLine}`}
+        action={
+          <Link to={bookHref} className="btn btn-primary">
+            Reserve
+          </Link>
+        }
+        className="acc-detail__mobile-bar"
+      />
+    </DetailPage>
   )
 }
