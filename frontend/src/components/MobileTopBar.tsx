@@ -1,47 +1,49 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { mediaUrl } from '../api/client'
+import { MAIN_NAV_SECTIONS } from '../data/mainNavSections'
+import { ProfileMenu } from './ProfileMenu'
 
 export function MobileTopBar() {
   const { profile } = useAuth()
-  const loc = useLocation()
-  const onHome = loc.pathname === '/'
 
   return (
     <header className="mobile-topbar">
-      <Link to="/" className="mobile-topbar__logo" aria-label="DELVE home">
-        DELVE
-      </Link>
-      <div className="mobile-topbar__actions">
-        <Link to="/search" className="mobile-topbar__icon" aria-label="Search">
-          <IconSearch />
+      <div className="mobile-topbar__top">
+        <Link to="/" className="mobile-topbar__logo" aria-label="DELVE home">
+          DELVE
         </Link>
-        {profile && (
-          <Link to="/create" className="mobile-topbar__icon" aria-label="Create">
-            <IconPlus />
+        <div className="mobile-topbar__actions">
+          <Link to="/search" className="mobile-topbar__icon" aria-label="Search">
+            <IconSearch />
           </Link>
-        )}
-        <Link to="/messages" className="mobile-topbar__icon" aria-label="Messages">
-          <IconMessage />
-        </Link>
-        <Link to="/account" className="mobile-topbar__icon" aria-label="Account">
-          {profile?.avatar ? (
-            <img
-              src={mediaUrl(profile.avatar) || ''}
-              alt=""
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 9999,
-                objectFit: 'cover',
-                border: onHome ? '2px solid var(--accent)' : '2px solid var(--hairline)',
-              }}
-            />
-          ) : (
-            <IconUser />
+          {profile && (
+            <Link to="/create" className="mobile-topbar__icon" aria-label="Create">
+              <IconPlus />
+            </Link>
           )}
-        </Link>
+          <Link to="/messages" className="mobile-topbar__icon" aria-label="Messages">
+            <IconMessage />
+          </Link>
+          <ProfileMenu avatarClassName="mobile-topbar__icon mobile-topbar__profile-menu" />
+        </div>
       </div>
+
+      <nav className="mobile-topbar__sections" aria-label="Site sections">
+        <div className="mobile-topbar__sections-scroll">
+          {MAIN_NAV_SECTIONS.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              className={({ isActive }) =>
+                isActive ? 'mobile-topbar__sect mobile-topbar__sect--active' : 'mobile-topbar__sect'
+              }
+            >
+              {l.label}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </header>
   )
 }
@@ -75,11 +77,3 @@ function IconMessage() {
   )
 }
 
-function IconUser() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M6 20v-1a4 4 0 014-4h4a4 4 0 014 4v1" strokeLinecap="round" />
-    </svg>
-  )
-}

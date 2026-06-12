@@ -41,6 +41,13 @@ export function Account() {
         </div>
       </div>
       <div style={{ marginTop: '1.25rem', display: 'grid', gap: 8 }}>
+        <Link
+          to={`/u/${profile.username}`}
+          className="btn btn-primary"
+          style={{ textAlign: 'center', textDecoration: 'none' }}
+        >
+          View my profile
+        </Link>
         <Link to="/settings" className="btn btn-ghost" style={{ textAlign: 'center', textDecoration: 'none' }}>
           Settings
         </Link>

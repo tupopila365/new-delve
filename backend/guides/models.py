@@ -35,7 +35,9 @@ class TourGuideProfile(models.Model):
     tour_packages = models.JSONField(
         default=list,
         blank=True,
-        help_text='Named tours: [{"id": "slug", "title": "...", "hours": 2, "price": "40.00"}]',
+        help_text='Named tours JSON: id,title,hours,price; optional keys: photo/image, '
+        'description; gallery or photos/images (string URLs or [{"src"}]); '
+        'reviews ([{name,place,rating,body}] same as guest_reviews).',
     )
     years_guiding = models.PositiveSmallIntegerField(null=True, blank=True)
     certifications = models.JSONField(default=list, blank=True)

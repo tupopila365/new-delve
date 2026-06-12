@@ -6,6 +6,7 @@ type Props = {
   certifications: string[]
   languagesDetail: LanguageLevel[]
   fallbackLanguages: string[]
+  hideTitle?: boolean
 }
 
 export function GuideCredentials({
@@ -14,6 +15,7 @@ export function GuideCredentials({
   certifications,
   languagesDetail,
   fallbackLanguages,
+  hideTitle = false,
 }: Props) {
   const langs =
     languagesDetail.length > 0
@@ -28,9 +30,11 @@ export function GuideCredentials({
 
   if (!hasBody) return null
 
+  const Wrapper = hideTitle ? 'div' : 'section'
+
   return (
-    <section className="gd-detail__credentials card">
-      <h2 className="gd-detail__section-label">Experience &amp; credentials</h2>
+    <Wrapper className="gd-detail__credentials card">
+      {hideTitle ? null : <h2 className="gd-detail__section-label">Experience &amp; credentials</h2>}
       <ul className="gd-detail__cred-list">
         {yearsGuiding != null && yearsGuiding > 0 ? (
           <li>
@@ -57,6 +61,6 @@ export function GuideCredentials({
           </ul>
         </div>
       ) : null}
-    </section>
+    </Wrapper>
   )
 }

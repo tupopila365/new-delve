@@ -8,6 +8,7 @@ const hideNavPaths = ['/login', '/register', '/verify-email']
 export function AppLayout() {
   const loc = useLocation()
   const hide = hideNavPaths.some((p) => loc.pathname.startsWith(p))
+  const delversFeed = loc.pathname === '/delvers'
 
   if (hide) {
     return (
@@ -19,7 +20,30 @@ export function AppLayout() {
     )
   }
 
+  if (delversFeed) {
+    return (
+      <div className="app-shell app-shell--delvers">
+        <main className="app-main app-main--delvers">
+          <Outlet />
+        </main>
+        <BottomNav />
+      </div>
+    )
+  }
+
   const homeMain = loc.pathname === '/'
+  const providerMode = loc.pathname.startsWith('/provider')
+  const adminMode = loc.pathname.startsWith('/admin')
+
+  if (providerMode || adminMode) {
+    return (
+      <div className={`app-shell${adminMode ? ' app-shell--admin' : ' app-shell--provider'}`}>
+        <main className="app-main app-main--provider">
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="app-shell">

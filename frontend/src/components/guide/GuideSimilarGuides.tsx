@@ -12,15 +12,15 @@ export type SimilarGuide = {
   rating_count?: number | null
 }
 
-type Props = { guides: SimilarGuide[] }
+type Props = { guides: SimilarGuide[]; title?: string }
 
-export function GuideSimilarGuides({ guides }: Props) {
+export function GuideSimilarGuides({ guides, title = 'Similar local experts' }: Props) {
   if (guides.length === 0) return null
 
   return (
     <section className="gd-detail__similar" aria-labelledby="gd-similar-heading">
-      <h2 id="gd-similar-heading" className="gd-detail__section-label">
-        You might also like
+      <h2 id="gd-similar-heading" className="gd-detail__section-title">
+        {title}
       </h2>
       <p className="gd-detail__similar-sub">Other guides in similar regions — compare styles before you book.</p>
       <div className="gd-detail__similar-row">

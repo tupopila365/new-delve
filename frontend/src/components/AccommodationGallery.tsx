@@ -4,15 +4,50 @@ import { mediaUrl } from '../api/client'
 export type GalleryItem = { kind: 'image' | 'video'; src: string }
 
 type Props = {
-  /** Resolved gallery items (from API `media_gallery` or built from `cover_image`). */
   items: GalleryItem[]
   title: string
-  /** `hero` fills a `.td-hero` (Journey detail–style immersive header). */
-  variant?: 'default' | 'hero'
+  /** `detail` — premium Airbnb-style grid + mobile carousel for stay detail pages. */
+  variant?: 'default' | 'detail'
+}
+
+function resolveSrc(src: string): string {
+  return mediaUrl(src) || src
+}
+
+function positionClass(index: number): string {
+  if (index === 0) return 'acc-gallery__img--room'
+  if (index === 1) return 'acc-gallery__img--exterior'
+  return 'acc-gallery__img--view'
+}
+
+function GalleryMedia({ item, index, alt }: { item: GalleryItem; index: number; alt: string }) {
+  const resolved = resolveSrc(item.src)
+  if (item.kind === 'video') {
+    return (
+      <video
+        className={`acc-gallery__img acc-gallery__img--video ${positionClass(index)}`}
+        src={resolved}
+        controls
+        playsInline
+        preload="metadata"
+        aria-label={alt}
+      />
+    )
+  }
+  return (
+    <img
+      className={`acc-gallery__img ${positionClass(index)}`}
+      src={resolved}
+      alt={alt}
+      decoding="async"
+    />
+  )
 }
 
 export function AccommodationGallery({ items, title, variant = 'default' }: Props) {
   const [index, setIndex] = useState(0)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalIndex, setModalIndex] = useState(0)
   const n = items.length
 
   const go = useCallback(
@@ -27,95 +62,202 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
     [n],
   )
 
+  const openModal = (start: number) => {
+    setModalIndex(start)
+    setModalOpen(true)
+  }
+
   useEffect(() => {
     if (index >= n) setIndex(0)
   }, [index, n])
 
   useEffect(() => {
+    if (!modalOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (n <= 1) return
+      if (e.key === 'Escape') setModalOpen(false)
+      if (e.key === 'ArrowRight') setModalIndex((i) => (i + 1) % n)
+      if (e.key === 'ArrowLeft') setModalIndex((i) => (i - 1 + n) % n)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [modalOpen, n])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (modalOpen || variant !== 'detail' || n <= 1) return
       if (e.key === 'ArrowLeft') go(-1)
       if (e.key === 'ArrowRight') go(1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [go, n])
+  }, [go, modalOpen, n, variant])
 
   if (n === 0) {
-    if (variant === 'hero') return null
     return (
-      <div className="acc-detail__hero acc-detail__hero--placeholder" aria-label={`${title} — no photos yet`}>
+      <div className="acc-gallery acc-gallery--empty" aria-label={`${title} — no photos yet`}>
         <span>Photo coming from host</span>
       </div>
     )
   }
 
+  if (variant === 'detail') {
+    const sideItems = items.slice(1, 3)
+
+    return (
+      <>
+        <div className="acc-gallery acc-gallery--detail" aria-label={`Photos of ${title}`}>
+          <div className="acc-gallery__grid">
+            <button
+              type="button"
+              className="acc-gallery__main"
+              onClick={() => openModal(0)}
+              aria-label={`View photo 1 of ${n} for ${title}`}
+            >
+              <GalleryMedia item={items[0]} index={0} alt={`${title} — main photo`} />
+            </button>
+
+            {sideItems.length > 0 ? (
+              <div className="acc-gallery__side">
+                {sideItems.map((item, i) => (
+                  <button
+                    key={`side-${i}`}
+                    type="button"
+                    className="acc-gallery__side-cell"
+                    onClick={() => openModal(i + 1)}
+                    aria-label={`View photo ${i + 2} of ${n}`}
+                  >
+                    <GalleryMedia item={item} index={i + 1} alt={`${title} — photo ${i + 2}`} />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="acc-gallery__carousel" aria-roledescription="carousel">
+            <div className="acc-gallery__carousel-viewport">
+              <GalleryMedia
+                item={items[index]}
+                index={index}
+                alt={`${title} — photo ${index + 1} of ${n}`}
+              />
+              {n > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    className="acc-gallery__arrow acc-gallery__arrow--prev"
+                    onClick={() => go(-1)}
+                    aria-label="Previous photo"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="acc-gallery__arrow acc-gallery__arrow--next"
+                    onClick={() => go(1)}
+                    aria-label="Next photo"
+                  >
+                    ›
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          {n > 0 ? (
+            <button
+              type="button"
+              className="acc-gallery__view-all"
+              onClick={() => openModal(index)}
+            >
+              {n > 1 ? `View all photos · ${index + 1}/${n}` : 'View photo'}
+            </button>
+          ) : null}
+        </div>
+
+        {modalOpen ? (
+          <div
+            className="acc-gallery__modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`All photos of ${title}`}
+            onClick={() => setModalOpen(false)}
+          >
+            <div className="acc-gallery__modal-inner" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="acc-gallery__modal-close"
+                onClick={() => setModalOpen(false)}
+                aria-label="Close gallery"
+              >
+                ×
+              </button>
+              <div className="acc-gallery__modal-stage">
+                <GalleryMedia
+                  item={items[modalIndex]}
+                  index={modalIndex}
+                  alt={`${title} — photo ${modalIndex + 1} of ${n}`}
+                />
+                {n > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      className="acc-gallery__arrow acc-gallery__arrow--prev"
+                      onClick={() => setModalIndex((i) => (i - 1 + n) % n)}
+                      aria-label="Previous photo"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      className="acc-gallery__arrow acc-gallery__arrow--next"
+                      onClick={() => setModalIndex((i) => (i + 1) % n)}
+                      aria-label="Next photo"
+                    >
+                      ›
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              <p className="acc-gallery__modal-counter">
+                {modalIndex + 1} / {n}
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </>
+    )
+  }
+
   const current = items[index]
-  const resolved = mediaUrl(current.src) || ''
-
-  const rootClass =
-    variant === 'hero' ? 'acc-gallery acc-gallery--hero' : 'acc-gallery'
-  const metaClass =
-    n > 1
-      ? variant === 'hero'
-        ? 'acc-gallery__meta acc-gallery__meta--hero'
-        : 'acc-gallery__meta'
-      : ''
-
   return (
-    <div className={rootClass} aria-roledescription="carousel" aria-label={`Photos and video of ${title}`}>
+    <div className="acc-gallery" aria-roledescription="carousel" aria-label={`Photos of ${title}`}>
       <div className="acc-gallery__viewport">
-        {current.kind === 'video' ? (
-          <video
-            key={`v-${index}`}
-            className="acc-gallery__media acc-gallery__media--video"
-            src={resolved}
-            controls
-            playsInline
-            preload="metadata"
-            aria-label={`Video ${index + 1} of ${n}`}
-          />
-        ) : (
-          <img
-            key={`i-${index}`}
-            className="acc-gallery__media"
-            src={resolved}
-            alt=""
-            decoding="async"
-          />
-        )}
-
+        <GalleryMedia item={current} index={index} alt={`${title} — photo ${index + 1}`} />
         {n > 1 ? (
           <>
-            <button type="button" className="acc-gallery__nav acc-gallery__nav--prev" onClick={() => go(-1)} aria-label="Previous photo or video">
+            <button
+              type="button"
+              className="acc-gallery__arrow acc-gallery__arrow--prev"
+              onClick={() => go(-1)}
+              aria-label="Previous photo"
+            >
               ‹
             </button>
-            <button type="button" className="acc-gallery__nav acc-gallery__nav--next" onClick={() => go(1)} aria-label="Next photo or video">
+            <button
+              type="button"
+              className="acc-gallery__arrow acc-gallery__arrow--next"
+              onClick={() => go(1)}
+              aria-label="Next photo"
+            >
               ›
             </button>
           </>
         ) : null}
       </div>
-
       {n > 1 ? (
-        <div className={metaClass}>
-          <div className="acc-gallery__dots" role="tablist" aria-label="Gallery slides">
-            {items.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                role="tab"
-                aria-selected={i === index}
-                aria-label={`Slide ${i + 1}${items[i].kind === 'video' ? ' (video)' : ''}`}
-                className={`acc-gallery__dot${i === index ? ' acc-gallery__dot--active' : ''}`}
-                onClick={() => setIndex(i)}
-              />
-            ))}
-          </div>
-          <span className="acc-gallery__counter" aria-live="polite">
-            {index + 1} / {n}
-          </span>
-        </div>
+        <button type="button" className="acc-gallery__view-all acc-gallery__view-all--inline" onClick={() => openModal(index)}>
+          View all photos · {index + 1}/{n}
+        </button>
       ) : null}
     </div>
   )

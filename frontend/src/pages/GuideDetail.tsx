@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, ApiError, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -11,6 +11,7 @@ import { GuideResponseBadge } from '../components/guide/GuideResponseBadge'
 import { GuideSimilarGuides, type SimilarGuide } from '../components/guide/GuideSimilarGuides'
 import { GuideTourPackages, type TourPackage } from '../components/guide/GuideTourPackages'
 import { MiniRating } from '../components/MiniRating'
+import { normalizeTourPackages } from '../utils/tourPackages'
 
 type Guide = {
   id: number
@@ -44,6 +45,8 @@ type Booking = {
   mock_payment_ref: string
 }
 
+type GuideComment = { id: string; author: string; body: string; ago: string }
+
 const TIME_PRESETS: { label: string; value: string }[] = [
   { label: 'Morning', value: '09:00' },
   { label: 'Midday', value: '12:00' },
@@ -51,22 +54,10 @@ const TIME_PRESETS: { label: string; value: string }[] = [
   { label: 'Evening', value: '18:00' },
 ]
 
-function normalizeTourPackages(raw: unknown): TourPackage[] {
-  if (!Array.isArray(raw)) return []
-  const out: TourPackage[] = []
-  for (const row of raw) {
-    if (!row || typeof row !== 'object') continue
-    const o = row as Record<string, unknown>
-    const id = typeof o.id === 'string' ? o.id.trim() : ''
-    const title = typeof o.title === 'string' ? o.title.trim() : ''
-    const hours = typeof o.hours === 'number' ? o.hours : Number(o.hours)
-    const price = o.price != null ? String(o.price) : ''
-    if (id && title && Number.isFinite(hours) && hours > 0 && price) {
-      out.push({ id, title, hours, price })
-    }
-  }
-  return out
-}
+const SEED_QUESTIONS: GuideComment[] = [
+  { id: 'q1', author: 'Mila K.', body: 'Can you pick us up at the hotel?', ago: '3h ago' },
+  { id: 'q2', author: 'Jonas T.', body: 'Is this suitable for families with kids?', ago: '1d ago' },
+]
 
 type LanguageRow = { language: string; level: string }
 
@@ -106,12 +97,34 @@ function regionsOverlap(a: string[], b: string[]): boolean {
   return b.some((r) => set.has(r))
 }
 
+function whyBookGuide(g: Guide): string[] {
+  const items = [
+    'Local knowledge',
+    'Private routes',
+    g.default_meeting_point || g.regions?.length ? 'Flexible meeting point' : null,
+    g.languages?.[0] ? `Speaks ${g.languages[0]}` : null,
+    g.response_hours_typical != null && g.response_hours_typical <= 6 ? 'Fast response' : null,
+    g.licensed_guide ? 'Verified guide' : null,
+    g.years_guiding != null && g.years_guiding >= 3 ? `${g.years_guiding} years guiding` : null,
+  ].filter(Boolean) as string[]
+
+  const unique: string[] = []
+  for (const item of items) {
+    if (!unique.includes(item)) unique.push(item)
+    if (unique.length >= 6) break
+  }
+  return unique
+}
+
 export function GuideDetail() {
   const { id } = useParams()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const qc = useQueryClient()
   const { profile } = useAuth()
 
+  const [saved, setSaved] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
   const [date, setDate] = useState('')
   const [groupSize, setGroupSize] = useState(2)
   const [durationHours, setDurationHours] = useState(4)
@@ -119,6 +132,9 @@ export function GuideDetail() {
   const [startTime, setStartTime] = useState('')
   const [meetingPoint, setMeetingPoint] = useState('')
   const [notes, setNotes] = useState('')
+  const [showExtraFields, setShowExtraFields] = useState(false)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [questions, setQuestions] = useState<GuideComment[]>(SEED_QUESTIONS)
   const [booking, setBooking] = useState<Booking | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
@@ -165,15 +181,29 @@ export function GuideDetail() {
       }))
   }, [allGuides, g])
 
+  useEffect(() => {
+    if (!g) return
+    const slug = searchParams.get('package')
+    if (slug) {
+      const list = normalizeTourPackages(g.tour_packages)
+      const pkg = list.find((p) => p.id === slug)
+      if (pkg) {
+        setSelectedPkg(pkg)
+        setDurationHours(pkg.hours)
+      }
+    }
+  }, [g, searchParams])
+
   const estimatedTotal = useMemo(() => {
     if (selectedPkg) return selectedPkg.price
     if (!g?.hourly_rate) return null
     const rate = parseFloat(g.hourly_rate)
     if (Number.isNaN(rate)) return null
-    return (rate * durationHours * groupSize).toFixed(2)
+    return (rate * durationHours * groupSize).toFixed(0)
   }, [g?.hourly_rate, durationHours, groupSize, selectedPkg])
 
   const selectedPackageId = selectedPkg?.id ?? ''
+  const todayStr = new Date().toISOString().split('T')[0]
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -209,166 +239,15 @@ export function GuideDetail() {
     onError: (e) => setErr(e instanceof ApiError ? e.message : "The practice payment didn't go through. You can try again."),
   })
 
-  if (isLoading || !g) {
-    return (
-      <div className="gd-detail">
-        <div className="skeleton gd-detail__skeleton" />
-      </div>
-    )
-  }
-
-  const displayName = g.display_name?.trim() || g.username
-  const bookingStep = booking?.status === 'confirmed' ? 3 : booking ? 2 : 1
-  const responseH = g.response_hours_typical ?? 0
-
-  const publicBlocks = (
-    <>
-      {responseH > 0 ? <GuideResponseBadge hours={responseH} /> : null}
-
-      {packages.length > 0 ? (
-        <GuideTourPackages
-          packages={packages}
-          selectedId={null}
-          onSelect={() => {}}
-          selectable={false}
-        />
-      ) : null}
-
-      <GuidePortfolio items={portfolio} />
-
-      <GuideCredentials
-        yearsGuiding={g.years_guiding}
-        licensed={g.licensed_guide}
-        certifications={certifications}
-        languagesDetail={langsDetail}
-        fallbackLanguages={g.languages || []}
-      />
-
-      {g.bio ? (
-        <section className="gd-detail__bio">
-          <h2 className="gd-detail__section-label">About</h2>
-          <p className="gd-detail__bio-text">{g.bio}</p>
-        </section>
-      ) : null}
-
-      {g.specialities && g.specialities.length > 0 ? (
-        <section className="gd-detail__specialities">
-          <h2 className="gd-detail__section-label">Specialities</h2>
-          <div className="chip-row">
-            {g.specialities.map((s) => (
-              <span key={s} className="chip chip--muted">
-                {s}
-              </span>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="acc-detail__reviews gd-detail__reviews" aria-labelledby="gd-reviews-heading">
-        <h2 id="gd-reviews-heading" className="acc-detail__section-label acc-detail__section-label--reviews">
-          Guest reviews
-        </h2>
-        <div className="acc-detail__reviews-summary card">
-          {g.rating_avg != null ? (
-            <>
-              <div className="acc-detail__reviews-score">
-                <MiniRating rating={g.rating_avg} count={g.rating_count} />
-              </div>
-              <p className="acc-detail__reviews-summary-text">
-                {g.rating_count != null && g.rating_count > 0
-                  ? `Based on ${g.rating_count} ${g.rating_count === 1 ? 'rating' : 'ratings'} from verified tours on DELVE.`
-                  : 'Overall guest score for this guide.'}
-                {reviews.length > 0
-                  ? ` Below are ${reviews.length} recent ${reviews.length === 1 ? 'review' : 'reviews'}.`
-                  : null}
-              </p>
-            </>
-          ) : (
-            <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
-              Ratings and written reviews will appear as guests complete tours on DELVE.
-            </p>
-          )}
-        </div>
-        {reviews.length > 0 ? (
-          <div className="acc-detail__review-list">
-            {reviews.map((r, i) => (
-              <GuestReviewCard key={`${i}-${r.name}`} r={r} />
-            ))}
-          </div>
-        ) : (
-          <p className="acc-detail__reviews-empty" role="status">
-            No written reviews yet — the score above reflects overall ratings. New comments show here after each tour.
-          </p>
-        )}
-      </section>
-    </>
-  )
-
-  // Auth gate — show profile info then gate the booking form
-  if (!profile) {
-    return (
-      <div className="gd-detail">
-        <Link to="/guides" className="gd-detail__back">
-          ← Back to guides
-        </Link>
-        <GuideProfileTop g={g} displayName={displayName} />
-        {publicBlocks}
-        <div className="gd-detail__gate card">
-          <h2 className="gd-detail__gate-title">Sign in to book or message</h2>
-          <p className="gd-detail__gate-text">
-            A free account lets you message this guide and request a date. You can browse every profile without signing in.
-          </p>
-          <div className="gd-detail__gate-actions">
-            <Link to="/login" className="btn btn-primary btn-block">
-              Sign in
-            </Link>
-            <Link to="/register" className="btn btn-ghost btn-block">
-              Create free account
-            </Link>
-          </div>
-        </div>
-        <GuideSimilarGuides guides={similarGuides} />
-        <button type="button" className="btn btn-ghost btn-block gd-detail__back-btn" onClick={() => nav(-1)}>
-          Go back
-        </button>
-      </div>
-    )
-  }
-
-  if (!profile.email_verified) {
-    return (
-      <div className="gd-detail">
-        <Link to="/guides" className="gd-detail__back">
-          ← Back to guides
-        </Link>
-        <GuideProfileTop g={g} displayName={displayName} />
-        {publicBlocks}
-        <div className="gd-detail__gate card">
-          <h2 className="gd-detail__gate-title">Verify your email</h2>
-          <p className="gd-detail__gate-text">A confirmed address helps guides reply to you. It only takes a moment.</p>
-          <Link to="/verify-email" className="btn btn-primary btn-block">
-            Verify email
-          </Link>
-          <Link to="/guides" className="gd-detail__gate-back">
-            ← Back to guides
-          </Link>
-        </div>
-        <GuideSimilarGuides guides={similarGuides} />
-        <button type="button" className="btn btn-ghost btn-block gd-detail__back-btn" onClick={() => nav(-1)}>
-          Go back
-        </button>
-      </div>
-    )
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setErr(null)
-    if (!date) {
-      setErr('Please pick a date.')
-      return
+  const onShare = async (title: string) => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setShareMsg(`Link to ${title} copied`)
+      window.setTimeout(() => setShareMsg(''), 1600)
+    } catch {
+      setShareMsg('Copy failed')
+      window.setTimeout(() => setShareMsg(''), 1600)
     }
-    createMut.mutate()
   }
 
   const onPackageSelect = (pkg: TourPackage | null) => {
@@ -376,362 +255,488 @@ export function GuideDetail() {
     if (pkg) setDurationHours(pkg.hours)
   }
 
+  const handleRequestBooking = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    setErr(null)
+    if (!profile) {
+      nav('/login')
+      return
+    }
+    if (!profile.email_verified) {
+      nav('/verify-email')
+      return
+    }
+    if (!date) {
+      setErr('Please pick a date.')
+      return
+    }
+    createMut.mutate()
+  }
+
+  const postQuestion = () => {
+    const body = commentDraft.trim()
+    if (!body) return
+    const author = profile?.display_name?.trim() || profile?.username || 'Guest'
+    setQuestions((prev) => [{ id: `local-${Date.now()}`, author, body, ago: 'Just now' }, ...prev])
+    setCommentDraft('')
+  }
+
+  if (isLoading || !g) {
+    return (
+      <div className="gd-detail gd-detail--premium">
+        <div className="skeleton gd-detail__skeleton" />
+      </div>
+    )
+  }
+
+  const displayName = g.display_name?.trim() || g.username
+  const responseH = g.response_hours_typical ?? 0
+  const loveItems = whyBookGuide(g)
+  const canBook = !booking || booking.status === 'pending'
+  const rateLabel = g.hourly_rate ? `From $${g.hourly_rate}/hr` : selectedPkg ? `$${selectedPkg.price}` : 'Price on request'
+
+  const hasCredentials =
+    (g.years_guiding != null && g.years_guiding > 0) ||
+    g.licensed_guide ||
+    certifications.length > 0 ||
+    langsDetail.length > 0 ||
+    (g.languages && g.languages.length > 0)
+
   return (
-    <div className="gd-detail">
-      <Link to="/guides" className="gd-detail__back">
-        ← Back to guides
-      </Link>
+    <div className="gd-detail gd-detail--premium">
+      {shareMsg ? (
+        <p className="gd-detail__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
 
-      <GuideProfileTop g={g} displayName={displayName} />
+      <div className="gd-detail__hero-wrap">
+        <Link to="/guides" className="gd-detail__hero-back">
+          ← Guides
+        </Link>
+        <div className="gd-detail__hero-actions">
+          <button
+            type="button"
+            className={`gd-detail__hero-action${saved ? ' gd-detail__hero-action--saved' : ''}`}
+            onClick={() => setSaved((v) => !v)}
+          >
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" className="gd-detail__hero-action" onClick={() => onShare(displayName)}>
+            ↗ Share
+          </button>
+        </div>
 
-      {responseH > 0 ? <GuideResponseBadge hours={responseH} /> : null}
+        <section className="gd-detail__hero">
+          <div className="gd-detail__hero-media">
+            {g.photo ? (
+              <img className="gd-detail__hero-photo" src={mediaUrl(g.photo) || ''} alt={displayName} />
+            ) : (
+              <div className="gd-detail__hero-photo gd-detail__hero-photo--placeholder">
+                <span className="gd-detail__photo-initials">{displayName.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+          </div>
 
-      <div className="gd-detail__cta-row">
-        {g.user ? <GuideAskButton guideUserId={g.user} label="Send a question" /> : null}
+          <div className="gd-detail__hero-body">
+            <h1 className="display gd-detail__hero-name">{displayName}</h1>
+            <p className="gd-detail__hero-headline">{g.headline}</p>
+
+            {g.rating_avg != null ? (
+              <div className="gd-detail__hero-rating">
+                <span className="gd-detail__rating-star" aria-hidden>
+                  ★
+                </span>
+                <span className="gd-detail__rating-val">{Number.parseFloat(g.rating_avg).toFixed(1)}</span>
+                {g.rating_count != null && g.rating_count > 0 ? (
+                  <span className="gd-detail__rating-count">({g.rating_count})</span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {g.languages?.length > 0 ? (
+              <p className="gd-detail__hero-meta">{g.languages.join(' · ')}</p>
+            ) : null}
+
+            {g.regions?.length > 0 ? (
+              <p className="gd-detail__hero-meta gd-detail__hero-meta--regions">{g.regions.join(' · ')}</p>
+            ) : null}
+
+            <div className="gd-detail__hero-trust">
+              {g.licensed_guide ? <span>Verified guide</span> : <span>Listed guide</span>}
+              {responseH > 0 ? <span>Responds in {responseH}h</span> : null}
+              {g.licensed_guide ? <span>Licensed</span> : null}
+              {g.years_guiding != null && g.years_guiding > 0 ? (
+                <span>
+                  {g.years_guiding} {g.years_guiding === 1 ? 'year' : 'years'} guiding
+                </span>
+              ) : null}
+            </div>
+
+            <div className="gd-detail__hero-social">
+              <button
+                type="button"
+                className={saved ? 'gd-detail__social-btn--saved' : ''}
+                onClick={() => setSaved((v) => !v)}
+              >
+                {saved ? '♥ Saved' : '♡ Save'}
+              </button>
+              <button type="button" onClick={() => onShare(displayName)}>
+                ↗ Share
+              </button>
+              {g.user && profile?.email_verified ? (
+                <GuideAskButton guideUserId={g.user} label="Ask a question" />
+              ) : (
+                <button type="button" onClick={() => (profile ? null : nav('/login'))}>
+                  Ask a question
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
 
-      <GuidePortfolio items={portfolio} />
+      <div className="gd-detail__layout">
+        <main className="gd-detail__main">
+          <section className="detail-section gd-detail__why">
+            <h2 className="gd-detail__section-title">Why book this guide</h2>
+            <div className="gd-detail__why-grid">
+              {loveItems.map((item) => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
+          </section>
 
-      <GuideCredentials
-        yearsGuiding={g.years_guiding}
-        licensed={g.licensed_guide}
-        certifications={certifications}
-        languagesDetail={langsDetail}
-        fallbackLanguages={g.languages || []}
-      />
-
-      {g.bio ? (
-        <section className="gd-detail__bio">
-          <h2 className="gd-detail__section-label">About</h2>
-          <p className="gd-detail__bio-text">{g.bio}</p>
-        </section>
-      ) : null}
-
-      {g.specialities && g.specialities.length > 0 ? (
-        <section className="gd-detail__specialities">
-          <h2 className="gd-detail__section-label">Specialities</h2>
-          <div className="chip-row">
-            {g.specialities.map((s) => (
-              <span key={s} className="chip chip--muted">
-                {s}
-              </span>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="acc-detail__reviews gd-detail__reviews" aria-labelledby="gd-reviews-heading2">
-        <h2 id="gd-reviews-heading2" className="acc-detail__section-label acc-detail__section-label--reviews">
-          Guest reviews
-        </h2>
-        <div className="acc-detail__reviews-summary card">
-          {g.rating_avg != null ? (
-            <>
-              <div className="acc-detail__reviews-score">
-                <MiniRating rating={g.rating_avg} count={g.rating_count} />
-              </div>
-              <p className="acc-detail__reviews-summary-text">
-                {g.rating_count != null && g.rating_count > 0
-                  ? `Based on ${g.rating_count} ${g.rating_count === 1 ? 'rating' : 'ratings'} from verified tours on DELVE.`
-                  : 'Overall guest score for this guide.'}
-                {reviews.length > 0
-                  ? ` Below are ${reviews.length} recent ${reviews.length === 1 ? 'review' : 'reviews'}.`
-                  : null}
-              </p>
-            </>
-          ) : (
-            <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
-              Ratings and written reviews will appear as guests complete tours on DELVE.
-            </p>
+          {(g.bio?.trim() || responseH > 0) && (
+            <section className="detail-section gd-detail__meet">
+              <h2 className="gd-detail__section-title">Meet your guide</h2>
+              {responseH > 0 ? <GuideResponseBadge hours={responseH} /> : null}
+              {g.bio?.trim() ? <p className="gd-detail__bio-text">{g.bio}</p> : null}
+            </section>
           )}
-        </div>
-        {reviews.length > 0 ? (
-          <div className="acc-detail__review-list">
-            {reviews.map((r, i) => (
-              <GuestReviewCard key={`${i}-${r.name}`} r={r} />
-            ))}
-          </div>
-        ) : (
-          <p className="acc-detail__reviews-empty" role="status">
-            No written reviews yet — the score above reflects overall ratings.
-          </p>
-        )}
-      </section>
 
-      <section className="gd-detail__book">
-        <ol className="acc-book__steps" aria-label="Booking steps">
-          <li
-            className={`acc-book__step${bookingStep === 1 ? ' acc-book__step--active' : ''}${bookingStep > 1 ? ' acc-book__step--done' : ''}`}
-          >
-            <span className="acc-book__step-num">1</span>
-            <span className="acc-book__step-label">Details</span>
-          </li>
-          <li
-            className={`acc-book__step${bookingStep === 2 ? ' acc-book__step--active' : ''}${bookingStep > 2 ? ' acc-book__step--done' : ''}`}
-          >
-            <span className="acc-book__step-num">2</span>
-            <span className="acc-book__step-label">Review</span>
-          </li>
-          <li className={`acc-book__step${bookingStep === 3 ? ' acc-book__step--active' : ''}`}>
-            <span className="acc-book__step-num">3</span>
-            <span className="acc-book__step-label">Done</span>
-          </li>
-        </ol>
-
-        {err ? <div className="error-banner">{err}</div> : null}
-
-        {!booking && (
-          <form className="acc-book__form card" onSubmit={handleSubmit}>
-            <h2 className="gd-detail__book-form-title">Request a booking</h2>
-            <p className="gd-detail__book-form-lead">
-              Pick a package or set your own duration, then add group size, time, and where to meet.
-            </p>
-
-            {packages.length > 0 ? (
+          {packages.length > 0 ? (
+            <section className="detail-section gd-detail__packages-block">
               <GuideTourPackages
                 packages={packages}
                 selectedId={selectedPackageId}
                 onSelect={onPackageSelect}
                 selectable
+                guideId={Number(id)}
               />
-            ) : null}
+            </section>
+          ) : null}
 
-            {!selectedPkg ? (
-              <div className="field">
-                <label className="label">Duration (custom)</label>
-                <div className="gd-detail__duration-row" role="group" aria-label="Select duration">
-                  {[2, 4, 6, 8].map((hours) => (
-                    <button
-                      key={hours}
-                      type="button"
-                      className={`gd-detail__dur-btn${durationHours === hours ? ' gd-detail__dur-btn--active' : ''}`}
-                      aria-pressed={durationHours === hours}
-                      onClick={() => setDurationHours(hours)}
-                    >
-                      {hours} hrs
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+          {portfolio.length > 0 ? (
+            <section className="detail-section gd-detail__portfolio-block">
+              <GuidePortfolio items={portfolio} />
+            </section>
+          ) : null}
 
-            <div className="field">
-              <label className="label" htmlFor="gd-date">
-                Date
-              </label>
-              <input
-                id="gd-date"
-                className="input"
-                type="date"
-                required
-                min={new Date().toISOString().split('T')[0]}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+          {hasCredentials ? (
+            <section className="detail-section gd-detail__credentials-block">
+              <h2 className="gd-detail__section-title">Credentials</h2>
+              <GuideCredentials
+                yearsGuiding={g.years_guiding}
+                licensed={g.licensed_guide}
+                certifications={certifications}
+                languagesDetail={langsDetail}
+                fallbackLanguages={g.languages || []}
+                hideTitle
               />
-            </div>
+            </section>
+          ) : null}
 
-            <div className="field">
-              <label className="label" htmlFor="gd-group">
-                Group size
-              </label>
-              <input
-                id="gd-group"
-                className="input"
-                type="number"
-                min={1}
-                max={30}
-                required
-                value={groupSize}
-                onChange={(e) => setGroupSize(Math.max(1, Number(e.target.value) || 1))}
-              />
-              <p className="gd-detail__field-hint">Total people on this booking — affects the estimate when using hourly pricing.</p>
-            </div>
-
-            <div className="field">
-              <label className="label" htmlFor="gd-time">
-                Start time
-              </label>
-              <div className="gd-detail__time-presets" role="group" aria-label="Quick time presets">
-                {TIME_PRESETS.map(({ label, value }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`gd-detail__time-preset${startTime === value ? ' gd-detail__time-preset--active' : ''}`}
-                    onClick={() => setStartTime(value)}
-                  >
-                    {label}
-                  </button>
+          {g.specialities && g.specialities.length > 0 ? (
+            <section className="detail-section gd-detail__specialities-block">
+              <h2 className="gd-detail__section-title">What they specialise in</h2>
+              <div className="chip-row">
+                {g.specialities.map((s) => (
+                  <span key={s} className="chip chip--muted">
+                    {s}
+                  </span>
                 ))}
               </div>
-              <input
-                id="gd-time"
-                className="input gd-detail__time-input"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
+            </section>
+          ) : null}
 
-            <div className="field">
-              <label className="label" htmlFor="gd-meet">
-                Meeting point
-              </label>
-              <textarea
-                id="gd-meet"
-                className="input"
-                rows={2}
-                value={meetingPoint}
-                onChange={(e) => setMeetingPoint(e.target.value)}
-                placeholder="e.g. hotel lobby, landmark, or station exit"
-              />
+          <section className="detail-section gd-detail__reviews-block">
+            <h2 className="gd-detail__section-title">Guest reviews</h2>
+            <div className="acc-detail__reviews-summary">
+              {g.rating_avg != null ? (
+                <>
+                  <div className="acc-detail__reviews-score">
+                    <MiniRating rating={g.rating_avg} count={g.rating_count} />
+                  </div>
+                  <p className="acc-detail__reviews-summary-text">
+                    {g.rating_count != null && g.rating_count > 0
+                      ? `Based on ${g.rating_count} ${g.rating_count === 1 ? 'rating' : 'ratings'} from verified tours on DELVE.`
+                      : 'Overall guest score for this guide.'}
+                  </p>
+                </>
+              ) : (
+                <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
+                  Ratings and written reviews will appear as guests complete tours on DELVE.
+                </p>
+              )}
             </div>
-
-            {estimatedTotal ? (
-              <div className="acc-book__nights-summary">
-                <span className="acc-book__nights-count">
-                  {selectedPkg ? selectedPkg.title : `${durationHours} hrs × ${groupSize} guests`}
-                </span>
-                <span className="acc-book__nights-est">≈ ${estimatedTotal} estimated</span>
+            {reviews.length > 0 ? (
+              <div className="acc-detail__review-list">
+                {reviews.map((r, i) => (
+                  <GuestReviewCard key={`${i}-${r.name}`} r={r} />
+                ))}
               </div>
-            ) : null}
+            ) : (
+              <p className="acc-detail__reviews-empty" role="status">
+                No written reviews yet.
+              </p>
+            )}
+          </section>
 
-            <div className="field">
-              <label className="label" htmlFor="gd-notes">
-                Notes for your guide (optional)
-              </label>
-              <textarea
-                id="gd-notes"
-                className="input"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Interests, mobility, or anything the guide should know…"
-              />
+          <section className="detail-section gd-detail__moments">
+            <div className="gd-detail__section-head">
+              <div>
+                <h2 className="gd-detail__section-title">Delvers moments with this guide</h2>
+                <p className="gd-detail__section-sub">Guest photos, tour clips, route tips, and saved moments.</p>
+              </div>
+              <Link to="/delvers">See more</Link>
             </div>
-
-            <p className="acc-book__avail-note" role="note">
-              <span className="acc-book__avail-icon" aria-hidden>
-                ℹ
-              </span>
-              Availability is subject to guide confirmation — you&apos;ll hear back once booking goes live on DELVE.
-            </p>
-
-            <button type="submit" className="btn btn-primary btn-block" disabled={createMut.isPending}>
-              {createMut.isPending ? 'Saving…' : 'Continue to review'}
-            </button>
-          </form>
-        )}
-
-        {booking?.status === 'pending' && (
-          <div className="acc-book__pay card">
-            <h2 className="acc-book__pay-title">Review (demo)</h2>
-            <p className="acc-book__pay-total">
-              <span className="acc-book__pay-label">Total for this practice flow</span>
-              <strong>${booking.total_price}</strong>
-            </p>
-            <p className="acc-book__pay-note">
-              Tapping below runs a <strong>simulated</strong> payment — like trying on the experience. No bank or card is charged in
-              DELVE today.
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary btn-block"
-              onClick={() => payMut.mutate(booking.id)}
-              disabled={payMut.isPending}
-            >
-              {payMut.isPending ? 'Processing…' : 'Run practice payment'}
-            </button>
-          </div>
-        )}
-
-        {booking?.status === 'confirmed' && (
-          <div className="acc-book__success card">
-            <h2 className="acc-book__success-title">Flow complete</h2>
-            <p className="acc-book__success-text">
-              In a live product, you&apos;d get a confirmation for you and the guide. Here, you&apos;ve seen the full path — same
-              care, no real money moved.
-            </p>
-            <p className="acc-book__ref">
-              Reference: <code>{booking.mock_payment_ref}</code>
-            </p>
-            <Link to="/guides" className="btn btn-primary btn-block">
-              Explore more guides
-            </Link>
-          </div>
-        )}
-      </section>
-
-      <GuideSimilarGuides guides={similarGuides} />
-
-      <button type="button" className="btn btn-ghost btn-block gd-detail__back-btn" onClick={() => nav(-1)}>
-        Go back
-      </button>
-    </div>
-  )
-}
-
-function GuideProfileTop({ g, displayName }: { g: Guide; displayName: string }) {
-  return (
-    <div className="gd-detail__profile">
-      <div className="gd-detail__profile-top">
-        <div className="gd-detail__photo-wrap">
-          {g.photo ? (
-            <img className="gd-detail__photo" src={mediaUrl(g.photo) || ''} alt={displayName} />
-          ) : (
-            <div className="gd-detail__photo gd-detail__photo--placeholder">
-              <span className="gd-detail__photo-initials" aria-hidden>
-                {displayName.charAt(0).toUpperCase()}
-              </span>
+            <div className="gd-detail__moments-grid">
+              {portfolio.slice(0, 2).map((item, i) => (
+                <div key={i} className="gd-detail__moment-card">
+                  <img src={mediaUrl(item.src) || item.src} alt="" />
+                  <p>
+                    <strong>@traveller{i + 1}</strong>{' '}
+                    {item.caption || 'Best stop on the route.'}
+                  </p>
+                </div>
+              ))}
+              <div className="gd-detail__moment-card gd-detail__moment-card--placeholder">
+                <div aria-hidden>📸</div>
+                <p>
+                  <strong>@nomad</strong> Ask for the local food detour.
+                </p>
+              </div>
             </div>
-          )}
-        </div>
+          </section>
 
-        <div className="gd-detail__info">
-          <h1 className="display gd-detail__name">{displayName}</h1>
-          <p className="gd-detail__username">@{g.username}</p>
+          <section className="detail-section gd-detail__questions">
+            <h2 className="gd-detail__section-title">Questions for this guide</h2>
+            <p className="gd-detail__section-sub">
+              Ask about pickup, language, group size, route, accessibility, or safety.
+            </p>
 
-          {g.rating_avg != null && (
-            <div className="gd-detail__rating">
-              <span className="gd-detail__rating-star">★</span>
-              <span className="gd-detail__rating-val">{parseFloat(g.rating_avg).toFixed(1)}</span>
-              {g.rating_count ? (
-                <span className="gd-detail__rating-count">
-                  {g.rating_count} {g.rating_count === 1 ? 'rating' : 'ratings'}
-                </span>
+            <textarea
+              className="gd-detail__comment-input"
+              placeholder="Can you pick us up at the hotel? Do you guide families?"
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              rows={3}
+            />
+
+            <div className="gd-detail__questions-actions">
+              <button type="button" className="btn btn-primary" onClick={postQuestion} disabled={!commentDraft.trim()}>
+                Post question
+              </button>
+              {g.user && profile?.email_verified ? (
+                <GuideAskButton guideUserId={g.user} label="Message guide" />
               ) : null}
             </div>
+
+            <div className="gd-detail__comment-list">
+              {questions.map((q) => (
+                <article key={q.id} className="gd-detail__comment">
+                  <div className="gd-detail__comment-avatar" aria-hidden>
+                    {q.author.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="gd-detail__comment-meta">
+                      <strong>{q.author}</strong> · {q.ago}
+                    </p>
+                    <p className="gd-detail__comment-body">{q.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {similarGuides.length > 0 ? (
+            <section className="detail-section gd-detail__similar-block">
+              <GuideSimilarGuides guides={similarGuides} />
+            </section>
+          ) : null}
+
+          {err ? <div className="error-banner">{err}</div> : null}
+
+          {booking?.status === 'pending' && (
+            <section className="detail-section gd-detail__booking-flow">
+              <h2 className="gd-detail__section-title">Review (demo)</h2>
+              <p className="gd-detail__booking-total">
+                Total for this practice flow: <strong>${booking.total_price}</strong>
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary btn-block"
+                onClick={() => payMut.mutate(booking.id)}
+                disabled={payMut.isPending}
+              >
+                {payMut.isPending ? 'Processing…' : 'Run practice payment'}
+              </button>
+            </section>
           )}
 
-          {g.hourly_rate && (
-            <div className="gd-detail__rate-badge">
-              <span className="gd-detail__rate-amount">${g.hourly_rate}</span>
-              <span className="gd-detail__rate-unit"> / hr</span>
-            </div>
+          {booking?.status === 'confirmed' && (
+            <section className="detail-section gd-detail__booking-flow gd-detail__booking-flow--success">
+              <h2 className="gd-detail__section-title">Booking confirmed</h2>
+              <p>
+                In a live product you would get a confirmation for you and the guide. Nothing was charged in this demo.
+              </p>
+              <p className="gd-detail__booking-ref">
+                Reference: <code>{booking.mock_payment_ref}</code>
+              </p>
+              <Link to="/guides" className="btn btn-primary btn-block">
+                Explore more guides
+              </Link>
+            </section>
           )}
-        </div>
+        </main>
+
+        {canBook && !booking && (
+          <aside className="gd-detail__sidebar">
+            <section className="gd-detail__booking-card">
+              <p className="gd-detail__booking-kicker">Ready to explore?</p>
+              <h2>{rateLabel}</h2>
+
+              <form className="gd-detail__booking-form" onSubmit={handleRequestBooking}>
+                {packages.length > 0 ? (
+                  <label className="gd-detail__booking-field">
+                    Package
+                    <select
+                      value={selectedPackageId}
+                      onChange={(e) => {
+                        const pkg = packages.find((p) => p.id === e.target.value) ?? null
+                        onPackageSelect(pkg)
+                      }}
+                    >
+                      <option value="">Custom duration (hourly)</option>
+                      {packages.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} · {p.hours}h · ${p.price}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                {!selectedPkg ? (
+                  <label className="gd-detail__booking-field">
+                    Duration
+                    <select value={durationHours} onChange={(e) => setDurationHours(Number(e.target.value))}>
+                      {[2, 4, 6, 8].map((hours) => (
+                        <option key={hours} value={hours}>
+                          {hours} hours
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                <label className="gd-detail__booking-field">
+                  Date
+                  <input type="date" min={todayStr} required value={date} onChange={(e) => setDate(e.target.value)} />
+                </label>
+
+                <label className="gd-detail__booking-field">
+                  Start time
+                  <select value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                    <option value="">Select time</option>
+                    {TIME_PRESETS.map(({ label, value }) => (
+                      <option key={value} value={value}>
+                        {label} ({value})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="gd-detail__booking-field">
+                  Group size
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    required
+                    value={groupSize}
+                    onChange={(e) => setGroupSize(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </label>
+
+                {estimatedTotal ? (
+                  <div className="gd-detail__total">
+                    <span>Estimated total</span>
+                    <strong>${estimatedTotal}</strong>
+                  </div>
+                ) : null}
+
+                <button type="submit" className="btn btn-primary gd-detail__book-btn" disabled={createMut.isPending}>
+                  {createMut.isPending ? 'Saving…' : 'Request booking'}
+                </button>
+
+                <button
+                  type="button"
+                  className="gd-detail__extra-toggle"
+                  onClick={() => setShowExtraFields((v) => !v)}
+                  aria-expanded={showExtraFields}
+                >
+                  {showExtraFields ? '− Hide meeting point and notes' : '+ Add meeting point and notes'}
+                </button>
+
+                {showExtraFields ? (
+                  <div className="gd-detail__extra-fields">
+                    <label className="gd-detail__booking-field">
+                      Meeting point
+                      <textarea
+                        rows={2}
+                        value={meetingPoint}
+                        onChange={(e) => setMeetingPoint(e.target.value)}
+                        placeholder="Hotel lobby, landmark, or station exit"
+                      />
+                    </label>
+                    <label className="gd-detail__booking-field">
+                      Notes (optional)
+                      <textarea
+                        rows={2}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Interests, mobility, or anything the guide should know"
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                {g.user && profile?.email_verified ? (
+                  <GuideAskButton guideUserId={g.user} label="Ask a question" />
+                ) : (
+                  <p className="gd-detail__booking-hint">
+                    {!profile ? 'Sign in to request a booking.' : !profile.email_verified ? 'Verify email to book.' : 'Practice flow — no real payment today.'}
+                  </p>
+                )}
+              </form>
+            </section>
+          </aside>
+        )}
       </div>
 
-      <p className="gd-detail__headline">{g.headline}</p>
-
-      {g.languages && g.languages.length > 0 ? (
-        <div className="gd-detail__langs chip-row">
-          {g.languages.map((l) => (
-            <span key={l} className="chip">
-              {l}
-            </span>
-          ))}
+      {canBook && !booking && (
+        <div className="gd-detail__mobile-bar">
+          <div>
+            <strong>{rateLabel}</strong>
+            <span>{displayName}</span>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={() => handleRequestBooking()} disabled={createMut.isPending}>
+            Request
+          </button>
         </div>
-      ) : null}
-
-      {g.regions && g.regions.length > 0 ? (
-        <div className="gd-detail__regions chip-row">
-          {g.regions.map((r) => (
-            <span key={r} className="chip chip--muted">
-              {r}
-            </span>
-          ))}
-        </div>
-      ) : null}
+      )}
     </div>
   )
 }

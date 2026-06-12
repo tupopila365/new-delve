@@ -1,8 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, ApiError, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { buildVehicleGalleryItems, TransportGallery } from '../components/TransportGallery'
+
+const VEHICLE_TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
+  '4x4': { label: '4×4 / SUV', emoji: '🚙' },
+  sedan: { label: 'Sedan', emoji: '🚗' },
+  hatchback: { label: 'Hatchback', emoji: '🚘' },
+  van: { label: 'Van / Minibus', emoji: '🚐' },
+  pickup: { label: 'Pickup', emoji: '🛻' },
+  luxury: { label: 'Luxury', emoji: '✨' },
+}
+
+const DEFAULT_RENTAL_RULES = [
+  "Valid driver's license required",
+  'Deposit may be required on pick-up',
+  'Return with the same fuel level',
+  'No smoking in the vehicle',
+]
 
 type Vehicle = {
   id: number
@@ -38,7 +55,6 @@ type Booking = {
   mock_payment_ref: string
 }
 
-/** Inclusive rental days, aligned with backend (end − start in days + 1). */
 function rentalDaysInclusive(start: string, end: string): number | null {
   if (!start || !end) return null
   const a = new Date(start)
@@ -49,13 +65,32 @@ function rentalDaysInclusive(start: string, end: string): number | null {
   return n > 0 ? n : null
 }
 
+function vehicleTypeMeta(type?: string | null) {
+  if (!type) return { label: 'Vehicle', emoji: '🚗' }
+  return VEHICLE_TYPE_LABELS[type] ?? { label: type, emoji: '🚗' }
+}
+
+function whyRentVehicle(v: Vehicle): string[] {
+  const items = [
+    v.vehicle_type === '4x4' || v.vehicle_type === 'pickup' ? 'Great for gravel roads' : 'Comfortable city driving',
+    v.seats != null && v.seats >= 5 ? 'Enough luggage space' : 'Easy to park',
+    v.air_conditioning ? 'Air conditioning' : null,
+    v.included_features?.some((f) => /pickup|airport/i.test(f)) ? 'Flexible pickup' : 'Local pickup',
+    v.transmission === 'automatic' ? 'Automatic transmission' : null,
+  ].filter(Boolean) as string[]
+  return items.slice(0, 4)
+}
+
 export function VehicleDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const [saved, setSaved] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
+  const [pickupArea, setPickupArea] = useState('')
   const [booking, setBooking] = useState<Booking | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
@@ -65,34 +100,32 @@ export function VehicleDetail() {
     queryFn: () => apiFetch<Vehicle>(`/api/transport/vehicles/${id}/`, { auth: false }),
   })
 
+  const galleryItems = useMemo(
+    () => (v ? buildVehicleGalleryItems(v.cover_image, v.gallery_images) : []),
+    [v],
+  )
+
   const days = useMemo(() => rentalDaysInclusive(start, end), [start, end])
-
-  const galleryUrls = useMemo(() => {
-    const raw = v?.gallery_images
-    if (!raw?.length) return []
-    return raw.map((u) => mediaUrl(u) || u).filter(Boolean) as string[]
-  }, [v])
-
-  const showStickyBar =
-    !!v &&
-    !!profile?.email_verified &&
-    !booking
-
-  useEffect(() => {
-    if (!showStickyBar) return
-    const root = document.documentElement
-    root.style.setProperty('--tp-detail-sticky-pad', '88px')
-    return () => {
-      root.style.removeProperty('--tp-detail-sticky-pad')
-    }
-  }, [showStickyBar])
 
   const estimatedTotal = useMemo(() => {
     if (!days || !v?.price_per_day) return null
     const price = parseFloat(v.price_per_day)
     if (Number.isNaN(price)) return null
-    return (price * days).toFixed(2)
+    return (price * days).toFixed(0)
   }, [days, v])
+
+  const typeMeta = vehicleTypeMeta(v?.vehicle_type)
+  const loveItems = v ? whyRentVehicle(v) : []
+  const locationLine = v ? [v.city, v.region].filter(Boolean).join(', ') : ''
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  const pickupOptions = useMemo(() => {
+    const opts = new Set<string>()
+    if (v?.city) opts.add(v.city)
+    opts.add('Airport')
+    opts.add('Provider location')
+    return [...opts]
+  }, [v?.city])
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -120,287 +153,294 @@ export function VehicleDetail() {
       setErr(e instanceof ApiError ? e.message : "The practice payment didn't go through."),
   })
 
-  if (isLoading || !v) {
-    return (
-      <div className="tp-detail">
-        <div className="skeleton tp-detail__skeleton" />
-      </div>
-    )
+  const onShare = async (title: string) => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setShareMsg(`Link to ${title} copied`)
+      window.setTimeout(() => setShareMsg(''), 1600)
+    } catch {
+      setShareMsg('Copy failed')
+      window.setTimeout(() => setShareMsg(''), 1600)
+    }
   }
 
-  if (!profile) {
-    return (
-      <div className="tp-detail tp-detail--gate">
-        <div className="tp-detail__gate card">
-          <Link to="/transport" className="tp-detail__back">← Back to transport</Link>
-          <h1 className="display tp-detail__gate-title">Sign in to rent</h1>
-          <p className="tp-detail__gate-text">
-            A free account lets the provider know who's renting. Browsing is open to everyone — you only need this step to reserve.
-          </p>
-          <div className="tp-detail__gate-actions">
-            <Link to="/login" className="btn btn-primary btn-block">Sign in</Link>
-            <Link to="/register" className="btn btn-ghost btn-block">Create free account</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!profile.email_verified) {
-    return (
-      <div className="tp-detail tp-detail--gate">
-        <div className="tp-detail__gate card">
-          <Link to="/transport" className="tp-detail__back">← Back to transport</Link>
-          <h1 className="display tp-detail__gate-title">Verify your email</h1>
-          <p className="tp-detail__gate-text">
-            A confirmed address helps providers reach you. It only takes a moment — you can still explore DELVE in the meantime.
-          </p>
-          <Link to="/verify-email" className="btn btn-primary btn-block">Verify email</Link>
-        </div>
-      </div>
-    )
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleReserve = () => {
     setErr(null)
+    if (!profile) {
+      nav('/login')
+      return
+    }
+    if (!profile.email_verified) {
+      nav('/verify-email')
+      return
+    }
     if (!start || !end) {
-      setErr('Please choose both a start and end date.')
+      setErr('Please choose both pick-up and drop-off dates.')
       return
     }
     if (new Date(end) < new Date(start)) {
-      setErr('Return date must be on or after pick-up date.')
+      setErr('Drop-off date must be on or after pick-up date.')
       return
     }
     createMut.mutate()
   }
 
-  const bookingStep = booking?.status === 'confirmed' ? 3 : booking ? 2 : 1
+  if (isLoading || !v) {
+    return (
+      <div className="tp-detail tp-detail--premium">
+        <div className="skeleton tp-detail__skeleton" />
+      </div>
+    )
+  }
 
-  const specs = [
-    v.vehicle_type,
-    v.seats != null ? `${v.seats} seats` : null,
-    v.transmission,
-    v.fuel_type,
-    v.air_conditioning ? 'Air con' : null,
-  ].filter(Boolean) as string[]
+  const canBook = !booking || booking.status === 'pending'
 
   return (
-    <div className="tp-detail">
-      <Link to="/transport" className="tp-detail__back">← Back to transport</Link>
+    <div className="tp-detail tp-detail--premium">
+      {shareMsg ? (
+        <p className="tp-detail__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
 
-      {/* Cover image */}
-      {v.cover_image ? (
-        <img
-          className="tp-detail__cover"
-          src={mediaUrl(v.cover_image) || ''}
-          alt={v.title}
-        />
-      ) : (
-        <div className="tp-detail__cover tp-detail__cover--placeholder">
-          <span aria-hidden>🚗</span>
+      <div className="acc-detail__gallery-wrap">
+        <Link to="/transport" className="acc-detail__gallery-back">
+          ← Transport
+        </Link>
+        <div className="acc-detail__gallery-actions">
+          <button
+            type="button"
+            className={`td-hero__action${saved ? ' td-hero__action--saved' : ''}`}
+            onClick={() => setSaved((s) => !s)}
+          >
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" className="td-hero__action" onClick={() => onShare(v.title)}>
+            ↗ Share
+          </button>
         </div>
-      )}
+        <TransportGallery items={galleryItems} title={v.title} emptyLabel="Vehicle photo coming soon" />
+      </div>
 
-      {(v.owner_username || v.owner_display_name) && (
-        <section className="tp-detail__provider card" aria-labelledby="tp-provider-heading">
-          <div className="tp-detail__provider-media">
-            {v.owner_avatar ? (
-              <img
-                className="tp-detail__provider-img"
-                src={
-                  /^https?:\/\//i.test(v.owner_avatar)
-                    ? v.owner_avatar
-                    : mediaUrl(v.owner_avatar) || v.owner_avatar
-                }
-                alt=""
-              />
-            ) : (
-              <span className="tp-detail__provider-placeholder" aria-hidden>
-                {(v.owner_display_name || v.owner_username || '?').trim().charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div className="tp-detail__provider-body">
-            <p className="tp-detail__provider-kicker">Service provider</p>
-            <h2 id="tp-provider-heading" className="tp-detail__provider-name">
-              {v.owner_display_name?.trim() || (v.owner_username ? `@${v.owner_username}` : 'Host')}
-            </h2>
-            {(v.owner_city || v.owner_region) ? (
-              <p className="tp-detail__provider-meta">
-                {[v.owner_city, v.owner_region].filter(Boolean).join(' · ')}
-              </p>
-            ) : null}
-            {v.owner_bio?.trim() ? (
-              <p className="tp-detail__provider-bio">{v.owner_bio.trim()}</p>
-            ) : (
-              <p className="tp-detail__provider-bio tp-detail__provider-bio--muted">
-                Verified rental host on DELVE — message and pickup details after you book.
-              </p>
-            )}
-            {v.owner_username ? (
-              <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__provider-cta">
-                View profile <span aria-hidden>→</span>
-              </Link>
-            ) : null}
-          </div>
-        </section>
-      )}
-
-      {galleryUrls.length > 0 && (
-        <div className="tp-detail__gallery" role="list" aria-label="More photos">
-          {galleryUrls.map((url, i) => (
-            <figure key={`${url}-${i}`} className="tp-detail__gallery-item" role="listitem">
-              <img
-                src={url}
-                alt={`${v.title} — photo ${i + 1}`}
-                className="tp-detail__gallery-thumb"
-                loading="lazy"
-              />
-            </figure>
-          ))}
-        </div>
-      )}
-
-      <div className="tp-detail__content">
-        {/* Title block */}
-        <div className="tp-detail__title-block">
-          <p className="tp-detail__make">
-            {v.make} {v.model}
-            {v.year ? ` · ${v.year}` : ''}
-          </p>
-          <h1 className="display tp-detail__title">{v.title}</h1>
-          <p className="tp-detail__region">{v.region}{v.city ? ` · ${v.city}` : ''}</p>
+      <section className="tp-detail__identity detail-section">
+        <div className="tp-detail__meta-row">
+          <span className="tp-detail__pill">
+            {typeMeta.emoji} {typeMeta.label}
+          </span>
+          {locationLine ? <span className="tp-detail__pill">{locationLine}</span> : null}
+          {v.transmission ? <span className="tp-detail__pill">{v.transmission}</span> : null}
+          {v.seats != null ? <span className="tp-detail__pill">{v.seats} seats</span> : null}
         </div>
 
-        {/* Specs chips */}
-        {specs.length > 0 && (
-          <div className="chip-row tp-detail__specs">
-            {specs.map((s) => (
-              <span key={s} className="chip">{s}</span>
-            ))}
-          </div>
-        )}
+        <h1 className="display tp-detail__title">{v.title}</h1>
 
-        {v.included_features && v.included_features.length > 0 && (
-          <div className="tp-detail__included" aria-label="Included with this rental">
-            <h2 className="tp-detail__section-label">Included</h2>
-            <p className="tp-detail__included-row">
-              {v.included_features.map((f) => (
-                <span key={f} className="tp-detail__included-pill">
-                  <span className="tp-detail__included-tick" aria-hidden>✓</span>
-                  {f}
-                </span>
+        <p className="tp-detail__summary">
+          {v.make} {v.model}
+          {v.year ? ` · ${v.year}` : ''} · N${v.price_per_day}/day
+        </p>
+
+        <div className="tp-detail__trust-row">
+          <span>Verified provider</span>
+          {(v.vehicle_type === '4x4' || v.vehicle_type === 'pickup') && <span>Gravel-road friendly</span>}
+          {v.air_conditioning ? <span>Air conditioning</span> : null}
+          <span>Local pickup</span>
+        </div>
+
+        <div className="tp-detail__social-row">
+          <button
+            type="button"
+            className={saved ? 'tp-detail__social-btn--saved' : ''}
+            onClick={() => setSaved((s) => !s)}
+          >
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" onClick={() => onShare(v.title)}>
+            ↗ Share
+          </button>
+          {v.owner_username ? (
+            <Link to={`/u/${encodeURIComponent(v.owner_username)}`}>Ask provider</Link>
+          ) : (
+            <button type="button">Ask provider</button>
+          )}
+        </div>
+      </section>
+
+      <div className="tp-detail__layout">
+        <main className="tp-detail__main">
+          <section className="detail-section tp-detail__love">
+            <h2 className="tp-detail__section-title">Why rent this</h2>
+            <div className="tp-detail__love-grid">
+              {loveItems.map((item) => (
+                <span key={item}>{item}</span>
               ))}
-            </p>
-          </div>
-        )}
-
-        {(v.pickup_location || v.city) && (
-          <div className="tp-detail__pickup">
-            <span className="tp-detail__pickup-icon" aria-hidden>📍</span>
-            <div>
-              <h2 className="tp-detail__section-label">Pick-up location</h2>
-              <p className="tp-detail__pickup-text">
-                {v.pickup_location || `Pick-up in ${v.city} — exact address from the host after you book.`}
-              </p>
             </div>
-          </div>
-        )}
+          </section>
 
-        {/* Description */}
-        {v.description && (
-          <div className="tp-detail__desc">
-            <h2 className="tp-detail__section-label">About this vehicle</h2>
-            <p>{v.description}</p>
-          </div>
-        )}
-
-        {/* Booking stepper */}
-        <div className="tp-detail__book-section">
-          <ol className="acc-book__steps" aria-label="Rental steps">
-            <li className={`acc-book__step${bookingStep === 1 ? ' acc-book__step--active' : ''}${bookingStep > 1 ? ' acc-book__step--done' : ''}`}>
-              <span className="acc-book__step-num">1</span>
-              <span className="acc-book__step-label">Dates</span>
-            </li>
-            <li className={`acc-book__step${bookingStep === 2 ? ' acc-book__step--active' : ''}${bookingStep > 2 ? ' acc-book__step--done' : ''}`}>
-              <span className="acc-book__step-num">2</span>
-              <span className="acc-book__step-label">Review</span>
-            </li>
-            <li className={`acc-book__step${bookingStep === 3 ? ' acc-book__step--active' : ''}`}>
-              <span className="acc-book__step-num">3</span>
-              <span className="acc-book__step-label">Done</span>
-            </li>
-          </ol>
-
-          {err && <div className="error-banner">{err}</div>}
-
-          {!booking && (
-            <form id="veh-rental-form" className="tp-detail__form card" onSubmit={handleSubmit}>
-              <div className="tp-detail__form-price">
-                <span className="tp-detail__form-from">From</span>
-                <span className="tp-detail__form-amount">N${v.price_per_day}</span>
-                <span className="tp-detail__form-per"> / day</span>
+          <section className="detail-section tp-detail__specs">
+            <h2 className="tp-detail__section-title">Vehicle specs</h2>
+            <dl className="tp-detail__spec-grid">
+              <div>
+                <dt>Make</dt>
+                <dd>{v.make}</dd>
               </div>
-
-              <div className="field">
-                <label className="label" htmlFor="veh-start">Pick-up date</label>
-                <input
-                  id="veh-start"
-                  className="input"
-                  type="date"
-                  required
-                  min={new Date().toISOString().split('T')[0]}
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
-                />
+              <div>
+                <dt>Model</dt>
+                <dd>{v.model}</dd>
               </div>
-              <div className="field">
-                <label className="label" htmlFor="veh-end">Return date</label>
-                <input
-                  id="veh-end"
-                  className="input"
-                  type="date"
-                  required
-                  min={start || new Date().toISOString().split('T')[0]}
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
-
-              {days != null && (
-                <div className="acc-book__nights-summary">
-                  <span className="acc-book__nights-count">{days} {days === 1 ? 'day' : 'days'}</span>
-                  {estimatedTotal && (
-                    <span className="acc-book__nights-est">≈ N${estimatedTotal} estimated</span>
-                  )}
+              {v.year ? (
+                <div>
+                  <dt>Year</dt>
+                  <dd>{v.year}</dd>
                 </div>
-              )}
+              ) : null}
+              {v.seats != null ? (
+                <div>
+                  <dt>Seats</dt>
+                  <dd>{v.seats}</dd>
+                </div>
+              ) : null}
+              {v.transmission ? (
+                <div>
+                  <dt>Transmission</dt>
+                  <dd className="tp-detail__spec-cap">{v.transmission}</dd>
+                </div>
+              ) : null}
+              {v.vehicle_type ? (
+                <div>
+                  <dt>Vehicle type</dt>
+                  <dd>{typeMeta.label}</dd>
+                </div>
+              ) : null}
+              {v.fuel_type ? (
+                <div>
+                  <dt>Fuel</dt>
+                  <dd>{v.fuel_type}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
 
-              <p className="acc-book__avail-note" role="note">
-                <span className="acc-book__avail-icon" aria-hidden>ℹ</span>
-                Availability confirmed by the provider — this is a practice flow, no real payment today.
+          {(v.pickup_location || v.city) && (
+            <section className="detail-section tp-detail__pickup-block">
+              <h2 className="tp-detail__section-title">Pick-up & return</h2>
+              <p className="tp-detail__pickup-text">
+                {v.pickup_location ||
+                  `Pick-up in ${v.city} — exact address shared after you reserve.`}
               </p>
-
-              <button
-                type="submit"
-                className="btn btn-primary btn-block"
-                disabled={createMut.isPending}
-              >
-                {createMut.isPending ? 'Saving…' : 'Continue to review'}
-              </button>
-            </form>
+              <p className="tp-detail__pickup-note">
+                Return to the same location unless arranged with the provider in advance.
+              </p>
+            </section>
           )}
 
+          {v.included_features && v.included_features.length > 0 && (
+            <section className="detail-section tp-detail__included-block">
+              <h2 className="tp-detail__section-title">Included</h2>
+              <div className="tp-detail__included-grid">
+                {v.included_features.map((f) => (
+                  <span key={f}>{f}</span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="detail-section tp-detail__rules">
+            <h2 className="tp-detail__section-title">Rental rules</h2>
+            <ul className="tp-detail__rules-list">
+              {DEFAULT_RENTAL_RULES.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </section>
+
+          {v.description?.trim() ? (
+            <section className="detail-section tp-detail__about">
+              <h2 className="tp-detail__section-title">About this vehicle</h2>
+              <p>{v.description}</p>
+            </section>
+          ) : null}
+
+          {(v.owner_username || v.owner_display_name) && (
+            <section className="detail-section tp-detail__provider-block">
+              <h2 className="tp-detail__section-title">Provider</h2>
+              <div className="tp-detail__provider-card">
+                <div className="tp-detail__provider-avatar">
+                  {v.owner_avatar ? (
+                    <img
+                      src={
+                        /^https?:\/\//i.test(v.owner_avatar)
+                          ? v.owner_avatar
+                          : mediaUrl(v.owner_avatar) || v.owner_avatar
+                      }
+                      alt=""
+                    />
+                  ) : (
+                    <span aria-hidden>
+                      {(v.owner_display_name || v.owner_username || '?').trim().charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <p className="tp-detail__provider-name">
+                    {v.owner_display_name?.trim() || (v.owner_username ? `@${v.owner_username}` : 'Provider')}
+                  </p>
+                  {(v.owner_city || v.owner_region) && (
+                    <p className="tp-detail__provider-loc">
+                      {[v.owner_city, v.owner_region].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  <p className="tp-detail__provider-bio">
+                    {v.owner_bio?.trim() ||
+                      'Verified rental provider on DELVE — pickup details after you book.'}
+                  </p>
+                  {v.owner_username ? (
+                    <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__provider-link">
+                      View profile
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          )}
+
+          <section className="detail-section tp-detail__moments">
+            <div className="tp-detail__section-head">
+              <div>
+                <h2 className="tp-detail__section-title">Delvers moments with this ride</h2>
+                <p className="tp-detail__section-sub">
+                  Road trip photos, pickup tips, and luggage setup from travellers.
+                </p>
+              </div>
+              <Link to="/delvers">See more</Link>
+            </div>
+            <div className="tp-detail__moments-grid">
+              {galleryItems.slice(0, 2).map((item, i) => (
+                <div key={i} className="tp-detail__moment-card">
+                  <img src={mediaUrl(item.src) || item.src} alt="" />
+                  <p>
+                    <strong>@driver{i + 1}</strong> Packed the Hilux for a gravel-road weekend.
+                  </p>
+                </div>
+              ))}
+              <div className="tp-detail__moment-card tp-detail__moment-card--placeholder">
+                <div aria-hidden>📸</div>
+                <p>
+                  <strong>@traveller</strong> Fuel stop tip before heading north.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {err ? <div className="error-banner">{err}</div> : null}
+
           {booking?.status === 'pending' && (
-            <div className="tp-detail__pay card">
-              <h2 className="acc-book__pay-title">Review (demo)</h2>
-              <p className="acc-book__pay-total">
-                <span className="acc-book__pay-label">Total for this practice flow</span>
-                <strong>N${booking.total_price}</strong>
+            <section className="detail-section tp-detail__booking-flow">
+              <h2 className="tp-detail__section-title">Review (demo)</h2>
+              <p className="tp-detail__booking-total">
+                Total for this practice flow: <strong>N${booking.total_price}</strong>
               </p>
-              <p className="acc-book__pay-note">
-                This is a <strong>simulated</strong> payment — your card is never charged.
+              <p className="tp-detail__booking-note">
+                This is a simulated payment — your card is never charged.
               </p>
               <button
                 type="button"
@@ -410,52 +450,122 @@ export function VehicleDetail() {
               >
                 {payMut.isPending ? 'Processing…' : 'Run practice payment'}
               </button>
-            </div>
+            </section>
           )}
 
           {booking?.status === 'confirmed' && (
-            <div className="tp-detail__success card">
-              <h2 className="acc-book__success-title">Rental confirmed</h2>
-              <p className="acc-book__success-text">
-                In a live product you'd get pickup instructions and a contact for the provider. You've seen the full flow — nothing was charged.
+            <section className="detail-section tp-detail__booking-flow tp-detail__booking-flow--success">
+              <h2 className="tp-detail__section-title">Rental confirmed</h2>
+              <p>
+                In a live product you would get pickup instructions and a contact for the provider. Nothing was
+                charged.
               </p>
-              <p className="acc-book__ref">
+              <p className="tp-detail__booking-ref">
                 Reference: <code>{booking.mock_payment_ref}</code>
               </p>
               <Link to="/transport" className="btn btn-primary btn-block">
                 Browse more vehicles
               </Link>
-            </div>
+            </section>
           )}
-        </div>
-      </div>
+        </main>
 
-      <button
-        type="button"
-        className="btn btn-ghost btn-block tp-detail__back-btn"
-        onClick={() => nav(-1)}
-      >
-        Go back
-      </button>
+        {canBook && (
+          <aside className="tp-detail__sidebar">
+            <div className="tp-detail__booking-card">
+              <p className="tp-detail__booking-kicker">Ready to drive?</p>
+              <h2>
+                <span>N${v.price_per_day}</span>
+                <small> / day</small>
+              </h2>
 
-      {showStickyBar && v && (
-        <div className="tp-detail__sticky" role="region" aria-label="Rental rate">
-          <div className="tp-detail__sticky-inner">
-            <div className="tp-detail__sticky-text">
-              <span className="tp-detail__sticky-rate">
-                N${v.price_per_day}
-                <span className="tp-detail__sticky-unit"> / day</span>
-              </span>
-              {estimatedTotal && days != null ? (
-                <span className="tp-detail__sticky-sub">≈ N${estimatedTotal} for {days} {days === 1 ? 'day' : 'days'}</span>
+              <div className="tp-detail__booking-meta">
+                <span>{typeMeta.label}</span>
+                {v.seats != null && <span>{v.seats} seats</span>}
+                {v.transmission && <span>{v.transmission}</span>}
+              </div>
+
+              <div className="tp-detail__booking-fields">
+                <label>
+                  Pick-up
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={start}
+                    onChange={(e) => setStart(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Drop-off
+                  <input
+                    type="date"
+                    min={start || todayStr}
+                    value={end}
+                    onChange={(e) => setEnd(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Pick-up area
+                  <select
+                    value={pickupArea || pickupOptions[0] || ''}
+                    onChange={(e) => setPickupArea(e.target.value)}
+                  >
+                    {pickupOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {days != null && estimatedTotal ? (
+                <div className="tp-detail__total">
+                  <span>Estimated total ({days} {days === 1 ? 'day' : 'days'})</span>
+                  <strong>N${estimatedTotal}</strong>
+                </div>
               ) : (
-                <span className="tp-detail__sticky-sub">Select dates to see your total</span>
+                <div className="tp-detail__total tp-detail__total--muted">
+                  <span>Estimated total</span>
+                  <strong>—</strong>
+                </div>
+              )}
+
+              <button type="button" className="btn btn-primary tp-detail__book-btn" onClick={handleReserve} disabled={createMut.isPending}>
+                {createMut.isPending ? 'Saving…' : 'Reserve vehicle'}
+              </button>
+
+              {v.owner_username ? (
+                <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__message-btn">
+                  Message provider
+                </Link>
+              ) : (
+                <button type="button" className="tp-detail__message-btn">
+                  Message provider
+                </button>
+              )}
+
+              {!profile ? (
+                <p className="tp-detail__booking-hint">Sign in to complete your reservation.</p>
+              ) : !profile.email_verified ? (
+                <p className="tp-detail__booking-hint">Verify your email to reserve.</p>
+              ) : (
+                <p className="tp-detail__booking-hint">Practice flow — no real payment today.</p>
               )}
             </div>
-            <a href="#veh-rental-form" className="btn btn-primary tp-detail__sticky-cta">
-              Select dates
-            </a>
+          </aside>
+        )}
+      </div>
+
+      {canBook && (
+        <div className="tp-detail__mobile-bar">
+          <div>
+            <strong>N${v.price_per_day}/day</strong>
+            <span>{locationLine || v.region}</span>
           </div>
+          <button type="button" className="btn btn-primary" onClick={handleReserve} disabled={createMut.isPending}>
+            Reserve
+          </button>
         </div>
       )}
     </div>

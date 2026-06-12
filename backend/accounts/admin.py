@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import EmailVerificationToken, Profile, User
+from .models import BusinessMembership, BusinessProfile, EmailVerificationToken, Profile, User
 
 
 @admin.register(User)
@@ -20,3 +20,16 @@ class ProfileAdmin(admin.ModelAdmin):
 class EmailTokenAdmin(admin.ModelAdmin):
     list_display = ("user", "token", "used", "created_at")
     readonly_fields = ("token", "created_at")
+
+
+@admin.register(BusinessProfile)
+class BusinessProfileAdmin(admin.ModelAdmin):
+    list_display = ("business_name", "owner", "verification_status", "city", "region")
+    list_filter = ("verification_status",)
+    search_fields = ("business_name", "slug", "owner__username")
+
+
+@admin.register(BusinessMembership)
+class BusinessMembershipAdmin(admin.ModelAdmin):
+    list_display = ("business", "user", "role", "created_at")
+    list_filter = ("role",)

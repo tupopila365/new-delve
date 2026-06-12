@@ -1,0 +1,147 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import { mediaUrl } from '../api/client'
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch } from '../api/client'
+import type { MyBusiness } from '../hooks/useBusinessAccess'
+
+type Props = {
+  className?: string
+  avatarClassName?: string
+}
+
+export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
+  const { profile, logout } = useAuth()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  const { data: businesses = [] } = useQuery({
+    queryKey: ['my-businesses-menu'],
+    queryFn: () => apiFetch<MyBusiness[]>('/api/accounts/me/businesses/'),
+    enabled: Boolean(profile),
+  })
+  const isProvider = profile?.user_type === 'service_provider'
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (!profile) {
+    return (
+      <Link to="/login" className={`profile-menu__trigger ${avatarClassName}`} aria-label="Sign in">
+        <IconUser />
+      </Link>
+    )
+  }
+
+  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
+
+  const onLogout = () => {
+    setOpen(false)
+    logout()
+    navigate('/')
+  }
+
+  return (
+    <div className={`profile-menu ${className}`} ref={rootRef}>
+      <button
+        type="button"
+        className={`profile-menu__trigger ${avatarClassName}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Account menu"
+      >
+        {profile.avatar ? (
+          <img src={mediaUrl(profile.avatar) || ''} alt="" className="profile-menu__avatar-img" />
+        ) : (
+          <span className="profile-menu__avatar-letter" aria-hidden>
+            {initial}
+          </span>
+        )}
+      </button>
+
+      {open ? (
+        <div className="profile-menu__panel" role="menu">
+          <div className="profile-menu__head">
+            <strong>{profile.display_name || profile.username}</strong>
+            <span>@{profile.username}</span>
+          </div>
+
+          <Link to={`/u/${profile.username}`} className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            View profile
+          </Link>
+          <Link to="/dashboard" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            My dashboard
+          </Link>
+          <Link to="/dashboard#bookings" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            My bookings
+          </Link>
+          <Link to="/dashboard#saved" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            Saved
+          </Link>
+          <Link to="/messages" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            Messages
+          </Link>
+
+          {isProvider ? (
+            <>
+              <div className="profile-menu__divider" role="separator" />
+              <p className="profile-menu__section-label">Provider</p>
+              <Link to="/provider" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
+                Provider dashboard
+              </Link>
+              {businesses.map((b) => (
+                <Link
+                  key={b.id}
+                  to={`/business/${b.id}`}
+                  className="profile-menu__item profile-menu__item--sub"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                >
+                  {b.business_name}
+                </Link>
+              ))}
+            </>
+          ) : null}
+
+          <div className="profile-menu__divider" role="separator" />
+          {profile.is_staff ? (
+            <Link to="/admin" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
+              Platform admin
+            </Link>
+          ) : null}
+          <Link to="/settings" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            Account settings
+          </Link>
+          <button type="button" className="profile-menu__item profile-menu__item--danger" role="menuitem" onClick={onLogout}>
+            Log out
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function IconUser() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M6 20v-1a4 4 0 014-4h4a4 4 0 014 4v1" strokeLinecap="round" />
+    </svg>
+  )
+}

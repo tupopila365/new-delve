@@ -7,12 +7,21 @@ type Props = {
   /** feed: autoplay muted loop; pin: often same; modal: controls */
   variant?: 'feed' | 'pin' | 'detail'
   className?: string
+  /** Delvers feed: gradient overlay so video blocks do not look broken */
+  showVideoPreview?: boolean
 }
 
 /**
  * Renders post video (preferred if both exist) or image with consistent sizing.
  */
-export function PostMedia({ image, video, alt = '', variant = 'feed', className = '' }: Props) {
+export function PostMedia({
+  image,
+  video,
+  alt = '',
+  variant = 'feed',
+  className = '',
+  showVideoPreview = false,
+}: Props) {
   const v = video ? mediaUrl(video) : undefined
   const img = image ? mediaUrl(image) : undefined
 
@@ -21,7 +30,14 @@ export function PostMedia({ image, video, alt = '', variant = 'feed', className 
   if (v) {
     return (
       <div className={`post-media-wrap post-media-wrap--${variant} ${className}`.trim()}>
-        {variant !== 'detail' && <span className="post-media-badge">Video</span>}
+        {showVideoPreview && variant !== 'detail' ? (
+          <div className="post-media-video-preview" aria-hidden>
+            <span className="post-media-video-preview__title">Video preview</span>
+            <span className="post-media-video-preview__sub">Tap to watch</span>
+          </div>
+        ) : variant !== 'detail' ? (
+          <span className="post-media-badge">Video</span>
+        ) : null}
         <video
           className={base}
           src={v}

@@ -3,12 +3,13 @@ import re
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Profile, User, UserType
+from .models import BusinessProfile, Profile, User, UserType
 
 
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
+    is_staff = serializers.BooleanField(source="user.is_staff", read_only=True)
 
     class Meta:
         model = Profile
@@ -16,6 +17,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "user_type",
+            "is_staff",
             "display_name",
             "bio",
             "region",
@@ -24,8 +26,12 @@ class ProfileSerializer(serializers.ModelSerializer):
             "preferred_currency",
             "avatar",
             "email_verified",
+            "is_private",
+            "posts_visibility",
+            "allow_messages",
+            "show_in_search",
         )
-        read_only_fields = ("email_verified", "user_type")
+        read_only_fields = ("email_verified", "user_type", "is_staff")
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -88,7 +94,65 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "preferred_currency",
             "avatar",
             "user_type",
+            "is_private",
+            "posts_visibility",
+            "allow_messages",
+            "show_in_search",
         )
+
+
+class BusinessProfileSerializer(serializers.ModelSerializer):
+    owner_username = serializers.CharField(source="owner.username", read_only=True)
+
+    class Meta:
+        model = BusinessProfile
+        fields = (
+            "id",
+            "slug",
+            "owner_username",
+            "business_name",
+            "business_types",
+            "verification_status",
+            "description",
+            "tagline",
+            "logo",
+            "cover_image",
+            "region",
+            "city",
+        )
+
+
+class MyBusinessSerializer(serializers.ModelSerializer):
+    owner_username = serializers.CharField(source="owner.username", read_only=True)
+    role = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BusinessProfile
+        fields = (
+            "id",
+            "slug",
+            "owner_username",
+            "business_name",
+            "business_types",
+            "verification_status",
+            "description",
+            "tagline",
+            "logo",
+            "cover_image",
+            "region",
+            "city",
+            "role",
+            "permissions",
+        )
+
+    def get_role(self, obj):
+        perms_map = self.context.get("permissions_map") or {}
+        return perms_map.get(obj.pk, {}).get("role")
+
+    def get_permissions(self, obj):
+        perms_map = self.context.get("permissions_map") or {}
+        return perms_map.get(obj.pk, {}).get("permissions", {})
 
 
 class PublicProfileSerializer(serializers.ModelSerializer):
@@ -98,4 +162,4 @@ class PublicProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ("username", "display_name", "bio", "region", "city", "avatar", "user_type")
+        fields = ("username", "display_name", "bio", "region", "city", "avatar", "user_type", "is_private", "posts_visibility", "allow_messages")

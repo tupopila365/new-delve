@@ -1,4 +1,6 @@
 import { ApiError } from '../api/client'
+import { mockBusinessProfiles } from '../data/businessProfiles'
+import { enrichFoodVenueDetail } from '../data/foodVenueSocial'
 import {
   mockBusTrips,
   mockEvents,
@@ -21,7 +23,7 @@ type MockState = {
   saves: Record<string, number[]>
 }
 
-const KEY = 'delve_mock_state_v6'
+const KEY = 'delve_mock_state_v7'
 
 /** In-memory accommodation bookings for mock API (session only). */
 type MockAccBookingRow = {
@@ -65,6 +67,28 @@ const mockBusReservationRows = new Map<
     mock_payment_ref: string
   }
 >()
+
+type MockVehicleBookingRow = {
+  id: number
+  listing: number
+  start_date: string
+  end_date: string
+  total_price: string
+  status: 'pending' | 'confirmed'
+  mock_payment_ref: string
+}
+const mockVehicleBookings = new Map<number, MockVehicleBookingRow>()
+let mockVehicleBookingNextId = 8000
+
+function rentalDaysInclusive(start: string, end: string): number | null {
+  if (!start || !end) return null
+  const a = new Date(start)
+  const b = new Date(end)
+  if (b < a) return null
+  const diff = b.getTime() - a.getTime()
+  const n = Math.round(diff / (1000 * 60 * 60 * 24)) + 1
+  return n > 0 ? n : null
+}
 
 function busTripOccupied(tripId: number): number[] {
   const t = mockBusTrips.find((x) => x.id === tripId)
@@ -248,14 +272,17 @@ function loadState(): MockState {
   const raw = localStorage.getItem(KEY)
   if (raw) {
     try {
-      return JSON.parse(raw) as MockState
+      const stored = JSON.parse(raw) as MockState
+      // Always merge seed profiles so new demo accounts are available
+      stored.profiles = { ...mockProfiles, ...stored.profiles }
+      return stored
     } catch {
       // fallthrough
     }
   }
   const seed: MockState = {
     currentUser: null,
-    profiles: mockProfiles,
+    profiles: { ...mockProfiles },
     posts: mockPosts,
     nextPostId: Math.max(...mockPosts.map((p) => p.id)) + 1,
     likes: {},
@@ -330,6 +357,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         preferred_currency: '',
         avatar: null,
         email_verified: true,
+        is_private: false,
+        posts_visibility: 'public',
+        allow_messages: true,
+        show_in_search: true,
       }
     }
     s.currentUser = username
@@ -339,13 +370,41 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accounts/me/' && method === 'GET') {
     requireAuth(s)
-    return s.profiles[s.currentUser as string]
+    const p = s.profiles[s.currentUser as string]
+    return { ...p, is_staff: p.is_staff ?? false }
   }
 
   if (pathname === '/api/accounts/me/update/' && method === 'PATCH') {
     requireAuth(s)
     const me = s.currentUser as string
-    const data = isJsonBody(init.body) ? (JSON.parse(init.body) as Partial<MockProfile>) : {}
+    let data: Partial<MockProfile> = {}
+    if (init.body instanceof FormData) {
+      // Extract text fields; avatar becomes an object-URL blob reference
+      const fd = init.body
+      for (const [key, val] of fd.entries()) {
+        if (key === 'avatar' && val instanceof File) {
+          // Store a data-URL so it persists across page reloads
+          const buf = await val.arrayBuffer()
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+          const dataUrl = `data:${val.type};base64,${b64}`;
+          (data as Record<string, unknown>)['avatar'] = dataUrl
+        } else if (typeof val === 'string') {
+          const strVal = val
+          if (key === 'is_private' || key === 'allow_messages' || key === 'show_in_search') {
+            (data as Record<string, unknown>)[key] = strVal === 'true'
+          } else {
+            (data as Record<string, unknown>)[key] = strVal
+          }
+        }
+      }
+    } else if (isJsonBody(init.body)) {
+      const raw = JSON.parse(init.body) as Record<string, unknown>
+      // Ensure boolean fields come through correctly whether sent as bool or string
+      if ('is_private' in raw) raw['is_private'] = raw['is_private'] === true || raw['is_private'] === 'true'
+      if ('allow_messages' in raw) raw['allow_messages'] = raw['allow_messages'] === true || raw['allow_messages'] === 'true'
+      if ('show_in_search' in raw) raw['show_in_search'] = raw['show_in_search'] === true || raw['show_in_search'] === 'true'
+      data = raw as Partial<MockProfile>
+    }
     s.profiles[me] = { ...s.profiles[me], ...data, username: me, email: s.profiles[me].email }
     saveState(s)
     return s.profiles[me]
@@ -371,6 +430,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       preferred_currency: '',
       avatar: null,
       email_verified: true,
+      is_private: false,
+      posts_visibility: 'public',
+      allow_messages: true,
+      show_in_search: true,
     }
     saveState(s)
     return { detail: 'Account created (mock).' }
@@ -378,6 +441,241 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accounts/verify-email/' && method === 'POST') {
     return { detail: 'Email verified (mock).' }
+  }
+
+  if (pathname === '/api/accounts/businesses/' && method === 'GET') {
+    const owner = (q.get('owner') || '').trim()
+    const list = owner
+      ? mockBusinessProfiles.filter((b) => b.owner_username.toLowerCase() === owner.toLowerCase())
+      : mockBusinessProfiles
+    return list.map((b) => ({
+      id: b.id,
+      slug: b.slug,
+      owner_username: b.owner_username,
+      business_name: b.business_name,
+      business_types: b.business_types,
+      verification_status: b.verification_status,
+      description: b.description,
+      tagline: b.tagline ?? '',
+      logo: b.logo,
+      cover_image: b.cover_image,
+      region: b.region,
+      city: b.city,
+    }))
+  }
+
+  const businessDetailMatch = pathname.match(/^\/api\/accounts\/businesses\/(\d+)\/?$/)
+  if (businessDetailMatch && method === 'GET') {
+    const b = mockBusinessProfiles.find((x) => x.id === Number(businessDetailMatch[1]))
+    if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return {
+      id: b.id,
+      slug: b.slug,
+      owner_username: b.owner_username,
+      business_name: b.business_name,
+      business_types: b.business_types,
+      verification_status: b.verification_status,
+      description: b.description,
+      tagline: b.tagline ?? '',
+      logo: b.logo,
+      cover_image: b.cover_image,
+      region: b.region,
+      city: b.city,
+    }
+  }
+
+  if (pathname === '/api/accounts/me/businesses/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const owned = mockBusinessProfiles.filter((b) => b.owner_username === me)
+    return owned.map((b) => ({
+      id: b.id,
+      slug: b.slug,
+      owner_username: b.owner_username,
+      business_name: b.business_name,
+      business_types: b.business_types,
+      verification_status: b.verification_status,
+      description: b.description,
+      tagline: b.tagline ?? '',
+      logo: b.logo,
+      cover_image: b.cover_image,
+      region: b.region,
+      city: b.city,
+      role: 'owner',
+      permissions: {
+        view_dashboard: true,
+        manage_bookings: true,
+        manage_listings: true,
+        manage_team: true,
+        manage_payouts: true,
+        manage_settings: true,
+      },
+    }))
+  }
+
+  if (pathname === '/api/accounts/admin/overview/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    return {
+      users: Object.keys(s.profiles).length,
+      providers: Object.values(s.profiles).filter((p) => p.user_type === 'service_provider').length,
+      businesses: mockBusinessProfiles.length,
+      businesses_pending: mockBusinessProfiles.filter((b) => b.verification_status === 'pending').length,
+      listings: mockStays.length,
+      bookings: 4,
+      bookings_pending: 1,
+    }
+  }
+
+  if (pathname === '/api/accounts/admin/users/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    return Object.values(s.profiles).map((p, i) => ({
+      id: i + 1,
+      username: p.username,
+      email: p.email,
+      is_active: true,
+      is_staff: p.is_staff ?? false,
+      user_type: p.user_type,
+      display_name: p.display_name,
+      date_joined: new Date().toISOString(),
+    }))
+  }
+
+  if (pathname === '/api/accounts/admin/businesses/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    return mockBusinessProfiles.map((b) => ({
+      id: b.id,
+      slug: b.slug,
+      owner_username: b.owner_username,
+      business_name: b.business_name,
+      business_types: b.business_types,
+      verification_status: b.verification_status,
+      description: b.description,
+      tagline: b.tagline ?? '',
+      logo: b.logo,
+      cover_image: b.cover_image,
+      region: b.region,
+      city: b.city,
+    }))
+  }
+
+  const adminBizVerifyMatch = pathname.match(/^\/api\/accounts\/admin\/businesses\/(\d+)\/verification\/?$/)
+  if (adminBizVerifyMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const b = mockBusinessProfiles.find((x) => x.id === Number(adminBizVerifyMatch[1]))
+    if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (isJsonBody(init.body)) {
+      const data = JSON.parse(init.body) as { verification_status?: string }
+      if (data.verification_status) b.verification_status = data.verification_status as typeof b.verification_status
+    }
+    return {
+      id: b.id,
+      slug: b.slug,
+      owner_username: b.owner_username,
+      business_name: b.business_name,
+      business_types: b.business_types,
+      verification_status: b.verification_status,
+      description: b.description,
+      tagline: b.tagline ?? '',
+      logo: b.logo,
+      cover_image: b.cover_image,
+      region: b.region,
+      city: b.city,
+    }
+  }
+
+  if (pathname === '/api/accommodation/provider-listings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockStays
+      .filter((st) => st.owner_username === me)
+      .map((st) => ({
+        id: st.id,
+        title: st.title,
+        description: st.description,
+        region: st.region,
+        city: st.city,
+        price_per_night: st.price_per_night,
+        max_guests: st.max_guests,
+        bedrooms: st.bedrooms,
+        property_type: 'guesthouse',
+        amenities: st.amenities,
+        cover_image: st.cover_image,
+        rating_avg: st.rating_avg,
+        rating_count: st.rating_count,
+        is_active: true,
+        guest_reviews: [],
+      }))
+  }
+
+  if (pathname === '/api/accommodation/provider-listings/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    return {
+      id: Date.now(),
+      ...data,
+      rating_avg: '4.5',
+      rating_count: 0,
+      cover_image: null,
+      amenities: data.amenities ?? [],
+    }
+  }
+
+  const providerListingMatch = pathname.match(/^\/api\/accommodation\/provider-listings\/(\d+)\/?$/)
+  if (providerListingMatch && method === 'PATCH') {
+    requireAuth(s)
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const st = mockStays.find((x) => x.id === Number(providerListingMatch[1]))
+    if (st) Object.assign(st, data)
+    return { id: Number(providerListingMatch[1]), ...data, rating_avg: st?.rating_avg ?? '4.5', rating_count: st?.rating_count ?? 0 }
+  }
+
+  if (pathname === '/api/accommodation/provider-bookings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const myTitles = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.title))
+    const all = [
+      { id: 1, listing_title: 'Coastal guesthouse', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-10', check_out: '2026-05-13', guests: 2, total_price: '2850', status: 'confirmed' },
+      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending' },
+      { id: 3, listing_title: 'Freesia Hotel', guest_display_name: 'Anna K.', guest_username: 'anna', check_in: '2026-05-14', check_out: '2026-05-16', guests: 2, total_price: '700', status: 'confirmed' },
+    ]
+    const status = (q.get('status') || '').trim()
+    return all.filter((b) => myTitles.has(b.listing_title) && (!status || b.status === status))
+  }
+
+  const providerBookingActionMatch = pathname.match(
+    /^\/api\/accommodation\/provider-bookings\/(\d+)\/(confirm|cancel|check_in|check_out|refund)\/?$/
+  )
+  if (providerBookingActionMatch && method === 'POST') {
+    requireAuth(s)
+    const statusMap: Record<string, string> = {
+      confirm: 'confirmed',
+      cancel: 'cancelled',
+      check_in: 'checked_in',
+      check_out: 'checked_out',
+      refund: 'refunded',
+    }
+    return {
+      id: Number(providerBookingActionMatch[1]),
+      listing_title: 'Coastal guesthouse',
+      guest_display_name: 'Demo Explorer',
+      guest_username: 'demo_user',
+      check_in: '2026-05-10',
+      check_out: '2026-05-13',
+      guests: 2,
+      total_price: '2850',
+      status: statusMap[providerBookingActionMatch[2]] ?? 'confirmed',
+    }
   }
 
   const publicProfileMatch = pathname.match(/^\/api\/accounts\/users\/([^/]+)\/?$/)
@@ -396,6 +694,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       city: mp.city,
       avatar: mp.avatar,
       user_type: mp.user_type,
+      is_private: mp.is_private ?? false,
+      posts_visibility: mp.posts_visibility ?? 'public',
+      allow_messages: mp.allow_messages ?? true,
     }
   }
 
@@ -952,6 +1253,63 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  if (pathname === '/api/transport/vehicle-bookings/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Invalid body', 400, null)
+    }
+    const prof = s.currentUser ? s.profiles[s.currentUser] : undefined
+    if (!prof?.email_verified) {
+      throw new ApiError('Verify your email before booking.', 400, { detail: 'Email not verified.' })
+    }
+    const body = JSON.parse(init.body) as { listing?: number; start_date?: string; end_date?: string }
+    const listingId = Number(body.listing)
+    const vehicle = mockVehicles.find((v) => v.id === listingId)
+    if (!vehicle) {
+      throw new ApiError('Vehicle not found.', 404, { detail: 'Not found' })
+    }
+    const start = String(body.start_date || '').trim()
+    const end = String(body.end_date || '').trim()
+    if (!start || !end) {
+      throw new ApiError('Dates required.', 400, null)
+    }
+    const days = rentalDaysInclusive(start, end)
+    if (!days) {
+      throw new ApiError('Invalid dates.', 400, { detail: 'Return date must be on or after pick-up.' })
+    }
+    const total = (Number(vehicle.price_per_day) * days).toFixed(2)
+    const id = mockVehicleBookingNextId++
+    const row: MockVehicleBookingRow = {
+      id,
+      listing: listingId,
+      start_date: start,
+      end_date: end,
+      total_price: total,
+      status: 'pending',
+      mock_payment_ref: '',
+    }
+    mockVehicleBookings.set(id, row)
+    return row
+  }
+
+  const vehBookMockPay = pathname.match(/^\/api\/transport\/vehicle-bookings\/(\d+)\/mock_pay\/$/)
+  if (vehBookMockPay && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(vehBookMockPay[1])
+    const row = mockVehicleBookings.get(bid)
+    if (!row || row.status !== 'pending') {
+      throw new ApiError('Not payable.', 400, null)
+    }
+    const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    row.status = 'confirmed'
+    row.mock_payment_ref = ref
+    return {
+      detail: 'Payment successful (mock).',
+      status: 'confirmed',
+      mock_payment_ref: ref,
+    }
+  }
+
   // ---- Events ----
   if (pathname === '/api/events/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
@@ -970,14 +1328,28 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/food/venues/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const cuisine = (q.get('cuisine') || '').trim()
+    const searchQ = (q.get('search') || '').trim()
     return mockFood
       .filter((f) => (region ? textMatch(f.region, region) || textMatch(f.city, region) : true))
       .filter((f) => (cuisine ? textMatch(f.cuisine, cuisine) : true))
+      .filter((f) =>
+        searchQ
+          ? textMatch(f.name, searchQ) ||
+            textMatch(f.city, searchQ) ||
+            textMatch(f.region, searchQ) ||
+            textMatch(f.cuisine, searchQ) ||
+            textMatch(f.tagline ?? '', searchQ) ||
+            textMatch(f.popular_dish ?? '', searchQ) ||
+            textMatch(f.description, searchQ)
+          : true,
+      )
   }
   const foodMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/$/)
   if (foodMatch && method === 'GET') {
     const id = Number(foodMatch[1])
-    return mockFood.find((f) => f.id === id) || { detail: 'Not found' }
+    const venue = mockFood.find((f) => f.id === id)
+    if (!venue) return { detail: 'Not found' }
+    return enrichFoodVenueDetail(venue)
   }
 
   // ---- Guides ----

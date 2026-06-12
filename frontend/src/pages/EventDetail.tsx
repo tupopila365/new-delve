@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 
 type Event = {
   id: number
@@ -22,6 +24,13 @@ type Event = {
   capacity?: number | null
 }
 
+type EventComment = {
+  id: string
+  author: string
+  body: string
+  ago: string
+}
+
 const CATEGORY_META: Record<string, { label: string; emoji: string }> = {
   music: { label: 'Music', emoji: '🎵' },
   sports: { label: 'Sports', emoji: '🏆' },
@@ -30,6 +39,11 @@ const CATEGORY_META: Record<string, { label: string; emoji: string }> = {
   food: { label: 'Food & drink', emoji: '🍽' },
   other: { label: 'Other', emoji: '✨' },
 }
+
+const SEED_COMMENTS: EventComment[] = [
+  { id: 'c1', author: 'Mila K.', body: 'Is parking available near the venue?', ago: '2h ago' },
+  { id: 'c2', author: 'Jonas T.', body: 'What time should we arrive if doors open on time?', ago: '5h ago' },
+]
 
 function catMeta(value: string) {
   return CATEGORY_META[value] ?? { label: value, emoji: '✨' }
@@ -67,8 +81,39 @@ function openStreetMapUrl(venue: string, city: string, region: string) {
   return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`
 }
 
+function whatToExpect(category: string, isFree?: boolean | null): string[] {
+  const cat = catMeta(category)
+  const items = [
+    cat.label === 'Music' ? 'Live atmosphere' : 'Community gathering',
+    'Good for groups',
+    'Local experience',
+    isFree ? 'Free to attend' : 'Ticketed entry',
+    cat.label === 'Food & drink' ? 'Food & drinks on site' : null,
+    cat.label === 'Sports' ? 'Active crowd energy' : null,
+    cat.label === 'Culture' ? 'Creative performances' : null,
+  ].filter(Boolean) as string[]
+
+  const unique: string[] = []
+  for (const item of items) {
+    if (!unique.includes(item)) unique.push(item)
+    if (unique.length >= 4) break
+  }
+  return unique
+}
+
+function admissionLabel(data: Event): string {
+  if (data.is_free) return 'Free entry'
+  if (data.price) return `N$${data.price}`
+  return 'Price TBA'
+}
+
 export function EventDetail() {
   const { id } = useParams()
+  const { profile } = useAuth()
+  const [saved, setSaved] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
+  const [commentDraft, setCommentDraft] = useState('')
+  const [comments, setComments] = useState<EventComment[]>(SEED_COMMENTS)
 
   const { data, isLoading } = useQuery({
     queryKey: ['event', id],
@@ -76,9 +121,31 @@ export function EventDetail() {
     queryFn: () => apiFetch<Event>(`/api/events/${id}/`, { auth: false }),
   })
 
+  const onShare = async (title: string) => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setShareMsg(`Link to ${title} copied`)
+      window.setTimeout(() => setShareMsg(''), 1600)
+    } catch {
+      setShareMsg('Copy failed')
+      window.setTimeout(() => setShareMsg(''), 1600)
+    }
+  }
+
+  const postComment = () => {
+    const body = commentDraft.trim()
+    if (!body) return
+    const author = profile?.display_name?.trim() || profile?.username || 'Guest'
+    setComments((prev) => [
+      { id: `local-${Date.now()}`, author, body, ago: 'Just now' },
+      ...prev,
+    ])
+    setCommentDraft('')
+  }
+
   if (isLoading || !data) {
     return (
-      <div className="ev-detail">
+      <div className="ev-detail ev-detail--premium">
         <div className="skeleton ev-detail__skeleton" />
       </div>
     )
@@ -91,147 +158,284 @@ export function EventDetail() {
   const gcalUrl = buildGoogleCalendarUrl(data)
   const organiserName = data.organizer_display_name?.trim() || `@${data.organizer_username}`
   const locationLine = [data.venue, data.city || data.region].filter(Boolean).join(' · ')
+  const expectItems = whatToExpect(data.category, data.is_free)
+  const priceLabel = admissionLabel(data)
 
   return (
-    <div className="ev-detail">
-      <Link to="/events" className="ev-detail__back">← Back to events</Link>
+    <div className="ev-detail ev-detail--premium">
+      {shareMsg ? (
+        <p className="ev-detail__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
 
-      {/* Cover image */}
-      {data.cover_image ? (
-        <img
-          className="ev-detail__cover"
-          src={mediaUrl(data.cover_image) || ''}
-          alt={data.title}
-        />
-      ) : (
-        <div className="ev-detail__cover ev-detail__cover--placeholder">
-          <span aria-hidden>{cat.emoji}</span>
+      <div className="evd-hero">
+        <Link to="/events" className="evd-hero__back">
+          ← Events
+        </Link>
+        <div className="evd-hero__actions">
+          <button
+            type="button"
+            className={`evd-hero__action${saved ? ' evd-hero__action--saved' : ''}`}
+            onClick={() => setSaved((v) => !v)}
+          >
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" className="evd-hero__action" onClick={() => onShare(data.title)}>
+            ↗ Share
+          </button>
         </div>
-      )}
 
-      <div className="ev-detail__content">
+        {data.cover_image ? (
+          <img className="evd-hero__img" src={mediaUrl(data.cover_image) || ''} alt={data.title} />
+        ) : (
+          <div className="evd-hero__img evd-hero__placeholder">
+            <span aria-hidden>{cat.emoji}</span>
+          </div>
+        )}
 
-        {/* Category + organiser row */}
+        <div className="evd-hero__scrim" aria-hidden />
+
+        <div className="evd-hero__date-pill" aria-label={`${start.month} ${start.day}`}>
+          <span>{start.month}</span>
+          <strong>{start.day}</strong>
+        </div>
+      </div>
+
+      <section className="detail-section evd-identity">
         <div className="ev-detail__meta-row">
           <span className="ev-detail__cat-chip">
             <span aria-hidden>{cat.emoji}</span> {cat.label}
           </span>
-          {data.is_free && <span className="ev-detail__free-chip">Free</span>}
-          <Link
-            to={`/u/${encodeURIComponent(data.organizer_username)}`}
-            className="ev-detail__organiser"
-          >
+          {data.is_free ? <span className="ev-detail__free-chip">Free</span> : null}
+          <Link to={`/u/${encodeURIComponent(data.organizer_username)}`} className="ev-detail__organiser">
             By {organiserName}
           </Link>
         </div>
 
-        {/* Title */}
         <h1 className="display ev-detail__title">{data.title}</h1>
 
-        {/* Date + time block */}
-        <div className="ev-detail__date-card card">
-          <div className="ev-detail__date-visual">
-            <span className="ev-detail__date-month">{start.month}</span>
-            <span className="ev-detail__date-day">{start.day}</span>
-          </div>
-          <div className="ev-detail__date-info">
-            <p className="ev-detail__date-weekday">{start.weekday}</p>
-            <p className="ev-detail__date-full">{start.date}</p>
-            <p className="ev-detail__date-time">
-              {start.time}
-              {end ? ` – ${end.time}` : ''}
-            </p>
-          </div>
-          <a
-            href={gcalUrl}
-            className="ev-detail__cal-btn"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Add to Google Calendar"
+        <p className="evd-identity__summary">
+          {start.weekday}, {start.date} · {start.time}
+          {end ? ` – ${end.time}` : ''} · {locationLine}
+        </p>
+
+        <div className="evd-trust-row">
+          <span>Official listing</span>
+          <span>Mobile-friendly event page</span>
+          {data.capacity ? <span>{data.capacity} capacity</span> : null}
+        </div>
+
+        <div className="evd-social-row">
+          <button
+            type="button"
+            className={saved ? 'evd-social-btn--saved' : ''}
+            onClick={() => setSaved((v) => !v)}
           >
-            <IconCalendar />
-            <span>Add to calendar</span>
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" onClick={() => onShare(data.title)}>
+            ↗ Share
+          </button>
+          <a href={gcalUrl} target="_blank" rel="noopener noreferrer">
+            Add to calendar
           </a>
         </div>
+      </section>
 
-        {/* Venue + map */}
-        <div className="ev-detail__venue-card card">
-          <div className="ev-detail__venue-info">
-            <p className="ev-detail__venue-name">{data.venue || 'Venue to be announced'}</p>
-            {locationLine && (
-              <p className="ev-detail__venue-location">{locationLine}</p>
-            )}
-            {data.address && (
-              <p className="ev-detail__venue-address">{data.address}</p>
-            )}
-          </div>
-          {data.venue && (
-            <a
-              href={mapUrl}
-              className="ev-detail__map-btn"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="View on map"
-            >
-              <IconMap />
-              <span>View map</span>
-            </a>
-          )}
-        </div>
-
-        {/* Description */}
-        {data.description && (
-          <section className="ev-detail__desc" aria-labelledby="ev-desc-heading">
-            <h2 id="ev-desc-heading" className="ev-detail__section-label">About this event</h2>
-            <p className="ev-detail__desc-text">{data.description}</p>
-          </section>
-        )}
-
-        {/* Pricing / ticketing */}
-        <div className="ev-detail__ticket-card card">
-          <div className="ev-detail__ticket-price-row">
-            <div>
-              <p className="ev-detail__ticket-label">Admission</p>
-              {data.is_free ? (
-                <p className="ev-detail__ticket-free">Free entry</p>
-              ) : data.price ? (
-                <p className="ev-detail__ticket-price">From N${data.price}</p>
-              ) : (
-                <p className="ev-detail__ticket-price ev-detail__ticket-price--tba">Price TBA</p>
-              )}
+      <div className="evd-layout">
+        <main className="evd-main">
+          <section className="detail-section evd-expect">
+            <h2 className="evd-section-title">What to expect</h2>
+            <div className="evd-expect-grid">
+              {expectItems.map((item) => (
+                <span key={item}>{item}</span>
+              ))}
             </div>
-            {data.capacity && (
-              <div className="ev-detail__ticket-capacity">
-                <p className="ev-detail__ticket-label">Capacity</p>
-                <p className="ev-detail__ticket-cap-val">{data.capacity} people</p>
-              </div>
-            )}
-          </div>
+          </section>
 
-          {data.ticket_url ? (
-            <a
-              href={data.ticket_url}
-              className="btn btn-primary btn-block ev-detail__ticket-btn"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Get tickets →
-            </a>
-          ) : (
-            <div className="ev-detail__ticket-placeholder">
-              <p className="ev-detail__ticket-placeholder-text">
-                Ticket booking via DELVE is coming soon — for now, contact the organiser directly or check their page.
-              </p>
+          {data.description?.trim() ? (
+            <section className="detail-section evd-about">
+              <h2 className="evd-section-title">About this event</h2>
+              <p className="ev-detail__desc-text">{data.description}</p>
+            </section>
+          ) : null}
+
+          <section className="detail-section evd-date">
+            <h2 className="evd-section-title">Date & time</h2>
+            <div className="ev-detail__date-card ev-detail__date-card--inline">
+              <div className="ev-detail__date-visual">
+                <span className="ev-detail__date-month">{start.month}</span>
+                <span className="ev-detail__date-day">{start.day}</span>
+              </div>
+              <div className="ev-detail__date-info">
+                <p className="ev-detail__date-weekday">{start.weekday}</p>
+                <p className="ev-detail__date-full">{start.date}</p>
+                <p className="ev-detail__date-time">
+                  {start.time}
+                  {end ? ` – ${end.time}` : ''}
+                </p>
+              </div>
+              <a
+                href={gcalUrl}
+                className="ev-detail__cal-btn"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Add to Google Calendar"
+              >
+                <IconCalendar />
+                <span>Add to calendar</span>
+              </a>
+            </div>
+          </section>
+
+          <section className="detail-section evd-venue">
+            <h2 className="evd-section-title">Venue & location</h2>
+            <div className="ev-detail__venue-card ev-detail__venue-card--inline">
+              <div className="ev-detail__venue-info">
+                <p className="ev-detail__venue-name">{data.venue || 'Venue to be announced'}</p>
+                {locationLine ? <p className="ev-detail__venue-location">{locationLine}</p> : null}
+                {data.address ? <p className="ev-detail__venue-address">{data.address}</p> : null}
+              </div>
+              {data.venue ? (
+                <a
+                  href={mapUrl}
+                  className="ev-detail__map-btn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="View on map"
+                >
+                  <IconMap />
+                  <span>View map</span>
+                </a>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="detail-section evd-organiser">
+            <h2 className="evd-section-title">Organiser</h2>
+            <p className="evd-organiser__name">{organiserName}</p>
+            <p className="evd-organiser__copy">
+              Listed organiser on DELVE — message them for tickets, group bookings, or accessibility questions.
+            </p>
+            <Link to={`/u/${encodeURIComponent(data.organizer_username)}`} className="evd-organiser__link">
+              View organiser profile
+            </Link>
+          </section>
+
+          <section className="detail-section evd-moments">
+            <div className="evd-section-head">
+              <h2 className="evd-section-title">Delvers moments from this event</h2>
+              <Link to="/delvers">See more</Link>
+            </div>
+            <div className="evd-moments-grid">
+              <div className="evd-moment-card">
+                {data.cover_image ? (
+                  <img src={mediaUrl(data.cover_image) || ''} alt="" />
+                ) : (
+                  <div className="evd-moment-placeholder">📸</div>
+                )}
+                <p>
+                  <strong>@localguide</strong> Saved this for the weekend.
+                </p>
+              </div>
+              <div className="evd-moment-card">
+                <div className="evd-moment-placeholder">🎟</div>
+                <p>
+                  <strong>@traveller</strong> Who else is going?
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="detail-section evd-comments">
+            <h2 className="evd-section-title">Questions & comments</h2>
+            <p className="evd-section-sub">Ask the organiser or share tips for people attending.</p>
+
+            <textarea
+              className="evd-comment-input"
+              placeholder="Ask about parking, tickets, dress code, food, or arrival time..."
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              rows={3}
+            />
+
+            <button type="button" className="btn btn-primary evd-comment-btn" onClick={postComment} disabled={!commentDraft.trim()}>
+              Post comment
+            </button>
+
+            <div className="evd-comment-list">
+              {comments.map((c) => (
+                <article key={c.id} className="evd-comment">
+                  <div className="evd-comment__avatar" aria-hidden>
+                    {c.author.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="evd-comment__meta">
+                      <strong>{c.author}</strong> · {c.ago}
+                    </p>
+                    <p className="evd-comment__body">{c.body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </main>
+
+        <aside className="evd-sidebar">
+          <div className="evd-ticket-card">
+            <p className="evd-ticket-card__kicker">Ready to attend?</p>
+            <h2>{priceLabel}</h2>
+
+            <div className="evd-ticket-card__meta">
+              <span>
+                {start.month} {start.day}
+              </span>
+              <span>{start.time}</span>
+              {data.capacity ? <span>{data.capacity} capacity</span> : null}
+            </div>
+
+            {data.ticket_url ? (
+              <a
+                href={data.ticket_url}
+                className="btn btn-primary evd-ticket-card__btn"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Get tickets
+              </a>
+            ) : (
               <Link
                 to={`/u/${encodeURIComponent(data.organizer_username)}`}
-                className="btn btn-ghost ev-detail__ticket-organiser-btn"
+                className="btn btn-primary evd-ticket-card__btn"
               >
-                View organiser profile →
+                Contact organiser
               </Link>
-            </div>
-          )}
-        </div>
+            )}
 
+            <a href={gcalUrl} className="evd-ticket-card__secondary" target="_blank" rel="noopener noreferrer">
+              Add to calendar
+            </a>
+          </div>
+        </aside>
+      </div>
+
+      <div className="evd-mobile-bar">
+        <div>
+          <strong>{priceLabel}</strong>
+          <span>
+            {start.month} {start.day} · {start.time}
+          </span>
+        </div>
+        {data.ticket_url ? (
+          <a href={data.ticket_url} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            Tickets
+          </a>
+        ) : (
+          <Link to={`/u/${encodeURIComponent(data.organizer_username)}`} className="btn btn-primary">
+            Contact
+          </Link>
+        )}
       </div>
     </div>
   )

@@ -18,3 +18,14 @@ class IsEmailVerified(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         return getattr(request.user.profile, "email_verified", False)
+
+
+class IsPlatformAdmin(permissions.BasePermission):
+    message = "Platform admin access required."
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_staff
+        )

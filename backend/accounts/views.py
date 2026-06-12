@@ -8,8 +8,11 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import EmailVerificationToken, User
+from .business_access import business_permissions
+from .models import BusinessMembership, BusinessProfile, EmailVerificationToken, User
 from .serializers import (
+    BusinessProfileSerializer,
+    MyBusinessSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer,
     PublicProfileSerializer,
@@ -119,3 +122,49 @@ class PublicProfileView(APIView):
     def get(self, request, username):
         user = get_object_or_404(User.objects.select_related("profile"), username__iexact=username)
         return Response(PublicProfileSerializer(user.profile, context={"request": request}).data)
+
+
+class BusinessProfileListView(APIView):
+    """List businesses — filter by owner username."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        owner = (request.query_params.get("owner") or "").strip()
+        qs = BusinessProfile.objects.select_related("owner").all()
+        if owner:
+            qs = qs.filter(owner__username__iexact=owner)
+        return Response(BusinessProfileSerializer(qs, context={"request": request}, many=True).data)
+
+
+class BusinessProfileDetailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        business = get_object_or_404(BusinessProfile.objects.select_related("owner"), pk=pk)
+        return Response(BusinessProfileSerializer(business, context={"request": request}).data)
+
+
+class MyBusinessesView(APIView):
+    """Businesses the current user owns or is a team member of, with role permissions."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        owned = BusinessProfile.objects.filter(owner=request.user)
+        member_ids = BusinessMembership.objects.filter(user=request.user).values_list(
+            "business_id", flat=True
+        )
+        member = BusinessProfile.objects.filter(pk__in=member_ids)
+        businesses = (owned | member).distinct().select_related("owner")
+        perms_map = {}
+        for biz in businesses:
+            perms = business_permissions(request.user, biz)
+            perms_map[biz.pk] = {"role": perms.pop("role"), "permissions": perms}
+        return Response(
+            MyBusinessSerializer(
+                businesses,
+                many=True,
+                context={"request": request, "permissions_map": perms_map},
+            ).data
+        )

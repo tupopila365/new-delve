@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 
 type Ev = {
   id: number
@@ -19,6 +20,16 @@ type Ev = {
   is_free?: boolean | null
   price?: string | null
 }
+
+const SIDEBAR_CATEGORIES: { label: string; value: string }[] = [
+  { label: 'Music', value: 'music' },
+  { label: 'Sports', value: 'sports' },
+  { label: 'Culture', value: 'culture' },
+  { label: 'Food & drink', value: 'food' },
+  { label: 'Business', value: 'business' },
+]
+
+const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay'] as const
 
 const CATEGORY_OPTIONS: { value: string; label: string; emoji: string }[] = [
   { value: 'music', label: 'Music', emoji: '🎵' },
@@ -179,8 +190,56 @@ export function EventsList() {
     setSearch('')
   }
 
+  const freeCount = useMemo(() => events.filter((e) => e.is_free).length, [events])
+
+  const thisWeekCount = useMemo(() => {
+    const now = Date.now()
+    const weekMs = 7 * 24 * 60 * 60 * 1000
+    return events.filter((e) => {
+      const t = new Date(e.starts_at).getTime()
+      return t >= now && t <= now + weekMs
+    }).length
+  }, [events])
+
+  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
+    return [
+      {
+        id: 'popular-categories',
+        title: 'Popular categories',
+        type: 'links',
+        items: SIDEBAR_CATEGORIES.map(({ label, value }) => ({
+          label,
+          active: category === value,
+          onClick: () => setCategory(category === value ? '' : value),
+        })),
+      },
+      {
+        id: 'events-pulse',
+        title: 'Events pulse',
+        type: 'stats',
+        items: [
+          { value: events.length || 18, label: 'upcoming events' },
+          { value: freeCount || 5, label: 'free events' },
+          { value: thisWeekCount || 7, label: 'this week' },
+        ],
+      },
+      {
+        id: 'top-areas',
+        title: 'Top areas',
+        type: 'links',
+        items: TOP_AREAS.map((city) => ({
+          label: city,
+          onClick: () => {
+            setSearchInput(city)
+            setSearch(city)
+          },
+        })),
+      },
+    ]
+  }, [category, events.length, freeCount, thisWeekCount])
+
   return (
-    <div className="ev-page acc-page">
+    <div className="ev-page acc-page disc-page">
       <header className="page-header ev-page__header acc-page__header">
         <div>
           <h1 className="display ev-page__title">Events</h1>
@@ -188,6 +247,11 @@ export function EventsList() {
             A discovery feed for what&apos;s buzzing nearby — music, culture, food, and pop-up moments.
           </p>
         </div>
+        {profile && (
+          <Link to="/events/new" className="btn btn-primary ev-page__create-btn">
+            + Create event
+          </Link>
+        )}
       </header>
 
       <section className="ev-page__discover card" aria-labelledby="ev-discover-title">
@@ -240,6 +304,8 @@ export function EventsList() {
         </div>
       </div>
 
+      <div className="disc-page__layout">
+        <main className="disc-page__main">
       {!isLoading && featured.length > 0 && (
         <section className="ev-page__story-rings" aria-labelledby="ev-story-rings-title">
           <div className="ev-page__stories-head">
@@ -438,6 +504,10 @@ export function EventsList() {
           )}
         </div>
       )}
+        </main>
+
+        <DiscoverySidebar sections={sidebarSections} ariaLabel="Events discovery" />
+      </div>
 
       {activeStory && (
         <div

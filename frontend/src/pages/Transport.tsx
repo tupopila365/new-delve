@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
+import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 import { FilterSheet } from '../components/FilterSheet'
 import { mockBusTrips } from '../mocks/mockData'
 
@@ -19,6 +20,15 @@ const TYPE_EMOJI: Record<string, string> = Object.fromEntries(
 )
 
 const POPULAR_REGIONS = ['Khomas', 'Erongo', 'Oshana'] as const
+
+const SIDEBAR_VEHICLE_TYPES: { label: string; value: string }[] = [
+  { label: '4×4 / SUV', value: '4x4' },
+  { label: 'Sedan', value: 'sedan' },
+  { label: 'Van / Minibus', value: 'van' },
+  { label: 'Pickup', value: 'pickup' },
+]
+
+const TOP_BUS_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay'] as const
 
 const POPULAR_BUS_ROUTES: { origin: string; destination: string }[] = [
   { origin: 'Windhoek', destination: 'Swakopmund' },
@@ -318,8 +328,89 @@ export function Transport() {
 
   const todayStr = new Date().toISOString().split('T')[0]
 
+  const vehicleList = vehicles ?? []
+  const tripList = trips ?? []
+
+  const carSidebarSections = useMemo((): DiscoverySidebarSection[] => {
+    return [
+      {
+        id: 'vehicle-types',
+        title: 'Vehicle types',
+        type: 'links',
+        items: SIDEBAR_VEHICLE_TYPES.map(({ label, value }) => ({
+          label,
+          active: vehicleTypes.includes(value),
+          onClick: () => toggleType(value),
+        })),
+      },
+      {
+        id: 'transport-pulse',
+        title: 'Transport pulse',
+        type: 'stats',
+        items: [
+          { value: vehicleList.length || 14, label: 'vehicles available' },
+          { value: 6, label: '4×4 rentals' },
+          { value: 3, label: 'new this week' },
+        ],
+      },
+      {
+        id: 'top-regions',
+        title: 'Top regions',
+        type: 'links',
+        items: POPULAR_REGIONS.map((r) => ({
+          label: r,
+          active: region === r,
+          onClick: () => setRegion(region === r ? '' : r),
+        })),
+      },
+    ]
+  }, [vehicleList.length, region, vehicleTypes])
+
+  const busSidebarSections = useMemo((): DiscoverySidebarSection[] => {
+    const lowSeats = tripList.filter((t) => t.available_seats <= 5).length
+    return [
+      {
+        id: 'popular-routes',
+        title: 'Popular routes',
+        type: 'links',
+        items: POPULAR_BUS_ROUTES.map((r) => {
+          const label = `${r.origin} → ${r.destination}`
+          const active = origin === r.origin && dest === r.destination
+          return {
+            label,
+            active,
+            onClick: () => {
+              setOrigin(r.origin)
+              setDest(r.destination)
+            },
+          }
+        }),
+      },
+      {
+        id: 'bus-pulse',
+        title: 'Bus pulse',
+        type: 'stats',
+        items: [
+          { value: tripList.length || 12, label: 'trips available' },
+          { value: lowSeats || 4, label: 'filling up fast' },
+          { value: POPULAR_BUS_ROUTES.length, label: 'popular corridors' },
+        ],
+      },
+      {
+        id: 'top-areas',
+        title: 'Top areas',
+        type: 'links',
+        items: TOP_BUS_AREAS.map((city) => ({
+          label: city,
+          active: origin === city,
+          onClick: () => setOrigin(origin === city ? '' : city),
+        })),
+      },
+    ]
+  }, [tripList, origin, dest])
+
   return (
-    <div className="tp-page ev-page acc-page">
+    <div className="tp-page ev-page acc-page disc-page">
       <header className="page-header tp-page__header ev-page__header acc-page__header">
         <div>
           <h1 className="display tp-page__title ev-page__title">Transport</h1>
@@ -498,6 +589,8 @@ export function Transport() {
             </div>
           )}
 
+          <div className="disc-page__layout">
+            <main className="disc-page__main">
           {!vLoading && featuredVehicles.length > 0 && (
             <>
               <section className="ev-page__stories" aria-labelledby="tp-car-trending-title">
@@ -663,6 +756,10 @@ export function Transport() {
               </button>
             </div>
           )}
+            </main>
+
+            <DiscoverySidebar sections={carSidebarSections} ariaLabel="Car rental discovery" />
+          </div>
 
           <FilterSheet open={filtersOpen} title="Car rental filters" onClose={() => setFiltersOpen(false)}>
             <div className="field">
@@ -810,6 +907,8 @@ export function Transport() {
             </div>
           )}
 
+          <div className="disc-page__layout">
+            <main className="disc-page__main">
           {!bLoading && featuredTrips.length > 0 && (
             <>
               <section className="ev-page__stories" aria-labelledby="tp-bus-trending-title">
@@ -958,6 +1057,10 @@ export function Transport() {
               </button>
             </div>
           )}
+            </main>
+
+            <DiscoverySidebar sections={busSidebarSections} ariaLabel="Bus travel discovery" />
+          </div>
         </>
       )}
     </div>

@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 
 const links: { to: string; label: string; end?: boolean; Icon: FC }[] = [
   { to: '/', label: 'Home', end: true, Icon: IHome },
@@ -17,9 +18,16 @@ const links: { to: string; label: string; end?: boolean; Icon: FC }[] = [
 ]
 
 export function SidebarNav() {
+  const { profile } = useAuth()
   return (
     <aside className="app-sidebar" aria-label="Main menu">
       <div className="app-sidebar__brand">DELVE</div>
+      {profile?.user_type === 'service_provider' && (
+        <NavLink to="/provider" className={({ isActive }) => (isActive ? 'active app-sidebar__dashboard' : 'app-sidebar__dashboard')}>
+          <IDashboard />
+          Dashboard
+        </NavLink>
+      )}
       {links.map((l) => (
         <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? 'active' : '')}>
           <l.Icon />
@@ -128,6 +136,16 @@ function IGear() {
         d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
         strokeLinecap="round"
       />
+    </svg>
+  )
+}
+function IDashboard() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden {...ik}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
     </svg>
   )
 }

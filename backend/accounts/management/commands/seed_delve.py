@@ -3,8 +3,16 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from accommodation.models import AccommodationListing, BookingStatus
-from accounts.models import Profile, User, UserType
+from accommodation.models import AccommodationBooking, AccommodationListing, BookingStatus
+from accounts.models import (
+    BusinessMembership,
+    BusinessProfile,
+    BusinessTeamRole,
+    Profile,
+    User,
+    UserType,
+    VerificationStatus,
+)
 from events_app.models import Event, EventCategory
 from food.models import CuisineType, FoodVenue
 from guides.models import TourGuideProfile
@@ -129,53 +137,77 @@ class Command(BaseCommand):
             "Coastal guesthouse": [
                 {
                     "kind": "image",
-                    "src": "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=70",
+                    "src": "https://images.unsplash.com/photo-1590490360182-c33d9a6b35d8?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
                     "kind": "image",
-                    "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=70",
+                    "src": "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
-                    "kind": "video",
-                    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1611892440504-42a792e56d7d?auto=format&fit=crop&w=1200&q=70",
+                },
+                {
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=70",
                 },
             ],
             "Independence Ave Hotel": [
+                {
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1631049307264-da0ec9fad704?auto=format&fit=crop&w=1200&q=70",
+                },
                 {
                     "kind": "image",
                     "src": "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
                     "kind": "image",
-                    "src": "https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1200&q=70",
+                    "src": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
-                    "kind": "video",
-                    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=1200&q=70",
+                },
+                {
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1551218808-94e220e3f1e0?auto=format&fit=crop&w=1200&q=70",
                 },
             ],
             "Desert Quiver Camp": [
+                {
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1478131143081-c8824962e68b?auto=format&fit=crop&w=1200&q=70",
+                },
                 {
                     "kind": "image",
                     "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
                     "kind": "image",
-                    "src": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=70",
+                    "src": "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=70",
+                },
+                {
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70",
                 },
             ],
             "Klein Windhoek B&B": [
                 {
                     "kind": "image",
-                    "src": "https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1200&q=70",
+                    "src": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
                     "kind": "image",
-                    "src": "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=70",
+                    "src": "https://images.unsplash.com/photo-1568605114967-5810f7d0c869?auto=format&fit=crop&w=1200&q=70",
                 },
                 {
-                    "kind": "video",
-                    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1551218808-94e220e3f1e0?auto=format&fit=crop&w=1200&q=70",
+                },
+                {
+                    "kind": "image",
+                    "src": "https://images.unsplash.com/photo-1611892440504-42a792e56d7d?auto=format&fit=crop&w=1200&q=70",
                 },
             ],
         }
@@ -533,8 +565,57 @@ class Command(BaseCommand):
                     }
                 ],
                 tour_packages=[
-                    {"id": "dunes-half", "title": "Dunes & deadvlei half-day", "hours": 4, "price": "1800"},
-                    {"id": "dunes-full", "title": "Full Namib loop & picnic", "hours": 8, "price": "3200"},
+                    {
+                        "id": "dunes-half",
+                        "title": "Dunes & deadvlei half-day",
+                        "hours": 4,
+                        "price": "1800",
+                        "photo": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                        "description": (
+                            "Morning run toward Sossusvlei with time on the pans, Deadvlei on foot, "
+                            "and a shaded refreshment stop — pace tuned to heat and group fitness."
+                        ),
+                        "photos": [
+                            "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
+                            "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=70",
+                        ],
+                        "reviews": [
+                            {
+                                "name": "Marta V.",
+                                "place": "Johannesburg",
+                                "rating": 5,
+                                "body": (
+                                    "Deadvlei timing was ideal for photography and the guide paced water "
+                                    "breaks thoughtfully."
+                                ),
+                            },
+                            {
+                                "name": "Chris D.",
+                                "place": "Chicago",
+                                "rating": 4.9,
+                                "body": "Briefing the evening before matched exactly what we did on the dunes — no surprises.",
+                            },
+                        ],
+                    },
+                    {
+                        "id": "dunes-full",
+                        "title": "Full Namib loop & picnic",
+                        "hours": 8,
+                        "price": "3200",
+                        "photo": "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
+                        "photos": [
+                            "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                            "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=70",
+                        ],
+                        "reviews": [
+                            {
+                                "name": "Elena R.",
+                                "place": "Valencia",
+                                "rating": 5,
+                                "body": "Long day done right — picnic stop and pacing made the mileage feel manageable.",
+                            }
+                        ],
+                    },
                 ],
                 portfolio_gallery=[
                     {
@@ -588,4 +669,134 @@ class Command(BaseCommand):
                     is_delvers=True,
                 )
 
-        self.stdout.write(self.style.SUCCESS("Seed complete. Users: demo_user / demo12345, demo_provider / demo12345 (email verified)."))
+        # Platform admin
+        admin_u, _ = User.objects.get_or_create(
+            username="demo_admin",
+            defaults={"email": "admin@delve.local", "is_staff": True},
+        )
+        admin_u.is_staff = True
+        if not admin_u.has_usable_password():
+            admin_u.set_password("demo12345")
+        admin_u.save()
+        admin_p = admin_u.profile
+        admin_p.display_name = "DELVE Admin"
+        admin_p.email_verified = True
+        admin_p.save()
+
+        # Stays-only provider (frontend parity)
+        stays_u, _ = User.objects.get_or_create(
+            username="stays_host",
+            defaults={"email": "stays@delve.local"},
+        )
+        if not stays_u.has_usable_password():
+            stays_u.set_password("demo12345")
+            stays_u.save()
+        stays_p = stays_u.profile
+        stays_p.user_type = UserType.SERVICE_PROVIDER
+        stays_p.display_name = "Dune Stays Namibia"
+        stays_p.region = "Erongo"
+        stays_p.city = "Swakopmund"
+        stays_p.country_code = "NA"
+        stays_p.email_verified = True
+        stays_p.save()
+
+        if not AccommodationListing.objects.filter(title="Freesia Hotel", owner=stays_u).exists():
+            AccommodationListing.objects.create(
+                owner=stays_u,
+                title="Freesia Hotel",
+                description="Boutique hotel in central Swakopmund with breakfast and secure parking.",
+                region="Erongo",
+                city="Swakopmund",
+                price_per_night=350,
+                max_guests=2,
+                bedrooms=1,
+                property_type=AccommodationListing.PropertyType.HOTEL,
+                amenities=["wifi", "parking", "breakfast"],
+                rating_avg=4.72,
+                rating_count=48,
+            )
+
+        coastal = AccommodationListing.objects.filter(title="Coastal guesthouse").first()
+        if coastal and coastal.owner_id != stays_u.id:
+            pass  # keep demo_provider ownership
+
+        # Business profiles
+        biz_specs = [
+            (
+                "desert-stays",
+                u2,
+                "Desert Stays",
+                ["multi_provider", "accommodation", "guide"],
+                "Boutique stays and guided desert experiences across Namibia.",
+                "Stays & guided tours across Namibia",
+                "Erongo",
+                "Swakopmund",
+            ),
+            (
+                "dune-stays-namibia",
+                stays_u,
+                "Dune Stays Namibia",
+                ["accommodation"],
+                "Boutique lodges and guesthouses across the Namibian coast.",
+                "Coastal lodges & city guesthouses",
+                "Erongo",
+                "Swakopmund",
+            ),
+        ]
+        for slug, owner, name, types, desc, tagline, region, city in biz_specs:
+            biz, created = BusinessProfile.objects.get_or_create(
+                slug=slug,
+                defaults={
+                    "owner": owner,
+                    "business_name": name,
+                    "business_types": types,
+                    "verification_status": VerificationStatus.VERIFIED,
+                    "description": desc,
+                    "tagline": tagline,
+                    "region": region,
+                    "city": city,
+                },
+            )
+            if not created:
+                biz.verification_status = VerificationStatus.VERIFIED
+                biz.save(update_fields=["verification_status", "updated_at"])
+            BusinessMembership.objects.get_or_create(
+                business=biz,
+                user=owner,
+                defaults={"role": BusinessTeamRole.OWNER},
+            )
+
+        # Sample stay bookings for provider inbox
+        coastal_listing = AccommodationListing.objects.filter(title="Coastal guesthouse").first()
+        if coastal_listing and not AccommodationBooking.objects.filter(
+            listing=coastal_listing, guest=u1, check_in="2026-05-10"
+        ).exists():
+            AccommodationBooking.objects.create(
+                listing=coastal_listing,
+                guest=u1,
+                check_in="2026-05-10",
+                check_out="2026-05-13",
+                guests=2,
+                total_price=2850,
+                status=BookingStatus.CONFIRMED,
+                mock_payment_ref="mock_seed_coastal_1",
+            )
+        hotel_listing = AccommodationListing.objects.filter(title="Independence Ave Hotel").first()
+        if hotel_listing and not AccommodationBooking.objects.filter(
+            listing=hotel_listing, guest=u1, check_in="2026-05-20"
+        ).exists():
+            AccommodationBooking.objects.create(
+                listing=hotel_listing,
+                guest=u1,
+                check_in="2026-05-20",
+                check_out="2026-05-22",
+                guests=1,
+                total_price=1240,
+                status=BookingStatus.PENDING,
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Seed complete. Users: demo_user, demo_provider, stays_host, demo_admin — password demo12345."
+            )
+        )

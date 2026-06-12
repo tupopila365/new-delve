@@ -1,34 +1,52 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import type { FC } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { openDelversSearch } from '../utils/delversSearchBridge'
 
 const leftItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: boolean }> }[] = [
   { to: '/', label: 'Home', end: true, Icon: IconHome },
   { to: '/search', label: 'Search', Icon: IconSearch },
 ]
 
-const rightItems: { to: string; label: string; Icon: FC<{ active: boolean }> }[] = [
-  { to: '/community', label: 'Community', Icon: IconCommunity },
-  { to: '/account', label: 'Profile', Icon: IconProfile },
-]
+const communityItem = { to: '/community', label: 'Community', Icon: IconCommunity }
 
 export function BottomNav() {
   const { profile } = useAuth()
+  const location = useLocation()
+  const onDelvers = location.pathname === '/delvers'
+  const profileTo = profile ? `/u/${profile.username}` : '/account'
 
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      {leftItems.map((i) => (
-        <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => (isActive ? 'active' : '')}>
-          {({ isActive }) => (
-            <>
-              <i.Icon active={isActive} />
-              <span className="bottom-nav__label">{i.label}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
+      {leftItems.map((i) => {
+        if (i.to === '/search' && onDelvers) {
+          return (
+            <button
+              key={i.to}
+              type="button"
+              className="bottom-nav__action"
+              onClick={openDelversSearch}
+              aria-label="Search Delvers pins"
+            >
+              <i.Icon active={false} />
+              <span className="bottom-nav__label">Search</span>
+            </button>
+          )
+        }
 
-      {/* Centre post button — links to /create, only shown when logged in, greyed otherwise */}
+        return (
+          <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => (isActive ? 'active' : '')}>
+            {({ isActive }) => (
+              <>
+                <i.Icon active={isActive} />
+                <span className="bottom-nav__label">{i.label}</span>
+              </>
+            )}
+          </NavLink>
+        )
+      })}
+
+      {/* Centre post button */}
       <NavLink
         to={profile ? '/create' : '/login'}
         className="bottom-nav__post"
@@ -41,16 +59,23 @@ export function BottomNav() {
         </span>
       </NavLink>
 
-      {rightItems.map((i) => (
-        <NavLink key={i.to} to={i.to} className={({ isActive }) => (isActive ? 'active' : '')}>
-          {({ isActive }) => (
-            <>
-              <i.Icon active={isActive} />
-              <span className="bottom-nav__label">{i.label}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
+      <NavLink to={communityItem.to} className={({ isActive }) => (isActive ? 'active' : '')}>
+        {({ isActive }) => (
+          <>
+            <communityItem.Icon active={isActive} />
+            <span className="bottom-nav__label">{communityItem.label}</span>
+          </>
+        )}
+      </NavLink>
+
+      <NavLink to={profileTo} className={({ isActive }) => (isActive ? 'active' : '')}>
+        {({ isActive }) => (
+          <>
+            <IconProfile active={isActive} />
+            <span className="bottom-nav__label">Profile</span>
+          </>
+        )}
+      </NavLink>
     </nav>
   )
 }

@@ -17,6 +17,11 @@ class UserType(models.TextChoices):
     SERVICE_PROVIDER = "service_provider", "Service provider"
 
 
+class PostsVisibility(models.TextChoices):
+    PUBLIC = "public", "Everyone"
+    PRIVATE = "only_me", "Only me"
+
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     user_type = models.CharField(
@@ -40,6 +45,25 @@ class Profile(models.Model):
         help_text="ISO 4217; how prices should be shown to this user.",
     )
     email_verified = models.BooleanField(default=False)
+    # Privacy settings
+    is_private = models.BooleanField(
+        default=False,
+        help_text="Private accounts hide posts and activity from non-owners.",
+    )
+    posts_visibility = models.CharField(
+        max_length=16,
+        choices=PostsVisibility.choices,
+        default=PostsVisibility.PUBLIC,
+        help_text="Who can see this user's posts.",
+    )
+    allow_messages = models.BooleanField(
+        default=True,
+        help_text="Allow other users to send message requests.",
+    )
+    show_in_search = models.BooleanField(
+        default=True,
+        help_text="Appear in search results and user discovery.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,6 +89,74 @@ class EmailVerificationToken(models.Model):
     def create_for_user(cls, user: User) -> "EmailVerificationToken":
         cls.objects.filter(user=user, used=False).update(used=True)
         return cls.objects.create(user=user)
+
+
+class BusinessType(models.TextChoices):
+    ACCOMMODATION = "accommodation", "Accommodation"
+    TRANSPORT = "transport", "Transport"
+    EVENT_ORGANISER = "event_organiser", "Event organiser"
+    FOOD_DRINK = "food_drink", "Food & drink"
+    GUIDE = "guide", "Guide"
+    MULTI_PROVIDER = "multi_provider", "Multi-category"
+
+
+class VerificationStatus(models.TextChoices):
+    UNVERIFIED = "unverified", "Unverified"
+    PENDING = "pending", "Pending review"
+    VERIFIED = "verified", "Verified"
+    SUSPENDED = "suspended", "Suspended"
+    REJECTED = "rejected", "Rejected"
+
+
+class BusinessTeamRole(models.TextChoices):
+    OWNER = "owner", "Owner"
+    MANAGER = "manager", "Manager"
+    STAFF = "staff", "Staff"
+    VIEWER = "viewer", "Viewer"
+
+
+class BusinessProfile(models.Model):
+    """Public business/provider presence — separate from the personal user profile."""
+
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="businesses")
+    slug = models.SlugField(max_length=80, unique=True)
+    business_name = models.CharField(max_length=160)
+    business_types = models.JSONField(default=list, blank=True)
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+    )
+    description = models.TextField(blank=True)
+    tagline = models.CharField(max_length=200, blank=True)
+    logo = models.ImageField(upload_to="business_logos/", blank=True, null=True)
+    cover_image = models.ImageField(upload_to="business_covers/", blank=True, null=True)
+    region = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["business_name"]
+
+    def __str__(self):
+        return self.business_name
+
+
+class BusinessMembership(models.Model):
+    """Team access inside a business (owner, manager, staff, viewer)."""
+
+    business = models.ForeignKey(BusinessProfile, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="business_memberships")
+    role = models.CharField(max_length=16, choices=BusinessTeamRole.choices, default=BusinessTeamRole.STAFF)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("business", "user")]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} @ {self.business.business_name} ({self.role})"
 
 
 def generate_username_suggestion(base: str) -> str:

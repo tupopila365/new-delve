@@ -5,6 +5,7 @@ export type MockProfile = {
   username: string
   email: string
   user_type: 'normal' | 'service_provider'
+  is_staff?: boolean
   display_name: string
   bio: string
   region: string
@@ -13,6 +14,10 @@ export type MockProfile = {
   preferred_currency: string
   avatar: string | null
   email_verified: boolean
+  is_private: boolean
+  posts_visibility: 'public' | 'only_me'
+  allow_messages: boolean
+  show_in_search: boolean
 }
 
 export type MockPost = {
@@ -150,6 +155,11 @@ export type MockEvent = {
   city: string
   cover_image: string | null
   organizer_username: string
+  organizer_display_name?: string
+  is_free?: boolean
+  price?: string
+  ticket_url?: string
+  capacity?: number
 }
 
 export type MockFoodVenue = {
@@ -164,6 +174,10 @@ export type MockFoodVenue = {
   owner_username: string
   rating_avg: string
   rating_count: number
+  is_open?: boolean
+  tagline?: string | null
+  popular_dish?: string | null
+  closes_at?: string | null
 }
 
 export type MockGuide = {
@@ -181,7 +195,17 @@ export type MockGuide = {
   rating_count: number
   guest_reviews?: unknown
   response_hours_typical?: number
-  tour_packages?: { id: string; title: string; hours: number; price: string }[]
+  tour_packages?: {
+    id: string
+    title: string
+    hours: number
+    price: string
+    photo?: string | null
+    description?: string
+    photos?: string[]
+    gallery?: { src: string; caption?: string }[]
+    reviews?: { name: string; place?: string; rating: number; body: string }[]
+  }[]
   years_guiding?: number | null
   certifications?: string[]
   licensed_guide?: boolean
@@ -196,11 +220,51 @@ const U = {
   coast: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=70',
   city: 'https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1200&q=70',
   food: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=70',
+  foodCafe: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80',
+  foodGrill: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+  foodSeafood: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80',
+  foodBakery: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80',
+  foodPizza: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+  foodBar: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1200&q=80',
+  foodStreet: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1200&q=80',
+  foodDessert: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=80',
+  foodBreakfast: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=1200&q=80',
   safari: 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70',
   map: 'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=1200&q=70',
   wheel: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=70',
   stay1: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=70',
   stay2: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=70',
+}
+
+/** Accommodation-first gallery shots (bedroom → exterior → view → bathroom/living). */
+const STAY = {
+  bedroom: 'https://images.unsplash.com/photo-1631049307264-da0ec9fad704?auto=format&fit=crop&w=1200&q=70',
+  bedroomTwin: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=70',
+  suite: 'https://images.unsplash.com/photo-1566665797739-1674de7a215a?auto=format&fit=crop&w=1200&q=70',
+  exterior: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=70',
+  lodgeExterior: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=70',
+  balcony: 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70',
+  roomView: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=70',
+  bathroom: 'https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=1200&q=70',
+  living: 'https://images.unsplash.com/photo-1611892440504-42a792e56d7d?auto=format&fit=crop&w=1200&q=70',
+  breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e3f1e0?auto=format&fit=crop&w=1200&q=70',
+  pool: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=70',
+  coastalRoom: 'https://images.unsplash.com/photo-1590490360182-c33d9a6b35d8?auto=format&fit=crop&w=1200&q=70',
+  guesthouse: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=70',
+  bbHouse: 'https://images.unsplash.com/photo-1568605114967-5810f7d0c869?auto=format&fit=crop&w=1200&q=70',
+  glamping: 'https://images.unsplash.com/photo-1478131143081-c8824962e68b?auto=format&fit=crop&w=1200&q=70',
+}
+
+/** Vehicle-first gallery shots (exterior → side → interior → road). */
+const VEH = {
+  hiluxFront: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=70',
+  suvSide: 'https://images.unsplash.com/photo-1519641471654-76ce0107a85b?auto=format&fit=crop&w=1200&q=70',
+  interior: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=1200&q=70',
+  road: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=70',
+  hatchback: 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1200&q=70',
+  van: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1200&q=70',
+  luxury: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=70',
+  pickup: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=70',
 }
 
 /** Short CC0 / demo MP4s for Delvers video pins (URLs pass through `mediaUrl`). */
@@ -342,6 +406,10 @@ export const mockProfiles: Record<string, MockProfile> = {
     preferred_currency: 'NAD',
     avatar: null,
     email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
   },
   demo_provider: {
     username: 'demo_provider',
@@ -355,6 +423,96 @@ export const mockProfiles: Record<string, MockProfile> = {
     preferred_currency: 'NAD',
     avatar: HOST_STORY_AVATARS.desertStays,
     email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  stays_host: {
+    username: 'stays_host',
+    email: 'stays@delve.local',
+    user_type: 'service_provider',
+    display_name: 'Dune Stays Namibia',
+    bio: 'Boutique lodges and guesthouses across the Namibian coast and heartland.',
+    region: 'Erongo',
+    city: 'Swakopmund',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  guide_pro: {
+    username: 'guide_pro',
+    email: 'guide@delve.local',
+    user_type: 'service_provider',
+    display_name: 'Kaoko Safari Guides',
+    bio: 'Licensed wilderness guides for Etosha, Sossusvlei, Damaraland, and beyond.',
+    region: 'Kunene',
+    city: 'Opuwo',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  transport_mgr: {
+    username: 'transport_mgr',
+    email: 'transport@delve.local',
+    user_type: 'service_provider',
+    display_name: 'Namibia Wheels',
+    bio: '4×4 rentals and cross-country shuttles. Airport handovers, unlimited km, gravel-ready fleet.',
+    region: 'Khomas',
+    city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  food_owner: {
+    username: 'food_owner',
+    email: 'food@delve.local',
+    user_type: 'service_provider',
+    display_name: 'Taste of Namibia',
+    bio: 'Authentic Namibian grill and coastal café experiences. Dine in or take away.',
+    region: 'Khomas',
+    city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  demo_admin: {
+    username: 'demo_admin',
+    email: 'admin@delve.local',
+    user_type: 'normal',
+    is_staff: true,
+    display_name: 'DELVE Admin',
+    bio: 'Platform operations',
+    region: 'Khomas',
+    city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
   },
 }
 
@@ -365,18 +523,20 @@ export const mockStays: MockStay[] = [
     description: 'Clean, calm, and central — perfect for a Windhoek weekend.',
     region: 'Khomas',
     city: 'Windhoek',
+    // owned by stays_host demo account
     price_per_night: '350',
     max_guests: 2,
     bedrooms: 1,
     amenities: ['wifi', 'breakfast', 'parking'],
-    cover_image: U.city,
+    cover_image: STAY.bedroom,
     media_gallery: [
-      { kind: 'image', src: U.city },
-      { kind: 'image', src: U.stay1 },
-      { kind: 'image', src: U.stay2 },
-      { kind: 'video', src: V.flower },
+      { kind: 'image', src: STAY.bedroom },
+      { kind: 'image', src: STAY.exterior },
+      { kind: 'image', src: STAY.roomView },
+      { kind: 'image', src: STAY.bathroom },
+      { kind: 'image', src: STAY.breakfast },
     ],
-    owner_username: 'demo_provider',
+    owner_username: 'stays_host',
     rating_avg: '4.65',
     rating_count: 128,
     property_type: 'hotel',
@@ -458,13 +618,14 @@ export const mockStays: MockStay[] = [
     max_guests: 4,
     bedrooms: 2,
     amenities: ['wifi', 'parking', 'kitchen'],
-    cover_image: U.coast,
+    cover_image: STAY.coastalRoom,
     media_gallery: [
+      { kind: 'image', src: STAY.coastalRoom },
+      { kind: 'image', src: STAY.guesthouse },
+      { kind: 'image', src: STAY.living },
       { kind: 'image', src: U.coast },
-      { kind: 'image', src: U.dunes },
-      { kind: 'video', src: V.flower },
     ],
-    owner_username: 'demo_provider',
+    owner_username: 'stays_host',
     rating_avg: '4.82',
     rating_count: 94,
     property_type: 'guesthouse',
@@ -530,12 +691,12 @@ export const mockStays: MockStay[] = [
     max_guests: 2,
     bedrooms: 1,
     amenities: ['wifi', 'pool', 'sunset deck'],
-    cover_image: U.dunes,
+    cover_image: STAY.balcony,
     media_gallery: [
-      { kind: 'image', src: U.dunes },
-      { kind: 'image', src: U.safari },
-      { kind: 'image', src: U.coast },
-      { kind: 'video', src: V.flower },
+      { kind: 'image', src: STAY.balcony },
+      { kind: 'image', src: STAY.lodgeExterior },
+      { kind: 'image', src: STAY.pool },
+      { kind: 'image', src: STAY.bedroomTwin },
     ],
     owner_username: 'demo_provider',
     rating_avg: '4.90',
@@ -599,11 +760,12 @@ export const mockStays: MockStay[] = [
     max_guests: 2,
     bedrooms: 1,
     amenities: ['wifi', 'pool', 'parking', 'kitchenette'],
-    cover_image: U.dunes,
+    cover_image: STAY.glamping,
     media_gallery: [
+      { kind: 'image', src: STAY.glamping },
       { kind: 'image', src: U.dunes },
-      { kind: 'image', src: U.stay2 },
-      { kind: 'video', src: V.flower },
+      { kind: 'image', src: STAY.lodgeExterior },
+      { kind: 'image', src: STAY.balcony },
     ],
     owner_username: 'demo_provider',
     rating_avg: '4.75',
@@ -667,11 +829,12 @@ export const mockStays: MockStay[] = [
     max_guests: 2,
     bedrooms: 1,
     amenities: ['wifi', 'breakfast', 'parking'],
-    cover_image: U.city,
+    cover_image: STAY.bedroomTwin,
     media_gallery: [
-      { kind: 'image', src: U.city },
-      { kind: 'image', src: U.food },
-      { kind: 'image', src: U.stay1 },
+      { kind: 'image', src: STAY.bedroomTwin },
+      { kind: 'image', src: STAY.bbHouse },
+      { kind: 'image', src: STAY.breakfast },
+      { kind: 'image', src: STAY.living },
     ],
     owner_username: 'demo_provider',
     rating_avg: '4.92',
@@ -737,8 +900,8 @@ export const mockStays: MockStay[] = [
 export const mockVehicles: MockVehicle[] = [
   {
     id: 201,
-    owner_username: 'demo_provider',
-    owner_display_name: 'Namibia Wheels Hire',
+    owner_username: 'transport_mgr',
+    owner_display_name: 'Namibia Wheels',
     owner_bio:
       'Family-run rentals since 2014 — airport handovers, cross-country kits, and honest advice before you hit gravel.',
     owner_region: 'Khomas',
@@ -754,7 +917,7 @@ export const mockVehicles: MockVehicle[] = [
     price_per_day: '780',
     region: 'Khomas',
     city: 'Windhoek',
-    cover_image: U.wheel,
+    cover_image: VEH.hiluxFront,
     description:
       'Double-cab 4x4 with canopy — gravel roads and washaways are no problem. Popular for Etosha and the coast.',
     pickup_location: 'Windhoek CBD — exact street shared on confirmation.',
@@ -764,11 +927,7 @@ export const mockVehicles: MockVehicle[] = [
       'Unlimited kilometres',
       'Child seat on request',
     ],
-    gallery_images: [
-      'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=900&q=70',
-      'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=900&q=70',
-      'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=900&q=70',
-    ],
+    gallery_images: [VEH.hiluxFront, VEH.suvSide, VEH.interior, VEH.road],
   },
   {
     id: 202,
@@ -788,12 +947,16 @@ export const mockVehicles: MockVehicle[] = [
     price_per_day: '420',
     region: 'Erongo',
     city: 'Swakopmund',
-    cover_image: null,
+    cover_image: VEH.hatchback,
+    gallery_images: [VEH.hatchback, VEH.interior, VEH.road],
+    description: 'Compact automatic for town runs and the coast road — easy parking in Swakop.',
+    pickup_location: 'Swakopmund centre — handover at your guesthouse when possible.',
+    included_features: ['Basic insurance', 'Roadside support', 'Clean vehicle'],
   },
   {
     id: 203,
-    owner_username: 'demo_provider',
-    owner_display_name: 'Namibia Wheels Hire',
+    owner_username: 'transport_mgr',
+    owner_display_name: 'Namibia Wheels',
     owner_bio:
       'Family-run rentals since 2014 — airport handovers, cross-country kits, and honest advice before you hit gravel.',
     owner_region: 'Khomas',
@@ -809,7 +972,11 @@ export const mockVehicles: MockVehicle[] = [
     price_per_day: '1250',
     region: 'Khomas',
     city: 'Windhoek',
-    cover_image: U.wheel,
+    cover_image: VEH.van,
+    gallery_images: [VEH.van, VEH.interior, VEH.road],
+    description: 'Spacious people mover for families and small groups — airport meet & greet available.',
+    pickup_location: 'Windhoek — Hosea Kutako airport or city handover.',
+    included_features: ['Airport pickup', 'Basic insurance', 'Child seats on request'],
   },
   {
     id: 204,
@@ -829,7 +996,11 @@ export const mockVehicles: MockVehicle[] = [
     price_per_day: '980',
     region: 'Khomas',
     city: 'Windhoek',
-    cover_image: null,
+    cover_image: VEH.luxury,
+    gallery_images: [VEH.luxury, VEH.interior, VEH.road],
+    description: 'Executive sedan for corporate travel and events — polished and quiet on tar.',
+    pickup_location: 'Windhoek — hotel or airport handover.',
+    included_features: ['Meet & greet', 'Premium insurance', 'Unlimited kilometres'],
   },
 ]
 
@@ -916,6 +1087,9 @@ export const mockEvents: MockEvent[] = [
     city: 'Windhoek',
     cover_image: U.food,
     organizer_username: 'demo_user',
+    organizer_display_name: 'Windhoek Events Co.',
+    is_free: true,
+    capacity: 500,
   },
   {
     id: 402,
@@ -929,6 +1103,11 @@ export const mockEvents: MockEvent[] = [
     city: 'Swakopmund',
     cover_image: U.coast,
     organizer_username: 'demo_provider',
+    organizer_display_name: 'Coastal Vibes',
+    is_free: false,
+    price: '150',
+    ticket_url: 'https://example.com/tickets/coastal-sunset',
+    capacity: 200,
   },
 ]
 
@@ -941,10 +1120,14 @@ export const mockFood: MockFoodVenue[] = [
     region: 'Khomas',
     city: 'Windhoek',
     price_level: 2,
-    cover_image: U.food,
-    owner_username: 'demo_provider',
+    cover_image: U.foodGrill,
+    owner_username: 'food_owner',
     rating_avg: '4.55',
     rating_count: 210,
+    is_open: true,
+    tagline: 'Fresh local plates, lunch specials, and dinner favourites.',
+    popular_dish: 'Flame-grilled oryx steak',
+    closes_at: '9 PM',
   },
   {
     id: 502,
@@ -954,10 +1137,184 @@ export const mockFood: MockFoodVenue[] = [
     region: 'Erongo',
     city: 'Swakopmund',
     price_level: 1,
-    cover_image: null,
-    owner_username: 'demo_provider',
+    cover_image: U.foodCafe,
+    owner_username: 'food_owner',
     rating_avg: '4.40',
     rating_count: 67,
+    is_open: true,
+    tagline: 'Ocean-view brunch and single-origin espresso.',
+    popular_dish: 'Sea-salt croissant',
+    closes_at: '6 PM',
+  },
+  {
+    id: 503,
+    name: 'Sunrise Breakfast Co.',
+    description: 'Early opens, big plates, and fresh juice.',
+    cuisine: 'cafe',
+    region: 'Khomas',
+    city: 'Windhoek',
+    price_level: 1,
+    cover_image: U.foodBreakfast,
+    owner_username: 'food_owner',
+    rating_avg: '4.62',
+    rating_count: 94,
+    is_open: true,
+    tagline: 'The go-to morning stop before a road trip.',
+    popular_dish: 'Farmhouse breakfast bowl',
+    closes_at: '2 PM',
+  },
+  {
+    id: 504,
+    name: 'Atlantic Seafood Table',
+    description: 'Catch-of-the-day and oyster specials.',
+    cuisine: 'seafood',
+    region: 'Erongo',
+    city: 'Walvis Bay',
+    price_level: 3,
+    cover_image: U.foodSeafood,
+    owner_username: 'food_owner',
+    rating_avg: '4.71',
+    rating_count: 156,
+    is_open: true,
+    tagline: 'Harbour-fresh plates with a sunset deck.',
+    popular_dish: 'Grilled kingklip',
+    closes_at: '10 PM',
+  },
+  {
+    id: 505,
+    name: 'Crumb & Crust Bakery',
+    description: 'Sourdough, pastries, and weekend markets.',
+    cuisine: 'bakery',
+    region: 'Khomas',
+    city: 'Windhoek',
+    price_level: 1,
+    cover_image: U.foodBakery,
+    owner_username: 'food_owner',
+    rating_avg: '4.48',
+    rating_count: 88,
+    is_open: true,
+    tagline: 'Warm bread by 7am — sell out by noon.',
+    popular_dish: 'Cinnamon morning bun',
+    closes_at: '4 PM',
+  },
+  {
+    id: 506,
+    name: 'Napoli Stone Pizza',
+    description: 'Wood-oven pies and late-night slices.',
+    cuisine: 'pizza',
+    region: 'Khomas',
+    city: 'Windhoek',
+    price_level: 2,
+    cover_image: U.foodPizza,
+    owner_username: 'food_owner',
+    rating_avg: '4.36',
+    rating_count: 132,
+    is_open: false,
+    tagline: 'Thin crust, local toppings, family portions.',
+    popular_dish: 'Peri-peri chicken pizza',
+    closes_at: '11 PM',
+  },
+  {
+    id: 507,
+    name: 'Savannah Local Grill',
+    description: 'Braai nights and sharing platters.',
+    cuisine: 'grill',
+    region: 'Oshana',
+    city: 'Oshakati',
+    price_level: 2,
+    cover_image: U.foodGrill,
+    owner_username: 'food_owner',
+    rating_avg: '4.44',
+    rating_count: 73,
+    is_open: true,
+    tagline: 'Weekend braai with live local music.',
+    popular_dish: 'Mixed braai platter',
+    closes_at: '11 PM',
+  },
+  {
+    id: 508,
+    name: 'Skyline Rooftop Bar',
+    description: 'Cocktails, small plates, and city views.',
+    cuisine: 'bar',
+    region: 'Khomas',
+    city: 'Windhoek',
+    price_level: 3,
+    cover_image: U.foodBar,
+    owner_username: 'food_owner',
+    rating_avg: '4.58',
+    rating_count: 201,
+    is_open: true,
+    tagline: 'Golden-hour drinks above the CBD.',
+    popular_dish: 'Smoked chilli margarita',
+    closes_at: '12 AM',
+  },
+  {
+    id: 509,
+    name: 'Night Market Lane',
+    description: 'Street food stalls and live DJs.',
+    cuisine: 'local',
+    region: 'Khomas',
+    city: 'Windhoek',
+    price_level: 1,
+    cover_image: U.foodStreet,
+    owner_username: 'food_owner',
+    rating_avg: '4.29',
+    rating_count: 312,
+    is_open: true,
+    tagline: 'Cheap eats, loud energy, open late Fridays.',
+    popular_dish: 'Kapana with chilli relish',
+    closes_at: '1 AM',
+  },
+  {
+    id: 510,
+    name: 'Dolce Dessert Studio',
+    description: 'Cakes, gelato, and coffee flights.',
+    cuisine: 'bakery',
+    region: 'Erongo',
+    city: 'Swakopmund',
+    price_level: 2,
+    cover_image: U.foodDessert,
+    owner_username: 'food_owner',
+    rating_avg: '4.67',
+    rating_count: 54,
+    is_open: true,
+    tagline: 'Perfect after-dinner stop near the waterfront.',
+    popular_dish: 'Salted caramel tart',
+    closes_at: '9 PM',
+  },
+  {
+    id: 511,
+    name: 'Harbour Fish & Chips',
+    description: 'Paper-wrapped classics by the quay.',
+    cuisine: 'seafood',
+    region: 'Erongo',
+    city: 'Walvis Bay',
+    price_level: 1,
+    cover_image: U.foodSeafood,
+    owner_username: 'food_owner',
+    rating_avg: '4.33',
+    rating_count: 119,
+    is_open: false,
+    tagline: 'Quick harbour lunch — queues at noon.',
+    popular_dish: 'Beer-battered hake',
+    closes_at: '5 PM',
+  },
+  {
+    id: 512,
+    name: 'Bean Theory Espresso',
+    description: 'Third-wave coffee and light bites.',
+    cuisine: 'cafe',
+    region: 'Erongo',
+    city: 'Swakopmund',
+    price_level: 2,
+    cover_image: U.foodCafe,
+    owner_username: 'food_owner',
+    rating_avg: '4.51',
+    rating_count: 41,
+    is_open: true,
+    tagline: 'Serious espresso in a calm coastal room.',
+    popular_dish: 'Flat white & almond croissant',
+    closes_at: '7 PM',
   },
 ]
 
@@ -971,8 +1328,8 @@ export const mockGuides: MockGuide[] = [
     regions: ['Africa', 'Southern Africa'],
     hourly_rate: '450',
     photo: U.safari,
-    username: 'demo_provider',
-    display_name: 'Desert Stays',
+    username: 'guide_pro',
+    display_name: 'Kaoko Safari Guides',
     rating_avg: '4.95',
     rating_count: 142,
     response_hours_typical: 2,
@@ -999,8 +1356,46 @@ export const mockGuides: MockGuide[] = [
       },
     ],
     tour_packages: [
-      { id: 'dunes-half', title: 'Dunes & deadvlei half-day', hours: 4, price: '1800' },
-      { id: 'dunes-full', title: 'Full Namib loop & picnic', hours: 8, price: '3200' },
+      {
+        id: 'dunes-half',
+        title: 'Dunes & deadvlei half-day',
+        hours: 4,
+        price: '1800',
+        photo: U.dunes,
+        description:
+          'Morning pick-up toward Sossusvlei with time on the pans, Deadvlei walk, and a shaded coffee break before return. Pace matched to heat and fitness.',
+        photos: [U.safari, U.wheel],
+        reviews: [
+          {
+            name: 'Marta V.',
+            place: 'Johannesburg',
+            rating: 5,
+            body: 'We booked the half-day specifically for Deadvlei — timing at the clay pan was perfect for photos and our kids coped fine in the heat.',
+          },
+          {
+            name: 'Chris D.',
+            place: 'Chicago',
+            rating: 4.9,
+            body: 'Crystal-clear briefing the night before and a calm driver. Felt like this exact route was what we paid for, not a rushed generic tour.',
+          },
+        ],
+      },
+      {
+        id: 'dunes-full',
+        title: 'Full Namib loop & picnic',
+        hours: 8,
+        price: '3200',
+        photo: U.safari,
+        photos: [U.dunes, U.stay1],
+        reviews: [
+          {
+            name: 'Elena R.',
+            place: 'Valencia',
+            rating: 5,
+            body: 'The full-day loop with picnic was worth it — one long day but we saw dunes, dry riverbeds, and wildlife we would have missed on our own.',
+          },
+        ],
+      },
     ],
     portfolio_gallery: [
       { src: U.dunes, caption: 'Sossusvlei at sunrise' },
@@ -1027,7 +1422,40 @@ export const mockGuides: MockGuide[] = [
     licensed_guide: false,
     certifications: [],
     guest_reviews: [],
-    tour_packages: [],
+    tour_packages: [
+      {
+        id: 'windhoek-walk',
+        title: 'Old centre architecture walk',
+        hours: 2,
+        price: '560',
+        photo: U.city,
+        photos: [U.map, U.city],
+        reviews: [
+          {
+            name: 'Thabo N.',
+            place: 'Windhoek',
+            rating: 4.7,
+            body: 'Two hours flew by — good mix of German colonial pockets and Independence-era stories.',
+          },
+        ],
+      },
+      {
+        id: 'windhoek-food',
+        title: 'Market & coffee circuit',
+        hours: 3,
+        price: '840',
+        photo: U.food,
+        photos: [U.city],
+        reviews: [
+          {
+            name: 'Lina F.',
+            place: 'Walvis Bay',
+            rating: 4.8,
+            body: 'Stopped at places we never would have found solo; the market tasting was delicious.',
+          },
+        ],
+      },
+    ],
     portfolio_gallery: [],
     default_meeting_point: 'Independence Memorial Museum steps',
     specialities: ['Urban walks', 'History'],
@@ -1062,8 +1490,38 @@ export const mockGuides: MockGuide[] = [
       },
     ],
     tour_packages: [
-      { id: 'tokyo-neon', title: 'Neon & izakaya trail', hours: 3, price: '240' },
-      { id: 'tokyo-late', title: 'Late-night Shinjuku deep dive', hours: 4, price: '320' },
+      {
+        id: 'tokyo-neon',
+        title: 'Neon & izakaya trail',
+        hours: 3,
+        price: '240',
+        photo: U.city,
+        photos: [U.food, U.city],
+        reviews: [
+          {
+            name: 'Alex P.',
+            place: 'London',
+            rating: 5,
+            body: 'This exact neon route was unbelievable — yakitori stop then quiet backstreets we never saw on blogs.',
+          },
+        ],
+      },
+      {
+        id: 'tokyo-late',
+        title: 'Late-night Shinjuku deep dive',
+        hours: 4,
+        price: '320',
+        photo: U.food,
+        photos: [U.city],
+        reviews: [
+          {
+            name: 'Sam W.',
+            place: 'Sydney',
+            rating: 4.9,
+            body: 'Felt totally safe weaving late-night Shinjuku; guide knew where to linger for photos vs where to move on.',
+          },
+        ],
+      },
     ],
     portfolio_gallery: [{ src: U.city, caption: 'Shinjuku crossing' }],
     default_meeting_point: 'Shinjuku Station — east exit, central pillar B',
@@ -1085,8 +1543,38 @@ export const mockGuides: MockGuide[] = [
     response_hours_typical: 3,
     years_guiding: 6,
     tour_packages: [
-      { id: 'lisbon-tiles', title: 'Old City tiles & viewpoints', hours: 2, price: '90' },
-      { id: 'lisbon-food', title: 'Sunset food trail', hours: 4, price: '175' },
+      {
+        id: 'lisbon-tiles',
+        title: 'Old City tiles & viewpoints',
+        hours: 2,
+        price: '90',
+        photo: U.coast,
+        photos: [U.city, U.coast],
+        reviews: [
+          {
+            name: 'Inês M.',
+            place: 'Porto',
+            rating: 4.95,
+            body: 'Viewpoints we repeated the next day on our own — the tile stories in Alfama stuck with us.',
+          },
+        ],
+      },
+      {
+        id: 'lisbon-food',
+        title: 'Sunset food trail',
+        hours: 4,
+        price: '175',
+        photo: U.food,
+        photos: [U.coast],
+        reviews: [
+          {
+            name: 'Jordan T.',
+            place: 'Boston',
+            rating: 5,
+            body: 'Sunset + pastel + bifana in one stroll — pacing was perfect.',
+          },
+        ],
+      },
     ],
     portfolio_gallery: [{ src: U.coast, caption: 'Belém waterfront' }],
     default_meeting_point: 'Praça do Comércio, south side fountain',
@@ -1107,8 +1595,38 @@ export const mockGuides: MockGuide[] = [
     rating_count: 891,
     response_hours_typical: 2,
     tour_packages: [
-      { id: 'nyc-bridges', title: 'Brooklyn Bridge & DUMBO', hours: 2, price: '240' },
-      { id: 'nyc-downtown', title: 'Downtown skyline walk', hours: 3, price: '360' },
+      {
+        id: 'nyc-bridges',
+        title: 'Brooklyn Bridge & DUMBO',
+        hours: 2,
+        price: '240',
+        photo: U.map,
+        photos: [U.city],
+        reviews: [
+          {
+            name: 'Priya K.',
+            place: 'Toronto',
+            rating: 4.9,
+            body: 'Classic bridge shots without jostling — guide timed it between pedestrian peaks.',
+          },
+        ],
+      },
+      {
+        id: 'nyc-downtown',
+        title: 'Downtown skyline walk',
+        hours: 3,
+        price: '360',
+        photo: U.city,
+        photos: [U.map],
+        reviews: [
+          {
+            name: 'Leo G.',
+            place: 'Miami',
+            rating: 4.85,
+            body: 'Waterfront pacing was great — we paused where light hit the skyline just right.',
+          },
+        ],
+      },
     ],
     portfolio_gallery: [{ src: U.map, caption: 'Manhattan skyline' }],
     default_meeting_point: 'City Hall Park — north entrance',

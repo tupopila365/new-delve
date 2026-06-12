@@ -1,16 +1,7 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { mediaUrl } from '../api/client'
-
-const navLinks: { to: string; label: string; end?: boolean }[] = [
-  { to: '/accommodation', label: 'Stays' },
-  { to: '/transport', label: 'Transport' },
-  { to: '/events', label: 'Events' },
-  { to: '/food', label: 'Food & drink' },
-  { to: '/guides', label: 'Guides' },
-  { to: '/delvers', label: 'Delvers' },
-  { to: '/community', label: 'Community' },
-]
+import { MAIN_NAV_SECTIONS } from '../data/mainNavSections'
+import { ProfileMenu } from './ProfileMenu'
 
 export function TopNav() {
   const { profile } = useAuth()
@@ -22,7 +13,7 @@ export function TopNav() {
       </Link>
 
       <nav className="app-topnav__links" aria-label="Site sections">
-        {navLinks.map((l) => (
+        {MAIN_NAV_SECTIONS.map((l) => (
           <NavLink
             key={l.to}
             to={l.to}
@@ -54,21 +45,7 @@ export function TopNav() {
           Post
         </Link>
 
-        <Link to="/account" className="app-topnav__avatar" aria-label="Account">
-          {profile?.avatar ? (
-            <img
-              src={mediaUrl(profile.avatar) || ''}
-              alt=""
-              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-            />
-          ) : profile ? (
-            <span className="app-topnav__avatar-letter" aria-hidden>
-              {(profile.display_name || profile.username || '?').charAt(0).toUpperCase()}
-            </span>
-          ) : (
-            <IconUser />
-          )}
-        </Link>
+        <ProfileMenu avatarClassName="app-topnav__avatar" />
       </div>
     </header>
   )
@@ -103,11 +80,3 @@ function IconPlus() {
   )
 }
 
-function IconUser() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M6 20v-1a4 4 0 014-4h4a4 4 0 014 4v1" strokeLinecap="round" />
-    </svg>
-  )
-}

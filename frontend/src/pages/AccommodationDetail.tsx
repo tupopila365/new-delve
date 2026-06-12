@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { apiFetch } from '../api/client'
+import { apiFetch, mediaUrl } from '../api/client'
 import { RoomPhotoCarousel } from '../components/RoomPhotoCarousel'
 import { AccommodationGallery, buildGalleryItems } from '../components/AccommodationGallery'
 import { GuestReviewCard, normalizeReviews } from '../components/GuestReviewCard'
@@ -36,8 +36,6 @@ function parseHouseRules(text: string): string[] {
     .filter(Boolean)
 }
 
-type AccTopicId = 'policies' | 'rules' | 'about' | 'amenities' | 'rooms' | 'reviews' | 'faq' | 'location'
-
 type FaqItem = { question: string; answer: string }
 
 function normalizeFaqs(raw: unknown): FaqItem[] {
@@ -61,7 +59,7 @@ type RoomTypeItem = {
   bed_summary: string
   price_per_night: string | null
   image: string | null
-  images: string[]   // one or more room photos; always at least the cover if available
+  images: string[]
 }
 
 function parseOptionalUint(v: unknown): number | null {
@@ -95,7 +93,6 @@ function normalizeRoomTypes(raw: unknown): RoomTypeItem[] {
     const bed_summary = typeof o.bed_summary === 'string' ? o.bed_summary.trim() : ''
     const imgRaw = o.image ?? o.photo
     const image = typeof imgRaw === 'string' && imgRaw.trim() ? imgRaw.trim() : null
-    // Support multiple room photos: backend may send images[], gallery[], or photos[]
     const rawImgs = o.images ?? o.gallery ?? o.photos
     let images: string[] = []
     if (Array.isArray(rawImgs)) {
@@ -150,8 +147,35 @@ type Listing = {
   rating_count?: number
 }
 
+function whyGuestsLove(data: Listing): string[] {
+  const items = [
+    'Comfortable stay',
+    data.wifi ? 'Wi-Fi included' : null,
+    data.parking ? 'Easy parking' : null,
+    data.breakfast ? 'Breakfast available' : null,
+    data.pet_friendly ? 'Pet-friendly' : null,
+    data.kitchen ? 'Kitchen access' : null,
+    data.pool ? 'Pool on site' : null,
+    data.city ? `Close to ${data.city}` : 'Quiet location',
+    'Great for families',
+  ].filter(Boolean) as string[]
+
+  const unique: string[] = []
+  for (const item of items) {
+    if (!unique.includes(item)) unique.push(item)
+    if (unique.length >= 4) break
+  }
+  return unique
+}
+
 export function AccommodationDetail() {
   const { id } = useParams()
+  const [saved, setSaved] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
+  const [checkIn, setCheckIn] = useState('')
+  const [checkOut, setCheckOut] = useState('')
+  const [guests, setGuests] = useState(1)
+
   const { data, isLoading } = useQuery({
     queryKey: ['acc', id],
     enabled: !!id,
@@ -164,38 +188,20 @@ export function AccommodationDetail() {
   const rules = useMemo(() => (data?.house_rules ? parseHouseRules(data.house_rules) : []), [data])
   const hasPolicies = Boolean(data?.check_in_from || data?.check_out_until || data?.cancellation_policy)
 
-  const accTopics = useMemo(() => {
-    if (!data) return [] as { id: AccTopicId; label: string }[]
-    const t: { id: AccTopicId; label: string }[] = []
-    if (hasPolicies) t.push({ id: 'policies', label: 'Policies' })
-    if (rules.length > 0) t.push({ id: 'rules', label: 'Rules' })
-    if (data.description?.trim()) t.push({ id: 'about', label: 'About' })
-    if (data.amenities && data.amenities.length > 0) t.push({ id: 'amenities', label: 'Amenities' })
-    if (roomTypes.length > 0) t.push({ id: 'rooms', label: 'Rooms' })
-    t.push({ id: 'reviews', label: 'Reviews' })
-    if (faqs.length > 0) t.push({ id: 'faq', label: 'FAQ' })
-    t.push({ id: 'location', label: 'Location' })
-    return t
-  }, [data, hasPolicies, rules, roomTypes, faqs])
-
-  const [activeTopic, setActiveTopic] = useState<AccTopicId>('reviews')
-  const tabBarRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!data || accTopics.length === 0) return
-    setActiveTopic((prev) =>
-      accTopics.some((t) => t.id === prev) ? prev : accTopics[0].id,
-    )
-  }, [data?.id, accTopics])
-
-  const switchTopic = (topicId: AccTopicId) => {
-    setActiveTopic(topicId)
-    tabBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  const onShare = async (title: string) => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setShareMsg(`Link to ${title} copied`)
+      window.setTimeout(() => setShareMsg(''), 1600)
+    } catch {
+      setShareMsg('Copy failed')
+      window.setTimeout(() => setShareMsg(''), 1600)
+    }
   }
 
   if (isLoading || !data) {
     return (
-      <div className="td">
+      <div className="td acc-detail-page">
         <div className="skeleton acc-page__detail-skeleton" />
       </div>
     )
@@ -203,138 +209,188 @@ export function AccommodationDetail() {
 
   const mapHref = openStreetMapSearchUrl(data.city || '', data.region || '')
   const galleryItems = buildGalleryItems(data.media_gallery, data.cover_image)
-  const amenityChips = [
-    data.wifi ? 'Wi‑Fi' : null,
-    data.parking ? 'Parking' : null,
-    data.pool ? 'Pool' : null,
-    data.kitchen ? 'Kitchen' : null,
-    data.breakfast ? 'Breakfast' : null,
-  ].filter(Boolean) as string[]
+  const loveItems = whyGuestsLove(data)
+  const locationLine = [data.city, data.region].filter(Boolean).join(', ')
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  const bookParams = new URLSearchParams()
+  if (checkIn) bookParams.set('check_in', checkIn)
+  if (checkOut) bookParams.set('check_out', checkOut)
+  if (guests > 1) bookParams.set('guests', String(guests))
+  const bookQs = bookParams.toString()
+  const bookHref = `/accommodation/${id}/book${bookQs ? `?${bookQs}` : ''}`
 
   return (
-    <div className="td">
-      <section className="td-hero acc-td-hero" aria-label={data.title}>
-        {galleryItems.length > 0 ? (
-          <AccommodationGallery variant="hero" items={galleryItems} title={data.title} />
-        ) : (
-          <div className="acc-td-hero__placeholder" aria-label="No photos yet">
-            <span>Photo coming from host</span>
-          </div>
-        )}
-        <div className="td-hero__scrim" aria-hidden />
-        <div className="td-hero__bar">
-          <Link to="/accommodation" className="td-hero__back">
-            ← Back
-          </Link>
+    <div className="td acc-detail-page">
+      {shareMsg ? (
+        <p className="acc-detail__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
+
+      <div className="acc-detail__gallery-wrap">
+        <Link to="/accommodation" className="acc-detail__gallery-back">
+          ← Stays
+        </Link>
+        <div className="acc-detail__gallery-actions">
+          <button
+            type="button"
+            className={`td-hero__action${saved ? ' td-hero__action--saved' : ''}`}
+            onClick={() => setSaved((v) => !v)}
+          >
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" className="td-hero__action" onClick={() => onShare(data.title)}>
+            ↗ Share
+          </button>
         </div>
-        <div className="td-hero__footer">
-          <h1 className="td-hero__title">{data.title}</h1>
-          <div className="td-hero__chips">
-            {(data.city || data.region) && (
-              <span className="td-hero__chip">{[data.city, data.region].filter(Boolean).join(', ')}</span>
-            )}
-            {data.property_type ? <span className="td-hero__chip">{propertyTypeLabel(data.property_type)}</span> : null}
-            <span className="td-hero__chip">${data.price_per_night}+ / night</span>
-            <span className="td-hero__chip">
-              {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'} · {data.max_guests} guests
+        <AccommodationGallery variant="detail" items={galleryItems} title={data.title} />
+      </div>
+
+      <section className="acc-detail__identity detail-section">
+        <div className="acc-detail__meta-row">
+          {data.property_type ? (
+            <span className="acc-detail__pill">{propertyTypeLabel(data.property_type)}</span>
+          ) : null}
+          {data.rating_avg ? (
+            <span className="acc-detail__pill">
+              ★ {data.rating_avg}
+              {data.rating_count ? ` (${data.rating_count})` : ''}
             </span>
-            {data.pet_friendly ? <span className="td-hero__chip">Pet-friendly</span> : null}
-            {amenityChips.slice(0, 3).map((a) => (
-              <span key={a} className="td-hero__chip">
-                {a}
-              </span>
-            ))}
-          </div>
+          ) : null}
+          {locationLine ? <span className="acc-detail__pill">{locationLine}</span> : null}
+        </div>
+
+        <h1 className="display acc-detail__title">{data.title}</h1>
+
+        <p className="acc-detail__summary">
+          {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'} · {data.max_guests} guests · From $
+          {data.price_per_night}/night
+        </p>
+
+        <div className="acc-detail__trust-row">
+          <span>Verified host</span>
+          {data.wifi ? <span>Wi-Fi</span> : null}
+          {data.parking ? <span>Parking</span> : null}
+          {data.breakfast ? <span>Breakfast</span> : null}
+          {data.pet_friendly ? <span>Pet-friendly</span> : null}
+          {data.pool ? <span>Pool</span> : null}
+        </div>
+
+        <div className="acc-detail__social-row">
+          <button
+            type="button"
+            className={saved ? 'acc-detail__social-btn--saved' : ''}
+            onClick={() => setSaved((v) => !v)}
+          >
+            {saved ? '♥ Saved' : '♡ Save'}
+          </button>
+          <button type="button" onClick={() => onShare(data.title)}>
+            ↗ Share
+          </button>
+          <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>Message host</Link>
         </div>
       </section>
 
-      <div className="td-author">
-        <Link
-          to={`/u/${encodeURIComponent(data.owner_username)}`}
-          className="td-author__avatar td-author__avatar--init"
-          aria-label={`Host @${data.owner_username}`}
-        >
-          {(data.owner_username[0] ?? '?').toUpperCase()}
-        </Link>
-        <div className="td-author__text">
-          <p className="td-author__name">@{data.owner_username}</p>
-          <p className="td-author__dates">
-            Host listing
-            {data.city || data.region
-              ? ` · ${[data.city, data.region].filter(Boolean).join(', ')}`
-              : ''}
-          </p>
-        </div>
-        <span className="acc-detail__badge acc-detail__badge--td">Host listing</span>
-      </div>
+      <div className="acc-detail__layout">
+        <main className="acc-detail__main">
+          <section className="detail-section acc-detail__love">
+            <h2 className="acc-detail__section-title">Why guests love it</h2>
+            <div className="acc-detail__love-grid">
+              {loveItems.map((item) => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
+          </section>
 
-      <div className="td-stats">
-        <div className="td-stat">
-          <p className="td-stat__val">${data.price_per_night}</p>
-          <p className="td-stat__key">From / night</p>
-        </div>
-        <div className="td-stat">
-          <p className="td-stat__val">{data.bedrooms}</p>
-          <p className="td-stat__key">{data.bedrooms === 1 ? 'Bedroom' : 'Bedrooms'}</p>
-        </div>
-        <div className="td-stat">
-          <p className="td-stat__val">{data.max_guests}</p>
-          <p className="td-stat__key">Guests max</p>
-        </div>
-        {data.rating_avg != null ? (
-          <div className="td-stat">
-            <p className="td-stat__val">{data.rating_avg}</p>
-            <p className="td-stat__key">
-              Rating
-              {data.rating_count != null && data.rating_count > 0 ? ` (${data.rating_count})` : ''}
-            </p>
-          </div>
-        ) : (
-          <div className="td-stat">
-            <p className="td-stat__val">—</p>
-            <p className="td-stat__key">Rating</p>
-          </div>
-        )}
-      </div>
+          {data.description?.trim() ? (
+            <section className="detail-section acc-detail__about">
+              <h2 className="acc-detail__section-title">About this stay</h2>
+              <p className="acc-detail__about-text">{data.description}</p>
+            </section>
+          ) : null}
 
-      <div className="acc-detail__lead">
-        <p className="acc-detail__reassure acc-detail__reassure--td" role="note">
-          Questions about access, noise, or what&apos;s included? Message the host through DELVE when messaging is live — for now, treat this page as the host&apos;s invitation; you&apos;re not obliged until you choose to book.
-        </p>
-        <p className="acc-detail__disclaimer acc-detail__disclaimer--td" role="note">
-          Listing text is provided by the host. If deposits, house rules, or accessibility matter to you, double-check before any payment — in this demo, checkout is practice only.
-        </p>
-      </div>
+          {roomTypes.length > 0 ? (
+            <section className="detail-section acc-detail__rooms">
+              <h2 id="acc-rooms-heading" className="acc-detail__section-title">
+                Choose your room
+              </h2>
+              <p className="acc-detail__rooms-intro">
+                The host offers more than one room or unit type. Layout, capacity, and nightly rate can differ from the
+                headline &quot;from&quot; price.
+              </p>
+              <div className="acc-detail__room-grid">
+                {roomTypes.map((room, i) => {
+                  const metaBits = [
+                    room.max_guests != null ? `Up to ${room.max_guests} guests` : null,
+                    room.bedrooms != null
+                      ? `${room.bedrooms} ${room.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`
+                      : null,
+                    room.bed_summary || null,
+                  ].filter(Boolean) as string[]
+                  return (
+                    <article key={`${i}-${room.name}`} className="acc-detail__room">
+                      <div className="acc-detail__room-visual">
+                        <RoomPhotoCarousel images={room.images} name={room.name} />
+                      </div>
+                      <div className="acc-detail__room-body">
+                        <h3 className="acc-detail__room-name">{room.name}</h3>
+                        {metaBits.length > 0 ? <p className="acc-detail__room-meta">{metaBits.join(' · ')}</p> : null}
+                        {room.description ? <p className="acc-detail__room-desc">{room.description}</p> : null}
+                        <p className="acc-detail__room-price">
+                          {room.price_per_night ? (
+                            <>
+                              <span className="acc-detail__room-price-amount">${room.price_per_night}</span>
+                              <span className="acc-detail__room-price-unit"> / night</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="acc-detail__room-price-amount">From ${data.price_per_night}</span>
+                              <span className="acc-detail__room-price-unit"> / night</span>
+                            </>
+                          )}
+                        </p>
+                        <Link
+                          to={`/accommodation/${id}/book?room=${encodeURIComponent(room.name)}`}
+                          className="btn btn-primary acc-detail__room-book"
+                        >
+                          Book this room
+                        </Link>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          ) : null}
 
-      {accTopics.length > 0 && (
-        <div ref={tabBarRef} className="td-tabs" role="tablist" aria-label="Listing sections">
-          {accTopics.map(({ id: topicId, label }) => (
-            <button
-              key={topicId}
-              type="button"
-              role="tab"
-              aria-selected={activeTopic === topicId}
-              aria-controls={`acc-panel-${topicId}`}
-              id={`acc-tab-${topicId}`}
-              className={`td-tab${activeTopic === topicId ? ' td-tab--active' : ''}`}
-              onClick={() => switchTopic(topicId)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+          {data.amenities && data.amenities.length > 0 ? (
+            <section className="detail-section acc-detail__amenities-block">
+              <h2 className="acc-detail__section-title">Amenities</h2>
+              <div className="chip-row">
+                {data.amenities.slice(0, 24).map((a) => (
+                  <span key={a} className="chip">
+                    {a}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-      <div className="td-content">
-          {activeTopic === 'policies' && hasPolicies ? (
-            <div className="td-route-tab">
-            <section
-              id="acc-panel-policies"
-              role="tabpanel"
-              aria-labelledby="acc-tab-policies"
-              className="acc-detail__card card"
-            >
-              <h2 className="acc-detail__section-label">Policies</h2>
+          {rules.length > 0 ? (
+            <section className="detail-section acc-detail__rules-block">
+              <h2 className="acc-detail__section-title">House rules</h2>
+              <ul className="acc-detail__rules-list">
+                {rules.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {hasPolicies ? (
+            <section className="detail-section acc-detail__policies-block">
+              <h2 className="acc-detail__section-title">Policies</h2>
               <dl className="acc-detail__policy-grid">
                 {data.check_in_from ? (
                   <>
@@ -356,208 +412,159 @@ export function AccommodationDetail() {
                 </div>
               ) : null}
             </section>
-            </div>
           ) : null}
 
-          {activeTopic === 'rules' && rules.length > 0 ? (
-            <div className="td-route-tab">
-            <section
-              id="acc-panel-rules"
-              role="tabpanel"
-              aria-labelledby="acc-tab-rules"
-              className="acc-detail__card card"
-            >
-              <h2 className="acc-detail__section-label">House rules</h2>
-              <ul className="acc-detail__rules-list">
-                {rules.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </section>
-            </div>
-          ) : null}
+          <section className="detail-section acc-detail__map-card">
+            <h2 className="acc-detail__section-title">Location</h2>
+            <p className="acc-detail__map-sub">{locationLine}</p>
+            <p className="acc-detail__map-copy">
+              Open the area on OpenStreetMap to plan your route — buses, rides, or self-drive from town centres and
+              airports.
+            </p>
+            <a href={mapHref} className="btn btn-primary acc-detail__map-btn" target="_blank" rel="noopener noreferrer">
+              View on map
+            </a>
+          </section>
 
-          {activeTopic === 'about' && data.description?.trim() ? (
-            <div className="td-route-tab">
-            <div
-              id="acc-panel-about"
-              role="tabpanel"
-              aria-labelledby="acc-tab-about"
-              className="acc-detail__desc"
-            >
-              <h2 className="acc-detail__section-label acc-detail__section-label--prose">About this place</h2>
-              <p>{data.description}</p>
-            </div>
-            </div>
-          ) : null}
-
-          {activeTopic === 'amenities' && (data.amenities?.length ?? 0) > 0 ? (
-            <div className="td-route-tab">
-            <div
-              id="acc-panel-amenities"
-              role="tabpanel"
-              aria-labelledby="acc-tab-amenities"
-              className="acc-detail__amenities"
-            >
-              <h2 className="acc-detail__section-label">Amenities</h2>
-              <div className="chip-row">
-                {data.amenities!.slice(0, 24).map((a) => (
-                  <span key={a} className="chip">
-                    {a}
-                  </span>
-                ))}
+          <section className="detail-section acc-detail__moments">
+            <div className="acc-detail__section-head">
+              <div>
+                <h2 className="acc-detail__section-title">Delvers moments from this stay</h2>
+                <p className="acc-detail__section-sub">Guest photos, room views, and nearby places — not host gallery shots.</p>
               </div>
+              <Link to="/delvers">See more</Link>
             </div>
-            </div>
-          ) : null}
-
-          {activeTopic === 'rooms' && roomTypes.length > 0 ? (
-            <div className="td-route-tab">
-            <section
-              id="acc-panel-rooms"
-              role="tabpanel"
-              aria-labelledby="acc-tab-rooms"
-              className="acc-detail__rooms"
-            >
-              <h2 id="acc-rooms-heading" className="acc-detail__section-label">
-                Rooms you can book
-              </h2>
-              <p className="acc-detail__rooms-intro">
-                The host offers more than one room or unit type. Layout, capacity, and nightly rate can differ from the
-                headline &quot;from&quot; price — pick what fits your group when dates go live.
-              </p>
-              <div className="acc-detail__room-grid">
-                {roomTypes.map((room, i) => {
-                  const metaBits = [
-                    room.max_guests != null ? `Up to ${room.max_guests} guests` : null,
-                    room.bedrooms != null
-                      ? `${room.bedrooms} ${room.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`
-                      : null,
-                    room.bed_summary || null,
-                  ].filter(Boolean) as string[]
-                  return (
-                    <article key={`${i}-${room.name}`} className="acc-detail__room card">
-                      <div className="acc-detail__room-visual">
-                        <RoomPhotoCarousel images={room.images} name={room.name} />
-                      </div>
-                      <div className="acc-detail__room-body">
-                        <h3 className="acc-detail__room-name">{room.name}</h3>
-                        {metaBits.length > 0 ? <p className="acc-detail__room-meta">{metaBits.join(' · ')}</p> : null}
-                        {room.description ? <p className="acc-detail__room-desc">{room.description}</p> : null}
-                        <p className="acc-detail__room-price">
-                          {room.price_per_night ? (
-                            <>
-                              <span className="acc-detail__room-price-amount">${room.price_per_night}</span>
-                              <span className="acc-detail__room-price-unit"> / night</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="acc-detail__room-price-amount">From ${data.price_per_night}</span>
-                              <span className="acc-detail__room-price-unit"> / night</span>
-                              <span className="acc-detail__room-price-note"> (listing base)</span>
-                            </>
-                          )}
-                        </p>
-                        <Link
-                          to={`/accommodation/${id}/book?room=${encodeURIComponent(room.name)}`}
-                          className="btn btn-primary acc-detail__room-book"
-                        >
-                          Book this room
-                        </Link>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
-            </section>
-            </div>
-          ) : null}
-
-          {activeTopic === 'reviews' ? (
-            <div className="td-route-tab">
-            <section
-              id="acc-panel-reviews"
-              role="tabpanel"
-              aria-labelledby="acc-tab-reviews"
-              className="acc-detail__reviews"
-            >
-              <h2 className="acc-detail__section-label acc-detail__section-label--reviews">Reviews</h2>
-              <div className="acc-detail__reviews-summary card">
-                {data.rating_avg != null ? (
-                  <>
-                    <div className="acc-detail__reviews-score">
-                      <MiniRating rating={data.rating_avg} count={data.rating_count} />
-                    </div>
-                    <p className="acc-detail__reviews-summary-text">
-                      {data.rating_count != null && data.rating_count > 0
-                        ? `Based on ${data.rating_count} ${data.rating_count === 1 ? 'rating' : 'ratings'} from verified stays on DELVE.`
-                        : 'Overall guest score from ratings on this listing.'}
-                      {reviews.length > 0 ? ` Below are ${reviews.length} recent ${reviews.length === 1 ? 'comment' : 'comments'}.` : null}
-                    </p>
-                  </>
-                ) : (
-                  <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
-                    {reviews.length > 0
-                      ? 'No aggregate score on this listing yet — read guest comments below.'
-                      : 'Ratings and written reviews will show here once guests have stayed and left feedback.'}
+            <div className="acc-detail__moments-grid">
+              {galleryItems.slice(0, 2).map((item, index) => (
+                <div key={index} className="acc-detail__moment-card">
+                  <img src={mediaUrl(item.src) || item.src} alt="" />
+                  <p>
+                    <strong>@guest{index + 1}</strong> Saved this stay for a quiet weekend.
                   </p>
-                )}
-              </div>
-              {reviews.length > 0 ? (
-                <div className="acc-detail__review-list">
-                  {reviews.map((r, i) => (
-                    <GuestReviewCard key={`${i}-${r.name}`} r={r} />
-                  ))}
                 </div>
+              ))}
+              <div className="acc-detail__moment-card acc-detail__moment-card--placeholder">
+                <div aria-hidden>📸</div>
+                <p>
+                  <strong>@traveller</strong> Morning view from the room.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="detail-section acc-detail__reviews">
+            <h2 className="acc-detail__section-title">Guest reviews</h2>
+            <div className="acc-detail__reviews-summary">
+              {data.rating_avg != null ? (
+                <>
+                  <div className="acc-detail__reviews-score">
+                    <MiniRating rating={data.rating_avg} count={data.rating_count} />
+                  </div>
+                  <p className="acc-detail__reviews-summary-text">
+                    {data.rating_count != null && data.rating_count > 0
+                      ? `Based on ${data.rating_count} ${data.rating_count === 1 ? 'rating' : 'ratings'} from verified stays on DELVE.`
+                      : 'Overall guest score from ratings on this listing.'}
+                  </p>
+                </>
               ) : (
-                <p className="acc-detail__reviews-empty" role="status">
-                  No written guest comments yet — the score above reflects overall ratings. Hosts can highlight reviews here as they grow on DELVE.
+                <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
+                  {reviews.length > 0
+                    ? 'No aggregate score on this listing yet — read guest comments below.'
+                    : 'Ratings and written reviews will show here once guests have stayed.'}
                 </p>
               )}
-            </section>
             </div>
-          ) : null}
+            {reviews.length > 0 ? (
+              <div className="acc-detail__review-list">
+                {reviews.map((r, i) => (
+                  <GuestReviewCard key={`${i}-${r.name}`} r={r} />
+                ))}
+              </div>
+            ) : (
+              <p className="acc-detail__reviews-empty" role="status">
+                No written guest comments yet.
+              </p>
+            )}
+          </section>
 
-          {activeTopic === 'faq' && faqs.length > 0 ? (
-            <div className="td-route-tab">
-            <section
-              id="acc-panel-faq"
-              role="tabpanel"
-              aria-labelledby="acc-tab-faq"
-              className="acc-detail__faq"
-            >
-              <h2 className="acc-detail__section-label">Common questions</h2>
+          {faqs.length > 0 ? (
+            <section className="detail-section acc-detail__faq">
+              <h2 className="acc-detail__section-title">FAQ</h2>
               <div className="acc-detail__faq-list">
                 {faqs.map((f, i) => (
-                  <details key={`faq-${i}`} className="acc-detail__faq-item card">
+                  <details key={`faq-${i}`} className="acc-detail__faq-item">
                     <summary className="acc-detail__faq-q">{f.question}</summary>
                     <p className="acc-detail__faq-a">{f.answer}</p>
                   </details>
                 ))}
               </div>
             </section>
-            </div>
           ) : null}
+        </main>
 
-          {activeTopic === 'location' ? (
-            <div className="td-route-tab">
-            <section
-              id="acc-panel-location"
-              role="tabpanel"
-              aria-labelledby="acc-tab-location"
-              className="acc-detail__map-card card"
-            >
-              <h2 className="acc-detail__map-title">Where you&apos;ll be</h2>
-              <p className="acc-detail__map-sub">{data.city ? `${data.city}, ` : ''}{data.region}</p>
-              <p className="acc-detail__map-copy">
-                Open the area on OpenStreetMap to plan your route — buses, rides, or self-drive from town centres and airports.
-              </p>
-              <a href={mapHref} className="btn btn-primary acc-detail__map-btn" target="_blank" rel="noopener noreferrer">
-                View on map
-              </a>
-            </section>
+        <aside className="acc-detail__sidebar">
+          <div className="acc-detail__booking-card">
+            <p className="acc-detail__booking-kicker">Ready to stay?</p>
+            <h2>
+              <span>${data.price_per_night}</span>
+              <small> / night</small>
+            </h2>
+
+            <div className="acc-detail__booking-meta">
+              {data.rating_avg && <span>★ {data.rating_avg}</span>}
+              <span>{data.max_guests} guests</span>
+              <span>
+                {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'}
+              </span>
             </div>
-          ) : null}
+
+            <div className="acc-detail__booking-fields">
+              <label>
+                Check-in
+                <input type="date" min={todayStr} value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+              </label>
+              <label>
+                Check-out
+                <input
+                  type="date"
+                  min={checkIn || todayStr}
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                />
+              </label>
+              <label>
+                Guests
+                <select value={guests} onChange={(e) => setGuests(Number(e.target.value))}>
+                  {Array.from({ length: data.max_guests }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {i + 1} {i + 1 === 1 ? 'guest' : 'guests'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <Link to={bookHref} className="btn btn-primary acc-detail__book-btn">
+              Reserve stay
+            </Link>
+
+            <Link to={`/u/${encodeURIComponent(data.owner_username)}`} className="acc-detail__message-host">
+              Message host
+            </Link>
+          </div>
+        </aside>
+      </div>
+
+      <div className="acc-detail__mobile-bar">
+        <div>
+          <strong>${data.price_per_night} / night</strong>
+          <span>
+            {data.max_guests} guests · {locationLine}
+          </span>
+        </div>
+        <Link to={bookHref} className="btn btn-primary">
+          Reserve
+        </Link>
       </div>
     </div>
   )

@@ -11,10 +11,13 @@ import { apiFetch, clearTokens, getAccessToken, setTokens } from '../api/client'
 
 export type UserType = 'normal' | 'service_provider'
 
+export type PostsVisibility = 'public' | 'only_me'
+
 export type Profile = {
   username: string
   email: string
   user_type: UserType
+  is_staff?: boolean
   display_name: string
   bio: string
   region: string
@@ -23,6 +26,10 @@ export type Profile = {
   preferred_currency: string
   avatar: string | null
   email_verified: boolean
+  is_private: boolean
+  posts_visibility: PostsVisibility
+  allow_messages: boolean
+  show_in_search: boolean
 }
 
 type AuthState = {
@@ -49,8 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await apiFetch<Profile>('/api/accounts/me/')
       setProfile({
         ...me,
+        is_staff: me.is_staff ?? false,
         country_code: me.country_code ?? '',
         preferred_currency: me.preferred_currency ?? '',
+        is_private: me.is_private ?? false,
+        posts_visibility: me.posts_visibility ?? 'public',
+        allow_messages: me.allow_messages ?? true,
+        show_in_search: me.show_in_search ?? true,
       })
     } catch {
       setProfile(null)
@@ -74,8 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await apiFetch<Profile>('/api/accounts/me/')
     setProfile({
       ...me,
+      is_staff: me.is_staff ?? false,
       country_code: me.country_code ?? '',
       preferred_currency: me.preferred_currency ?? '',
+      is_private: me.is_private ?? false,
+      posts_visibility: me.posts_visibility ?? 'public',
+      allow_messages: me.allow_messages ?? true,
+      show_in_search: me.show_in_search ?? true,
     })
   }, [])
 

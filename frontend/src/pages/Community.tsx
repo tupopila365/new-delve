@@ -1,31 +1,32 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import {
+  isLocationTag,
+  questionStatus,
+  type QaAnswerRow,
+  type QaQuestion,
+} from '../utils/communityDisplay'
 
 type CommunityTab = 'ask' | 'trending' | 'challenges'
 
-/* ── Mock data (locations are free-text; filters are built from whatever appears) ─ */
-
 const ALL_LOCATIONS = 'Everywhere' as const
 
-type QaAnswerRow = {
-  author: string
-  initial: string
-  time: string
-  body: string
-  helpful: number
-  isYours?: boolean
-}
+const HOT_NOW = [
+  { label: 'SIM cards in Windhoek', query: 'SIM' },
+  { label: 'Road safety', query: 'gravel' },
+  { label: 'Etosha timing', query: 'Etosha' },
+  { label: 'Taxi apps', query: 'taxi' },
+] as const
 
-const MOCK_QA: {
-  id: string
-  author: string
-  initial: string
-  time: string
-  region: string
-  question: string
-  answers: QaAnswerRow[]
-}[] = [
+const TAB_META: { id: CommunityTab; label: string; count: number }[] = [
+  { id: 'ask', label: 'Ask locals', count: 5 },
+  { id: 'trending', label: 'Trending now', count: 12 },
+  { id: 'challenges', label: 'Challenges', count: 4 },
+]
+
+const MOCK_QA: QaQuestion[] = [
   {
     id: '1',
     author: 'Mila K.',
@@ -33,6 +34,8 @@ const MOCK_QA: {
     time: '2h ago',
     region: 'Khomas',
     question: 'Where can I pick up a SIM card in Windhoek on a Sunday afternoon?',
+    tags: ['SIM cards', 'Windhoek', 'Shops open Sunday'],
+    views: 34,
     answers: [
       {
         author: 'Jan N.',
@@ -57,6 +60,8 @@ const MOCK_QA: {
     time: 'Yesterday',
     region: 'Erongo',
     question: 'Is the D1913 gravel stretch to Walvis safe for a small hatchback after rain?',
+    tags: ['Road safety', 'Gravel', 'Erongo'],
+    views: 58,
     answers: [
       {
         author: 'Pete D.',
@@ -74,6 +79,8 @@ const MOCK_QA: {
     time: '3d ago',
     region: 'Kunene',
     question: 'Best month for fewer crowds at Etosha but still good wildlife viewing?',
+    tags: ['Etosha', 'Wildlife', 'Crowd levels'],
+    views: 21,
     answers: [],
   },
   {
@@ -83,6 +90,8 @@ const MOCK_QA: {
     time: '4d ago',
     region: 'Tokyo',
     question: 'IC or Haruka to Kansai for a first-timer with two bags — what’s the least hassle on a Sunday?',
+    tags: ['Transport', 'Tokyo', 'Airport'],
+    views: 89,
     answers: [
       {
         author: 'Yuki T.',
@@ -100,6 +109,8 @@ const MOCK_QA: {
     time: '1w ago',
     region: 'Lisbon',
     question: 'Taxi apps locals actually use from the airport late at night?',
+    tags: ['Taxi apps', 'Lisbon', 'Airport'],
+    views: 44,
     answers: [],
   },
 ]
@@ -121,6 +132,27 @@ const MOCK_REGION_RANKS: { rank: number; region: string; posts: number; change: 
   { rank: 5, region: 'Kunene', posts: 306, change: 15 },
   { rank: 6, region: 'Lisbon', posts: 241, change: 9 },
 ]
+
+const REGION_QUESTION_COUNTS: { region: string; questions: number }[] = [
+  { region: 'Khomas', questions: 18 },
+  { region: 'Erongo', questions: 9 },
+  { region: 'Tokyo', questions: 7 },
+  { region: 'Oshana', questions: 5 },
+  { region: 'Kunene', questions: 4 },
+]
+
+const HELPFUL_LOCALS: { name: string; topic: string }[] = [
+  { name: 'Jan N.', topic: 'Transport' },
+  { name: 'Pete D.', topic: 'Safari' },
+  { name: 'Yuki T.', topic: 'Tokyo' },
+]
+
+const QUESTION_OF_DAY = {
+  question: 'What should first-time visitors know before driving to Sossusvlei?',
+  searchQuery: 'Sossusvlei',
+}
+
+const ANSWER_HINTS = ['opening hours', 'prices', 'safety', 'exact location'] as const
 
 const MOCK_DESTINATIONS: { flag: string; city: string; q: string }[] = [
   { flag: '🇳🇦', city: 'Windhoek', q: 'Windhoek' },
@@ -177,56 +209,228 @@ type CommunityProps = {
 export function Community({ embedded = false }: CommunityProps = {}) {
   const { profile } = useAuth()
   const [tab, setTab] = useState<CommunityTab>('ask')
+  const [communitySearch, setCommunitySearch] = useState('')
+  const [askFormOpen, setAskFormOpen] = useState(false)
+
+  const openAskForm = () => {
+    setTab('ask')
+    setAskFormOpen(true)
+  }
 
   return (
     <div className={`cm-page${embedded ? ' cm-page--embedded' : ''}`}>
       {!embedded && (
-        <header className="cm-page__header">
-          <h1 className="cm-page__title">Community</h1>
-          <p className="cm-page__sub">Ask locals, spot what’s trending, and join challenges.</p>
-        </header>
+        <section className="cm-page__hero">
+          <div className="cm-page__hero-top">
+            <div>
+              <h1 className="cm-page__title">Community</h1>
+              <p className="cm-page__sub">
+                Ask locals. Share tips. Find what travelers are talking about right now.
+              </p>
+            </div>
+            {profile ? (
+              <button type="button" className="btn btn-primary cm-page__ask-btn" onClick={openAskForm}>
+                Ask locals
+              </button>
+            ) : (
+              <Link to="/login" className="btn btn-primary cm-page__ask-btn">
+                Ask locals
+              </Link>
+            )}
+          </div>
+
+          <div className="cm-search">
+            <Search className="cm-search__icon" size={18} strokeWidth={2} aria-hidden />
+            <input
+              className="cm-search__input input"
+              type="search"
+              placeholder="Search questions, places, transport, safety…"
+              value={communitySearch}
+              onChange={(e) => setCommunitySearch(e.target.value)}
+              aria-label="Search community questions"
+            />
+          </div>
+
+          <section className="cm-hot" aria-label="Hot topics">
+            <p className="cm-hot__label">Hot now</p>
+            <div className="cm-hot__chips">
+              {HOT_NOW.map((h) => (
+                <button
+                  key={h.label}
+                  type="button"
+                  className="cm-hot__chip"
+                  onClick={() => {
+                    setTab('ask')
+                    setCommunitySearch(h.query)
+                  }}
+                >
+                  {h.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="cm-activity" aria-label="Live community activity">
+            <p className="cm-activity__line">
+              <strong>12</strong> people answered questions this week
+            </p>
+            <p className="cm-activity__line">
+              <strong>3</strong> local guides active today
+            </p>
+            <p className="cm-activity__line cm-activity__line--muted">
+              Most discussed: SIM cards, road safety, Etosha timing
+            </p>
+          </div>
+        </section>
       )}
 
-      <div className="cm-tabs" role="tablist" aria-label="Community sections">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'ask'}
-          className={`cm-tab-btn${tab === 'ask' ? ' cm-tab-btn--active' : ''}`}
-          onClick={() => setTab('ask')}
-        >
-          Ask a Local
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'trending'}
-          className={`cm-tab-btn${tab === 'trending' ? ' cm-tab-btn--active' : ''}`}
-          onClick={() => setTab('trending')}
-        >
-          Trending
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'challenges'}
-          className={`cm-tab-btn${tab === 'challenges' ? ' cm-tab-btn--active' : ''}`}
-          onClick={() => setTab('challenges')}
-        >
-          Challenges
-        </button>
-      </div>
+      <div className={`cm-page__layout${embedded ? ' cm-page__layout--embedded' : ''}`}>
+        <div className="cm-page__main">
+          <div className="cm-tabs" role="tablist" aria-label="Community sections">
+            {TAB_META.map(({ id, label, count }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                className={`cm-tab-btn${tab === id ? ' cm-tab-btn--active' : ''}`}
+                onClick={() => setTab(id)}
+              >
+                {label} ({count})
+              </button>
+            ))}
+          </div>
 
-      <div className="cm-tab-panel" role="tabpanel">
-        {tab === 'ask' && <AskLocalTab profile={profile} />}
-        {tab === 'trending' && <TrendingTab />}
-        {tab === 'challenges' && <ChallengesTab profile={profile} />}
+          <div className="cm-tab-panel" role="tabpanel">
+            {tab === 'ask' && (
+              <AskLocalTab
+                profile={profile}
+                search={communitySearch}
+                showForm={askFormOpen}
+                setShowForm={setAskFormOpen}
+                onDiscussQotd={() => {
+                  setCommunitySearch(QUESTION_OF_DAY.searchQuery)
+                }}
+              />
+            )}
+            {tab === 'trending' && <TrendingTab />}
+            {tab === 'challenges' && <ChallengesTab profile={profile} />}
+          </div>
+        </div>
+
+        {!embedded && (
+          <CommunitySidebar
+            onRegionSelect={(r) => {
+              setTab('ask')
+              setCommunitySearch(r === ALL_LOCATIONS ? '' : r)
+            }}
+            onDiscussQotd={() => {
+              setTab('ask')
+              setCommunitySearch(QUESTION_OF_DAY.searchQuery)
+            }}
+          />
+        )}
       </div>
     </div>
   )
 }
 
-function AskLocalTab({ profile }: { profile: ReturnType<typeof useAuth>['profile'] }) {
+function QuestionOfDay({ onDiscuss }: { onDiscuss: () => void }) {
+  return (
+    <section className="cm-question-of-day" aria-labelledby="cm-qotd-title">
+      <p className="cm-question-of-day__label" id="cm-qotd-title">
+        Question of the day
+      </p>
+      <p className="cm-question-of-day__text">{QUESTION_OF_DAY.question}</p>
+      <button type="button" className="cm-question-of-day__cta" onClick={onDiscuss}>
+        Join the discussion →
+      </button>
+    </section>
+  )
+}
+
+function CommunitySidebar({
+  onRegionSelect,
+  onDiscussQotd,
+}: {
+  onRegionSelect: (region: string) => void
+  onDiscussQotd: () => void
+}) {
+  return (
+    <aside className="cm-sidebar" aria-label="Community insights">
+      <QuestionOfDay onDiscuss={onDiscussQotd} />
+
+      <section className="cm-side-card">
+        <h2 className="cm-side-card__title">Top regions</h2>
+        <ul className="cm-side-card__regions">
+          {REGION_QUESTION_COUNTS.map((r) => (
+            <li key={r.region}>
+              <button
+                type="button"
+                className="cm-side-card__region-row"
+                onClick={() => onRegionSelect(r.region)}
+              >
+                <span className="cm-side-card__region-name">{r.region}</span>
+                <span className="cm-side-card__region-count">
+                  {r.questions} {r.questions === 1 ? 'question' : 'questions'}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="cm-side-card">
+        <h2 className="cm-side-card__title">Community pulse</h2>
+        <ul className="cm-side-card__stats">
+          <li>
+            <span className="cm-side-card__stat-n">5</span>
+            <span className="cm-side-card__stat-l">questions today</span>
+          </li>
+          <li>
+            <span className="cm-side-card__stat-n">12</span>
+            <span className="cm-side-card__stat-l">answers this week</span>
+          </li>
+          <li>
+            <span className="cm-side-card__stat-n">3</span>
+            <span className="cm-side-card__stat-l">active challenges</span>
+          </li>
+        </ul>
+      </section>
+
+      <section className="cm-side-card">
+        <h2 className="cm-side-card__title">Helpful locals</h2>
+        <ul className="cm-side-card__locals">
+          {HELPFUL_LOCALS.map((l) => (
+            <li key={l.name}>
+              <Link to="/guides" className="cm-side-card__local-row">
+                <span className="cm-side-card__local-name">{l.name}</span>
+                <span className="cm-side-card__local-topic">{l.topic}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <Link to="/guides" className="cm-side-card__cta">
+          Meet local guides →
+        </Link>
+      </section>
+    </aside>
+  )
+}
+
+function AskLocalTab({
+  profile,
+  search,
+  showForm,
+  setShowForm,
+  onDiscussQotd,
+}: {
+  profile: ReturnType<typeof useAuth>['profile']
+  search: string
+  showForm: boolean
+  setShowForm: (open: boolean) => void
+  onDiscussQotd: () => void
+}) {
   const locationFilters = useMemo(() => {
     const seen = new Set<string>()
     const unique: string[] = []
@@ -243,7 +447,6 @@ function AskLocalTab({ profile }: { profile: ReturnType<typeof useAuth>['profile
 
   const [region, setRegion] = useState<string>(ALL_LOCATIONS)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [showForm, setShowForm] = useState(false)
   /** Demo-only: answers the signed-in user adds in this session (not persisted). */
   const [userAnswers, setUserAnswers] = useState<Record<string, QaAnswerRow[]>>({})
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({})
@@ -253,9 +456,16 @@ function AskLocalTab({ profile }: { profile: ReturnType<typeof useAuth>['profile
   const [answerComposeOpen, setAnswerComposeOpen] = useState<Record<string, boolean>>({})
 
   const filtered = useMemo(() => {
-    if (region === ALL_LOCATIONS) return MOCK_QA
-    return MOCK_QA.filter((q) => q.region === region)
-  }, [region])
+    let list = region === ALL_LOCATIONS ? MOCK_QA : MOCK_QA.filter((q) => q.region === region)
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter((item) => {
+        const hay = [item.question, item.region, item.author, ...item.tags].join(' ').toLowerCase()
+        return hay.includes(q)
+      })
+    }
+    return list
+  }, [region, search])
 
   const answersFor = (qid: string, base: QaAnswerRow[]) => [...base, ...(userAnswers[qid] ?? [])]
 
@@ -307,16 +517,21 @@ function AskLocalTab({ profile }: { profile: ReturnType<typeof useAuth>['profile
     setExpanded((e) => ({ ...e, [qid]: true }))
   }
 
+  const handleDiscussQotd = () => {
+    setRegion(ALL_LOCATIONS)
+    onDiscussQotd()
+  }
+
   return (
     <>
-      <div className="cm-ask__topbar">
-        <p className="cm-ask__count">
-          {filtered.length} {filtered.length === 1 ? 'question' : 'questions'}
-        </p>
-        <button type="button" className="btn btn-primary" onClick={() => setShowForm((s) => !s)}>
-          {showForm ? 'Close form' : 'Ask a question'}
-        </button>
+      <div className="cm-question-of-day--inline">
+        <QuestionOfDay onDiscuss={handleDiscussQotd} />
       </div>
+
+      <p className="cm-ask__count">
+        {filtered.length} {filtered.length === 1 ? 'question' : 'questions'}
+        {search.trim() ? ` matching “${search.trim()}”` : ''}
+      </p>
 
       <div
         className="acc-page__quick-bar acc-page__quick-bar--wrap"
@@ -386,131 +601,194 @@ function AskLocalTab({ profile }: { profile: ReturnType<typeof useAuth>['profile
         ) : (
           filtered.map((q) => {
             const allAnswers = answersFor(q.id, q.answers)
+            const maxHelpful = Math.max(0, ...allAnswers.map((a) => a.helpful))
+            const status = questionStatus(allAnswers.length, maxHelpful)
+            const isOpen = !!expanded[q.id]
+            const answerLabel =
+              allAnswers.length === 0
+                ? 'No answers yet'
+                : allAnswers.length === 1
+                  ? '1 local answer'
+                  : `${allAnswers.length} local answers`
+            const draft = (answerDraft[q.id] ?? '').trim()
+            const hasDraft = draft.length > 0
+
             return (
-              <article key={q.id} className="cm-qa-card">
-                <div className="cm-qa-card__header">
-                  <span className="cm-qa-card__avatar" aria-hidden>
-                    {q.initial}
-                  </span>
-                  <div className="cm-qa-card__meta">
-                    <span className="cm-qa-card__name">{q.author}</span>
-                    <span className="cm-qa-card__time">{q.time}</span>
+              <article key={q.id} className={`cm-qa-card${isOpen ? ' cm-qa-card--expanded' : ''}`}>
+                <div className={isOpen ? 'cm-detail-question' : 'cm-qa-card__inner'}>
+                  {isOpen && (
+                    <p className="cm-detail-section-title cm-detail-section-title--inset">Question</p>
+                  )}
+                  <div className="cm-qa-card__header">
+                    <span className="cm-qa-card__avatar" aria-hidden>
+                      {q.initial}
+                    </span>
+                    <div className="cm-qa-card__meta">
+                      <span className="cm-qa-card__name-row">
+                        <span className="cm-qa-card__name">{q.author}</span>
+                        <span className="cm-qa-card__dot" aria-hidden>
+                          ·
+                        </span>
+                        <span className="cm-qa-card__time">{q.time}</span>
+                        <span className="cm-qa-card__dot" aria-hidden>
+                          ·
+                        </span>
+                        <span className="cm-qa-card__region-inline">{q.region}</span>
+                      </span>
+                    </div>
+                    {!isOpen && (
+                      <span className={`cm-status-badge cm-status-badge--${status.variant}`}>
+                        {status.label}
+                      </span>
+                    )}
                   </div>
-                  <span className="cm-qa-card__region-tag">{q.region}</span>
+                  <p className="cm-qa-card__question">{q.question}</p>
+                  <div className="cm-question-tags">
+                    {q.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className={`cm-question-tag${isLocationTag(tag, q.region) ? ' cm-question-tag--location' : ''}`}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="cm-card__footer">
+                    <div className="cm-card__footer-main">
+                      <button
+                        type="button"
+                        className="cm-card__answer-link"
+                        onClick={() => toggleAnswers(q.id)}
+                        aria-expanded={isOpen}
+                      >
+                        {isOpen ? answerLabel : `${allAnswers.length} ${allAnswers.length === 1 ? 'answer' : 'answers'}`}
+                      </button>
+                      <span className="cm-card__footer-dot" aria-hidden>
+                        ·
+                      </span>
+                      <span className="cm-card__views">{q.views} views</span>
+                    </div>
+                    <button type="button" className="cm-card__follow">
+                      Follow
+                    </button>
+                  </div>
                 </div>
-                <p className="cm-qa-card__question">{q.question}</p>
-                <div className="cm-qa-card__footer">
+
+                {profile && !isOpen && (
                   <button
                     type="button"
-                    className="cm-qa-card__answers-btn"
-                    onClick={() => toggleAnswers(q.id)}
-                    aria-expanded={!!expanded[q.id]}
+                    className="cm-card__add-answer"
+                    onClick={() => openAnswerComposer(q.id)}
                   >
-                    {expanded[q.id] ? '▼' : '▶'} {allAnswers.length}{' '}
-                    {allAnswers.length === 1 ? 'answer' : 'answers'}
+                    Add your answer →
                   </button>
-                  {profile ? (
-                    <button
-                      type="button"
-                      className="cm-qa-card__reply-btn"
-                      onClick={() => openAnswerComposer(q.id)}
-                    >
-                      Answer
-                    </button>
-                  ) : null}
-                </div>
-                {expanded[q.id] && (
-                  <div className="cm-qa-card__answers">
+                )}
+
+                {isOpen && (
+                  <div className="cm-detail-body">
+                    <h2 className="cm-detail-section-title">Local answers</h2>
                     {allAnswers.length === 0 ? (
-                      <p className="cm-answer__more">No answers yet — be the first below.</p>
+                      <p className="cm-answer__more">No answers yet — be the first to help below.</p>
                     ) : (
-                      allAnswers.map((a, i) => {
-                        const vKey = answerRowKey(q.id, i)
-                        const my = answerVotes[vKey] ?? null
-                        const upCount = a.helpful + (my === 'up' ? 1 : 0)
-                        const downCount = my === 'down' ? 1 : 0
-                        const own = !!a.isYours
-                        return (
-                          <div
-                            key={`${q.id}-a-${i}`}
-                            className={`cm-answer${a.isYours ? ' cm-answer--yours' : ''}`}
-                          >
-                            <div className="cm-answer__header">
-                              <span className="cm-answer__avatar" aria-hidden>
-                                {a.initial}
-                              </span>
-                              <span className="cm-answer__author">{a.author}</span>
-                              {a.isYours ? (
-                                <span className="cm-answer__you-badge" aria-label="Your answer">
-                                  You
+                      <div className="cm-answer-list">
+                        {allAnswers.map((a, i) => {
+                          const vKey = answerRowKey(q.id, i)
+                          const my = answerVotes[vKey] ?? null
+                          const upCount = a.helpful + (my === 'up' ? 1 : 0)
+                          const downCount = my === 'down' ? 1 : 0
+                          const own = !!a.isYours
+                          const showHelpfulBadge = i === 0 && !own
+                          return (
+                            <article
+                              key={`${q.id}-a-${i}`}
+                              className={`cm-answer-card${own ? ' cm-answer-card--yours' : ''}`}
+                            >
+                              <div className="cm-answer-card__header">
+                                <span className="cm-answer-card__avatar" aria-hidden>
+                                  {a.initial}
                                 </span>
-                              ) : null}
-                              <span className="cm-answer__time">{a.time}</span>
-                            </div>
-                            <p className="cm-answer__body">{a.body}</p>
-                            <div className="cm-answer__votes" aria-label="Answer feedback">
-                              <button
-                                type="button"
-                                className={`cm-vote-btn cm-vote-btn--up${my === 'up' ? ' cm-vote-btn--active' : ''}`}
-                                aria-pressed={my === 'up'}
-                                aria-label={own ? 'Cannot vote on your own answer' : 'Thumbs up'}
-                                disabled={own}
-                                onClick={() => {
-                                  if (!own) setAnswerVote(q.id, i, 'up')
-                                }}
-                              >
-                                <span className="cm-vote-btn__icon" aria-hidden>
-                                  👍
-                                </span>
-                                <span className="cm-vote-btn__count">{upCount}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className={`cm-vote-btn cm-vote-btn--down${my === 'down' ? ' cm-vote-btn--active' : ''}`}
-                                aria-pressed={my === 'down'}
-                                aria-label={own ? 'Cannot vote on your own answer' : 'Thumbs down'}
-                                disabled={own}
-                                onClick={() => {
-                                  if (!own) setAnswerVote(q.id, i, 'down')
-                                }}
-                              >
-                                <span className="cm-vote-btn__icon" aria-hidden>
-                                  👎
-                                </span>
-                                <span className="cm-vote-btn__count">{downCount}</span>
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })
+                                <div className="cm-answer-card__meta">
+                                  <span className="cm-answer-card__author">{a.author}</span>
+                                  {own ? (
+                                    <span className="cm-answer-card__you" aria-label="Your answer">
+                                      You
+                                    </span>
+                                  ) : null}
+                                  {showHelpfulBadge ? (
+                                    <span className="cm-answer-badge">Helpful local answer</span>
+                                  ) : null}
+                                </div>
+                                <span className="cm-answer-card__time">{a.time}</span>
+                              </div>
+                              <p className="cm-answer-card__body">{a.body}</p>
+                              <div className="cm-answer-card__feedback">
+                                <span className="cm-answer-card__votes-label">Was this helpful?</span>
+                                <div className="cm-answer-card__votes" aria-label="Answer feedback">
+                                  <button
+                                    type="button"
+                                    className={`cm-vote-btn cm-vote-btn--up${my === 'up' ? ' cm-vote-btn--active' : ''}`}
+                                    aria-pressed={my === 'up'}
+                                    aria-label={own ? 'Cannot vote on your own answer' : 'Thumbs up'}
+                                    disabled={own}
+                                    onClick={() => {
+                                      if (!own) setAnswerVote(q.id, i, 'up')
+                                    }}
+                                  >
+                                    <span className="cm-vote-btn__icon" aria-hidden>
+                                      👍
+                                    </span>
+                                    <span className="cm-vote-btn__count">{upCount}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`cm-vote-btn cm-vote-btn--down${my === 'down' ? ' cm-vote-btn--active' : ''}`}
+                                    aria-pressed={my === 'down'}
+                                    aria-label={own ? 'Cannot vote on your own answer' : 'Thumbs down'}
+                                    disabled={own}
+                                    onClick={() => {
+                                      if (!own) setAnswerVote(q.id, i, 'down')
+                                    }}
+                                  >
+                                    <span className="cm-vote-btn__icon" aria-hidden>
+                                      👎
+                                    </span>
+                                    <span className="cm-vote-btn__count">{downCount}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </article>
+                          )
+                        })}
+                      </div>
                     )}
 
+                    <h2 className="cm-detail-section-title">Help this traveller</h2>
                     {!profile ? (
                       <p className="cm-answer-guest-nudge">
-                        <Link to="/login">Sign in</Link> to add an answer.
+                        <Link to="/login">Sign in</Link> to share a local tip.
                       </p>
                     ) : answerComposeOpen[q.id] ? (
                       <div className="cm-answer-compose">
-                        <label className="label cm-answer-compose__label" htmlFor={`cm-ans-${q.id}`}>
-                          Your answer
+                        <label className="cm-answer-compose__label" htmlFor={`cm-ans-${q.id}`}>
+                          Help this traveller
                         </label>
                         <textarea
                           id={`cm-ans-${q.id}`}
                           className="input cm-answer-compose__input"
-                          rows={3}
-                          placeholder="Share what locals would suggest — tips, warnings, or links."
+                          rows={4}
+                          placeholder="Share a local tip, warning, opening time, price, or exact place to go…"
                           value={answerDraft[q.id] ?? ''}
                           onChange={(e) => setAnswerDraft((d) => ({ ...d, [q.id]: e.target.value }))}
                         />
-                        <div className="cm-answer-compose__actions">
-                          <button
-                            type="button"
-                            className="btn btn-primary cm-answer-compose__submit"
-                            onClick={() => postAnswer(q.id)}
-                            disabled={!(answerDraft[q.id] ?? '').trim()}
-                          >
-                            Post answer (demo)
-                          </button>
+                        <div className="cm-answer-hints" aria-label="Tips for a good answer">
+                          <span className="cm-answer-hints__lead">Good answers include:</span>
+                          {ANSWER_HINTS.map((hint) => (
+                            <span key={hint} className="cm-answer-hint">
+                              {hint}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="cm-answer-actions">
                           <button
                             type="button"
                             className="btn btn-ghost cm-answer-compose__cancel"
@@ -518,19 +796,23 @@ function AskLocalTab({ profile }: { profile: ReturnType<typeof useAuth>['profile
                           >
                             Cancel
                           </button>
+                          <button
+                            type="button"
+                            className={`cm-answer-submit${hasDraft ? ' cm-answer-submit--ready' : ''}`}
+                            onClick={() => postAnswer(q.id)}
+                            disabled={!hasDraft}
+                          >
+                            Post your answer
+                          </button>
                         </div>
-                        <p className="cm-answer-compose__note">
-                          In production this would be reviewed or published according to community rules. Here it only
-                          updates your screen for this session.
-                        </p>
                       </div>
                     ) : (
                       <button
                         type="button"
-                        className="btn btn-primary cm-answer-compose__trigger"
+                        className="cm-answer-compose__trigger"
                         onClick={() => openAnswerComposer(q.id)}
                       >
-                        Write an answer
+                        Share a local tip →
                       </button>
                     )}
                   </div>

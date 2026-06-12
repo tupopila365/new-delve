@@ -157,3 +157,74 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
         if "room_type_name" in validated_data and not validated_data["room_type_name"]:
             validated_data["room_type_name"] = ""
         return super().create(validated_data)
+
+
+class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
+    listing_title = serializers.CharField(source="listing.title", read_only=True)
+    guest_username = serializers.CharField(source="guest.username", read_only=True)
+    guest_display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AccommodationBooking
+        fields = (
+            "id",
+            "listing",
+            "listing_title",
+            "guest",
+            "guest_username",
+            "guest_display_name",
+            "check_in",
+            "check_out",
+            "guests",
+            "total_price",
+            "special_requests",
+            "room_type_name",
+            "status",
+            "mock_payment_ref",
+            "created_at",
+        )
+        read_only_fields = (
+            "listing",
+            "guest",
+            "check_in",
+            "check_out",
+            "guests",
+            "total_price",
+            "special_requests",
+            "room_type_name",
+            "mock_payment_ref",
+            "created_at",
+        )
+
+    def get_guest_display_name(self, obj):
+        profile = getattr(obj.guest, "profile", None)
+        if profile and profile.display_name:
+            return profile.display_name
+        return obj.guest.username
+
+
+PROVIDER_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    BookingStatus.PENDING: {BookingStatus.CONFIRMED, BookingStatus.CANCELLED},
+    BookingStatus.CONFIRMED: {
+        BookingStatus.CHECKED_IN,
+        BookingStatus.CANCELLED,
+        BookingStatus.REFUNDED,
+    },
+    BookingStatus.CHECKED_IN: {BookingStatus.CHECKED_OUT},
+    BookingStatus.CHECKED_OUT: set(),
+    BookingStatus.CANCELLED: {BookingStatus.REFUNDED},
+    BookingStatus.REFUNDED: set(),
+}
+
+
+class ProviderBookingStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=BookingStatus.choices)
+
+    def validate_status(self, value):
+        booking = self.context["booking"]
+        allowed = PROVIDER_STATUS_TRANSITIONS.get(booking.status, set())
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"Cannot change status from {booking.status} to {value}."
+            )
+        return value

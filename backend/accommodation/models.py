@@ -136,7 +136,10 @@ class AccommodationListingLike(models.Model):
 class BookingStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     CONFIRMED = "confirmed", "Confirmed"
+    CHECKED_IN = "checked_in", "Checked in"
+    CHECKED_OUT = "checked_out", "Checked out"
     CANCELLED = "cancelled", "Cancelled"
+    REFUNDED = "refunded", "Refunded"
 
 
 class AccommodationBooking(models.Model):

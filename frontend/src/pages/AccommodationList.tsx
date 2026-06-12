@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 
 type AccListing = {
   id: number
@@ -37,6 +38,17 @@ const PROPERTY_TYPES: { value: string; label: string; emoji: string }[] = [
   { value: 'bed_and_breakfast', label: 'B&B', emoji: '☕' },
   { value: 'camping_glamping', label: 'Camping', emoji: '⛺' },
 ]
+
+const SIDEBAR_PROPERTY_TYPES: { label: string; value: string }[] = [
+  { label: 'Hotel', value: 'hotel' },
+  { label: 'Lodge', value: 'lodge' },
+  { label: 'Guest house', value: 'guesthouse' },
+  { label: 'Apartment', value: 'apartment' },
+  { label: 'Resort', value: 'resort' },
+  { label: 'B&B', value: 'bed_and_breakfast' },
+]
+
+const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay'] as const
 
 const PROPERTY_LABELS: Record<string, string> = {
   hotel: 'Hotel',
@@ -155,8 +167,50 @@ export function AccommodationList() {
     setAmenityKitchen(false)
   }
 
+  const petFriendlyCount = useMemo(
+    () => listings.filter((a) => a.pet_friendly).length,
+    [listings],
+  )
+
+  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
+    return [
+      {
+        id: 'popular-stays',
+        title: 'Popular stays',
+        type: 'links',
+        items: SIDEBAR_PROPERTY_TYPES.map(({ label, value }) => ({
+          label,
+          active: propType === value,
+          onClick: () => setPropType(propType === value ? '' : value),
+        })),
+      },
+      {
+        id: 'stays-pulse',
+        title: 'Stays pulse',
+        type: 'stats',
+        items: [
+          { value: listings.length || 24, label: 'listings available' },
+          { value: petFriendlyCount || 6, label: 'pet-friendly stays' },
+          { value: 4, label: 'new this week' },
+        ],
+      },
+      {
+        id: 'top-areas',
+        title: 'Top areas',
+        type: 'links',
+        items: TOP_AREAS.map((city) => ({
+          label: city,
+          onClick: () => {
+            setSearchInput(city)
+            setSearch(city)
+          },
+        })),
+      },
+    ]
+  }, [listings.length, petFriendlyCount, propType])
+
   return (
-    <div className="ev-page acc-page">
+    <div className="ev-page acc-page disc-page">
       <header className="page-header ev-page__header acc-page__header">
         <div>
           <h1 className="display ev-page__title">Stays</h1>
@@ -334,156 +388,162 @@ export function AccommodationList() {
         </div>
       )}
 
-      {!isLoading && featured.length > 0 && (
-        <section className="ev-page__stories" aria-labelledby="acc-stories-title">
-          <div className="ev-page__stories-head">
-            <h2 id="acc-stories-title" className="ev-page__stories-title">
-              Trending now
-            </h2>
-            <span className="ev-page__stories-sub">Swipe to explore</span>
-          </div>
-          <div className="ev-page__stories-row">
-            {featured.map((a) => {
-              const loc = a.city ? `${a.city}, ${a.region}` : a.region
-              const pt = propLabel(a.property_type)
+      <div className="disc-page__layout">
+        <main className="disc-page__main">
+          {!isLoading && featured.length > 0 && (
+            <section className="ev-page__stories" aria-labelledby="acc-stories-title">
+              <div className="ev-page__stories-head">
+                <h2 id="acc-stories-title" className="ev-page__stories-title">
+                  Trending now
+                </h2>
+                <span className="ev-page__stories-sub">Swipe to explore</span>
+              </div>
+              <div className="ev-page__stories-row">
+                {featured.map((a) => {
+                  const loc = a.city ? `${a.city}, ${a.region}` : a.region
+                  const pt = propLabel(a.property_type)
+                  return (
+                    <Link key={`acc-story-${a.id}`} to={`/accommodation/${a.id}`} className="ev-story">
+                      <div className="ev-story__img-wrap">
+                        {a.cover_image ? (
+                          <img className="ev-story__img" src={mediaUrl(a.cover_image) || ''} alt="" />
+                        ) : (
+                          <div className="ev-story__img ev-story__img--placeholder">
+                            <span aria-hidden>{stayEmoji(a)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="ev-story__meta">
+                        <p className="ev-story__title">{a.title}</p>
+                        <p className="ev-story__sub">
+                          {pt ? `${pt} · ` : ''}
+                          {loc}
+                        </p>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {hasFilters && (
+            <div className="ev-page__filter-summary">
+              <span className="ev-page__filter-summary-text">
+                Filtered
+                {propType ? ` · ${propLabel(propType)}` : ''}
+                {minPrice ? ` · from $${minPrice}` : ''}
+                {maxPrice ? ` · up to $${maxPrice}` : ''}
+                {search ? ` · "${search}"` : ''}
+                {minGuests > 1 ? ` · ${minGuests}+ guests` : ''}
+                {amenityWifi ? ' · Wi-Fi' : ''}
+                {amenityPool ? ' · Pool' : ''}
+                {amenityParking ? ' · Parking' : ''}
+                {amenityKitchen ? ' · Kitchen' : ''}
+              </span>
+              <button type="button" className="ev-page__filter-clear" onClick={clearAll}>
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="ev-page__skeleton-wrap" aria-hidden>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton ev-page__skeleton-card" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && filteredListings.length > 0 && (
+            <p className="ev-page__results-hint">
+              {filteredListings.length} {filteredListings.length === 1 ? 'listing' : 'listings'}
+            </p>
+          )}
+
+          <div className="acc-page__grid ev-page__grid">
+            {filteredListings.map((a) => {
+              const liked = Boolean(a.liked_by_me)
+              const likeCount = a.likes_count ?? 0
+              const location = a.city ? `${a.city}, ${a.region}` : a.region
+              const typeLabel = propLabel(a.property_type)
+              const likePending = likeMut.isPending && likeMut.variables === a.id
+
               return (
-                <Link key={`acc-story-${a.id}`} to={`/accommodation/${a.id}`} className="ev-story">
-                  <div className="ev-story__img-wrap">
+                <Link key={a.id} to={`/accommodation/${a.id}`} className="media-card acc-media-card">
+                  <div className="acc-media-card__img-wrap">
                     {a.cover_image ? (
-                      <img className="ev-story__img" src={mediaUrl(a.cover_image) || ''} alt="" />
+                      <img
+                        className="acc-media-card__img"
+                        src={mediaUrl(a.cover_image) || ''}
+                        alt={a.title}
+                      />
                     ) : (
-                      <div className="ev-story__img ev-story__img--placeholder">
-                        <span aria-hidden>{stayEmoji(a)}</span>
+                      <div className="acc-media-card__img acc-media-card__placeholder">
+                        <span aria-hidden>🏨</span>
                       </div>
                     )}
+                    {likeCount > 0 && (
+                      <span className="acc-media-card__like-count" aria-label={`${likeCount} likes`}>
+                        {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className={`acc-media-card__save${liked ? ' acc-media-card__save--saved' : ''}`}
+                      aria-label={liked ? 'Unlike this stay' : 'Like this stay'}
+                      disabled={likePending}
+                      onClick={(e) => onToggleLike(a.id, e)}
+                    >
+                      <IconHeart filled={liked} />
+                    </button>
                   </div>
-                  <div className="ev-story__meta">
-                    <p className="ev-story__title">{a.title}</p>
-                    <p className="ev-story__sub">
-                      {pt ? `${pt} · ` : ''}
-                      {loc}
-                    </p>
+                  <div className="media-card__body">
+                    <div className="acc-media-card__type-row">
+                      {typeLabel && <span className="acc-media-card__type">{typeLabel}</span>}
+                      {a.pet_friendly && <span className="acc-media-card__pet">🐾 Pet friendly</span>}
+                      {a.wifi && <span className="acc-media-card__pet">📶 WiFi</span>}
+                    </div>
+                    <h2 className="media-card__title">{a.title}</h2>
+                    <p className="media-card__meta">📍 {location}</p>
+                    {a.rating_avg != null && (
+                      <p className="media-card__meta">
+                        ★ {parseFloat(a.rating_avg).toFixed(1)}
+                        {a.rating_count ? <span> ({a.rating_count})</span> : null}
+                      </p>
+                    )}
+                    <div className="acc-media-card__price">
+                      <span className="acc-media-card__from">From</span>
+                      <span>${a.price_per_night}</span>
+                      <span className="acc-media-card__per"> / night</span>
+                    </div>
                   </div>
                 </Link>
               )
             })}
           </div>
-        </section>
-      )}
 
-      {hasFilters && (
-        <div className="ev-page__filter-summary">
-          <span className="ev-page__filter-summary-text">
-            Filtered
-            {propType ? ` · ${propLabel(propType)}` : ''}
-            {minPrice ? ` · from $${minPrice}` : ''}
-            {maxPrice ? ` · up to $${maxPrice}` : ''}
-            {search ? ` · "${search}"` : ''}
-            {minGuests > 1 ? ` · ${minGuests}+ guests` : ''}
-            {amenityWifi ? ' · Wi-Fi' : ''}
-            {amenityPool ? ' · Pool' : ''}
-            {amenityParking ? ' · Parking' : ''}
-            {amenityKitchen ? ' · Kitchen' : ''}
-          </span>
-          <button type="button" className="ev-page__filter-clear" onClick={clearAll}>
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="ev-page__skeleton-wrap" aria-hidden>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton ev-page__skeleton-card" />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && filteredListings.length > 0 && (
-        <p className="ev-page__results-hint">
-          {filteredListings.length} {filteredListings.length === 1 ? 'listing' : 'listings'}
-        </p>
-      )}
-
-      <div className="acc-page__grid ev-page__grid">
-        {filteredListings.map((a) => {
-          const liked = Boolean(a.liked_by_me)
-          const likeCount = a.likes_count ?? 0
-          const location = a.city ? `${a.city}, ${a.region}` : a.region
-          const typeLabel = propLabel(a.property_type)
-          const likePending = likeMut.isPending && likeMut.variables === a.id
-
-          return (
-            <Link key={a.id} to={`/accommodation/${a.id}`} className="media-card acc-media-card">
-              <div className="acc-media-card__img-wrap">
-                {a.cover_image ? (
-                  <img
-                    className="acc-media-card__img"
-                    src={mediaUrl(a.cover_image) || ''}
-                    alt={a.title}
-                  />
-                ) : (
-                  <div className="acc-media-card__img acc-media-card__placeholder">
-                    <span aria-hidden>🏨</span>
-                  </div>
-                )}
-                {likeCount > 0 && (
-                  <span className="acc-media-card__like-count" aria-label={`${likeCount} likes`}>
-                    {likeCount} {likeCount === 1 ? 'like' : 'likes'}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className={`acc-media-card__save${liked ? ' acc-media-card__save--saved' : ''}`}
-                  aria-label={liked ? 'Unlike this stay' : 'Like this stay'}
-                  disabled={likePending}
-                  onClick={(e) => onToggleLike(a.id, e)}
-                >
-                  <IconHeart filled={liked} />
+          {!isLoading && filteredListings.length === 0 && (
+            <div className="ev-page__empty">
+              <p className="ev-page__empty-title">
+                {listings.length > 0 || hasFilters ? 'No stays match these filters' : 'No listings yet'}
+              </p>
+              <p className="ev-page__empty-text">
+                {listings.length > 0 || hasFilters
+                  ? 'Try adjusting your filters — new properties list here regularly.'
+                  : 'Boutique hotels, lodges, and apartments will appear here once listed.'}
+              </p>
+              {hasFilters && (
+                <button type="button" className="btn btn-primary ev-page__empty-btn" onClick={clearAll}>
+                  Show all stays
                 </button>
-              </div>
-              <div className="media-card__body">
-                <div className="acc-media-card__type-row">
-                  {typeLabel && <span className="acc-media-card__type">{typeLabel}</span>}
-                  {a.pet_friendly && <span className="acc-media-card__pet">🐾 Pet friendly</span>}
-                  {a.wifi && <span className="acc-media-card__pet">📶 WiFi</span>}
-                </div>
-                <h2 className="media-card__title">{a.title}</h2>
-                <p className="media-card__meta">📍 {location}</p>
-                {a.rating_avg != null && (
-                  <p className="media-card__meta">
-                    ★ {parseFloat(a.rating_avg).toFixed(1)}
-                    {a.rating_count ? <span> ({a.rating_count})</span> : null}
-                  </p>
-                )}
-                <div className="acc-media-card__price">
-                  <span className="acc-media-card__from">From</span>
-                  <span>${a.price_per_night}</span>
-                  <span className="acc-media-card__per"> / night</span>
-                </div>
-              </div>
-            </Link>
-          )
-        })}
-      </div>
-
-      {!isLoading && filteredListings.length === 0 && (
-        <div className="ev-page__empty">
-          <p className="ev-page__empty-title">
-            {listings.length > 0 || hasFilters ? 'No stays match these filters' : 'No listings yet'}
-          </p>
-          <p className="ev-page__empty-text">
-            {listings.length > 0 || hasFilters
-              ? 'Try adjusting your filters — new properties list here regularly.'
-              : 'Boutique hotels, lodges, and apartments will appear here once listed.'}
-          </p>
-          {hasFilters && (
-            <button type="button" className="btn btn-primary ev-page__empty-btn" onClick={clearAll}>
-              Show all stays
-            </button>
+              )}
+            </div>
           )}
-        </div>
-      )}
+        </main>
+
+        <DiscoverySidebar sections={sidebarSections} ariaLabel="Stays discovery" />
+      </div>
     </div>
   )
 }

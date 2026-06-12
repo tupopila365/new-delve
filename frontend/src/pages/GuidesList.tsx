@@ -37,14 +37,30 @@ const REGION_OPTIONS = [
   'Oceania', 'Middle East', 'Caribbean', 'Arctic',
 ]
 
-const PLACEHOLDER_COLORS = [
-  { bg: 'linear-gradient(145deg, #d1e8df 0%, #a8cfc1 100%)', text: '#2d6a56' },
-  { bg: 'linear-gradient(145deg, #dde5f4 0%, #b5c7ea 100%)', text: '#2e4a8a' },
-  { bg: 'linear-gradient(145deg, #f5e6d3 0%, #e8c99a 100%)', text: '#7a4f1e' },
-  { bg: 'linear-gradient(145deg, #ead8f0 0%, #d1a8e0 100%)', text: '#5e2d78' },
-  { bg: 'linear-gradient(145deg, #fde8e4 0%, #f5bdb3 100%)', text: '#8b2e22' },
-  { bg: 'linear-gradient(145deg, #e0f0e8 0%, #b0d9c4 100%)', text: '#1e5c42' },
-]
+const DEFAULT_GUIDE_PHOTO = '/images/default-guide.jpg'
+const FALLBACK_GUIDE_PHOTO = '/images/default-journey.jpg'
+
+const HERO_TRUST = ['Vetted hosts', 'Local routes', 'Language matching'] as const
+
+function guidePhotoSrc(photo: string | null) {
+  return mediaUrl(photo) || DEFAULT_GUIDE_PHOTO
+}
+
+function onGuidePhotoError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget
+  if (!img.src.endsWith(FALLBACK_GUIDE_PHOTO)) {
+    img.src = FALLBACK_GUIDE_PHOTO
+  }
+}
+
+function pickTopGuide(guides: Guide[]): Guide | null {
+  if (!guides.length) return null
+  return guides.reduce((best, g) => {
+    const r = parseFloat(g.rating_avg ?? '0')
+    const br = parseFloat(best.rating_avg ?? '0')
+    return r > br ? g : best
+  })
+}
 
 export function GuidesList() {
   const { profile } = useAuth()
@@ -53,6 +69,7 @@ export function GuidesList() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
+  const [showFilters, setShowFilters] = useState(false)
 
   const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null)
   const [storyReactions, setStoryReactions] = useState<Record<number, 'love' | 'fire' | 'wow' | null>>({})
@@ -85,6 +102,11 @@ export function GuidesList() {
 
   const guides = data ?? []
   const featured = useMemo(() => guides.slice(0, 5), [guides])
+  const topPick = useMemo(() => pickTopGuide(guides), [guides])
+  const gridGuides = useMemo(() => {
+    if (!topPick) return guides
+    return guides.filter((g) => g.id !== topPick.id)
+  }, [guides, topPick])
   const activeStory = activeStoryIdx != null ? featured[activeStoryIdx] : null
 
   useEffect(() => {
@@ -187,85 +209,113 @@ export function GuidesList() {
     setSearch('')
   }
 
+  const resultsLabel =
+    hasFilters && search
+      ? `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} matched to your search`
+      : hasFilters
+        ? `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} matched to your filters`
+        : `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} available`
+
   return (
     <div className="gd-page ev-page acc-page">
-      <header className="page-header ev-page__header acc-page__header gd-page__header">
-        <div>
-          <p className="gd-page__eyebrow">DELVE · Guides</p>
-          <h1 className="display ev-page__title gd-page__title">Private tours &amp; local experts</h1>
-          <p className="page-sub ev-page__sub gd-page__sub">
-            Vetted hosts for city walks, culture, and nature — book in your language, wherever you travel next.
-          </p>
-        </div>
-      </header>
+      <section className="gd-hero">
+        <header className="page-header ev-page__header acc-page__header gd-page__header">
+          <div>
+            <p className="gd-page__eyebrow">DELVE · Guides</p>
+            <h1 className="display ev-page__title gd-page__title">Private tours &amp; local experts</h1>
+            <p className="page-sub ev-page__sub gd-page__sub">
+              Book vetted locals for city walks, food, culture, nature, and hidden places — in your language.
+            </p>
+          </div>
+        </header>
 
-      <section className="ev-page__discover card" aria-labelledby="gd-discover-title">
-        <h2 id="gd-discover-title" className="ev-page__discover-title">
-          Discover a guide
-        </h2>
-        <p className="ev-page__discover-sub">
-          Filter by language first — then narrow by where they guide.
-        </p>
-        <div className="ev-page__discover-chips" role="group" aria-label="Languages">
-          {LANGUAGE_OPTIONS.map(({ value, label }) => (
-            <button
-              key={`gd-lang-${value}`}
-              type="button"
-              className={`acc-quick-chip ev-page__discover-chip${language === value ? ' acc-quick-chip--active' : ''}`}
-              onClick={() => setLanguage(language === value ? '' : value)}
-            >
-              {label}
-            </button>
+        <div className="gd-hero__trust" aria-label="Why book with DELVE guides">
+          {HERO_TRUST.map((t) => (
+            <span key={t}>{t}</span>
           ))}
         </div>
-        <div className="ev-page__discover-chips gd-page__discover-chips--regions" role="group" aria-label="Regions">
-          {REGION_OPTIONS.map((r) => (
-            <button
-              key={`gd-reg-${r}`}
-              type="button"
-              className={`acc-quick-chip${region === r ? ' acc-quick-chip--active' : ''}`}
-              onClick={() => setRegion(region === r ? '' : r)}
-            >
-              {r}
-            </button>
-          ))}
+
+        <div className="acc-page__search gd-hero__search">
+          <label className="visually-hidden" htmlFor="gd-search">
+            Search guides
+          </label>
+          <div className="acc-page__search-inner">
+            <span className="acc-page__search-icon" aria-hidden>
+              ⌕
+            </span>
+            <input
+              id="gd-search"
+              type="search"
+              className="acc-page__search-input input"
+              placeholder="Search by guide, place, or experience…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+            {searchInput ? (
+              <button
+                type="button"
+                className="acc-page__search-clear"
+                onClick={() => setSearchInput('')}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
         </div>
       </section>
 
-      <div className="acc-page__search">
-        <label className="visually-hidden" htmlFor="gd-search">
-          Search guides
-        </label>
-        <div className="acc-page__search-inner">
-          <span className="acc-page__search-icon" aria-hidden>⌕</span>
-          <input
-            id="gd-search"
-            type="search"
-            className="acc-page__search-input input"
-            placeholder="Search by guide, place, or experience…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-          {searchInput ? (
-            <button
-              type="button"
-              className="acc-page__search-clear"
-              onClick={() => setSearchInput('')}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <button
+        type="button"
+        className="gd-filter-toggle"
+        onClick={() => setShowFilters((v) => !v)}
+        aria-expanded={showFilters}
+      >
+        {showFilters ? 'Hide filters' : 'Find your guide'}
+      </button>
+
+      {showFilters && (
+        <section className="ev-page__discover card" aria-labelledby="gd-discover-title">
+          <h2 id="gd-discover-title" className="ev-page__discover-title">
+            Match with a local expert
+          </h2>
+          <p className="ev-page__discover-sub">
+            Filter by language first — then narrow by where they guide.
+          </p>
+          <div className="ev-page__discover-chips" role="group" aria-label="Languages">
+            {LANGUAGE_OPTIONS.map(({ value, label }) => (
+              <button
+                key={`gd-lang-${value}`}
+                type="button"
+                className={`acc-quick-chip ev-page__discover-chip${language === value ? ' acc-quick-chip--active' : ''}`}
+                onClick={() => setLanguage(language === value ? '' : value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="ev-page__discover-chips gd-page__discover-chips--regions" role="group" aria-label="Regions">
+            {REGION_OPTIONS.map((r) => (
+              <button
+                key={`gd-reg-${r}`}
+                type="button"
+                className={`acc-quick-chip${region === r ? ' acc-quick-chip--active' : ''}`}
+                onClick={() => setRegion(region === r ? '' : r)}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {!isLoading && featured.length > 0 && (
         <section className="ev-page__story-rings" aria-labelledby="gd-story-rings-title">
           <div className="ev-page__stories-head">
             <h2 id="gd-story-rings-title" className="ev-page__stories-title">
-              Stories
+              Meet the guides
             </h2>
             <span className="ev-page__stories-sub">Tap to open</span>
           </div>
@@ -281,13 +331,7 @@ export function GuidesList() {
                   aria-label={`Open story: ${name}`}
                 >
                   <span className="ev-story-ring__avatar">
-                    {g.photo ? (
-                      <img src={mediaUrl(g.photo) || ''} alt="" />
-                    ) : (
-                      <span className="ev-story-ring__fallback" aria-hidden>
-                        {name.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <img src={guidePhotoSrc(g.photo)} alt="" onError={onGuidePhotoError} />
                   </span>
                   <span className="ev-story-ring__label">{name}</span>
                 </button>
@@ -301,9 +345,9 @@ export function GuidesList() {
         <section className="ev-page__stories" aria-labelledby="gd-stories-title">
           <div className="ev-page__stories-head">
             <h2 id="gd-stories-title" className="ev-page__stories-title">
-              Trending now
+              Featured local experts
             </h2>
-            <span className="ev-page__stories-sub">Swipe to explore</span>
+            <span className="ev-page__stories-sub">Swipe to compare</span>
           </div>
           <div className="ev-page__stories-row">
             {featured.map((g) => {
@@ -312,13 +356,12 @@ export function GuidesList() {
               return (
                 <Link key={`gd-story-${g.id}`} to={`/guides/${g.id}`} className="ev-story">
                   <div className="ev-story__img-wrap">
-                    {g.photo ? (
-                      <img className="ev-story__img" src={mediaUrl(g.photo) || ''} alt="" />
-                    ) : (
-                      <div className="ev-story__img ev-story__img--placeholder">
-                        <span aria-hidden>🧭</span>
-                      </div>
-                    )}
+                    <img
+                      className="ev-story__img"
+                      src={guidePhotoSrc(g.photo)}
+                      alt=""
+                      onError={onGuidePhotoError}
+                    />
                   </div>
                   <div className="ev-story__meta">
                     <p className="ev-story__title">{name}</p>
@@ -353,94 +396,21 @@ export function GuidesList() {
         </div>
       )}
 
-      {!isLoading && data && data.length > 0 && (
+      {!isLoading && guides.length > 0 && (
         <p className="ev-page__results-hint gd-page__results-hint">
-          <span className="gd-page__results-count">{data.length}</span>
-          <span>{data.length === 1 ? ' guide' : ' guides'}</span>
+          <span className="gd-page__results-label">Available local experts</span>
+          <span className="gd-page__results-detail">{resultsLabel}</span>
         </p>
       )}
 
-      <div className="acc-page__grid ev-page__grid">
-        {data?.map((g) => {
-          const saved = savedIds.has(g.id)
-          const displayName = g.display_name?.trim() || g.username
-          const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
-          const langSnippet = (g.languages || []).slice(0, 3)
+      {!isLoading && topPick && (
+        <GuideFeaturedCard guide={topPick} saved={savedIds.has(topPick.id)} onToggleSave={toggleSaved} />
+      )}
 
-          const colorIndex = g.id % PLACEHOLDER_COLORS.length
-
-          return (
-            <Link key={g.id} to={`/guides/${g.id}`} className="gd-card">
-              <div className="gd-card__photo-wrap">
-                {g.photo ? (
-                  <img
-                    className="gd-card__photo"
-                    src={mediaUrl(g.photo) || ''}
-                    alt={displayName}
-                  />
-                ) : (
-                  <div
-                    className="gd-card__photo gd-card__photo--placeholder"
-                    style={{ background: PLACEHOLDER_COLORS[colorIndex].bg }}
-                  >
-                    <span
-                      className="gd-card__photo-initials"
-                      style={{ color: PLACEHOLDER_COLORS[colorIndex].text }}
-                      aria-hidden
-                    >
-                      {displayName.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className={`gd-card__save${saved ? ' gd-card__save--saved' : ''}`}
-                  aria-label={saved ? 'Remove from saved' : 'Save guide'}
-                  onClick={(e) => toggleSaved(g.id, e)}
-                >
-                  <IconHeart filled={saved} />
-                </button>
-              </div>
-              <div className="gd-card__body">
-                <div className="gd-card__name-row">
-                  <p className="gd-card__name">{displayName}</p>
-                  {g.rating_avg != null && (
-                    <p className="gd-card__rating">
-                      <span className="gd-card__rating-star">★</span>
-                      <span className="gd-card__rating-val">
-                        {parseFloat(g.rating_avg).toFixed(1)}
-                      </span>
-                      {g.rating_count ? (
-                        <span className="gd-card__rating-count">({g.rating_count})</span>
-                      ) : null}
-                    </p>
-                  )}
-                </div>
-                <p className="gd-card__headline">{g.headline}</p>
-                {regionSnippet && (
-                  <p className="gd-card__regions">
-                    <IconPin className="gd-card__pin" />
-                    {regionSnippet}
-                  </p>
-                )}
-                {langSnippet.length > 0 && (
-                  <div className="gd-card__langs">
-                    {langSnippet.map((l) => (
-                      <span key={l} className="gd-card__lang-chip">{l}</span>
-                    ))}
-                  </div>
-                )}
-                {g.hourly_rate && (
-                  <p className="gd-card__rate">
-                    <span className="gd-card__rate-from">From</span>
-                    <strong>${g.hourly_rate}</strong>
-                    <span className="gd-card__rate-unit"> / hr</span>
-                  </p>
-                )}
-              </div>
-            </Link>
-          )
-        })}
+      <div className="acc-page__grid ev-page__grid gd-page__grid">
+        {gridGuides.map((g) => (
+          <GuideCard key={g.id} guide={g} saved={savedIds.has(g.id)} onToggleSave={toggleSaved} />
+        ))}
       </div>
 
       {!isLoading && data?.length === 0 && (
@@ -607,6 +577,133 @@ export function GuidesList() {
         </div>
       )}
     </div>
+  )
+}
+
+function GuideCard({
+  guide: g,
+  saved,
+  onToggleSave,
+}: {
+  guide: Guide
+  saved: boolean
+  onToggleSave: (id: number, e: React.MouseEvent) => void
+}) {
+  const displayName = g.display_name?.trim() || g.username
+  const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
+  const langSnippet = (g.languages || []).slice(0, 3)
+  const respondsFast = g.id % 2 === 0
+
+  return (
+    <Link to={`/guides/${g.id}`} className="gd-card">
+      <div className="gd-card__photo-wrap">
+        <img
+          className="gd-card__photo"
+          src={guidePhotoSrc(g.photo)}
+          alt={displayName}
+          loading="lazy"
+          onError={onGuidePhotoError}
+        />
+        <button
+          type="button"
+          className={`gd-card__save${saved ? ' gd-card__save--saved' : ''}`}
+          aria-label={saved ? 'Remove from saved' : 'Save guide'}
+          onClick={(e) => onToggleSave(g.id, e)}
+        >
+          <IconHeart filled={saved} />
+        </button>
+      </div>
+      <div className="gd-card__body">
+        <div className="gd-card__name-row">
+          <p className="gd-card__name">{displayName}</p>
+          {g.rating_avg != null && (
+            <p className="gd-card__rating">
+              <span className="gd-card__rating-star">★</span>
+              <span className="gd-card__rating-val">{parseFloat(g.rating_avg).toFixed(1)}</span>
+              {g.rating_count ? (
+                <span className="gd-card__rating-count">({g.rating_count})</span>
+              ) : null}
+            </p>
+          )}
+        </div>
+        <p className="gd-card__headline">{g.headline}</p>
+        <div className="gd-card__trust-row">
+          <span>Verified</span>
+          <span>{respondsFast ? 'Responds fast' : 'Available this week'}</span>
+        </div>
+        {regionSnippet ? (
+          <p className="gd-card__regions">
+            <IconPin className="gd-card__pin" />
+            {regionSnippet}
+          </p>
+        ) : null}
+        {langSnippet.length > 0 ? (
+          <div className="gd-card__langs">
+            {langSnippet.map((l) => (
+              <span key={l} className="gd-card__lang-chip">
+                {l}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {g.hourly_rate ? (
+          <p className="gd-card__rate">
+            <span className="gd-card__rate-from">From</span>
+            <strong>${g.hourly_rate}</strong>
+            <span className="gd-card__rate-unit"> / hr</span>
+          </p>
+        ) : null}
+        <span className={`gd-card__book${!g.hourly_rate ? ' gd-card__book--solo' : ''}`}>View guide</span>
+      </div>
+    </Link>
+  )
+}
+
+function GuideFeaturedCard({
+  guide: g,
+  saved,
+  onToggleSave,
+}: {
+  guide: Guide
+  saved: boolean
+  onToggleSave: (id: number, e: React.MouseEvent) => void
+}) {
+  const displayName = g.display_name?.trim() || g.username
+  const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
+  const langSnippet = (g.languages || []).slice(0, 3).join(' · ')
+
+  return (
+    <Link to={`/guides/${g.id}`} className="gd-featured">
+      <div className="gd-featured__media">
+        <img
+          src={guidePhotoSrc(g.photo)}
+          alt=""
+          loading="lazy"
+          onError={onGuidePhotoError}
+        />
+        <button
+          type="button"
+          className={`gd-card__save gd-featured__save${saved ? ' gd-card__save--saved' : ''}`}
+          aria-label={saved ? 'Remove from saved' : 'Save guide'}
+          onClick={(e) => onToggleSave(g.id, e)}
+        >
+          <IconHeart filled={saved} />
+        </button>
+      </div>
+      <div className="gd-featured__body">
+        <span className="gd-featured__badge">Top pick</span>
+        <h2 className="gd-featured__name">{displayName}</h2>
+        <p className="gd-featured__headline">{g.headline}</p>
+        {regionSnippet ? <p className="gd-featured__meta">{regionSnippet}</p> : null}
+        {langSnippet ? <p className="gd-featured__meta">{langSnippet}</p> : null}
+        {g.hourly_rate ? (
+          <p className="gd-featured__rate">
+            From <strong>${g.hourly_rate}</strong>/hr
+          </p>
+        ) : null}
+        <span className="gd-featured__cta">View profile →</span>
+      </div>
+    </Link>
   )
 }
 
