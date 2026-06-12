@@ -1,0 +1,39 @@
+import { Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
+
+type Cta = { label: string; to: string } | { label: string; onClick: () => void }
+
+type Props = {
+  icon?: string
+  title: string
+  sub?: string
+  cta?: Cta
+  action?: ReactNode
+  className?: string
+  compact?: boolean
+}
+
+export function EmptyState({ icon, title, sub, cta, action, className = '', compact }: Props) {
+  return (
+    <div className={`ui-empty${compact ? ' ui-empty--compact' : ''} ${className}`.trim()}>
+      {icon ? (
+        <div className="ui-empty__icon" aria-hidden>
+          {icon}
+        </div>
+      ) : null}
+      <p className="ui-empty__title">{title}</p>
+      {sub ? <p className="ui-empty__sub">{sub}</p> : null}
+      {action}
+      {cta && 'to' in cta ? (
+        <Link to={cta.to} className="btn btn-primary ui-empty__cta">
+          {cta.label}
+        </Link>
+      ) : null}
+      {cta && 'onClick' in cta ? (
+        <button type="button" className="btn btn-primary ui-empty__cta" onClick={cta.onClick}>
+          {cta.label}
+        </button>
+      ) : null}
+    </div>
+  )
+}

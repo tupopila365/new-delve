@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { mockGuides } from '../mocks/mockData'
+import { ProviderCategoryStrip } from '../components/provider'
 
 const MOCK_INQUIRIES = [
   { id: 1, name: 'Sarah M.', package: 'Dunes & deadvlei half-day', date: '2026-05-12', guests: 2, total: 3600, status: 'confirmed' },
@@ -26,20 +27,48 @@ export function GuidesAdmin() {
   const confirmedInquiries = MOCK_INQUIRIES.filter((i) => myGuides.length > 0 && i.status === 'confirmed')
   const revenue = confirmedInquiries.reduce((s, i) => s + i.total, 0)
 
+  const packageCount = guide?.tour_packages?.length ?? 0
+  const profileComplete = guide
+    ? Math.round(
+        ([guide.photo, guide.languages?.length, guide.regions?.length, packageCount, guide.certifications?.length]
+          .filter(Boolean).length /
+          5) *
+          100,
+      )
+    : 0
+
   return (
-    <div className="adm-page">
-      {/* Back */}
-      <div className="adm-bar">
+    <div className="prov-cat-page">
+      <ProviderCategoryStrip
+        title="Guide services"
+        subtitle="Manage your guide profile, packages, availability, and traveller requests."
+        publicTo="/guides"
+        attention={[
+          ...(guide && profileComplete < 100
+            ? [{ label: `Profile ${profileComplete}% complete`, actionLabel: 'Complete profile', actionTo: '#profile', priority: 'medium' as const }]
+            : []),
+          ...(MOCK_INQUIRIES.some((i) => i.status === 'pending')
+            ? [{ label: '1 booking request needs response', actionLabel: 'View inquiries', actionTo: '#inquiries', priority: 'high' as const }]
+            : []),
+          { label: 'Add portfolio photos', actionLabel: 'Add photos', actionTo: '#packages', priority: 'low' as const },
+        ]}
+        quickActions={[
+          { label: 'Add tour package', to: '#packages', emoji: '＋' },
+          { label: 'Update availability', to: '#profile', emoji: '📅' },
+          { label: 'Reply to messages', to: '/messages', emoji: '💬' },
+        ]}
+      />
+
+      <div className="adm-bar adm-bar--compact">
         <Link to="/provider" className="up__back" aria-label="Back to dashboard">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
             <path d="M19 12H5M12 5l-7 7 7 7" />
           </svg>
         </Link>
         <div>
-          <h1 className="adm-bar__title">🧭 Guides</h1>
-          <p className="adm-bar__sub">Manage your guide profile & packages</p>
+          <h2 className="adm-bar__title">Profile &amp; packages</h2>
+          <p className="adm-bar__sub">Guide profile, tour packages, and booking inquiries</p>
         </div>
-        <Link to="/guides" className="btn btn-ghost adm-bar__view">View public</Link>
       </div>
 
       {/* Stats */}
@@ -55,6 +84,10 @@ export function GuidesAdmin() {
         <div className="adm-stat">
           <span className="adm-stat__n">{guide?.tour_packages?.length ?? 0}</span>
           <span className="adm-stat__l">Packages</span>
+        </div>
+        <div className="adm-stat">
+          <span className="adm-stat__n">{profileComplete}%</span>
+          <span className="adm-stat__l">Profile complete</span>
         </div>
         <div className="adm-stat adm-stat--accent">
           <span className="adm-stat__n">N${revenue.toLocaleString()}</span>
@@ -76,7 +109,7 @@ export function GuidesAdmin() {
 
       {/* Profile tab */}
       {tab === 'profile' && (
-        <div className="adm-section">
+        <div className="adm-section" id="profile">
           {!guide ? (
             <div className="adm-empty">
               <p className="adm-empty__title">No guide profile found</p>
@@ -121,10 +154,11 @@ export function GuidesAdmin() {
 
       {/* Packages tab */}
       {tab === 'packages' && (
-        <div className="adm-section">
+        <div className="adm-section" id="packages">
           {!guide || !guide.tour_packages?.length ? (
             <div className="adm-empty">
-              <p className="adm-empty__title">No packages yet</p>
+              <p className="adm-empty__title">No guide packages yet</p>
+              <p className="adm-empty__sub">Create your first experience so travellers can book you.</p>
             </div>
           ) : (
             <div className="adm-list">
@@ -165,7 +199,7 @@ export function GuidesAdmin() {
 
       {/* Inquiries tab */}
       {tab === 'inquiries' && (
-        <div className="adm-section">
+        <div className="adm-section" id="inquiries">
           {!guide || MOCK_INQUIRIES.length === 0 ? (
             <div className="adm-empty">
               <p className="adm-empty__title">No inquiries yet</p>

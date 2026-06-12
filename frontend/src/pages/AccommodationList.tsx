@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { MarketplaceBadge, MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
+import { EmptyState, ListSkeleton } from '../components/ui'
 
 type AccListing = {
   id: number
@@ -88,6 +90,11 @@ export function AccommodationList() {
   const [amenityPool, setAmenityPool] = useState(false)
   const [amenityParking, setAmenityParking] = useState(false)
   const [amenityKitchen, setAmenityKitchen] = useState(false)
+  const [amenityBreakfast, setAmenityBreakfast] = useState(false)
+  const [petFriendlyOnly, setPetFriendlyOnly] = useState(false)
+  const [budgetOnly, setBudgetOnly] = useState(false)
+  const [familyOnly, setFamilyOnly] = useState(false)
+  const [coastOnly, setCoastOnly] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -104,9 +111,9 @@ export function AccommodationList() {
     return s ? `?${s}` : ''
   }, [propType, minPrice, maxPrice, search])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['accommodation', qs],
-    queryFn: () => apiFetch<AccListing[]>(`/api/accommodation/listings/${qs}`),
+    queryFn: () => apiFetch<AccListing[]>(`/api/accommodation/listings/${qs}`, { auth: false }),
   })
 
   const likeMut = useMutation({
@@ -139,9 +146,17 @@ export function AccommodationList() {
       if (amenityPool && !a.pool) return false
       if (amenityParking && !a.parking) return false
       if (amenityKitchen && !a.kitchen) return false
+      if (amenityBreakfast && !a.breakfast) return false
+      if (petFriendlyOnly && !a.pet_friendly) return false
+      if (budgetOnly && parseFloat(a.price_per_night) > 80) return false
+      if (familyOnly && (a.max_guests ?? 0) < 4) return false
+      if (coastOnly) {
+        const coast = /erongo|swakop|walvis|coast/i.test(`${a.region} ${a.city ?? ''}`)
+        if (!coast) return false
+      }
       return true
     })
-  }, [listings, minGuests, amenityWifi, amenityPool, amenityParking, amenityKitchen])
+  }, [listings, minGuests, amenityWifi, amenityPool, amenityParking, amenityKitchen, amenityBreakfast, petFriendlyOnly, budgetOnly, familyOnly, coastOnly])
 
   const featured = useMemo(() => filteredListings.slice(0, 5), [filteredListings])
 
@@ -151,7 +166,12 @@ export function AccommodationList() {
     amenityWifi ||
     amenityPool ||
     amenityParking ||
-    amenityKitchen
+    amenityKitchen ||
+    amenityBreakfast ||
+    petFriendlyOnly ||
+    budgetOnly ||
+    familyOnly ||
+    coastOnly
   const hasFilters = hasApiFilters || hasClientFilters
 
   const clearAll = () => {
@@ -165,6 +185,30 @@ export function AccommodationList() {
     setAmenityPool(false)
     setAmenityParking(false)
     setAmenityKitchen(false)
+    setAmenityBreakfast(false)
+    setPetFriendlyOnly(false)
+    setBudgetOnly(false)
+    setFamilyOnly(false)
+    setCoastOnly(false)
+  }
+
+  const quickChipActive = (id: string) => {
+    if (id === 'pool') return amenityPool
+    if (id === 'breakfast') return amenityBreakfast
+    if (id === 'pet') return petFriendlyOnly
+    if (id === 'budget') return budgetOnly
+    if (id === 'family') return familyOnly
+    if (id === 'coast') return coastOnly
+    return false
+  }
+
+  const onQuickChip = (id: string) => {
+    if (id === 'pool') setAmenityPool((v) => !v)
+    if (id === 'breakfast') setAmenityBreakfast((v) => !v)
+    if (id === 'pet') setPetFriendlyOnly((v) => !v)
+    if (id === 'budget') setBudgetOnly((v) => !v)
+    if (id === 'family') setFamilyOnly((v) => !v)
+    if (id === 'coast') setCoastOnly((v) => !v)
   }
 
   const petFriendlyCount = useMemo(
@@ -189,9 +233,8 @@ export function AccommodationList() {
         title: 'Stays pulse',
         type: 'stats',
         items: [
-          { value: listings.length || 24, label: 'listings available' },
-          { value: petFriendlyCount || 6, label: 'pet-friendly stays' },
-          { value: 4, label: 'new this week' },
+          { value: listings.length ? listings.length : '—', label: 'listings available' },
+          { value: petFriendlyCount ? petFriendlyCount : '—', label: 'pet-friendly stays' },
         ],
       },
       {
@@ -210,30 +253,41 @@ export function AccommodationList() {
   }, [listings.length, petFriendlyCount, propType])
 
   return (
-    <div className="ev-page acc-page disc-page">
-      <header className="page-header ev-page__header acc-page__header">
-        <div>
-          <h1 className="display ev-page__title">Stays</h1>
-          <p className="page-sub ev-page__sub">
-            Boutique rooms &amp; stays — browse like a discovery feed, then refine with filters.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="acc-page__filter-btn btn btn-ghost"
-          onClick={() => setShowFilters(!showFilters)}
-          aria-expanded={showFilters}
-        >
-          {showFilters ? 'Hide filters' : 'Filters'}
-        </button>
-      </header>
+    <div className="ev-page acc-page disc-page mk-page">
+      <MarketplaceHero
+        title="Find places to stay"
+        subtitle="Hotels, lodges, apartments, guesthouses, campsites, and unique stays."
+        action={
+          <button
+            type="button"
+            className="acc-page__filter-btn btn btn-ghost"
+            onClick={() => setShowFilters(!showFilters)}
+            aria-expanded={showFilters}
+          >
+            {showFilters ? 'Hide filters' : 'Filters'}
+          </button>
+        }
+      />
+
+      <QuickFilterChips
+        ariaLabel="Stay quick filters"
+        chips={[
+          { id: 'pool', label: 'Pool', emoji: '🏊', active: quickChipActive('pool') },
+          { id: 'breakfast', label: 'Breakfast', emoji: '☕', active: quickChipActive('breakfast') },
+          { id: 'pet', label: 'Pet friendly', emoji: '🐾', active: quickChipActive('pet') },
+          { id: 'budget', label: 'Budget', emoji: '💰', active: quickChipActive('budget') },
+          { id: 'family', label: 'Family friendly', emoji: '👨‍👩‍👧', active: quickChipActive('family') },
+          { id: 'coast', label: 'Near coast', emoji: '🌊', active: quickChipActive('coast') },
+        ]}
+        onChipClick={onQuickChip}
+      />
 
       <section className="ev-page__discover card" aria-labelledby="acc-discover-title">
         <h2 id="acc-discover-title" className="ev-page__discover-title">
-          Discover a place
+          Browse by property style
         </h2>
         <p className="ev-page__discover-sub">
-          Start with a property style — then search or open filters for price and amenities.
+          Pick a stay type, then search or refine with price and amenities.
         </p>
         <div className="ev-page__discover-chips" role="group" aria-label="Property types">
           {PROPERTY_TYPES.map(({ value, label, emoji }) => (
@@ -249,36 +303,14 @@ export function AccommodationList() {
         </div>
       </section>
 
-      <div className="acc-page__search">
-        <label className="visually-hidden" htmlFor="acc-search">
-          Search stays
-        </label>
-        <div className="acc-page__search-inner">
-          <span className="acc-page__search-icon" aria-hidden>
-            ⌕
-          </span>
-          <input
-            id="acc-search"
-            type="search"
-            className="acc-page__search-input input"
-            placeholder="City, region, or listing name…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-          {searchInput ? (
-            <button
-              type="button"
-              className="acc-page__search-clear"
-              onClick={() => setSearchInput('')}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          ) : null}
-        </div>
-      </div>
+      <SearchPanel
+        id="acc-search"
+        label="Search stays"
+        placeholder="City, region, or listing name…"
+        value={searchInput}
+        onChange={setSearchInput}
+        onClear={() => setSearchInput('')}
+      />
 
       {showFilters && (
         <div className="acc-page__filter-panel">
@@ -394,7 +426,7 @@ export function AccommodationList() {
             <section className="ev-page__stories" aria-labelledby="acc-stories-title">
               <div className="ev-page__stories-head">
                 <h2 id="acc-stories-title" className="ev-page__stories-title">
-                  Trending now
+                  Featured stays
                 </h2>
                 <span className="ev-page__stories-sub">Swipe to explore</span>
               </div>
@@ -447,15 +479,20 @@ export function AccommodationList() {
             </div>
           )}
 
-          {isLoading && (
-            <div className="ev-page__skeleton-wrap" aria-hidden>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton ev-page__skeleton-card" />
-              ))}
-            </div>
+          {isError && (
+            <EmptyState
+              icon="🏨"
+              title="We couldn't load stays"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetch() }}
+            />
           )}
 
-          {!isLoading && filteredListings.length > 0 && (
+          {isLoading && !isError && (
+            <ListSkeleton count={3} />
+          )}
+
+          {!isLoading && !isError && filteredListings.length > 0 && (
             <p className="ev-page__results-hint">
               {filteredListings.length} {filteredListings.length === 1 ? 'listing' : 'listings'}
             </p>
@@ -477,6 +514,7 @@ export function AccommodationList() {
                         className="acc-media-card__img"
                         src={mediaUrl(a.cover_image) || ''}
                         alt={a.title}
+                        loading="lazy"
                       />
                     ) : (
                       <div className="acc-media-card__img acc-media-card__placeholder">
@@ -499,6 +537,13 @@ export function AccommodationList() {
                     </button>
                   </div>
                   <div className="media-card__body">
+                    <div className="mk-card-trust">
+                      {(a.rating_count ?? 0) >= 20 ? (
+                        <MarketplaceBadge variant="popular">Popular stay</MarketplaceBadge>
+                      ) : null}
+                      {a.breakfast ? <MarketplaceBadge>Breakfast</MarketplaceBadge> : null}
+                      {a.wifi ? <MarketplaceBadge>Free Wi-Fi</MarketplaceBadge> : null}
+                    </div>
                     <div className="acc-media-card__type-row">
                       {typeLabel && <span className="acc-media-card__type">{typeLabel}</span>}
                       {a.pet_friendly && <span className="acc-media-card__pet">🐾 Pet friendly</span>}
@@ -506,6 +551,13 @@ export function AccommodationList() {
                     </div>
                     <h2 className="media-card__title">{a.title}</h2>
                     <p className="media-card__meta">📍 {location}</p>
+                    {a.bedrooms != null || a.max_guests != null ? (
+                      <p className="media-card__meta">
+                        {a.bedrooms != null ? `${a.bedrooms} bed${a.bedrooms === 1 ? '' : 's'}` : ''}
+                        {a.bedrooms != null && a.max_guests != null ? ' · ' : ''}
+                        {a.max_guests != null ? `${a.max_guests} guests` : ''}
+                      </p>
+                    ) : null}
                     {a.rating_avg != null && (
                       <p className="media-card__meta">
                         ★ {parseFloat(a.rating_avg).toFixed(1)}
@@ -524,21 +576,16 @@ export function AccommodationList() {
           </div>
 
           {!isLoading && filteredListings.length === 0 && (
-            <div className="ev-page__empty">
-              <p className="ev-page__empty-title">
-                {listings.length > 0 || hasFilters ? 'No stays match these filters' : 'No listings yet'}
-              </p>
-              <p className="ev-page__empty-text">
-                {listings.length > 0 || hasFilters
-                  ? 'Try adjusting your filters — new properties list here regularly.'
-                  : 'Boutique hotels, lodges, and apartments will appear here once listed.'}
-              </p>
-              {hasFilters && (
-                <button type="button" className="btn btn-primary ev-page__empty-btn" onClick={clearAll}>
-                  Show all stays
-                </button>
-              )}
-            </div>
+            <EmptyState
+              icon="🏨"
+              title={listings.length > 0 || hasFilters ? 'No stays found' : 'No listings yet'}
+              sub={
+                listings.length > 0 || hasFilters
+                  ? 'Try changing your destination, dates, or filters.'
+                  : 'Boutique hotels, lodges, and apartments will appear here once listed.'
+              }
+              cta={hasFilters ? { label: 'Show all stays', onClick: clearAll } : undefined}
+            />
           )}
         </main>
 

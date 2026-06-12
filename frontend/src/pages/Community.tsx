@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import { EmptyState } from '../components/ui'
 import {
   isLocationTag,
   questionStatus,
@@ -14,10 +15,13 @@ type CommunityTab = 'ask' | 'trending' | 'challenges'
 const ALL_LOCATIONS = 'Everywhere' as const
 
 const HOT_NOW = [
-  { label: 'SIM cards in Windhoek', query: 'SIM' },
-  { label: 'Road safety', query: 'gravel' },
-  { label: 'Etosha timing', query: 'Etosha' },
-  { label: 'Taxi apps', query: 'taxi' },
+  { label: 'Safety', query: 'safety' },
+  { label: 'Transport', query: 'transport' },
+  { label: 'Food', query: 'food' },
+  { label: 'Stays', query: 'stays' },
+  { label: 'Prices', query: 'price' },
+  { label: 'Routes', query: 'route' },
+  { label: 'Events', query: 'event' },
 ] as const
 
 const TAB_META: { id: CommunityTab; label: string; count: number }[] = [
@@ -223,9 +227,9 @@ export function Community({ embedded = false }: CommunityProps = {}) {
         <section className="cm-page__hero">
           <div className="cm-page__hero-top">
             <div>
-              <h1 className="cm-page__title">Community</h1>
+              <h1 className="cm-page__title">Ask locals and travellers</h1>
               <p className="cm-page__sub">
-                Ask locals. Share tips. Find what travelers are talking about right now.
+                Get practical answers about safety, prices, routes, events, food, stays, and hidden places.
               </p>
             </div>
             {profile ? (
@@ -581,7 +585,7 @@ function AskLocalTab({
               <textarea id="cm-q-body" className="input" rows={4} placeholder="What would locals recommend?" />
             </div>
             <button type="submit" className="btn btn-primary btn-block">
-              Submit (demo)
+              Post question
             </button>
             <p className="cm-ask__form-note">Questions go live after moderation — this form is a preview only.</p>
           </form>
@@ -594,10 +598,11 @@ function AskLocalTab({
 
       <div className="cm-qa-list">
         {filtered.length === 0 ? (
-          <div className="cm-empty">
-            <p className="cm-empty__title">No questions for this location yet</p>
-            <p className="cm-empty__text">Try another area or ask the first one.</p>
-          </div>
+          <EmptyState
+            icon="💬"
+            title="No questions for this location yet"
+            sub="Try another area or ask the first one."
+          />
         ) : (
           filtered.map((q) => {
             const allAnswers = answersFor(q.id, q.answers)

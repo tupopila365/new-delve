@@ -57,6 +57,9 @@ export function useBusinessAccess(activeBusinessId?: number | null) {
     canManageBookings: Boolean(permissions?.manage_bookings),
     canManageSettings: Boolean(permissions?.manage_settings),
     canManageTeam: Boolean(permissions?.manage_team),
+    canAccessProvider:
+      profile?.user_type === 'service_provider' ||
+      businesses.some((b) => b.permissions?.view_dashboard),
     isViewerOnly: Boolean(
       permissions?.view_dashboard &&
         !permissions?.manage_bookings &&

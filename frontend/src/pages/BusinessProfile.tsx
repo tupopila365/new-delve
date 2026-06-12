@@ -1,36 +1,62 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../api/client'
-import { BUSINESS_TYPE_LABELS, VERIFICATION_LABELS } from '../data/businessProfiles'
+import { BUSINESS_TYPE_LABELS, VERIFICATION_LABELS, type BusinessType, type VerificationStatus } from '../data/businessProfiles'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { mockStays, mockGuides, mockVehicles, mockFood } from '../mocks/mockData'
+import { DelversMoments, DetailPage, DetailSkeleton, TrustBadgeRow } from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 export function BusinessProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const { data: business, isLoading } = useQuery({
+  const { data: business, isLoading, isError, refetch } = useQuery({
     queryKey: ['business-profile', id],
     queryFn: () => apiFetch<MyBusiness>(`/api/accounts/businesses/${id}/`, { auth: false }),
     enabled: Boolean(id),
   })
 
   if (isLoading) {
-    return <div className="bp-empty"><p>Loading business…</p></div>
+    return (
+      <DetailPage prefix="bp" className="bp">
+        <DetailSkeleton className="bp__skeleton" />
+      </DetailPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DetailPage prefix="bp" className="bp">
+        <EmptyState
+          icon="🏢"
+          title="We couldn't load this business"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
   }
 
   if (!business) {
     return (
-      <div className="bp-empty">
-        <h1>Business not found</h1>
-        <Link to="/" className="btn btn-primary">
-          Home
-        </Link>
-      </div>
+      <DetailPage prefix="bp" className="bp">
+        <EmptyState
+          icon="🏢"
+          title="Business not found"
+          sub="This profile may have been removed or the link is incorrect."
+          cta={{ label: 'Back to home', to: '/' }}
+        />
+      </DetailPage>
     )
   }
 
   const types = business.business_types.filter((t) => t !== 'multi_provider')
+  const verification = business.verification_status as VerificationStatus
+  const ratingAvg = (business as { rating_avg?: string }).rating_avg
+  const ratingCount = (business as { rating_count?: number }).rating_count
+  const responseHours = (business as { response_hours?: number }).response_hours
+  const listingsCount = (business as { listings_count?: number }).listings_count
   const stays = mockStays.filter((s) => s.owner_username === business.owner_username)
   const guides = mockGuides.filter((g) => g.username === business.owner_username)
   const vehicles = mockVehicles.filter((v) => v.owner_username === business.owner_username)
@@ -40,7 +66,7 @@ export function BusinessProfile() {
   const verified = business.verification_status === 'verified'
 
   return (
-    <div className="bp">
+    <DetailPage prefix="bp" className="bp">
       <div className="bp__hero">
         {business.cover_image ? <img src={business.cover_image} alt="" className="bp__hero-img" /> : <div className="bp__hero-img bp__hero-img--placeholder" />}
         <div className="bp__hero-scrim" />
@@ -62,14 +88,22 @@ export function BusinessProfile() {
             {business.tagline ? <p className="bp__tagline">{business.tagline}</p> : null}
             <div className="bp__badges">
               {verified ? <span className="bp__badge bp__badge--verified">✓ {VERIFICATION_LABELS.verified}</span> : (
-                <span className="bp__badge">{VERIFICATION_LABELS[business.verification_status]}</span>
+                <span className="bp__badge">{VERIFICATION_LABELS[verification] ?? business.verification_status}</span>
               )}
               {types.map((t) => (
                 <span key={t} className="bp__badge">
-                  {BUSINESS_TYPE_LABELS[t]}
+                  {BUSINESS_TYPE_LABELS[t as BusinessType] ?? t}
                 </span>
               ))}
             </div>
+            <TrustBadgeRow
+              items={[
+                verified ? 'Verified business' : 'Listed business',
+                ...(responseHours && responseHours <= 6 ? ['Fast response'] : []),
+                ...(ratingAvg ? ['Rated on DELVE'] : []),
+              ]}
+              className="bp__trust-row"
+            />
           </div>
         </div>
 
@@ -177,15 +211,23 @@ export function BusinessProfile() {
             </div>
           ) : null}
         </section>
-      ) : null}
+      ) : (
+        <EmptyState
+          compact
+          icon="📋"
+          title="No public listings yet"
+          sub="This business hasn't published stays, food, guides, or transport on DELVE yet."
+        />
+      )}
 
-      <section className="detail-section bp__social">
-        <h2 className="bp__section-title">Delvers moments</h2>
-        <p className="bp__section-sub">Guest photos, reviews, and route tips connected to this business.</p>
-        <Link to="/delvers" className="btn btn-ghost">
-          See more on Delvers
-        </Link>
-      </section>
+      <DelversMoments
+        title="Delvers moments"
+        subtitle="Guest photos, reviews, and route tips connected to this business."
+        moments={[]}
+        showWhenEmpty
+        emptyMessage="Travellers haven't tagged this business on Delvers yet."
+        className="bp__moments"
+      />
 
       <section className="detail-section bp__trust">
         <h2 className="bp__section-title">Policies & trust</h2>
@@ -195,6 +237,6 @@ export function BusinessProfile() {
           <li>Verified business status reviewed by the DELVE team</li>
         </ul>
       </section>
-    </div>
+    </DetailPage>
   )
 }

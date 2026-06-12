@@ -1,13 +1,25 @@
 /** Desktop top nav + mobile section strip share these links */
 export type MainNavLink = { to: string; label: string; end?: boolean }
 
-export const MAIN_NAV_SECTIONS: MainNavLink[] = [
+/** Top-level primary navigation — keep uncrowded */
+export const PRIMARY_NAV_SECTIONS: MainNavLink[] = [
+  { to: '/', label: 'Explore', end: true },
   { to: '/accommodation', label: 'Stays' },
-  { to: '/transport', label: 'Transport' },
-  { to: '/events', label: 'Events' },
+  { to: '/journeys', label: 'Journeys' },
+  { to: '/delvers', label: 'Delvers' },
+  { to: '/community', label: 'Community' },
+]
+
+/** Secondary categories — discoverable via More menu, Home, and Search */
+export const SECONDARY_NAV_SECTIONS: MainNavLink[] = [
   { to: '/food', label: 'Food & drink' },
   { to: '/guides', label: 'Guides' },
-  { to: '/delvers', label: 'Delvers' },
-  { to: '/journeys', label: 'Journeys' },
-  { to: '/community', label: 'Community' },
+  { to: '/transport', label: 'Transport' },
+  { to: '/events', label: 'Events' },
+]
+
+/** @deprecated Use PRIMARY_NAV_SECTIONS + SECONDARY_NAV_SECTIONS */
+export const MAIN_NAV_SECTIONS: MainNavLink[] = [
+  ...PRIMARY_NAV_SECTIONS,
+  ...SECONDARY_NAV_SECTIONS,
 ]

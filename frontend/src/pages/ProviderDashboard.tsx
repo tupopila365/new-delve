@@ -1,210 +1,210 @@
-import { Link } from 'react-router-dom'
-import { useOutletContext } from 'react-router-dom'
-import type { ProviderOutletContext } from '../components/ProviderLayout'
-import { mockStays, mockGuides, mockVehicles, mockFood } from '../mocks/mockData'
-
-const QUICK = [
-  { label: 'Add listing', to: '/provider/listings', emoji: '＋' },
-  { label: 'Update availability', to: '/provider/stays', emoji: '📅' },
-  { label: 'Reply to messages', to: '/messages', emoji: '💬' },
-  { label: 'Create event', to: '/events/new', emoji: '🎟' },
-]
-
-const TODAY_TASKS = [
-  { label: 'Confirm booking — Anna K., Freesia Hotel', urgency: 'Today' },
-  { label: 'Update weekend availability for Desert tour', urgency: 'Due' },
-  { label: 'Reply to parking question on event listing', urgency: 'New' },
-]
-
-const MESSAGES = [
-  { from: 'James O.', preview: 'Can we check in early on May 14?', ago: '2h ago' },
-  { from: 'Sara M.', preview: 'Is the guide package still available?', ago: '5h ago' },
-]
-
-export function ProviderDashboard() {
-  const { activeBusiness } = useOutletContext<ProviderOutletContext>()
-  const owner = activeBusiness?.owner_username
-
-  const stayCount = owner ? mockStays.filter((s) => s.owner_username === owner).length : 0
-  const guideCount = owner ? mockGuides.filter((g) => g.username === owner).length : 0
-  const vehicleCount = owner ? mockVehicles.filter((v) => v.owner_username === owner).length : 0
-  const foodCount = owner ? mockFood.filter((f) => f.owner_username === owner).length : 0
-  const listingTotal = stayCount + guideCount + vehicleCount + foodCount
-
-  return (
-    <div className="prov-page">
-      <h1 className="prov-page__title">Overview</h1>
-      <p className="prov-page__sub">
-        Today at {activeBusiness?.business_name ?? 'your business'} — bookings, messages, and listing health.
-      </p>
-
-      <div className="prov-page__stats prov-page__stats--overview">
-        <div className="prov-page__stat prov-page__stat--accent">
-          <strong>4</strong>
-          <span>Bookings pending</span>
-        </div>
-        <div className="prov-page__stat">
-          <strong>3</strong>
-          <span>Messages needing reply</span>
-        </div>
-        <div className="prov-page__stat">
-          <strong>N$12,400</strong>
-          <span>Revenue this month</span>
-        </div>
-        <div className="prov-page__stat">
-          <strong>4.7 ★</strong>
-          <span>Reviews</span>
-        </div>
-      </div>
-
-      <div className="prov-overview-grid">
-        <section className="prov-overview-card">
-          <h2>Today&apos;s tasks</h2>
-          <ul className="prov-task-list">
-            {TODAY_TASKS.map((t) => (
-              <li key={t.label}>
-                {t.label}
-                <span>{t.urgency}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="prov-overview-card">
-          <h2>Messages needing reply</h2>
-          <div className="prov-message-preview">
-            {MESSAGES.map((m) => (
-              <div key={m.from} className="prov-message-preview__row">
-                <div>
-                  <strong>{m.from}</strong>
-                  <span>{m.preview}</span>
-                </div>
-                <span>{m.ago}</span>
-              </div>
-            ))}
-          </div>
-          <Link to="/messages" className="prov-page__link">
-            Open inbox →
-          </Link>
-        </section>
-      </div>
-
-      <section className="prov-overview-card">
-        <h2>Listing health</h2>
-        <div className="prov-health-row">
-          <div className="prov-health-item">
-            <span>Photos &amp; cover completeness</span>
-            <strong>82%</strong>
-            <div className="prov-health-bar" aria-hidden>
-              <i style={{ width: '82%' }} />
-            </div>
-          </div>
-          <div className="prov-health-item">
-            <span>Availability up to date</span>
-            <strong>68%</strong>
-            <div className="prov-health-bar" aria-hidden>
-              <i style={{ width: '68%' }} />
-            </div>
-          </div>
-          <div className="prov-health-item">
-            <span>Response rate (7 days)</span>
-            <strong>94%</strong>
-            <div className="prov-health-bar" aria-hidden>
-              <i style={{ width: '94%' }} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="prov-overview-card">
-        <h2>Booking status summary</h2>
-        <div className="prov-booking-summary">
-          <div className="prov-booking-summary__item">
-            <strong>4</strong>
-            <small>Pending</small>
-          </div>
-          <div className="prov-booking-summary__item">
-            <strong>12</strong>
-            <small>Confirmed</small>
-          </div>
-          <div className="prov-booking-summary__item">
-            <strong>2</strong>
-            <small>Checked in</small>
-          </div>
-          <div className="prov-booking-summary__item">
-            <strong>1</strong>
-            <small>Cancelled</small>
-          </div>
-        </div>
-      </section>
-
-      <section className="prov-overview-card">
-        <h2>Revenue</h2>
-        <div className="prov-chart-placeholder" aria-hidden>
-          <p>Revenue chart — connect payouts to see trends here</p>
-        </div>
-      </section>
-
-      <section className="prov-overview-card">
-        <h2>Listings snapshot</h2>
-        <div className="prov-overview-card__grid">
-          <Link to="/provider/stays" className="prov-overview-card__item">
-            <span>🏨 {stayCount}</span>
-            <small>Stays</small>
-          </Link>
-          <Link to="/provider/guides" className="prov-overview-card__item">
-            <span>🧭 {guideCount}</span>
-            <small>Guides</small>
-          </Link>
-          <Link to="/provider/transport" className="prov-overview-card__item">
-            <span>🚗 {vehicleCount}</span>
-            <small>Transport</small>
-          </Link>
-          <Link to="/provider/food" className="prov-overview-card__item">
-            <span>🍽 {foodCount}</span>
-            <small>Food</small>
-          </Link>
-        </div>
-        <p className="prov-overview-card__total">{listingTotal} active listings</p>
-      </section>
-
-      <section className="prov-overview-card">
-        <h2>Quick actions</h2>
-        <div className="prov-quick">
-          {QUICK.map((q) => (
-            <Link key={q.label} to={q.to} className="prov-quick__btn">
-              <span aria-hidden>{q.emoji}</span> {q.label}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="prov-overview-card">
-        <h2>Recent bookings</h2>
-        <div className="prov-table">
-          <div className="prov-table__row">
-            <div>
-              <strong>Anna K.</strong>
-              <span>Freesia Hotel · Stay</span>
-            </div>
-            <span>2026-05-10</span>
-            <span className="prov-table__status prov-table__status--confirmed">confirmed</span>
-            <strong>N$1,050</strong>
-          </div>
-          <div className="prov-table__row">
-            <div>
-              <strong>James O.</strong>
-              <span>Desert tour · Guide</span>
-            </div>
-            <span>2026-05-14</span>
-            <span className="prov-table__status prov-table__status--requested">requested</span>
-            <strong>N$340</strong>
-          </div>
-        </div>
-        <Link to="/provider/bookings" className="prov-page__link">
-          View all bookings →
-        </Link>
-      </section>
-    </div>
-  )
-}
+import { Link } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
+import type { ProviderOutletContext } from '../components/ProviderLayout'
+import {
+  ProviderAttentionList,
+  ProviderBookingRow,
+  ProviderHealthList,
+  ProviderPageHeader,
+  ProviderQuickActions,
+  ProviderStatGrid,
+  ProviderStatusBadge,
+} from '../components/provider'
+import { EmptyState } from '../components/ui'
+import {
+  getAttentionItems,
+  getBookingStats,
+  getHealthItems,
+  getListingStats,
+  getProviderBookings,
+  getProviderListings,
+} from '../data/providerData'
+
+const MESSAGES = [
+  { from: 'James O.', listing: 'Freesia Hotel', preview: 'Can we check in early on May 14?', ago: '2h ago' },
+  { from: 'Sara M.', listing: 'Desert sunrise tour', preview: 'Is the guide package still available?', ago: '5h ago' },
+]
+
+function verificationBadge(status?: string) {
+  if (status === 'verified') return <span className="prov-verify prov-verify--ok">Verified</span>
+  if (status === 'pending') return <span className="prov-verify prov-verify--warn">Verification pending</span>
+  return <span className="prov-verify">Unverified</span>
+}
+
+export function ProviderDashboard() {
+  const { activeBusiness } = useOutletContext<ProviderOutletContext>()
+  const owner = activeBusiness?.owner_username
+
+  const listings = getProviderListings(owner)
+  const bookings = getProviderBookings(owner)
+  const listingStats = getListingStats(listings)
+  const bookingStats = getBookingStats(bookings)
+  const attention = getAttentionItems(listings, bookings)
+  const health = getHealthItems(listings)
+
+  const categoryCounts = {
+    stays: listings.filter((l) => l.category === 'Stay').length,
+    guides: listings.filter((l) => l.category === 'Guide').length,
+    transport: listings.filter((l) => l.category === 'Transport').length,
+    food: listings.filter((l) => l.category === 'Food').length,
+    events: listings.filter((l) => l.category === 'Event').length,
+  }
+
+  const quick = [
+    { label: 'Add listing', to: '/provider/listings', emoji: '＋' },
+    { label: 'Update availability', to: '/provider/stays', emoji: '📅' },
+    { label: 'Reply to messages', to: '/messages', emoji: '💬' },
+    { label: 'Manage bookings', to: '/provider/bookings', emoji: '📅' },
+    { label: 'Create event', to: '/events/new', emoji: '🎟' },
+    ...(activeBusiness
+      ? [{ label: 'View public profile', to: `/business/${activeBusiness.id}`, emoji: '👁' }]
+      : []),
+  ]
+
+  return (
+    <div className="prov-page">
+      <ProviderPageHeader
+        title="Provider dashboard"
+        subtitle={`Operational overview for ${activeBusiness?.business_name ?? 'your business'}.`}
+        badge={verificationBadge(activeBusiness?.verification_status)}
+        action={
+          activeBusiness ? (
+            <Link to={`/business/${activeBusiness.id}`} className="btn btn-ghost">
+              Public business profile
+            </Link>
+          ) : null
+        }
+      />
+
+      <ProviderAttentionList items={attention} />
+
+      <ProviderStatGrid
+        stats={[
+          { value: listingStats.total, label: 'Active listings' },
+          { value: bookingStats.pending, label: 'Pending bookings', accent: bookingStats.pending > 0 },
+          { value: 2, label: 'Unread messages', accent: true },
+          { value: `N$${bookingStats.revenue.toLocaleString()}`, label: 'Revenue this month' },
+          { value: '4.7 ★', label: 'Average rating' },
+          { value: listingStats.needsUpdate, label: 'Listings need updates', accent: listingStats.needsUpdate > 0 },
+        ]}
+      />
+
+      <div className="prov-overview-grid">
+        <section className="prov-overview-card">
+          <div className="prov-overview-card__head">
+            <h2>Recent bookings</h2>
+            <Link to="/provider/bookings" className="prov-page__link">
+              View all
+            </Link>
+          </div>
+          {bookings.length === 0 ? (
+            <EmptyState compact icon="📅" title="No bookings yet" sub="Booking requests will appear here." />
+          ) : (
+            <div className="prov-booking-list">
+              {bookings.slice(0, 4).map((b) => (
+                <ProviderBookingRow key={b.id} booking={b} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="prov-overview-card">
+          <div className="prov-overview-card__head">
+            <h2>Messages needing reply</h2>
+            <Link to="/messages" className="prov-page__link">
+              Open inbox
+            </Link>
+          </div>
+          <div className="prov-message-preview">
+            {MESSAGES.map((m) => (
+              <div key={m.from} className="prov-message-preview__row">
+                <div>
+                  <strong>{m.from}</strong>
+                  <span>{m.listing} · {m.preview}</span>
+                </div>
+                <Link to="/messages" className="prov-message-preview__reply">
+                  Reply
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section className="prov-overview-card">
+        <div className="prov-overview-card__head">
+          <h2>Listing health</h2>
+          <Link to="/provider/listings" className="prov-page__link">
+            All listings
+          </Link>
+        </div>
+        <ProviderHealthList items={health} />
+      </section>
+
+      <section className="prov-overview-card">
+        <h2>Booking status summary</h2>
+        <div className="prov-booking-summary">
+          <div className="prov-booking-summary__item">
+            <strong>{bookingStats.pending}</strong>
+            <small>Pending</small>
+          </div>
+          <div className="prov-booking-summary__item">
+            <strong>{bookingStats.confirmed}</strong>
+            <small>Confirmed</small>
+          </div>
+          <div className="prov-booking-summary__item">
+            <strong>{bookingStats.completed}</strong>
+            <small>Completed</small>
+          </div>
+          <div className="prov-booking-summary__item">
+            <strong>{bookingStats.cancelled}</strong>
+            <small>Cancelled</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="prov-overview-card">
+        <h2>Listings by category</h2>
+        <div className="prov-overview-card__grid">
+          <Link to="/provider/stays" className="prov-overview-card__item">
+            <span>🏨 {categoryCounts.stays}</span>
+            <small>Stays</small>
+          </Link>
+          <Link to="/provider/guides" className="prov-overview-card__item">
+            <span>🧭 {categoryCounts.guides}</span>
+            <small>Guides</small>
+          </Link>
+          <Link to="/provider/transport" className="prov-overview-card__item">
+            <span>🚗 {categoryCounts.transport}</span>
+            <small>Transport</small>
+          </Link>
+          <Link to="/provider/food" className="prov-overview-card__item">
+            <span>🍽 {categoryCounts.food}</span>
+            <small>Food & drink</small>
+          </Link>
+          <Link to="/events/new" className="prov-overview-card__item prov-overview-card__item--planned">
+            <span>🎟 {categoryCounts.events}</span>
+            <small>Events</small>
+          </Link>
+        </div>
+        <p className="prov-overview-card__total">{listingStats.total} listings across categories</p>
+      </section>
+
+      <section className="prov-overview-card">
+        <h2>Quick actions</h2>
+        <ProviderQuickActions actions={quick} />
+      </section>
+
+      <section className="prov-overview-card prov-overview-card--events">
+        <h2>Events</h2>
+        <p className="prov-page__hint">
+          Create and manage events, tickets, attendees, and venue details. Full event management is available through event creation.
+        </p>
+        <Link to="/events/new" className="btn btn-primary">
+          Create event
+        </Link>
+      </section>
+    </div>
+  )
+}
+

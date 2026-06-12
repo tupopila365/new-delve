@@ -60,6 +60,8 @@ export default function App() {
         <Route path="/create/post" element={<CreatePost />} />
         <Route path="/posts/:id" element={<PostDetail />} />
         <Route path="/u/:username" element={<UserProfile />} />
+        <Route path="/dashboard" element={<UserDashboard />} />
+        <Route path="/business/:id" element={<BusinessProfile />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/accommodation" element={<AccommodationList />} />
         <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />

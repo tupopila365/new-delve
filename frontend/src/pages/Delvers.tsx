@@ -5,6 +5,7 @@ import { Bookmark, Heart, MessageCircle, Search, Share2, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { subscribeDelversSearch } from '../utils/delversSearchBridge'
+import { EmptyState } from '../components/ui'
 
 type FeedMode = 'foryou' | 'nearby'
 
@@ -45,7 +46,7 @@ export function Delvers() {
 
   const qc = useQueryClient()
   const qk = ['delvers', profile?.region] as const
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk,
     queryFn: () =>
       apiFetch<PinPost[]>(
@@ -327,7 +328,16 @@ export function Delvers() {
         </p>
       ) : null}
 
-      {isLoading && (
+      {isError && (
+        <EmptyState
+          icon="📸"
+          title="We couldn't load Delvers"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      )}
+
+      {isLoading && !isError && (
         <div className="tt-feed tt-feed--solo" aria-hidden>
           <div className="tt-slide tt-slide--skeleton">
             <div className="tt-slide__shimmer" />
@@ -358,37 +368,36 @@ export function Delvers() {
 
       {!isLoading && data && data.length > 0 && filteredPins.length === 0 && (
         <div className="tt-empty">
-          <p className="tt-empty__title">
-            {feedMode === 'nearby' ? 'Nothing nearby yet' : 'No pins to show'}
-          </p>
-          <p className="tt-empty__text">
-            {feedMode === 'nearby'
-              ? profile?.region
-                ? `No pins from ${profile.region} right now — check For you for travellers across Namibia.`
-                : 'Add your region in settings to see local pins, or browse For you.'
-              : 'Check back soon — new pins land here all the time.'}
-          </p>
-          {feedMode === 'nearby' && (
-            <button type="button" className="tt-empty__btn" onClick={() => setFeedMode('foryou')}>
-              Browse For you
-            </button>
-          )}
+          <EmptyState
+            compact
+            icon="📸"
+            title={feedMode === 'nearby' ? 'Nothing nearby yet' : 'No moments to show'}
+            sub={
+              feedMode === 'nearby'
+                ? profile?.region
+                  ? `No pins from ${profile.region} right now — browse For you for travellers across the region.`
+                  : 'Add your region in settings to see local pins, or browse For you.'
+                : 'Check back soon — new travel moments land here all the time.'
+            }
+            cta={
+              feedMode === 'nearby'
+                ? { label: 'Browse For you', onClick: () => setFeedMode('foryou') }
+                : profile
+                  ? { label: 'Share a moment', to: '/delvers/new' }
+                  : undefined
+            }
+          />
         </div>
       )}
 
       {!isLoading && data?.length === 0 && (
         <div className="tt-empty">
-          <p className="tt-empty__title">The feed is warming up</p>
-          <p className="tt-empty__text">Be the first to drop a pin from the road.</p>
-          {profile ? (
-            <Link to="/delvers/new" className="tt-empty__btn tt-empty__btn--link">
-              Share a pin
-            </Link>
-          ) : (
-            <Link to="/register" className="tt-empty__btn tt-empty__btn--link">
-              Join Delvers
-            </Link>
-          )}
+          <EmptyState
+            icon="📸"
+            title="Delvers"
+            sub="Real travel moments, tips, photos, and clips from the community."
+            cta={profile ? { label: 'Share a moment', to: '/delvers/new' } : { label: 'Sign in', to: '/login' }}
+          />
         </div>
       )}
 

@@ -1,10 +1,32 @@
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { MAIN_NAV_SECTIONS } from '../data/mainNavSections'
+import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSections'
+import { useNavBadges } from '../hooks/useNavBadges'
+import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 
 export function TopNav() {
   const { profile } = useAuth()
+  const { unreadMessages } = useNavBadges()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!moreOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [moreOpen])
 
   return (
     <header className="app-topnav" aria-label="Main navigation">
@@ -13,7 +35,7 @@ export function TopNav() {
       </Link>
 
       <nav className="app-topnav__links" aria-label="Site sections">
-        {MAIN_NAV_SECTIONS.map((l) => (
+        {PRIMARY_NAV_SECTIONS.map((l) => (
           <NavLink
             key={l.to}
             to={l.to}
@@ -25,6 +47,33 @@ export function TopNav() {
             {l.label}
           </NavLink>
         ))}
+
+        <div className="app-topnav__more" ref={moreRef}>
+          <button
+            type="button"
+            className={`app-topnav__link app-topnav__more-btn${moreOpen ? ' app-topnav__more-btn--open' : ''}`}
+            aria-expanded={moreOpen}
+            aria-haspopup="menu"
+            onClick={() => setMoreOpen((v) => !v)}
+          >
+            More
+          </button>
+          {moreOpen ? (
+            <div className="app-topnav__more-panel" role="menu">
+              {SECONDARY_NAV_SECTIONS.map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className="app-topnav__more-item"
+                  role="menuitem"
+                  onClick={() => setMoreOpen(false)}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </nav>
 
       <div className="app-topnav__actions">
@@ -32,17 +81,18 @@ export function TopNav() {
           <IconSearch />
         </Link>
 
-        <Link to="/messages" className="app-topnav__icon-btn" aria-label="Messages">
+        <Link to="/messages" className="app-topnav__icon-btn app-topnav__icon-btn--badge" aria-label="Messages">
           <IconMessages />
+          <NavBadge count={unreadMessages} />
         </Link>
 
         <Link
           to={profile ? '/create' : '/login'}
           className="app-topnav__post-btn"
-          aria-label="Create a post"
+          aria-label="Create"
         >
           <IconPlus />
-          Post
+          Create
         </Link>
 
         <ProfileMenu avatarClassName="app-topnav__avatar" />
@@ -79,4 +129,3 @@ function IconPlus() {
     </svg>
   )
 }
-

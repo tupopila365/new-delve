@@ -7,10 +7,15 @@ import { useAuth } from '../auth/AuthContext'
 import {
   CommentBox,
   DetailActionCard,
+  DelversMoments,
+  DetailHeroWrap,
   DetailLayout,
   DetailPage,
+  DetailSkeleton,
   MobileStickyCTA,
+  SocialActionRow,
 } from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 const COST_COLORS: Record<TripCost['category'], string> = {
   stay: '#f07830',
@@ -224,44 +229,39 @@ export function TripDetail() {
 
   if (!trip) {
     return (
-      <div className="td-empty">
-        <span>🗺</span>
-        <p>Journey not found</p>
-        <button className="btn btn-primary" onClick={() => navigate('/journeys')}>
-          Back to Journeys
-        </button>
-      </div>
+      <DetailPage prefix="td" className="td--premium">
+        <EmptyState
+          icon="🗺"
+          title="Journey not found"
+          sub="This route may have been removed or the link is incorrect."
+          cta={{ label: 'Back to Journeys', to: '/journeys' }}
+        />
+      </DetailPage>
     )
   }
 
   const hook = journeyHook(trip)
   const route = routeLabel(trip)
+  const journeyMoments = photoItems.slice(0, 4).map((p, i) => ({
+    id: i,
+    image: p.src,
+    author: trip.author.display_name.replace(/\s+/g, '').toLowerCase() || 'traveller',
+    body: `Moment at ${p.place} on this route.`,
+  }))
 
   return (
     <DetailPage prefix="td" className="td--premium" toast={shareMsg || null}>
-      {/* Hero */}
+      <DetailHeroWrap
+        className="td-hero-wrap"
+        backTo="/journeys"
+        backLabel="Journeys"
+        saved={saved}
+        onSave={handleSave}
+        onShare={handleShare}
+      >
       <div className="td-hero">
         <img className="td-hero__img" src={trip.cover_image || allPhotos[0] || ''} alt="" />
         <div className="td-hero__scrim" />
-
-        <div className="td-hero__bar">
-          <Link to="/journeys" className="td-hero__back">
-            <IChevron /> Back
-          </Link>
-          <div className="td-hero__bar-right">
-            <button type="button" className="td-hero__icon-btn" onClick={handleShare} aria-label="Share">
-              {shareMsg ? <span style={{ fontSize: 11, fontWeight: 700 }}>{shareMsg}</span> : <IShare />}
-            </button>
-            <button
-              type="button"
-              className={`td-hero__icon-btn${saved ? ' td-hero__icon-btn--saved' : ''}`}
-              onClick={handleSave}
-              aria-label="Save"
-            >
-              <IBookmark filled={saved} />
-            </button>
-          </div>
-        </div>
 
         <div className="td-hero__footer">
           <div className="td-hero__flags">
@@ -281,6 +281,7 @@ export function TripDetail() {
           </div>
         </div>
       </div>
+      </DetailHeroWrap>
 
       {/* Intro story card */}
       <section className="td-intro detail-section">
@@ -312,17 +313,14 @@ export function TripDetail() {
           </div>
         </div>
 
-        <div className="td-intro__actions">
-          <button type="button" className={`td-intro__action${liked ? ' td-intro__action--on' : ''}`} onClick={handleLike}>
+        <SocialActionRow saved={saved} onSave={handleSave} onShare={handleShare}>
+          <button type="button" onClick={handleLike}>
             {liked ? '♥ Liked' : '♡ Like'} · {likeCount}
           </button>
-          <button type="button" className={`td-intro__action${saved ? ' td-intro__action--on' : ''}`} onClick={handleSave}>
-            {saved ? 'Saved' : 'Save route'}
+          <button type="button" onClick={handleAskAuthor}>
+            Ask author
           </button>
-          <button type="button" className="td-intro__action" onClick={handleShare}>
-            {shareMsg || 'Share'}
-          </button>
-        </div>
+        </SocialActionRow>
       </section>
 
       <DetailLayout
@@ -389,6 +387,15 @@ export function TripDetail() {
               </div>
             )}
           </section>
+
+          {journeyMoments.length > 0 ? (
+            <DelversMoments
+              title="Delvers moments on this journey"
+              subtitle="Photos and tips from travellers who followed similar routes."
+              moments={journeyMoments}
+              className="td-moments"
+            />
+          ) : null}
 
           {/* Route timeline */}
           <section className="detail-section td-route-section">

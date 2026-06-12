@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { EmptyState, ListSkeleton } from '../components/ui'
+import { MarketplaceHero, QuickFilterChips } from '../components/marketplace'
 
 type Ev = {
   id: number
@@ -57,6 +59,7 @@ function formatEventDate(iso: string): { day: string; month: string; time: strin
 export function EventsList() {
   const { profile } = useAuth()
   const [category, setCategory] = useState('')
+  const [whenFilter, setWhenFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
@@ -83,12 +86,41 @@ export function EventsList() {
     return s ? `?${s}` : ''
   }, [category, search])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['events', qs],
     queryFn: () => apiFetch<Ev[]>(`/api/events/${qs}`, { auth: false }),
   })
   const events = data ?? []
-  const featured = events.slice(0, 5)
+
+  const displayEvents = useMemo(() => {
+    let list = events
+    const now = new Date()
+    if (whenFilter === 'today') {
+      list = list.filter((e) => {
+        const d = new Date(e.starts_at)
+        return d.toDateString() === now.toDateString()
+      })
+    }
+    if (whenFilter === 'weekend') {
+      const day = now.getDay()
+      const daysUntilSat = (6 - day + 7) % 7
+      const sat = new Date(now)
+      sat.setDate(now.getDate() + daysUntilSat)
+      sat.setHours(0, 0, 0, 0)
+      const sun = new Date(sat)
+      sun.setDate(sat.getDate() + 1)
+      const mon = new Date(sun)
+      mon.setDate(sun.getDate() + 1)
+      list = list.filter((e) => {
+        const d = new Date(e.starts_at)
+        return d >= sat && d < mon
+      })
+    }
+    if (whenFilter === 'free') list = list.filter((e) => e.is_free)
+    return list
+  }, [events, whenFilter])
+
+  const featured = displayEvents.slice(0, 5)
   const activeStory = activeStoryIdx != null ? featured[activeStoryIdx] : null
 
   useEffect(() => {
@@ -182,10 +214,11 @@ export function EventsList() {
     })
   }
 
-  const hasFilters = !!(category || search)
+  const hasFilters = !!(category || search || whenFilter)
 
   const clearAll = () => {
     setCategory('')
+    setWhenFilter('')
     setSearchInput('')
     setSearch('')
   }
@@ -218,9 +251,9 @@ export function EventsList() {
         title: 'Events pulse',
         type: 'stats',
         items: [
-          { value: events.length || 18, label: 'upcoming events' },
-          { value: freeCount || 5, label: 'free events' },
-          { value: thisWeekCount || 7, label: 'this week' },
+          { value: events.length ? events.length : '—', label: 'upcoming events' },
+          { value: freeCount ? freeCount : '—', label: 'free events' },
+          { value: thisWeekCount ? thisWeekCount : '—', label: 'this week' },
         ],
       },
       {
@@ -239,20 +272,37 @@ export function EventsList() {
   }, [category, events.length, freeCount, thisWeekCount])
 
   return (
-    <div className="ev-page acc-page disc-page">
-      <header className="page-header ev-page__header acc-page__header">
-        <div>
-          <h1 className="display ev-page__title">Events</h1>
-          <p className="page-sub ev-page__sub">
-            A discovery feed for what&apos;s buzzing nearby — music, culture, food, and pop-up moments.
-          </p>
-        </div>
-        {profile && (
-          <Link to="/events/new" className="btn btn-primary ev-page__create-btn">
-            + Create event
-          </Link>
-        )}
-      </header>
+    <div className="ev-page acc-page disc-page mk-page">
+      <MarketplaceHero
+        title="Events happening around you"
+        subtitle="Discover concerts, markets, sports, culture, food events, meetups, and local experiences."
+        action={
+          profile ? (
+            <Link to="/events/new" className="btn btn-primary ev-page__create-btn">
+              + Create event
+            </Link>
+          ) : undefined
+        }
+      />
+
+      <QuickFilterChips
+        ariaLabel="Event quick filters"
+        chips={[
+          { id: 'today', label: 'Today', emoji: '📅', active: whenFilter === 'today' },
+          { id: 'weekend', label: 'This weekend', emoji: '🎉', active: whenFilter === 'weekend' },
+          { id: 'free', label: 'Free', emoji: '🎟', active: whenFilter === 'free' },
+          { id: 'music', label: 'Music', emoji: '🎵', active: category === 'music' },
+          { id: 'culture', label: 'Culture', emoji: '🎭', active: category === 'culture' },
+          { id: 'food', label: 'Food', emoji: '🍽', active: category === 'food' },
+        ]}
+        onChipClick={(id) => {
+          if (id === 'today' || id === 'weekend' || id === 'free') {
+            setWhenFilter((v) => (v === id ? '' : id))
+            return
+          }
+          setCategory((c) => (c === id ? '' : id))
+        }}
+      />
 
       <section className="ev-page__discover card" aria-labelledby="ev-discover-title">
         <h2 id="ev-discover-title" className="ev-page__discover-title">
@@ -392,25 +442,28 @@ export function EventsList() {
         </div>
       )}
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="ev-page__skeleton-wrap" aria-hidden>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton ev-page__skeleton-card" />
-          ))}
-        </div>
+      {isError && (
+        <EmptyState
+          icon="🎟"
+          title="We couldn't load events"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
       )}
 
+      {/* Loading */}
+      {isLoading && !isError && <ListSkeleton count={3} />}
+
       {/* Results count */}
-      {!isLoading && data && data.length > 0 && (
+      {!isLoading && !isError && displayEvents.length > 0 && (
         <p className="ev-page__results-hint">
-          {data.length} {data.length === 1 ? 'event' : 'events'}
+          {displayEvents.length} {displayEvents.length === 1 ? 'event' : 'events'}
         </p>
       )}
 
       {/* Events grid */}
       <div className="ev-page__grid">
-        {events.map((e) => {
+        {displayEvents.map((e) => {
           const { day, month, time, full } = formatEventDate(e.starts_at)
           const cat = categoryLabel(e.category)
           const saved = savedIds.has(e.id)
@@ -423,6 +476,7 @@ export function EventsList() {
                     className="ev-card__img"
                     src={mediaUrl(e.cover_image) || ''}
                     alt=""
+                    loading="lazy"
                   />
                 ) : (
                   <div className="ev-card__img ev-card__img--placeholder">
@@ -462,7 +516,6 @@ export function EventsList() {
                   📍 {e.venue || 'Venue TBA'}
                   {(e.city || e.region) ? `, ${e.city || e.region}` : ''}
                 </p>
-                <p className="ev-card__social-hint">People are adding this to weekend plans</p>
                 {e.price && !e.is_free ? (
                   <p className="ev-card__price">From N${e.price}</p>
                 ) : null}
@@ -473,36 +526,40 @@ export function EventsList() {
       </div>
 
       {/* Empty state */}
-      {!isLoading && events.length === 0 && (
-        <div className="ev-page__empty">
-          <p className="ev-page__empty-title">
-            {hasFilters ? 'No events match these filters' : 'No upcoming events yet'}
-          </p>
-          <p className="ev-page__empty-text">
-            {hasFilters
+      {!isLoading && displayEvents.length === 0 && (
+        <EmptyState
+          icon="🎟"
+          title={hasFilters ? 'No events match these filters' : 'No upcoming events yet'}
+          sub={
+            hasFilters
               ? 'Try another category or search term — new events are added regularly.'
-              : "Check back soon — organisers post events here as they're confirmed."}
-          </p>
-          {hasFilters && (
-            <>
-              <div className="ev-page__empty-cats">
-                {CATEGORY_OPTIONS.slice(0, 3).map(({ value, label, emoji }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className="acc-quick-chip"
-                    onClick={() => { clearAll(); setCategory(value) }}
-                  >
-                    {emoji} {label}
-                  </button>
-                ))}
-              </div>
-              <button type="button" className="btn btn-primary ev-page__empty-btn" onClick={clearAll}>
-                Show all events
-              </button>
-            </>
-          )}
-        </div>
+              : "Check back soon — organisers post events here as they're confirmed."
+          }
+          action={
+            hasFilters ? (
+              <>
+                <div className="ev-page__empty-cats">
+                  {CATEGORY_OPTIONS.slice(0, 3).map(({ value, label, emoji }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="acc-quick-chip"
+                      onClick={() => {
+                        clearAll()
+                        setCategory(value)
+                      }}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="btn btn-primary ui-empty__cta" onClick={clearAll}>
+                  Show all events
+                </button>
+              </>
+            ) : undefined
+          }
+        />
       )}
         </main>
 

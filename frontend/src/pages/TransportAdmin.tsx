@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { mockVehicles, mockBusTrips } from '../mocks/mockData'
+import { ProviderCategoryStrip } from '../components/provider'
 
 const MOCK_RENTALS = [
   { id: 1, guest: 'Chris D.', vehicle: 'Toyota Hilux 4x4', from: '2026-05-10', to: '2026-05-14', days: 4, total: 3120, status: 'confirmed' },
@@ -31,20 +32,41 @@ export function TransportAdmin() {
   const revenue = rentals.filter((r) => r.status === 'confirmed').reduce((s, r) => s + r.total, 0)
     + MOCK_BUS_RESERVATIONS.filter((r) => r.status === 'confirmed').reduce((s, r) => s + r.total, 0)
 
+  const pendingRentals = rentals.filter((r) => r.status === 'pending').length
+  const missingPhotos = myVehicles.filter((v) => !v.cover_image).length
+
   return (
-    <div className="adm-page">
-      {/* Back */}
-      <div className="adm-bar">
+    <div className="prov-cat-page">
+      <ProviderCategoryStrip
+        title="Transport"
+        subtitle="Manage vehicles, routes, schedules, prices, and transport bookings."
+        publicTo="/transport"
+        attention={[
+          ...(missingPhotos > 0
+            ? [{ label: `${missingPhotos} vehicle${missingPhotos === 1 ? '' : 's'} missing photos`, actionLabel: 'Add photos', actionTo: '#vehicles', priority: 'high' as const }]
+            : []),
+          ...(pendingRentals > 0
+            ? [{ label: `${pendingRentals} pending transport booking${pendingRentals === 1 ? '' : 's'}`, actionLabel: 'Review bookings', actionTo: '#rentals', priority: 'high' as const }]
+            : []),
+          { label: '1 route missing schedule', actionLabel: 'Manage schedule', actionTo: '#buses', priority: 'medium' as const },
+        ]}
+        quickActions={[
+          { label: 'Add vehicle', to: '#vehicles', emoji: '🚗' },
+          { label: 'Add route', to: '#buses', emoji: '🚌' },
+          { label: 'Manage bookings', to: '#rentals', emoji: '📅' },
+        ]}
+      />
+
+      <div className="adm-bar adm-bar--compact">
         <Link to="/provider" className="up__back" aria-label="Back to dashboard">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
             <path d="M19 12H5M12 5l-7 7 7 7" />
           </svg>
         </Link>
         <div>
-          <h1 className="adm-bar__title">🚗 Transport</h1>
-          <p className="adm-bar__sub">Vehicles, bus routes & bookings</p>
+          <h2 className="adm-bar__title">Fleet &amp; routes</h2>
+          <p className="adm-bar__sub">Vehicles, bus routes, rentals, and reservations</p>
         </div>
-        <Link to="/transport" className="btn btn-ghost adm-bar__view">View public</Link>
       </div>
 
       {/* Stats */}
@@ -81,11 +103,11 @@ export function TransportAdmin() {
 
       {/* Fleet tab */}
       {tab === 'vehicles' && (
-        <div className="adm-section">
+        <div className="adm-section" id="vehicles">
           {myVehicles.length === 0 ? (
             <div className="adm-empty">
-              <p className="adm-empty__title">No vehicles found</p>
-              <p className="adm-empty__sub">Log in as <strong>transport_mgr</strong> to see your fleet.</p>
+              <p className="adm-empty__title">No transport listings yet</p>
+              <p className="adm-empty__sub">Add vehicles or bus routes so travellers can move around.</p>
             </div>
           ) : (
             <div className="adm-list">
@@ -129,7 +151,7 @@ export function TransportAdmin() {
 
       {/* Bus routes tab */}
       {tab === 'buses' && (
-        <div className="adm-section">
+        <div className="adm-section" id="buses">
           <p className="adm-section__hint">All active bus trips across the network.</p>
           <div className="adm-list">
             {mockBusTrips.map((t) => {
@@ -169,7 +191,7 @@ export function TransportAdmin() {
 
       {/* Rentals tab */}
       {tab === 'rentals' && (
-        <div className="adm-section">
+        <div className="adm-section" id="rentals">
           {rentals.length === 0 ? (
             <div className="adm-empty">
               <p className="adm-empty__title">No rentals found</p>

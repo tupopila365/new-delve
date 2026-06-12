@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { FoodVenueGallery } from '../components/food/FoodVenueGallery'
+import { EmptyState } from '../components/ui'
 import {
   CommentBox,
   DelversMoments,
@@ -13,7 +14,9 @@ import {
   DetailPage,
   DetailSkeleton,
   MobileStickyCTA,
+  ReviewSummary,
   SocialActionRow,
+  TrustBadgeRow,
 } from '../components/detail'
 import {
   photoCategoryLabel,
@@ -142,7 +145,7 @@ export function FoodDetail() {
   const [localComments, setLocalComments] = useState<VenueComment[]>([])
   const [photoFilter, setPhotoFilter] = useState<VenuePhotoCategory | 'all'>('all')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['food', id],
     enabled: !!id,
     queryFn: () => apiFetch<Venue>(`/api/food/venues/${id}/`, { auth: false }),
@@ -176,10 +179,36 @@ export function FoodDetail() {
     setCommentDraft('')
   }
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <DetailPage prefix="fd-detail">
         <DetailSkeleton className="fd-detail__skeleton" />
+      </DetailPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DetailPage prefix="fd-detail">
+        <EmptyState
+          icon="🍽"
+          title="We couldn't load this venue"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
+  }
+
+  if (!data) {
+    return (
+      <DetailPage prefix="fd-detail">
+        <EmptyState
+          icon="🍽"
+          title="Venue not found"
+          sub="This listing may have been removed or the link is incorrect."
+          cta={{ label: 'Browse food & drink', to: '/food' }}
+        />
       </DetailPage>
     )
   }
@@ -269,6 +298,16 @@ export function FoodDetail() {
                 ) : null}
               </div>
             )}
+
+            <TrustBadgeRow
+              items={[
+                ...(data.is_open === true ? ['Open now'] : data.is_open === false ? ['Closed'] : []),
+                'Verified listing',
+                ...(data.reservations ? ['Reservations'] : []),
+                ...(data.dine_in ? ['Dine in'] : []),
+              ]}
+              className="fd-detail__trust-row"
+            />
 
             <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.name)}>
               <Link to="/community">Ask locals</Link>
@@ -379,43 +418,43 @@ export function FoodDetail() {
               body: m.body,
             }))}
             className="fd-detail__moments"
+            showWhenEmpty
+            emptyMessage="No traveller photos yet — share yours on Delvers after you visit."
           />
 
-          {reviews.length > 0 && breakdown && (
+          {(reviews.length > 0 || breakdown) && (
             <section className="detail-section fd-detail__reviews">
               <h2 className="fd-detail__section-title">Reviews</h2>
-              {ratingVal && data.rating_count ? (
-                <p className="fd-detail__reviews-summary">
-                  ★ {ratingVal} · {data.rating_count} reviews
-                </p>
+              <ReviewSummary
+                rating={ratingVal}
+                count={data.rating_count}
+                breakdown={
+                  breakdown
+                    ? BREAKDOWN_LABELS.map(({ key, label }) => ({
+                        label,
+                        value: breakdown[key],
+                      }))
+                    : undefined
+                }
+                emptyText="Reviews will appear here once guests leave feedback."
+              />
+
+              {reviews.length > 0 ? (
+                <div className="fd-detail__review-list">
+                  {reviews.map((r) => (
+                    <article key={r.id} className="fd-detail__review-card">
+                      <div className="fd-detail__review-head">
+                        <strong>{r.author_name}</strong>
+                        <span>· {timeAgo(r.created_at)}</span>
+                        <span className="fd-detail__review-stars" aria-label={`${r.rating} stars`}>
+                          {'★'.repeat(r.rating)}
+                        </span>
+                      </div>
+                      <p>&ldquo;{r.body}&rdquo;</p>
+                    </article>
+                  ))}
+                </div>
               ) : null}
-
-              <div className="fd-detail__breakdown">
-                {BREAKDOWN_LABELS.map(({ key, label }) => (
-                  <div key={key} className="fd-detail__breakdown-row">
-                    <span className="fd-detail__breakdown-label">{label}</span>
-                    <div className="fd-detail__breakdown-bar" aria-hidden>
-                      <span style={{ width: `${(breakdown[key] / 5) * 100}%` }} />
-                    </div>
-                    <span className="fd-detail__breakdown-val">{breakdown[key].toFixed(1)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="fd-detail__review-list">
-                {reviews.map((r) => (
-                  <article key={r.id} className="fd-detail__review-card">
-                    <div className="fd-detail__review-head">
-                      <strong>{r.author_name}</strong>
-                      <span>· {timeAgo(r.created_at)}</span>
-                      <span className="fd-detail__review-stars" aria-label={`${r.rating} stars`}>
-                        {'★'.repeat(r.rating)}
-                      </span>
-                    </div>
-                    <p>&ldquo;{r.body}&rdquo;</p>
-                  </article>
-                ))}
-              </div>
             </section>
           )}
 

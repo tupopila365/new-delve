@@ -20,6 +20,7 @@ type Props = {
   postLabel?: string
   className?: string
   footer?: ReactNode
+  emptyMessage?: string
 }
 
 export function CommentBox({
@@ -33,12 +34,15 @@ export function CommentBox({
   postLabel = 'Post comment',
   className = '',
   footer,
+  emptyMessage = 'No comments yet — be the first to ask or share a tip.',
 }: Props) {
   return (
     <DetailSection className={className}>
       <DetailSectionHead title={title} subtitle={subtitle} />
       <div className="dl-detail__comment-box">
         <textarea
+          id="dl-comment-input"
+          aria-label={placeholder}
           placeholder={placeholder}
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
@@ -65,7 +69,11 @@ export function CommentBox({
             </article>
           ))}
         </div>
-      ) : null}
+      ) : (
+        <p className="dl-detail__comment-empty" role="status">
+          {emptyMessage}
+        </p>
+      )}
     </DetailSection>
   )
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { EmptyState, ListSkeleton } from '../components/ui'
 
 type Guide = {
   id: number
@@ -95,7 +96,7 @@ export function GuidesList() {
     return s ? `?${s}` : ''
   }, [language, region, search])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['guides', qs],
     queryFn: () => apiFetch<Guide[]>(`/api/guides/profiles/${qs}`, { auth: false }),
   })
@@ -217,14 +218,14 @@ export function GuidesList() {
         : `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} available`
 
   return (
-    <div className="gd-page ev-page acc-page">
+    <div className="gd-page ev-page acc-page mk-page">
       <section className="gd-hero">
         <header className="page-header ev-page__header acc-page__header gd-page__header">
           <div>
             <p className="gd-page__eyebrow">DELVE · Guides</p>
-            <h1 className="display ev-page__title gd-page__title">Private tours &amp; local experts</h1>
+            <h1 className="display ev-page__title gd-page__title">Find local guides</h1>
             <p className="page-sub ev-page__sub gd-page__sub">
-              Book vetted locals for city walks, food, culture, nature, and hidden places — in your language.
+              Book local experts for culture, food, wildlife, city walks, road trips, and hidden places.
             </p>
           </div>
         </header>
@@ -388,15 +389,18 @@ export function GuidesList() {
         </div>
       )}
 
-      {isLoading && (
-        <div className="ev-page__skeleton-wrap" aria-hidden>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton ev-page__skeleton-card" />
-          ))}
-        </div>
+      {isError && (
+        <EmptyState
+          icon="🧭"
+          title="We couldn't load guides"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
       )}
 
-      {!isLoading && guides.length > 0 && (
+      {isLoading && !isError && <ListSkeleton count={3} />}
+
+      {!isLoading && !isError && guides.length > 0 && (
         <p className="ev-page__results-hint gd-page__results-hint">
           <span className="gd-page__results-label">Available local experts</span>
           <span className="gd-page__results-detail">{resultsLabel}</span>
@@ -414,21 +418,16 @@ export function GuidesList() {
       </div>
 
       {!isLoading && data?.length === 0 && (
-        <div className="ev-page__empty gd-page__empty">
-          <p className="ev-page__empty-title gd-page__empty-title">
-            {hasFilters ? 'No guides match these filters' : 'No guides listed yet'}
-          </p>
-          <p className="ev-page__empty-text gd-page__empty-text">
-            {hasFilters
+        <EmptyState
+          icon="🧭"
+          title={hasFilters ? 'No guides match these filters' : 'No guides listed yet'}
+          sub={
+            hasFilters
               ? 'Try another language, region, or search — new hosts join DELVE every week.'
-              : 'Expert guides in cities around the world will appear here as they join DELVE.'}
-          </p>
-          {hasFilters && (
-            <button type="button" className="btn btn-primary ev-page__empty-btn gd-page__empty-btn" onClick={clearAll}>
-              Show all guides
-            </button>
-          )}
-        </div>
+              : 'Expert guides in cities around the world will appear here as they join DELVE.'
+          }
+          cta={hasFilters ? { label: 'Show all guides', onClick: clearAll } : undefined}
+        />
       )}
 
       {activeStory && (

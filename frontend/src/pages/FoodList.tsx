@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { foodCoverSrc, foodOpenBadge, pickFeaturedFood } from '../utils/foodDisplay'
+import { EmptyState, ListSkeleton } from '../components/ui'
 
 type Venue = {
   id: number
@@ -43,11 +44,11 @@ const CUISINE_OPTIONS: { value: string; label: string; emoji: string }[] = [
 
 const MOOD_FILTERS: { id: string; label: string }[] = [
   { id: 'open', label: 'Open now' },
+  { id: 'favourites', label: 'Local favourite' },
   { id: 'cheap', label: 'Cheap eats' },
   { id: 'date', label: 'Date night' },
   { id: 'family', label: 'Family friendly' },
-  { id: 'favourites', label: 'Local favourites' },
-  { id: 'near', label: 'Near me' },
+  { id: 'takeaway', label: 'Takeaway' },
 ]
 
 const SIDEBAR_CUISINES = ['Grill', 'Café', 'Seafood', 'Bakery', 'Pizza', 'Bar'] as const
@@ -103,7 +104,7 @@ export function FoodList() {
     return s ? `?${s}` : ''
   }, [cuisine, search])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['food', qs],
     queryFn: () => apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: false }),
   })
@@ -115,9 +116,7 @@ export function FoodList() {
     if (mood === 'date') list = list.filter((v) => (v.price_level || 1) >= 3 || v.cuisine === 'bar')
     if (mood === 'family') list = list.filter((v) => (v.price_level || 2) <= 2)
     if (mood === 'favourites') list = list.filter((v) => (v.rating_count ?? 0) >= 80)
-    if (mood === 'near') {
-      list = list.filter((v) => v.region === 'Khomas' || v.region === 'Erongo')
-    }
+    if (mood === 'takeaway') list = list.filter((v) => v.cuisine === 'fast_food' || v.cuisine === 'bakery')
     return list
   }, [data, mood])
 
@@ -240,13 +239,13 @@ export function FoodList() {
         : `${venues.length} ${venues.length === 1 ? 'place' : 'places'} to try`
 
   return (
-    <div className="fd-page acc-page">
+    <div className="fd-page acc-page mk-page">
       <section className="fd-hero">
-        <header className="page-header fd-page__header acc-page__header">
-          <div>
-            <h1 className="display fd-page__title">Food &amp; drink</h1>
-            <p className="page-sub fd-page__sub">
-              Discover cafés, grills, seafood, and local favourites — save spots worth trying on your trip.
+        <header className="mk-hero fd-page__header">
+          <div className="mk-hero__copy">
+            <h1 className="mk-hero__title">Eat &amp; drink</h1>
+            <p className="mk-hero__sub">
+              Find restaurants, cafés, grills, bars, and local food spots travellers recommend.
             </p>
           </div>
         </header>
@@ -358,7 +357,6 @@ export function FoodList() {
               </div>
               <div className="ev-page__story-rings-row">
                 {featured.map((f, i) => {
-                  const meta = cuisineMeta(f.cuisine)
                   return (
                     <button
                       key={`fd-ring-${f.id}`}
@@ -431,15 +429,18 @@ export function FoodList() {
             </div>
           )}
 
-          {isLoading && (
-            <div className="fd-page__skeleton-wrap" aria-hidden>
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="skeleton fd-page__skeleton-card" />
-              ))}
-            </div>
+          {isError && (
+            <EmptyState
+              icon="🍽"
+              title="We couldn't load venues"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetch() }}
+            />
           )}
 
-          {!isLoading && venues.length > 0 && (
+          {isLoading && !isError && <ListSkeleton count={4} />}
+
+          {!isLoading && !isError && venues.length > 0 && (
             <p className="fd-page__results-hint">
               <span className="fd-page__results-label">Popular near you</span>
               <span className="fd-page__results-detail">{resultsDetail}</span>
@@ -455,38 +456,39 @@ export function FoodList() {
           </div>
 
           {!isLoading && venues.length === 0 && (
-            <div className="fd-page__empty">
-              <p className="fd-page__empty-title">
-                {hasFilters ? 'No venues match these filters' : 'No venues listed yet'}
-              </p>
-              <p className="fd-page__empty-text">
-                {hasFilters
+            <EmptyState
+              icon="🍽"
+              title={hasFilters ? 'No venues match these filters' : 'No venues listed yet'}
+              sub={
+                hasFilters
                   ? 'Try another cuisine, mood, or search term — new spots are added by local hosts regularly.'
-                  : 'Local restaurants and cafés will appear here once they join DELVE.'}
-              </p>
-              {hasFilters && (
-                <>
-                  <div className="fd-page__empty-cuisines">
-                    {CUISINE_OPTIONS.slice(0, 4).map(({ value, label, emoji }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className="acc-quick-chip"
-                        onClick={() => {
-                          clearAll()
-                          setCuisine(value)
-                        }}
-                      >
-                        {emoji} {label}
-                      </button>
-                    ))}
-                  </div>
-                  <button type="button" className="btn btn-primary fd-page__empty-btn" onClick={clearAll}>
-                    Show all venues
-                  </button>
-                </>
-              )}
-            </div>
+                  : 'Local restaurants and cafés will appear here once they join DELVE.'
+              }
+              action={
+                hasFilters ? (
+                  <>
+                    <div className="fd-page__empty-cuisines">
+                      {CUISINE_OPTIONS.slice(0, 4).map(({ value, label, emoji }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className="acc-quick-chip"
+                          onClick={() => {
+                            clearAll()
+                            setCuisine(value)
+                          }}
+                        >
+                          {emoji} {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="btn btn-primary ui-empty__cta" onClick={clearAll}>
+                      Show all venues
+                    </button>
+                  </>
+                ) : undefined
+              }
+            />
           )}
         </main>
 
@@ -826,7 +828,7 @@ function FoodSidebar({
         <h2 className="fd-side-card__title">Food pulse</h2>
         <ul className="fd-side-card__stats">
           <li>
-            <span className="fd-side-card__stat-n">{openCount || 12}</span>
+            <span className="fd-side-card__stat-n">{openCount ? openCount : '—'}</span>
             <span className="fd-side-card__stat-l">places open now</span>
           </li>
           <li>

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { EmptyState, PageHeader } from '../components/ui'
 
 type Conv = {
   id: number
@@ -16,7 +17,7 @@ export function Messages() {
   const qc = useQueryClient()
   const [uid, setUid] = useState('')
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['conversations'],
     enabled: !!profile,
     queryFn: () => apiFetch<Conv[]>('/api/messaging/conversations/'),
@@ -42,7 +43,7 @@ export function Messages() {
 
   return (
     <div>
-      <h1 className="display" style={{ fontSize: '1.65rem' }}>Messages</h1>
+      <PageHeader title="Messages" subtitle="Chats with hosts, guides, and travellers." />
       <div className="card" style={{ padding: '0.85rem', marginBottom: '1rem' }}>
         <p style={{ fontWeight: 700, marginTop: 0 }}>Start chat</p>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -53,7 +54,21 @@ export function Messages() {
         </div>
       </div>
       {isLoading && <p style={{ color: 'var(--text-secondary)' }}>Loading conversations…</p>}
-      {isError && <p style={{ color: 'var(--danger, crimson)' }}>Could not load messages.</p>}
+      {isError && (
+        <EmptyState
+          icon="💬"
+          title="We couldn't load messages"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      )}
+      {!isLoading && !isError && conversations.length === 0 ? (
+        <EmptyState
+          icon="💬"
+          title="No messages yet"
+          sub="Start a chat from a guide, host, or provider profile."
+        />
+      ) : null}
       <div style={{ display: 'grid', gap: 8 }}>
         {conversations.map((c) => {
           const other = c.participants_detail.find((p) => p.username !== profile.username)

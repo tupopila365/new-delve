@@ -20,12 +20,13 @@ export function DetailHeroActions({
           type="button"
           className={`dl-detail__hero-action${saved ? ' dl-detail__hero-action--saved' : ''}`}
           onClick={onSave}
+          aria-label={saved ? 'Remove from saved' : 'Save'}
         >
           {saved ? '♥ Saved' : '♡ Save'}
         </button>
       ) : null}
       {onShare ? (
-        <button type="button" className="dl-detail__hero-action" onClick={onShare}>
+        <button type="button" className="dl-detail__hero-action" onClick={onShare} aria-label={shareLabel}>
           ↗ {shareLabel}
         </button>
       ) : null}

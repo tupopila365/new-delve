@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import type { PostsVisibility } from '../auth/AuthContext'
 import {
@@ -119,7 +120,7 @@ export function Settings() {
         setAvatarPreview(null)
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save.')
+      setError(friendlyApiMessage(e, 'Failed to save.'))
     } finally {
       setSaving(false)
     }
@@ -166,12 +167,14 @@ export function Settings() {
       </div>
 
       {/* Tab strip */}
-      <div className="sp__tabs" role="tablist">
+      <div className="sp__tabs" role="tablist" aria-label="Settings sections">
         {TABS.map((t) => (
           <button
             key={t.id}
+            id={`sp-tab-${t.id}`}
             role="tab"
             aria-selected={tab === t.id}
+            aria-controls={`sp-panel-${t.id}`}
             className={tab === t.id ? 'sp__tab sp__tab--active' : 'sp__tab'}
             onClick={() => { setTab(t.id); setSaved(false); setError(null) }}
           >
@@ -185,7 +188,7 @@ export function Settings() {
 
       {/* ── EDIT PROFILE ── */}
       {tab === 'profile' && (
-        <section className="sp__section" aria-labelledby="sp-profile-title">
+        <section className="sp__section" id="sp-panel-profile" role="tabpanel" aria-labelledby="sp-tab-profile">
           <h2 id="sp-profile-title" className="sp__section-title">Edit profile</h2>
 
           {/* Avatar */}
@@ -301,7 +304,7 @@ export function Settings() {
 
       {/* ── PRIVACY ── */}
       {tab === 'privacy' && (
-        <section className="sp__section" aria-labelledby="sp-privacy-title">
+        <section className="sp__section" id="sp-panel-privacy" role="tabpanel" aria-labelledby="sp-tab-privacy">
           <h2 id="sp-privacy-title" className="sp__section-title">Privacy &amp; visibility</h2>
 
           {/* Private account */}
@@ -399,7 +402,7 @@ export function Settings() {
 
       {/* ── PREFERENCES ── */}
       {tab === 'preferences' && (
-        <section className="sp__section" aria-labelledby="sp-pref-title">
+        <section className="sp__section" id="sp-panel-preferences" role="tabpanel" aria-labelledby="sp-tab-preferences">
           <h2 id="sp-pref-title" className="sp__section-title">Region &amp; pricing</h2>
           <p className="sp__section-sub">
             Choose your location and preferred currency. This controls how prices are shown across the app.
@@ -455,7 +458,7 @@ export function Settings() {
 
       {/* ── ACCOUNT ── */}
       {tab === 'account' && (
-        <section className="sp__section" aria-labelledby="sp-acct-title">
+        <section className="sp__section" id="sp-panel-account" role="tabpanel" aria-labelledby="sp-tab-account">
           <h2 id="sp-acct-title" className="sp__section-title">Account</h2>
 
           {/* Read-only info */}

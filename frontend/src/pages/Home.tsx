@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Bus,
+  Camera,
   Car,
   Home as HomeIcon,
   Map,
@@ -15,6 +15,7 @@ import { apiFetch } from '../api/client'
 import { MiniRating } from '../components/MiniRating'
 import { homeCoverSrc } from '../data/homeDefaults'
 import { mockTrips } from '../data/mockTrips'
+import { EmptyState, ListSkeleton } from '../components/ui'
 
 const HERO_BG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2000&q=78'
@@ -32,14 +33,14 @@ const moodChips = [
 ]
 
 const categoryShortcuts = [
-  { to: '/accommodation', label: 'Stays', Icon: HomeIcon, color: 1 },
-  { to: '/transport', label: 'Cars', Icon: Car, color: 2 },
-  { to: '/transport', label: 'Buses', Icon: Bus, color: 3 },
-  { to: '/events', label: 'Events', Icon: Ticket, color: 4 },
-  { to: '/food', label: 'Food', Icon: Utensils, color: 5 },
-  { to: '/guides', label: 'Guides', Icon: Map, color: 6 },
-  { to: '/delvers', label: 'Delvers', Icon: Users, color: 7 },
-  { to: '/messages', label: 'Messages', Icon: MessageCircle, color: 8 },
+  { to: '/accommodation', label: 'Find places to stay', desc: 'Hotels, lodges & unique stays', Icon: HomeIcon, color: 1 },
+  { to: '/food', label: 'Eat & drink', desc: 'Restaurants, cafés & local spots', Icon: Utensils, color: 5 },
+  { to: '/guides', label: 'Find a guide', desc: 'Culture, wildlife & city walks', Icon: Users, color: 7 },
+  { to: '/events', label: 'Events near you', desc: 'Concerts, markets & meetups', Icon: Ticket, color: 4 },
+  { to: '/transport', label: 'Transport', desc: 'Car rental & bus routes', Icon: Car, color: 2 },
+  { to: '/journeys', label: 'Real journeys', desc: 'Routes, costs & traveller tips', Icon: Map, color: 6 },
+  { to: '/community', label: 'Ask locals', desc: 'Safety, prices & hidden places', Icon: MessageCircle, color: 8 },
+  { to: '/delvers', label: 'Delvers', desc: 'Photos, tips & travel clips', Icon: Camera, color: 3 },
 ] as const
 
 const communityPreview = [
@@ -106,9 +107,9 @@ function HomeSection({
         </Link>
       </div>
       {loading ? (
-        <div className="home-rail">{<HomeRailSkeleton />}</div>
+        <ListSkeleton count={5} />
       ) : count === 0 ? (
-        <p className="home-section__empty">{emptyMessage}</p>
+        <EmptyState compact title={emptyMessage} />
       ) : (
         children
       )}
@@ -225,10 +226,10 @@ export function Home() {
         <div className="ta-hero__grain" aria-hidden />
         <div className="ta-hero__inner ta-hero__inner--home">
           <h1 className="ta-hero__title ta-hero__title--home">
-            Discover places, rides, events, and local stories
+            Discover, plan, book, and share real travel experiences.
           </h1>
           <p className="ta-hero__sub ta-hero__sub--home">
-            Find stays, transport, food, guides, community tips, and journeys — all in one place.
+            Find stays, food, guides, events, transport, routes, and local tips — all in one travel-social marketplace.
           </p>
           <div className="ta-hero__actions">
             <form className="ta-hero__searchform" onSubmit={onHeroSearch} role="search" aria-label="Search DELVE">
@@ -253,20 +254,25 @@ export function Home() {
                 Search
               </button>
             </form>
+            <div className="mk-hero__ctas ta-hero__cta-row">
+              <Link to="/search" className="btn btn-primary">
+                Start exploring
+              </Link>
+              <Link to="/community" className="btn btn-ghost">
+                Ask locals
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
       <div className="home-content">
-        <nav className="category-grid" aria-label="Browse DELVE">
+        <nav className="mk-action-grid" aria-label="Browse DELVE">
           {categoryShortcuts.map((s) => (
-            <Link
-              key={s.label}
-              to={s.to}
-              className={`category-tile category-tile--${s.color}`}
-            >
-              <s.Icon className="category-tile__icon" size={28} strokeWidth={2} aria-hidden />
-              <span>{s.label}</span>
+            <Link key={s.label} to={s.to} className={`mk-action-card category-tile category-tile--${s.color}`}>
+              <s.Icon className="mk-action-card__icon category-tile__icon" size={24} strokeWidth={2} aria-hidden />
+              <span className="mk-action-card__title">{s.label}</span>
+              <p className="mk-action-card__desc">{s.desc}</p>
             </Link>
           ))}
         </nav>
@@ -446,20 +452,3 @@ export function Home() {
   )
 }
 
-function HomeRailSkeleton() {
-  return (
-    <>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="home-card mini-card ta-mini-card page-home__rail-skel-card" aria-hidden>
-          <div className="ta-mini-card__media">
-            <div className="skeleton page-home__rail-skel-img" />
-          </div>
-          <div className="mini-card__body page-home__rail-skel-body">
-            <div className="skeleton page-home__rail-skel-line page-home__rail-skel-line--title" />
-            <div className="skeleton page-home__rail-skel-line page-home__rail-skel-line--meta" />
-          </div>
-        </div>
-      ))}
-    </>
-  )
-}

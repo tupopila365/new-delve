@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { ProviderCategoryStrip } from '../components/provider'
+import { ListSkeleton } from '../components/ui'
 
 type StayListing = {
   id: number
@@ -91,7 +94,7 @@ export function StaysAdmin() {
   const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ['provider-stay-bookings', statusFilter],
     queryFn: () => apiFetch<ProviderBooking[]>(bookingsUrl),
-    enabled: Boolean(profile?.user_type === 'service_provider') && tab === 'bookings',
+    enabled: Boolean(profile?.user_type === 'service_provider'),
   })
 
   const reviews = useMemo(
@@ -135,7 +138,7 @@ export function StaysAdmin() {
       setForm(EMPTY_FORM)
       setFormErr('')
     },
-    onError: (e: Error) => setFormErr(e.message),
+    onError: (e: Error) => setFormErr(friendlyApiMessage(e)),
   })
 
   const bookingActionMut = useMutation({
@@ -156,6 +159,9 @@ export function StaysAdmin() {
   const revenue = bookings
     .filter((b) => ['confirmed', 'checked_in', 'checked_out'].includes(b.status))
     .reduce((s, b) => s + parseFloat(b.total_price), 0)
+
+  const pendingBookings = bookings.filter((b) => b.status === 'pending').length
+  const missingPhotos = listings.filter((l) => !l.cover_image).length
 
   const openCreate = () => {
     setEditId(null)
@@ -182,22 +188,39 @@ export function StaysAdmin() {
   }
 
   return (
-    <div className="adm-page">
-      <div className="adm-bar">
+    <div className="prov-cat-page">
+      <ProviderCategoryStrip
+        title="Stays"
+        subtitle="Manage properties, rooms, pricing, availability, and guest bookings."
+        publicTo="/accommodation"
+        attention={[
+          ...(missingPhotos > 0
+            ? [{ label: `${missingPhotos} propert${missingPhotos === 1 ? 'y' : 'ies'} missing cover photos`, actionLabel: 'Add photos', actionTo: '#listings', priority: 'high' as const }]
+            : []),
+          ...(pendingBookings > 0
+            ? [{ label: `${pendingBookings} booking request${pendingBookings === 1 ? '' : 's'} pending`, actionLabel: 'Review bookings', actionTo: '#bookings', priority: 'high' as const }]
+            : []),
+          { label: 'Update availability for this weekend', actionLabel: 'Update availability', actionTo: '#listings', priority: 'medium' as const },
+        ]}
+        quickActions={[
+          { label: 'Add property', to: '#listings', emoji: '＋' },
+          { label: 'Manage bookings', to: '#bookings', emoji: '📅' },
+          { label: 'Reply to messages', to: '/messages', emoji: '💬' },
+        ]}
+      />
+
+      <div className="adm-bar adm-bar--compact">
         <Link to="/provider" className="up__back" aria-label="Back to provider overview">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
             <path d="M19 12H5M12 5l-7 7 7 7" />
           </svg>
         </Link>
         <div>
-          <h1 className="adm-bar__title">🏨 Stays</h1>
+          <h2 className="adm-bar__title">Properties &amp; bookings</h2>
           <p className="adm-bar__sub">
-            {isViewerOnly ? 'View-only access' : 'Manage properties, bookings, and guest reviews'}
+            {isViewerOnly ? 'View-only access' : 'Edit listings, confirm bookings, and respond to reviews'}
           </p>
         </div>
-        <Link to="/accommodation" className="btn btn-ghost adm-bar__view">
-          View public
-        </Link>
       </div>
 
       <div className="adm-stats">
@@ -235,13 +258,13 @@ export function StaysAdmin() {
       </div>
 
       {tab === 'listings' && (
-        <div className="adm-section">
+        <div className="adm-section" id="listings">
           {loadingListings ? (
-            <p>Loading listings…</p>
+            <ListSkeleton count={3} variant="row" />
           ) : listings.length === 0 ? (
             <div className="adm-empty">
-              <p className="adm-empty__title">No listings yet</p>
-              <p className="adm-empty__sub">Create your first property to start receiving bookings.</p>
+              <p className="adm-empty__title">No stays added yet</p>
+              <p className="adm-empty__sub">Add your first property so travellers can discover and book it.</p>
             </div>
           ) : (
             <div className="adm-list">
@@ -291,7 +314,7 @@ export function StaysAdmin() {
       )}
 
       {tab === 'bookings' && (
-        <div className="adm-section">
+        <div className="adm-section" id="bookings">
           {!canManageBookings ? (
             <p className="adm-section__hint">Your role can view the stays module but not manage bookings.</p>
           ) : null}
@@ -378,7 +401,7 @@ export function StaysAdmin() {
         <div className="adm-modal" role="dialog" aria-modal="true">
           <div className="adm-modal__card">
             <h2>{editId ? 'Edit listing' : 'New listing'}</h2>
-            {formErr ? <p className="error-banner">{formErr}</p> : null}
+            {formErr ? <p className="error-banner" role="alert">{formErr}</p> : null}
             <label>
               Title
               <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />

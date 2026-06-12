@@ -9,7 +9,11 @@ type Props = {
 
 export function MobileStickyCTA({ title, subtitle, action, className = '' }: Props) {
   return (
-    <div className={`dl-detail__mobile-bar ${className}`.trim()}>
+    <div
+      className={`dl-detail__mobile-bar ${className}`.trim()}
+      role="region"
+      aria-label="Booking actions"
+    >
       <div>
         <strong>{title}</strong>
         {subtitle ? <span>{subtitle}</span> : null}

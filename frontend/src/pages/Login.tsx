@@ -30,6 +30,7 @@ export function Login() {
       <div className="auth-card">
         <h1 className="auth-brand">DELVE</h1>
         <p className="auth-tagline">Welcome back — your feed, stays, and rides in one place.</p>
+        <p className="auth-hint">Demo: <strong>demo_user</strong> / <strong>demo12345</strong> (any password works in mock mode)</p>
         {err && <div className="error-banner">{err}</div>}
         <form onSubmit={onSubmit}>
           <div className="field">

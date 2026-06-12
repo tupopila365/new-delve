@@ -14,6 +14,8 @@ type Props = {
   subtitle?: string
   moments: MomentItem[]
   className?: string
+  showWhenEmpty?: boolean
+  emptyMessage?: string
 }
 
 export function DelversMoments({
@@ -21,8 +23,10 @@ export function DelversMoments({
   subtitle = 'Real posts from travellers — not owner photos.',
   moments,
   className = '',
+  showWhenEmpty = false,
+  emptyMessage = 'No Delvers moments yet — travellers often share photos after visiting.',
 }: Props) {
-  if (moments.length === 0) return null
+  if (moments.length === 0 && !showWhenEmpty) return null
 
   return (
     <DetailSection className={className}>
@@ -31,22 +35,28 @@ export function DelversMoments({
         subtitle={subtitle}
         action={<Link to="/delvers">See more</Link>}
       />
-      <div className="dl-detail__moments-grid">
-        {moments.map((m) => (
-          <div key={m.id} className="dl-detail__moment-card">
-            {m.image ? (
-              <img src={m.image} alt="" loading="lazy" />
-            ) : (
-              <div className="dl-detail__moment-placeholder" aria-hidden>
-                📸
-              </div>
-            )}
-            <p>
-              <strong>@{m.author}</strong> {m.body}
-            </p>
-          </div>
-        ))}
-      </div>
+      {moments.length > 0 ? (
+        <div className="dl-detail__moments-grid">
+          {moments.map((m) => (
+            <div key={m.id} className="dl-detail__moment-card">
+              {m.image ? (
+                <img src={m.image} alt="" loading="lazy" />
+              ) : (
+                <div className="dl-detail__moment-placeholder" aria-hidden>
+                  📸
+                </div>
+              )}
+              <p>
+                <strong>@{m.author}</strong> {m.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="dl-detail__moments-empty" role="status">
+          {emptyMessage}
+        </p>
+      )}
     </DetailSection>
   )
 }

@@ -5,8 +5,12 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from accounts.business_access import user_can_manage_booking_for_listing, user_can_manage_listing
-from accounts.permissions import IsEmailVerified, IsServiceProvider
+from accounts.business_access import (
+    provider_listing_owner_ids,
+    user_can_manage_booking_for_listing,
+    user_can_manage_listing,
+)
+from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember, IsServiceProvider
 
 from .filters import AccommodationListingFilter
 from .models import (
@@ -128,11 +132,12 @@ class AccommodationProviderBookingViewSet(viewsets.ReadOnlyModelViewSet):
     """Provider inbox — bookings for listings the user owns or can manage."""
 
     serializer_class = ProviderAccommodationBookingSerializer
-    permission_classes = [permissions.IsAuthenticated, IsServiceProvider]
+    permission_classes = [permissions.IsAuthenticated, IsProviderOrBusinessMember]
 
     def get_queryset(self):
         user = self.request.user
-        owned_listing_ids = AccommodationListing.objects.filter(owner=user).values_list(
+        owner_ids = provider_listing_owner_ids(user)
+        owned_listing_ids = AccommodationListing.objects.filter(owner_id__in=owner_ids).values_list(
             "pk", flat=True
         )
         qs = (
@@ -203,10 +208,11 @@ class AccommodationProviderListingViewSet(viewsets.ModelViewSet):
     """Full listing CRUD for the authenticated provider (includes inactive)."""
 
     serializer_class = AccommodationListingSerializer
-    permission_classes = [permissions.IsAuthenticated, IsServiceProvider]
+    permission_classes = [permissions.IsAuthenticated, IsProviderOrBusinessMember]
 
     def get_queryset(self):
-        return AccommodationListing.objects.filter(owner=self.request.user).select_related("owner")
+        owner_ids = provider_listing_owner_ids(self.request.user)
+        return AccommodationListing.objects.filter(owner_id__in=owner_ids).select_related("owner")
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

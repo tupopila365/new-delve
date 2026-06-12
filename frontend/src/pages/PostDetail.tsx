@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { IgPostCard, type FeedPost } from '../components/IgPostCard'
+import { DetailSkeleton } from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 export function PostDetail() {
   const { id } = useParams()
@@ -90,35 +92,29 @@ export function PostDetail() {
           </p>
         )}
 
-        {validId && isLoading && (
-          <>
-            <div className="skeleton ig-post" style={{ height: 56, marginBottom: 12, borderRadius: 0 }} />
-            <div className="skeleton ig-post" style={{ height: 320, marginBottom: 16, borderRadius: 0 }} />
-            <div className="skeleton ig-post" style={{ height: 120, borderRadius: 0 }} />
-          </>
-        )}
+        {validId && isLoading && <DetailSkeleton className="post-detail-page__skeleton" />}
 
         {validId && notFound && (
-          <div className="post-detail-page__missing">
-            <h1 className="display" style={{ fontSize: '1.35rem', marginBottom: 8 }}>
-              Post not found
-            </h1>
-            <p className="page-sub">It may have been removed, or the link is wrong.</p>
-            <div className="post-detail-page__missing-actions">
-              <Link to="/delvers" className="btn btn-primary">
-                Browse Delvers
-              </Link>
+          <EmptyState
+            icon="📸"
+            title="Post not found"
+            sub="It may have been removed, or the link is wrong."
+            cta={{ label: 'Browse Delvers', to: '/delvers' }}
+            action={
               <Link to="/" className="btn btn-ghost">
                 Home
               </Link>
-            </div>
-          </div>
+            }
+          />
         )}
 
         {validId && error && !notFound && (
-          <p className="page-sub" role="alert">
-            Could not load this post. <Link to="/">Try home</Link>
-          </p>
+          <EmptyState
+            icon="📸"
+            title="We couldn't load this post"
+            sub="Please check your connection and try again."
+            cta={{ label: 'Browse Delvers', to: '/delvers' }}
+          />
         )}
 
         {data && (

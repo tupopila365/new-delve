@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { mockFood } from '../mocks/mockData'
+import { ProviderCategoryStrip } from '../components/provider'
 
 const MOCK_REVIEWS = [
   { id: 1, guest: 'Amara D.', venue: 'Oryx Grill House', rating: 5, body: 'Best oryx steak in Windhoek. Smoky, juicy, and perfectly seasoned. The service was warm and attentive.' },
@@ -37,20 +38,41 @@ export function FoodAdmin() {
     : '—'
   const totalReviews = myVenues.reduce((s, v) => s + v.rating_count, 0)
 
+  const pendingReservations = myReservations.filter((r) => r.status === 'pending').length
+  const missingPhotos = myVenues.filter((v) => !v.cover_image).length
+
   return (
-    <div className="adm-page">
-      {/* Back */}
-      <div className="adm-bar">
+    <div className="prov-cat-page">
+      <ProviderCategoryStrip
+        title="Food & drink"
+        subtitle="Manage your venue, menu, hours, photos, reservations, and reviews."
+        publicTo="/food"
+        attention={[
+          ...(missingPhotos > 0
+            ? [{ label: 'Venue missing photos', actionLabel: 'Add photos', actionTo: '#venues', priority: 'high' as const }]
+            : []),
+          { label: 'Menu incomplete', actionLabel: 'Manage menu', actionTo: '#venues', priority: 'medium' as const },
+          ...(pendingReservations > 0
+            ? [{ label: `${pendingReservations} reservation${pendingReservations === 1 ? '' : 's'} pending`, actionLabel: 'Review', actionTo: '#reservations', priority: 'high' as const }]
+            : []),
+        ]}
+        quickActions={[
+          { label: 'Add venue', to: '#venues', emoji: '＋' },
+          { label: 'Update hours', to: '#venues', emoji: '🕐' },
+          { label: 'Manage reservations', to: '#reservations', emoji: '📅' },
+        ]}
+      />
+
+      <div className="adm-bar adm-bar--compact">
         <Link to="/provider" className="up__back" aria-label="Back to dashboard">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
             <path d="M19 12H5M12 5l-7 7 7 7" />
           </svg>
         </Link>
         <div>
-          <h1 className="adm-bar__title">🍽 Food & Drink</h1>
-          <p className="adm-bar__sub">Manage your restaurant & café listings</p>
+          <h2 className="adm-bar__title">Venues &amp; reservations</h2>
+          <p className="adm-bar__sub">Restaurant, café, and bar listings</p>
         </div>
-        <Link to="/food" className="btn btn-ghost adm-bar__view">View public</Link>
       </div>
 
       {/* Stats */}
@@ -87,11 +109,11 @@ export function FoodAdmin() {
 
       {/* Venues tab */}
       {tab === 'venues' && (
-        <div className="adm-section">
+        <div className="adm-section" id="venues">
           {myVenues.length === 0 ? (
             <div className="adm-empty">
-              <p className="adm-empty__title">No venues found</p>
-              <p className="adm-empty__sub">Log in as <strong>food_owner</strong> to see your venues.</p>
+              <p className="adm-empty__title">No food venues yet</p>
+              <p className="adm-empty__sub">Add your restaurant, café, bar, or food spot so travellers can discover it.</p>
             </div>
           ) : (
             <div className="adm-list">
@@ -131,7 +153,7 @@ export function FoodAdmin() {
 
       {/* Reservations tab */}
       {tab === 'reservations' && (
-        <div className="adm-section">
+        <div className="adm-section" id="reservations">
           {myReservations.length === 0 ? (
             <div className="adm-empty">
               <p className="adm-empty__title">No reservations found</p>

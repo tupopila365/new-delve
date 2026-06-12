@@ -66,3 +66,13 @@ def user_can_manage_booking_for_listing(user: User, listing_owner_id: int) -> bo
         if _rank(user_business_role(user, biz)) >= ROLE_RANK[BusinessTeamRole.STAFF]:
             return True
     return False
+
+
+def provider_listing_owner_ids(user: User) -> set[int]:
+    """User IDs whose listings this user may access in the provider dashboard."""
+    ids = {user.id}
+    member_owner_ids = BusinessProfile.objects.filter(
+        memberships__user=user,
+    ).values_list("owner_id", flat=True)
+    ids.update(member_owner_ids)
+    return ids

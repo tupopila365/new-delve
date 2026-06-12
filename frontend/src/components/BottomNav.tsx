@@ -3,12 +3,12 @@ import type { FC } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { openDelversSearch } from '../utils/delversSearchBridge'
 
-const leftItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: boolean }> }[] = [
-  { to: '/', label: 'Home', end: true, Icon: IconHome },
+const navItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: boolean }> }[] = [
+  { to: '/', label: 'Explore', end: true, Icon: IconHome },
   { to: '/search', label: 'Search', Icon: IconSearch },
+  { to: '/delvers', label: 'Delvers', Icon: IconDelvers },
+  { to: '/journeys', label: 'Journeys', Icon: IconJourneys },
 ]
-
-const communityItem = { to: '/community', label: 'Community', Icon: IconCommunity }
 
 export function BottomNav() {
   const { profile } = useAuth()
@@ -18,7 +18,7 @@ export function BottomNav() {
 
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      {leftItems.map((i) => {
+      {navItems.map((i) => {
         if (i.to === '/search' && onDelvers) {
           return (
             <button
@@ -45,28 +45,6 @@ export function BottomNav() {
           </NavLink>
         )
       })}
-
-      {/* Centre post button */}
-      <NavLink
-        to={profile ? '/create' : '/login'}
-        className="bottom-nav__post"
-        aria-label="Create a post"
-      >
-        <span className="bottom-nav__post-icon" aria-hidden>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-          </svg>
-        </span>
-      </NavLink>
-
-      <NavLink to={communityItem.to} className={({ isActive }) => (isActive ? 'active' : '')}>
-        {({ isActive }) => (
-          <>
-            <communityItem.Icon active={isActive} />
-            <span className="bottom-nav__label">{communityItem.label}</span>
-          </>
-        )}
-      </NavLink>
 
       <NavLink to={profileTo} className={({ isActive }) => (isActive ? 'active' : '')}>
         {({ isActive }) => (
@@ -99,14 +77,22 @@ function IconSearch({ active }: { active: boolean }) {
   )
 }
 
-function IconCommunity({ active }: { active: boolean }) {
+function IconDelvers({ active }: { active: boolean }) {
   const c = active ? 'var(--accent-hover)' : 'var(--text)'
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" aria-hidden>
-      <circle cx="8" cy="7" r="3" strokeLinecap="round" />
-      <path d="M3 20v-1a4.5 4.5 0 014.5-4.5H8" strokeLinecap="round" />
-      <circle cx="16" cy="7" r="3" strokeLinecap="round" />
-      <path d="M13 20v-1a4.5 4.5 0 014.5-4.5H16" strokeLinecap="round" />
+      <path d="M12 21s7-5 7-11a7 7 0 10-14 0c0 6 7 11 7 11z" strokeLinejoin="round" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  )
+}
+
+function IconJourneys({ active }: { active: boolean }) {
+  const c = active ? 'var(--accent-hover)' : 'var(--text)'
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" aria-hidden>
+      <path d="M3 12h18M3 6h18M3 18h12" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="20" cy="18" r="2" />
     </svg>
   )
 }

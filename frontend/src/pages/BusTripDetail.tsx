@@ -1,9 +1,23 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, ApiError, mediaUrl } from '../api/client'
+import { apiFetch, mediaUrl } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { buildBusGalleryItems, TransportGallery } from '../components/TransportGallery'
+import {
+  CommentBox,
+  DelversMoments,
+  DetailActionCard,
+  DetailHeroWrap,
+  DetailLayout,
+  DetailPage,
+  DetailSkeleton,
+  MobileStickyCTA,
+  SocialActionRow,
+  TrustBadgeRow,
+} from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 type Trip = {
   id: number
@@ -104,8 +118,13 @@ export function BusTripDetail() {
   const [firstSeat, setFirstSeat] = useState<number | null>(null)
   const [group, setGroup] = useState<GroupReserveResponse | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [routeQuestions, setRouteQuestions] = useState([
+    { id: 'b1', author: 'Sam N.', body: 'How much luggage space is there under the bus?', ago: '3d ago' },
+    { id: 'b2', author: 'Leah P.', body: 'Does this route stop for food in Rehoboth?', ago: '1w ago' },
+  ])
 
-  const { data: trip, isLoading } = useQuery({
+  const { data: trip, isLoading, isError, refetch } = useQuery({
     queryKey: ['trip', id],
     enabled: !!id,
     queryFn: () => apiFetch<Trip>(`/api/transport/bus/trips/${id}/`, { auth: false }),
@@ -156,7 +175,7 @@ export function BusTripDetail() {
       setGroup(data)
       void qc.invalidateQueries({ queryKey: ['trip', id] })
     },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "That block couldn't be reserved. Try other seats."),
+    onError: (e) => setErr(friendlyApiMessage(e, "That block couldn't be reserved. Try other seats.")),
   })
 
   const payMut = useMutation({
@@ -194,7 +213,7 @@ export function BusTripDetail() {
         }
       })
     },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "The practice payment didn't go through."),
+    onError: (e) => setErr(friendlyApiMessage(e, "The practice payment didn't go through.")),
   })
 
   const onShare = async (title: string) => {
@@ -206,6 +225,16 @@ export function BusTripDetail() {
       setShareMsg('Copy failed')
       window.setTimeout(() => setShareMsg(''), 1600)
     }
+  }
+
+  const postRouteQuestion = () => {
+    const body = commentDraft.trim()
+    if (!body) return
+    setRouteQuestions((prev) => [
+      { id: `local-${Date.now()}`, author: 'Guest', body, ago: 'Just now' },
+      ...prev,
+    ])
+    setCommentDraft('')
   }
 
   const handleBook = () => {
@@ -226,11 +255,37 @@ export function BusTripDetail() {
     bookMut.mutate()
   }
 
-  if (isLoading || !trip) {
+  if (isLoading) {
     return (
-      <div className="tp-detail tp-detail--premium">
-        <div className="skeleton tp-detail__skeleton" />
-      </div>
+      <DetailPage prefix="tp-detail" className="tp-detail--premium">
+        <DetailSkeleton className="tp-detail__skeleton" />
+      </DetailPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DetailPage prefix="tp-detail" className="tp-detail--premium">
+        <EmptyState
+          icon="🚌"
+          title="We couldn't load this trip"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
+  }
+
+  if (!trip) {
+    return (
+      <DetailPage prefix="tp-detail" className="tp-detail--premium">
+        <EmptyState
+          icon="🚌"
+          title="Trip not found"
+          sub="This departure may have been removed or the link is incorrect."
+          cta={{ label: 'Browse transport', to: '/transport' }}
+        />
+      </DetailPage>
     )
   }
 
@@ -245,32 +300,100 @@ export function BusTripDetail() {
   const canBook = !firstRes || firstRes.status === 'pending'
   const payLabel = group ? `N$${Number(group.total_price).toFixed(0)}` : `N$${totalPrice}`
 
-  return (
-    <div className="tp-detail tp-detail--premium">
-      {shareMsg ? (
-        <p className="tp-detail__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
+  const routeMoments = [
+    ...galleryItems.slice(0, 2).map((item, i) => ({
+      id: i,
+      image: mediaUrl(item.src) || item.src,
+      author: `rider${i + 1}`,
+      body: 'Coastal run — grab a window seat early.',
+    })),
+    {
+      id: 'placeholder',
+      image: null,
+      author: 'commuter',
+      body: 'Sunrise leaving Windhoek.',
+    },
+  ]
 
-      <div className="acc-detail__gallery-wrap">
-        <Link to="/transport" className="acc-detail__gallery-back">
-          ← Transport
-        </Link>
-        <div className="acc-detail__gallery-actions">
-          <button
-            type="button"
-            className={`td-hero__action${saved ? ' td-hero__action--saved' : ''}`}
-            onClick={() => setSaved((s) => !s)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" className="td-hero__action" onClick={() => onShare(routeTitle)}>
-            ↗ Share
-          </button>
-        </div>
-        <TransportGallery items={galleryItems} title={routeTitle} emptyLabel="Route photo coming soon" />
+  const bookingCard = canBook ? (
+    <DetailActionCard
+      kicker="Book your seat"
+      title={
+        <>
+          <span>N${trip.price}</span>
+          <small> / passenger</small>
+        </>
+      }
+      className="tp-detail__booking-card"
+    >
+      <div className="tp-detail__booking-meta">
+        <span>{trip.available_seats} seats left</span>
+        <span>{trip.route_detail.operator_name}</span>
       </div>
+
+      <div className="tp-detail__booking-fields">
+        <label>
+          Passengers
+          <select
+            value={passengers}
+            onChange={(e) => {
+              setPassengers(Number(e.target.value))
+              setFirstSeat(null)
+            }}
+          >
+            {[1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                {n} {n === 1 ? 'passenger' : 'passengers'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Seat preference
+          <select value={seatPref} onChange={(e) => setSeatPref(e.target.value)}>
+            <option value="any">Any seat</option>
+            <option value="window">Window</option>
+            <option value="aisle">Aisle</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="tp-detail__total">
+        <span>Total</span>
+        <strong>{payLabel}</strong>
+      </div>
+
+      <button
+        type="button"
+        className="btn btn-primary tp-detail__book-btn"
+        onClick={handleBook}
+        disabled={bookMut.isPending}
+      >
+        {bookMut.isPending ? 'Reserving…' : 'Book seat'}
+      </button>
+
+      <p className="tp-detail__booking-note">{trip.available_seats} seats left on this departure</p>
+
+      {!profile ? (
+        <p className="tp-detail__booking-hint">Sign in to complete your booking.</p>
+      ) : !profile.email_verified ? (
+        <p className="tp-detail__booking-hint">Verify your email to book.</p>
+      ) : null}
+    </DetailActionCard>
+  ) : null
+
+  return (
+    <DetailPage prefix="tp-detail" className="tp-detail--premium" toast={shareMsg || null}>
+      <DetailHeroWrap
+        className="acc-detail__gallery-wrap"
+        backTo="/transport"
+        backLabel="Transport"
+        saved={saved}
+        onSave={() => setSaved((s) => !s)}
+        onShare={() => onShare(routeTitle)}
+      >
+        <TransportGallery items={galleryItems} title={routeTitle} emptyLabel="Route photo coming soon" />
+      </DetailHeroWrap>
 
       <section className="tp-detail__identity detail-section">
         <div className="tp-detail__meta-row">
@@ -286,31 +409,23 @@ export function BusTripDetail() {
           {duration ? ` · ${duration}` : ''}
         </p>
 
-        <div className="tp-detail__trust-row">
-          <span className={`tp-detail__seats-chip tp-detail__seats-chip--${urgency}`}>
-            {trip.available_seats} seats left
-          </span>
-          <span>Operator listed</span>
-          <span>Mobile ticket</span>
-        </div>
+        <TrustBadgeRow
+          items={[
+            { label: `${trip.available_seats} seats left`, variant: urgency },
+            'Operator listed',
+            'Mobile ticket',
+          ]}
+          className="tp-detail__trust-row"
+        />
 
-        <div className="tp-detail__social-row">
-          <button
-            type="button"
-            className={saved ? 'tp-detail__social-btn--saved' : ''}
-            onClick={() => setSaved((s) => !s)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" onClick={() => onShare(routeTitle)}>
-            ↗ Share
-          </button>
+        <SocialActionRow saved={saved} onSave={() => setSaved((s) => !s)} onShare={() => onShare(routeTitle)}>
           <button type="button">Ask operator</button>
-        </div>
+        </SocialActionRow>
       </section>
 
-      <div className="tp-detail__layout">
-        <main className="tp-detail__main">
+      <DetailLayout
+        main={
+          <>
           <section className="detail-section tp-detail__timeline">
             <h2 className="tp-detail__section-title">Route timeline</h2>
             <div className="tp-route-timeline">
@@ -390,33 +505,27 @@ export function BusTripDetail() {
             </ul>
           </section>
 
-          <section className="detail-section tp-detail__moments">
-            <div className="tp-detail__section-head">
-              <div>
-                <h2 className="tp-detail__section-title">Delvers moments on this route</h2>
-                <p className="tp-detail__section-sub">Window views, boarding tips, and stop recommendations.</p>
-              </div>
-              <Link to="/delvers">See more</Link>
-            </div>
-            <div className="tp-detail__moments-grid">
-              {galleryItems.slice(0, 2).map((item, i) => (
-                <div key={i} className="tp-detail__moment-card">
-                  <img src={mediaUrl(item.src) || item.src} alt="" />
-                  <p>
-                    <strong>@rider{i + 1}</strong> Coastal run — grab a window seat early.
-                  </p>
-                </div>
-              ))}
-              <div className="tp-detail__moment-card tp-detail__moment-card--placeholder">
-                <div aria-hidden>📸</div>
-                <p>
-                  <strong>@commuter</strong> Sunrise leaving Windhoek.
-                </p>
-              </div>
-            </div>
-          </section>
+          <DelversMoments
+            title="Delvers moments on this route"
+            subtitle="Window views, boarding tips, and stop recommendations."
+            moments={routeMoments}
+            className="tp-detail__moments"
+            showWhenEmpty
+          />
 
-          {err ? <div className="error-banner">{err}</div> : null}
+          <CommentBox
+            className="tp-detail__comments"
+            title="Route tips & questions"
+            subtitle="Boarding advice, luggage, and stop recommendations from commuters."
+            placeholder="Ask about boarding point, luggage limits, stops, or ticket pickup…"
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postRouteQuestion}
+            comments={routeQuestions}
+            postLabel="Ask operator"
+          />
+
+          {err ? <div className="error-banner" role="alert">{err}</div> : null}
 
           {!firstRes && (
             <section id="bus-seats" className="detail-section tp-detail__seats-block">
@@ -496,86 +605,23 @@ export function BusTripDetail() {
               </Link>
             </section>
           )}
-        </main>
+          </>
+        }
+        sidebar={bookingCard}
+      />
 
-        {canBook && (
-          <aside className="tp-detail__sidebar">
-            <div className="tp-detail__booking-card">
-              <p className="tp-detail__booking-kicker">Book your seat</p>
-              <h2>
-                <span>N${trip.price}</span>
-                <small> / passenger</small>
-              </h2>
-
-              <div className="tp-detail__booking-meta">
-                <span>{trip.available_seats} seats left</span>
-                <span>{trip.route_detail.operator_name}</span>
-              </div>
-
-              <div className="tp-detail__booking-fields">
-                <label>
-                  Passengers
-                  <select
-                    value={passengers}
-                    onChange={(e) => {
-                      setPassengers(Number(e.target.value))
-                      setFirstSeat(null)
-                    }}
-                  >
-                    {[1, 2, 3, 4].map((n) => (
-                      <option key={n} value={n}>
-                        {n} {n === 1 ? 'passenger' : 'passengers'}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Seat preference
-                  <select value={seatPref} onChange={(e) => setSeatPref(e.target.value)}>
-                    <option value="any">Any seat</option>
-                    <option value="window">Window</option>
-                    <option value="aisle">Aisle</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="tp-detail__total">
-                <span>Total</span>
-                <strong>{payLabel}</strong>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-primary tp-detail__book-btn"
-                onClick={handleBook}
-                disabled={bookMut.isPending}
-              >
-                {bookMut.isPending ? 'Reserving…' : 'Book seat'}
-              </button>
-
-              <p className="tp-detail__booking-note">{trip.available_seats} seats left on this departure</p>
-
-              {!profile ? (
-                <p className="tp-detail__booking-hint">Sign in to complete your booking.</p>
-              ) : !profile.email_verified ? (
-                <p className="tp-detail__booking-hint">Verify your email to book.</p>
-              ) : null}
-            </div>
-          </aside>
-        )}
-      </div>
-
-      {canBook && (
-        <div className="tp-detail__mobile-bar">
-          <div>
-            <strong>N${trip.price}/passenger</strong>
-            <span>{trip.available_seats} seats left</span>
-          </div>
-          <button type="button" className="btn btn-primary" onClick={handleBook} disabled={bookMut.isPending}>
-            Book seat
-          </button>
-        </div>
-      )}
-    </div>
+      {canBook ? (
+        <MobileStickyCTA
+          title={`N$${trip.price}/passenger`}
+          subtitle={`${trip.available_seats} seats left`}
+          action={
+            <button type="button" className="btn btn-primary" onClick={handleBook} disabled={bookMut.isPending}>
+              Book seat
+            </button>
+          }
+          className="tp-detail__mobile-bar"
+        />
+      ) : null}
+    </DetailPage>
   )
 }

@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 import { FilterSheet } from '../components/FilterSheet'
+import { MarketplaceHero } from '../components/marketplace'
+import { EmptyState, ListSkeleton } from '../components/ui'
 import { mockBusTrips } from '../mocks/mockData'
 
 const VEHICLE_TYPE_OPTIONS: { value: string; label: string; emoji: string }[] = [
@@ -274,13 +276,13 @@ export function Transport() {
     return s ? `?${s}` : ''
   }, [origin, dest, travelDate])
 
-  const { data: vehicles, isLoading: vLoading } = useQuery({
+  const { data: vehicles, isLoading: vLoading, isError: vError, refetch: refetchVehicles } = useQuery({
     queryKey: ['veh', vQs],
     enabled: tab === 'car',
     queryFn: () => apiFetch<Vehicle[]>(`/api/transport/vehicles/${vQs}`, { auth: false }),
   })
 
-  const { data: trips, isLoading: bLoading } = useQuery({
+  const { data: trips, isLoading: bLoading, isError: bError, refetch: refetchTrips } = useQuery({
     queryKey: ['bus', bQs],
     enabled: tab === 'bus',
     queryFn: () => apiFetch<Trip[]>(`/api/transport/bus/trips/${bQs}`, { auth: false }),
@@ -391,8 +393,8 @@ export function Transport() {
         title: 'Bus pulse',
         type: 'stats',
         items: [
-          { value: tripList.length || 12, label: 'trips available' },
-          { value: lowSeats || 4, label: 'filling up fast' },
+          { value: tripList.length ? tripList.length : '—', label: 'trips available' },
+          { value: lowSeats ? lowSeats : '—', label: 'filling up fast' },
           { value: POPULAR_BUS_ROUTES.length, label: 'popular corridors' },
         ],
       },
@@ -410,26 +412,22 @@ export function Transport() {
   }, [tripList, origin, dest])
 
   return (
-    <div className="tp-page ev-page acc-page disc-page">
-      <header className="page-header tp-page__header ev-page__header acc-page__header">
-        <div>
-          <h1 className="display tp-page__title ev-page__title">Transport</h1>
-          <p className="page-sub tp-page__sub ev-page__sub">
-            {tab === 'car'
-              ? 'Rent 4×4s and city cars from local providers'
-              : 'Buses & coaches — search routes by place and travel date'}
-          </p>
-        </div>
-        {tab === 'car' ? (
-          <button
-            type="button"
-            className={`btn acc-page__filter-btn${carFilterCount > 0 ? ' btn-primary' : ' btn-ghost'}`}
-            onClick={() => setFiltersOpen(true)}
-          >
-            {carFilterCount > 0 ? `Filters (${carFilterCount})` : 'Filters'}
-          </button>
-        ) : null}
-      </header>
+    <div className="tp-page ev-page acc-page disc-page mk-page">
+      <MarketplaceHero
+        title="Transport"
+        subtitle="Rent vehicles, find bus routes, and plan how to move between places."
+        action={
+          tab === 'car' ? (
+            <button
+              type="button"
+              className={`btn acc-page__filter-btn${carFilterCount > 0 ? ' btn-primary' : ' btn-ghost'}`}
+              onClick={() => setFiltersOpen(true)}
+            >
+              {carFilterCount > 0 ? `Filters (${carFilterCount})` : 'Filters'}
+            </button>
+          ) : null
+        }
+      />
 
       <div className="tp-page__mode-bar" role="tablist" aria-label="Transport mode">
         <button
@@ -448,7 +446,7 @@ export function Transport() {
           className={`tp-mode-btn${tab === 'bus' ? ' tp-mode-btn--active' : ''}`}
           onClick={() => setTab('bus')}
         >
-          <span aria-hidden>🚌</span> Public transportation
+          <span aria-hidden>🚌</span> Public transport
         </button>
       </div>
 
@@ -629,15 +627,18 @@ export function Transport() {
             </>
           )}
 
-          {vLoading && (
-            <div className="tp-page__skeleton-wrap ev-page__skeleton-wrap" aria-hidden>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton tp-page__skeleton-card" />
-              ))}
-            </div>
+          {vError && (
+            <EmptyState
+              icon="🚗"
+              title="We couldn't load vehicles"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetchVehicles() }}
+            />
           )}
 
-          {!vLoading && vehicles && vehicles.length > 0 && (
+          {vLoading && !vError && <ListSkeleton count={3} />}
+
+          {!vLoading && !vError && vehicles && vehicles.length > 0 && (
             <p className="tp-page__results-hint ev-page__results-hint">
               {vehicles.length} {vehicles.length === 1 ? 'vehicle' : 'vehicles'} available
             </p>
@@ -723,38 +724,34 @@ export function Transport() {
           </div>
 
           {!vLoading && vehicles?.length === 0 && (
-            <div className="tp-page__empty ev-page__empty">
-              <p className="tp-page__empty-title ev-page__empty-title">No vehicles match</p>
-              <p className="tp-page__empty-text ev-page__empty-text">
-                Try another region or loosen filters — or explore these popular areas on DELVE.
-              </p>
-              <div className="tp-page__empty-suggestions">
-                <span className="tp-page__empty-suggestions-label">Popular regions</span>
-                <div className="tp-page__empty-chips">
-                  {POPULAR_REGIONS.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      className="acc-quick-chip"
-                      onClick={() => {
-                        setRegion(r)
-                        setVehicleTypes([])
-                        setMinSeats('')
-                      }}
-                    >
-                      {r}
-                    </button>
-                  ))}
+            <EmptyState
+              className="tp-page__empty ev-page__empty"
+              icon="🚗"
+              title="No vehicles match"
+              sub="Try another region or loosen filters — or explore these popular areas on DELVE."
+              action={
+                <div className="tp-page__empty-suggestions">
+                  <span className="tp-page__empty-suggestions-label">Popular regions</span>
+                  <div className="tp-page__empty-chips">
+                    {POPULAR_REGIONS.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        className="acc-quick-chip"
+                        onClick={() => {
+                          setRegion(r)
+                          setVehicleTypes([])
+                          setMinSeats('')
+                        }}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary tp-page__empty-cta ev-page__empty-btn"
-                onClick={clearCarFilters}
-              >
-                Clear all filters
-              </button>
-            </div>
+              }
+              cta={{ label: 'Clear all filters', onClick: clearCarFilters }}
+            />
           )}
             </main>
 
@@ -952,15 +949,18 @@ export function Transport() {
             </>
           )}
 
-          {bLoading && (
-            <div className="tp-page__skeleton-wrap ev-page__skeleton-wrap" aria-hidden>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton tp-page__skeleton-trip" />
-              ))}
-            </div>
+          {bError && (
+            <EmptyState
+              icon="🚌"
+              title="We couldn't load bus trips"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetchTrips() }}
+            />
           )}
 
-          {!bLoading && trips && trips.length > 0 && (
+          {bLoading && !bError && <ListSkeleton count={3} variant="row" />}
+
+          {!bLoading && !bError && trips && trips.length > 0 && (
             <p className="tp-page__results-hint ev-page__results-hint">
               {trips.length} {trips.length === 1 ? 'trip' : 'trips'} available
             </p>
@@ -1016,46 +1016,45 @@ export function Transport() {
           </div>
 
           {!bLoading && trips?.length === 0 && (
-            <div className="tp-page__empty ev-page__empty">
-              <p className="tp-page__empty-title ev-page__empty-title">
-                {origin || dest || travelDate ? 'No trips match' : 'No trips listed yet'}
-              </p>
-              <p className="tp-page__empty-text ev-page__empty-text">
-                {origin || dest || travelDate
+            <EmptyState
+              className="tp-page__empty ev-page__empty"
+              icon="🚌"
+              title={origin || dest || travelDate ? 'No trips match' : 'No trips listed yet'}
+              sub={
+                origin || dest || travelDate
                   ? 'Adjust the date or route — operators add departures regularly.'
-                  : 'Pick a travel date and route, or try a popular connection below.'}
-              </p>
-              <div className="tp-page__empty-suggestions">
-                <span className="tp-page__empty-suggestions-label">Popular routes</span>
-                <div className="tp-page__empty-chips tp-page__empty-chips--routes">
-                  {POPULAR_BUS_ROUTES.map((r) => (
-                    <button
-                      key={`${r.origin}-${r.destination}`}
-                      type="button"
-                      className="acc-quick-chip"
-                      onClick={() => {
-                        setOrigin(r.origin)
-                        setDest(r.destination)
-                        setTravelDate('')
-                      }}
-                    >
-                      {r.origin} → {r.destination}
-                    </button>
-                  ))}
+                  : 'Pick a travel date and route, or try a popular connection below.'
+              }
+              action={
+                <div className="tp-page__empty-suggestions">
+                  <span className="tp-page__empty-suggestions-label">Popular routes</span>
+                  <div className="tp-page__empty-chips tp-page__empty-chips--routes">
+                    {POPULAR_BUS_ROUTES.map((r) => (
+                      <button
+                        key={`${r.origin}-${r.destination}`}
+                        type="button"
+                        className="acc-quick-chip"
+                        onClick={() => {
+                          setOrigin(r.origin)
+                          setDest(r.destination)
+                          setTravelDate('')
+                        }}
+                      >
+                        {r.origin} → {r.destination}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary tp-page__empty-cta ev-page__empty-btn"
-                onClick={() => {
+              }
+              cta={{
+                label: 'Show all trips',
+                onClick: () => {
                   setOrigin('')
                   setDest('')
                   setTravelDate('')
-                }}
-              >
-                Show all trips
-              </button>
-            </div>
+                },
+              }}
+            />
           )}
             </main>
 

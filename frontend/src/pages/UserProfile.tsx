@@ -4,9 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { PostMedia } from '../components/PostMedia'
 import { useAuth } from '../auth/AuthContext'
-import type { FeedPost } from '../components/IgPostCard'
-import { loadUserTrips } from '../data/userTrips'
-import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { EmptyState } from '../components/ui'
 
 export type PublicProfile = {
   username: string
@@ -25,11 +23,12 @@ type Journey = { id: number; title: string; cover_image: string | null; starts_a
 type Booking = { id: number; listing_title: string; check_in: string; check_out: string; status: string }
 type UserEvent = { id: number; title: string; cover_image: string | null; starts_at: string; venue: string }
 
-type Tab = 'posts' | 'journeys' | 'bookings' | 'saved' | 'events'
+type Tab = 'posts' | 'journeys' | 'community' | 'bookings' | 'saved' | 'events'
 
 const TABS: { id: Tab; label: string; ownerOnly?: boolean }[] = [
   { id: 'posts', label: 'Posts' },
   { id: 'journeys', label: 'Journeys' },
+  { id: 'community', label: 'Community' },
   { id: 'bookings', label: 'Bookings', ownerOnly: true },
   { id: 'saved', label: 'Saved', ownerOnly: true },
   { id: 'events', label: 'Events' },
@@ -76,7 +75,16 @@ export function UserProfile() {
     queryKey: ['user-journeys', username],
     queryFn: () =>
       apiFetch<Journey[]>(`/api/journeys/?author=${encodeURIComponent(username)}`).catch(() => [] as Journey[]),
-    enabled: tab === 'journeys' && Boolean(pub) && !profileNotFound,
+    enabled: Boolean(pub) && !profileNotFound && !isBlocked,
+  })
+
+  const { data: events, isLoading: loadingEvents } = useQuery({
+    queryKey: ['user-events', username],
+    queryFn: () =>
+      apiFetch<UserEvent[]>(`/api/events/?organizer=${encodeURIComponent(username)}`).catch(
+        () => [] as UserEvent[],
+      ),
+    enabled: Boolean(pub) && !profileNotFound && !isBlocked,
   })
 
   // Trips created locally (stored in localStorage) — shown for own profile
@@ -85,6 +93,8 @@ export function UserProfile() {
     return loadUserTrips()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMe, tab])
+
+  const journeyCount = (journeys?.length ?? 0) + (isMe ? localTrips.length : 0)
 
   const { data: bookings, isLoading: loadingBookings } = useQuery({
     queryKey: ['my-bookings'],
@@ -99,15 +109,6 @@ export function UserProfile() {
         () => [] as FeedPost[],
       ),
     enabled: tab === 'saved' && Boolean(pub) && !profileNotFound,
-  })
-
-  const { data: events, isLoading: loadingEvents } = useQuery({
-    queryKey: ['user-events', username],
-    queryFn: () =>
-      apiFetch<UserEvent[]>(`/api/events/?organizer=${encodeURIComponent(username)}`).catch(
-        () => [] as UserEvent[],
-      ),
-    enabled: tab === 'events' && Boolean(pub) && !profileNotFound,
   })
 
   const displayName = pub?.display_name || username
@@ -159,22 +160,21 @@ export function UserProfile() {
 
       {/* Not found */}
       {profileNotFound && (
-        <div className="up__missing">
-          <div className="up__missing-icon" aria-hidden>
-            ?
-          </div>
-          <h1 className="up__missing-title">Profile not found</h1>
-          <p className="up__missing-sub">No account uses that username.</p>
-          <Link to="/delvers" className="btn btn-primary">
-            Browse Delvers
-          </Link>
-        </div>
+        <EmptyState
+          icon="?"
+          title="Profile not found"
+          sub="No account uses that username."
+          cta={{ label: 'Browse Delvers', to: '/delvers' }}
+        />
       )}
 
       {profileFailed && (
-        <p className="page-sub" role="alert">
-          Could not load profile. <Link to="/">Home</Link>
-        </p>
+        <EmptyState
+          icon="⚠️"
+          title="We couldn't load this profile"
+          sub="Something went wrong. Try again or return home."
+          cta={{ label: 'Go home', to: '/' }}
+        />
       )}
 
       {pub && (
@@ -209,9 +209,19 @@ export function UserProfile() {
                   Message
                 </span>
               ) : (
-                <Link to="/messages" className="btn btn-primary up__action-btn">
-                  Message
-                </Link>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-ghost up__action-btn"
+                    disabled
+                    title="Follow coming soon"
+                  >
+                    Follow
+                  </button>
+                  <Link to="/messages" className="btn btn-primary up__action-btn">
+                    Message
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -290,11 +300,11 @@ export function UserProfile() {
               <span className="up__stat-l">Posts</span>
             </div>
             <div className="up__stat">
-              <span className="up__stat-n">{isBlocked ? '—' : (journeys?.length ?? '—')}</span>
+              <span className="up__stat-n">{isBlocked ? '—' : journeyCount}</span>
               <span className="up__stat-l">Journeys</span>
             </div>
             <div className="up__stat">
-              <span className="up__stat-n">{isBlocked ? '—' : (events?.length ?? '—')}</span>
+              <span className="up__stat-n">{isBlocked ? '—' : (events?.length ?? 0)}</span>
               <span className="up__stat-l">Events</span>
             </div>
             {isMe && (
@@ -322,8 +332,10 @@ export function UserProfile() {
             {TABS.filter((t) => !t.ownerOnly || isMe).map((t) => (
               <button
                 key={t.id}
+                id={`up-tab-${t.id}`}
                 role="tab"
                 aria-selected={tab === t.id}
+                aria-controls="up-panel"
                 className={tab === t.id ? 'up__tab up__tab--active' : 'up__tab'}
                 onClick={() => setTab(t.id)}
               >
@@ -333,7 +345,7 @@ export function UserProfile() {
           </div>}
 
           {/* Tab content — hidden for private accounts viewed by non-owners */}
-          {!isBlocked && <div className="up__panel" role="tabpanel">
+          {!isBlocked && <div className="up__panel" id="up-panel" role="tabpanel" aria-labelledby={`up-tab-${tab}`}>
             {/* POSTS */}
             {tab === 'posts' && (
               <>
@@ -477,6 +489,20 @@ export function UserProfile() {
               </>
             )}
 
+            {/* COMMUNITY */}
+            {tab === 'community' && (
+              <EmptyState
+                icon="💬"
+                title="No community activity yet"
+                sub={
+                  isMe
+                    ? 'Questions, answers, and tips you share in Community will appear here.'
+                    : 'Community questions and tips from this traveller will appear here.'
+                }
+                cta={{ label: 'Browse community', to: '/community' }}
+              />
+            )}
+
             {/* BOOKINGS – own profile only */}
             {tab === 'bookings' && isMe && (
               <>
@@ -612,29 +638,3 @@ export function UserProfile() {
   )
 }
 
-function EmptyState({
-  icon,
-  title,
-  sub,
-  cta,
-}: {
-  icon: string
-  title: string
-  sub?: string
-  cta?: { label: string; to: string }
-}) {
-  return (
-    <div className="up__empty">
-      <div className="up__empty-icon" aria-hidden>
-        {icon}
-      </div>
-      <p className="up__empty-title">{title}</p>
-      {sub && <p className="up__empty-sub">{sub}</p>}
-      {cta && (
-        <Link to={cta.to} className="btn btn-primary up__empty-cta">
-          {cta.label}
-        </Link>
-      )}
-    </div>
-  )
-}

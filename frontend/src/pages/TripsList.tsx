@@ -24,6 +24,7 @@ import {
   journeyHook,
 } from '../utils/journeyDisplay'
 import { useAuth } from '../auth/AuthContext'
+import { EmptyState } from '../components/ui'
 
 const JOURNEY_DEFAULT_IMAGE = '/images/default-journey.jpg'
 const RECENT_STORY_COUNT = 5
@@ -234,21 +235,23 @@ export function TripsList() {
   }
 
   return (
-    <div className="ev-page acc-page jn-page">
+    <div className="ev-page acc-page jn-page mk-page">
       <div className="jn-page__top">
-      <header className="page-header ev-page__header acc-page__header jn-page__header">
-        <div>
-          <h1 className="display ev-page__title">Journeys</h1>
-          <p className="page-sub ev-page__sub">
-            Real travel diaries from real people — routes, prices, stops, and tips.
-          </p>
+      <header className="mk-hero jn-page__header">
+        <div className="mk-hero__top">
+          <div className="mk-hero__copy">
+            <h1 className="mk-hero__title">Real journeys people took</h1>
+            <p className="mk-hero__sub">
+              Routes, costs, photos, stops, and tips from travellers.
+            </p>
+          </div>
+          <Link
+            to={profile ? '/journeys/new' : '/login'}
+            className="btn btn-primary jn-page__share-btn"
+          >
+            Share your journey
+          </Link>
         </div>
-        <Link
-          to={profile ? '/journeys/new' : '/login'}
-          className="btn btn-primary jn-page__share-btn"
-        >
-          Share your journey
-        </Link>
       </header>
 
       <div className="acc-page__search jn-page__search">
@@ -497,17 +500,12 @@ export function TripsList() {
       )}
 
       {filtered.length === 0 && (
-        <div className="ev-page__empty">
-          <p className="ev-page__empty-title">No journeys match</p>
-          <p className="ev-page__empty-text">
-            Try a different style, budget, or clear the filters to browse all journeys.
-          </p>
-          {hasFilters && (
-            <button type="button" className="btn btn-primary ev-page__empty-btn" onClick={clearAll}>
-              Show all journeys
-            </button>
-          )}
-        </div>
+        <EmptyState
+          icon="🗺"
+          title="No journeys match"
+          sub="Try a different style, budget, or clear the filters to browse all journeys."
+          cta={hasFilters ? { label: 'Show all journeys', onClick: clearAll } : undefined}
+        />
       )}
 
       {activeStoryIdx != null && recentStories[activeStoryIdx] && (() => {

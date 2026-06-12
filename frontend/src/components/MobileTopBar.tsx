@@ -1,10 +1,15 @@
+import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { MAIN_NAV_SECTIONS } from '../data/mainNavSections'
+import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSections'
+import { useNavBadges } from '../hooks/useNavBadges'
+import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 
 export function MobileTopBar() {
   const { profile } = useAuth()
+  const { unreadMessages } = useNavBadges()
+  const [moreOpen, setMoreOpen] = useState(false)
 
   return (
     <header className="mobile-topbar">
@@ -16,13 +21,14 @@ export function MobileTopBar() {
           <Link to="/search" className="mobile-topbar__icon" aria-label="Search">
             <IconSearch />
           </Link>
-          {profile && (
+          {profile ? (
             <Link to="/create" className="mobile-topbar__icon" aria-label="Create">
               <IconPlus />
             </Link>
-          )}
-          <Link to="/messages" className="mobile-topbar__icon" aria-label="Messages">
+          ) : null}
+          <Link to="/messages" className="mobile-topbar__icon mobile-topbar__icon--badge" aria-label="Messages">
             <IconMessage />
+            <NavBadge count={unreadMessages} />
           </Link>
           <ProfileMenu avatarClassName="mobile-topbar__icon mobile-topbar__profile-menu" />
         </div>
@@ -30,7 +36,7 @@ export function MobileTopBar() {
 
       <nav className="mobile-topbar__sections" aria-label="Site sections">
         <div className="mobile-topbar__sections-scroll">
-          {MAIN_NAV_SECTIONS.map((l) => (
+          {PRIMARY_NAV_SECTIONS.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
@@ -42,8 +48,31 @@ export function MobileTopBar() {
               {l.label}
             </NavLink>
           ))}
+          <button
+            type="button"
+            className={`mobile-topbar__sect mobile-topbar__sect--more${moreOpen ? ' mobile-topbar__sect--active' : ''}`}
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((v) => !v)}
+          >
+            More
+          </button>
         </div>
       </nav>
+
+      {moreOpen ? (
+        <div className="mobile-topbar__more-panel">
+          {SECONDARY_NAV_SECTIONS.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="mobile-topbar__more-item"
+              onClick={() => setMoreOpen(false)}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </header>
   )
 }
@@ -76,4 +105,3 @@ function IconMessage() {
     </svg>
   )
 }
-

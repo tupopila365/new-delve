@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, ApiError, mediaUrl } from '../api/client'
+import { apiFetch, mediaUrl } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { GuestReviewCard, normalizeReviews } from '../components/GuestReviewCard'
 import { GuideAskButton } from '../components/guide/GuideAskButton'
@@ -12,6 +13,19 @@ import { GuideSimilarGuides, type SimilarGuide } from '../components/guide/Guide
 import { GuideTourPackages, type TourPackage } from '../components/guide/GuideTourPackages'
 import { MiniRating } from '../components/MiniRating'
 import { normalizeTourPackages } from '../utils/tourPackages'
+import {
+  CommentBox,
+  DelversMoments,
+  DetailActionCard,
+  DetailHeroWrap,
+  DetailLayout,
+  DetailPage,
+  DetailSkeleton,
+  MobileStickyCTA,
+  SocialActionRow,
+  TrustBadgeRow,
+} from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 type Guide = {
   id: number
@@ -138,7 +152,7 @@ export function GuideDetail() {
   const [booking, setBooking] = useState<Booking | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  const { data: g, isLoading } = useQuery({
+  const { data: g, isLoading, isError, refetch } = useQuery({
     queryKey: ['guide', id],
     enabled: !!id,
     queryFn: () => apiFetch<Guide>(`/api/guides/profiles/${id}/`, { auth: false }),
@@ -224,7 +238,7 @@ export function GuideDetail() {
       setBooking(b)
       void qc.invalidateQueries({ queryKey: ['guide-bookings'] })
     },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "We couldn't save that booking. Try again in a moment."),
+    onError: (e) => setErr(friendlyApiMessage(e, "We couldn't save that booking. Try again in a moment.")),
   })
 
   const payMut = useMutation({
@@ -236,7 +250,7 @@ export function GuideDetail() {
     onSuccess: (r) => {
       setBooking((b) => (b ? { ...b, status: r.status, mock_payment_ref: r.mock_payment_ref } : b))
     },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "The practice payment didn't go through. You can try again."),
+    onError: (e) => setErr(friendlyApiMessage(e, "The practice payment didn't go through. You can try again.")),
   })
 
   const onShare = async (title: string) => {
@@ -281,15 +295,41 @@ export function GuideDetail() {
     setCommentDraft('')
   }
 
-  if (isLoading || !g) {
+  if (isLoading) {
     return (
-      <div className="gd-detail gd-detail--premium">
-        <div className="skeleton gd-detail__skeleton" />
-      </div>
+      <DetailPage prefix="gd-detail" className="gd-detail--premium">
+        <DetailSkeleton className="gd-detail__skeleton" />
+      </DetailPage>
     )
   }
 
-  const displayName = g.display_name?.trim() || g.username
+  if (isError) {
+    return (
+      <DetailPage prefix="gd-detail" className="gd-detail--premium">
+        <EmptyState
+          icon="🧭"
+          title="We couldn't load this guide"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
+  }
+
+  if (!g || !('headline' in g)) {
+    return (
+      <DetailPage prefix="gd-detail" className="gd-detail--premium">
+        <EmptyState
+          icon="🧭"
+          title="Guide not found"
+          sub="This profile may have been removed or the link is incorrect."
+          cta={{ label: 'Browse guides', to: '/guides' }}
+        />
+      </DetailPage>
+    )
+  }
+
+  const displayName = g.display_name?.trim() || g.username || 'Guide'
   const responseH = g.response_hours_typical ?? 0
   const loveItems = whyBookGuide(g)
   const canBook = !booking || booking.status === 'pending'
@@ -302,31 +342,145 @@ export function GuideDetail() {
     langsDetail.length > 0 ||
     (g.languages && g.languages.length > 0)
 
-  return (
-    <div className="gd-detail gd-detail--premium">
-      {shareMsg ? (
-        <p className="gd-detail__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
+  const trustItems = [
+    g.licensed_guide ? 'Verified guide' : 'Listed guide',
+    responseH > 0 ? `Responds in ${responseH}h` : null,
+    g.licensed_guide ? 'Licensed' : null,
+    g.years_guiding != null && g.years_guiding > 0
+      ? `${g.years_guiding} ${g.years_guiding === 1 ? 'year' : 'years'} guiding`
+      : null,
+  ].filter(Boolean) as string[]
 
-      <div className="gd-detail__hero-wrap">
-        <Link to="/guides" className="gd-detail__hero-back">
-          ← Guides
-        </Link>
-        <div className="gd-detail__hero-actions">
+  const bookingCard =
+    canBook && !booking ? (
+      <DetailActionCard kicker="Ready to explore?" title={rateLabel} className="gd-detail__booking-card">
+        <form className="gd-detail__booking-form" onSubmit={handleRequestBooking}>
+          {packages.length > 0 ? (
+            <label className="gd-detail__booking-field">
+              Package
+              <select
+                value={selectedPackageId}
+                onChange={(e) => {
+                  const pkg = packages.find((p) => p.id === e.target.value) ?? null
+                  onPackageSelect(pkg)
+                }}
+              >
+                <option value="">Custom duration (hourly)</option>
+                {packages.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} · {p.hours}h · ${p.price}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {!selectedPkg ? (
+            <label className="gd-detail__booking-field">
+              Duration
+              <select value={durationHours} onChange={(e) => setDurationHours(Number(e.target.value))}>
+                {[2, 4, 6, 8].map((hours) => (
+                  <option key={hours} value={hours}>
+                    {hours} hours
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          <label className="gd-detail__booking-field">
+            Date
+            <input type="date" min={todayStr} required value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+
+          <label className="gd-detail__booking-field">
+            Start time
+            <select value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+              <option value="">Select time</option>
+              {TIME_PRESETS.map(({ label, value }) => (
+                <option key={value} value={value}>
+                  {label} ({value})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="gd-detail__booking-field">
+            Group size
+            <input
+              type="number"
+              min={1}
+              max={30}
+              required
+              value={groupSize}
+              onChange={(e) => setGroupSize(Math.max(1, Number(e.target.value) || 1))}
+            />
+          </label>
+
+          {estimatedTotal ? (
+            <div className="gd-detail__total">
+              <span>Estimated total</span>
+              <strong>${estimatedTotal}</strong>
+            </div>
+          ) : null}
+
+          <button type="submit" className="btn btn-primary gd-detail__book-btn" disabled={createMut.isPending}>
+            {createMut.isPending ? 'Saving…' : 'Request booking'}
+          </button>
+
           <button
             type="button"
-            className={`gd-detail__hero-action${saved ? ' gd-detail__hero-action--saved' : ''}`}
-            onClick={() => setSaved((v) => !v)}
+            className="gd-detail__extra-toggle"
+            onClick={() => setShowExtraFields((v) => !v)}
+            aria-expanded={showExtraFields}
           >
-            {saved ? '♥ Saved' : '♡ Save'}
+            {showExtraFields ? '− Hide meeting point and notes' : '+ Add meeting point and notes'}
           </button>
-          <button type="button" className="gd-detail__hero-action" onClick={() => onShare(displayName)}>
-            ↗ Share
-          </button>
-        </div>
 
+          {showExtraFields ? (
+            <div className="gd-detail__extra-fields">
+              <label className="gd-detail__booking-field">
+                Meeting point
+                <textarea
+                  rows={2}
+                  value={meetingPoint}
+                  onChange={(e) => setMeetingPoint(e.target.value)}
+                  placeholder="Hotel lobby, landmark, or station exit"
+                />
+              </label>
+              <label className="gd-detail__booking-field">
+                Notes (optional)
+                <textarea
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Interests, mobility, or anything the guide should know"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {g.user && profile?.email_verified ? (
+            <GuideAskButton guideUserId={g.user} label="Ask a question" />
+          ) : (
+            <p className="gd-detail__booking-hint">
+              {!profile ? 'Sign in to request a booking.' : !profile.email_verified ? 'Verify email to book.' : 'Practice flow — no real payment today.'}
+            </p>
+          )}
+        </form>
+      </DetailActionCard>
+    ) : null
+
+  return (
+    <DetailPage prefix="gd-detail" className="gd-detail--premium" toast={shareMsg || null}>
+      <DetailHeroWrap
+        className="gd-detail__hero-wrap"
+        backTo="/guides"
+        backLabel="Guides"
+        saved={saved}
+        onSave={() => setSaved((v) => !v)}
+        onShare={() => onShare(displayName)}
+      >
         <section className="gd-detail__hero">
           <div className="gd-detail__hero-media">
             {g.photo ? (
@@ -362,28 +516,9 @@ export function GuideDetail() {
               <p className="gd-detail__hero-meta gd-detail__hero-meta--regions">{g.regions.join(' · ')}</p>
             ) : null}
 
-            <div className="gd-detail__hero-trust">
-              {g.licensed_guide ? <span>Verified guide</span> : <span>Listed guide</span>}
-              {responseH > 0 ? <span>Responds in {responseH}h</span> : null}
-              {g.licensed_guide ? <span>Licensed</span> : null}
-              {g.years_guiding != null && g.years_guiding > 0 ? (
-                <span>
-                  {g.years_guiding} {g.years_guiding === 1 ? 'year' : 'years'} guiding
-                </span>
-              ) : null}
-            </div>
+            <TrustBadgeRow items={trustItems} className="gd-detail__hero-trust" />
 
-            <div className="gd-detail__hero-social">
-              <button
-                type="button"
-                className={saved ? 'gd-detail__social-btn--saved' : ''}
-                onClick={() => setSaved((v) => !v)}
-              >
-                {saved ? '♥ Saved' : '♡ Save'}
-              </button>
-              <button type="button" onClick={() => onShare(displayName)}>
-                ↗ Share
-              </button>
+            <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(displayName)}>
               {g.user && profile?.email_verified ? (
                 <GuideAskButton guideUserId={g.user} label="Ask a question" />
               ) : (
@@ -391,13 +526,14 @@ export function GuideDetail() {
                   Ask a question
                 </button>
               )}
-            </div>
+            </SocialActionRow>
           </div>
         </section>
-      </div>
+      </DetailHeroWrap>
 
-      <div className="gd-detail__layout">
-        <main className="gd-detail__main">
+      <DetailLayout
+        main={
+          <>
           <section className="detail-section gd-detail__why">
             <h2 className="gd-detail__section-title">Why book this guide</h2>
             <div className="gd-detail__why-grid">
@@ -493,72 +629,42 @@ export function GuideDetail() {
             )}
           </section>
 
-          <section className="detail-section gd-detail__moments">
-            <div className="gd-detail__section-head">
-              <div>
-                <h2 className="gd-detail__section-title">Delvers moments with this guide</h2>
-                <p className="gd-detail__section-sub">Guest photos, tour clips, route tips, and saved moments.</p>
-              </div>
-              <Link to="/delvers">See more</Link>
-            </div>
-            <div className="gd-detail__moments-grid">
-              {portfolio.slice(0, 2).map((item, i) => (
-                <div key={i} className="gd-detail__moment-card">
-                  <img src={mediaUrl(item.src) || item.src} alt="" />
-                  <p>
-                    <strong>@traveller{i + 1}</strong>{' '}
-                    {item.caption || 'Best stop on the route.'}
-                  </p>
-                </div>
-              ))}
-              <div className="gd-detail__moment-card gd-detail__moment-card--placeholder">
-                <div aria-hidden>📸</div>
-                <p>
-                  <strong>@nomad</strong> Ask for the local food detour.
-                </p>
-              </div>
-            </div>
-          </section>
+          <DelversMoments
+            title="Delvers moments with this guide"
+            subtitle="Guest photos, tour clips, route tips, and saved moments."
+            moments={[
+              ...portfolio.slice(0, 2).map((item, i) => ({
+                id: `p-${i}`,
+                image: mediaUrl(item.src) || item.src,
+                author: `traveller${i + 1}`,
+                body: item.caption || 'Best stop on the route.',
+              })),
+              { id: 'placeholder', author: 'nomad', body: 'Ask for the local food detour.' },
+            ]}
+            className="gd-detail__moments"
+          />
 
-          <section className="detail-section gd-detail__questions">
-            <h2 className="gd-detail__section-title">Questions for this guide</h2>
-            <p className="gd-detail__section-sub">
-              Ask about pickup, language, group size, route, accessibility, or safety.
-            </p>
-
-            <textarea
-              className="gd-detail__comment-input"
-              placeholder="Can you pick us up at the hotel? Do you guide families?"
-              value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
-              rows={3}
-            />
-
-            <div className="gd-detail__questions-actions">
-              <button type="button" className="btn btn-primary" onClick={postQuestion} disabled={!commentDraft.trim()}>
-                Post question
-              </button>
-              {g.user && profile?.email_verified ? (
+          <CommentBox
+            title="Questions for this guide"
+            subtitle="Ask about pickup, language, group size, route, accessibility, or safety."
+            placeholder="Can you pick us up at the hotel? Do you guide families?"
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postQuestion}
+            postLabel="Post question"
+            comments={questions.map((q) => ({
+              id: q.id,
+              author: q.author,
+              body: q.body,
+              ago: q.ago,
+            }))}
+            className="gd-detail__questions"
+            footer={
+              g.user && profile?.email_verified ? (
                 <GuideAskButton guideUserId={g.user} label="Message guide" />
-              ) : null}
-            </div>
-
-            <div className="gd-detail__comment-list">
-              {questions.map((q) => (
-                <article key={q.id} className="gd-detail__comment">
-                  <div className="gd-detail__comment-avatar" aria-hidden>
-                    {q.author.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="gd-detail__comment-meta">
-                      <strong>{q.author}</strong> · {q.ago}
-                    </p>
-                    <p className="gd-detail__comment-body">{q.body}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
+              ) : null
+            }
+          />
 
           {similarGuides.length > 0 ? (
             <section className="detail-section gd-detail__similar-block">
@@ -566,7 +672,7 @@ export function GuideDetail() {
             </section>
           ) : null}
 
-          {err ? <div className="error-banner">{err}</div> : null}
+          {err ? <div className="error-banner" role="alert">{err}</div> : null}
 
           {booking?.status === 'pending' && (
             <section className="detail-section gd-detail__booking-flow">
@@ -599,144 +705,23 @@ export function GuideDetail() {
               </Link>
             </section>
           )}
-        </main>
+          </>
+        }
+        sidebar={bookingCard}
+      />
 
-        {canBook && !booking && (
-          <aside className="gd-detail__sidebar">
-            <section className="gd-detail__booking-card">
-              <p className="gd-detail__booking-kicker">Ready to explore?</p>
-              <h2>{rateLabel}</h2>
-
-              <form className="gd-detail__booking-form" onSubmit={handleRequestBooking}>
-                {packages.length > 0 ? (
-                  <label className="gd-detail__booking-field">
-                    Package
-                    <select
-                      value={selectedPackageId}
-                      onChange={(e) => {
-                        const pkg = packages.find((p) => p.id === e.target.value) ?? null
-                        onPackageSelect(pkg)
-                      }}
-                    >
-                      <option value="">Custom duration (hourly)</option>
-                      {packages.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title} · {p.hours}h · ${p.price}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                {!selectedPkg ? (
-                  <label className="gd-detail__booking-field">
-                    Duration
-                    <select value={durationHours} onChange={(e) => setDurationHours(Number(e.target.value))}>
-                      {[2, 4, 6, 8].map((hours) => (
-                        <option key={hours} value={hours}>
-                          {hours} hours
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                <label className="gd-detail__booking-field">
-                  Date
-                  <input type="date" min={todayStr} required value={date} onChange={(e) => setDate(e.target.value)} />
-                </label>
-
-                <label className="gd-detail__booking-field">
-                  Start time
-                  <select value={startTime} onChange={(e) => setStartTime(e.target.value)}>
-                    <option value="">Select time</option>
-                    {TIME_PRESETS.map(({ label, value }) => (
-                      <option key={value} value={value}>
-                        {label} ({value})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="gd-detail__booking-field">
-                  Group size
-                  <input
-                    type="number"
-                    min={1}
-                    max={30}
-                    required
-                    value={groupSize}
-                    onChange={(e) => setGroupSize(Math.max(1, Number(e.target.value) || 1))}
-                  />
-                </label>
-
-                {estimatedTotal ? (
-                  <div className="gd-detail__total">
-                    <span>Estimated total</span>
-                    <strong>${estimatedTotal}</strong>
-                  </div>
-                ) : null}
-
-                <button type="submit" className="btn btn-primary gd-detail__book-btn" disabled={createMut.isPending}>
-                  {createMut.isPending ? 'Saving…' : 'Request booking'}
-                </button>
-
-                <button
-                  type="button"
-                  className="gd-detail__extra-toggle"
-                  onClick={() => setShowExtraFields((v) => !v)}
-                  aria-expanded={showExtraFields}
-                >
-                  {showExtraFields ? '− Hide meeting point and notes' : '+ Add meeting point and notes'}
-                </button>
-
-                {showExtraFields ? (
-                  <div className="gd-detail__extra-fields">
-                    <label className="gd-detail__booking-field">
-                      Meeting point
-                      <textarea
-                        rows={2}
-                        value={meetingPoint}
-                        onChange={(e) => setMeetingPoint(e.target.value)}
-                        placeholder="Hotel lobby, landmark, or station exit"
-                      />
-                    </label>
-                    <label className="gd-detail__booking-field">
-                      Notes (optional)
-                      <textarea
-                        rows={2}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Interests, mobility, or anything the guide should know"
-                      />
-                    </label>
-                  </div>
-                ) : null}
-
-                {g.user && profile?.email_verified ? (
-                  <GuideAskButton guideUserId={g.user} label="Ask a question" />
-                ) : (
-                  <p className="gd-detail__booking-hint">
-                    {!profile ? 'Sign in to request a booking.' : !profile.email_verified ? 'Verify email to book.' : 'Practice flow — no real payment today.'}
-                  </p>
-                )}
-              </form>
-            </section>
-          </aside>
-        )}
-      </div>
-
-      {canBook && !booking && (
-        <div className="gd-detail__mobile-bar">
-          <div>
-            <strong>{rateLabel}</strong>
-            <span>{displayName}</span>
-          </div>
-          <button type="button" className="btn btn-primary" onClick={() => handleRequestBooking()} disabled={createMut.isPending}>
-            Request
-          </button>
-        </div>
-      )}
-    </div>
+      {canBook && !booking ? (
+        <MobileStickyCTA
+          title={rateLabel}
+          subtitle={displayName}
+          action={
+            <button type="button" className="btn btn-primary" onClick={() => handleRequestBooking()} disabled={createMut.isPending}>
+              Request
+            </button>
+          }
+          className="gd-detail__mobile-bar"
+        />
+      ) : null}
+    </DetailPage>
   )
 }

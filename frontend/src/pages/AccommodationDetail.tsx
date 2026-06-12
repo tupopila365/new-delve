@@ -7,6 +7,7 @@ import { AccommodationGallery, buildGalleryItems } from '../components/Accommoda
 import { GuestReviewCard, normalizeReviews } from '../components/GuestReviewCard'
 import { MiniRating } from '../components/MiniRating'
 import {
+  CommentBox,
   DelversMoments,
   DetailActionCard,
   DetailHeroWrap,
@@ -15,7 +16,9 @@ import {
   DetailSkeleton,
   MobileStickyCTA,
   SocialActionRow,
+  TrustBadgeRow,
 } from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 const PROPERTY_LABELS: Record<string, string> = {
   hotel: 'Hotel',
@@ -185,8 +188,13 @@ export function AccommodationDetail() {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [guests, setGuests] = useState(1)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [stayQuestions, setStayQuestions] = useState([
+    { id: 's1', author: 'Mila K.', body: 'Is early check-in possible?', ago: '2d ago' },
+    { id: 's2', author: 'Alex R.', body: 'How far is the nearest shop on foot?', ago: '5d ago' },
+  ])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['acc', id],
     enabled: !!id,
     queryFn: () => apiFetch<Listing>(`/api/accommodation/listings/${id}/`, { auth: false }),
@@ -209,10 +217,46 @@ export function AccommodationDetail() {
     }
   }
 
-  if (isLoading || !data) {
+  const postStayQuestion = () => {
+    const body = commentDraft.trim()
+    if (!body) return
+    setStayQuestions((prev) => [
+      { id: `local-${Date.now()}`, author: 'Guest', body, ago: 'Just now' },
+      ...prev,
+    ])
+    setCommentDraft('')
+  }
+
+  if (isLoading) {
     return (
       <DetailPage prefix="acc-detail-page" className="td">
         <DetailSkeleton className="acc-page__detail-skeleton" />
+      </DetailPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DetailPage prefix="acc-detail-page" className="td">
+        <EmptyState
+          icon="🏨"
+          title="We couldn't load this stay"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
+  }
+
+  if (!data) {
+    return (
+      <DetailPage prefix="acc-detail-page" className="td">
+        <EmptyState
+          icon="🏨"
+          title="Stay not found"
+          sub="This listing may have been removed or the link is incorrect."
+          cta={{ label: 'Browse stays', to: '/accommodation' }}
+        />
       </DetailPage>
     )
   }
@@ -274,14 +318,23 @@ export function AccommodationDetail() {
           {data.price_per_night}/night
         </p>
 
-        <div className="acc-detail__trust-row">
-          <span>Verified host</span>
-          {data.wifi ? <span>Wi-Fi</span> : null}
-          {data.parking ? <span>Parking</span> : null}
-          {data.breakfast ? <span>Breakfast</span> : null}
-          {data.pet_friendly ? <span>Pet-friendly</span> : null}
-          {data.pool ? <span>Pool</span> : null}
-        </div>
+        <p className="acc-detail__host-line">
+          Hosted by{' '}
+          <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>@{data.owner_username}</Link>
+        </p>
+
+        <TrustBadgeRow
+          items={[
+            ...(data.max_guests >= 4 ? ['Good for families'] : []),
+            ...(data.rating_count != null && data.rating_count >= 15 ? ['Local favourite'] : []),
+            ...(data.wifi ? ['Free Wi-Fi'] : []),
+            ...(data.parking ? ['Parking'] : []),
+            ...(data.breakfast ? ['Breakfast'] : []),
+            ...(data.pet_friendly ? ['Pet-friendly'] : []),
+            ...(data.pool ? ['Pool'] : []),
+          ]}
+          className="acc-detail__trust-row"
+        />
 
         <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.title)}>
           <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>Message host</Link>
@@ -337,12 +390,12 @@ export function AccommodationDetail() {
                         <p className="acc-detail__room-price">
                           {room.price_per_night ? (
                             <>
-                              <span className="acc-detail__room-price-amount">${room.price_per_night}</span>
+                              <span className="acc-detail__room-price-amount">N${room.price_per_night}</span>
                               <span className="acc-detail__room-price-unit"> / night</span>
                             </>
                           ) : (
                             <>
-                              <span className="acc-detail__room-price-amount">From ${data.price_per_night}</span>
+                              <span className="acc-detail__room-price-amount">From N${data.price_per_night}</span>
                               <span className="acc-detail__room-price-unit"> / night</span>
                             </>
                           )}
@@ -426,8 +479,21 @@ export function AccommodationDetail() {
           <DelversMoments
             title="Delvers moments from this stay"
             subtitle="Guest photos, room views, and nearby places — not host gallery shots."
-            moments={delversMoments}
+            moments={delversMoments.filter((m) => m.id !== 'placeholder')}
             className="acc-detail__moments"
+            showWhenEmpty
+            emptyMessage="No guest moments yet — travellers share photos on Delvers after their stay."
+          />
+
+          <CommentBox
+            className="acc-detail__comments"
+            title="Questions for recent guests"
+            subtitle="Ask about check-in, neighbourhood, or what to pack."
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postStayQuestion}
+            comments={stayQuestions}
+            postLabel="Ask question"
           />
 
           <section className="detail-section acc-detail__reviews">
@@ -481,7 +547,7 @@ export function AccommodationDetail() {
           </>
         }
         sidebar={
-          <DetailActionCard kicker="Ready to stay?" title={<><span>${data.price_per_night}</span><small> / night</small></>} className="acc-detail__booking-card">
+          <DetailActionCard kicker="Ready to stay?" title={<><span>N${data.price_per_night}</span><small> / night</small></>} className="acc-detail__booking-card">
             <div className="acc-detail__booking-meta">
               {data.rating_avg && <span>★ {data.rating_avg}</span>}
               <span>{data.max_guests} guests</span>
@@ -528,7 +594,7 @@ export function AccommodationDetail() {
       />
 
       <MobileStickyCTA
-        title={`$${data.price_per_night} / night`}
+        title={`N$${data.price_per_night} / night`}
         subtitle={`${data.max_guests} guests · ${locationLine}`}
         action={
           <Link to={bookHref} className="btn btn-primary">

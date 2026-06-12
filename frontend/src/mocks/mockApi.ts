@@ -976,6 +976,38 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return s2 ? enrichAccommodationListingRow(s, s2) : { detail: 'Not found' }
   }
 
+  if (pathname === '/api/accommodation/bookings/' && method === 'GET') {
+    requireAuth(s)
+    const sessionRows = [...mockAccBookings.values()].map((row) => ({
+      id: row.id,
+      listing: row.listing,
+      listing_title: row.listing_title,
+      check_in: row.check_in,
+      check_out: row.check_out,
+      guests: row.guests,
+      total_price: row.total_price,
+      special_requests: row.special_requests,
+      room_type_name: row.room_type_name,
+      status: row.status,
+      mock_payment_ref: row.mock_payment_ref,
+    }))
+    if (sessionRows.length > 0) return sessionRows
+    // Seed demo bookings so dashboard / badges work out of the box
+    return [
+      {
+        id: 9001,
+        listing: 101,
+        listing_title: 'Freesia Hotel',
+        check_in: '2026-06-12',
+        check_out: '2026-06-14',
+        guests: 2,
+        total_price: '1400',
+        status: 'pending',
+        mock_payment_ref: '',
+      },
+    ]
+  }
+
   if (pathname === '/api/accommodation/bookings/' && method === 'POST') {
     requireAuth(s)
     const prof = s.currentUser ? s.profiles[s.currentUser] : undefined

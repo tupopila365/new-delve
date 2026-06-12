@@ -1,9 +1,23 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, ApiError, mediaUrl } from '../api/client'
+import { apiFetch, mediaUrl } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { buildVehicleGalleryItems, TransportGallery } from '../components/TransportGallery'
+import {
+  CommentBox,
+  DelversMoments,
+  DetailActionCard,
+  DetailHeroWrap,
+  DetailLayout,
+  DetailPage,
+  DetailSkeleton,
+  MobileStickyCTA,
+  SocialActionRow,
+  TrustBadgeRow,
+} from '../components/detail'
+import { EmptyState } from '../components/ui'
 
 const VEHICLE_TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
   '4x4': { label: '4×4 / SUV', emoji: '🚙' },
@@ -81,6 +95,11 @@ function whyRentVehicle(v: Vehicle): string[] {
   return items.slice(0, 4)
 }
 
+const VEHICLE_TIPS = [
+  { id: 'v1', author: 'Jonas T.', body: 'Ask about gravel-road insurance before heading north.', ago: '1d ago' },
+  { id: 'v2', author: 'Priya M.', body: 'Airport pickup was smooth — allow 20 min at Hosea Kutako.', ago: '4d ago' },
+]
+
 export function VehicleDetail() {
   const { id } = useParams()
   const nav = useNavigate()
@@ -93,8 +112,10 @@ export function VehicleDetail() {
   const [pickupArea, setPickupArea] = useState('')
   const [booking, setBooking] = useState<Booking | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [vehicleTips, setVehicleTips] = useState(VEHICLE_TIPS)
 
-  const { data: v, isLoading } = useQuery({
+  const { data: v, isLoading, isError, refetch } = useQuery({
     queryKey: ['veh', id],
     enabled: !!id,
     queryFn: () => apiFetch<Vehicle>(`/api/transport/vehicles/${id}/`, { auth: false }),
@@ -137,7 +158,7 @@ export function VehicleDetail() {
       setBooking(b)
       void qc.invalidateQueries({ queryKey: ['veh-bookings'] })
     },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "We couldn't save that request. Try again."),
+    onError: (e) => setErr(friendlyApiMessage(e, "We couldn't save that request. Try again.")),
   })
 
   const payMut = useMutation({
@@ -150,7 +171,7 @@ export function VehicleDetail() {
       setBooking((b) => (b ? { ...b, status: r.status, mock_payment_ref: r.mock_payment_ref } : b))
     },
     onError: (e) =>
-      setErr(e instanceof ApiError ? e.message : "The practice payment didn't go through."),
+      setErr(friendlyApiMessage(e, "The practice payment didn't go through.")),
   })
 
   const onShare = async (title: string) => {
@@ -185,42 +206,138 @@ export function VehicleDetail() {
     createMut.mutate()
   }
 
-  if (isLoading || !v) {
+  const postVehicleTip = () => {
+    const body = commentDraft.trim()
+    if (!body) return
+    const author = profile?.display_name?.trim() || profile?.username || 'Guest'
+    setVehicleTips((prev) => [{ id: `local-${Date.now()}`, author, body, ago: 'Just now' }, ...prev])
+    setCommentDraft('')
+  }
+
+  if (isLoading) {
     return (
-      <div className="tp-detail tp-detail--premium">
-        <div className="skeleton tp-detail__skeleton" />
-      </div>
+      <DetailPage prefix="tp-detail" className="tp-detail--premium">
+        <DetailSkeleton className="tp-detail__skeleton" />
+      </DetailPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DetailPage prefix="tp-detail" className="tp-detail--premium">
+        <EmptyState
+          icon="🚗"
+          title="We couldn't load this vehicle"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
+  }
+
+  if (!v) {
+    return (
+      <DetailPage prefix="tp-detail" className="tp-detail--premium">
+        <EmptyState
+          icon="🚗"
+          title="Vehicle not found"
+          sub="This listing may have been removed or the link is incorrect."
+          cta={{ label: 'Browse transport', to: '/transport' }}
+        />
+      </DetailPage>
     )
   }
 
   const canBook = !booking || booking.status === 'pending'
 
-  return (
-    <div className="tp-detail tp-detail--premium">
-      {shareMsg ? (
-        <p className="tp-detail__toast" role="status">
-          {shareMsg}
-        </p>
+  const vehicleMoments = [
+    ...galleryItems.slice(0, 2).map((item, i) => ({
+      id: i,
+      image: mediaUrl(item.src) || item.src,
+      author: `driver${i + 1}`,
+      body: 'Packed for a gravel-road weekend.',
+    })),
+    {
+      id: 'placeholder',
+      image: null,
+      author: 'traveller',
+      body: 'Fuel stop tip before heading north.',
+    },
+  ]
+
+  const bookingCard = canBook ? (
+    <DetailActionCard kicker="Ready to drive?" title={<><span>N${v.price_per_day}</span><small> / day</small></>} className="tp-detail__booking-card">
+      <div className="tp-detail__booking-meta">
+        <span>{typeMeta.label}</span>
+        {v.seats != null && <span>{v.seats} seats</span>}
+        {v.transmission && <span>{v.transmission}</span>}
+      </div>
+
+      <div className="tp-detail__booking-fields">
+        <label>
+          Pick-up
+          <input type="date" min={todayStr} value={start} onChange={(e) => setStart(e.target.value)} />
+        </label>
+        <label>
+          Drop-off
+          <input type="date" min={start || todayStr} value={end} onChange={(e) => setEnd(e.target.value)} />
+        </label>
+        <label>
+          Pick-up area
+          <select value={pickupArea || pickupOptions[0] || ''} onChange={(e) => setPickupArea(e.target.value)}>
+            {pickupOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {days != null && estimatedTotal ? (
+        <div className="tp-detail__total">
+          <span>Estimated total ({days} {days === 1 ? 'day' : 'days'})</span>
+          <strong>N${estimatedTotal}</strong>
+        </div>
+      ) : (
+        <div className="tp-detail__total tp-detail__total--muted">
+          <span>Estimated total</span>
+          <strong>—</strong>
+        </div>
+      )}
+
+      <button type="button" className="btn btn-primary tp-detail__book-btn" onClick={handleReserve} disabled={createMut.isPending}>
+        {createMut.isPending ? 'Saving…' : 'Reserve vehicle'}
+      </button>
+
+      {v.owner_username ? (
+        <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__message-btn">
+          Message provider
+        </Link>
       ) : null}
 
-      <div className="acc-detail__gallery-wrap">
-        <Link to="/transport" className="acc-detail__gallery-back">
-          ← Transport
-        </Link>
-        <div className="acc-detail__gallery-actions">
-          <button
-            type="button"
-            className={`td-hero__action${saved ? ' td-hero__action--saved' : ''}`}
-            onClick={() => setSaved((s) => !s)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" className="td-hero__action" onClick={() => onShare(v.title)}>
-            ↗ Share
-          </button>
-        </div>
+      {!profile ? (
+        <p className="tp-detail__booking-hint">Sign in to complete your reservation.</p>
+      ) : !profile.email_verified ? (
+        <p className="tp-detail__booking-hint">Verify your email to reserve.</p>
+      ) : (
+        <p className="tp-detail__booking-hint">Practice flow — no real payment today.</p>
+      )}
+    </DetailActionCard>
+  ) : null
+
+  return (
+    <DetailPage prefix="tp-detail" className="tp-detail--premium" toast={shareMsg || null}>
+      <DetailHeroWrap
+        className="acc-detail__gallery-wrap"
+        backTo="/transport"
+        backLabel="Transport"
+        saved={saved}
+        onSave={() => setSaved((s) => !s)}
+        onShare={() => onShare(v.title)}
+      >
         <TransportGallery items={galleryItems} title={v.title} emptyLabel="Vehicle photo coming soon" />
-      </div>
+      </DetailHeroWrap>
 
       <section className="tp-detail__identity detail-section">
         <div className="tp-detail__meta-row">
@@ -239,34 +356,28 @@ export function VehicleDetail() {
           {v.year ? ` · ${v.year}` : ''} · N${v.price_per_day}/day
         </p>
 
-        <div className="tp-detail__trust-row">
-          <span>Verified provider</span>
-          {(v.vehicle_type === '4x4' || v.vehicle_type === 'pickup') && <span>Gravel-road friendly</span>}
-          {v.air_conditioning ? <span>Air conditioning</span> : null}
-          <span>Local pickup</span>
-        </div>
+        <TrustBadgeRow
+          items={[
+            'Verified provider',
+            ...(v.vehicle_type === '4x4' || v.vehicle_type === 'pickup' ? ['Gravel-road friendly'] : []),
+            ...(v.air_conditioning ? ['Air conditioning'] : []),
+            'Safe pickup',
+          ]}
+          className="tp-detail__trust-row"
+        />
 
-        <div className="tp-detail__social-row">
-          <button
-            type="button"
-            className={saved ? 'tp-detail__social-btn--saved' : ''}
-            onClick={() => setSaved((s) => !s)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" onClick={() => onShare(v.title)}>
-            ↗ Share
-          </button>
+        <SocialActionRow saved={saved} onSave={() => setSaved((s) => !s)} onShare={() => onShare(v.title)}>
           {v.owner_username ? (
             <Link to={`/u/${encodeURIComponent(v.owner_username)}`}>Ask provider</Link>
           ) : (
             <button type="button">Ask provider</button>
           )}
-        </div>
+        </SocialActionRow>
       </section>
 
-      <div className="tp-detail__layout">
-        <main className="tp-detail__main">
+      <DetailLayout
+        main={
+          <>
           <section className="detail-section tp-detail__love">
             <h2 className="tp-detail__section-title">Why rent this</h2>
             <div className="tp-detail__love-grid">
@@ -403,35 +514,27 @@ export function VehicleDetail() {
             </section>
           )}
 
-          <section className="detail-section tp-detail__moments">
-            <div className="tp-detail__section-head">
-              <div>
-                <h2 className="tp-detail__section-title">Delvers moments with this ride</h2>
-                <p className="tp-detail__section-sub">
-                  Road trip photos, pickup tips, and luggage setup from travellers.
-                </p>
-              </div>
-              <Link to="/delvers">See more</Link>
-            </div>
-            <div className="tp-detail__moments-grid">
-              {galleryItems.slice(0, 2).map((item, i) => (
-                <div key={i} className="tp-detail__moment-card">
-                  <img src={mediaUrl(item.src) || item.src} alt="" />
-                  <p>
-                    <strong>@driver{i + 1}</strong> Packed the Hilux for a gravel-road weekend.
-                  </p>
-                </div>
-              ))}
-              <div className="tp-detail__moment-card tp-detail__moment-card--placeholder">
-                <div aria-hidden>📸</div>
-                <p>
-                  <strong>@traveller</strong> Fuel stop tip before heading north.
-                </p>
-              </div>
-            </div>
-          </section>
+          <DelversMoments
+            title="Delvers moments with this ride"
+            subtitle="Road trip photos, pickup tips, and luggage setup from travellers."
+            moments={vehicleMoments}
+            className="tp-detail__moments"
+            showWhenEmpty
+          />
 
-          {err ? <div className="error-banner">{err}</div> : null}
+          <CommentBox
+            className="tp-detail__comments"
+            title="Rental tips & questions"
+            subtitle="Pickup advice, insurance, and gravel-road notes from recent renters."
+            placeholder="Ask about pickup location, insurance, fuel policy, or gravel roads…"
+            draft={commentDraft}
+            onDraftChange={setCommentDraft}
+            onPost={postVehicleTip}
+            comments={vehicleTips}
+            postLabel="Share tip"
+          />
+
+          {err ? <div className="error-banner" role="alert">{err}</div> : null}
 
           {booking?.status === 'pending' && (
             <section className="detail-section tp-detail__booking-flow">
@@ -468,106 +571,23 @@ export function VehicleDetail() {
               </Link>
             </section>
           )}
-        </main>
+          </>
+        }
+        sidebar={bookingCard}
+      />
 
-        {canBook && (
-          <aside className="tp-detail__sidebar">
-            <div className="tp-detail__booking-card">
-              <p className="tp-detail__booking-kicker">Ready to drive?</p>
-              <h2>
-                <span>N${v.price_per_day}</span>
-                <small> / day</small>
-              </h2>
-
-              <div className="tp-detail__booking-meta">
-                <span>{typeMeta.label}</span>
-                {v.seats != null && <span>{v.seats} seats</span>}
-                {v.transmission && <span>{v.transmission}</span>}
-              </div>
-
-              <div className="tp-detail__booking-fields">
-                <label>
-                  Pick-up
-                  <input
-                    type="date"
-                    min={todayStr}
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Drop-off
-                  <input
-                    type="date"
-                    min={start || todayStr}
-                    value={end}
-                    onChange={(e) => setEnd(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Pick-up area
-                  <select
-                    value={pickupArea || pickupOptions[0] || ''}
-                    onChange={(e) => setPickupArea(e.target.value)}
-                  >
-                    {pickupOptions.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {days != null && estimatedTotal ? (
-                <div className="tp-detail__total">
-                  <span>Estimated total ({days} {days === 1 ? 'day' : 'days'})</span>
-                  <strong>N${estimatedTotal}</strong>
-                </div>
-              ) : (
-                <div className="tp-detail__total tp-detail__total--muted">
-                  <span>Estimated total</span>
-                  <strong>—</strong>
-                </div>
-              )}
-
-              <button type="button" className="btn btn-primary tp-detail__book-btn" onClick={handleReserve} disabled={createMut.isPending}>
-                {createMut.isPending ? 'Saving…' : 'Reserve vehicle'}
-              </button>
-
-              {v.owner_username ? (
-                <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__message-btn">
-                  Message provider
-                </Link>
-              ) : (
-                <button type="button" className="tp-detail__message-btn">
-                  Message provider
-                </button>
-              )}
-
-              {!profile ? (
-                <p className="tp-detail__booking-hint">Sign in to complete your reservation.</p>
-              ) : !profile.email_verified ? (
-                <p className="tp-detail__booking-hint">Verify your email to reserve.</p>
-              ) : (
-                <p className="tp-detail__booking-hint">Practice flow — no real payment today.</p>
-              )}
-            </div>
-          </aside>
-        )}
-      </div>
-
-      {canBook && (
-        <div className="tp-detail__mobile-bar">
-          <div>
-            <strong>N${v.price_per_day}/day</strong>
-            <span>{locationLine || v.region}</span>
-          </div>
-          <button type="button" className="btn btn-primary" onClick={handleReserve} disabled={createMut.isPending}>
-            Reserve
-          </button>
-        </div>
-      )}
-    </div>
+      {canBook ? (
+        <MobileStickyCTA
+          title={`N$${v.price_per_day}/day`}
+          subtitle={locationLine || v.region}
+          action={
+            <button type="button" className="btn btn-primary" onClick={handleReserve} disabled={createMut.isPending}>
+              Reserve
+            </button>
+          }
+          className="tp-detail__mobile-bar"
+        />
+      ) : null}
+    </DetailPage>
   )
 }

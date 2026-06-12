@@ -5,6 +5,8 @@ import { mediaUrl } from '../api/client'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { useNavBadges } from '../hooks/useNavBadges'
+import { NavBadge } from './NavBadge'
 
 type Props = {
   className?: string
@@ -23,6 +25,7 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
     enabled: Boolean(profile),
   })
   const isProvider = profile?.user_type === 'service_provider'
+  const { pendingUserBookings } = useNavBadges()
 
   useEffect(() => {
     if (!open) return
@@ -87,7 +90,11 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
             View profile
           </Link>
           <Link to="/dashboard" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
-            My trips &amp; bookings
+            My travel dashboard
+          </Link>
+          <Link to="/dashboard#bookings" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            My bookings
+            {pendingUserBookings > 0 ? <NavBadge count={pendingUserBookings} className="profile-menu__badge" /> : null}
           </Link>
           <Link to="/dashboard#saved" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
             Saved places
@@ -96,7 +103,7 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
             Messages
           </Link>
 
-          {isProvider ? (
+          {isProvider || businesses.length > 0 ? (
             <>
               <div className="profile-menu__divider" role="separator" />
               <p className="profile-menu__section-label">Provider tools</p>
@@ -115,7 +122,13 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
                 </Link>
               ))}
               <Link to="/provider/listings" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
-                All listings
+                Listings
+              </Link>
+              <Link to="/provider/bookings" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+                Bookings
+              </Link>
+              <Link to="/provider/reviews" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+                Reviews
               </Link>
             </>
           ) : null}
@@ -127,13 +140,25 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
               <Link to="/admin" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
                 Platform admin
               </Link>
+              <Link to="/admin/users" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+                Users
+              </Link>
+              <Link to="/admin/businesses" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+                Businesses
+              </Link>
+              <Link to="/admin/bookings" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+                Bookings
+              </Link>
             </>
           ) : null}
 
           <div className="profile-menu__divider" role="separator" />
           <p className="profile-menu__section-label">Account</p>
+          <Link to="/account" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+            Account
+          </Link>
           <Link to="/settings" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
-            Account settings
+            Settings
           </Link>
           <button type="button" className="profile-menu__item profile-menu__item--danger" role="menuitem" onClick={onLogout}>
             Log out

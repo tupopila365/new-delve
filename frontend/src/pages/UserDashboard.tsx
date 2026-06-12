@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { DashboardPageHeader, DashboardSection, DashboardStatGrid, StatusBadge } from '../components/dashboard'
+import { EmptyState } from '../components/ui'
 
 type Booking = {
   id: number
@@ -15,98 +17,105 @@ type Booking = {
 export function UserDashboard() {
   const { profile } = useAuth()
 
-  const { data: bookings } = useQuery({
+  const { data: bookings, isLoading: loadingBookings } = useQuery({
     queryKey: ['my-bookings'],
     queryFn: () => apiFetch<Booking[]>('/api/accommodation/bookings/').catch(() => [] as Booking[]),
     enabled: Boolean(profile),
   })
-
-  if (!profile) return <Navigate to="/login" replace />
 
   const { data: businesses = [] } = useQuery({
     queryKey: ['my-businesses'],
     queryFn: () => apiFetch<MyBusiness[]>('/api/accounts/me/businesses/'),
     enabled: Boolean(profile),
   })
-  const isProvider = profile.user_type === 'service_provider' && businesses.length > 0
+
+  if (!profile) return <Navigate to="/login" replace />
+
+  const isProvider = profile.user_type === 'service_provider' || businesses.length > 0
   const pendingBookings = (bookings ?? []).filter((b) => b.status === 'pending').length
+  const upcoming = (bookings ?? []).filter((b) => b.status === 'confirmed' || b.status === 'pending').slice(0, 4)
+  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
 
   return (
     <div className="udash">
-      <header className="udash__hero">
+      <section className="udash__hero">
         <div className="udash__hero-user">
           {profile.avatar ? (
-            <img src={mediaUrl(profile.avatar) || ''} alt="" className="udash__avatar" />
+            <img className="udash__avatar" src={mediaUrl(profile.avatar) || ''} alt="" />
           ) : (
-            <span className="udash__avatar udash__avatar--init">
-              {(profile.display_name || profile.username).charAt(0).toUpperCase()}
-            </span>
+            <div className="udash__avatar udash__avatar--init" aria-hidden>
+              {initial}
+            </div>
           )}
           <div>
-            <p className="udash__kicker">Private dashboard</p>
-            <h1>{profile.display_name || profile.username}</h1>
-            <p className="udash__sub">@{profile.username} · Bookings, saved items, and account shortcuts</p>
+            <p className="udash__kicker">My travel dashboard</p>
+            <h1>Welcome back, {profile.display_name || profile.username}</h1>
+            <p className="udash__sub">Bookings, saved items, messages, and quick actions — your private control center.</p>
           </div>
         </div>
         <div className="udash__hero-actions">
           <Link to={`/u/${profile.username}`} className="btn btn-ghost">
-            View public profile
+            Public profile
           </Link>
           <Link to="/settings" className="btn btn-primary">
-            Account settings
+            Settings
           </Link>
         </div>
-      </header>
+      </section>
 
-      <div className="udash__grid">
-        <Link to="/dashboard#bookings" className="udash__card">
-          <span className="udash__card-n">{bookings?.length ?? '—'}</span>
-          <span className="udash__card-l">Bookings</span>
-          {pendingBookings > 0 ? <span className="udash__card-badge">{pendingBookings} pending</span> : null}
-        </Link>
-        <Link to="/messages" className="udash__card">
-          <span className="udash__card-n">💬</span>
-          <span className="udash__card-l">Messages</span>
-        </Link>
-        <Link to="/dashboard#saved" className="udash__card">
-          <span className="udash__card-n">♡</span>
-          <span className="udash__card-l">Saved</span>
-        </Link>
-        <Link to="/settings" className="udash__card">
-          <span className="udash__card-n">⚙</span>
-          <span className="udash__card-l">Settings</span>
-        </Link>
-      </div>
+      <DashboardStatGrid
+        stats={[
+          { value: bookings?.length ?? '—', label: 'Bookings', to: '/dashboard#bookings', accent: pendingBookings > 0 },
+          { value: '💬', label: 'Messages', to: '/messages' },
+          { value: '♡', label: 'Saved', to: '/dashboard#saved' },
+          { value: '⚙', label: 'Account', to: '/account' },
+        ]}
+      />
 
       {isProvider ? (
-        <section className="udash__section detail-section">
-          <div className="udash__section-head">
-            <h2>Your businesses</h2>
+        <DashboardSection
+          title="Your businesses"
+          action={
             <Link to="/provider" className="btn btn-primary">
               Provider dashboard
             </Link>
-          </div>
+          }
+        >
           <div className="udash__biz-grid">
             {businesses.map((b) => (
               <Link key={b.id} to={`/business/${b.id}`} className="udash__biz-card">
                 {b.logo ? <img src={b.logo} alt="" /> : <span>{b.business_name.charAt(0)}</span>}
                 <div>
                   <strong>{b.business_name}</strong>
-                  <small>{b.city}, {b.region}</small>
+                  <small>
+                    {b.city}, {b.region}
+                  </small>
                 </div>
               </Link>
             ))}
           </div>
-        </section>
+          <p className="udash__hint">Provider tools are separate from your traveller dashboard.</p>
+        </DashboardSection>
       ) : null}
 
-      <section id="bookings" className="udash__section detail-section">
-        <h2>Recent bookings</h2>
-        {(bookings ?? []).length === 0 ? (
-          <p className="udash__empty">No bookings yet. Explore stays, guides, transport, and events on DELVE.</p>
+      <DashboardSection id="bookings" title="Upcoming bookings">
+        {loadingBookings ? (
+          <div className="udash__list">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton udash__list-sk" />
+            ))}
+          </div>
+        ) : upcoming.length === 0 ? (
+          <EmptyState
+            compact
+            icon="📅"
+            title="No bookings yet"
+            sub="Start by exploring stays, guides, events, or transport."
+            cta={{ label: 'Explore stays', to: '/accommodation' }}
+          />
         ) : (
           <ul className="udash__list">
-            {(bookings ?? []).slice(0, 6).map((b) => (
+            {upcoming.map((b) => (
               <li key={b.id} className="udash__list-row">
                 <div>
                   <strong>{b.listing_title}</strong>
@@ -114,32 +123,41 @@ export function UserDashboard() {
                     {b.check_in} → {b.check_out}
                   </span>
                 </div>
-                <span className={`udash__status udash__status--${b.status}`}>{b.status}</span>
+                <StatusBadge status={b.status} />
               </li>
             ))}
           </ul>
         )}
         <div className="udash__links">
-          <Link to="/accommodation">Browse stays</Link>
+          <Link to="/accommodation">Explore stays</Link>
           <Link to="/guides">Browse guides</Link>
           <Link to="/transport">Browse transport</Link>
           <Link to="/events">Browse events</Link>
+          <Link to="/community">Ask locals</Link>
         </div>
-      </section>
+      </DashboardSection>
 
-      <section id="saved" className="udash__section detail-section">
-        <h2>Saved items</h2>
-        <p className="udash__empty">
-          Saved stays, food, guides, journeys, and events appear on your{' '}
-          <Link to={`/u/${profile.username}`}>public profile</Link> when you choose to share collections.
-        </p>
-        <Link to={`/u/${profile.username}`} className="btn btn-ghost">
-          View saved on profile
-        </Link>
-      </section>
+      <DashboardSection id="saved" title="Saved places & journeys">
+        <EmptyState
+          compact
+          icon="♡"
+          title="No saved places yet"
+          sub="Save stays, food spots, guides, events, and journeys to plan later."
+          cta={{ label: 'View on profile', to: `/u/${profile.username}` }}
+        />
+      </DashboardSection>
 
-      <section className="udash__section detail-section">
-        <h2>Quick actions</h2>
+      <DashboardSection title="Recent activity">
+        <EmptyState
+          compact
+          icon="✨"
+          title="No recent activity"
+          sub="Posts, bookings, and community replies will show up here."
+          cta={{ label: 'Create a journey', to: '/journeys/new' }}
+        />
+      </DashboardSection>
+
+      <DashboardSection title="Quick actions">
         <div className="udash__actions">
           <Link to="/create" className="udash__action">
             + Create Delvers post
@@ -153,8 +171,11 @@ export function UserDashboard() {
           <Link to="/messages" className="udash__action">
             Open messages
           </Link>
+          <Link to="/community" className="udash__action">
+            Ask locals
+          </Link>
         </div>
-      </section>
+      </DashboardSection>
     </div>
   )
 }

@@ -4,12 +4,15 @@ import {
   CommentBox,
   DelversMoments,
   DetailActionCard,
+  DetailHeroWrap,
   DetailLayout,
   DetailPage,
   DetailSkeleton,
   MobileStickyCTA,
   SocialActionRow,
+  TrustBadgeRow,
 } from '../components/detail'
+import { EmptyState } from '../components/ui'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -94,19 +97,21 @@ function openStreetMapUrl(venue: string, city: string, region: string) {
 function whatToExpect(category: string, isFree?: boolean | null): string[] {
   const cat = catMeta(category)
   const items = [
-    cat.label === 'Music' ? 'Live atmosphere' : 'Community gathering',
+    cat.label === 'Music' ? 'Live atmosphere' : 'Local experience',
     'Good for groups',
-    'Local experience',
-    isFree ? 'Free to attend' : 'Ticketed entry',
-    cat.label === 'Food & drink' ? 'Food & drinks on site' : null,
-    cat.label === 'Sports' ? 'Active crowd energy' : null,
+    'Family friendly',
+    isFree ? 'Free entry' : 'Ticketed entry',
+    cat.label === 'Food & drink' ? 'Food nearby' : null,
+    cat.label === 'Sports' ? 'Outdoor event' : null,
     cat.label === 'Culture' ? 'Creative performances' : null,
+    cat.label === 'Business' ? 'Networking' : null,
+    cat.label === 'Music' ? 'Good for groups' : null,
   ].filter(Boolean) as string[]
 
   const unique: string[] = []
   for (const item of items) {
     if (!unique.includes(item)) unique.push(item)
-    if (unique.length >= 4) break
+    if (unique.length >= 5) break
   }
   return unique
 }
@@ -125,7 +130,7 @@ export function EventDetail() {
   const [commentDraft, setCommentDraft] = useState('')
   const [comments, setComments] = useState<EventComment[]>(SEED_COMMENTS)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['event', id],
     enabled: !!id,
     queryFn: () => apiFetch<Event>(`/api/events/${id}/`, { auth: false }),
@@ -153,10 +158,36 @@ export function EventDetail() {
     setCommentDraft('')
   }
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <DetailPage prefix="ev-detail" className="ev-detail--premium">
         <DetailSkeleton className="ev-detail__skeleton" />
+      </DetailPage>
+    )
+  }
+
+  if (isError) {
+    return (
+      <DetailPage prefix="ev-detail" className="ev-detail--premium">
+        <EmptyState
+          icon="🎟"
+          title="We couldn't load this event"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      </DetailPage>
+    )
+  }
+
+  if (!data) {
+    return (
+      <DetailPage prefix="ev-detail" className="ev-detail--premium">
+        <EmptyState
+          icon="🎟"
+          title="Event not found"
+          sub="This event may have been removed or the link is incorrect."
+          cta={{ label: 'Browse events', to: '/events' }}
+        />
       </DetailPage>
     )
   }
@@ -174,23 +205,14 @@ export function EventDetail() {
   return (
     <DetailPage prefix="ev-detail" className="ev-detail--premium" toast={shareMsg || null}>
 
-      <div className="evd-hero">
-        <Link to="/events" className="evd-hero__back">
-          ← Events
-        </Link>
-        <div className="evd-hero__actions">
-          <button
-            type="button"
-            className={`evd-hero__action${saved ? ' evd-hero__action--saved' : ''}`}
-            onClick={() => setSaved((v) => !v)}
-          >
-            {saved ? '♥ Saved' : '♡ Save'}
-          </button>
-          <button type="button" className="evd-hero__action" onClick={() => onShare(data.title)}>
-            ↗ Share
-          </button>
-        </div>
-
+      <DetailHeroWrap
+        className="evd-hero"
+        backTo="/events"
+        backLabel="Events"
+        saved={saved}
+        onSave={() => setSaved((v) => !v)}
+        onShare={() => onShare(data.title)}
+      >
         {data.cover_image ? (
           <img className="evd-hero__img" src={mediaUrl(data.cover_image) || ''} alt={data.title} />
         ) : (
@@ -205,7 +227,7 @@ export function EventDetail() {
           <span>{start.month}</span>
           <strong>{start.day}</strong>
         </div>
-      </div>
+      </DetailHeroWrap>
 
       <section className="detail-section evd-identity">
         <div className="ev-detail__meta-row">
@@ -225,11 +247,14 @@ export function EventDetail() {
           {end ? ` – ${end.time}` : ''} · {locationLine}
         </p>
 
-        <div className="evd-trust-row">
-          <span>Official listing</span>
-          <span>Mobile-friendly event page</span>
-          {data.capacity ? <span>{data.capacity} capacity</span> : null}
-        </div>
+        <TrustBadgeRow
+          items={[
+            'Official listing',
+            'Mobile ticket',
+            ...(data.capacity ? [`${data.capacity} capacity`] : []),
+          ]}
+          className="evd-trust-row"
+        />
 
         <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.title)}>
           <a href={gcalUrl} target="_blank" rel="noopener noreferrer">
