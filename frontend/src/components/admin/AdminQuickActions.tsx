@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Lock } from 'lucide-react'
 import { EmptyState } from '../ui'
 
 type Action = { label: string; to: string }
@@ -23,7 +24,7 @@ export function AdminAccessGate() {
   return (
     <div className="adm-access">
       <EmptyState
-        icon="🔒"
+        iconElement={<Lock size={28} strokeWidth={2.25} />}
         title="Admin access required"
         sub="You need a platform admin account to manage users, businesses, bookings, and reports."
         cta={{ label: 'Go to account', to: '/account' }}
