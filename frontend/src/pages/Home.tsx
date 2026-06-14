@@ -18,10 +18,11 @@ import {
   Utensils,
 } from 'lucide-react'
 import { apiFetch } from '../api/client'
+import { HomeStoriesRow } from '../components/HomeStoriesRow'
 import { MiniRating } from '../components/MiniRating'
+import { ListSkeleton } from '../components/ui'
 import { homeCoverSrc } from '../data/homeDefaults'
 import { mockTrips } from '../data/mockTrips'
-import { ListSkeleton } from '../components/ui'
 
 const HERO_BG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2000&q=78'
@@ -29,8 +30,8 @@ const HERO_BG =
 const moodChips = [
   { label: 'Weekend away', q: 'weekend' },
   { label: 'With family', q: 'family' },
-  { label: 'Mountains & peaks', q: 'mountains' },
-  { label: 'Beach & coast', q: 'beach' },
+  { label: 'Mountains and peaks', q: 'mountains' },
+  { label: 'Beach and coast', q: 'beach' },
   { label: 'Easy on the wallet', q: 'budget' },
   { label: 'First time exploring', q: 'first-time' },
   { label: 'Evenings out', q: 'night' },
@@ -45,8 +46,8 @@ const categoryShortcuts = [
   },
   {
     to: '/food',
-    label: 'Eat & drink',
-    desc: 'Restaurants, cafés, grills, and local food spots',
+    label: 'Eat and drink',
+    desc: 'Restaurants, cafes, grills, and local food spots',
     Icon: Utensils,
   },
   {
@@ -64,7 +65,7 @@ const categoryShortcuts = [
   {
     to: '/transport',
     label: 'Transport',
-    desc: 'Car rental, buses, and getting around',
+    desc: 'Vehicle rentals, bus trips, routes, and pickup options',
     Icon: Car,
   },
   {
@@ -107,6 +108,46 @@ const communityPreview = [
     answers: 1,
   },
 ]
+
+type StayHomeItem = {
+  id: number
+  title: string
+  region: string
+  city: string
+  cover_image: string | null
+  price_per_night: string
+  rating_avg: string | number
+  rating_count: number
+}
+
+type EventHomeItem = {
+  id: number
+  title: string
+  venue: string
+  starts_at: string
+  cover_image: string | null
+  region: string
+}
+
+type FoodHomeItem = {
+  id: number
+  name: string
+  cuisine: string
+  region: string
+  cover_image: string | null
+  rating_avg: string | number
+  rating_count: number
+}
+
+type GuideHomeItem = {
+  id: number
+  headline: string
+  username: string
+  photo: string | null
+  hourly_rate: string | null
+  rating_avg: string | number
+  rating_count: number
+}
 
 function journeyRouteLabel(stops: { place_name: string }[]) {
   const places = stops.map((s) => s.place_name)
@@ -183,7 +224,7 @@ function HomeCard({ to, imageSrc, imageAlt, title, meta, rating }: HomeCardProps
       </div>
       <div className="mini-card__body home-card__body">
         <p className="mini-card__title home-card__title">{title}</p>
-        {rating != null && <MiniRating rating={rating.avg} count={rating.count} />}
+        {rating != null ? <MiniRating rating={rating.avg} count={rating.count} /> : null}
         <p className="mini-card__meta home-card__meta">{meta}</p>
       </div>
     </Link>
@@ -233,59 +274,22 @@ export function Home() {
 
   const { data: stays, isLoading: staysLoading } = useQuery({
     queryKey: ['home-stays'],
-    queryFn: () =>
-      apiFetch<
-        {
-          id: number
-          title: string
-          region: string
-          city: string
-          cover_image: string | null
-          price_per_night: string
-          rating_avg: string | number
-          rating_count: number
-        }[]
-      >('/api/accommodation/listings/?ordering=-created_at', { auth: false }),
+    queryFn: () => apiFetch<StayHomeItem[]>('/api/accommodation/listings/?ordering=-created_at', { auth: false }),
   })
 
   const { data: events, isLoading: eventsLoading } = useQuery({
     queryKey: ['home-events'],
-    queryFn: () =>
-      apiFetch<
-        { id: number; title: string; venue: string; starts_at: string; cover_image: string | null; region: string }[]
-      >('/api/events/?ordering=starts_at', { auth: false }),
+    queryFn: () => apiFetch<EventHomeItem[]>('/api/events/?ordering=starts_at', { auth: false }),
   })
 
   const { data: food, isLoading: foodLoading } = useQuery({
     queryKey: ['home-food'],
-    queryFn: () =>
-      apiFetch<
-        {
-          id: number
-          name: string
-          cuisine: string
-          region: string
-          cover_image: string | null
-          rating_avg: string | number
-          rating_count: number
-        }[]
-      >('/api/food/venues/?ordering=name', { auth: false }),
+    queryFn: () => apiFetch<FoodHomeItem[]>('/api/food/venues/?ordering=name', { auth: false }),
   })
 
   const { data: guides, isLoading: guidesLoading } = useQuery({
     queryKey: ['home-guides'],
-    queryFn: () =>
-      apiFetch<
-        {
-          id: number
-          headline: string
-          username: string
-          photo: string | null
-          hourly_rate: string | null
-          rating_avg: string | number
-          rating_count: number
-        }[]
-      >('/api/guides/profiles/?ordering=-created_at', { auth: false }),
+    queryFn: () => apiFetch<GuideHomeItem[]>('/api/guides/profiles/?ordering=-created_at', { auth: false }),
   })
 
   const stayItems = stays?.slice(0, 10) ?? []
@@ -293,6 +297,16 @@ export function Home() {
   const foodItems = food?.slice(0, 10) ?? []
   const guideItems = guides?.slice(0, 10) ?? []
   const journeyItems = mockTrips.slice(0, 8)
+
+  const storyPreview = {
+    stayImage: stayItems[0]?.cover_image ?? null,
+    eventImage: eventItems[0]?.cover_image ?? null,
+    foodImage: foodItems[0]?.cover_image ?? null,
+    guideImage: guideItems[0]?.photo ?? null,
+    vehicleImage: null,
+    pinImage: journeyItems[0]?.cover_image ?? null,
+    pinVideo: null,
+  }
 
   function onHeroSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -307,18 +321,15 @@ export function Home() {
         <div className="ta-hero__scrim" aria-hidden />
         <div className="ta-hero__grain" aria-hidden />
         <div className="ta-hero__inner ta-hero__inner--home">
-          <p className="ta-hero__eyebrow ta-hero__eyebrow--home">Travel. Book. Share. Ask locals.</p>
-          <h1 className="ta-hero__title ta-hero__title--home">
-            Discover, plan, book, and share real travel experiences.
-          </h1>
+          <p className="ta-hero__eyebrow ta-hero__eyebrow--home">Travel. Request. Share. Ask locals.</p>
+          <h1 className="ta-hero__title ta-hero__title--home">Discover, plan, request, and share real travel experiences.</h1>
           <p className="ta-hero__sub ta-hero__sub--home">
-            Find stays, food, guides, events, transport, routes, and local tips in one trusted travel-social
-            marketplace.
+            Find stays, food, guides, events, transport, routes, and local tips in one trusted travel-social marketplace.
           </p>
           <div className="ta-hero__actions ta-hero__actions--home">
             <form className="ta-hero__searchform" onSubmit={onHeroSearch} role="search" aria-label="Search DELVE">
               <label htmlFor="home-hero-search" className="visually-hidden">
-                Search places, stays, events, food, and guides
+                Search places, stays, events, food, guides, and transport
               </label>
               <span className="ta-hero__searchform-icon" aria-hidden>
                 <Search size={18} strokeWidth={2.25} />
@@ -330,7 +341,7 @@ export function Home() {
                 name="q"
                 enterKeyHint="search"
                 autoComplete="off"
-                placeholder="Search places, stays, events, food, guides…"
+                placeholder="Search places, stays, events, food, guides, transport..."
                 value={heroSearch}
                 onChange={(e) => setHeroSearch(e.target.value)}
               />
@@ -351,6 +362,18 @@ export function Home() {
       </section>
 
       <div className="home-content">
+        <section className="home-section ta-rail home-preview-section" aria-labelledby="home-highlights">
+          <div className="ta-rail__head">
+            <div>
+              <h2 id="home-highlights" className="ta-rail__title">
+                Highlights
+              </h2>
+              <p className="ta-rail__sub">Quick travel paths across stays, transport, events, food, guides, and Delvers.</p>
+            </div>
+          </div>
+          <HomeStoriesRow preview={storyPreview} />
+        </section>
+
         <nav className="home-category-grid" aria-label="Browse DELVE categories">
           {categoryShortcuts.map((s) => (
             <Link key={s.label} to={s.to} className="home-category-card">
@@ -375,12 +398,7 @@ export function Home() {
           </div>
           <div className="ta-mood-scroll home-mood-scroll" role="list" aria-label="Explore by mood">
             {moodChips.map((m) => (
-              <Link
-                key={m.q}
-                to={`/search?q=${encodeURIComponent(m.q)}`}
-                className="ta-mood-chip"
-                role="listitem"
-              >
+              <Link key={m.q} to={`/search?q=${encodeURIComponent(m.q)}`} className="ta-mood-chip" role="listitem">
                 {m.label}
               </Link>
             ))}
@@ -440,8 +458,8 @@ export function Home() {
 
         <HomeSection
           id="rail-food"
-          title="Eat & drink"
-          sub="Restaurants, cafés, grills, and local food spots travellers talk about."
+          title="Eat and drink"
+          sub="Restaurants, cafes, grills, and local food spots travellers talk about."
           seeAllTo="/food"
           loading={foodLoading}
           count={foodItems.length}
@@ -465,7 +483,7 @@ export function Home() {
         <HomeSection
           id="rail-guides"
           title="Local guides"
-          sub="Book local experts for culture, food, wildlife, city walks, and hidden places."
+          sub="Request local experts for culture, food, wildlife, city walks, and hidden places."
           seeAllTo="/guides"
           loading={guidesLoading}
           count={guideItems.length}
@@ -492,9 +510,7 @@ export function Home() {
               <h2 id="home-community" className="ta-rail__title">
                 Ask locals and travellers
               </h2>
-              <p className="ta-rail__sub">
-                Get practical answers about safety, prices, routes, stays, food, and events.
-              </p>
+              <p className="ta-rail__sub">Get practical answers about safety, prices, routes, stays, food, and events.</p>
             </div>
             <div className="home-section__head-actions">
               <Link to="/community" className="home-section-cta">
