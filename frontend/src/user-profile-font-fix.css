@@ -1,0 +1,24 @@
+.up.up--premium .up__name {
+  max-width: 680px;
+  font-size: clamp(2rem, 3.2vw, 3.1rem);
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+}
+
+.up.up--premium .up__meta {
+  padding-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .up.up--premium .up__name {
+    font-size: clamp(1.85rem, 8vw, 2.55rem);
+    line-height: 1.05;
+  }
+}
+
+@media (max-width: 420px) {
+  .up.up--premium .up__name {
+    font-size: clamp(1.75rem, 9vw, 2.25rem);
+  }
+}
