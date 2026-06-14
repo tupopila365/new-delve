@@ -5,14 +5,15 @@ type Props = {
   subtitle?: ReactNode
   action: ReactNode
   className?: string
+  ariaLabel?: string
 }
 
-export function MobileStickyCTA({ title, subtitle, action, className = '' }: Props) {
+export function MobileStickyCTA({ title, subtitle, action, className = '', ariaLabel = 'Booking actions' }: Props) {
   return (
     <div
       className={`dl-detail__mobile-bar ${className}`.trim()}
       role="region"
-      aria-label="Booking actions"
+      aria-label={ariaLabel}
     >
       <div>
         <strong>{title}</strong>

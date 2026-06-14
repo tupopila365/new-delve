@@ -1,3 +1,5 @@
+import { Heart, Share2 } from 'lucide-react'
+
 type Props = {
   saved?: boolean
   onSave?: () => void
@@ -22,12 +24,14 @@ export function DetailHeroActions({
           onClick={onSave}
           aria-label={saved ? 'Remove from saved' : 'Save'}
         >
-          {saved ? '♥ Saved' : '♡ Save'}
+          <Heart size={16} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+          {saved ? 'Saved' : 'Save'}
         </button>
       ) : null}
       {onShare ? (
         <button type="button" className="dl-detail__hero-action" onClick={onShare} aria-label={shareLabel}>
-          ↗ {shareLabel}
+          <Share2 size={16} strokeWidth={2.25} aria-hidden />
+          {shareLabel}
         </button>
       ) : null}
     </div>

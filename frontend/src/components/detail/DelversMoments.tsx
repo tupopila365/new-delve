@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Camera } from 'lucide-react'
 import { DetailSection } from './DetailSection'
 import { DetailSectionHead } from './DetailSectionHead'
 
@@ -43,7 +44,7 @@ export function DelversMoments({
                 <img src={m.image} alt="" loading="lazy" />
               ) : (
                 <div className="dl-detail__moment-placeholder" aria-hidden>
-                  📸
+                  <Camera size={28} strokeWidth={1.75} />
                 </div>
               )}
               <p>

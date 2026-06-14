@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ClipboardList } from 'lucide-react'
 import {
   AdminFilterBar,
   AdminFilterChip,
@@ -7,6 +8,7 @@ import {
   AdminStatGrid,
   AdminStatusBadge,
 } from '../components/admin'
+import { BookingStatusBadge } from '../components/booking'
 import { EmptyState } from '../components/ui'
 import { DEMO_ADMIN_BOOKINGS, getBookingStats, type AdminBooking } from '../data/adminData'
 
@@ -18,14 +20,6 @@ function paymentVariant(status: string): 'success' | 'warning' | 'danger' | 'neu
   if (status === 'paid') return 'success'
   if (status === 'unpaid') return 'warning'
   if (status === 'failed') return 'danger'
-  if (status === 'refunded') return 'info'
-  return 'neutral'
-}
-
-function bookingVariant(status: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
-  if (status === 'confirmed' || status === 'completed') return 'success'
-  if (status === 'pending' || status === 'requested') return 'warning'
-  if (status === 'disputed' || status === 'cancelled') return 'danger'
   if (status === 'refunded') return 'info'
   return 'neutral'
 }
@@ -108,7 +102,7 @@ export function PlatformAdminBookings() {
       {bookings.length === 0 ? (
         <EmptyState
           compact
-          icon="📋"
+          iconElement={<ClipboardList size={28} strokeWidth={2} aria-hidden />}
           title="No bookings found"
           sub="Try changing your search or filters."
         />
@@ -128,14 +122,14 @@ export function PlatformAdminBookings() {
               <div className="adm-data-table__primary">
                 <strong>{b.id}</strong>
                 <span>
-                  {b.customer} → {b.provider}
+                  {b.customer} – {b.provider}
                 </span>
                 <span className="adm-data-table__muted">
                   {b.service} · {b.date}
                 </span>
               </div>
               <AdminStatusBadge status={b.category} variant="info" />
-              <AdminStatusBadge status={b.status} variant={bookingVariant(b.status)} />
+              <BookingStatusBadge status={b.status} />
               <AdminStatusBadge status={b.paymentStatus} variant={paymentVariant(b.paymentStatus)} />
               <strong className="adm-data-table__amount">
                 {b.amount ? `N$${b.amount.toLocaleString()}` : '—'}

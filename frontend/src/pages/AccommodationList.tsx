@@ -1,6 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  BadgeDollarSign,
+  BedDouble,
+  Building,
+  Building2,
+  Car,
+  Coffee,
+  Heart,
+  Home,
+  MapPin,
+  Minus,
+  PawPrint,
+  Plus,
+  SlidersHorizontal,
+  Star,
+  Tent,
+  Trees,
+  Users,
+  Waves,
+  Wifi,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
@@ -29,16 +51,16 @@ type AccListing = {
   liked_by_me?: boolean
 }
 
-const PROPERTY_TYPES: { value: string; label: string; emoji: string }[] = [
-  { value: 'hotel', label: 'Hotel', emoji: '🏨' },
-  { value: 'guesthouse', label: 'Guest house', emoji: '🏡' },
-  { value: 'apartment', label: 'Apartment', emoji: '🏢' },
-  { value: 'lodge', label: 'Lodge', emoji: '🌿' },
-  { value: 'hostel', label: 'Hostel', emoji: '🛏' },
-  { value: 'villa', label: 'Villa', emoji: '🌴' },
-  { value: 'resort', label: 'Resort', emoji: '🏖' },
-  { value: 'bed_and_breakfast', label: 'B&B', emoji: '☕' },
-  { value: 'camping_glamping', label: 'Camping', emoji: '⛺' },
+const PROPERTY_TYPES: { value: string; label: string; Icon: LucideIcon }[] = [
+  { value: 'hotel', label: 'Hotel', Icon: Building2 },
+  { value: 'guesthouse', label: 'Guest house', Icon: Home },
+  { value: 'apartment', label: 'Apartment', Icon: Building },
+  { value: 'lodge', label: 'Lodge', Icon: Trees },
+  { value: 'hostel', label: 'Hostel', Icon: BedDouble },
+  { value: 'villa', label: 'Villa', Icon: Home },
+  { value: 'resort', label: 'Resort', Icon: Waves },
+  { value: 'bed_and_breakfast', label: 'B&B', Icon: Coffee },
+  { value: 'camping_glamping', label: 'Camping', Icon: Tent },
 ]
 
 const SIDEBAR_PROPERTY_TYPES: { label: string; value: string }[] = [
@@ -70,9 +92,43 @@ function propLabel(v: string | null | undefined) {
   return PROPERTY_LABELS[v] ?? v
 }
 
-function stayEmoji(a: AccListing) {
-  const t = (a.property_type || '').toLowerCase()
-  return PROPERTY_TYPES.find((x) => x.value === t)?.emoji ?? '🏨'
+function propertyTypeIcon(type: string | null | undefined): LucideIcon {
+  const t = (type || '').toLowerCase()
+  return PROPERTY_TYPES.find((x) => x.value === t)?.Icon ?? Building2
+}
+
+function resultsSummary(count: number, hasFilters: boolean, search: string) {
+  const noun = count === 1 ? 'stay' : 'stays'
+  if (search && hasFilters) return `${count} ${noun} for “${search}” match your filters`
+  if (search) return `${count} ${noun} for “${search}”`
+  if (hasFilters) return `${count} ${noun} match your filters`
+  return `${count} ${noun} available`
+}
+
+function trustBadges(a: AccListing) {
+  const badges: ReactNode[] = []
+  if ((a.rating_count ?? 0) >= 20) {
+    badges.push(
+      <MarketplaceBadge key="popular" variant="popular">
+        Popular stay
+      </MarketplaceBadge>,
+    )
+  }
+  if (a.breakfast) badges.push(<MarketplaceBadge key="breakfast">Breakfast</MarketplaceBadge>)
+  if (a.wifi) badges.push(<MarketplaceBadge key="wifi">Free Wi-Fi</MarketplaceBadge>)
+  if (a.pet_friendly) badges.push(<MarketplaceBadge key="pet">Pet friendly</MarketplaceBadge>)
+  if (a.pool) badges.push(<MarketplaceBadge key="pool">Pool</MarketplaceBadge>)
+  if (a.parking) badges.push(<MarketplaceBadge key="parking">Parking</MarketplaceBadge>)
+  return badges.slice(0, 3)
+}
+
+function StayImagePlaceholder({ type }: { type: string | null | undefined }) {
+  const Icon = propertyTypeIcon(type)
+  return (
+    <div className="acc-media-card__placeholder" aria-hidden>
+      <Icon size={32} strokeWidth={1.75} />
+    </div>
+  )
 }
 
 export function AccommodationList() {
@@ -233,7 +289,7 @@ export function AccommodationList() {
         title: 'Stays pulse',
         type: 'stats',
         items: [
-          { value: listings.length ? listings.length : '—', label: 'listings available' },
+          { value: listings.length ? listings.length : '—', label: 'stays available' },
           { value: petFriendlyCount ? petFriendlyCount : '—', label: 'pet-friendly stays' },
         ],
       },
@@ -256,14 +312,16 @@ export function AccommodationList() {
     <div className="ev-page acc-page disc-page mk-page">
       <MarketplaceHero
         title="Find places to stay"
-        subtitle="Hotels, lodges, apartments, guesthouses, campsites, and unique stays."
+        subtitle="Hotels, lodges, apartments, guesthouses, campsites, and unique stays for every kind of trip."
+        support="Compare price, location, amenities, and traveller trust signals."
         action={
           <button
             type="button"
-            className="acc-page__filter-btn btn btn-ghost"
+            className={`acc-page__filter-btn btn btn-ghost${showFilters ? ' acc-page__filter-btn--active' : ''}${hasFilters ? ' acc-page__filter-btn--has-filters' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
             aria-expanded={showFilters}
           >
+            <SlidersHorizontal size={16} strokeWidth={2.25} aria-hidden />
             {showFilters ? 'Hide filters' : 'Filters'}
           </button>
         }
@@ -271,33 +329,36 @@ export function AccommodationList() {
 
       <QuickFilterChips
         ariaLabel="Stay quick filters"
+        className="acc-page__quick-chips"
         chips={[
-          { id: 'pool', label: 'Pool', emoji: '🏊', active: quickChipActive('pool') },
-          { id: 'breakfast', label: 'Breakfast', emoji: '☕', active: quickChipActive('breakfast') },
-          { id: 'pet', label: 'Pet friendly', emoji: '🐾', active: quickChipActive('pet') },
-          { id: 'budget', label: 'Budget', emoji: '💰', active: quickChipActive('budget') },
-          { id: 'family', label: 'Family friendly', emoji: '👨‍👩‍👧', active: quickChipActive('family') },
-          { id: 'coast', label: 'Near coast', emoji: '🌊', active: quickChipActive('coast') },
+          { id: 'pool', label: 'Pool', Icon: Waves, active: quickChipActive('pool') },
+          { id: 'breakfast', label: 'Breakfast', Icon: Coffee, active: quickChipActive('breakfast') },
+          { id: 'pet', label: 'Pet friendly', Icon: PawPrint, active: quickChipActive('pet') },
+          { id: 'budget', label: 'Budget', Icon: BadgeDollarSign, active: quickChipActive('budget') },
+          { id: 'family', label: 'Family friendly', Icon: Users, active: quickChipActive('family') },
+          { id: 'coast', label: 'Near coast', Icon: Waves, active: quickChipActive('coast') },
         ]}
         onChipClick={onQuickChip}
       />
 
-      <section className="ev-page__discover card" aria-labelledby="acc-discover-title">
+      <section className="ev-page__discover acc-page__discover card" aria-labelledby="acc-discover-title">
         <h2 id="acc-discover-title" className="ev-page__discover-title">
           Browse by property style
         </h2>
         <p className="ev-page__discover-sub">
           Pick a stay type, then search or refine with price and amenities.
         </p>
-        <div className="ev-page__discover-chips" role="group" aria-label="Property types">
-          {PROPERTY_TYPES.map(({ value, label, emoji }) => (
+        <div className="ev-page__discover-chips acc-page__property-chips" role="group" aria-label="Property types">
+          {PROPERTY_TYPES.map(({ value, label, Icon }) => (
             <button
               key={`acc-disc-${value}`}
               type="button"
-              className={`acc-quick-chip ev-page__discover-chip${propType === value ? ' acc-quick-chip--active' : ''}`}
+              className={`acc-quick-chip ev-page__discover-chip acc-page__property-chip${propType === value ? ' acc-quick-chip--active' : ''}`}
               onClick={() => setPropType(propType === value ? '' : value)}
+              aria-pressed={propType === value}
             >
-              <span aria-hidden>{emoji}</span> {label}
+              <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
+              {label}
             </button>
           ))}
         </div>
@@ -366,7 +427,7 @@ export function AccommodationList() {
                   disabled={minGuests <= 1}
                   onClick={() => setMinGuests((g) => Math.max(1, g - 1))}
                 >
-                  −
+                  <Minus size={16} strokeWidth={2.25} aria-hidden />
                 </button>
                 <span className="acc-book__guest-value" aria-live="polite">
                   {minGuests}
@@ -378,7 +439,7 @@ export function AccommodationList() {
                   disabled={minGuests >= 12}
                   onClick={() => setMinGuests((g) => Math.min(12, g + 1))}
                 >
-                  +
+                  <Plus size={16} strokeWidth={2.25} aria-hidden />
                 </button>
               </div>
               <p className="acc-page__filter-hint acc-page__filter-hint--after-stepper">
@@ -393,10 +454,12 @@ export function AccommodationList() {
             <div className="acc-page__amenity-checks">
               <label className="acc-page__check">
                 <input type="checkbox" checked={amenityWifi} onChange={(e) => setAmenityWifi(e.target.checked)} />
+                <Wifi size={15} strokeWidth={2.25} aria-hidden />
                 Wi-Fi
               </label>
               <label className="acc-page__check">
                 <input type="checkbox" checked={amenityPool} onChange={(e) => setAmenityPool(e.target.checked)} />
+                <Waves size={15} strokeWidth={2.25} aria-hidden />
                 Pool
               </label>
               <label className="acc-page__check">
@@ -405,6 +468,7 @@ export function AccommodationList() {
                   checked={amenityParking}
                   onChange={(e) => setAmenityParking(e.target.checked)}
                 />
+                <Car size={15} strokeWidth={2.25} aria-hidden />
                 Parking
               </label>
               <label className="acc-page__check">
@@ -413,6 +477,7 @@ export function AccommodationList() {
                   checked={amenityKitchen}
                   onChange={(e) => setAmenityKitchen(e.target.checked)}
                 />
+                <Home size={15} strokeWidth={2.25} aria-hidden />
                 Kitchen
               </label>
             </div>
@@ -423,33 +488,46 @@ export function AccommodationList() {
       <div className="disc-page__layout">
         <main className="disc-page__main">
           {!isLoading && featured.length > 0 && (
-            <section className="ev-page__stories" aria-labelledby="acc-stories-title">
-              <div className="ev-page__stories-head">
-                <h2 id="acc-stories-title" className="ev-page__stories-title">
-                  Featured stays
-                </h2>
-                <span className="ev-page__stories-sub">Swipe to explore</span>
+            <section className="acc-featured" aria-labelledby="acc-featured-title">
+              <div className="acc-featured__head">
+                <div>
+                  <h2 id="acc-featured-title" className="acc-featured__title">
+                    Featured stays
+                  </h2>
+                  <p className="acc-featured__sub">Hand-picked places travellers are looking at.</p>
+                </div>
               </div>
-              <div className="ev-page__stories-row">
+              <div className="acc-featured__rail">
                 {featured.map((a) => {
                   const loc = a.city ? `${a.city}, ${a.region}` : a.region
                   const pt = propLabel(a.property_type)
+                  const PlaceIcon = propertyTypeIcon(a.property_type)
                   return (
-                    <Link key={`acc-story-${a.id}`} to={`/accommodation/${a.id}`} className="ev-story">
-                      <div className="ev-story__img-wrap">
+                    <Link key={`acc-featured-${a.id}`} to={`/accommodation/${a.id}`} className="acc-featured-card">
+                      <div className="acc-featured-card__media">
                         {a.cover_image ? (
-                          <img className="ev-story__img" src={mediaUrl(a.cover_image) || ''} alt="" />
+                          <img
+                            className="acc-featured-card__img"
+                            src={mediaUrl(a.cover_image) || ''}
+                            alt={a.title}
+                            loading="lazy"
+                          />
                         ) : (
-                          <div className="ev-story__img ev-story__img--placeholder">
-                            <span aria-hidden>{stayEmoji(a)}</span>
+                          <div className="acc-featured-card__placeholder">
+                            <PlaceIcon size={28} strokeWidth={1.75} aria-hidden />
                           </div>
                         )}
                       </div>
-                      <div className="ev-story__meta">
-                        <p className="ev-story__title">{a.title}</p>
-                        <p className="ev-story__sub">
-                          {pt ? `${pt} · ` : ''}
+                      <div className="acc-featured-card__body">
+                        {pt ? <span className="acc-featured-card__type">{pt}</span> : null}
+                        <p className="acc-featured-card__title">{a.title}</p>
+                        <p className="acc-featured-card__meta">
+                          <MapPin size={12} strokeWidth={2.25} aria-hidden />
                           {loc}
+                        </p>
+                        <p className="acc-featured-card__price">
+                          From ${a.price_per_night}
+                          <span> / night</span>
                         </p>
                       </div>
                     </Link>
@@ -460,20 +538,25 @@ export function AccommodationList() {
           )}
 
           {hasFilters && (
-            <div className="ev-page__filter-summary">
-              <span className="ev-page__filter-summary-text">
+            <div className="ev-page__filter-summary acc-page__filter-summary">
+              <span className="ev-page__filter-summary-text acc-page__filter-summary-text">
                 Filtered
                 {propType ? ` · ${propLabel(propType)}` : ''}
                 {minPrice ? ` · from $${minPrice}` : ''}
                 {maxPrice ? ` · up to $${maxPrice}` : ''}
-                {search ? ` · "${search}"` : ''}
+                {search ? ` · “${search}”` : ''}
                 {minGuests > 1 ? ` · ${minGuests}+ guests` : ''}
                 {amenityWifi ? ' · Wi-Fi' : ''}
                 {amenityPool ? ' · Pool' : ''}
                 {amenityParking ? ' · Parking' : ''}
                 {amenityKitchen ? ' · Kitchen' : ''}
+                {amenityBreakfast ? ' · Breakfast' : ''}
+                {petFriendlyOnly ? ' · Pet friendly' : ''}
+                {budgetOnly ? ' · Budget' : ''}
+                {familyOnly ? ' · Family' : ''}
+                {coastOnly ? ' · Near coast' : ''}
               </span>
-              <button type="button" className="ev-page__filter-clear" onClick={clearAll}>
+              <button type="button" className="ev-page__filter-clear acc-page__filter-clear" onClick={clearAll}>
                 Clear all
               </button>
             </div>
@@ -481,20 +564,23 @@ export function AccommodationList() {
 
           {isError && (
             <EmptyState
-              icon="🏨"
+              iconElement={<Building2 size={28} strokeWidth={1.75} />}
               title="We couldn't load stays"
               sub="Please check your connection and try again."
               cta={{ label: 'Try again', onClick: () => void refetch() }}
+              className="acc-page__empty"
             />
           )}
 
           {isLoading && !isError && (
-            <ListSkeleton count={3} />
+            <div className="acc-page__skeleton-wrap">
+              <ListSkeleton count={3} />
+            </div>
           )}
 
           {!isLoading && !isError && filteredListings.length > 0 && (
-            <p className="ev-page__results-hint">
-              {filteredListings.length} {filteredListings.length === 1 ? 'listing' : 'listings'}
+            <p className="acc-page__results-summary" role="status">
+              {resultsSummary(filteredListings.length, hasFilters, search)}
             </p>
           )}
 
@@ -505,6 +591,7 @@ export function AccommodationList() {
               const location = a.city ? `${a.city}, ${a.region}` : a.region
               const typeLabel = propLabel(a.property_type)
               const likePending = likeMut.isPending && likeMut.variables === a.id
+              const badges = trustBadges(a)
 
               return (
                 <Link key={a.id} to={`/accommodation/${a.id}`} className="media-card acc-media-card">
@@ -517,13 +604,12 @@ export function AccommodationList() {
                         loading="lazy"
                       />
                     ) : (
-                      <div className="acc-media-card__img acc-media-card__placeholder">
-                        <span aria-hidden>🏨</span>
-                      </div>
+                      <StayImagePlaceholder type={a.property_type} />
                     )}
                     {likeCount > 0 && (
                       <span className="acc-media-card__like-count" aria-label={`${likeCount} likes`}>
-                        {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+                        <Heart size={12} strokeWidth={2.25} aria-hidden />
+                        {likeCount}
                       </span>
                     )}
                     <button
@@ -533,37 +619,58 @@ export function AccommodationList() {
                       disabled={likePending}
                       onClick={(e) => onToggleLike(a.id, e)}
                     >
-                      <IconHeart filled={liked} />
+                      <Heart size={18} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
                     </button>
                   </div>
                   <div className="media-card__body">
-                    <div className="mk-card-trust">
-                      {(a.rating_count ?? 0) >= 20 ? (
-                        <MarketplaceBadge variant="popular">Popular stay</MarketplaceBadge>
-                      ) : null}
-                      {a.breakfast ? <MarketplaceBadge>Breakfast</MarketplaceBadge> : null}
-                      {a.wifi ? <MarketplaceBadge>Free Wi-Fi</MarketplaceBadge> : null}
-                    </div>
-                    <div className="acc-media-card__type-row">
-                      {typeLabel && <span className="acc-media-card__type">{typeLabel}</span>}
-                      {a.pet_friendly && <span className="acc-media-card__pet">🐾 Pet friendly</span>}
-                      {a.wifi && <span className="acc-media-card__pet">📶 WiFi</span>}
-                    </div>
-                    <h2 className="media-card__title">{a.title}</h2>
-                    <p className="media-card__meta">📍 {location}</p>
+                    {badges.length > 0 ? <div className="mk-card-trust acc-media-card__trust">{badges}</div> : null}
+                    {typeLabel ? (
+                      <div className="acc-media-card__type-row">
+                        <span className="acc-media-card__type">{typeLabel}</span>
+                      </div>
+                    ) : null}
+                    <h2 className="media-card__title acc-media-card__title">{a.title}</h2>
+                    <p className="media-card__meta acc-media-card__location">
+                      <MapPin size={13} strokeWidth={2.25} aria-hidden />
+                      {location}
+                    </p>
                     {a.bedrooms != null || a.max_guests != null ? (
-                      <p className="media-card__meta">
-                        {a.bedrooms != null ? `${a.bedrooms} bed${a.bedrooms === 1 ? '' : 's'}` : ''}
-                        {a.bedrooms != null && a.max_guests != null ? ' · ' : ''}
-                        {a.max_guests != null ? `${a.max_guests} guests` : ''}
+                      <p className="media-card__meta acc-media-card__guests">
+                        {a.bedrooms != null ? (
+                          <span className="acc-media-card__meta-item">
+                            <BedDouble size={13} strokeWidth={2.25} aria-hidden />
+                            {a.bedrooms} bed{a.bedrooms === 1 ? '' : 's'}
+                          </span>
+                        ) : null}
+                        {a.max_guests != null ? (
+                          <span className="acc-media-card__meta-item">
+                            <Users size={13} strokeWidth={2.25} aria-hidden />
+                            {a.max_guests} guests
+                          </span>
+                        ) : null}
                       </p>
                     ) : null}
                     {a.rating_avg != null && (
-                      <p className="media-card__meta">
-                        ★ {parseFloat(a.rating_avg).toFixed(1)}
-                        {a.rating_count ? <span> ({a.rating_count})</span> : null}
+                      <p className="media-card__meta acc-media-card__rating-row">
+                        <Star size={13} strokeWidth={2.25} aria-hidden className="acc-media-card__star" />
+                        {parseFloat(a.rating_avg).toFixed(1)}
+                        {a.rating_count ? <span className="acc-media-card__rating-count"> ({a.rating_count})</span> : null}
                       </p>
                     )}
+                    <div className="acc-media-card__amenities">
+                      {a.pet_friendly ? (
+                        <span className="acc-media-card__amenity">
+                          <PawPrint size={12} strokeWidth={2.25} aria-hidden />
+                          Pet friendly
+                        </span>
+                      ) : null}
+                      {a.wifi ? (
+                        <span className="acc-media-card__amenity">
+                          <Wifi size={12} strokeWidth={2.25} aria-hidden />
+                          Wi-Fi
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="acc-media-card__price">
                       <span className="acc-media-card__from">From</span>
                       <span>${a.price_per_night}</span>
@@ -575,16 +682,17 @@ export function AccommodationList() {
             })}
           </div>
 
-          {!isLoading && filteredListings.length === 0 && (
+          {!isLoading && !isError && filteredListings.length === 0 && (
             <EmptyState
-              icon="🏨"
-              title={listings.length > 0 || hasFilters ? 'No stays found' : 'No listings yet'}
+              iconElement={<Building2 size={28} strokeWidth={1.75} />}
+              title={listings.length > 0 || hasFilters ? 'No stays found' : 'No stays listed yet'}
               sub={
                 listings.length > 0 || hasFilters
-                  ? 'Try changing your destination, dates, or filters.'
-                  : 'Boutique hotels, lodges, and apartments will appear here once listed.'
+                  ? 'Try changing your destination, price, guests, or amenities.'
+                  : 'Hotels, lodges, apartments, and guesthouses will appear here once providers add them.'
               }
               cta={hasFilters ? { label: 'Show all stays', onClick: clearAll } : undefined}
+              className="acc-page__empty"
             />
           )}
         </main>
@@ -592,25 +700,5 @@ export function AccommodationList() {
         <DiscoverySidebar sections={sidebarSections} ariaLabel="Stays discovery" />
       </div>
     </div>
-  )
-}
-
-function IconHeart({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }

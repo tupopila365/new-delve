@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { mockVehicles, mockBusTrips } from '../mocks/mockData'
-import { ProviderCategoryStrip } from '../components/provider'
+import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 
 const MOCK_RENTALS = [
   { id: 1, guest: 'Chris D.', vehicle: 'Toyota Hilux 4x4', from: '2026-05-10', to: '2026-05-14', days: 4, total: 3120, status: 'confirmed' },
@@ -22,10 +23,17 @@ function fmtDate(iso: string) {
 
 export function TransportAdmin() {
   const { profile } = useAuth()
+  const { canAccessProvider } = useBusinessAccess()
   const [tab, setTab] = useState<'vehicles' | 'buses' | 'rentals' | 'reservations'>('vehicles')
 
   if (!profile) return <Navigate to="/login" replace />
-  if (profile.user_type !== 'service_provider') return <Navigate to="/" replace />
+  if (!canAccessProvider) {
+    return (
+      <div className="prov-cat-page">
+        <ProviderAccessGate />
+      </div>
+    )
+  }
 
   const myVehicles = mockVehicles.filter((v) => v.owner_username === profile.username)
   const rentals = MOCK_RENTALS.filter((r) => myVehicles.some((v) => v.title === r.vehicle))

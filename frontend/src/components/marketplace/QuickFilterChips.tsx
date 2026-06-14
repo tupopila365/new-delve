@@ -1,7 +1,10 @@
+import type { LucideIcon } from 'lucide-react'
+
 type Chip = {
   id: string
   label: string
   emoji?: string
+  Icon?: LucideIcon
   active?: boolean
 }
 
@@ -15,16 +18,27 @@ type Props = {
 export function QuickFilterChips({ chips, onChipClick, ariaLabel = 'Quick filters', className = '' }: Props) {
   return (
     <div className={`mk-chip-row ${className}`.trim()} role="group" aria-label={ariaLabel}>
-      {chips.map((chip) => (
-        <button
-          key={chip.id}
-          type="button"
-          className={`acc-quick-chip mk-chip${chip.active ? ' acc-quick-chip--active mk-chip--active' : ''}`}
-          onClick={() => onChipClick(chip.id)}
-        >
-          {chip.emoji ? <span aria-hidden>{chip.emoji}</span> : null} {chip.label}
-        </button>
-      ))}
+      {chips.map((chip) => {
+        const Icon = chip.Icon
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            className={`acc-quick-chip mk-chip${chip.active ? ' acc-quick-chip--active mk-chip--active' : ''}`}
+            onClick={() => onChipClick(chip.id)}
+            aria-pressed={chip.active ?? false}
+          >
+            {Icon ? (
+              <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
+            ) : chip.emoji ? (
+              <span className="acc-quick-chip__emoji" aria-hidden>
+                {chip.emoji}
+              </span>
+            ) : null}
+            {chip.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -1,3 +1,5 @@
+import { Star } from 'lucide-react'
+
 /** Compact star rating for cards and hero (not for events). */
 
 function parseRating(value: string | number | null | undefined): number | null {
@@ -23,9 +25,7 @@ export function MiniRating({ rating, count, variant = 'default', className = '' 
 
   return (
     <span className={rootClass} role="img" aria-label={label}>
-      <span className="mini-rating__star" aria-hidden>
-        ★
-      </span>
+      <Star className="mini-rating__star" size={14} strokeWidth={2.25} fill="currentColor" aria-hidden />
       <span className="mini-rating__value">{r.toFixed(1)}</span>
       {count != null && count > 0 ? <span className="mini-rating__count">({count})</span> : null}
     </span>

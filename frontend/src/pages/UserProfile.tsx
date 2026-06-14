@@ -1,10 +1,39 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Bookmark,
+  Building2,
+  CalendarDays,
+  Camera,
+  ChevronRight,
+  Clock,
+  Compass,
+  Heart,
+  Image as ImageIcon,
+  Lock,
+  MapPin,
+  MessageCircle,
+  Plus,
+  Route,
+  Share2,
+  ShieldCheck,
+  Ticket,
+  UserRound,
+  Users,
+} from 'lucide-react'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { PostMedia } from '../components/PostMedia'
+import type { FeedPost } from '../components/IgPostCard'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/ui'
+import { loadUserTrips } from '../data/userTrips'
+import type { MockTrip } from '../data/mockTrips'
+import type { MyBusiness } from '../hooks/useBusinessAccess'
 
 export type PublicProfile = {
   username: string
@@ -23,16 +52,35 @@ type Journey = { id: number; title: string; cover_image: string | null; starts_a
 type Booking = { id: number; listing_title: string; check_in: string; check_out: string; status: string }
 type UserEvent = { id: number; title: string; cover_image: string | null; starts_at: string; venue: string }
 
-type Tab = 'posts' | 'journeys' | 'community' | 'bookings' | 'saved' | 'events'
+type Tab = 'posts' | 'photos' | 'journeys' | 'community' | 'bookings' | 'saved' | 'events'
 
-const TABS: { id: Tab; label: string; ownerOnly?: boolean }[] = [
-  { id: 'posts', label: 'Posts' },
-  { id: 'journeys', label: 'Journeys' },
-  { id: 'community', label: 'Community' },
-  { id: 'bookings', label: 'Bookings', ownerOnly: true },
-  { id: 'saved', label: 'Saved', ownerOnly: true },
-  { id: 'events', label: 'Events' },
+const TABS: { id: Tab; label: string; Icon: LucideIcon; ownerOnly?: boolean }[] = [
+  { id: 'posts', label: 'Posts', Icon: Camera },
+  { id: 'photos', label: 'Photos', Icon: ImageIcon },
+  { id: 'journeys', label: 'Journeys', Icon: Route },
+  { id: 'community', label: 'Tips', Icon: MessageCircle },
+  { id: 'events', label: 'Events', Icon: Ticket },
+  { id: 'bookings', label: 'Bookings', Icon: Building2, ownerOnly: true },
+  { id: 'saved', label: 'Saved', Icon: Bookmark, ownerOnly: true },
 ]
+
+function formatCount(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`
+  return String(n)
+}
+
+function postPreview(body: string) {
+  const t = body.trim()
+  if (!t) return 'Travel moment'
+  return t.length > 100 ? `${t.slice(0, 100)}…` : t
+}
+
+function journeyRouteLabel(trip: MockTrip) {
+  const places = trip.stops.map((s) => s.place_name)
+  if (places.length === 0) return trip.countries.join(', ')
+  if (places.length <= 2) return places.join(' to ')
+  return `${places[0]} to ${places[places.length - 1]}`
+}
 
 export function UserProfile() {
   const { username: rawUsername } = useParams()
@@ -42,11 +90,13 @@ export function UserProfile() {
   const isMe = Boolean(me && username && me.username.toLowerCase() === username.toLowerCase())
 
   const [tab, setTab] = useState<Tab>('posts')
+  const [shareMsg, setShareMsg] = useState('')
 
   const {
     data: pub,
     isLoading: loadingProfile,
     error: profileError,
+    refetch: refetchProfile,
   } = useQuery({
     queryKey: ['public-profile', username],
     queryFn: () =>
@@ -57,11 +107,8 @@ export function UserProfile() {
 
   const profileNotFound = profileError instanceof ApiError && profileError.status === 404
   const profileFailed = profileError && !profileNotFound
-  // Private account = full content gate (like Instagram private)
   const isBlocked = Boolean(pub?.is_private && !isMe)
-  // Posts-only gate: posts_visibility === 'only_me' on a public account
   const postsHidden = !isBlocked && !isMe && pub?.posts_visibility === 'only_me'
-  // Messaging disabled
   const messagesDisabled = pub != null && !isMe && pub.allow_messages === false
 
   const { data: posts, isLoading: loadingPosts } = useQuery({
@@ -70,6 +117,21 @@ export function UserProfile() {
       apiFetch<FeedPost[]>(`/api/social/users/${encodeURIComponent(username)}/posts/`, { auth: false }),
     enabled: Boolean(username) && Boolean(pub) && !profileNotFound && !isBlocked && !postsHidden,
   })
+
+  const photoPosts = useMemo(
+    () => (posts ?? []).filter((p) => p.image || p.video),
+    [posts],
+  )
+
+  const totalLikes = useMemo(
+    () => (posts ?? []).reduce((n, p) => n + (p.likes_count ?? 0), 0),
+    [posts],
+  )
+
+  const totalComments = useMemo(
+    () => (posts ?? []).reduce((n, p) => n + (p.comments_count ?? 0), 0),
+    [posts],
+  )
 
   const { data: journeys, isLoading: loadingJourneys } = useQuery({
     queryKey: ['user-journeys', username],
@@ -87,11 +149,9 @@ export function UserProfile() {
     enabled: Boolean(pub) && !profileNotFound && !isBlocked,
   })
 
-  // Trips created locally (stored in localStorage) — shown for own profile
   const localTrips = useMemo(() => {
     if (!isMe) return []
     return loadUserTrips()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMe, tab])
 
   const journeyCount = (journeys?.length ?? 0) + (isMe ? localTrips.length : 0)
@@ -112,39 +172,45 @@ export function UserProfile() {
   })
 
   const displayName = pub?.display_name || username
-  const initial = displayName.trim().charAt(0).toUpperCase() || '?'
+  const locationLabel = [pub?.city, pub?.region].filter(Boolean).join(', ')
+
   const { data: businesses = [] } = useQuery({
     queryKey: ['user-businesses', username],
     queryFn: () =>
-      apiFetch<MyBusiness[]>(
-        `/api/accounts/businesses/?owner=${encodeURIComponent(username)}`,
-        { auth: false }
-      ),
+      apiFetch<MyBusiness[]>(`/api/accounts/businesses/?owner=${encodeURIComponent(username)}`, {
+        auth: false,
+      }),
     enabled: Boolean(username) && Boolean(pub) && !profileNotFound,
   })
 
+  const onShareProfile = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/u/${encodeURIComponent(username)}`)
+      setShareMsg('Profile link copied')
+      window.setTimeout(() => setShareMsg(''), 1600)
+    } catch {
+      setShareMsg('Copy failed')
+      window.setTimeout(() => setShareMsg(''), 1600)
+    }
+  }
+
+  const profileKicker =
+    pub?.user_type === 'service_provider' ? 'Service provider' : 'Delver profile'
+
   return (
-    <div className="up">
-      {/* Back bar */}
+    <div className="up up--premium">
       <div className="up__bar">
         <button type="button" className="up__back" onClick={() => navigate(-1)} aria-label="Go back">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
+          <ArrowLeft size={20} strokeWidth={2.25} aria-hidden />
         </button>
         {pub && <span className="up__bar-name">{displayName}</span>}
+        {shareMsg ? (
+          <span className="up__bar-toast" role="status">
+            {shareMsg}
+          </span>
+        ) : null}
       </div>
 
-      {/* Loading skeleton */}
       {loadingProfile && !profileNotFound && (
         <div className="up__sk-head">
           <div className="skeleton up__sk-cover" />
@@ -158,107 +224,133 @@ export function UserProfile() {
         </div>
       )}
 
-      {/* Not found */}
       {profileNotFound && (
         <EmptyState
-          icon="?"
+          iconElement={<UserRound size={28} strokeWidth={2} aria-hidden />}
           title="Profile not found"
-          sub="No account uses that username."
-          cta={{ label: 'Browse Delvers', to: '/delvers' }}
+          sub="This profile may have been removed or the link is incorrect."
+          cta={{ label: 'Explore Delvers', to: '/delvers' }}
         />
       )}
 
       {profileFailed && (
         <EmptyState
-          icon="⚠️"
+          iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
           title="We couldn't load this profile"
-          sub="Something went wrong. Try again or return home."
-          cta={{ label: 'Go home', to: '/' }}
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetchProfile() }}
         />
       )}
 
       {pub && (
         <>
-          {/* Cover band */}
-          <div className="up__cover" aria-hidden />
-
-          {/* Avatar + action buttons row */}
-          <div className="up__head">
-            <div className="up__av-wrap">
-              {pub.avatar ? (
-                <img className="up__av" src={mediaUrl(pub.avatar) || ''} alt="" />
-              ) : (
-                <div className="up__av up__av--letter">{initial}</div>
-              )}
+          <div className="up__hero">
+            <div className="up__cover" aria-hidden>
+              <Compass size={40} strokeWidth={1.5} className="up__cover-icon" />
             </div>
-            <div className="up__actions">
-              {isMe ? (
-                <>
-                  <Link to="/dashboard" className="btn btn-ghost up__action-btn">
-                    Dashboard
-                  </Link>
-                  <Link to="/settings" className="btn btn-ghost up__action-btn">
-                    Edit profile
-                  </Link>
-                  <Link to="/create" className="btn btn-primary up__action-btn">
-                    + Post
-                  </Link>
-                </>
-              ) : messagesDisabled ? (
-                <span className="btn btn-ghost up__action-btn up__action-btn--disabled" aria-disabled="true" title="This user has disabled message requests">
-                  Message
-                </span>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-ghost up__action-btn"
-                    disabled
-                    title="Follow coming soon"
-                  >
-                    Follow
-                  </button>
-                  <Link to="/messages" className="btn btn-primary up__action-btn">
-                    Message
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
 
-          {/* Name / bio */}
-          <div className="up__meta">
-            <h1 className="up__name">{displayName}</h1>
-            <p className="up__handle">@{pub.username}</p>
-            {pub.user_type === 'service_provider' && (
-              <span className="pill up__badge">Service provider</span>
-            )}
-            {(pub.city || pub.region) && (
-              <p className="up__place">
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  aria-hidden
+            <div className="up__head">
+              <div className="up__av-wrap">
+                {pub.avatar ? (
+                  <img
+                    className="up__av"
+                    src={mediaUrl(pub.avatar) || ''}
+                    alt={displayName}
+                  />
+                ) : (
+                  <div className="up__av up__av--letter" aria-hidden>
+                    <UserRound size={36} strokeWidth={1.75} />
+                  </div>
+                )}
+              </div>
+
+              <div className="up__actions">
+                {isMe ? (
+                  <>
+                    <Link to="/settings" className="btn btn-ghost up__action-btn">
+                      Edit profile
+                    </Link>
+                    <Link to="/create" className="btn btn-primary up__action-btn">
+                      <Plus size={15} strokeWidth={2.5} aria-hidden />
+                      Share a moment
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost up__action-btn"
+                      disabled
+                      title="Follow coming soon"
+                      aria-label="Follow (coming soon)"
+                    >
+                      <Users size={15} strokeWidth={2.25} aria-hidden />
+                      Follow
+                    </button>
+                    {messagesDisabled ? (
+                      <span
+                        className="btn btn-ghost up__action-btn up__action-btn--disabled"
+                        aria-disabled="true"
+                        title="This user has disabled message requests"
+                      >
+                        <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+                        Message
+                      </span>
+                    ) : (
+                      <Link to="/messages" className="btn btn-primary up__action-btn">
+                        <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+                        Message
+                      </Link>
+                    )}
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-ghost up__action-btn up__action-btn--icon"
+                  onClick={() => void onShareProfile()}
+                  aria-label="Share profile"
                 >
-                  <path d="M12 21s7-5 7-11a7 7 0 10-14 0c0 6 7 11 7 11z" />
-                  <circle cx="12" cy="10" r="2" />
-                </svg>
-                {[pub.city, pub.region].filter(Boolean).join(', ')}
-              </p>
-            )}
-            {pub.bio && <p className="up__bio">{pub.bio}</p>}
+                  <Share2 size={15} strokeWidth={2.25} aria-hidden />
+                </button>
+              </div>
+            </div>
+
+            <div className="up__meta">
+              <p className="up__kicker">{profileKicker}</p>
+              <h1 className="up__name">{displayName}</h1>
+              <p className="up__handle">@{pub.username}</p>
+              {locationLabel ? (
+                <p className="up__place">
+                  <MapPin size={14} strokeWidth={2.25} aria-hidden />
+                  {locationLabel}
+                </p>
+              ) : null}
+            </div>
           </div>
+
+          <section className="up__about detail-section" aria-labelledby="up-about-title">
+            <h2 id="up-about-title" className="up__section-title">
+              About
+            </h2>
+            {pub.bio ? (
+              <p className="up__bio">{pub.bio}</p>
+            ) : (
+              <p className="up__bio up__bio--empty">This Delver has not added a bio yet.</p>
+            )}
+            {pub.user_type === 'service_provider' && (
+              <span className="up__badge">
+                <Compass size={12} strokeWidth={2.25} aria-hidden />
+                Community contributor
+              </span>
+            )}
+          </section>
 
           {businesses.length > 0 && !isBlocked && (
             <section className="up__businesses detail-section">
               <div className="up__businesses-head">
                 <h2 className="up__businesses-title">Businesses</h2>
                 {isMe ? (
-                  <Link to="/provider" className="btn btn-ghost up__action-btn">
+                  <Link to="/provider" className="btn btn-ghost btn-sm up__action-btn">
                     Provider dashboard
                   </Link>
                 ) : null}
@@ -266,375 +358,588 @@ export function UserProfile() {
               <div className="up__businesses-grid">
                 {businesses.map((b) => (
                   <Link key={b.id} to={`/business/${b.id}`} className="up__business-card">
-                    {b.logo ? <img src={b.logo} alt="" /> : <span>{b.business_name.charAt(0)}</span>}
+                    {b.logo ? (
+                      <img src={b.logo} alt="" />
+                    ) : (
+                      <span aria-hidden>
+                        <Building2 size={18} strokeWidth={2} />
+                      </span>
+                    )}
                     <div>
                       <strong>{b.business_name}</strong>
                       <small>
-                        {b.verification_status === 'verified' ? '✓ Verified' : 'Business'} · {b.city}
+                        {b.verification_status === 'verified' ? (
+                          <>
+                            <ShieldCheck size={11} strokeWidth={2.25} aria-hidden /> Verified business
+                          </>
+                        ) : (
+                          'Business'
+                        )}
+                        {b.city ? ` · ${b.city}` : ''}
                       </small>
                     </div>
+                    <ChevronRight size={16} strokeWidth={2.5} className="up__business-arrow" aria-hidden />
                   </Link>
                 ))}
               </div>
             </section>
           )}
 
-          {/* Private account gate — Instagram-style */}
           {isBlocked && (
             <div className="up__private-gate">
               <div className="up__private-icon" aria-hidden>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0110 0v4"/>
-                </svg>
+                <Lock size={40} strokeWidth={1.75} />
               </div>
               <p className="up__private-title">This account is private</p>
-              <p className="up__private-sub">Follow to see their photos, journeys and events.</p>
+              <p className="up__private-sub">Follow to see their photos, journeys, and events.</p>
             </div>
           )}
 
-          {/* Quick stats — counts hidden on private accounts (like Instagram) */}
           <div className="up__stats">
             <div className="up__stat">
+              <Camera size={14} strokeWidth={2.25} aria-hidden />
               <span className="up__stat-n">{isBlocked ? '—' : (posts?.length ?? 0)}</span>
               <span className="up__stat-l">Posts</span>
             </div>
             <div className="up__stat">
+              <Route size={14} strokeWidth={2.25} aria-hidden />
               <span className="up__stat-n">{isBlocked ? '—' : journeyCount}</span>
               <span className="up__stat-l">Journeys</span>
             </div>
             <div className="up__stat">
-              <span className="up__stat-n">{isBlocked ? '—' : (events?.length ?? 0)}</span>
-              <span className="up__stat-l">Events</span>
+              <Heart size={14} strokeWidth={2.25} aria-hidden />
+              <span className="up__stat-n">{isBlocked ? '—' : formatCount(totalLikes)}</span>
+              <span className="up__stat-l">Likes</span>
+            </div>
+            <div className="up__stat">
+              <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+              <span className="up__stat-n">{isBlocked ? '—' : formatCount(totalComments)}</span>
+              <span className="up__stat-l">Comments</span>
             </div>
             {isMe && (
               <Link to="/messages" className="up__stat up__stat--link" aria-label="Messages">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
+                <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
                 <span className="up__stat-l">Messages</span>
               </Link>
             )}
           </div>
 
-          {/* Tab strip — hidden for private accounts viewed by non-owners */}
-          {!isBlocked && <div className="up__tabs" role="tablist" aria-label="Profile sections">
-            {TABS.filter((t) => !t.ownerOnly || isMe).map((t) => (
-              <button
-                key={t.id}
-                id={`up-tab-${t.id}`}
-                role="tab"
-                aria-selected={tab === t.id}
-                aria-controls="up-panel"
-                className={tab === t.id ? 'up__tab up__tab--active' : 'up__tab'}
-                onClick={() => setTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>}
+          {!isBlocked && (
+            <div className="up__tabs" role="tablist" aria-label="Profile sections">
+              {TABS.filter((t) => !t.ownerOnly || isMe).map((t) => (
+                <button
+                  key={t.id}
+                  id={`up-tab-${t.id}`}
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  aria-controls="up-panel"
+                  className={tab === t.id ? 'up__tab up__tab--active' : 'up__tab'}
+                  onClick={() => setTab(t.id)}
+                >
+                  <t.Icon size={14} strokeWidth={2.25} aria-hidden />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {/* Tab content — hidden for private accounts viewed by non-owners */}
-          {!isBlocked && <div className="up__panel" id="up-panel" role="tabpanel" aria-labelledby={`up-tab-${tab}`}>
-            {/* POSTS */}
-            {tab === 'posts' && (
-              <>
-                {postsHidden && (
-                  <EmptyState
-                    icon="🔒"
-                    title="Posts are hidden"
-                    sub="This user has set their posts to private."
-                  />
-                )}
-                {!postsHidden && (
-                <>
-                {isMe && (
-                  <div className="up__panel-actions">
-                    <Link to="/create" className="btn btn-primary">
-                      + New post
-                    </Link>
-                  </div>
-                )}
-                {loadingPosts ? (
-                  <div className="up__grid">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="skeleton up__grid-cell" />
-                    ))}
-                  </div>
-                ) : posts && posts.length > 0 ? (
-                  <div className="up__grid">
-                    {posts.map((p) => (
-                      <Link key={p.id} to={`/posts/${p.id}`} className="up__grid-cell">
-                        {p.image || p.video ? (
-                          <PostMedia image={p.image} video={p.video} variant="pin" alt="" />
-                        ) : (
-                          <div className="up__grid-text">
-                            {p.body.slice(0, 80)}
-                            {p.body.length > 80 ? '…' : ''}
-                          </div>
-                        )}
-                        {p.is_delvers && (
-                          <span className="up__pin-badge" aria-hidden>
-                            📌
-                          </span>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon="✏️"
-                    title="No posts yet"
-                    sub={isMe ? 'Share your first travel story.' : undefined}
-                    cta={isMe ? { label: 'Create a post', to: '/create' } : undefined}
-                  />
-                )}
-                </>
-                )}
-              </>
-            )}
+          {!isBlocked && (
+            <div className="up__panel" id="up-panel" role="tabpanel" aria-labelledby={`up-tab-${tab}`}>
+              {tab === 'posts' && (
+                <PostsTab
+                  postsHidden={postsHidden}
+                  isMe={isMe}
+                  loading={loadingPosts}
+                  posts={posts}
+                />
+              )}
 
-            {/* JOURNEYS */}
-            {tab === 'journeys' && (
-              <>
-                {isMe && (
-                  <div className="up__panel-actions">
-                    <Link to="/journeys/new" className="btn btn-primary">
-                      + New journey
-                    </Link>
-                    <Link to="/journeys" className="btn btn-ghost">
-                      Browse all
-                    </Link>
-                  </div>
-                )}
-                {/* Local trips created by this user */}
-                {localTrips.length > 0 && (
-                  <div className="up__cards">
-                    {localTrips.map((j) => (
-                      <Link key={j.id} to={`/journeys/${j.id}`} className="up__card">
-                        <div className="up__card-img">
-                          {j.cover_image ? (
-                            <img src={j.cover_image} alt="" />
-                          ) : (
-                            <div className="up__card-img-ph" aria-hidden>🗺️</div>
-                          )}
-                        </div>
-                        <div className="up__card-body">
-                          <p className="up__card-title">{j.title}</p>
-                          <p className="up__card-sub">
-                            {j.countries.join(' · ')} · {j.days} {j.days === 1 ? 'day' : 'days'}
-                          </p>
-                          <p className="up__card-sub">
-                            {new Date(j.starts_on).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {loadingJourneys ? (
-                  <div className="up__list">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton up__list-sk" />
-                    ))}
-                  </div>
-                ) : journeys && journeys.length > 0 ? (
-                  <div className="up__cards">
-                    {journeys.map((j) => (
-                      <Link key={j.id} to={`/journeys/${j.id}`} className="up__card">
-                        <div className="up__card-img">
-                          {j.cover_image ? (
-                            <img src={mediaUrl(j.cover_image) || ''} alt="" />
-                          ) : (
-                            <div className="up__card-img-ph" aria-hidden>
-                              🗺️
-                            </div>
-                          )}
-                        </div>
-                        <div className="up__card-body">
-                          <p className="up__card-title">{j.title}</p>
-                          <p className="up__card-sub">
-                            {new Date(j.starts_at).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : localTrips.length === 0 ? (
-                  <EmptyState
-                    icon="🗺️"
-                    title="No journeys yet"
-                    sub={isMe ? 'Log your travels and share your routes.' : undefined}
-                    cta={isMe ? { label: '+ New journey', to: '/journeys/new' } : undefined}
-                  />
-                ) : null}
-              </>
-            )}
+              {tab === 'photos' && (
+                <PhotosTab isMe={isMe} loading={loadingPosts} posts={photoPosts} postsHidden={postsHidden} />
+              )}
 
-            {/* COMMUNITY */}
-            {tab === 'community' && (
-              <EmptyState
-                icon="💬"
-                title="No community activity yet"
-                sub={
-                  isMe
-                    ? 'Questions, answers, and tips you share in Community will appear here.'
-                    : 'Community questions and tips from this traveller will appear here.'
-                }
-                cta={{ label: 'Browse community', to: '/community' }}
-              />
-            )}
+              {tab === 'journeys' && (
+                <JourneysTab
+                  isMe={isMe}
+                  loading={loadingJourneys}
+                  journeys={journeys}
+                  localTrips={localTrips}
+                />
+              )}
 
-            {/* BOOKINGS – own profile only */}
-            {tab === 'bookings' && isMe && (
-              <>
-                {loadingBookings ? (
-                  <div className="up__list">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton up__list-sk" />
-                    ))}
-                  </div>
-                ) : bookings && bookings.length > 0 ? (
-                  <div className="up__book-list">
-                    {bookings.map((b) => (
-                      <div key={b.id} className="up__book-item">
-                        <div className="up__book-icon" aria-hidden>
-                          🏨
-                        </div>
-                        <div className="up__book-body">
-                          <p className="up__book-title">{b.listing_title}</p>
-                          <p className="up__book-dates">
-                            {b.check_in} → {b.check_out}
-                          </p>
-                        </div>
-                        <span
-                          className={`pill up__book-status${b.status === 'confirmed' ? ' up__book-status--ok' : ''}`}
-                        >
-                          {b.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon="🏨"
-                    title="No bookings yet"
-                    sub="Your accommodation bookings will appear here."
-                    cta={{ label: 'Browse stays', to: '/accommodation' }}
-                  />
-                )}
-              </>
-            )}
+              {tab === 'community' && (
+                <EmptyState
+                  iconElement={<MessageCircle size={28} strokeWidth={2} aria-hidden />}
+                  title="No tips shared yet"
+                  sub={
+                    isMe
+                      ? 'Questions, answers, and travel tips you share in Community will appear here.'
+                      : 'Travel tips and community contributions will appear here once shared.'
+                  }
+                  cta={{ label: 'Browse community', to: '/community' }}
+                />
+              )}
 
-            {/* SAVED */}
-            {tab === 'saved' && isMe && (
-              <>
-                {loadingSaved ? (
-                  <div className="up__grid">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="skeleton up__grid-cell" />
-                    ))}
-                  </div>
-                ) : saved && saved.length > 0 ? (
-                  <div className="up__grid">
-                    {saved.map((p) => (
-                      <Link key={p.id} to={`/posts/${p.id}`} className="up__grid-cell">
-                        {p.image || p.video ? (
-                          <PostMedia image={p.image} video={p.video} variant="pin" alt="" />
-                        ) : (
-                          <div className="up__grid-text">
-                            {p.body.slice(0, 80)}
-                            {p.body.length > 80 ? '…' : ''}
-                          </div>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon="🔖"
-                    title="Nothing saved yet"
-                    sub="Tap the bookmark on any post to save it here."
-                  />
-                )}
-              </>
-            )}
+              {tab === 'bookings' && isMe && (
+                <BookingsTab loading={loadingBookings} bookings={bookings} />
+              )}
 
-            {/* EVENTS */}
-            {tab === 'events' && (
-              <>
-                {isMe && (
-                  <div className="up__panel-actions">
-                    <Link to="/events/new" className="btn btn-primary">
-                      + Create event
-                    </Link>
-                  </div>
-                )}
-                {loadingEvents ? (
-                  <div className="up__list">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="skeleton up__list-sk" />
-                    ))}
-                  </div>
-                ) : events && events.length > 0 ? (
-                  <div className="up__cards">
-                    {events.map((e) => (
-                      <Link key={e.id} to={`/events/${e.id}`} className="up__card">
-                        <div className="up__card-img">
-                          {e.cover_image ? (
-                            <img src={mediaUrl(e.cover_image) || ''} alt="" />
-                          ) : (
-                            <div className="up__card-img-ph" aria-hidden>
-                              🎟️
-                            </div>
-                          )}
-                        </div>
-                        <div className="up__card-body">
-                          <p className="up__card-title">{e.title}</p>
-                          <p className="up__card-sub">
-                            {e.venue} ·{' '}
-                            {new Date(e.starts_at).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon="🎟️"
-                    title="No events yet"
-                    sub={isMe ? 'Events you host or attend will show up here.' : undefined}
-                    cta={isMe ? { label: 'Browse events', to: '/events' } : undefined}
-                  />
-                )}
-              </>
-            )}
-          </div>}
+              {tab === 'saved' && isMe && <SavedTab loading={loadingSaved} saved={saved} />}
+
+              {tab === 'events' && (
+                <EventsTab isMe={isMe} loading={loadingEvents} events={events} />
+              )}
+            </div>
+          )}
+
+          {!isBlocked && (
+            <section className="up__explore detail-section">
+              <Link to="/delvers" className="up__explore-link">
+                <Users size={16} strokeWidth={2.25} aria-hidden />
+                Explore Delvers
+                <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
+              </Link>
+            </section>
+          )}
         </>
       )}
     </div>
   )
 }
 
+function PostsTab({
+  postsHidden,
+  isMe,
+  loading,
+  posts,
+}: {
+  postsHidden: boolean
+  isMe: boolean
+  loading: boolean
+  posts: FeedPost[] | undefined
+}) {
+  if (postsHidden) {
+    return (
+      <EmptyState
+        iconElement={<Lock size={28} strokeWidth={2} aria-hidden />}
+        title="Posts are hidden"
+        sub="This user has set their posts to private."
+      />
+    )
+  }
+
+  return (
+    <>
+      {isMe && (
+        <div className="up__panel-actions">
+          <Link to="/create" className="btn btn-primary">
+            <Plus size={15} strokeWidth={2.5} aria-hidden />
+            New post
+          </Link>
+        </div>
+      )}
+      {loading ? (
+        <div className="up__grid">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="skeleton up__grid-cell" />
+          ))}
+        </div>
+      ) : posts && posts.length > 0 ? (
+        <div className="up__post-cards">
+          {posts.map((p) => (
+            <PostCard key={p.id} post={p} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
+          title="No posts yet"
+          sub={
+            isMe
+              ? 'Your travel posts will appear here once shared.'
+              : "This Delver's travel posts will appear here once shared."
+          }
+          cta={isMe ? { label: 'Share a moment', to: '/create' } : undefined}
+        />
+      )}
+    </>
+  )
+}
+
+function PhotosTab({
+  isMe,
+  loading,
+  posts,
+  postsHidden,
+}: {
+  isMe: boolean
+  loading: boolean
+  posts: FeedPost[]
+  postsHidden: boolean
+}) {
+  if (postsHidden) {
+    return (
+      <EmptyState
+        iconElement={<Lock size={28} strokeWidth={2} aria-hidden />}
+        title="Photos are hidden"
+        sub="This user has set their posts to private."
+      />
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="up__grid">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="skeleton up__grid-cell" />
+        ))}
+      </div>
+    )
+  }
+
+  if (posts.length === 0) {
+    return (
+      <EmptyState
+        iconElement={<ImageIcon size={28} strokeWidth={2} aria-hidden />}
+        title="No photos yet"
+        sub="Photos will appear here once this Delver shares them."
+        cta={isMe ? { label: 'Share a moment', to: '/delvers/new' } : undefined}
+      />
+    )
+  }
+
+  return (
+    <div className="up__grid">
+      {posts.map((p) => (
+        <Link key={p.id} to={`/posts/${p.id}`} className="up__grid-cell">
+          <PostMedia image={p.image} video={p.video} variant="pin" alt={postPreview(p.body)} />
+          {p.is_delvers ? (
+            <span className="up__pin-badge" aria-label="Delvers post">
+              <Compass size={11} strokeWidth={2.5} aria-hidden />
+            </span>
+          ) : null}
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+function PostCard({ post }: { post: FeedPost }) {
+  const preview = postPreview(post.body)
+  return (
+    <Link to={`/posts/${post.id}`} className="up__post-card card">
+      {post.image || post.video ? (
+        <div className="up__post-card__media">
+          <PostMedia image={post.image} video={post.video} variant="pin" alt={preview} />
+        </div>
+      ) : (
+        <div className="up__post-card__media up__post-card__media--text">
+          <MessageCircle size={24} strokeWidth={1.75} aria-hidden />
+        </div>
+      )}
+      <div className="up__post-card__body">
+        {post.region ? (
+          <p className="up__post-card__region">
+            <MapPin size={12} strokeWidth={2.25} aria-hidden />
+            {post.region}
+          </p>
+        ) : null}
+        <p className="up__post-card__caption">{preview}</p>
+        <div className="up__post-card__meta">
+          {post.likes_count > 0 && (
+            <span>
+              <Heart size={12} strokeWidth={2.25} aria-hidden />
+              {formatCount(post.likes_count)}
+            </span>
+          )}
+          {(post.comments_count ?? 0) > 0 && (
+            <span>
+              <MessageCircle size={12} strokeWidth={2.25} aria-hidden />
+              {formatCount(post.comments_count ?? 0)}
+            </span>
+          )}
+        </div>
+        <span className="up__post-card__cta">
+          View post
+          <ArrowRight size={13} strokeWidth={2.5} aria-hidden />
+        </span>
+      </div>
+    </Link>
+  )
+}
+
+function JourneysTab({
+  isMe,
+  loading,
+  journeys,
+  localTrips,
+}: {
+  isMe: boolean
+  loading: boolean
+  journeys: Journey[] | undefined
+  localTrips: MockTrip[]
+}) {
+  const hasJourneys = (journeys?.length ?? 0) > 0 || localTrips.length > 0
+
+  return (
+    <>
+      {isMe && (
+        <div className="up__panel-actions">
+          <Link to="/journeys/new" className="btn btn-primary">
+            <Plus size={15} strokeWidth={2.5} aria-hidden />
+            New journey
+          </Link>
+          <Link to="/journeys" className="btn btn-ghost">
+            Browse all
+          </Link>
+        </div>
+      )}
+
+      {localTrips.length > 0 && (
+        <div className="up__cards">
+          {localTrips.map((j) => (
+            <JourneyCard key={`local-${j.id}`} trip={j} />
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="up__list">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton up__list-sk" />
+          ))}
+        </div>
+      ) : journeys && journeys.length > 0 ? (
+        <div className="up__cards">
+          {journeys.map((j) => (
+            <Link key={j.id} to={`/journeys/${j.id}`} className="up__card up__card--journey">
+              <div className="up__card-img">
+                {j.cover_image ? (
+                  <img src={mediaUrl(j.cover_image) || ''} alt={j.title} />
+                ) : (
+                  <div className="up__card-img-ph" aria-hidden>
+                    <Route size={24} strokeWidth={1.75} />
+                  </div>
+                )}
+              </div>
+              <div className="up__card-body">
+                <p className="up__card-title">{j.title}</p>
+                <p className="up__card-sub">
+                  <CalendarDays size={12} strokeWidth={2.25} aria-hidden />
+                  {new Date(j.starts_at).toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </p>
+              </div>
+              <ArrowRight size={16} strokeWidth={2.5} className="up__card-arrow" aria-hidden />
+            </Link>
+          ))}
+        </div>
+      ) : !hasJourneys ? (
+        <EmptyState
+          iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
+          title="No journeys shared yet"
+          sub="Routes and travel stories will appear here once added."
+          cta={isMe ? { label: 'Create journey', to: '/journeys/new' } : undefined}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function JourneyCard({ trip }: { trip: MockTrip }) {
+  const route = journeyRouteLabel(trip)
+  return (
+    <Link to={`/journeys/${trip.id}`} className="up__card up__card--journey">
+      <div className="up__card-img">
+        {trip.cover_image ? (
+          <img src={trip.cover_image} alt={trip.title} />
+        ) : (
+          <div className="up__card-img-ph" aria-hidden>
+            <Route size={24} strokeWidth={1.75} />
+          </div>
+        )}
+      </div>
+      <div className="up__card-body">
+        <p className="up__card-title">{trip.title}</p>
+        <p className="up__card-sub">
+          <MapPin size={12} strokeWidth={2.25} aria-hidden />
+          {route}
+        </p>
+        <p className="up__card-sub">
+          <Clock size={12} strokeWidth={2.25} aria-hidden />
+          {trip.days} {trip.days === 1 ? 'day' : 'days'}
+          {trip.stops.length > 0
+            ? ` · ${trip.stops.length} ${trip.stops.length === 1 ? 'stop' : 'stops'}`
+            : ''}
+        </p>
+      </div>
+      <ArrowRight size={16} strokeWidth={2.5} className="up__card-arrow" aria-hidden />
+    </Link>
+  )
+}
+
+function BookingsTab({
+  loading,
+  bookings,
+}: {
+  loading: boolean
+  bookings: Booking[] | undefined
+}) {
+  if (loading) {
+    return (
+      <div className="up__list">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="skeleton up__list-sk" />
+        ))}
+      </div>
+    )
+  }
+
+  if (!bookings?.length) {
+    return (
+      <EmptyState
+        iconElement={<Building2 size={28} strokeWidth={2} aria-hidden />}
+        title="No bookings yet"
+        sub="Your accommodation bookings will appear here."
+        cta={{ label: 'Browse stays', to: '/accommodation' }}
+      />
+    )
+  }
+
+  return (
+    <div className="up__book-list">
+      {bookings.map((b) => (
+        <div key={b.id} className="up__book-item">
+          <div className="up__book-icon" aria-hidden>
+            <Building2 size={20} strokeWidth={2} />
+          </div>
+          <div className="up__book-body">
+            <p className="up__book-title">{b.listing_title}</p>
+            <p className="up__book-dates">
+              {b.check_in} to {b.check_out}
+            </p>
+          </div>
+          <span
+            className={`pill up__book-status${b.status === 'confirmed' ? ' up__book-status--ok' : ''}`}
+          >
+            {b.status}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SavedTab({ loading, saved }: { loading: boolean; saved: FeedPost[] | undefined }) {
+  if (loading) {
+    return (
+      <div className="up__grid">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="skeleton up__grid-cell" />
+        ))}
+      </div>
+    )
+  }
+
+  if (!saved?.length) {
+    return (
+      <EmptyState
+        iconElement={<Bookmark size={28} strokeWidth={2} aria-hidden />}
+        title="Nothing saved yet"
+        sub="Tap the bookmark on any post to save it here."
+      />
+    )
+  }
+
+  return (
+    <div className="up__grid">
+      {saved.map((p) => (
+        <Link key={p.id} to={`/posts/${p.id}`} className="up__grid-cell">
+          {p.image || p.video ? (
+            <PostMedia image={p.image} video={p.video} variant="pin" alt={postPreview(p.body)} />
+          ) : (
+            <div className="up__grid-text">{postPreview(p.body)}</div>
+          )}
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+function EventsTab({
+  isMe,
+  loading,
+  events,
+}: {
+  isMe: boolean
+  loading: boolean
+  events: UserEvent[] | undefined
+}) {
+  if (loading) {
+    return (
+      <div className="up__list">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="skeleton up__list-sk" />
+        ))}
+      </div>
+    )
+  }
+
+  if (!events?.length) {
+    return (
+      <EmptyState
+        iconElement={<Ticket size={28} strokeWidth={2} aria-hidden />}
+        title="No events yet"
+        sub={isMe ? 'Events you host will show up here.' : 'Events from this Delver will appear here.'}
+        cta={isMe ? { label: 'Browse events', to: '/events' } : undefined}
+      />
+    )
+  }
+
+  return (
+    <>
+      {isMe && (
+        <div className="up__panel-actions">
+          <Link to="/events/new" className="btn btn-primary">
+            <Plus size={15} strokeWidth={2.5} aria-hidden />
+            Create event
+          </Link>
+        </div>
+      )}
+      <div className="up__cards">
+        {events.map((e) => (
+          <Link key={e.id} to={`/events/${e.id}`} className="up__card up__card--journey">
+            <div className="up__card-img">
+              {e.cover_image ? (
+                <img src={mediaUrl(e.cover_image) || ''} alt={e.title} />
+              ) : (
+                <div className="up__card-img-ph" aria-hidden>
+                  <Ticket size={24} strokeWidth={1.75} />
+                </div>
+              )}
+            </div>
+            <div className="up__card-body">
+              <p className="up__card-title">{e.title}</p>
+              <p className="up__card-sub">
+                <MapPin size={12} strokeWidth={2.25} aria-hidden />
+                {e.venue}
+              </p>
+              <p className="up__card-sub">
+                <CalendarDays size={12} strokeWidth={2.25} aria-hidden />
+                {new Date(e.starts_at).toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+            <ArrowRight size={16} strokeWidth={2.5} className="up__card-arrow" aria-hidden />
+          </Link>
+        ))}
+      </div>
+    </>
+  )
+}

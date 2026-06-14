@@ -1,3 +1,5 @@
+import { Clock } from 'lucide-react'
+
 type Props = { hours: number }
 
 export function GuideResponseBadge({ hours }: Props) {
@@ -10,9 +12,7 @@ export function GuideResponseBadge({ hours }: Props) {
         : `Typically replies within ${hours} hours`
   return (
     <p className="gd-detail__response-badge" role="status">
-      <span className="gd-detail__response-icon" aria-hidden>
-        ⚡
-      </span>
+      <Clock className="gd-detail__response-icon" size={15} strokeWidth={2.25} aria-hidden />
       {label}
     </p>
   )

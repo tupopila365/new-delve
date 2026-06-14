@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Building2, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { mediaUrl } from '../api/client'
 
 export type GalleryItem = { kind: 'image' | 'video'; src: string }
@@ -95,6 +96,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
   if (n === 0) {
     return (
       <div className="acc-gallery acc-gallery--empty" aria-label={`${title} — no photos yet`}>
+        <Building2 size={36} strokeWidth={1.75} aria-hidden />
         <span>Photo coming from host</span>
       </div>
     )
@@ -148,7 +150,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
                     onClick={() => go(-1)}
                     aria-label="Previous photo"
                   >
-                    ‹
+                    <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
                   </button>
                   <button
                     type="button"
@@ -156,7 +158,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
                     onClick={() => go(1)}
                     aria-label="Next photo"
                   >
-                    ›
+                    <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
                   </button>
                 </>
               ) : null}
@@ -189,7 +191,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
                 onClick={() => setModalOpen(false)}
                 aria-label="Close gallery"
               >
-                ×
+                <X size={22} strokeWidth={2.25} aria-hidden />
               </button>
               <div className="acc-gallery__modal-stage">
                 <GalleryMedia
@@ -205,7 +207,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
                       onClick={() => setModalIndex((i) => (i - 1 + n) % n)}
                       aria-label="Previous photo"
                     >
-                      ‹
+                      <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
                     </button>
                     <button
                       type="button"
@@ -213,7 +215,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
                       onClick={() => setModalIndex((i) => (i + 1) % n)}
                       aria-label="Next photo"
                     >
-                      ›
+                      <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
                     </button>
                   </>
                 ) : null}
@@ -241,7 +243,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
               onClick={() => go(-1)}
               aria-label="Previous photo"
             >
-              ‹
+              <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
             </button>
             <button
               type="button"
@@ -249,7 +251,7 @@ export function AccommodationGallery({ items, title, variant = 'default' }: Prop
               onClick={() => go(1)}
               aria-label="Next photo"
             >
-              ›
+              <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
             </button>
           </>
         ) : null}

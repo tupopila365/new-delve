@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Car, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { mediaUrl } from '../api/client'
 import type { GalleryItem } from './AccommodationGallery'
 
@@ -85,7 +86,8 @@ export function TransportGallery({ items, title, emptyLabel = 'Photo coming soon
 
   if (n === 0) {
     return (
-      <div className="acc-gallery acc-gallery--empty" aria-label={`${title} — no photos`}>
+      <div className="acc-gallery acc-gallery--empty tp-gallery--empty" aria-label={`${title} — no photos`}>
+        <Car size={40} strokeWidth={1.5} aria-hidden className="tp-gallery__empty-icon" />
         <span>{emptyLabel}</span>
       </div>
     )
@@ -133,7 +135,7 @@ export function TransportGallery({ items, title, emptyLabel = 'Photo coming soon
                   onClick={() => go(-1)}
                   aria-label="Previous photo"
                 >
-                  ‹
+                  <ChevronLeft size={22} strokeWidth={2.5} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -141,7 +143,7 @@ export function TransportGallery({ items, title, emptyLabel = 'Photo coming soon
                   onClick={() => go(1)}
                   aria-label="Next photo"
                 >
-                  ›
+                  <ChevronRight size={22} strokeWidth={2.5} aria-hidden />
                 </button>
               </>
             ) : null}
@@ -168,7 +170,7 @@ export function TransportGallery({ items, title, emptyLabel = 'Photo coming soon
               onClick={() => setModalOpen(false)}
               aria-label="Close gallery"
             >
-              ×
+              <X size={20} strokeWidth={2.25} aria-hidden />
             </button>
             <div className="acc-gallery__modal-stage">
               <GalleryMedia
@@ -184,7 +186,7 @@ export function TransportGallery({ items, title, emptyLabel = 'Photo coming soon
                     onClick={() => setModalIndex((i) => (i - 1 + n) % n)}
                     aria-label="Previous photo"
                   >
-                    ‹
+                    <ChevronLeft size={22} strokeWidth={2.5} aria-hidden />
                   </button>
                   <button
                     type="button"
@@ -192,7 +194,7 @@ export function TransportGallery({ items, title, emptyLabel = 'Photo coming soon
                     onClick={() => setModalIndex((i) => (i + 1) % n)}
                     aria-label="Next photo"
                   >
-                    ›
+                    <ChevronRight size={22} strokeWidth={2.5} aria-hidden />
                   </button>
                 </>
               ) : null}

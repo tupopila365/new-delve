@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { mockFood } from '../mocks/mockData'
-import { ProviderCategoryStrip } from '../components/provider'
+import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 
 const MOCK_REVIEWS = [
   { id: 1, guest: 'Amara D.', venue: 'Oryx Grill House', rating: 5, body: 'Best oryx steak in Windhoek. Smoky, juicy, and perfectly seasoned. The service was warm and attentive.' },
@@ -24,10 +25,17 @@ function stars(n: number) {
 
 export function FoodAdmin() {
   const { profile } = useAuth()
+  const { canAccessProvider } = useBusinessAccess()
   const [tab, setTab] = useState<'venues' | 'reservations' | 'reviews'>('venues')
 
   if (!profile) return <Navigate to="/login" replace />
-  if (profile.user_type !== 'service_provider') return <Navigate to="/" replace />
+  if (!canAccessProvider) {
+    return (
+      <div className="prov-cat-page">
+        <ProviderAccessGate />
+      </div>
+    )
+  }
 
   const myVenues = mockFood.filter((f) => f.owner_username === profile.username)
   const myReviews = MOCK_REVIEWS.filter((r) => myVenues.some((v) => v.name === r.venue))

@@ -53,7 +53,12 @@ export function HostStoriesRow() {
       })
     }
     rows.sort((a, b) => b.latest - a.latest)
-    return rows.map(({ latest, ...author }) => author).slice(0, 36)
+    return rows.slice(0, 36).map(({ username, display_name, avatar, slides }) => ({
+      username,
+      display_name,
+      avatar,
+      slides,
+    }))
   }, [pins])
 
   const active = openUser ? authors.find((a) => a.username === openUser) : null

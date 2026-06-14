@@ -1,7 +1,25 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
+import {
+  BedDouble,
+  Building2,
+  Car,
+  Clock,
+  Coffee,
+  MapPin,
+  MessageCircle,
+  PawPrint,
+  ShieldCheck,
+  Trees,
+  Users,
+  Utensils,
+  Waves,
+  Wifi,
+} from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
+import { BookingTrustNote } from '../components/booking'
 import { RoomPhotoCarousel } from '../components/RoomPhotoCarousel'
 import { AccommodationGallery, buildGalleryItems } from '../components/AccommodationGallery'
 import { GuestReviewCard, normalizeReviews } from '../components/GuestReviewCard'
@@ -31,6 +49,17 @@ const PROPERTY_LABELS: Record<string, string> = {
   resort: 'Resort',
   camping_glamping: 'Camping / glamping',
   other: 'Other',
+}
+
+const LOVE_ICON_MAP: Record<string, LucideIcon> = {
+  'Comfortable stay': BedDouble,
+  'Wi-Fi included': Wifi,
+  'Easy parking': Car,
+  'Breakfast available': Coffee,
+  'Pet-friendly': PawPrint,
+  'Kitchen access': Utensils,
+  'Pool on site': Waves,
+  'Great for families': Users,
 }
 
 function propertyTypeLabel(v: string) {
@@ -181,6 +210,35 @@ function whyGuestsLove(data: Listing): string[] {
   return unique
 }
 
+function loveItemIcon(item: string): LucideIcon {
+  if (item.startsWith('Close to')) return MapPin
+  if (item === 'Quiet location') return Trees
+  return LOVE_ICON_MAP[item] ?? BedDouble
+}
+
+function amenityChipIcon(name: string): LucideIcon | null {
+  const n = name.toLowerCase()
+  if (n.includes('wifi') || n.includes('wi-fi')) return Wifi
+  if (n.includes('pool')) return Waves
+  if (n.includes('park')) return Car
+  if (n.includes('breakfast')) return Coffee
+  if (n.includes('pet')) return PawPrint
+  if (n.includes('kitchen')) return Utensils
+  return null
+}
+
+function sortAmenities(amenities: string[]): string[] {
+  const priority = ['wifi', 'wi-fi', 'pool', 'parking', 'breakfast', 'kitchen', 'pet']
+  return [...amenities].sort((a, b) => {
+    const ai = priority.findIndex((p) => a.toLowerCase().includes(p))
+    const bi = priority.findIndex((p) => b.toLowerCase().includes(p))
+    const aScore = ai === -1 ? 99 : ai
+    const bScore = bi === -1 ? 99 : bi
+    if (aScore !== bScore) return aScore - bScore
+    return a.localeCompare(b)
+  })
+}
+
 export function AccommodationDetail() {
   const { id } = useParams()
   const [saved, setSaved] = useState(false)
@@ -239,10 +297,11 @@ export function AccommodationDetail() {
     return (
       <DetailPage prefix="acc-detail-page" className="td">
         <EmptyState
-          icon="🏨"
+          iconElement={<Building2 size={28} strokeWidth={1.75} />}
           title="We couldn't load this stay"
           sub="Please check your connection and try again."
           cta={{ label: 'Try again', onClick: () => void refetch() }}
+          className="acc-detail__empty"
         />
       </DetailPage>
     )
@@ -252,10 +311,11 @@ export function AccommodationDetail() {
     return (
       <DetailPage prefix="acc-detail-page" className="td">
         <EmptyState
-          icon="🏨"
+          iconElement={<Building2 size={28} strokeWidth={1.75} />}
           title="Stay not found"
           sub="This listing may have been removed or the link is incorrect."
           cta={{ label: 'Browse stays', to: '/accommodation' }}
+          className="acc-detail__empty"
         />
       </DetailPage>
     )
@@ -266,6 +326,7 @@ export function AccommodationDetail() {
   const loveItems = whyGuestsLove(data)
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
   const todayStr = new Date().toISOString().split('T')[0]
+  const sortedAmenities = sortAmenities(data.amenities ?? [])
 
   const bookParams = new URLSearchParams()
   if (checkIn) bookParams.set('check_in', checkIn)
@@ -283,6 +344,16 @@ export function AccommodationDetail() {
     })),
     { id: 'placeholder', author: 'traveller', body: 'Morning view from the room.' },
   ]
+
+  const trustItems = [
+    ...(data.max_guests >= 4 ? ['Good for families'] : []),
+    ...(data.rating_count != null && data.rating_count >= 15 ? ['Local favourite'] : []),
+    ...(data.wifi ? ['Free Wi-Fi'] : []),
+    ...(data.parking ? ['Parking'] : []),
+    ...(data.breakfast ? ['Breakfast'] : []),
+    ...(data.pet_friendly ? ['Pet-friendly'] : []),
+    ...(data.pool ? ['Pool'] : []),
+  ].slice(0, 5)
 
   return (
     <DetailPage prefix="acc-detail-page" className="td" toast={shareMsg || null}>
@@ -303,89 +374,111 @@ export function AccommodationDetail() {
             <span className="acc-detail__pill">{propertyTypeLabel(data.property_type)}</span>
           ) : null}
           {data.rating_avg ? (
-            <span className="acc-detail__pill">
-              ★ {data.rating_avg}
-              {data.rating_count ? ` (${data.rating_count})` : ''}
+            <span className="acc-detail__pill acc-detail__pill--rating">
+              <MiniRating rating={data.rating_avg} count={data.rating_count} />
             </span>
           ) : null}
-          {locationLine ? <span className="acc-detail__pill">{locationLine}</span> : null}
+          {locationLine ? (
+            <span className="acc-detail__pill acc-detail__pill--location">
+              <MapPin size={13} strokeWidth={2.25} aria-hidden />
+              {locationLine}
+            </span>
+          ) : null}
         </div>
 
         <h1 className="display acc-detail__title">{data.title}</h1>
 
-        <p className="acc-detail__summary">
-          {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'} · {data.max_guests} guests · From $
-          {data.price_per_night}/night
-        </p>
+        <div className="acc-detail__stats">
+          <span className="acc-detail__stat">
+            <BedDouble size={15} strokeWidth={2.25} aria-hidden />
+            {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'}
+          </span>
+          <span className="acc-detail__stat">
+            <Users size={15} strokeWidth={2.25} aria-hidden />
+            {data.max_guests} guests
+          </span>
+          <span className="acc-detail__stat acc-detail__stat--price">
+            From N${data.price_per_night}
+            <span className="acc-detail__stat-unit"> / night</span>
+          </span>
+        </div>
 
         <p className="acc-detail__host-line">
           Hosted by{' '}
           <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>@{data.owner_username}</Link>
         </p>
 
-        <TrustBadgeRow
-          items={[
-            ...(data.max_guests >= 4 ? ['Good for families'] : []),
-            ...(data.rating_count != null && data.rating_count >= 15 ? ['Local favourite'] : []),
-            ...(data.wifi ? ['Free Wi-Fi'] : []),
-            ...(data.parking ? ['Parking'] : []),
-            ...(data.breakfast ? ['Breakfast'] : []),
-            ...(data.pet_friendly ? ['Pet-friendly'] : []),
-            ...(data.pool ? ['Pool'] : []),
-          ]}
-          className="acc-detail__trust-row"
-        />
+        {trustItems.length > 0 ? (
+          <TrustBadgeRow items={trustItems} className="acc-detail__trust-row" />
+        ) : null}
 
         <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.title)}>
-          <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>Message host</Link>
+          <Link to={`/u/${encodeURIComponent(data.owner_username)}`} className="acc-detail__message-link">
+            <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+            Message host
+          </Link>
         </SocialActionRow>
       </section>
 
       <DetailLayout
         main={
           <>
-          <section className="detail-section acc-detail__love">
-            <h2 className="acc-detail__section-title">Why guests love it</h2>
-            <div className="acc-detail__love-grid">
-              {loveItems.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
-          </section>
-
-          {data.description?.trim() ? (
-            <section className="detail-section acc-detail__about">
-              <h2 className="acc-detail__section-title">About this stay</h2>
-              <p className="acc-detail__about-text">{data.description}</p>
-            </section>
-          ) : null}
-
-          {roomTypes.length > 0 ? (
-            <section className="detail-section acc-detail__rooms">
-              <h2 id="acc-rooms-heading" className="acc-detail__section-title">
-                Choose your room
-              </h2>
-              <p className="acc-detail__rooms-intro">
-                The host offers more than one room or unit type. Layout, capacity, and nightly rate can differ from the
-                headline &quot;from&quot; price.
-              </p>
-              <div className="acc-detail__room-grid">
-                {roomTypes.map((room, i) => {
-                  const metaBits = [
-                    room.max_guests != null ? `Up to ${room.max_guests} guests` : null,
-                    room.bedrooms != null
-                      ? `${room.bedrooms} ${room.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`
-                      : null,
-                    room.bed_summary || null,
-                  ].filter(Boolean) as string[]
+            <section className="detail-section acc-detail__love">
+              <h2 className="acc-detail__section-title">Why guests love it</h2>
+              <div className="acc-detail__love-grid">
+                {loveItems.map((item) => {
+                  const Icon = loveItemIcon(item)
                   return (
+                    <div key={item} className="acc-detail__love-card">
+                      <Icon size={18} strokeWidth={2.25} aria-hidden />
+                      <span>{item}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            {data.description?.trim() ? (
+              <section className="detail-section acc-detail__about">
+                <h2 className="acc-detail__section-title">About this stay</h2>
+                <p className="acc-detail__about-text">{data.description}</p>
+              </section>
+            ) : null}
+
+            {roomTypes.length > 0 ? (
+              <section className="detail-section acc-detail__rooms">
+                <h2 id="acc-rooms-heading" className="acc-detail__section-title">
+                  Choose your room
+                </h2>
+                <p className="acc-detail__rooms-intro">
+                  The host offers more than one room or unit type. Layout, capacity, and nightly rate can differ from
+                  the headline &quot;from&quot; price.
+                </p>
+                <div className="acc-detail__room-grid">
+                  {roomTypes.map((room, i) => (
                     <article key={`${i}-${room.name}`} className="acc-detail__room">
                       <div className="acc-detail__room-visual">
                         <RoomPhotoCarousel images={room.images} name={room.name} />
                       </div>
                       <div className="acc-detail__room-body">
                         <h3 className="acc-detail__room-name">{room.name}</h3>
-                        {metaBits.length > 0 ? <p className="acc-detail__room-meta">{metaBits.join(' · ')}</p> : null}
+                        <div className="acc-detail__room-meta">
+                          {room.max_guests != null ? (
+                            <span className="acc-detail__room-meta-item">
+                              <Users size={14} strokeWidth={2.25} aria-hidden />
+                              Up to {room.max_guests} guests
+                            </span>
+                          ) : null}
+                          {room.bedrooms != null ? (
+                            <span className="acc-detail__room-meta-item">
+                              <BedDouble size={14} strokeWidth={2.25} aria-hidden />
+                              {room.bedrooms} {room.bedrooms === 1 ? 'bedroom' : 'bedrooms'}
+                            </span>
+                          ) : null}
+                          {room.bed_summary ? (
+                            <span className="acc-detail__room-meta-item">{room.bed_summary}</span>
+                          ) : null}
+                        </div>
                         {room.description ? <p className="acc-detail__room-desc">{room.description}</p> : null}
                         <p className="acc-detail__room-price">
                           {room.price_per_night ? (
@@ -408,150 +501,189 @@ export function AccommodationDetail() {
                         </Link>
                       </div>
                     </article>
-                  )
-                })}
-              </div>
-            </section>
-          ) : null}
-
-          {data.amenities && data.amenities.length > 0 ? (
-            <section className="detail-section acc-detail__amenities-block">
-              <h2 className="acc-detail__section-title">Amenities</h2>
-              <div className="chip-row">
-                {data.amenities.slice(0, 24).map((a) => (
-                  <span key={a} className="chip">
-                    {a}
-                  </span>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {rules.length > 0 ? (
-            <section className="detail-section acc-detail__rules-block">
-              <h2 className="acc-detail__section-title">House rules</h2>
-              <ul className="acc-detail__rules-list">
-                {rules.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {hasPolicies ? (
-            <section className="detail-section acc-detail__policies-block">
-              <h2 className="acc-detail__section-title">Policies</h2>
-              <dl className="acc-detail__policy-grid">
-                {data.check_in_from ? (
-                  <>
-                    <dt>Check-in</dt>
-                    <dd>From {data.check_in_from}</dd>
-                  </>
-                ) : null}
-                {data.check_out_until ? (
-                  <>
-                    <dt>Check-out</dt>
-                    <dd>By {data.check_out_until}</dd>
-                  </>
-                ) : null}
-              </dl>
-              {data.cancellation_policy ? (
-                <div className="acc-detail__policy-block">
-                  <h3 className="acc-detail__policy-sub">Cancellation</h3>
-                  <p className="acc-detail__policy-text">{data.cancellation_policy}</p>
+                  ))}
                 </div>
-              ) : null}
-            </section>
-          ) : null}
+              </section>
+            ) : null}
 
-          <section className="detail-section acc-detail__map-card">
-            <h2 className="acc-detail__section-title">Location</h2>
-            <p className="acc-detail__map-sub">{locationLine}</p>
-            <p className="acc-detail__map-copy">
-              Open the area on OpenStreetMap to plan your route — buses, rides, or self-drive from town centres and
-              airports.
-            </p>
-            <a href={mapHref} className="btn btn-primary acc-detail__map-btn" target="_blank" rel="noopener noreferrer">
-              View on map
-            </a>
-          </section>
+            {sortedAmenities.length > 0 ? (
+              <section className="detail-section acc-detail__amenities-block">
+                <h2 className="acc-detail__section-title">Amenities</h2>
+                <div className="acc-detail__amenity-grid">
+                  {sortedAmenities.slice(0, 24).map((a) => {
+                    const Icon = amenityChipIcon(a)
+                    return (
+                      <span key={a} className="acc-detail__amenity-chip">
+                        {Icon ? <Icon size={14} strokeWidth={2.25} aria-hidden /> : null}
+                        {a}
+                      </span>
+                    )
+                  })}
+                </div>
+              </section>
+            ) : null}
 
-          <DelversMoments
-            title="Delvers moments from this stay"
-            subtitle="Guest photos, room views, and nearby places — not host gallery shots."
-            moments={delversMoments.filter((m) => m.id !== 'placeholder')}
-            className="acc-detail__moments"
-            showWhenEmpty
-            emptyMessage="No guest moments yet — travellers share photos on Delvers after their stay."
-          />
+            {rules.length > 0 ? (
+              <section className="detail-section acc-detail__rules-block">
+                <h2 className="acc-detail__section-title">House rules</h2>
+                <ul className="acc-detail__rules-list">
+                  {rules.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
-          <CommentBox
-            className="acc-detail__comments"
-            title="Questions for recent guests"
-            subtitle="Ask about check-in, neighbourhood, or what to pack."
-            draft={commentDraft}
-            onDraftChange={setCommentDraft}
-            onPost={postStayQuestion}
-            comments={stayQuestions}
-            postLabel="Ask question"
-          />
-
-          <section className="detail-section acc-detail__reviews">
-            <h2 className="acc-detail__section-title">Guest reviews</h2>
-            <div className="acc-detail__reviews-summary">
-              {data.rating_avg != null ? (
-                <>
-                  <div className="acc-detail__reviews-score">
-                    <MiniRating rating={data.rating_avg} count={data.rating_count} />
+            {hasPolicies ? (
+              <section className="detail-section acc-detail__policies-block">
+                <h2 className="acc-detail__section-title">Policies</h2>
+                <dl className="acc-detail__policy-grid">
+                  {data.check_in_from ? (
+                    <>
+                      <dt>
+                        <Clock size={14} strokeWidth={2.25} aria-hidden />
+                        Check-in
+                      </dt>
+                      <dd>From {data.check_in_from}</dd>
+                    </>
+                  ) : null}
+                  {data.check_out_until ? (
+                    <>
+                      <dt>
+                        <Clock size={14} strokeWidth={2.25} aria-hidden />
+                        Check-out
+                      </dt>
+                      <dd>By {data.check_out_until}</dd>
+                    </>
+                  ) : null}
+                </dl>
+                {data.cancellation_policy ? (
+                  <div className="acc-detail__policy-block">
+                    <h3 className="acc-detail__policy-sub">
+                      <ShieldCheck size={16} strokeWidth={2.25} aria-hidden />
+                      Cancellation
+                    </h3>
+                    <p className="acc-detail__policy-text">{data.cancellation_policy}</p>
                   </div>
-                  <p className="acc-detail__reviews-summary-text">
-                    {data.rating_count != null && data.rating_count > 0
-                      ? `Based on ${data.rating_count} ${data.rating_count === 1 ? 'rating' : 'ratings'} from verified stays on DELVE.`
-                      : 'Overall guest score from ratings on this listing.'}
-                  </p>
-                </>
-              ) : (
-                <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
-                  {reviews.length > 0
-                    ? 'No aggregate score on this listing yet — read guest comments below.'
-                    : 'Ratings and written reviews will show here once guests have stayed.'}
-                </p>
-              )}
-            </div>
-            {reviews.length > 0 ? (
-              <div className="acc-detail__review-list">
-                {reviews.map((r, i) => (
-                  <GuestReviewCard key={`${i}-${r.name}`} r={r} />
-                ))}
-              </div>
-            ) : (
-              <p className="acc-detail__reviews-empty" role="status">
-                No written guest comments yet.
-              </p>
-            )}
-          </section>
+                ) : null}
+              </section>
+            ) : null}
 
-          {faqs.length > 0 ? (
-            <section className="detail-section acc-detail__faq">
-              <h2 className="acc-detail__section-title">FAQ</h2>
-              <div className="acc-detail__faq-list">
-                {faqs.map((f, i) => (
-                  <details key={`faq-${i}`} className="acc-detail__faq-item">
-                    <summary className="acc-detail__faq-q">{f.question}</summary>
-                    <p className="acc-detail__faq-a">{f.answer}</p>
-                  </details>
-                ))}
-              </div>
+            <section className="detail-section acc-detail__map-card">
+              <h2 className="acc-detail__section-title">Location</h2>
+              {locationLine ? (
+                <p className="acc-detail__map-sub">
+                  <MapPin size={16} strokeWidth={2.25} aria-hidden />
+                  {locationLine}
+                </p>
+              ) : null}
+              <div className="acc-detail__map-visual" aria-hidden />
+              <p className="acc-detail__map-copy">
+                Open the area on OpenStreetMap to plan your route — buses, rides, or self-drive from town centres and
+                airports.
+              </p>
+              <a href={mapHref} className="btn btn-primary acc-detail__map-btn" target="_blank" rel="noopener noreferrer">
+                <MapPin size={16} strokeWidth={2.25} aria-hidden />
+                View on map
+              </a>
             </section>
-          ) : null}
+
+            <DelversMoments
+              title="Delvers moments from this stay"
+              subtitle="Guest photos, room views, and nearby places — not host gallery shots."
+              moments={delversMoments.filter((m) => m.id !== 'placeholder')}
+              className="acc-detail__moments"
+              showWhenEmpty
+              emptyMessage="No guest moments yet — travellers share photos on Delvers after their stay."
+            />
+
+            <CommentBox
+              className="acc-detail__comments"
+              title="Questions for recent guests"
+              subtitle="Ask about check-in, neighbourhood, parking, Wi-Fi, what to pack, safety, or shops nearby."
+              draft={commentDraft}
+              onDraftChange={setCommentDraft}
+              onPost={postStayQuestion}
+              comments={stayQuestions}
+              postLabel="Ask question"
+            />
+
+            <section className="detail-section acc-detail__reviews">
+              <h2 className="acc-detail__section-title">Guest reviews</h2>
+              <div className="acc-detail__reviews-summary">
+                {data.rating_avg != null ? (
+                  <>
+                    <div className="acc-detail__reviews-score">
+                      <MiniRating rating={data.rating_avg} count={data.rating_count} />
+                    </div>
+                    <p className="acc-detail__reviews-summary-text">
+                      {data.rating_count != null && data.rating_count > 0
+                        ? `Based on ${data.rating_count} ${data.rating_count === 1 ? 'rating' : 'ratings'} from verified stays on DELVE.`
+                        : 'Overall guest score from ratings on this listing.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
+                    {reviews.length > 0
+                      ? 'No aggregate score on this listing yet — read guest comments below.'
+                      : 'Ratings and written reviews will appear here after guests complete their stay.'}
+                  </p>
+                )}
+              </div>
+              {reviews.length > 0 ? (
+                <div className="acc-detail__review-list">
+                  {reviews.map((r, i) => (
+                    <GuestReviewCard key={`${i}-${r.name}`} r={r} />
+                  ))}
+                </div>
+              ) : (
+                <div className="acc-detail__reviews-empty" role="status">
+                  No written guest comments yet.
+                </div>
+              )}
+            </section>
+
+            {faqs.length > 0 ? (
+              <section className="detail-section acc-detail__faq">
+                <h2 className="acc-detail__section-title">FAQ</h2>
+                <div className="acc-detail__faq-list">
+                  {faqs.map((f, i) => (
+                    <details key={`faq-${i}`} className="acc-detail__faq-item">
+                      <summary className="acc-detail__faq-q">{f.question}</summary>
+                      <p className="acc-detail__faq-a">{f.answer}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </>
         }
         sidebar={
-          <DetailActionCard kicker="Ready to stay?" title={<><span>N${data.price_per_night}</span><small> / night</small></>} className="acc-detail__booking-card">
+          <DetailActionCard
+            kicker="Ready to stay?"
+            title={
+              <>
+                <span>N${data.price_per_night}</span>
+                <small> / night</small>
+              </>
+            }
+            className="acc-detail__booking-card"
+            footer={
+              <BookingTrustNote>Review your dates and guest details before continuing.</BookingTrustNote>
+            }
+          >
             <div className="acc-detail__booking-meta">
-              {data.rating_avg && <span>★ {data.rating_avg}</span>}
-              <span>{data.max_guests} guests</span>
-              <span>
+              {data.rating_avg ? (
+                <span className="acc-detail__booking-meta-item acc-detail__booking-meta-item--rating">
+                  <MiniRating rating={data.rating_avg} count={data.rating_count} />
+                </span>
+              ) : null}
+              <span className="acc-detail__booking-meta-item">
+                <Users size={14} strokeWidth={2.25} aria-hidden />
+                {data.max_guests} guests
+              </span>
+              <span className="acc-detail__booking-meta-item">
+                <BedDouble size={14} strokeWidth={2.25} aria-hidden />
                 {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'}
               </span>
             </div>
@@ -583,10 +715,11 @@ export function AccommodationDetail() {
             </div>
 
             <Link to={bookHref} className="btn btn-primary acc-detail__book-btn">
-              Reserve stay
+              Request booking
             </Link>
 
             <Link to={`/u/${encodeURIComponent(data.owner_username)}`} className="acc-detail__message-host">
+              <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
               Message host
             </Link>
           </DetailActionCard>
@@ -598,7 +731,7 @@ export function AccommodationDetail() {
         subtitle={`${data.max_guests} guests · ${locationLine}`}
         action={
           <Link to={bookHref} className="btn btn-primary">
-            Reserve
+            Request booking
           </Link>
         }
         className="acc-detail__mobile-bar"

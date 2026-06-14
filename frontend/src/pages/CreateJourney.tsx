@@ -202,6 +202,11 @@ export function CreateJourney() {
 
   /* ── publish ─────────────────────────────────────────────── */
   function publish() {
+    if (!profile) {
+      setErr('You need to sign in to publish a journey.')
+      navigate('/login')
+      return
+    }
     const e = validateStep()
     if (e) { setErr(e); return }
     setErr(null)

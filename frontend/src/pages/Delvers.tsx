@@ -1,13 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { Link } from 'react-router-dom'
-import { Bookmark, Heart, MessageCircle, Search, Share2, X } from 'lucide-react'
+import type { LucideProps } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowRight,
+  Bookmark,
+  Camera,
+  Compass,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Plus,
+  Route,
+  Search,
+  Share2,
+  TrendingUp,
+  UserRound,
+  Users,
+  Video,
+  X,
+} from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { subscribeDelversSearch } from '../utils/delversSearchBridge'
-import { EmptyState } from '../components/ui'
+import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { MarketplaceHero, QuickFilterChips } from '../components/marketplace'
+import { EmptyState, ListSkeleton } from '../components/ui'
 
-type FeedMode = 'foryou' | 'nearby'
+type FeedTab = 'foryou' | 'following' | 'trending' | 'nearby' | 'photos' | 'tips'
 
 type PinPost = {
   id: number
@@ -21,8 +42,44 @@ type PinPost = {
   saved_by_me: boolean
   likes_count: number
   saves_count: number
+  comments_count?: number
   created_at?: string
 }
+
+type DelverProfile = {
+  username: string
+  display_name: string
+  avatar: string | null
+  region: string
+  postCount: number
+  totalLikes: number
+}
+
+type QuickFilter = {
+  id: string
+  label: string
+  Icon: ComponentType<LucideProps>
+  match: (post: PinPost) => boolean
+}
+
+const FEED_TABS: { id: FeedTab; label: string; Icon: ComponentType<LucideProps> }[] = [
+  { id: 'foryou', label: 'For you', Icon: Compass },
+  { id: 'following', label: 'Following', Icon: Users },
+  { id: 'trending', label: 'Trending', Icon: TrendingUp },
+  { id: 'nearby', label: 'Nearby', Icon: MapPin },
+  { id: 'photos', label: 'Photos', Icon: Camera },
+  { id: 'tips', label: 'Tips', Icon: MessageCircle },
+]
+
+const QUICK_FILTERS: QuickFilter[] = [
+  { id: 'travellers', label: 'Travellers', Icon: UserRound, match: () => true },
+  { id: 'photos', label: 'Photos', Icon: Camera, match: (p) => !!(p.image || p.video) },
+  { id: 'tips', label: 'Tips', Icon: MessageCircle, match: (p) => !p.image && !p.video && !!p.body?.trim() },
+  { id: 'journeys', label: 'Journeys', Icon: Route, match: (p) => /journey|route|road/i.test(`${p.body} ${p.delvers_board}`) },
+  { id: 'trending', label: 'Trending', Icon: TrendingUp, match: (p) => p.likes_count >= 5 || p.saves_count >= 3 },
+]
+
+const TRENDING_PLACES = ['Windhoek', 'Swakopmund', 'Etosha', 'Sossusvlei', 'Walvis Bay'] as const
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
@@ -31,18 +88,30 @@ function formatCount(n: number): string {
   return String(n)
 }
 
+function formatWhen(iso?: string) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-NA', { day: 'numeric', month: 'short' })
+}
+
+function postPreview(post: PinPost) {
+  const text = post.body?.trim()
+  if (text) return text.length > 160 ? `${text.slice(0, 160)}…` : text
+  if (post.delvers_board) return post.delvers_board
+  if (post.region) return `Moment from ${post.region}`
+  return 'Travel moment'
+}
+
 export function Delvers() {
   const { profile } = useAuth()
-  const [feedMode, setFeedMode] = useState<FeedMode>('foryou')
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [shareMsg, setShareMsg] = useState('')
-  const [burstId, setBurstId] = useState<number | null>(null)
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [feedTab, setFeedTab] = useState<FeedTab>('foryou')
+  const [quickFilter, setQuickFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [pendingJumpId, setPendingJumpId] = useState<number | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
   const feedRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const lastTapRef = useRef<{ id: number; t: number } | null>(null)
 
   const qc = useQueryClient()
   const qk = ['delvers', profile?.region] as const
@@ -65,31 +134,106 @@ export function Delvers() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: qk }),
   })
 
-  const filteredPins = useMemo(() => {
+  const tabFiltered = useMemo(() => {
     if (!data?.length) return []
-    if (feedMode === 'foryou') return data
-    const homeRegion = profile?.region?.trim()
-    if (!homeRegion) return data
-    return data.filter((p) => p.region?.trim().toLowerCase() === homeRegion.toLowerCase())
-  }, [data, feedMode, profile?.region])
+    const homeRegion = profile?.region?.trim().toLowerCase()
 
-  const searchResults = useMemo(() => {
+    switch (feedTab) {
+      case 'nearby':
+        if (!homeRegion) return data
+        return data.filter((p) => p.region?.trim().toLowerCase() === homeRegion)
+      case 'trending':
+        return [...data].sort((a, b) => b.likes_count + b.saves_count - (a.likes_count + a.saves_count))
+      case 'photos':
+        return data.filter((p) => p.image || p.video)
+      case 'tips':
+        return data.filter((p) => !p.image && !p.video && !!p.body?.trim())
+      case 'following':
+        return []
+      default:
+        return data
+    }
+  }, [data, feedTab, profile?.region])
+
+  const filteredPosts = useMemo(() => {
+    let list = tabFiltered
+    const quick = QUICK_FILTERS.find((f) => f.id === quickFilter)
+    if (quick) list = list.filter(quick.match)
+
     const q = searchInput.trim().toLowerCase()
-    if (!q || !data?.length) return []
-    return data.filter((p) => {
-      const hay = [
-        p.body,
-        p.region,
-        p.delvers_board,
-        p.author.username,
-        p.author.display_name,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return hay.includes(q)
-    })
-  }, [data, searchInput])
+    if (q) {
+      list = list.filter((p) => {
+        const hay = [p.body, p.region, p.delvers_board, p.author.username, p.author.display_name]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return hay.includes(q)
+      })
+    }
+    return list
+  }, [tabFiltered, quickFilter, searchInput])
+
+  const featuredDelvers = useMemo((): DelverProfile[] => {
+    if (!data?.length) return []
+    const map = new Map<string, DelverProfile>()
+    for (const p of data) {
+      const key = p.author.username
+      const cur = map.get(key)
+      if (cur) {
+        cur.postCount += 1
+        cur.totalLikes += p.likes_count
+        if (!cur.region && p.region) cur.region = p.region
+      } else {
+        map.set(key, {
+          username: p.author.username,
+          display_name: p.author.display_name,
+          avatar: p.author.avatar ?? null,
+          region: p.region || '',
+          postCount: 1,
+          totalLikes: p.likes_count,
+        })
+      }
+    }
+    return [...map.values()].sort((a, b) => b.totalLikes - a.totalLikes || b.postCount - a.postCount).slice(0, 6)
+  }, [data])
+
+  const photoCount = useMemo(() => data?.filter((p) => p.image || p.video).length ?? 0, [data])
+  const commentTotal = useMemo(() => data?.reduce((n, p) => n + (p.comments_count ?? 0), 0) ?? 0, [data])
+  const activeCreators = useMemo(() => featuredDelvers.length, [featuredDelvers])
+
+  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
+    return [
+      {
+        id: 'trending-places',
+        title: 'Trending places',
+        type: 'links',
+        items: TRENDING_PLACES.map((place) => ({
+          label: place,
+          onClick: () => setSearchInput(place),
+        })),
+      },
+      {
+        id: 'active-delvers',
+        title: 'Active Delvers',
+        type: 'links',
+        items: featuredDelvers.slice(0, 5).map((d) => ({
+          label: d.display_name,
+          onClick: () => setSearchInput(d.username),
+        })),
+      },
+      {
+        id: 'feed-pulse',
+        title: 'Feed pulse',
+        type: 'stats',
+        items: [
+          { value: data?.length ?? '—', label: 'posts' },
+          { value: photoCount || '—', label: 'photos' },
+          { value: commentTotal || '—', label: 'comments' },
+          { value: activeCreators || '—', label: 'active creators' },
+        ],
+      },
+    ]
+  }, [activeCreators, commentTotal, data?.length, featuredDelvers, photoCount])
 
   const openSearch = useCallback(() => {
     setSearchOpen(true)
@@ -98,7 +242,6 @@ export function Delvers() {
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false)
-    setSearchInput('')
   }, [])
 
   useEffect(() => subscribeDelversSearch(openSearch), [openSearch])
@@ -112,67 +255,11 @@ export function Delvers() {
     return () => window.removeEventListener('keydown', onKey)
   }, [searchOpen, closeSearch])
 
-  const scrollToPin = useCallback((postId: number, pins: PinPost[]) => {
-    const idx = pins.findIndex((p) => p.id === postId)
-    if (idx < 0 || !feedRef.current) return false
-
-    const slide = feedRef.current.querySelector<HTMLElement>(`[data-tt-post-id="${postId}"]`)
-    slide?.scrollIntoView({ behavior: 'smooth' })
-    setActiveIndex(idx)
-    return true
-  }, [])
-
-  const jumpToPin = (postId: number) => {
-    closeSearch()
-    if (scrollToPin(postId, filteredPins)) return
-    setFeedMode('foryou')
-    setPendingJumpId(postId)
-  }
-
-  useEffect(() => {
-    if (pendingJumpId == null) return
-    if (scrollToPin(pendingJumpId, filteredPins)) {
-      setPendingJumpId(null)
-    }
-  }, [pendingJumpId, filteredPins, scrollToPin])
-
-  useEffect(() => {
-    setActiveIndex(0)
-    feedRef.current?.scrollTo({ top: 0 })
-  }, [feedMode])
-
-  useEffect(() => {
-    const feed = feedRef.current
-    if (!feed || filteredPins.length === 0) return
-
-    const slides = feed.querySelectorAll<HTMLElement>('[data-tt-index]')
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.55) {
-            const idx = Number((entry.target as HTMLElement).dataset.ttIndex)
-            if (!Number.isNaN(idx)) setActiveIndex(idx)
-          }
-        }
-      },
-      { root: feed, threshold: [0.55, 0.75] },
-    )
-
-    slides.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
-  }, [filteredPins])
-
   useEffect(() => {
     if (!shareMsg) return
     const t = window.setTimeout(() => setShareMsg(''), 1400)
     return () => window.clearTimeout(t)
   }, [shareMsg])
-
-  useEffect(() => {
-    if (burstId == null) return
-    const t = window.setTimeout(() => setBurstId(null), 700)
-    return () => window.clearTimeout(t)
-  }, [burstId])
 
   const onShare = async (postId: number) => {
     const url = `${window.location.origin}/posts/${postId}`
@@ -184,371 +271,420 @@ export function Delvers() {
     }
   }
 
-  const onDoubleTapLike = useCallback(
-    (post: PinPost) => {
-      setBurstId(post.id)
-      if (profile && !post.liked_by_me && !likeMut.isPending) {
-        likeMut.mutate(post.id)
-      }
-    },
-    [profile, likeMut],
-  )
-
-  const onMediaTap = (post: PinPost) => {
-    const now = Date.now()
-    const last = lastTapRef.current
-    if (last && last.id === post.id && now - last.t < 320) {
-      lastTapRef.current = null
-      onDoubleTapLike(post)
-      return
-    }
-    lastTapRef.current = { id: post.id, t: now }
+  const clearFilters = () => {
+    setQuickFilter('')
+    setSearchInput('')
+    setFeedTab('foryou')
   }
 
+  const hasFilters = !!(quickFilter || searchInput.trim() || feedTab !== 'foryou')
+
+  const resultsHint = useMemo(() => {
+    if (searchInput.trim()) {
+      return `${filteredPosts.length} result${filteredPosts.length === 1 ? '' : 's'} for "${searchInput.trim()}"`
+    }
+    if (quickFilter || feedTab !== 'foryou') {
+      return `${filteredPosts.length} post${filteredPosts.length === 1 ? '' : 's'} match your filters`
+    }
+    return 'Travel moments, tips, and photos from Delvers near and far.'
+  }, [filteredPosts.length, feedTab, quickFilter, searchInput])
+
+  const quickChips = QUICK_FILTERS.map(({ id, label, Icon }) => ({
+    id,
+    label,
+    Icon,
+    active: quickFilter === id,
+  }))
+
   return (
-    <div className="tt-page">
-      <header className="tt-chrome" aria-label="Delvers feed">
-        <button
-          type="button"
-          className="tt-chrome__search"
-          onClick={openSearch}
-          aria-label="Search Delvers pins"
-        >
-          <Search size={20} strokeWidth={2.25} aria-hidden />
-        </button>
-        <nav className="tt-chrome__tabs" role="tablist" aria-label="Feed mode">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={feedMode === 'foryou'}
-            className={`tt-chrome__tab${feedMode === 'foryou' ? ' tt-chrome__tab--active' : ''}`}
-            onClick={() => setFeedMode('foryou')}
-          >
-            For you
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={feedMode === 'nearby'}
-            className={`tt-chrome__tab${feedMode === 'nearby' ? ' tt-chrome__tab--active' : ''}`}
-            onClick={() => setFeedMode('nearby')}
-          >
-            Nearby
-          </button>
-        </nav>
-        {profile ? (
-          <Link to="/delvers/new" className="tt-chrome__post" aria-label="New pin">
-            +
-          </Link>
-        ) : (
-          <Link to="/login" className="tt-chrome__post tt-chrome__post--ghost" aria-label="Sign in">
-            →
-          </Link>
-        )}
-      </header>
+    <div className="dv-page disc-page mk-page ev-page">
+      <div className="dv-page__top">
+        <MarketplaceHero
+          className="dv-page__hero"
+          title="Discover Delvers"
+          subtitle="Follow travellers, locals, guides, and creators sharing real places, routes, food spots, and travel moments."
+          support="Find people worth following before your next trip."
+          action={
+            profile ? (
+              <Link to="/delvers/new" className="btn btn-primary dv-page__create-btn">
+                <Plus size={16} strokeWidth={2.5} aria-hidden />
+                Share a moment
+              </Link>
+            ) : (
+              <Link to="/community" className="btn btn-primary dv-page__create-btn">
+                <Users size={16} strokeWidth={2.5} aria-hidden />
+                Join the community
+              </Link>
+            )
+          }
+        />
 
-      {searchOpen ? (
-        <div className="tt-search" role="dialog" aria-modal="true" aria-label="Search Delvers">
-          <div className="tt-search__backdrop" onClick={closeSearch} aria-hidden />
-          <div className="tt-search__panel">
-            <div className="tt-search__head">
-              <div className="tt-search__field">
-                <Search size={18} strokeWidth={2.25} aria-hidden />
-                <input
-                  ref={searchInputRef}
-                  type="search"
-                  className="tt-search__input"
-                  placeholder="Search pins, @users, places, boards…"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  autoComplete="off"
-                  enterKeyHint="search"
-                />
-                {searchInput ? (
-                  <button
-                    type="button"
-                    className="tt-search__clear"
-                    onClick={() => setSearchInput('')}
-                    aria-label="Clear search"
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </div>
-              <button type="button" className="tt-search__close" onClick={closeSearch} aria-label="Close search">
-                <X size={22} strokeWidth={2.25} />
+        <div className="acc-page__search dv-page__search">
+          <label className="visually-hidden" htmlFor="dv-search">
+            Search Delvers
+          </label>
+          <div className="acc-page__search-inner">
+            <Search className="acc-page__search-icon" size={18} strokeWidth={2} aria-hidden />
+            <input
+              id="dv-search"
+              ref={searchInputRef}
+              type="search"
+              className="acc-page__search-input input"
+              placeholder="Search Delvers, places, posts, tips, or routes…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                className="acc-page__search-clear"
+                onClick={() => setSearchInput('')}
+                aria-label="Clear search"
+              >
+                <X size={16} strokeWidth={2.25} aria-hidden />
               </button>
-            </div>
-
-            <div className="tt-search__body">
-              {!searchInput.trim() ? (
-                <p className="tt-search__hint">Find a moment, traveller, or place — without leaving the feed.</p>
-              ) : searchResults.length === 0 ? (
-                <p className="tt-search__empty">No pins match &ldquo;{searchInput.trim()}&rdquo;</p>
-              ) : (
-                <ul className="tt-search__results">
-                  {searchResults.map((p) => (
-                    <li key={p.id}>
-                      <button type="button" className="tt-search__result" onClick={() => jumpToPin(p.id)}>
-                        <span className="tt-search__thumb">
-                          {p.image ? (
-                            <img src={mediaUrl(p.image) || ''} alt="" />
-                          ) : p.video ? (
-                            <span className="tt-search__thumb-fallback" aria-hidden>
-                              🎬
-                            </span>
-                          ) : (
-                            <span className="tt-search__thumb-fallback" aria-hidden>
-                              📌
-                            </span>
-                          )}
-                        </span>
-                        <span className="tt-search__result-meta">
-                          <span className="tt-search__result-user">@{p.author.username}</span>
-                          <span className="tt-search__result-text">
-                            {p.body?.trim() || p.delvers_board || p.region || 'Pin'}
-                          </span>
-                          {p.region ? (
-                            <span className="tt-search__result-sub">{p.region}</span>
-                          ) : null}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            )}
           </div>
         </div>
-      ) : null}
+
+        <nav className="dv-page__tabs" role="tablist" aria-label="Feed tabs">
+          {FEED_TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={feedTab === id}
+              className={`dv-page__tab${feedTab === id ? ' dv-page__tab--active' : ''}`}
+              onClick={() => setFeedTab(id)}
+            >
+              <Icon size={14} strokeWidth={2.25} aria-hidden />
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <QuickFilterChips
+          chips={quickChips}
+          onChipClick={(id) => setQuickFilter((v) => (v === id ? '' : id))}
+          ariaLabel="Delvers topic filters"
+          className="dv-page__quick-chips"
+        />
+
+        {hasFilters && (
+          <div className="dv-page__active-filters">
+            <button type="button" className="dv-page__clear" onClick={clearFilters}>
+              Show all
+            </button>
+          </div>
+        )}
+      </div>
+
+      <p className="dv-page__results-hint" role="status">
+        {resultsHint}
+      </p>
 
       {shareMsg ? (
-        <p className="tt-toast" role="status">
+        <p className="dv-page__toast" role="status">
           {shareMsg}
         </p>
       ) : null}
 
-      {isError && (
-        <EmptyState
-          icon="📸"
-          title="We couldn't load Delvers"
-          sub="Please check your connection and try again."
-          cta={{ label: 'Try again', onClick: () => void refetch() }}
-        />
-      )}
+      <div className="disc-page__layout dv-page__layout">
+        <main className="disc-page__main dv-page__main" ref={feedRef}>
+          {isError && (
+            <EmptyState
+              iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
+              title="We couldn't load Delvers"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetch() }}
+            />
+          )}
 
-      {isLoading && !isError && (
-        <div className="tt-feed tt-feed--solo" aria-hidden>
-          <div className="tt-slide tt-slide--skeleton">
-            <div className="tt-slide__shimmer" />
+          {isLoading && !isError && <ListSkeleton count={4} className="dv-page__skeleton" />}
+
+          {!isLoading && !isError && data?.length === 0 && (
+            <EmptyState
+              iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
+              title="No posts yet"
+              sub="Travel moments, tips, routes, and photos will appear here once Delvers start sharing."
+              cta={
+                profile
+                  ? { label: 'Share a moment', to: '/delvers/new' }
+                  : { label: 'Join the community', to: '/community' }
+              }
+            />
+          )}
+
+          {!isLoading && !isError && data && data.length > 0 && feedTab === 'following' && (
+            <EmptyState
+              compact
+              iconElement={<Users size={24} strokeWidth={2} aria-hidden />}
+              title="No followed Delvers yet"
+              sub="Follow travellers from their profiles to see their moments here."
+              cta={{ label: 'Browse feed', onClick: () => setFeedTab('foryou') }}
+            />
+          )}
+
+          {!isLoading && !isError && filteredPosts.length === 0 && data && data.length > 0 && feedTab !== 'following' && (
+            <EmptyState
+              iconElement={<Search size={28} strokeWidth={2} aria-hidden />}
+              title="No Delvers or posts found"
+              sub="Try changing your search, topic, or filters."
+              cta={{ label: 'Show all', onClick: clearFilters }}
+            />
+          )}
+
+          {!isLoading && !isError && filteredPosts.length > 0 && feedTab !== 'following' && (
+            <>
+              {featuredDelvers.length > 0 && !hasFilters && (
+                <section className="dv-page__featured" aria-labelledby="dv-featured-title">
+                  <div className="dv-page__section-head">
+                    <div>
+                      <h2 id="dv-featured-title">People to follow</h2>
+                      <p>Travellers, locals, and creators sharing useful travel moments.</p>
+                    </div>
+                  </div>
+                  <div className="dv-page__profiles h-scroll">
+                    {featuredDelvers.map((d) => (
+                      <FeaturedDelverCard key={d.username} delver={d} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <section className="dv-page__composer" aria-labelledby="dv-composer-title">
+                <h2 id="dv-composer-title" className="visually-hidden">
+                  Share a travel moment
+                </h2>
+                <div className="dv-composer-card">
+                  <p className="dv-composer-card__title">Have something to share?</p>
+                  <p className="dv-composer-card__text">
+                    Post a travel tip, route note, or moment for other Delvers.
+                  </p>
+                  {profile ? (
+                    <Link to="/delvers/new" className="btn btn-primary dv-composer-card__btn">
+                      <Camera size={15} strokeWidth={2.25} aria-hidden />
+                      Share a moment
+                    </Link>
+                  ) : (
+                    <Link to="/community" className="btn btn-primary dv-composer-card__btn">
+                      <Users size={15} strokeWidth={2.25} aria-hidden />
+                      Join the community
+                    </Link>
+                  )}
+                </div>
+              </section>
+
+              <section className="dv-page__feed" aria-labelledby="dv-feed-title">
+                <h2 id="dv-feed-title" className="visually-hidden">
+                  Delvers feed
+                </h2>
+                <div className="dv-feed">
+                  {filteredPosts.map((post) => (
+                    <FeedPostCard
+                      key={post.id}
+                      post={post}
+                      profile={!!profile}
+                      likeBusy={likeMut.isPending && likeMut.variables === post.id}
+                      saveBusy={saveMut.isPending && saveMut.variables === post.id}
+                      onLike={() => profile && likeMut.mutate(post.id)}
+                      onSave={() => profile && saveMut.mutate(post.id)}
+                      onShare={() => onShare(post.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+        </main>
+
+        <DiscoverySidebar sections={sidebarSections} ariaLabel="Delvers discovery" />
+      </div>
+
+      {searchOpen ? (
+        <div className="dv-search-overlay" role="dialog" aria-modal="true" aria-label="Search Delvers">
+          <div className="dv-search-overlay__backdrop" onClick={closeSearch} aria-hidden />
+          <div className="dv-search-overlay__panel">
+            <div className="dv-search-overlay__head">
+              <Search size={18} strokeWidth={2.25} aria-hidden />
+              <input
+                type="search"
+                className="dv-search-overlay__input"
+                placeholder="Search Delvers, places, posts, tips, or routes…"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                autoFocus
+                enterKeyHint="search"
+              />
+              <button type="button" className="dv-search-overlay__close" onClick={closeSearch} aria-label="Close search">
+                <X size={20} strokeWidth={2.25} aria-hidden />
+              </button>
+            </div>
+            <p className="dv-search-overlay__hint">Find a moment, traveller, or place without leaving the feed.</p>
           </div>
         </div>
-      )}
-
-      {!isLoading && filteredPins.length > 0 && (
-        <div className="tt-feed" ref={feedRef} aria-label="Delvers pins">
-          {filteredPins.map((p, index) => (
-            <TikTokSlide
-              key={p.id}
-              post={p}
-              index={index}
-              isActive={activeIndex === index}
-              burst={burstId === p.id}
-              profile={!!profile}
-              likeBusy={likeMut.isPending && likeMut.variables === p.id}
-              saveBusy={saveMut.isPending && saveMut.variables === p.id}
-              onMediaTap={() => onMediaTap(p)}
-              onLike={() => profile && likeMut.mutate(p.id)}
-              onSave={() => profile && saveMut.mutate(p.id)}
-              onShare={() => onShare(p.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && data && data.length > 0 && filteredPins.length === 0 && (
-        <div className="tt-empty">
-          <EmptyState
-            compact
-            icon="📸"
-            title={feedMode === 'nearby' ? 'Nothing nearby yet' : 'No moments to show'}
-            sub={
-              feedMode === 'nearby'
-                ? profile?.region
-                  ? `No pins from ${profile.region} right now — browse For you for travellers across the region.`
-                  : 'Add your region in settings to see local pins, or browse For you.'
-                : 'Check back soon — new travel moments land here all the time.'
-            }
-            cta={
-              feedMode === 'nearby'
-                ? { label: 'Browse For you', onClick: () => setFeedMode('foryou') }
-                : profile
-                  ? { label: 'Share a moment', to: '/delvers/new' }
-                  : undefined
-            }
-          />
-        </div>
-      )}
-
-      {!isLoading && data?.length === 0 && (
-        <div className="tt-empty">
-          <EmptyState
-            icon="📸"
-            title="Delvers"
-            sub="Real travel moments, tips, photos, and clips from the community."
-            cta={profile ? { label: 'Share a moment', to: '/delvers/new' } : { label: 'Sign in', to: '/login' }}
-          />
-        </div>
-      )}
-
+      ) : null}
     </div>
   )
 }
 
-function TikTokSlide({
+function FeaturedDelverCard({ delver }: { delver: DelverProfile }) {
+  const initial = delver.display_name.trim().charAt(0).toUpperCase() || '?'
+  return (
+    <Link to={`/u/${encodeURIComponent(delver.username)}`} className="dv-profile-card">
+      <div className="dv-profile-card__avatar" aria-hidden>
+        {delver.avatar ? (
+          <img src={mediaUrl(delver.avatar) || delver.avatar} alt="" />
+        ) : (
+          <UserRound size={22} strokeWidth={2} />
+        )}
+      </div>
+      <p className="dv-profile-card__name">{delver.display_name}</p>
+      <p className="dv-profile-card__username">@{delver.username}</p>
+      {delver.region ? (
+        <p className="dv-profile-card__region">
+          <MapPin size={11} strokeWidth={2.25} aria-hidden />
+          {delver.region}
+        </p>
+      ) : null}
+      <p className="dv-profile-card__stats">
+        {delver.postCount} {delver.postCount === 1 ? 'post' : 'posts'}
+        {delver.totalLikes > 0 ? ` · ${formatCount(delver.totalLikes)} likes` : ''}
+      </p>
+      <span className="dv-profile-card__cta">
+        View profile
+        <ArrowRight size={13} strokeWidth={2.5} aria-hidden />
+      </span>
+    </Link>
+  )
+}
+
+function FeedPostCard({
   post,
-  index,
-  isActive,
-  burst,
   profile,
   likeBusy,
   saveBusy,
-  onMediaTap,
   onLike,
   onSave,
   onShare,
 }: {
   post: PinPost
-  index: number
-  isActive: boolean
-  burst: boolean
   profile: boolean
   likeBusy: boolean
   saveBusy: boolean
-  onMediaTap: () => void
   onLike: () => void
   onSave: () => void
   onShare: () => void
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
   const name = post.author.display_name || post.author.username
   const initial = name.trim().charAt(0).toUpperCase() || '?'
   const imgSrc = post.image ? mediaUrl(post.image) : null
   const vidSrc = post.video ? mediaUrl(post.video) : null
-
-  useEffect(() => {
-    const v = videoRef.current
-    if (!v || !vidSrc) return
-    if (isActive) {
-      void v.play().catch(() => {})
-    } else {
-      v.pause()
-      v.currentTime = 0
-    }
-  }, [isActive, vidSrc])
-
-  const caption = post.body?.trim() || ''
-  const soundLine = vidSrc ? `Original sound · ${name}` : post.delvers_board || post.region
+  const when = formatWhen(post.created_at)
+  const preview = postPreview(post)
 
   return (
-    <article className="tt-slide" data-tt-index={index} data-tt-post-id={post.id} aria-label={`Pin by ${name}`}>
-      <button type="button" className="tt-slide__tap" onClick={onMediaTap} aria-label="Double-tap to like">
+    <article className="dv-feed-card card" data-dv-post-id={post.id}>
+      <header className="dv-feed-card__head">
+        <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="dv-feed-card__author">
+          <span className="dv-feed-card__avatar" aria-hidden>
+            {post.author.avatar ? (
+              <img src={mediaUrl(post.author.avatar) || ''} alt="" />
+            ) : (
+              initial
+            )}
+          </span>
+          <span className="dv-feed-card__author-meta">
+            <strong>{name}</strong>
+            <span>@{post.author.username}</span>
+          </span>
+        </Link>
+        {post.region ? (
+          <span className="dv-feed-card__location">
+            <MapPin size={12} strokeWidth={2.25} aria-hidden />
+            {post.region}
+          </span>
+        ) : null}
+      </header>
+
+      <Link to={`/posts/${post.id}`} className="dv-feed-card__body-link">
         {vidSrc ? (
-          <video
-            ref={videoRef}
-            className="tt-slide__media"
-            src={vidSrc}
-            muted
-            loop
-            playsInline
-            preload={index <= 1 ? 'auto' : 'metadata'}
-            poster={imgSrc || undefined}
-          />
+          <div className="dv-feed-card__media">
+            <video src={vidSrc} muted playsInline preload="metadata" poster={imgSrc || undefined} />
+            <span className="dv-feed-card__media-badge" aria-hidden>
+              <Video size={14} strokeWidth={2.25} />
+            </span>
+          </div>
         ) : imgSrc ? (
-          <img className="tt-slide__media" src={imgSrc} alt="" loading={index <= 2 ? 'eager' : 'lazy'} />
+          <div className="dv-feed-card__media">
+            <img src={imgSrc} alt={preview} loading="lazy" />
+          </div>
         ) : (
-          <div className="tt-slide__media tt-slide__media--empty">
-            <span aria-hidden>📌</span>
-            <p>{caption || 'A moment worth saving'}</p>
+          <div className="dv-feed-card__media dv-feed-card__media--text">
+            <Compass size={28} strokeWidth={1.75} aria-hidden />
           </div>
         )}
-      </button>
 
-      <div className="tt-slide__scrim" aria-hidden />
-
-      {burst ? (
-        <div className="tt-slide__burst" aria-hidden>
-          <Heart size={88} fill="currentColor" strokeWidth={0} />
+        <div className="dv-feed-card__copy">
+          {post.delvers_board ? <span className="dv-feed-card__topic">{post.delvers_board}</span> : null}
+          <p className="dv-feed-card__caption">{preview}</p>
+          {when ? <p className="dv-feed-card__date">{when}</p> : null}
         </div>
-      ) : null}
+      </Link>
 
-      <aside className="tt-rail" aria-label="Post actions">
-        <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="tt-rail__avatar">
-          <span aria-hidden>{initial}</span>
-        </Link>
-
+      <footer className="dv-feed-card__actions">
         {profile ? (
           <button
             type="button"
-            className={`tt-rail__btn${post.liked_by_me ? ' tt-rail__btn--liked' : ''}`}
+            className={`dv-feed-card__action${post.liked_by_me ? ' dv-feed-card__action--liked' : ''}`}
             onClick={onLike}
             disabled={likeBusy}
             aria-label={post.liked_by_me ? 'Unlike' : 'Like'}
           >
-            <Heart size={28} fill={post.liked_by_me ? 'currentColor' : 'none'} strokeWidth={2} />
-            <span>{formatCount(post.likes_count || 0)}</span>
+            <Heart size={16} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+            {formatCount(post.likes_count || 0)}
           </button>
         ) : (
-          <Link to="/login" className="tt-rail__btn" aria-label="Like">
-            <Heart size={28} strokeWidth={2} />
-            <span>{formatCount(post.likes_count || 0)}</span>
+          <Link to="/login" className="dv-feed-card__action" aria-label="Like">
+            <Heart size={16} strokeWidth={2.25} aria-hidden />
+            {formatCount(post.likes_count || 0)}
           </Link>
         )}
 
-        <Link to={`/posts/${post.id}`} className="tt-rail__btn" aria-label="Comment">
-          <MessageCircle size={28} strokeWidth={2} />
-          <span>Comment</span>
+        <Link to={`/posts/${post.id}`} className="dv-feed-card__action" aria-label="View comments">
+          <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
+          {post.comments_count ? formatCount(post.comments_count) : 'Comment'}
         </Link>
 
         {profile ? (
           <button
             type="button"
-            className={`tt-rail__btn${post.saved_by_me ? ' tt-rail__btn--saved' : ''}`}
+            className={`dv-feed-card__action${post.saved_by_me ? ' dv-feed-card__action--saved' : ''}`}
             onClick={onSave}
             disabled={saveBusy}
             aria-label={post.saved_by_me ? 'Unsave' : 'Save'}
           >
-            <Bookmark size={26} fill={post.saved_by_me ? 'currentColor' : 'none'} strokeWidth={2} />
-            <span>{formatCount(post.saves_count || 0)}</span>
+            <Bookmark size={16} strokeWidth={2.25} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
+            {formatCount(post.saves_count || 0)}
           </button>
         ) : (
-          <Link to="/login" className="tt-rail__btn" aria-label="Save">
-            <Bookmark size={26} strokeWidth={2} />
-            <span>{formatCount(post.saves_count || 0)}</span>
+          <Link to="/login" className="dv-feed-card__action" aria-label="Save">
+            <Bookmark size={16} strokeWidth={2.25} aria-hidden />
+            {formatCount(post.saves_count || 0)}
           </Link>
         )}
 
-        <button type="button" className="tt-rail__btn" onClick={onShare} aria-label="Share">
-          <Share2 size={26} strokeWidth={2} />
-          <span>Share</span>
+        <button type="button" className="dv-feed-card__action" onClick={onShare} aria-label="Share post">
+          <Share2 size={16} strokeWidth={2.25} aria-hidden />
+          Share
         </button>
-      </aside>
 
-      <footer className="tt-meta">
-        <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="tt-meta__user">
-          @{post.author.username}
+        <Link to={`/posts/${post.id}`} className="dv-feed-card__view">
+          View post
+          <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
         </Link>
-        {post.delvers_board ? (
-          <p className="tt-meta__board">{post.delvers_board}</p>
-        ) : null}
-        {caption ? <p className="tt-meta__caption">{caption}</p> : null}
-        <p className="tt-meta__sound">
-          <span className="tt-meta__sound-icon" aria-hidden>
-            ♫
-          </span>
-          {soundLine}
-          {post.region ? <span className="tt-meta__region"> · {post.region}</span> : null}
-        </p>
       </footer>
     </article>
   )

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
+import { Users } from 'lucide-react'
 import type { ProviderBooking } from '../../data/providerData'
-import { ProviderStatusBadge } from './ProviderStatusBadge'
+import { BookingStatusBadge } from '../booking'
 
 type Props = {
   booking: ProviderBooking
@@ -24,8 +25,16 @@ export function ProviderBookingRow({ booking, showActions = true }: Props) {
           </span>
         </div>
       </div>
-      <span className="prov-booking-row__date">{booking.date}</span>
-      <ProviderStatusBadge status={booking.status} />
+      <span className="prov-booking-row__date">
+        {booking.date}
+        {booking.guests ? (
+          <span className="prov-booking-row__guests">
+            <Users size={12} strokeWidth={2.25} aria-hidden />
+            {booking.guests}
+          </span>
+        ) : null}
+      </span>
+      <BookingStatusBadge status={booking.status} />
       <strong className="prov-booking-row__amount">
         {booking.total ? `N$${booking.total.toLocaleString()}` : 'Free'}
       </strong>

@@ -1,8 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import type { LucideIcon } from 'lucide-react'
+import {
+  ArrowRight,
+  BadgeCheck,
+  BadgeDollarSign,
+  Binoculars,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Compass,
+  Flame,
+  Heart,
+  Landmark,
+  Languages,
+  MapPin,
+  Route,
+  SlidersHorizontal,
+  Sparkles,
+  Utensils,
+  X,
+} from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { MarketplaceBadge, MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
+import { MiniRating } from '../components/MiniRating'
 import { EmptyState, ListSkeleton } from '../components/ui'
 
 type Guide = {
@@ -18,6 +43,9 @@ type Guide = {
   rating_avg?: string | null
   rating_count?: number | null
   specialities?: string[]
+  licensed_guide?: boolean
+  response_hours_typical?: number | null
+  tour_packages?: unknown[]
 }
 
 const LANGUAGE_OPTIONS = [
@@ -38,19 +66,94 @@ const REGION_OPTIONS = [
   'Oceania', 'Middle East', 'Caribbean', 'Arctic',
 ]
 
-const DEFAULT_GUIDE_PHOTO = '/images/default-guide.jpg'
+const QUICK_FILTERS: { id: string; label: string; Icon: LucideIcon }[] = [
+  { id: 'licensed', label: 'Licensed guides', Icon: BadgeCheck },
+  { id: 'fast', label: 'Fast response', Icon: Clock },
+  { id: 'culture', label: 'Culture', Icon: Landmark },
+  { id: 'food', label: 'Food tours', Icon: Utensils },
+  { id: 'wildlife', label: 'Wildlife', Icon: Binoculars },
+  { id: 'walks', label: 'City walks', Icon: Route },
+  { id: 'budget', label: 'Budget friendly', Icon: BadgeDollarSign },
+  { id: 'photography', label: 'Photography', Icon: Camera },
+]
+
+const SIDEBAR_TYPES: { label: string; id: string }[] = [
+  { label: 'Culture', id: 'culture' },
+  { label: 'Wildlife', id: 'wildlife' },
+  { label: 'Food tours', id: 'food' },
+  { label: 'City walks', id: 'walks' },
+  { label: 'Photography', id: 'photography' },
+  { label: 'Adventure', id: 'wildlife' },
+  { label: 'History', id: 'culture' },
+  { label: 'Family friendly', id: 'family' },
+]
+
+const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Etosha', 'Walvis Bay', 'Sossusvlei'] as const
+
 const FALLBACK_GUIDE_PHOTO = '/images/default-journey.jpg'
-
-const HERO_TRUST = ['Vetted hosts', 'Local routes', 'Language matching'] as const
-
-function guidePhotoSrc(photo: string | null) {
-  return mediaUrl(photo) || DEFAULT_GUIDE_PHOTO
-}
+const BUDGET_HOURLY_MAX = 300
+const FAST_RESPONSE_HOURS = 3
 
 function onGuidePhotoError(e: React.SyntheticEvent<HTMLImageElement>) {
   const img = e.currentTarget
   if (!img.src.endsWith(FALLBACK_GUIDE_PHOTO)) {
     img.src = FALLBACK_GUIDE_PHOTO
+  }
+}
+
+function guideDisplayName(g: Guide): string {
+  return g.display_name?.trim() || g.username
+}
+
+function guideSearchText(g: Guide): string {
+  return [
+    g.headline,
+    g.bio,
+    g.username,
+    g.display_name,
+    ...(g.languages || []),
+    ...(g.regions || []),
+    ...(g.specialities || []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+function guideMatchesKeywords(g: Guide, keywords: string[]): boolean {
+  const hay = guideSearchText(g)
+  return keywords.some((k) => hay.includes(k))
+}
+
+function applyQuickFilter(guides: Guide[], filterId: string): Guide[] {
+  switch (filterId) {
+    case 'licensed':
+      return guides.filter((g) => g.licensed_guide === true)
+    case 'fast':
+      return guides.filter((g) => (g.response_hours_typical ?? 99) <= FAST_RESPONSE_HOURS)
+    case 'culture':
+      return guides.filter((g) =>
+        guideMatchesKeywords(g, ['culture', 'history', 'architecture', 'heritage', 'museum', 'urban']),
+      )
+    case 'food':
+      return guides.filter((g) => guideMatchesKeywords(g, ['food', 'culinary', 'restaurant', 'market']))
+    case 'wildlife':
+      return guides.filter((g) =>
+        guideMatchesKeywords(g, ['wildlife', 'nature', 'safari', 'desert', 'bird', 'animal']),
+      )
+    case 'walks':
+      return guides.filter((g) => guideMatchesKeywords(g, ['walk', 'city', 'urban', 'street', 'route']))
+    case 'budget':
+      return guides.filter((g) => {
+        const rate = parseFloat(g.hourly_rate ?? '')
+        return !Number.isNaN(rate) && rate <= BUDGET_HOURLY_MAX
+      })
+    case 'photography':
+      return guides.filter((g) => guideMatchesKeywords(g, ['photography', 'photo', 'camera']))
+    case 'family':
+      return guides.filter((g) => guideMatchesKeywords(g, ['family', 'kids', 'children']))
+    default:
+      return guides
   }
 }
 
@@ -63,10 +166,34 @@ function pickTopGuide(guides: Guide[]): Guide | null {
   })
 }
 
+function guideTrustBadges(g: Guide): { label: string; variant?: 'licensed' | 'fast' | 'popular' | 'default' }[] {
+  const badges: { label: string; variant?: 'licensed' | 'fast' | 'popular' | 'default' }[] = []
+  if (g.licensed_guide) badges.push({ label: 'Licensed guide', variant: 'licensed' })
+  const rating = parseFloat(g.rating_avg ?? '0')
+  if (g.rating_avg != null && rating >= 4.5) badges.push({ label: 'Highly rated', variant: 'popular' })
+  else if (g.rating_count && g.rating_count >= 10) badges.push({ label: 'Traveller rated', variant: 'default' })
+  if ((g.response_hours_typical ?? 99) <= FAST_RESPONSE_HOURS) badges.push({ label: 'Fast response', variant: 'fast' })
+  if ((g.tour_packages?.length ?? 0) > 0) badges.push({ label: 'Experiences available', variant: 'default' })
+  if (badges.length === 0) badges.push({ label: 'Local expert', variant: 'default' })
+  return badges.slice(0, 3)
+}
+
+function resultsSummary(count: number, hasFilters: boolean, search: string) {
+  const noun = count === 1 ? 'guide' : 'guides'
+  if (!hasFilters && !search) {
+    return count > 0 ? `${count} ${noun} available` : 'Explore local experts and private experiences.'
+  }
+  if (search && hasFilters) return `${count} ${noun} for “${search}” match your filters`
+  if (search) return `${count} ${noun} for “${search}”`
+  if (hasFilters) return `${count} ${noun} match your filters`
+  return `${count} ${noun} available`
+}
+
 export function GuidesList() {
   const { profile } = useAuth()
   const [language, setLanguage] = useState('')
   const [region, setRegion] = useState('')
+  const [quickFilter, setQuickFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
@@ -101,14 +228,35 @@ export function GuidesList() {
     queryFn: () => apiFetch<Guide[]>(`/api/guides/profiles/${qs}`, { auth: false }),
   })
 
-  const guides = data ?? []
-  const featured = useMemo(() => guides.slice(0, 5), [guides])
+  const guides = useMemo(() => {
+    let list = data ?? []
+    if (quickFilter) list = applyQuickFilter(list, quickFilter)
+    return list
+  }, [data, quickFilter])
+
+  const featured = useMemo(() => guides.slice(0, 6), [guides])
+  const showRichSections = featured.length >= 4
   const topPick = useMemo(() => pickTopGuide(guides), [guides])
   const gridGuides = useMemo(() => {
     if (!topPick) return guides
     return guides.filter((g) => g.id !== topPick.id)
   }, [guides, topPick])
   const activeStory = activeStoryIdx != null ? featured[activeStoryIdx] : null
+
+  const highlyRatedCount = useMemo(
+    () => (data ?? []).filter((g) => parseFloat(g.rating_avg ?? '0') >= 4.5).length,
+    [data],
+  )
+  const packagesCount = useMemo(
+    () => (data ?? []).filter((g) => (g.tour_packages?.length ?? 0) > 0).length,
+    [data],
+  )
+  const fastResponseCount = useMemo(
+    () => (data ?? []).filter((g) => (g.response_hours_typical ?? 99) <= FAST_RESPONSE_HOURS).length,
+    [data],
+  )
+
+  const hasFilters = !!(language || region || search || quickFilter)
 
   useEffect(() => {
     if (activeStoryIdx == null) return
@@ -201,110 +349,150 @@ export function GuidesList() {
     })
   }
 
-  const hasFilters = !!(language || region || search)
-
   const clearAll = () => {
     setLanguage('')
     setRegion('')
+    setQuickFilter('')
     setSearchInput('')
     setSearch('')
   }
 
-  const resultsLabel =
-    hasFilters && search
-      ? `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} matched to your search`
-      : hasFilters
-        ? `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} matched to your filters`
-        : `${guides.length} ${guides.length === 1 ? 'guide' : 'guides'} available`
+  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
+    return [
+      {
+        id: 'popular-types',
+        title: 'Popular guide types',
+        type: 'links',
+        items: SIDEBAR_TYPES.map(({ label, id }) => ({
+          label,
+          active: quickFilter === id,
+          onClick: () => setQuickFilter(quickFilter === id ? '' : id),
+        })),
+      },
+      {
+        id: 'guide-pulse',
+        title: 'Guide pulse',
+        type: 'stats',
+        items: [
+          { value: data?.length ? data.length : '—', label: 'guides listed' },
+          { value: highlyRatedCount ? highlyRatedCount : '—', label: 'highly rated' },
+          { value: packagesCount ? packagesCount : '—', label: 'with experiences' },
+          { value: fastResponseCount ? fastResponseCount : '—', label: 'fast response' },
+        ],
+      },
+      {
+        id: 'top-areas',
+        title: 'Top areas',
+        type: 'links',
+        items: TOP_AREAS.map((area) => ({
+          label: area,
+          onClick: () => {
+            setSearchInput(area)
+            setSearch(area)
+          },
+        })),
+      },
+    ]
+  }, [data?.length, fastResponseCount, highlyRatedCount, packagesCount, quickFilter])
 
   return (
-    <div className="gd-page ev-page acc-page mk-page">
-      <section className="gd-hero">
-        <header className="page-header ev-page__header acc-page__header gd-page__header">
-          <div>
-            <p className="gd-page__eyebrow">DELVE · Guides</p>
-            <h1 className="display ev-page__title gd-page__title">Find local guides</h1>
-            <p className="page-sub ev-page__sub gd-page__sub">
-              Book local experts for culture, food, wildlife, city walks, road trips, and hidden places.
-            </p>
-          </div>
-        </header>
+    <div className="gd-page disc-page mk-page">
+      <MarketplaceHero
+        title="Find local guides"
+        subtitle="Book trusted local experts for culture, wildlife, food, city walks, photography, and hidden places."
+        support="Compare specialities, languages, ratings, regions, and prices."
+        action={
+          <button
+            type="button"
+            className={`gd-filter-toggle acc-page__filter-btn btn btn-ghost${showFilters ? ' acc-page__filter-btn--active' : ''}${hasFilters ? ' acc-page__filter-btn--has-filters' : ''}`}
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+          >
+            <SlidersHorizontal size={16} strokeWidth={2.25} aria-hidden />
+            {showFilters ? 'Hide filters' : 'Filters'}
+          </button>
+        }
+      />
 
-        <div className="gd-hero__trust" aria-label="Why book with DELVE guides">
-          {HERO_TRUST.map((t) => (
-            <span key={t}>{t}</span>
-          ))}
+      <SearchPanel
+        id="gd-search"
+        label="Search guides"
+        placeholder="Search culture, wildlife, Windhoek, food tour, photography…"
+        value={searchInput}
+        onChange={setSearchInput}
+        onClear={() => setSearchInput('')}
+        className="gd-page__search"
+      />
+
+      <QuickFilterChips
+        ariaLabel="Guide speciality filters"
+        className="gd-page__quick-chips"
+        chips={QUICK_FILTERS.map((f) => ({
+          id: f.id,
+          label: f.label,
+          Icon: f.Icon,
+          active: quickFilter === f.id,
+        }))}
+        onChipClick={(id) => setQuickFilter(quickFilter === id ? '' : id)}
+      />
+
+      {(language || region || quickFilter) && (
+        <div className="gd-active-filters" role="group" aria-label="Active filters">
+          {language ? (
+            <button type="button" className="gd-active-filter" onClick={() => setLanguage('')}>
+              {LANGUAGE_OPTIONS.find((l) => l.value === language)?.label ?? language}
+              <X size={14} strokeWidth={2.25} aria-hidden />
+            </button>
+          ) : null}
+          {region ? (
+            <button type="button" className="gd-active-filter" onClick={() => setRegion('')}>
+              {region}
+              <X size={14} strokeWidth={2.25} aria-hidden />
+            </button>
+          ) : null}
+          {quickFilter ? (
+            <button type="button" className="gd-active-filter" onClick={() => setQuickFilter('')}>
+              {QUICK_FILTERS.find((f) => f.id === quickFilter)?.label ?? quickFilter}
+              <X size={14} strokeWidth={2.25} aria-hidden />
+            </button>
+          ) : null}
         </div>
-
-        <div className="acc-page__search gd-hero__search">
-          <label className="visually-hidden" htmlFor="gd-search">
-            Search guides
-          </label>
-          <div className="acc-page__search-inner">
-            <span className="acc-page__search-icon" aria-hidden>
-              ⌕
-            </span>
-            <input
-              id="gd-search"
-              type="search"
-              className="acc-page__search-input input"
-              placeholder="Search by guide, place, or experience…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              autoComplete="off"
-              enterKeyHint="search"
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                className="acc-page__search-clear"
-                onClick={() => setSearchInput('')}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <button
-        type="button"
-        className="gd-filter-toggle"
-        onClick={() => setShowFilters((v) => !v)}
-        aria-expanded={showFilters}
-      >
-        {showFilters ? 'Hide filters' : 'Find your guide'}
-      </button>
+      )}
 
       {showFilters && (
-        <section className="ev-page__discover card" aria-labelledby="gd-discover-title">
+        <section className="ev-page__discover card gd-filters-panel gd-page__discover" aria-labelledby="gd-discover-title">
           <h2 id="gd-discover-title" className="ev-page__discover-title">
             Match with a local expert
           </h2>
-          <p className="ev-page__discover-sub">
-            Filter by language first — then narrow by where they guide.
-          </p>
-          <div className="ev-page__discover-chips" role="group" aria-label="Languages">
+          <p className="ev-page__discover-sub">Filter by language first — then narrow by where they guide.</p>
+          <div className="ev-page__discover-chips gd-page__lang-chips" role="group" aria-label="Languages">
             {LANGUAGE_OPTIONS.map(({ value, label }) => (
               <button
                 key={`gd-lang-${value}`}
                 type="button"
-                className={`acc-quick-chip ev-page__discover-chip${language === value ? ' acc-quick-chip--active' : ''}`}
+                className={`acc-quick-chip ev-page__discover-chip gd-page__lang-chip${language === value ? ' acc-quick-chip--active' : ''}`}
                 onClick={() => setLanguage(language === value ? '' : value)}
+                aria-pressed={language === value}
               >
+                <Languages className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
                 {label}
               </button>
             ))}
           </div>
-          <div className="ev-page__discover-chips gd-page__discover-chips--regions" role="group" aria-label="Regions">
+          <div
+            className="ev-page__discover-chips gd-page__discover-chips--regions"
+            role="group"
+            aria-label="Regions"
+          >
             {REGION_OPTIONS.map((r) => (
               <button
                 key={`gd-reg-${r}`}
                 type="button"
-                className={`acc-quick-chip${region === r ? ' acc-quick-chip--active' : ''}`}
+                className={`acc-quick-chip gd-page__region-chip${region === r ? ' acc-quick-chip--active' : ''}`}
                 onClick={() => setRegion(region === r ? '' : r)}
+                aria-pressed={region === r}
               >
+                <MapPin className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
                 {r}
               </button>
             ))}
@@ -312,130 +500,145 @@ export function GuidesList() {
         </section>
       )}
 
-      {!isLoading && featured.length > 0 && (
-        <section className="ev-page__story-rings" aria-labelledby="gd-story-rings-title">
-          <div className="ev-page__stories-head">
-            <h2 id="gd-story-rings-title" className="ev-page__stories-title">
-              Meet the guides
-            </h2>
-            <span className="ev-page__stories-sub">Tap to open</span>
+      <div className="gd-page__layout disc-page__layout">
+        <main className="gd-page__main disc-page__main">
+          {!isLoading && !isError && (
+            <p className="gd-page__results-summary" role="status">
+              {guides.length > 0
+                ? resultsSummary(guides.length, hasFilters, search)
+                : hasFilters || search
+                  ? resultsSummary(0, hasFilters, search)
+                  : resultsSummary(0, false, '')}
+            </p>
+          )}
+
+          {!isLoading && showRichSections && (
+            <section className="ev-page__story-rings" aria-labelledby="gd-story-rings-title">
+              <div className="ev-page__stories-head">
+                <h2 id="gd-story-rings-title" className="ev-page__stories-title">
+                  Meet the guides
+                </h2>
+                <span className="ev-page__stories-sub">Tap to open</span>
+              </div>
+              <div className="ev-page__story-rings-row">
+                {featured.map((g, i) => {
+                  const name = guideDisplayName(g)
+                  return (
+                    <button
+                      key={`gd-ring-${g.id}`}
+                      type="button"
+                      className="ev-story-ring"
+                      onClick={() => setActiveStoryIdx(i)}
+                      aria-label={`Open story for ${name}`}
+                    >
+                      <span className="ev-story-ring__avatar">
+                        <GuidePhoto guide={g} className="ev-story-ring__avatar-img" alt="" />
+                      </span>
+                      <span className="ev-story-ring__label">{name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {!isLoading && featured.length > 0 && (
+            <section className="gd-featured-section" aria-labelledby="gd-featured-title">
+              <div className="gd-featured-section__head">
+                <div>
+                  <h2 id="gd-featured-title" className="gd-featured-section__title">
+                    Featured local experts
+                  </h2>
+                  <p className="gd-featured-section__sub">
+                    Guides with strong profiles, useful specialities, and traveller trust signals.
+                  </p>
+                </div>
+              </div>
+              <div className="gd-featured-rail">
+                {featured.map((g) => (
+                  <GuideFeaturedRailCard key={`gd-featured-${g.id}`} guide={g} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {hasFilters && (
+            <div className="gd-page__filter-summary">
+              <span className="gd-page__filter-text">
+                Filtered
+                {language ? ` · ${LANGUAGE_OPTIONS.find((l) => l.value === language)?.label ?? language}` : ''}
+                {region ? ` · ${region}` : ''}
+                {quickFilter ? ` · ${QUICK_FILTERS.find((f) => f.id === quickFilter)?.label}` : ''}
+                {search ? ` · “${search}”` : ''}
+              </span>
+              <button type="button" className="gd-page__filter-clear" onClick={clearAll}>
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {isError && (
+            <EmptyState
+              iconElement={<Compass size={28} strokeWidth={1.75} />}
+              title="We couldn't load guides"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetch() }}
+              className="gd-page__empty"
+            />
+          )}
+
+          {isLoading && !isError && (
+            <div className="gd-page__skeleton-wrap">
+              <ListSkeleton count={3} />
+            </div>
+          )}
+
+          {!isLoading && topPick && (
+            <GuideFeaturedCard guide={topPick} saved={savedIds.has(topPick.id)} onToggleSave={toggleSaved} />
+          )}
+
+          <div className="gd-page__grid">
+            {gridGuides.map((g) => (
+              <GuideCard key={g.id} guide={g} saved={savedIds.has(g.id)} onToggleSave={toggleSaved} />
+            ))}
           </div>
-          <div className="ev-page__story-rings-row">
-            {featured.map((g, i) => {
-              const name = g.display_name?.trim() || g.username
-              return (
-                <button
-                  key={`gd-ring-${g.id}`}
-                  type="button"
-                  className="ev-story-ring"
-                  onClick={() => setActiveStoryIdx(i)}
-                  aria-label={`Open story: ${name}`}
-                >
-                  <span className="ev-story-ring__avatar">
-                    <img src={guidePhotoSrc(g.photo)} alt="" onError={onGuidePhotoError} />
-                  </span>
-                  <span className="ev-story-ring__label">{name}</span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
-      {!isLoading && featured.length > 0 && (
-        <section className="ev-page__stories" aria-labelledby="gd-stories-title">
-          <div className="ev-page__stories-head">
-            <h2 id="gd-stories-title" className="ev-page__stories-title">
-              Featured local experts
-            </h2>
-            <span className="ev-page__stories-sub">Swipe to compare</span>
-          </div>
-          <div className="ev-page__stories-row">
-            {featured.map((g) => {
-              const name = g.display_name?.trim() || g.username
-              const loc = (g.regions || []).slice(0, 2).join(' · ')
-              return (
-                <Link key={`gd-story-${g.id}`} to={`/guides/${g.id}`} className="ev-story">
-                  <div className="ev-story__img-wrap">
-                    <img
-                      className="ev-story__img"
-                      src={guidePhotoSrc(g.photo)}
-                      alt=""
-                      onError={onGuidePhotoError}
-                    />
-                  </div>
-                  <div className="ev-story__meta">
-                    <p className="ev-story__title">{name}</p>
-                    <p className="ev-story__sub">{g.headline}{loc ? ` · ${loc}` : ''}</p>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
+          {!isLoading && !isError && guides.length === 0 && (
+            <EmptyState
+              iconElement={<Compass size={28} strokeWidth={1.75} />}
+              title={
+                hasFilters || search
+                  ? 'No guides found'
+                  : (data?.length ?? 0) > 0
+                    ? 'No guides found'
+                    : 'No guides listed yet'
+              }
+              sub={
+                hasFilters || search
+                  ? 'Try changing your region, speciality, language, price, or filters.'
+                  : 'Local experts, tour hosts, and private guides will appear here once added.'
+              }
+              cta={hasFilters || search ? { label: 'Show all guides', onClick: clearAll } : undefined}
+              className="gd-page__empty"
+            />
+          )}
+        </main>
 
-      {hasFilters && (
-        <div className="ev-page__filter-summary">
-          <span className="ev-page__filter-summary-text">
-            Filtered
-            {language ? ` · ${LANGUAGE_OPTIONS.find((l) => l.value === language)?.label ?? language}` : ''}
-            {region ? ` · ${region}` : ''}
-            {search ? ` · "${search}"` : ''}
-          </span>
-          <button type="button" className="ev-page__filter-clear" onClick={clearAll}>
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {isError && (
-        <EmptyState
-          icon="🧭"
-          title="We couldn't load guides"
-          sub="Please check your connection and try again."
-          cta={{ label: 'Try again', onClick: () => void refetch() }}
-        />
-      )}
-
-      {isLoading && !isError && <ListSkeleton count={3} />}
-
-      {!isLoading && !isError && guides.length > 0 && (
-        <p className="ev-page__results-hint gd-page__results-hint">
-          <span className="gd-page__results-label">Available local experts</span>
-          <span className="gd-page__results-detail">{resultsLabel}</span>
-        </p>
-      )}
-
-      {!isLoading && topPick && (
-        <GuideFeaturedCard guide={topPick} saved={savedIds.has(topPick.id)} onToggleSave={toggleSaved} />
-      )}
-
-      <div className="acc-page__grid ev-page__grid gd-page__grid">
-        {gridGuides.map((g) => (
-          <GuideCard key={g.id} guide={g} saved={savedIds.has(g.id)} onToggleSave={toggleSaved} />
-        ))}
+        <DiscoverySidebar sections={sidebarSections} ariaLabel="Guide discovery" />
       </div>
 
-      {!isLoading && data?.length === 0 && (
-        <EmptyState
-          icon="🧭"
-          title={hasFilters ? 'No guides match these filters' : 'No guides listed yet'}
-          sub={
-            hasFilters
-              ? 'Try another language, region, or search — new hosts join DELVE every week.'
-              : 'Expert guides in cities around the world will appear here as they join DELVE.'
-          }
-          cta={hasFilters ? { label: 'Show all guides', onClick: clearAll } : undefined}
-        />
-      )}
+      {shareMsg ? (
+        <p className="gd-page__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
 
       {activeStory && (
         <div
           className="ev-story-viewer"
           role="dialog"
           aria-modal="true"
-          aria-label="Guide story"
+          aria-label={`Guide story: ${activeStory.headline}`}
           onClick={() => setActiveStoryIdx(null)}
         >
           <div className="ev-story-viewer__card" onClick={(e) => e.stopPropagation()}>
@@ -445,19 +648,9 @@ export function GuidesList() {
               aria-label="Close story"
               onClick={() => setActiveStoryIdx(null)}
             >
-              ×
+              <X size={20} strokeWidth={2.25} aria-hidden />
             </button>
-            {activeStory.photo ? (
-              <img
-                className="ev-story-viewer__img"
-                src={mediaUrl(activeStory.photo) || ''}
-                alt={activeStory.headline}
-              />
-            ) : (
-              <div className="ev-story-viewer__img ev-story-viewer__img--placeholder">
-                <span aria-hidden>🧭</span>
-              </div>
-            )}
+            <GuidePhoto guide={activeStory} className="ev-story-viewer__img" alt={activeStory.headline} large />
             <div className="ev-story-viewer__meta">
               <div className="ev-story-viewer__progress" aria-hidden>
                 <span
@@ -483,7 +676,13 @@ export function GuidesList() {
                   onClick={() => onReactStory(activeStory.id, 'love')}
                   aria-label="React with love"
                 >
-                  ❤️ {storyReactionCounts[activeStory.id]?.love ?? 0}
+                  <Heart
+                    size={16}
+                    strokeWidth={2.25}
+                    fill={storyReactions[activeStory.id] === 'love' ? 'currentColor' : 'none'}
+                    aria-hidden
+                  />
+                  {storyReactionCounts[activeStory.id]?.love ?? 0}
                 </button>
                 <button
                   type="button"
@@ -491,15 +690,17 @@ export function GuidesList() {
                   onClick={() => onReactStory(activeStory.id, 'fire')}
                   aria-label="React with fire"
                 >
-                  🔥 {storyReactionCounts[activeStory.id]?.fire ?? 0}
+                  <Flame size={16} strokeWidth={2.25} aria-hidden />
+                  {storyReactionCounts[activeStory.id]?.fire ?? 0}
                 </button>
                 <button
                   type="button"
                   className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'wow' ? ' ev-story-viewer__react--active' : ''}`}
                   onClick={() => onReactStory(activeStory.id, 'wow')}
-                  aria-label="React with wow"
+                  aria-label="React with surprise"
                 >
-                  😮 {storyReactionCounts[activeStory.id]?.wow ?? 0}
+                  <Sparkles size={16} strokeWidth={2.25} aria-hidden />
+                  {storyReactionCounts[activeStory.id]?.wow ?? 0}
                 </button>
                 <button type="button" className="ev-story-viewer__share" onClick={() => onShareStory(activeStory.id)}>
                   Share
@@ -514,7 +715,11 @@ export function GuidesList() {
               </div>
               {showCommentInput && (
                 <div className="ev-story-viewer__comment-box">
+                  <label className="visually-hidden" htmlFor="gd-story-comment">
+                    Write a comment
+                  </label>
                   <input
+                    id="gd-story-comment"
                     className="input ev-story-viewer__comment-input"
                     placeholder="Write a comment…"
                     value={storyDraft}
@@ -545,7 +750,7 @@ export function GuidesList() {
                 </div>
               )}
               <Link className="btn btn-primary ev-story-viewer__cta" to={`/guides/${activeStory.id}`}>
-                Open guide profile
+                View guide
               </Link>
             </div>
             {featured.length > 1 && (
@@ -560,7 +765,7 @@ export function GuidesList() {
                     )
                   }
                 >
-                  ‹
+                  <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -568,7 +773,7 @@ export function GuidesList() {
                   aria-label="Next story"
                   onClick={() => setActiveStoryIdx((idx) => (idx == null ? 0 : (idx + 1) % featured.length))}
                 >
-                  ›
+                  <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
                 </button>
               </>
             )}
@@ -576,6 +781,78 @@ export function GuidesList() {
         </div>
       )}
     </div>
+  )
+}
+
+function GuidePhoto({
+  guide,
+  className = '',
+  alt,
+  large = false,
+}: {
+  guide: Guide
+  className?: string
+  alt: string
+  large?: boolean
+}) {
+  const resolved = mediaUrl(guide.photo)
+
+  if (!resolved) {
+    return (
+      <div
+        className={`gd-card__photo--placeholder${large ? ' gd-card__photo--placeholder-large' : ''} ${className}`.trim()}
+        aria-hidden={alt === ''}
+      >
+        <Compass size={large ? 40 : 28} strokeWidth={1.75} className="gd-card__photo-placeholder-icon" />
+      </div>
+    )
+  }
+
+  return (
+    <img
+      className={className}
+      src={resolved}
+      alt={alt}
+      loading="lazy"
+      onError={onGuidePhotoError}
+    />
+  )
+}
+
+function GuideFeaturedRailCard({ guide: g }: { guide: Guide }) {
+  const name = guideDisplayName(g)
+  const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
+  const specialitySnippet = (g.specialities || []).slice(0, 2).join(' · ')
+  const badges = guideTrustBadges(g)
+
+  return (
+    <Link to={`/guides/${g.id}`} className="gd-featured-card">
+      <div className="gd-featured-card__media">
+        <GuidePhoto guide={g} className="gd-featured-card__img" alt={name} />
+      </div>
+      <div className="gd-featured-card__body">
+        {badges[0] ? (
+          <MarketplaceBadge variant={badges[0].variant}>{badges[0].label}</MarketplaceBadge>
+        ) : null}
+        <p className="gd-featured-card__name">{g.headline}</p>
+        <p className="gd-featured-card__sub">{name}</p>
+        {regionSnippet ? (
+          <p className="gd-featured-card__meta">
+            <MapPin size={12} strokeWidth={2.25} aria-hidden />
+            {regionSnippet}
+          </p>
+        ) : null}
+        {specialitySnippet ? <p className="gd-featured-card__spec">{specialitySnippet}</p> : null}
+        <div className="gd-featured-card__foot">
+          {g.rating_avg != null ? <MiniRating rating={g.rating_avg} count={g.rating_count} /> : null}
+          {g.hourly_rate ? (
+            <span className="gd-featured-card__price">
+              From <strong>${g.hourly_rate}</strong>/hr
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </Link>
   )
 }
 
@@ -588,56 +865,58 @@ function GuideCard({
   saved: boolean
   onToggleSave: (id: number, e: React.MouseEvent) => void
 }) {
-  const displayName = g.display_name?.trim() || g.username
+  const name = guideDisplayName(g)
   const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
   const langSnippet = (g.languages || []).slice(0, 3)
-  const respondsFast = g.id % 2 === 0
+  const specSnippet = (g.specialities || []).slice(0, 2)
+  const badges = guideTrustBadges(g)
 
   return (
     <Link to={`/guides/${g.id}`} className="gd-card">
       <div className="gd-card__photo-wrap">
-        <img
-          className="gd-card__photo"
-          src={guidePhotoSrc(g.photo)}
-          alt={displayName}
-          loading="lazy"
-          onError={onGuidePhotoError}
-        />
+        <GuidePhoto guide={g} className="gd-card__photo" alt={name} />
         <button
           type="button"
           className={`gd-card__save${saved ? ' gd-card__save--saved' : ''}`}
           aria-label={saved ? 'Remove from saved' : 'Save guide'}
           onClick={(e) => onToggleSave(g.id, e)}
         >
-          <IconHeart filled={saved} />
+          <Heart size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
         </button>
       </div>
       <div className="gd-card__body">
-        <div className="gd-card__name-row">
-          <p className="gd-card__name">{displayName}</p>
-          {g.rating_avg != null && (
-            <p className="gd-card__rating">
-              <span className="gd-card__rating-star">★</span>
-              <span className="gd-card__rating-val">{parseFloat(g.rating_avg).toFixed(1)}</span>
-              {g.rating_count ? (
-                <span className="gd-card__rating-count">({g.rating_count})</span>
-              ) : null}
-            </p>
-          )}
+        <div className="gd-card__trust-rating-row">
+          <div className="gd-card__badges">
+            {badges.map((b) => (
+              <MarketplaceBadge key={b.label} variant={b.variant}>
+                {b.label}
+              </MarketplaceBadge>
+            ))}
+          </div>
+          {g.rating_avg != null ? (
+            <MiniRating rating={g.rating_avg} count={g.rating_count} />
+          ) : null}
         </div>
-        <p className="gd-card__headline">{g.headline}</p>
-        <div className="gd-card__trust-row">
-          <span>Verified</span>
-          <span>{respondsFast ? 'Responds fast' : 'Available this week'}</span>
-        </div>
+        <h2 className="gd-card__headline">{g.headline}</h2>
+        <p className="gd-card__name">{name}</p>
         {regionSnippet ? (
           <p className="gd-card__regions">
-            <IconPin className="gd-card__pin" />
+            <MapPin className="gd-card__pin" size={13} strokeWidth={2.25} aria-hidden />
             {regionSnippet}
           </p>
         ) : null}
+        {specSnippet.length > 0 ? (
+          <div className="gd-card__specialities">
+            {specSnippet.map((s) => (
+              <span key={s} className="gd-card__spec-chip">
+                {s}
+              </span>
+            ))}
+          </div>
+        ) : null}
         {langSnippet.length > 0 ? (
           <div className="gd-card__langs">
+            <Languages size={12} strokeWidth={2.25} aria-hidden className="gd-card__langs-icon" />
             {langSnippet.map((l) => (
               <span key={l} className="gd-card__lang-chip">
                 {l}
@@ -645,14 +924,21 @@ function GuideCard({
             ))}
           </div>
         ) : null}
-        {g.hourly_rate ? (
-          <p className="gd-card__rate">
-            <span className="gd-card__rate-from">From</span>
-            <strong>${g.hourly_rate}</strong>
-            <span className="gd-card__rate-unit"> / hr</span>
-          </p>
-        ) : null}
-        <span className={`gd-card__book${!g.hourly_rate ? ' gd-card__book--solo' : ''}`}>View guide</span>
+        <div className="gd-card__footer">
+          {g.hourly_rate ? (
+            <p className="gd-card__rate">
+              <span className="gd-card__rate-from">From</span>
+              <strong>${g.hourly_rate}</strong>
+              <span className="gd-card__rate-unit"> / hr</span>
+            </p>
+          ) : (
+            <span className="gd-card__rate gd-card__rate--muted">Rates on profile</span>
+          )}
+          <span className="gd-card__book">
+            View guide
+            <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
+          </span>
+        </div>
       </div>
     </Link>
   )
@@ -667,82 +953,62 @@ function GuideFeaturedCard({
   saved: boolean
   onToggleSave: (id: number, e: React.MouseEvent) => void
 }) {
-  const displayName = g.display_name?.trim() || g.username
+  const name = guideDisplayName(g)
   const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
   const langSnippet = (g.languages || []).slice(0, 3).join(' · ')
+  const badges = guideTrustBadges(g)
 
   return (
     <Link to={`/guides/${g.id}`} className="gd-featured">
       <div className="gd-featured__media">
-        <img
-          src={guidePhotoSrc(g.photo)}
-          alt=""
-          loading="lazy"
-          onError={onGuidePhotoError}
-        />
+        <GuidePhoto guide={g} className="gd-featured__img" alt={name} />
         <button
           type="button"
           className={`gd-card__save gd-featured__save${saved ? ' gd-card__save--saved' : ''}`}
           aria-label={saved ? 'Remove from saved' : 'Save guide'}
           onClick={(e) => onToggleSave(g.id, e)}
         >
-          <IconHeart filled={saved} />
+          <Heart size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
         </button>
       </div>
       <div className="gd-featured__body">
         <span className="gd-featured__badge">Top pick</span>
-        <h2 className="gd-featured__name">{displayName}</h2>
-        <p className="gd-featured__headline">{g.headline}</p>
-        {regionSnippet ? <p className="gd-featured__meta">{regionSnippet}</p> : null}
-        {langSnippet ? <p className="gd-featured__meta">{langSnippet}</p> : null}
+        <div className="gd-featured__badges">
+          {badges.slice(0, 2).map((b) => (
+            <MarketplaceBadge key={b.label} variant={b.variant}>
+              {b.label}
+            </MarketplaceBadge>
+          ))}
+        </div>
+        <h2 className="gd-featured__name">{g.headline}</h2>
+        <p className="gd-featured__byline">{name}</p>
+        {regionSnippet ? (
+          <p className="gd-featured__meta">
+            <MapPin size={13} strokeWidth={2.25} aria-hidden />
+            {regionSnippet}
+          </p>
+        ) : null}
+        {langSnippet ? (
+          <p className="gd-featured__meta">
+            <Languages size={13} strokeWidth={2.25} aria-hidden />
+            {langSnippet}
+          </p>
+        ) : null}
+        {g.rating_avg != null ? (
+          <div className="gd-featured__rating">
+            <MiniRating rating={g.rating_avg} count={g.rating_count} />
+          </div>
+        ) : null}
         {g.hourly_rate ? (
           <p className="gd-featured__rate">
             From <strong>${g.hourly_rate}</strong>/hr
           </p>
         ) : null}
-        <span className="gd-featured__cta">View profile →</span>
+        <span className="gd-featured__cta">
+          View guide
+          <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
+        </span>
       </div>
     </Link>
-  )
-}
-
-function IconPin({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        d="M12 21s7-5 7-11a7 7 0 10-14 0c0 6 7 11 7 11z"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="10" r="2" />
-    </svg>
-  )
-}
-
-function IconHeart({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }

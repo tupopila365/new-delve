@@ -1,6 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import type { LucideIcon } from 'lucide-react'
+import {
+  AlertCircle,
+  BadgeDollarSign,
+  Bookmark,
+  BriefcaseBusiness,
+  CalendarDays,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Flame,
+  Heart,
+  Landmark,
+  MapPin,
+  MessageCircle,
+  Music,
+  Plus,
+  Search,
+  Share2,
+  Sparkles,
+  Ticket,
+  Trophy,
+  Utensils,
+  X,
+} from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
@@ -23,6 +49,15 @@ type Ev = {
   price?: string | null
 }
 
+type EventDateParts = {
+  day: string
+  month: string
+  weekday: string
+  time: string
+  full: string
+  valid: boolean
+}
+
 const SIDEBAR_CATEGORIES: { label: string; value: string }[] = [
   { label: 'Music', value: 'music' },
   { label: 'Sports', value: 'sports' },
@@ -33,27 +68,59 @@ const SIDEBAR_CATEGORIES: { label: string; value: string }[] = [
 
 const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay'] as const
 
-const CATEGORY_OPTIONS: { value: string; label: string; emoji: string }[] = [
-  { value: 'music', label: 'Music', emoji: '🎵' },
-  { value: 'sports', label: 'Sports', emoji: '🏆' },
-  { value: 'culture', label: 'Culture', emoji: '🎭' },
-  { value: 'business', label: 'Business', emoji: '💼' },
-  { value: 'food', label: 'Food & drink', emoji: '🍽' },
-  { value: 'other', label: 'Other', emoji: '✨' },
+const CATEGORY_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
+  { value: 'music', label: 'Music', Icon: Music },
+  { value: 'sports', label: 'Sports', Icon: Trophy },
+  { value: 'culture', label: 'Culture', Icon: Landmark },
+  { value: 'business', label: 'Business', Icon: BriefcaseBusiness },
+  { value: 'food', label: 'Food & drink', Icon: Utensils },
+  { value: 'other', label: 'Other', Icon: Ticket },
 ]
 
-function categoryLabel(value: string) {
-  return CATEGORY_OPTIONS.find((c) => c.value === value) ?? { label: value, emoji: '✨' }
+function categoryMeta(value: string) {
+  return CATEGORY_OPTIONS.find((c) => c.value === value) ?? { value, label: value, Icon: Ticket }
 }
 
-function formatEventDate(iso: string): { day: string; month: string; time: string; full: string } {
+function formatEventDate(iso: string): EventDateParts {
   const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) {
+    return {
+      day: 'TBA',
+      month: 'DATE',
+      weekday: 'Date TBA',
+      time: 'Time TBA',
+      full: 'Date TBA',
+      valid: false,
+    }
+  }
   return {
     day: d.toLocaleDateString('en-NA', { day: 'numeric' }),
     month: d.toLocaleDateString('en-NA', { month: 'short' }).toUpperCase(),
+    weekday: d.toLocaleDateString('en-NA', { weekday: 'short' }),
     time: d.toLocaleTimeString('en-NA', { hour: '2-digit', minute: '2-digit' }),
     full: d.toLocaleDateString('en-NA', { weekday: 'short', day: 'numeric', month: 'short' }),
+    valid: true,
   }
+}
+
+function whenFilterLabel(when: string): string {
+  if (when === 'today') return 'Today'
+  if (when === 'weekend') return 'This weekend'
+  if (when === 'free') return 'Free'
+  return when
+}
+
+function resultsHint(
+  count: number,
+  filters: { category: string; search: string; whenFilter: string },
+): string {
+  if (filters.search) {
+    return `${count} result${count === 1 ? '' : 's'} for "${filters.search}"`
+  }
+  if (filters.category || filters.whenFilter) {
+    return `${count} event${count === 1 ? '' : 's'} match your filters`
+  }
+  return `${count} event${count === 1 ? '' : 's'} happening soon`
 }
 
 export function EventsList() {
@@ -98,7 +165,7 @@ export function EventsList() {
     if (whenFilter === 'today') {
       list = list.filter((e) => {
         const d = new Date(e.starts_at)
-        return d.toDateString() === now.toDateString()
+        return !Number.isNaN(d.getTime()) && d.toDateString() === now.toDateString()
       })
     }
     if (whenFilter === 'weekend') {
@@ -113,7 +180,7 @@ export function EventsList() {
       mon.setDate(sun.getDate() + 1)
       list = list.filter((e) => {
         const d = new Date(e.starts_at)
-        return d >= sat && d < mon
+        return !Number.isNaN(d.getTime()) && d >= sat && d < mon
       })
     }
     if (whenFilter === 'free') list = list.filter((e) => e.is_free)
@@ -230,7 +297,7 @@ export function EventsList() {
     const weekMs = 7 * 24 * 60 * 60 * 1000
     return events.filter((e) => {
       const t = new Date(e.starts_at).getTime()
-      return t >= now && t <= now + weekMs
+      return !Number.isNaN(t) && t >= now && t <= now + weekMs
     }).length
   }, [events])
 
@@ -238,7 +305,7 @@ export function EventsList() {
     return [
       {
         id: 'popular-categories',
-        title: 'Popular categories',
+        title: 'Popular event types',
         type: 'links',
         items: SIDEBAR_CATEGORIES.map(({ label, value }) => ({
           label,
@@ -271,15 +338,24 @@ export function EventsList() {
     ]
   }, [category, events.length, freeCount, thisWeekCount])
 
+  const handleQuickChip = (id: string) => {
+    if (id === 'today' || id === 'weekend' || id === 'free') {
+      setWhenFilter((v) => (v === id ? '' : id))
+      return
+    }
+    setCategory((c) => (c === id ? '' : id))
+  }
+
   return (
-    <div className="ev-page acc-page disc-page mk-page">
+    <div className="ev-page ev-page--premium acc-page disc-page mk-page">
       <MarketplaceHero
-        title="Events happening around you"
-        subtitle="Discover concerts, markets, sports, culture, food events, meetups, and local experiences."
+        title="Events happening soon"
+        subtitle="Find markets, music, culture, food events, meetups, workshops, and local gatherings worth showing up for."
         action={
           profile ? (
             <Link to="/events/new" className="btn btn-primary ev-page__create-btn">
-              + Create event
+              <Plus size={16} strokeWidth={2.5} aria-hidden />
+              Create event
             </Link>
           ) : undefined
         }
@@ -288,20 +364,14 @@ export function EventsList() {
       <QuickFilterChips
         ariaLabel="Event quick filters"
         chips={[
-          { id: 'today', label: 'Today', emoji: '📅', active: whenFilter === 'today' },
-          { id: 'weekend', label: 'This weekend', emoji: '🎉', active: whenFilter === 'weekend' },
-          { id: 'free', label: 'Free', emoji: '🎟', active: whenFilter === 'free' },
-          { id: 'music', label: 'Music', emoji: '🎵', active: category === 'music' },
-          { id: 'culture', label: 'Culture', emoji: '🎭', active: category === 'culture' },
-          { id: 'food', label: 'Food', emoji: '🍽', active: category === 'food' },
+          { id: 'today', label: 'Today', Icon: CalendarDays, active: whenFilter === 'today' },
+          { id: 'weekend', label: 'This weekend', Icon: CalendarRange, active: whenFilter === 'weekend' },
+          { id: 'free', label: 'Free', Icon: BadgeDollarSign, active: whenFilter === 'free' },
+          { id: 'music', label: 'Music', Icon: Music, active: category === 'music' },
+          { id: 'culture', label: 'Culture', Icon: Landmark, active: category === 'culture' },
+          { id: 'food', label: 'Food', Icon: Utensils, active: category === 'food' },
         ]}
-        onChipClick={(id) => {
-          if (id === 'today' || id === 'weekend' || id === 'free') {
-            setWhenFilter((v) => (v === id ? '' : id))
-            return
-          }
-          setCategory((c) => (c === id ? '' : id))
-        }}
+        onChipClick={handleQuickChip}
       />
 
       <section className="ev-page__discover card" aria-labelledby="ev-discover-title">
@@ -309,17 +379,19 @@ export function EventsList() {
           Discover what&apos;s on
         </h2>
         <p className="ev-page__discover-sub">
-          Browse like a social feed — save ideas, filter quickly, and jump into plans.
+          Explore events by category, date, city, and local interest.
         </p>
-        <div className="ev-page__discover-chips" role="group" aria-label="Quick discovery picks">
-          {CATEGORY_OPTIONS.map(({ value, label, emoji }) => (
+        <div className="ev-page__discover-chips" role="group" aria-label="Browse by category">
+          {CATEGORY_OPTIONS.map(({ value, label, Icon }) => (
             <button
               key={`discover-${value}`}
               type="button"
               className={`acc-quick-chip ev-page__discover-chip${category === value ? ' acc-quick-chip--active' : ''}`}
               onClick={() => setCategory(category === value ? '' : value)}
+              aria-pressed={category === value}
             >
-              <span aria-hidden>{emoji}</span> {label}
+              <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
+              {label}
             </button>
           ))}
         </div>
@@ -330,12 +402,14 @@ export function EventsList() {
           Search events
         </label>
         <div className="acc-page__search-inner">
-          <span className="acc-page__search-icon" aria-hidden>⌕</span>
+          <span className="acc-page__search-icon acc-page__search-icon--graphic" aria-hidden>
+            <Search size={18} strokeWidth={2.25} />
+          </span>
           <input
             id="ev-search"
             type="search"
             className="acc-page__search-input input"
-            placeholder="Search events, venues, organisers…"
+            placeholder="Search market, music, Windhoek, food, meetup…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             autoComplete="off"
@@ -348,7 +422,7 @@ export function EventsList() {
               onClick={() => setSearchInput('')}
               aria-label="Clear search"
             >
-              ×
+              <X size={18} strokeWidth={2.25} aria-hidden />
             </button>
           ) : null}
         </div>
@@ -356,211 +430,227 @@ export function EventsList() {
 
       <div className="disc-page__layout">
         <main className="disc-page__main">
-      {!isLoading && featured.length > 0 && (
-        <section className="ev-page__story-rings" aria-labelledby="ev-story-rings-title">
-          <div className="ev-page__stories-head">
-            <h2 id="ev-story-rings-title" className="ev-page__stories-title">
-              Stories
-            </h2>
-            <span className="ev-page__stories-sub">Tap to open</span>
-          </div>
-          <div className="ev-page__story-rings-row">
-            {featured.map((e, i) => {
-              const cat = categoryLabel(e.category)
-              return (
-                <button
-                  key={`ring-${e.id}`}
-                  type="button"
-                  className="ev-story-ring"
-                  onClick={() => setActiveStoryIdx(i)}
-                  aria-label={`Open story for ${e.title}`}
-                >
-                  <span className="ev-story-ring__avatar">
-                    {e.cover_image ? (
-                      <img src={mediaUrl(e.cover_image) || ''} alt="" />
-                    ) : (
-                      <span className="ev-story-ring__fallback" aria-hidden>
-                        {cat.emoji}
+          {!isLoading && featured.length > 0 && (
+            <section className="ev-page__story-rings" aria-labelledby="ev-story-rings-title">
+              <div className="ev-page__stories-head">
+                <h2 id="ev-story-rings-title" className="ev-page__stories-title">
+                  Featured events
+                </h2>
+                <span className="ev-page__stories-sub">Tap to preview</span>
+              </div>
+              <div className="ev-page__story-rings-row">
+                {featured.map((e, i) => {
+                  const cat = categoryMeta(e.category)
+                  const CatIcon = cat.Icon
+                  return (
+                    <button
+                      key={`ring-${e.id}`}
+                      type="button"
+                      className="ev-story-ring"
+                      onClick={() => setActiveStoryIdx(i)}
+                      aria-label={`Preview ${e.title}`}
+                    >
+                      <span className="ev-story-ring__avatar">
+                        {e.cover_image ? (
+                          <img src={mediaUrl(e.cover_image) || ''} alt="" />
+                        ) : (
+                          <span className="ev-story-ring__fallback" aria-hidden>
+                            <CatIcon size={26} strokeWidth={1.75} />
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <span className="ev-story-ring__label">{e.title}</span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-      )}
+                      <span className="ev-story-ring__label">{e.title}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
-      {!isLoading && featured.length > 0 && (
-        <section className="ev-page__stories" aria-labelledby="ev-stories-title">
-          <div className="ev-page__stories-head">
-            <h2 id="ev-stories-title" className="ev-page__stories-title">
-              Trending now
-            </h2>
-            <span className="ev-page__stories-sub">Swipe to explore</span>
-          </div>
-          <div className="ev-page__stories-row">
-            {featured.map((e) => {
-              const cat = categoryLabel(e.category)
+          {!isLoading && featured.length > 0 && (
+            <section className="ev-page__stories" aria-labelledby="ev-stories-title">
+              <div className="ev-page__stories-head">
+                <h2 id="ev-stories-title" className="ev-page__stories-title">
+                  Trending now
+                </h2>
+                <span className="ev-page__stories-sub">Happening soon</span>
+              </div>
+              <div className="ev-page__stories-row">
+                {featured.map((e) => {
+                  const when = formatEventDate(e.starts_at)
+                  const cat = categoryMeta(e.category)
+                  const CatIcon = cat.Icon
+                  return (
+                    <Link key={`story-${e.id}`} to={`/events/${e.id}`} className="ev-story">
+                      <div className="ev-story__img-wrap">
+                        {e.cover_image ? (
+                          <img
+                            className="ev-story__img"
+                            src={mediaUrl(e.cover_image) || ''}
+                            alt={`${e.title} event cover`}
+                          />
+                        ) : (
+                          <div className="ev-story__img ev-story__img--placeholder" aria-hidden>
+                            <CatIcon size={32} strokeWidth={1.5} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="ev-story__meta">
+                        <p className="ev-story__title">{e.title}</p>
+                        <p className="ev-story__sub">
+                          <CatIcon size={12} strokeWidth={2.5} aria-hidden />
+                          {cat.label} · {when.full}
+                        </p>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {hasFilters && (
+            <div className="ev-page__filter-summary">
+              <span className="ev-page__filter-summary-text">
+                Filtered
+                {category ? ` · ${categoryMeta(category).label}` : ''}
+                {search ? ` · "${search}"` : ''}
+                {whenFilter ? ` · ${whenFilterLabel(whenFilter)}` : ''}
+              </span>
+              <button type="button" className="ev-page__filter-clear" onClick={clearAll}>
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {isError && (
+            <EmptyState
+              iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
+              title="We couldn't load events"
+              sub="Please check your connection and try again."
+              cta={{ label: 'Try again', onClick: () => void refetch() }}
+            />
+          )}
+
+          {isLoading && !isError && <ListSkeleton count={3} />}
+
+          {!isLoading && !isError && displayEvents.length > 0 && (
+            <p className="ev-page__results-hint" role="status">
+              {resultsHint(displayEvents.length, { category, search, whenFilter })}
+            </p>
+          )}
+
+          <div className="ev-page__grid">
+            {displayEvents.map((e) => {
               const when = formatEventDate(e.starts_at)
+              const cat = categoryMeta(e.category)
+              const CatIcon = cat.Icon
+              const saved = savedIds.has(e.id)
+              const locationLine = [e.venue || 'Venue TBA', e.city || e.region].filter(Boolean).join(', ')
               return (
-                <Link key={`story-${e.id}`} to={`/events/${e.id}`} className="ev-story">
-                  <div className="ev-story__img-wrap">
+                <Link key={e.id} to={`/events/${e.id}`} className="ev-card">
+                  <div className="ev-card__img-wrap">
                     {e.cover_image ? (
-                      <img className="ev-story__img" src={mediaUrl(e.cover_image) || ''} alt="" />
+                      <img
+                        className="ev-card__img"
+                        src={mediaUrl(e.cover_image) || ''}
+                        alt={`${e.title} event cover`}
+                        loading="lazy"
+                      />
                     ) : (
-                      <div className="ev-story__img ev-story__img--placeholder">
-                        <span aria-hidden>{cat.emoji}</span>
+                      <div className="ev-card__img ev-card__img--placeholder" aria-hidden>
+                        <CatIcon size={40} strokeWidth={1.5} />
                       </div>
                     )}
+                    <div className="ev-card__date-badge" aria-label={`${when.weekday}, ${when.month} ${when.day}`}>
+                      <span className="ev-card__date-month">{when.month}</span>
+                      <span className="ev-card__date-day">{when.day}</span>
+                      {when.valid ? <span className="ev-card__date-weekday">{when.weekday}</span> : null}
+                    </div>
+                    <button
+                      type="button"
+                      className={`acc-media-card__save${saved ? ' acc-media-card__save--saved' : ''}`}
+                      aria-label={saved ? 'Remove from saved' : 'Save event'}
+                      onClick={(ev) => toggleSaved(e.id, ev)}
+                    >
+                      <Bookmark size={17} strokeWidth={2} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+                    </button>
+                    {e.is_free ? (
+                      <span className="ev-card__free-badge">
+                        <BadgeDollarSign size={10} strokeWidth={2.5} aria-hidden />
+                        Free
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="ev-story__meta">
-                    <p className="ev-story__title">{e.title}</p>
-                    <p className="ev-story__sub">
-                      {cat.emoji} {cat.label} · {when.full}
+
+                  <div className="ev-card__body">
+                    <p className="ev-card__cat">
+                      <CatIcon size={12} strokeWidth={2.5} aria-hidden />
+                      {cat.label}
                     </p>
+                    <h3 className="ev-card__title">{e.title}</h3>
+                    <p className="ev-card__time">
+                      <Clock size={13} strokeWidth={2.25} aria-hidden />
+                      {when.full} · {when.time}
+                    </p>
+                    <p className="ev-card__venue">
+                      <MapPin size={13} strokeWidth={2.25} aria-hidden />
+                      <span>{locationLine}</span>
+                    </p>
+                    {e.price && !e.is_free ? (
+                      <p className="ev-card__price">
+                        <Ticket size={13} strokeWidth={2.25} aria-hidden />
+                        From N${e.price}
+                      </p>
+                    ) : null}
                   </div>
                 </Link>
               )
             })}
           </div>
-        </section>
-      )}
 
-      {/* Active filter summary + clear */}
-      {hasFilters && (
-        <div className="ev-page__filter-summary">
-          <span className="ev-page__filter-summary-text">
-            Filtered
-            {category ? ` · ${categoryLabel(category).label}` : ''}
-            {search ? ` · "${search}"` : ''}
-          </span>
-          <button type="button" className="ev-page__filter-clear" onClick={clearAll}>
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {isError && (
-        <EmptyState
-          icon="🎟"
-          title="We couldn't load events"
-          sub="Please check your connection and try again."
-          cta={{ label: 'Try again', onClick: () => void refetch() }}
-        />
-      )}
-
-      {/* Loading */}
-      {isLoading && !isError && <ListSkeleton count={3} />}
-
-      {/* Results count */}
-      {!isLoading && !isError && displayEvents.length > 0 && (
-        <p className="ev-page__results-hint">
-          {displayEvents.length} {displayEvents.length === 1 ? 'event' : 'events'}
-        </p>
-      )}
-
-      {/* Events grid */}
-      <div className="ev-page__grid">
-        {displayEvents.map((e) => {
-          const { day, month, time, full } = formatEventDate(e.starts_at)
-          const cat = categoryLabel(e.category)
-          const saved = savedIds.has(e.id)
-          return (
-            <Link key={e.id} to={`/events/${e.id}`} className="ev-card">
-              {/* Image with date badge */}
-              <div className="ev-card__img-wrap">
-                {e.cover_image ? (
-                  <img
-                    className="ev-card__img"
-                    src={mediaUrl(e.cover_image) || ''}
-                    alt=""
-                    loading="lazy"
-                  />
+          {!isLoading && !isError && displayEvents.length === 0 && (
+            <EmptyState
+              iconElement={
+                hasFilters ? (
+                  <Ticket size={28} strokeWidth={2} aria-hidden />
                 ) : (
-                  <div className="ev-card__img ev-card__img--placeholder">
-                    <span aria-hidden>{cat.emoji}</span>
-                  </div>
-                )}
-                {/* Date badge */}
-                <div className="ev-card__date-badge" aria-hidden>
-                  <span className="ev-card__date-month">{month}</span>
-                  <span className="ev-card__date-day">{day}</span>
-                </div>
-                {/* Save button */}
-                <button
-                  type="button"
-                  className={`acc-media-card__save${saved ? ' acc-media-card__save--saved' : ''}`}
-                  aria-label={saved ? 'Remove from saved' : 'Save event'}
-                  onClick={(e2) => toggleSaved(e.id, e2)}
-                >
-                  <IconBookmark filled={saved} />
-                </button>
-                {/* Free badge */}
-                {e.is_free && (
-                  <span className="ev-card__free-badge">Free</span>
-                )}
-              </div>
-
-              {/* Card body */}
-              <div className="ev-card__body">
-                <p className="ev-card__cat">
-                  <span aria-hidden>{cat.emoji}</span> {cat.label}
-                </p>
-                <h2 className="ev-card__title">{e.title}</h2>
-                <p className="ev-card__time">
-                  {full} · {time}
-                </p>
-                <p className="ev-card__venue">
-                  📍 {e.venue || 'Venue TBA'}
-                  {(e.city || e.region) ? `, ${e.city || e.region}` : ''}
-                </p>
-                {e.price && !e.is_free ? (
-                  <p className="ev-card__price">From N${e.price}</p>
-                ) : null}
-              </div>
-            </Link>
-          )
-        })}
-      </div>
-
-      {/* Empty state */}
-      {!isLoading && displayEvents.length === 0 && (
-        <EmptyState
-          icon="🎟"
-          title={hasFilters ? 'No events match these filters' : 'No upcoming events yet'}
-          sub={
-            hasFilters
-              ? 'Try another category or search term — new events are added regularly.'
-              : "Check back soon — organisers post events here as they're confirmed."
-          }
-          action={
-            hasFilters ? (
-              <>
-                <div className="ev-page__empty-cats">
-                  {CATEGORY_OPTIONS.slice(0, 3).map(({ value, label, emoji }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className="acc-quick-chip"
-                      onClick={() => {
-                        clearAll()
-                        setCategory(value)
-                      }}
-                    >
-                      {emoji} {label}
+                  <CalendarDays size={28} strokeWidth={2} aria-hidden />
+                )
+              }
+              title={hasFilters ? 'No events found' : 'No upcoming events yet'}
+              sub={
+                hasFilters
+                  ? 'Try changing your city, category, date, or search term.'
+                  : 'Markets, meetups, concerts, workshops, and local gatherings will appear here once organizers add them.'
+              }
+              action={
+                hasFilters ? (
+                  <>
+                    <div className="ev-page__empty-cats">
+                      {CATEGORY_OPTIONS.slice(0, 3).map(({ value, label, Icon }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className="acc-quick-chip"
+                          onClick={() => {
+                            clearAll()
+                            setCategory(value)
+                          }}
+                        >
+                          <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="btn btn-primary ui-empty__cta" onClick={clearAll}>
+                      Show all events
                     </button>
-                  ))}
-                </div>
-                <button type="button" className="btn btn-primary ui-empty__cta" onClick={clearAll}>
-                  Show all events
-                </button>
-              </>
-            ) : undefined
-          }
-        />
-      )}
+                  </>
+                ) : undefined
+              }
+            />
+          )}
         </main>
 
         <DiscoverySidebar sections={sidebarSections} ariaLabel="Events discovery" />
@@ -571,17 +661,17 @@ export function EventsList() {
           className="ev-story-viewer"
           role="dialog"
           aria-modal="true"
-          aria-label="Event story"
+          aria-label={`Featured event: ${activeStory.title}`}
           onClick={() => setActiveStoryIdx(null)}
         >
-          <div className="ev-story-viewer__card" onClick={(e) => e.stopPropagation()}>
+          <div className="ev-story-viewer__card" onClick={(ev) => ev.stopPropagation()}>
             <button
               type="button"
               className="ev-story-viewer__close"
               aria-label="Close story"
               onClick={() => setActiveStoryIdx(null)}
             >
-              ×
+              <X size={20} strokeWidth={2.25} aria-hidden />
             </button>
             {activeStory.cover_image ? (
               <img
@@ -590,8 +680,11 @@ export function EventsList() {
                 alt={activeStory.title}
               />
             ) : (
-              <div className="ev-story-viewer__img ev-story-viewer__img--placeholder">
-                <span aria-hidden>{categoryLabel(activeStory.category).emoji}</span>
+              <div className="ev-story-viewer__img ev-story-viewer__img--placeholder" aria-hidden>
+                {(() => {
+                  const Icon = categoryMeta(activeStory.category).Icon
+                  return <Icon size={48} strokeWidth={1.5} />
+                })()}
               </div>
             )}
             <div className="ev-story-viewer__meta">
@@ -608,54 +701,68 @@ export function EventsList() {
                     className="ev-story-viewer__author"
                     to={`/u/${activeStory.organizer_username}`}
                   >
-                    @{activeStory.organizer_display_name?.trim() || activeStory.organizer_username}
+                    {activeStory.organizer_display_name?.trim() || activeStory.organizer_username}
                   </Link>
                 ) : (
-                  <span className="ev-story-viewer__author">@event-host</span>
+                  <span className="ev-story-viewer__author">Event organizer</span>
                 )}
               </p>
               <p className="ev-story-viewer__title">{activeStory.title}</p>
               <p className="ev-story-viewer__sub">
-                {formatEventDate(activeStory.starts_at).full} · {activeStory.venue}
+                <Clock size={13} strokeWidth={2.25} aria-hidden />
+                {formatEventDate(activeStory.starts_at).full} · {activeStory.venue || 'Venue TBA'}
               </p>
               <div className="ev-story-viewer__social" role="group" aria-label="Story actions">
                 <button
                   type="button"
                   className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'love' ? ' ev-story-viewer__react--active' : ''}`}
                   onClick={() => onReactStory(activeStory.id, 'love')}
-                  aria-label="React with love"
+                  aria-label="Love"
+                  aria-pressed={storyReactions[activeStory.id] === 'love'}
                 >
-                  ❤️ {storyReactionCounts[activeStory.id]?.love ?? 0}
+                  <Heart size={15} strokeWidth={2.25} aria-hidden />
+                  <span>Love</span>
+                  <span className="ev-story-viewer__react-count">{storyReactionCounts[activeStory.id]?.love ?? 0}</span>
                 </button>
                 <button
                   type="button"
                   className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'fire' ? ' ev-story-viewer__react--active' : ''}`}
                   onClick={() => onReactStory(activeStory.id, 'fire')}
-                  aria-label="React with fire"
+                  aria-label="Trending"
+                  aria-pressed={storyReactions[activeStory.id] === 'fire'}
                 >
-                  🔥 {storyReactionCounts[activeStory.id]?.fire ?? 0}
+                  <Flame size={15} strokeWidth={2.25} aria-hidden />
+                  <span>Trending</span>
+                  <span className="ev-story-viewer__react-count">{storyReactionCounts[activeStory.id]?.fire ?? 0}</span>
                 </button>
                 <button
                   type="button"
                   className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'wow' ? ' ev-story-viewer__react--active' : ''}`}
                   onClick={() => onReactStory(activeStory.id, 'wow')}
-                  aria-label="React with wow"
+                  aria-label="Interesting"
+                  aria-pressed={storyReactions[activeStory.id] === 'wow'}
                 >
-                  😮 {storyReactionCounts[activeStory.id]?.wow ?? 0}
+                  <Sparkles size={15} strokeWidth={2.25} aria-hidden />
+                  <span>Interesting</span>
+                  <span className="ev-story-viewer__react-count">{storyReactionCounts[activeStory.id]?.wow ?? 0}</span>
                 </button>
                 <button
                   type="button"
                   className="ev-story-viewer__share"
                   onClick={() => onShareStory(activeStory.id)}
+                  aria-label="Share event"
                 >
+                  <Share2 size={15} strokeWidth={2.25} aria-hidden />
                   Share
                 </button>
                 <button
                   type="button"
                   className="ev-story-viewer__share"
                   onClick={() => setShowCommentInput((v) => !v)}
+                  aria-label={showCommentInput ? 'Close comment' : 'Add comment'}
                 >
-                  {showCommentInput ? 'Close comment' : 'Comment'}
+                  <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+                  {showCommentInput ? 'Close' : 'Comment'}
                 </button>
               </div>
               {showCommentInput && (
@@ -664,10 +771,11 @@ export function EventsList() {
                     className="input ev-story-viewer__comment-input"
                     placeholder="Write a comment…"
                     value={storyDraft}
-                    onChange={(e) => setStoryDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') onCommentStory(activeStory.id)
+                    onChange={(ev) => setStoryDraft(ev.target.value)}
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'Enter') onCommentStory(activeStory.id)
                     }}
+                    aria-label="Story comment"
                     autoFocus
                   />
                   <button
@@ -680,7 +788,7 @@ export function EventsList() {
                   </button>
                 </div>
               )}
-              {shareMsg && <p className="ev-story-viewer__share-msg">{shareMsg}</p>}
+              {shareMsg ? <p className="ev-story-viewer__share-msg" role="status">{shareMsg}</p> : null}
               {(storyComments[activeStory.id] ?? []).length > 0 && (
                 <div className="ev-story-viewer__comments">
                   {(storyComments[activeStory.id] ?? []).map((c, idx) => (
@@ -691,7 +799,7 @@ export function EventsList() {
                 </div>
               )}
               <Link className="btn btn-primary ev-story-viewer__cta" to={`/events/${activeStory.id}`}>
-                Open event details
+                View event
               </Link>
             </div>
             {featured.length > 1 && (
@@ -706,7 +814,7 @@ export function EventsList() {
                     )
                   }
                 >
-                  ‹
+                  <ChevronLeft size={22} strokeWidth={2.5} aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -714,7 +822,7 @@ export function EventsList() {
                   aria-label="Next story"
                   onClick={() => setActiveStoryIdx((idx) => (idx == null ? 0 : (idx + 1) % featured.length))}
                 >
-                  ›
+                  <ChevronRight size={22} strokeWidth={2.5} aria-hidden />
                 </button>
               </>
             )}
@@ -722,21 +830,5 @@ export function EventsList() {
         </div>
       )}
     </div>
-  )
-}
-
-function IconBookmark({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }

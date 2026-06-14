@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Compass } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
 import { MiniRating } from '../MiniRating'
 
@@ -33,7 +34,7 @@ export function GuideSimilarGuides({ guides, title = 'Similar local experts' }: 
                   <img src={mediaUrl(g.photo) || ''} alt="" className="gd-detail__similar-img" />
                 ) : (
                   <div className="gd-detail__similar-placeholder" aria-hidden>
-                    {name.charAt(0).toUpperCase()}
+                    <Compass size={24} strokeWidth={1.75} />
                   </div>
                 )}
               </div>

@@ -5,7 +5,7 @@ import { apiFetch, mediaUrl } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
-import { ProviderCategoryStrip } from '../components/provider'
+import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
 import { ListSkeleton } from '../components/ui'
 
 type StayListing = {
@@ -71,7 +71,7 @@ function nightsBetween(a: string, b: string) {
 export function StaysAdmin() {
   const { profile } = useAuth()
   const qc = useQueryClient()
-  const { canManageListings, canManageBookings, isViewerOnly } = useBusinessAccess()
+  const { canManageListings, canManageBookings, isViewerOnly, canAccessProvider } = useBusinessAccess()
 
   const [tab, setTab] = useState<'listings' | 'bookings' | 'reviews'>('listings')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -83,7 +83,7 @@ export function StaysAdmin() {
   const { data: listings = [], isLoading: loadingListings } = useQuery({
     queryKey: ['provider-stays'],
     queryFn: () => apiFetch<StayListing[]>('/api/accommodation/provider-listings/'),
-    enabled: Boolean(profile?.user_type === 'service_provider'),
+    enabled: Boolean(profile && canAccessProvider),
   })
 
   const bookingsUrl =
@@ -94,7 +94,7 @@ export function StaysAdmin() {
   const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ['provider-stay-bookings', statusFilter],
     queryFn: () => apiFetch<ProviderBooking[]>(bookingsUrl),
-    enabled: Boolean(profile?.user_type === 'service_provider'),
+    enabled: Boolean(profile && canAccessProvider),
   })
 
   const reviews = useMemo(
@@ -151,7 +151,13 @@ export function StaysAdmin() {
   })
 
   if (!profile) return <Navigate to="/login" replace />
-  if (profile.user_type !== 'service_provider') return <Navigate to="/" replace />
+  if (!canAccessProvider) {
+    return (
+      <div className="prov-cat-page">
+        <ProviderAccessGate />
+      </div>
+    )
+  }
 
   const avgRating = listings.length
     ? (listings.reduce((s, x) => s + parseFloat(x.rating_avg), 0) / listings.length).toFixed(2)
@@ -359,10 +365,15 @@ export function StaysAdmin() {
                             key={a.action}
                             type="button"
                             className="btn btn-ghost adm-action-btn"
-                            disabled={bookingActionMut.isPending}
-                            onClick={() => bookingActionMut.mutate({ id: b.id, action: a.action })}
+                            disabled={a.action === 'refund' || bookingActionMut.isPending}
+                            title={a.action === 'refund' ? 'Refunds are handled by DELVE support during beta' : undefined}
+                            onClick={() => {
+                              if (a.action === 'refund') return
+                              bookingActionMut.mutate({ id: b.id, action: a.action })
+                            }}
                           >
                             {a.label}
+                            {a.action === 'refund' ? ' (beta)' : ''}
                           </button>
                         ))
                       : null}

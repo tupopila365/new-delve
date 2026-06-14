@@ -1,3 +1,5 @@
+import { Search, X } from 'lucide-react'
+
 type Props = {
   id: string
   label: string
@@ -15,9 +17,7 @@ export function SearchPanel({ id, label, placeholder, value, onChange, onClear, 
         {label}
       </label>
       <div className="acc-page__search-inner">
-        <span className="acc-page__search-icon" aria-hidden>
-          ⌕
-        </span>
+        <Search className="acc-page__search-icon acc-page__search-icon--graphic" size={18} strokeWidth={2.25} aria-hidden />
         <input
           id={id}
           type="search"
@@ -30,7 +30,7 @@ export function SearchPanel({ id, label, placeholder, value, onChange, onClear, 
         />
         {value && onClear ? (
           <button type="button" className="acc-page__search-clear" onClick={onClear} aria-label="Clear search">
-            ×
+            <X size={16} strokeWidth={2.25} aria-hidden />
           </button>
         ) : null}
       </div>

@@ -2,12 +2,18 @@ import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import {
+  ArrowRight,
+  Calendar,
   Camera,
   Car,
   Home as HomeIcon,
   Map,
+  MapPin,
   MessageCircle,
+  MessageSquare,
+  Search,
   Ticket,
+  User,
   Users,
   Utensils,
 } from 'lucide-react'
@@ -15,12 +21,10 @@ import { apiFetch } from '../api/client'
 import { MiniRating } from '../components/MiniRating'
 import { homeCoverSrc } from '../data/homeDefaults'
 import { mockTrips } from '../data/mockTrips'
-import { EmptyState, ListSkeleton } from '../components/ui'
+import { ListSkeleton } from '../components/ui'
 
 const HERO_BG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2000&q=78'
-
-const MIN_RAIL_ITEMS = 3
 
 const moodChips = [
   { label: 'Weekend away', q: 'weekend' },
@@ -33,14 +37,54 @@ const moodChips = [
 ]
 
 const categoryShortcuts = [
-  { to: '/accommodation', label: 'Find places to stay', desc: 'Hotels, lodges & unique stays', Icon: HomeIcon, color: 1 },
-  { to: '/food', label: 'Eat & drink', desc: 'Restaurants, cafés & local spots', Icon: Utensils, color: 5 },
-  { to: '/guides', label: 'Find a guide', desc: 'Culture, wildlife & city walks', Icon: Users, color: 7 },
-  { to: '/events', label: 'Events near you', desc: 'Concerts, markets & meetups', Icon: Ticket, color: 4 },
-  { to: '/transport', label: 'Transport', desc: 'Car rental & bus routes', Icon: Car, color: 2 },
-  { to: '/journeys', label: 'Real journeys', desc: 'Routes, costs & traveller tips', Icon: Map, color: 6 },
-  { to: '/community', label: 'Ask locals', desc: 'Safety, prices & hidden places', Icon: MessageCircle, color: 8 },
-  { to: '/delvers', label: 'Delvers', desc: 'Photos, tips & travel clips', Icon: Camera, color: 3 },
+  {
+    to: '/accommodation',
+    label: 'Find places to stay',
+    desc: 'Guesthouses, lodges, apartments, and unique stays',
+    Icon: HomeIcon,
+  },
+  {
+    to: '/food',
+    label: 'Eat & drink',
+    desc: 'Restaurants, cafés, grills, and local food spots',
+    Icon: Utensils,
+  },
+  {
+    to: '/guides',
+    label: 'Find a guide',
+    desc: 'Culture, wildlife, city walks, and hidden places',
+    Icon: Users,
+  },
+  {
+    to: '/events',
+    label: 'Events near you',
+    desc: 'Markets, music, culture, meetups, and gatherings',
+    Icon: Ticket,
+  },
+  {
+    to: '/transport',
+    label: 'Transport',
+    desc: 'Car rental, buses, and getting around',
+    Icon: Car,
+  },
+  {
+    to: '/journeys',
+    label: 'Real journeys',
+    desc: 'Routes, costs, photos, and tips from travellers',
+    Icon: Map,
+  },
+  {
+    to: '/community',
+    label: 'Ask locals',
+    desc: 'Safety, prices, routes, stays, food, and events',
+    Icon: MessageCircle,
+  },
+  {
+    to: '/delvers',
+    label: 'Delvers',
+    desc: 'Photos, tips, and travel clips from the community',
+    Icon: Camera,
+  },
 ] as const
 
 const communityPreview = [
@@ -66,8 +110,8 @@ const communityPreview = [
 
 function journeyRouteLabel(stops: { place_name: string }[]) {
   const places = stops.map((s) => s.place_name)
-  if (places.length <= 2) return places.join(' → ')
-  return `${places[0]} → … → ${places[places.length - 1]}`
+  if (places.length <= 2) return places.join(' · ')
+  return `${places[0]} · ${places[places.length - 1]}`
 }
 
 type HomeSectionProps = {
@@ -93,13 +137,13 @@ function HomeSection({
   children,
   className = '',
 }: HomeSectionProps) {
-  if (!loading && count < MIN_RAIL_ITEMS) return null
-
   return (
     <section className={`home-section ta-rail ${className}`.trim()} aria-labelledby={id}>
       <div className="ta-rail__head">
         <div>
-          <h2 id={id} className="ta-rail__title">{title}</h2>
+          <h2 id={id} className="ta-rail__title">
+            {title}
+          </h2>
           <p className="ta-rail__sub">{sub}</p>
         </div>
         <Link to={seeAllTo} className="section-see-all">
@@ -109,7 +153,12 @@ function HomeSection({
       {loading ? (
         <ListSkeleton count={5} />
       ) : count === 0 ? (
-        <EmptyState compact title={emptyMessage} />
+        <div className="home-section__empty" role="status">
+          <p className="home-section__empty-text">{emptyMessage}</p>
+          <Link to={seeAllTo} className="section-see-all home-section__empty-cta">
+            Browse {title.toLowerCase()}
+          </Link>
+        </div>
       ) : (
         children
       )}
@@ -124,22 +173,55 @@ type HomeCardProps = {
   title: string
   meta: string
   rating?: { avg: string | number; count: number }
-  journey?: boolean
 }
 
-function HomeCard({ to, imageSrc, imageAlt, title, meta, rating, journey }: HomeCardProps) {
+function HomeCard({ to, imageSrc, imageAlt, title, meta, rating }: HomeCardProps) {
   return (
-    <Link
-      to={to}
-      className={`home-card mini-card ta-mini-card ta-mini-card--calm${journey ? ' journey-card' : ''}`}
-    >
-      <div className="ta-mini-card__media">
-        <img className="ta-mini-card__img home-card__img" src={imageSrc} alt={imageAlt} loading="lazy" />
+    <Link to={to} className="home-card mini-card ta-mini-card ta-mini-card--calm">
+      <div className="home-card__media ta-mini-card__media">
+        <img className="home-card__img ta-mini-card__img" src={imageSrc} alt={imageAlt} loading="lazy" />
+      </div>
+      <div className="mini-card__body home-card__body">
+        <p className="mini-card__title home-card__title">{title}</p>
+        {rating != null && <MiniRating rating={rating.avg} count={rating.count} />}
+        <p className="mini-card__meta home-card__meta">{meta}</p>
+      </div>
+    </Link>
+  )
+}
+
+type JourneyHomeCardProps = {
+  to: string
+  imageSrc: string
+  imageAlt: string
+  title: string
+  author: string
+  days: number
+  route: string
+}
+
+function JourneyHomeCard({ to, imageSrc, imageAlt, title, author, days, route }: JourneyHomeCardProps) {
+  return (
+    <Link to={to} className="home-card home-card--journey mini-card ta-mini-card ta-mini-card--calm journey-card">
+      <div className="home-card__media ta-mini-card__media">
+        <img className="home-card__img ta-mini-card__img" src={imageSrc} alt={imageAlt} loading="lazy" />
       </div>
       <div className="journey-card__body mini-card__body home-card__body">
         <p className="journey-card__title mini-card__title home-card__title">{title}</p>
-        {rating != null && <MiniRating rating={rating.avg} count={rating.count} />}
-        <p className="mini-card__meta home-card__meta">{meta}</p>
+        <div className="journey-card__meta-row">
+          <span className="journey-card__meta-item">
+            <User size={13} strokeWidth={2.25} aria-hidden />
+            {author}
+          </span>
+          <span className="journey-card__meta-item">
+            <Calendar size={13} strokeWidth={2.25} aria-hidden />
+            {days} {days === 1 ? 'day' : 'days'}
+          </span>
+        </div>
+        <p className="journey-card__route">
+          <MapPin size={13} strokeWidth={2.25} aria-hidden />
+          <span>{route}</span>
+        </p>
       </div>
     </Link>
   )
@@ -220,24 +302,26 @@ export function Home() {
 
   return (
     <div className="page-home">
-      <section className="ta-hero ta-hero--bleed ta-hero--home" aria-label="Search DELVE">
-        <div className="ta-hero__bg" style={{ backgroundImage: `url(${HERO_BG})` }} />
-        <div className="ta-hero__scrim" />
+      <section className="ta-hero ta-hero--bleed ta-hero--home" aria-label="Discover DELVE">
+        <div className="ta-hero__bg" style={{ backgroundImage: `url(${HERO_BG})` }} role="img" aria-label="Scenic travel landscape" />
+        <div className="ta-hero__scrim" aria-hidden />
         <div className="ta-hero__grain" aria-hidden />
         <div className="ta-hero__inner ta-hero__inner--home">
+          <p className="ta-hero__eyebrow ta-hero__eyebrow--home">Travel. Book. Share. Ask locals.</p>
           <h1 className="ta-hero__title ta-hero__title--home">
             Discover, plan, book, and share real travel experiences.
           </h1>
           <p className="ta-hero__sub ta-hero__sub--home">
-            Find stays, food, guides, events, transport, routes, and local tips — all in one travel-social marketplace.
+            Find stays, food, guides, events, transport, routes, and local tips in one trusted travel-social
+            marketplace.
           </p>
-          <div className="ta-hero__actions">
+          <div className="ta-hero__actions ta-hero__actions--home">
             <form className="ta-hero__searchform" onSubmit={onHeroSearch} role="search" aria-label="Search DELVE">
               <label htmlFor="home-hero-search" className="visually-hidden">
                 Search places, stays, events, food, and guides
               </label>
               <span className="ta-hero__searchform-icon" aria-hidden>
-                ⌕
+                <Search size={18} strokeWidth={2.25} />
               </span>
               <input
                 id="home-hero-search"
@@ -254,11 +338,11 @@ export function Home() {
                 Search
               </button>
             </form>
-            <div className="mk-hero__ctas ta-hero__cta-row">
+            <div className="ta-hero__cta-row">
               <Link to="/search" className="btn btn-primary">
                 Start exploring
               </Link>
-              <Link to="/community" className="btn btn-ghost">
+              <Link to="/community" className="ta-hero__ghost">
                 Ask locals
               </Link>
             </div>
@@ -267,37 +351,50 @@ export function Home() {
       </section>
 
       <div className="home-content">
-        <nav className="mk-action-grid" aria-label="Browse DELVE">
+        <nav className="home-category-grid" aria-label="Browse DELVE categories">
           {categoryShortcuts.map((s) => (
-            <Link key={s.label} to={s.to} className={`mk-action-card category-tile category-tile--${s.color}`}>
-              <s.Icon className="mk-action-card__icon category-tile__icon" size={24} strokeWidth={2} aria-hidden />
-              <span className="mk-action-card__title">{s.label}</span>
-              <p className="mk-action-card__desc">{s.desc}</p>
+            <Link key={s.label} to={s.to} className="home-category-card">
+              <span className="home-category-card__icon-wrap" aria-hidden>
+                <s.Icon size={22} strokeWidth={2} />
+              </span>
+              <span className="home-category-card__title">{s.label}</span>
+              <p className="home-category-card__desc">{s.desc}</p>
+              <span className="home-category-card__footer">
+                Explore
+                <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
+              </span>
             </Link>
           ))}
         </nav>
 
-        <div className="ta-mood-scroll home-mood-scroll" role="list" aria-label="Browse by mood">
-          {moodChips.map((m) => (
-            <Link
-              key={m.q}
-              to={`/search?q=${encodeURIComponent(m.q)}`}
-              className="ta-mood-chip"
-              role="listitem"
-            >
-              {m.label}
-            </Link>
-          ))}
-        </div>
+        <section className="home-mood-section" aria-labelledby="home-mood-heading">
+          <div className="home-mood-section__head">
+            <h2 id="home-mood-heading" className="home-mood-section__title">
+              Explore by mood
+            </h2>
+          </div>
+          <div className="ta-mood-scroll home-mood-scroll" role="list" aria-label="Explore by mood">
+            {moodChips.map((m) => (
+              <Link
+                key={m.q}
+                to={`/search?q=${encodeURIComponent(m.q)}`}
+                className="ta-mood-chip"
+                role="listitem"
+              >
+                {m.label}
+              </Link>
+            ))}
+          </div>
+        </section>
 
         <HomeSection
           id="rail-stays"
           title="Places to stay"
-          sub="Rooms and guesthouses at different price points."
+          sub="Guesthouses, lodges, apartments, and unique stays for every kind of trip."
           seeAllTo="/accommodation"
           loading={staysLoading}
           count={stayItems.length}
-          emptyMessage="No stays listed yet. Check back soon."
+          emptyMessage="No stays listed yet."
         >
           <div className="home-rail">
             {stayItems.map((s) => (
@@ -316,12 +413,12 @@ export function Home() {
 
         <HomeSection
           id="rail-events"
-          title="Events & gatherings"
-          sub="Community moments — free and paid."
+          title="Events happening soon"
+          sub="Markets, music, culture, meetups, and local gatherings."
           seeAllTo="/events"
           loading={eventsLoading}
           count={eventItems.length}
-          emptyMessage="No events yet. Check back soon."
+          emptyMessage="No events listed yet."
         >
           <div className="home-rail">
             {eventItems.map((e) => (
@@ -344,11 +441,11 @@ export function Home() {
         <HomeSection
           id="rail-food"
           title="Eat & drink"
-          sub="Everyday spots and treat-yourself places."
+          sub="Restaurants, cafés, grills, and local food spots travellers talk about."
           seeAllTo="/food"
           loading={foodLoading}
           count={foodItems.length}
-          emptyMessage="No food venues yet. Check back soon."
+          emptyMessage="No food venues listed yet."
         >
           <div className="home-rail">
             {foodItems.map((f) => (
@@ -367,12 +464,12 @@ export function Home() {
 
         <HomeSection
           id="rail-guides"
-          title="Guides on DELVE"
-          sub="Private tours and local hosts in cities worldwide."
+          title="Local guides"
+          sub="Book local experts for culture, food, wildlife, city walks, and hidden places."
           seeAllTo="/guides"
           loading={guidesLoading}
           count={guideItems.length}
-          emptyMessage="No guides listed yet. Check back soon."
+          emptyMessage="No guides listed yet."
         >
           <div className="home-rail">
             {guideItems.map((g) => (
@@ -392,16 +489,25 @@ export function Home() {
         <section className="home-section ta-rail home-preview-section" aria-labelledby="home-community">
           <div className="ta-rail__head">
             <div>
-              <h2 id="home-community" className="ta-rail__title">Community</h2>
-              <p className="ta-rail__sub">Ask locals, see what&apos;s trending, and join challenges.</p>
+              <h2 id="home-community" className="ta-rail__title">
+                Ask locals and travellers
+              </h2>
+              <p className="ta-rail__sub">
+                Get practical answers about safety, prices, routes, stays, food, and events.
+              </p>
             </div>
-            <Link to="/community" className="section-see-all">
-              See all
-            </Link>
+            <div className="home-section__head-actions">
+              <Link to="/community" className="home-section-cta">
+                Ask locals
+              </Link>
+              <Link to="/community" className="section-see-all">
+                See all
+              </Link>
+            </div>
           </div>
           <div className="cm-qa-list home-preview-qa">
             {communityPreview.map((q) => (
-              <Link key={q.id} to="/community" className="cm-qa-card">
+              <Link key={q.id} to="/community" className="cm-qa-card home-qa-card">
                 <div className="cm-qa-card__header">
                   <span className="cm-qa-card__avatar" aria-hidden>
                     {q.initial}
@@ -415,6 +521,7 @@ export function Home() {
                 <p className="cm-qa-card__question">{q.question}</p>
                 <div className="cm-qa-card__footer">
                   <span className="cm-qa-card__answers-btn">
+                    <MessageSquare size={14} strokeWidth={2.25} aria-hidden />
                     {q.answers} {q.answers === 1 ? 'answer' : 'answers'}
                   </span>
                 </div>
@@ -425,24 +532,25 @@ export function Home() {
 
         <HomeSection
           id="home-journeys"
-          title="Journeys"
-          sub="Real travel diaries — places, prices, and moments."
+          title="Real journeys"
+          sub="Routes, costs, photos, and tips from travellers who went there."
           seeAllTo="/journeys"
           loading={false}
           count={journeyItems.length}
-          emptyMessage="No journeys yet. Check back soon."
+          emptyMessage="No journeys yet."
           className="home-preview-section"
         >
           <div className="home-rail home-rail--journeys">
             {journeyItems.map((t) => (
-              <HomeCard
+              <JourneyHomeCard
                 key={t.id}
-                journey
                 to={`/journeys/${t.id}`}
                 imageSrc={homeCoverSrc(t.cover_image, 'journey')}
                 imageAlt={t.title}
                 title={t.title}
-                meta={`${t.author.display_name} · ${t.days} ${t.days === 1 ? 'day' : 'days'} · ${journeyRouteLabel(t.stops)}`}
+                author={t.author.display_name}
+                days={t.days}
+                route={journeyRouteLabel(t.stops)}
               />
             ))}
           </div>
@@ -451,4 +559,3 @@ export function Home() {
     </div>
   )
 }
-

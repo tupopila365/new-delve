@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { mockGuides } from '../mocks/mockData'
-import { ProviderCategoryStrip } from '../components/provider'
+import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 
 const MOCK_INQUIRIES = [
   { id: 1, name: 'Sarah M.', package: 'Dunes & deadvlei half-day', date: '2026-05-12', guests: 2, total: 3600, status: 'confirmed' },
@@ -16,10 +17,17 @@ function stars(n: number) {
 
 export function GuidesAdmin() {
   const { profile } = useAuth()
+  const { canAccessProvider } = useBusinessAccess()
   const [tab, setTab] = useState<'profile' | 'packages' | 'inquiries'>('profile')
 
   if (!profile) return <Navigate to="/login" replace />
-  if (profile.user_type !== 'service_provider') return <Navigate to="/" replace />
+  if (!canAccessProvider) {
+    return (
+      <div className="prov-cat-page">
+        <ProviderAccessGate />
+      </div>
+    )
+  }
 
   const myGuides = mockGuides.filter((g) => g.username === profile.username)
   const guide = myGuides[0] ?? null

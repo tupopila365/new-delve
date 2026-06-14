@@ -29,9 +29,11 @@ export type ProviderBooking = {
   service: string
   category: ListingCategory
   date: string
+  guests?: number
   status: string
   total: number
   paymentStatus?: string
+  requestedAt?: string
 }
 
 export type AttentionItem = {
@@ -185,14 +187,14 @@ export function getProviderListings(owner?: string): ProviderListing[] {
 }
 
 const DEMO_BOOKINGS: ProviderBooking[] = [
-  { id: 1, guest: 'Anna K.', guestInitial: 'A', service: 'Freesia Hotel', category: 'Stay', date: '2026-05-10', status: 'confirmed', total: 1050, paymentStatus: 'paid' },
-  { id: 2, guest: 'James O.', guestInitial: 'J', service: 'Desert sunrise tour', category: 'Guide', date: '2026-05-14', status: 'requested', total: 340, paymentStatus: 'pending' },
-  { id: 3, guest: 'Maria S.', guestInitial: 'M', service: 'Toyota Hilux 4×4', category: 'Transport', date: '2026-05-20', status: 'reserved', total: 1800, paymentStatus: 'pending' },
-  { id: 4, guest: 'Tobias L.', guestInitial: 'T', service: 'Oryx Grill House', category: 'Food', date: '2026-06-01', status: 'confirmed', total: 0, paymentStatus: 'n/a' },
-  { id: 5, guest: 'Priya N.', guestInitial: 'P', service: 'Coastal Guesthouse', category: 'Stay', date: '2026-05-22', status: 'pending', total: 720, paymentStatus: 'pending' },
+  { id: 1, guest: 'Anna K.', guestInitial: 'A', service: 'Freesia Hotel', category: 'Stay', date: '2026-05-10', guests: 2, status: 'confirmed', total: 1050, paymentStatus: 'paid', requestedAt: '2026-04-28' },
+  { id: 2, guest: 'James O.', guestInitial: 'J', service: 'Desert sunrise tour', category: 'Guide', date: '2026-05-14', guests: 4, status: 'requested', total: 340, paymentStatus: 'pending', requestedAt: '2026-05-01' },
+  { id: 3, guest: 'Maria S.', guestInitial: 'M', service: 'Toyota Hilux 4×4', category: 'Transport', date: '2026-05-20', guests: 2, status: 'reserved', total: 1800, paymentStatus: 'pending', requestedAt: '2026-04-30' },
+  { id: 4, guest: 'Tobias L.', guestInitial: 'T', service: 'Oryx Grill House', category: 'Food', date: '2026-06-01', guests: 6, status: 'confirmed', total: 0, paymentStatus: 'n/a', requestedAt: '2026-05-10' },
+  { id: 5, guest: 'Priya N.', guestInitial: 'P', service: 'Coastal Guesthouse', category: 'Stay', date: '2026-05-22', guests: 3, status: 'pending', total: 720, paymentStatus: 'pending', requestedAt: '2026-05-05' },
 ]
 
-export function getProviderBookings(_owner?: string): ProviderBooking[] {
+export function getProviderBookings(): ProviderBooking[] {
   return DEMO_BOOKINGS
 }
 

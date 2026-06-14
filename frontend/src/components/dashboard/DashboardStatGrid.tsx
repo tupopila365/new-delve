@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
 
 type Stat = {
-  value: string | number
+  value: string | number | ReactNode
   label: string
   accent?: boolean
   to?: string

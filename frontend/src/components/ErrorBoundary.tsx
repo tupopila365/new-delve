@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
           minHeight: '100vh',
           padding: '2rem',
           fontFamily: 'system-ui, sans-serif',
-          background: '#faf7f2',
+          background: 'var(--bg, #ebe3d6)',
           color: '#1c1410',
         }}
       >

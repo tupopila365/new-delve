@@ -1,7 +1,28 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { LucideIcon } from 'lucide-react'
+import {
+  AlertCircle,
+  BadgeDollarSign,
+  Building2,
+  Bus,
+  CalendarDays,
+  Car,
+  CheckCircle,
+  Fuel,
+  Gauge,
+  Info,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  ShieldCheck,
+  Truck,
+  UserRound,
+  Users,
+} from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
+import { BookingDateFields, BookingPriceSummary, BookingTrustNote, UserBookingErrorState } from '../components/booking'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { buildVehicleGalleryItems, TransportGallery } from '../components/TransportGallery'
@@ -19,13 +40,13 @@ import {
 } from '../components/detail'
 import { EmptyState } from '../components/ui'
 
-const VEHICLE_TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
-  '4x4': { label: '4×4 / SUV', emoji: '🚙' },
-  sedan: { label: 'Sedan', emoji: '🚗' },
-  hatchback: { label: 'Hatchback', emoji: '🚘' },
-  van: { label: 'Van / Minibus', emoji: '🚐' },
-  pickup: { label: 'Pickup', emoji: '🛻' },
-  luxury: { label: 'Luxury', emoji: '✨' },
+const VEHICLE_TYPE_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
+  '4x4': { label: '4×4 / SUV', Icon: Car },
+  sedan: { label: 'Sedan', Icon: Car },
+  hatchback: { label: 'Hatchback', Icon: Car },
+  van: { label: 'Van / Minibus', Icon: Bus },
+  pickup: { label: 'Pickup', Icon: Truck },
+  luxury: { label: 'Luxury', Icon: Car },
 }
 
 const DEFAULT_RENTAL_RULES = [
@@ -69,6 +90,12 @@ type Booking = {
   mock_payment_ref: string
 }
 
+type DetailRow = {
+  label: string
+  value: string
+  Icon: LucideIcon
+}
+
 function rentalDaysInclusive(start: string, end: string): number | null {
   if (!start || !end) return null
   const a = new Date(start)
@@ -80,8 +107,13 @@ function rentalDaysInclusive(start: string, end: string): number | null {
 }
 
 function vehicleTypeMeta(type?: string | null) {
-  if (!type) return { label: 'Vehicle', emoji: '🚗' }
-  return VEHICLE_TYPE_LABELS[type] ?? { label: type, emoji: '🚗' }
+  if (!type) return { label: 'Vehicle', Icon: Car }
+  return VEHICLE_TYPE_LABELS[type] ?? { label: type, Icon: Car }
+}
+
+function openStreetMapUrl(city: string, region: string, pickup?: string | null) {
+  const q = [pickup, city, region].filter(Boolean).join(', ')
+  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`
 }
 
 function whyRentVehicle(v: Vehicle): string[] {
@@ -136,9 +168,12 @@ export function VehicleDetail() {
   }, [days, v])
 
   const typeMeta = vehicleTypeMeta(v?.vehicle_type)
+  const TypeIcon = typeMeta.Icon
   const loveItems = v ? whyRentVehicle(v) : []
   const locationLine = v ? [v.city, v.region].filter(Boolean).join(', ') : ''
   const todayStr = new Date().toISOString().split('T')[0]
+  const providerName = v?.owner_display_name?.trim() || v?.owner_username || 'Transport provider'
+  const providerProfileHref = v?.owner_username ? `/u/${encodeURIComponent(v.owner_username)}` : null
 
   const pickupOptions = useMemo(() => {
     const opts = new Set<string>()
@@ -195,12 +230,16 @@ export function VehicleDetail() {
       nav('/verify-email')
       return
     }
-    if (!start || !end) {
-      setErr('Please choose both pick-up and drop-off dates.')
+    if (!start) {
+      setErr('Choose a pick-up date.')
+      return
+    }
+    if (!end) {
+      setErr('Choose a return date.')
       return
     }
     if (new Date(end) < new Date(start)) {
-      setErr('Drop-off date must be on or after pick-up date.')
+      setErr('Choose a return date on or after pick-up.')
       return
     }
     createMut.mutate()
@@ -226,7 +265,7 @@ export function VehicleDetail() {
     return (
       <DetailPage prefix="tp-detail" className="tp-detail--premium">
         <EmptyState
-          icon="🚗"
+          iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
           title="We couldn't load this vehicle"
           sub="Please check your connection and try again."
           cta={{ label: 'Try again', onClick: () => void refetch() }}
@@ -239,9 +278,9 @@ export function VehicleDetail() {
     return (
       <DetailPage prefix="tp-detail" className="tp-detail--premium">
         <EmptyState
-          icon="🚗"
+          iconElement={<Car size={28} strokeWidth={2} aria-hidden />}
           title="Vehicle not found"
-          sub="This listing may have been removed or the link is incorrect."
+          sub="This vehicle may have been removed or the link is incorrect."
           cta={{ label: 'Browse transport', to: '/transport' }}
         />
       </DetailPage>
@@ -249,6 +288,36 @@ export function VehicleDetail() {
   }
 
   const canBook = !booking || booking.status === 'pending'
+  const mapUrl = openStreetMapUrl(v.city ?? '', v.region, v.pickup_location)
+  const hasLocation = Boolean(v.pickup_location || v.city || v.region)
+
+  const rentalDetailRows: DetailRow[] = [
+    { label: 'Daily rate', value: `N$${v.price_per_day}`, Icon: BadgeDollarSign },
+    {
+      label: 'Pickup location',
+      value: v.pickup_location || locationLine || 'Confirm with provider',
+      Icon: MapPin,
+    },
+    {
+      label: 'Return',
+      value: 'Same location unless arranged with provider',
+      Icon: Navigation,
+    },
+  ]
+  if (v.seats != null) {
+    rentalDetailRows.push({ label: 'Seats', value: `${v.seats} passengers`, Icon: Users })
+  }
+  if (v.transmission) {
+    rentalDetailRows.push({ label: 'Transmission', value: v.transmission, Icon: Gauge })
+  }
+  if (v.fuel_type) {
+    rentalDetailRows.push({ label: 'Fuel type', value: v.fuel_type, Icon: Fuel })
+  }
+
+  const trustItems: string[] = ['Vehicle rental', 'Listed on DELVE']
+  if (v.air_conditioning) trustItems.push('Air conditioning')
+  if (v.vehicle_type === '4x4' || v.vehicle_type === 'pickup') trustItems.push('Gravel-road friendly')
+  if (v.included_features?.some((f) => /airport|pickup/i.test(f))) trustItems.push('Airport pickup')
 
   const vehicleMoments = [
     ...galleryItems.slice(0, 2).map((item, i) => ({
@@ -266,62 +335,123 @@ export function VehicleDetail() {
   ]
 
   const bookingCard = canBook ? (
-    <DetailActionCard kicker="Ready to drive?" title={<><span>N${v.price_per_day}</span><small> / day</small></>} className="tp-detail__booking-card">
+    <DetailActionCard
+      kicker="Request this vehicle"
+      title={
+        <span className="tp-detail__booking-price">
+          <BadgeDollarSign size={18} strokeWidth={2.25} aria-hidden />
+          N${v.price_per_day}
+          <small> / day</small>
+        </span>
+      }
+      className="tp-detail__booking-card"
+      footer={
+        <BookingTrustNote>
+          The provider will confirm availability, pickup details, deposit, and rental terms before anything is
+          final.
+        </BookingTrustNote>
+      }
+    >
       <div className="tp-detail__booking-meta">
-        <span>{typeMeta.label}</span>
-        {v.seats != null && <span>{v.seats} seats</span>}
-        {v.transmission && <span>{v.transmission}</span>}
+        <span>
+          <TypeIcon size={13} strokeWidth={2.25} aria-hidden />
+          {typeMeta.label}
+        </span>
+        {v.seats != null && (
+          <span>
+            <Users size={13} strokeWidth={2.25} aria-hidden />
+            {v.seats} seats
+          </span>
+        )}
+        {locationLine ? (
+          <span>
+            <MapPin size={13} strokeWidth={2.25} aria-hidden />
+            {locationLine}
+          </span>
+        ) : null}
+        <span>
+          <Building2 size={13} strokeWidth={2.25} aria-hidden />
+          {providerName}
+        </span>
       </div>
 
-      <div className="tp-detail__booking-fields">
-        <label>
-          Pick-up
-          <input type="date" min={todayStr} value={start} onChange={(e) => setStart(e.target.value)} />
-        </label>
-        <label>
-          Drop-off
-          <input type="date" min={start || todayStr} value={end} onChange={(e) => setEnd(e.target.value)} />
-        </label>
-        <label>
-          Pick-up area
-          <select value={pickupArea || pickupOptions[0] || ''} onChange={(e) => setPickupArea(e.target.value)}>
+      <div className="tp-detail__booking-fields bk-inline-form">
+        <BookingDateFields
+          mode="range"
+          checkIn={{
+            id: 'veh-pickup',
+            label: 'Pick-up date',
+            value: start,
+            min: todayStr,
+            onChange: setStart,
+          }}
+          checkOut={{
+            id: 'veh-return',
+            label: 'Return date',
+            value: end,
+            min: start || todayStr,
+            onChange: setEnd,
+          }}
+        />
+        <div className="field">
+          <label className="label" htmlFor="veh-pickup-area">
+            Pick-up area
+          </label>
+          <select
+            id="veh-pickup-area"
+            className="input"
+            value={pickupArea || pickupOptions[0] || ''}
+            onChange={(e) => setPickupArea(e.target.value)}
+          >
             {pickupOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
-      {days != null && estimatedTotal ? (
-        <div className="tp-detail__total">
-          <span>Estimated total ({days} {days === 1 ? 'day' : 'days'})</span>
-          <strong>N${estimatedTotal}</strong>
-        </div>
-      ) : (
-        <div className="tp-detail__total tp-detail__total--muted">
-          <span>Estimated total</span>
-          <strong>—</strong>
-        </div>
-      )}
+      <BookingPriceSummary
+        lines={
+          days != null && estimatedTotal
+            ? [{ label: `${days} ${days === 1 ? 'day' : 'days'} × N$${v.price_per_day}`, value: `N$${estimatedTotal}` }]
+            : [{ label: 'Daily rate', value: `N$${v.price_per_day} / day`, muted: true }]
+        }
+        total={estimatedTotal ? { label: 'Estimated total', value: `N$${estimatedTotal}` } : undefined}
+        estimateNote={estimatedTotal ? 'Provider confirms the final amount' : 'Choose dates to see an estimate'}
+      />
 
-      <button type="button" className="btn btn-primary tp-detail__book-btn" onClick={handleReserve} disabled={createMut.isPending}>
-        {createMut.isPending ? 'Saving…' : 'Reserve vehicle'}
+      {err ? <UserBookingErrorState message={err} onDismiss={() => setErr(null)} /> : null}
+
+      <button
+        type="button"
+        className="btn btn-primary tp-detail__book-btn"
+        onClick={handleReserve}
+        disabled={createMut.isPending}
+      >
+        <Car size={16} strokeWidth={2.25} aria-hidden />
+        {createMut.isPending ? 'Sending…' : 'Request vehicle'}
       </button>
 
-      {v.owner_username ? (
-        <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__message-btn">
+      {providerProfileHref ? (
+        <Link to={providerProfileHref} className="tp-detail__message-btn">
+          <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
           Message provider
         </Link>
-      ) : null}
+      ) : (
+        <Link to="/messages" className="tp-detail__message-btn">
+          <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+          Contact provider
+        </Link>
+      )}
 
       {!profile ? (
-        <p className="tp-detail__booking-hint">Sign in to complete your reservation.</p>
+        <p className="tp-detail__booking-hint">Sign in to send a vehicle request.</p>
       ) : !profile.email_verified ? (
-        <p className="tp-detail__booking-hint">Verify your email to reserve.</p>
+        <p className="tp-detail__booking-hint">Verify your email to request this vehicle.</p>
       ) : (
-        <p className="tp-detail__booking-hint">Practice flow — no real payment today.</p>
+        <p className="tp-detail__booking-hint">Your request is sent to the provider for confirmation.</p>
       )}
     </DetailActionCard>
   ) : null
@@ -329,48 +459,98 @@ export function VehicleDetail() {
   return (
     <DetailPage prefix="tp-detail" className="tp-detail--premium" toast={shareMsg || null}>
       <DetailHeroWrap
-        className="acc-detail__gallery-wrap"
+        className="acc-detail__gallery-wrap tp-detail__gallery-wrap"
         backTo="/transport"
         backLabel="Transport"
         saved={saved}
         onSave={() => setSaved((s) => !s)}
         onShare={() => onShare(v.title)}
       >
-        <TransportGallery items={galleryItems} title={v.title} emptyLabel="Vehicle photo coming soon" />
+        <TransportGallery
+          items={galleryItems}
+          title={v.title}
+          emptyLabel="Vehicle photos will appear once the provider adds them."
+        />
       </DetailHeroWrap>
 
       <section className="tp-detail__identity detail-section">
         <div className="tp-detail__meta-row">
           <span className="tp-detail__pill">
-            {typeMeta.emoji} {typeMeta.label}
+            <TypeIcon size={13} strokeWidth={2.25} aria-hidden />
+            {typeMeta.label}
           </span>
-          {locationLine ? <span className="tp-detail__pill">{locationLine}</span> : null}
-          {v.transmission ? <span className="tp-detail__pill">{v.transmission}</span> : null}
-          {v.seats != null ? <span className="tp-detail__pill">{v.seats} seats</span> : null}
+          {locationLine ? (
+            <span className="tp-detail__pill">
+              <MapPin size={12} strokeWidth={2.25} aria-hidden />
+              {locationLine}
+            </span>
+          ) : null}
         </div>
 
         <h1 className="display tp-detail__title">{v.title}</h1>
 
         <p className="tp-detail__summary">
           {v.make} {v.model}
-          {v.year ? ` · ${v.year}` : ''} · N${v.price_per_day}/day
+          {v.year ? ` · ${v.year}` : ''}
+          {providerName ? (
+            <>
+              {' '}
+              · Listed by{' '}
+              {providerProfileHref ? (
+                <Link to={providerProfileHref} className="tp-detail__provider-inline">
+                  {providerName}
+                </Link>
+              ) : (
+                providerName
+              )}
+            </>
+          ) : null}
         </p>
 
-        <TrustBadgeRow
-          items={[
-            'Verified provider',
-            ...(v.vehicle_type === '4x4' || v.vehicle_type === 'pickup' ? ['Gravel-road friendly'] : []),
-            ...(v.air_conditioning ? ['Air conditioning'] : []),
-            'Safe pickup',
-          ]}
-          className="tp-detail__trust-row"
-        />
+        <ul className="tp-detail__facts">
+          {v.seats != null ? (
+            <li>
+              <Users size={16} strokeWidth={2.25} aria-hidden />
+              <span>{v.seats} seats</span>
+            </li>
+          ) : null}
+          <li>
+            <BadgeDollarSign size={16} strokeWidth={2.25} aria-hidden />
+            <span>N${v.price_per_day} / day</span>
+          </li>
+          {v.pickup_location || locationLine ? (
+            <li>
+              <MapPin size={16} strokeWidth={2.25} aria-hidden />
+              <span>{v.pickup_location || locationLine}</span>
+            </li>
+          ) : null}
+          {v.transmission ? (
+            <li>
+              <Gauge size={16} strokeWidth={2.25} aria-hidden />
+              <span>{v.transmission}</span>
+            </li>
+          ) : null}
+          {v.fuel_type ? (
+            <li>
+              <Fuel size={16} strokeWidth={2.25} aria-hidden />
+              <span>{v.fuel_type}</span>
+            </li>
+          ) : null}
+        </ul>
+
+        <TrustBadgeRow items={trustItems} className="tp-detail__trust-row" />
 
         <SocialActionRow saved={saved} onSave={() => setSaved((s) => !s)} onShare={() => onShare(v.title)}>
-          {v.owner_username ? (
-            <Link to={`/u/${encodeURIComponent(v.owner_username)}`}>Ask provider</Link>
+          {providerProfileHref ? (
+            <Link to={providerProfileHref}>
+              <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+              Contact provider
+            </Link>
           ) : (
-            <button type="button">Ask provider</button>
+            <Link to="/messages">
+              <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
+              Contact provider
+            </Link>
           )}
         </SocialActionRow>
       </section>
@@ -378,199 +558,251 @@ export function VehicleDetail() {
       <DetailLayout
         main={
           <>
-          <section className="detail-section tp-detail__love">
-            <h2 className="tp-detail__section-title">Why rent this</h2>
-            <div className="tp-detail__love-grid">
-              {loveItems.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
-          </section>
-
-          <section className="detail-section tp-detail__specs">
-            <h2 className="tp-detail__section-title">Vehicle specs</h2>
-            <dl className="tp-detail__spec-grid">
-              <div>
-                <dt>Make</dt>
-                <dd>{v.make}</dd>
-              </div>
-              <div>
-                <dt>Model</dt>
-                <dd>{v.model}</dd>
-              </div>
-              {v.year ? (
-                <div>
-                  <dt>Year</dt>
-                  <dd>{v.year}</dd>
-                </div>
-              ) : null}
-              {v.seats != null ? (
-                <div>
-                  <dt>Seats</dt>
-                  <dd>{v.seats}</dd>
-                </div>
-              ) : null}
-              {v.transmission ? (
-                <div>
-                  <dt>Transmission</dt>
-                  <dd className="tp-detail__spec-cap">{v.transmission}</dd>
-                </div>
-              ) : null}
-              {v.vehicle_type ? (
-                <div>
-                  <dt>Vehicle type</dt>
-                  <dd>{typeMeta.label}</dd>
-                </div>
-              ) : null}
-              {v.fuel_type ? (
-                <div>
-                  <dt>Fuel</dt>
-                  <dd>{v.fuel_type}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
-
-          {(v.pickup_location || v.city) && (
-            <section className="detail-section tp-detail__pickup-block">
-              <h2 className="tp-detail__section-title">Pick-up & return</h2>
-              <p className="tp-detail__pickup-text">
-                {v.pickup_location ||
-                  `Pick-up in ${v.city} — exact address shared after you reserve.`}
-              </p>
-              <p className="tp-detail__pickup-note">
-                Return to the same location unless arranged with the provider in advance.
-              </p>
+            <section className="detail-section tp-detail__about">
+              <h2 className="tp-detail__section-title">About this vehicle</h2>
+              {v.description?.trim() ? (
+                <p className="tp-detail__about-text">{v.description}</p>
+              ) : (
+                <p className="tp-detail__about-empty" role="status">
+                  More vehicle details will appear here once the provider adds them.
+                </p>
+              )}
             </section>
-          )}
 
-          {v.included_features && v.included_features.length > 0 && (
-            <section className="detail-section tp-detail__included-block">
-              <h2 className="tp-detail__section-title">Included</h2>
-              <div className="tp-detail__included-grid">
-                {v.included_features.map((f) => (
-                  <span key={f}>{f}</span>
+            <section className="detail-section tp-detail__love">
+              <h2 className="tp-detail__section-title">Best for</h2>
+              <div className="tp-detail__love-grid">
+                {loveItems.map((item) => (
+                  <span key={item}>{item}</span>
                 ))}
               </div>
             </section>
-          )}
 
-          <section className="detail-section tp-detail__rules">
-            <h2 className="tp-detail__section-title">Rental rules</h2>
-            <ul className="tp-detail__rules-list">
-              {DEFAULT_RENTAL_RULES.map((rule) => (
-                <li key={rule}>{rule}</li>
-              ))}
-            </ul>
-          </section>
-
-          {v.description?.trim() ? (
-            <section className="detail-section tp-detail__about">
-              <h2 className="tp-detail__section-title">About this vehicle</h2>
-              <p>{v.description}</p>
-            </section>
-          ) : null}
-
-          {(v.owner_username || v.owner_display_name) && (
-            <section className="detail-section tp-detail__provider-block">
-              <h2 className="tp-detail__section-title">Provider</h2>
-              <div className="tp-detail__provider-card">
-                <div className="tp-detail__provider-avatar">
-                  {v.owner_avatar ? (
-                    <img
-                      src={
-                        /^https?:\/\//i.test(v.owner_avatar)
-                          ? v.owner_avatar
-                          : mediaUrl(v.owner_avatar) || v.owner_avatar
-                      }
-                      alt=""
-                    />
-                  ) : (
-                    <span aria-hidden>
-                      {(v.owner_display_name || v.owner_username || '?').trim().charAt(0).toUpperCase()}
-                    </span>
-                  )}
+            <section className="detail-section tp-detail__specs">
+              <h2 className="tp-detail__section-title">Vehicle features</h2>
+              <dl className="tp-detail__spec-grid">
+                <div>
+                  <dt>Make</dt>
+                  <dd>{v.make}</dd>
                 </div>
                 <div>
-                  <p className="tp-detail__provider-name">
-                    {v.owner_display_name?.trim() || (v.owner_username ? `@${v.owner_username}` : 'Provider')}
-                  </p>
-                  {(v.owner_city || v.owner_region) && (
-                    <p className="tp-detail__provider-loc">
-                      {[v.owner_city, v.owner_region].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                  <p className="tp-detail__provider-bio">
-                    {v.owner_bio?.trim() ||
-                      'Verified rental provider on DELVE — pickup details after you book.'}
-                  </p>
-                  {v.owner_username ? (
-                    <Link to={`/u/${encodeURIComponent(v.owner_username)}`} className="tp-detail__provider-link">
-                      View profile
-                    </Link>
-                  ) : null}
+                  <dt>Model</dt>
+                  <dd>{v.model}</dd>
                 </div>
+                {v.year ? (
+                  <div>
+                    <dt>Year</dt>
+                    <dd>{v.year}</dd>
+                  </div>
+                ) : null}
+                {v.seats != null ? (
+                  <div>
+                    <dt>Seats</dt>
+                    <dd>{v.seats}</dd>
+                  </div>
+                ) : null}
+                {v.transmission ? (
+                  <div>
+                    <dt>Transmission</dt>
+                    <dd className="tp-detail__spec-cap">{v.transmission}</dd>
+                  </div>
+                ) : null}
+                {v.vehicle_type ? (
+                  <div>
+                    <dt>Vehicle type</dt>
+                    <dd>{typeMeta.label}</dd>
+                  </div>
+                ) : null}
+                {v.fuel_type ? (
+                  <div>
+                    <dt>Fuel</dt>
+                    <dd>{v.fuel_type}</dd>
+                  </div>
+                ) : null}
+                {v.air_conditioning ? (
+                  <div>
+                    <dt>Air conditioning</dt>
+                    <dd>Yes</dd>
+                  </div>
+                ) : null}
+              </dl>
+              {v.included_features && v.included_features.length > 0 ? (
+                <div className="tp-detail__included-grid tp-detail__included-grid--specs">
+                  {v.included_features.map((f) => (
+                    <span key={f}>
+                      <CheckCircle size={14} strokeWidth={2.25} aria-hidden />
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="detail-section tp-detail__rental-details">
+              <h2 className="tp-detail__section-title">Rental details</h2>
+              <ul className="tp-detail__details-list">
+                {rentalDetailRows.map((row) => (
+                  <li key={row.label} className="tp-detail__details-item">
+                    <span className="tp-detail__details-icon" aria-hidden>
+                      <row.Icon size={18} strokeWidth={2.25} />
+                    </span>
+                    <div className="tp-detail__details-body">
+                      <span className="tp-detail__details-label">{row.label}</span>
+                      <strong className="tp-detail__details-value">{row.value}</strong>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="tp-detail__rental-terms-note">
+                <Info size={14} strokeWidth={2.25} aria-hidden />
+                Confirm rental terms with the provider before requesting.
+              </p>
+            </section>
+
+            <section className="detail-section tp-detail__pickup-block">
+              <h2 className="tp-detail__section-title">Pickup location</h2>
+              <div className="tp-detail__pickup-card">
+                <div className="tp-detail__pickup-info">
+                  <p className="tp-detail__pickup-text">
+                    {v.pickup_location ||
+                      (v.city
+                        ? `Pickup in ${v.city} — exact address shared after your request.`
+                        : 'Pickup details shared by the provider after your request.')}
+                  </p>
+                  {locationLine ? <p className="tp-detail__pickup-note">{locationLine}</p> : null}
+                </div>
+                {hasLocation ? (
+                  <a
+                    href={mapUrl}
+                    className="tp-detail__map-btn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open pickup area on map"
+                  >
+                    <Navigation size={16} strokeWidth={2.25} aria-hidden />
+                    <span>Get directions</span>
+                  </a>
+                ) : null}
               </div>
             </section>
-          )}
 
-          <DelversMoments
-            title="Delvers moments with this ride"
-            subtitle="Road trip photos, pickup tips, and luggage setup from travellers."
-            moments={vehicleMoments}
-            className="tp-detail__moments"
-            showWhenEmpty
-          />
-
-          <CommentBox
-            className="tp-detail__comments"
-            title="Rental tips & questions"
-            subtitle="Pickup advice, insurance, and gravel-road notes from recent renters."
-            placeholder="Ask about pickup location, insurance, fuel policy, or gravel roads…"
-            draft={commentDraft}
-            onDraftChange={setCommentDraft}
-            onPost={postVehicleTip}
-            comments={vehicleTips}
-            postLabel="Share tip"
-          />
-
-          {err ? <div className="error-banner" role="alert">{err}</div> : null}
-
-          {booking?.status === 'pending' && (
-            <section className="detail-section tp-detail__booking-flow">
-              <h2 className="tp-detail__section-title">Review (demo)</h2>
-              <p className="tp-detail__booking-total">
-                Total for this practice flow: <strong>N${booking.total_price}</strong>
-              </p>
-              <p className="tp-detail__booking-note">
-                This is a simulated payment — your card is never charged.
-              </p>
-              <button
-                type="button"
-                className="btn btn-primary btn-block"
-                onClick={() => payMut.mutate(booking.id)}
-                disabled={payMut.isPending}
-              >
-                {payMut.isPending ? 'Processing…' : 'Run practice payment'}
-              </button>
+            <section className="detail-section tp-detail__rules">
+              <h2 className="tp-detail__section-title">Rental rules</h2>
+              <ul className="tp-detail__rules-list">
+                {DEFAULT_RENTAL_RULES.map((rule) => (
+                  <li key={rule}>
+                    <ShieldCheck size={14} strokeWidth={2.25} aria-hidden />
+                    {rule}
+                  </li>
+                ))}
+              </ul>
             </section>
-          )}
 
-          {booking?.status === 'confirmed' && (
-            <section className="detail-section tp-detail__booking-flow tp-detail__booking-flow--success">
-              <h2 className="tp-detail__section-title">Rental confirmed</h2>
-              <p>
-                In a live product you would get pickup instructions and a contact for the provider. Nothing was
-                charged.
-              </p>
-              <p className="tp-detail__booking-ref">
-                Reference: <code>{booking.mock_payment_ref}</code>
-              </p>
-              <Link to="/transport" className="btn btn-primary btn-block">
-                Browse more vehicles
-              </Link>
-            </section>
-          )}
+            {(v.owner_username || v.owner_display_name) && (
+              <section className="detail-section tp-detail__provider-block">
+                <h2 className="tp-detail__section-title">Provider</h2>
+                <div className="tp-detail__provider-card">
+                  <div className="tp-detail__provider-avatar" aria-hidden>
+                    {v.owner_avatar ? (
+                      <img
+                        src={
+                          /^https?:\/\//i.test(v.owner_avatar)
+                            ? v.owner_avatar
+                            : mediaUrl(v.owner_avatar) || v.owner_avatar
+                        }
+                        alt=""
+                      />
+                    ) : (
+                      <UserRound size={22} strokeWidth={2} />
+                    )}
+                  </div>
+                  <div className="tp-detail__provider-body">
+                    <p className="tp-detail__provider-kicker">Transport provider</p>
+                    <p className="tp-detail__provider-name">{providerName}</p>
+                    {(v.owner_city || v.owner_region) && (
+                      <p className="tp-detail__provider-loc">
+                        <MapPin size={13} strokeWidth={2.25} aria-hidden />
+                        {[v.owner_city, v.owner_region].filter(Boolean).join(', ')}
+                      </p>
+                    )}
+                    <p className="tp-detail__provider-bio">
+                      {v.owner_bio?.trim() ||
+                        'Listed on DELVE. Message the provider for pickup, insurance, and rental terms.'}
+                    </p>
+                    <div className="tp-detail__provider-actions">
+                      {providerProfileHref ? (
+                        <Link to={providerProfileHref} className="btn btn-ghost btn-sm">
+                          <UserRound size={14} strokeWidth={2.25} aria-hidden />
+                          View provider profile
+                        </Link>
+                      ) : null}
+                      <Link to="/messages" className="btn btn-ghost btn-sm">
+                        <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+                        Message provider
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <DelversMoments
+              title="Delvers moments with this ride"
+              subtitle="Road trip photos, pickup tips, and luggage setup from travellers."
+              moments={vehicleMoments}
+              className="tp-detail__moments"
+              showWhenEmpty
+              emptyMessage="Photos and tips will appear after travellers rent this vehicle."
+            />
+
+            <CommentBox
+              className="tp-detail__comments"
+              title="Rental tips and questions"
+              subtitle="Pickup advice, insurance, and gravel-road notes from recent renters."
+              placeholder="Ask about pickup location, insurance, fuel policy, or gravel roads…"
+              draft={commentDraft}
+              onDraftChange={setCommentDraft}
+              onPost={postVehicleTip}
+              comments={vehicleTips}
+              postLabel="Share tip"
+              emptyMessage="Questions and tips will appear here as people discuss this vehicle."
+            />
+
+            {booking?.status === 'pending' && (
+              <section className="detail-section tp-detail__booking-flow">
+                <h2 className="tp-detail__section-title">Request received</h2>
+                <p className="tp-detail__booking-total">
+                  Estimated total: <strong>N${booking.total_price}</strong>
+                </p>
+                <p className="tp-detail__booking-note">
+                  This demo flow includes a practice payment step — your card is never charged.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  onClick={() => payMut.mutate(booking.id)}
+                  disabled={payMut.isPending}
+                >
+                  {payMut.isPending ? 'Processing…' : 'Complete demo step'}
+                </button>
+              </section>
+            )}
+
+            {booking?.status === 'confirmed' && (
+              <section className="detail-section tp-detail__booking-flow tp-detail__booking-flow--success">
+                <h2 className="tp-detail__section-title">Request confirmed</h2>
+                <p>
+                  The provider would share pickup instructions and contact details here. No payment was charged
+                  in this demo.
+                </p>
+                <p className="tp-detail__booking-ref">
+                  Reference: <code>{booking.mock_payment_ref}</code>
+                </p>
+                <Link to="/transport" className="btn btn-primary btn-block">
+                  Browse transport
+                </Link>
+              </section>
+            )}
           </>
         }
         sidebar={bookingCard}
@@ -578,11 +810,18 @@ export function VehicleDetail() {
 
       {canBook ? (
         <MobileStickyCTA
+          ariaLabel="Vehicle request"
           title={`N$${v.price_per_day}/day`}
-          subtitle={locationLine || v.region}
+          subtitle={[locationLine, providerName].filter(Boolean).join(' · ') || v.title}
           action={
-            <button type="button" className="btn btn-primary" onClick={handleReserve} disabled={createMut.isPending}>
-              Reserve
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleReserve}
+              disabled={createMut.isPending}
+            >
+              <Car size={16} strokeWidth={2.25} aria-hidden />
+              Request vehicle
             </button>
           }
           className="tp-detail__mobile-bar"

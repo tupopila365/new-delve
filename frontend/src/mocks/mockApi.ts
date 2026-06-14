@@ -1476,6 +1476,25 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return row
   }
 
+  if (pathname === '/api/guides/bookings/' && method === 'GET') {
+    requireAuth(s)
+    const sessionRows = [...mockGuideBookings.values()].filter(
+      (row) => !s.currentUser || row.client === s.currentUser,
+    )
+    return sessionRows.map((row) => ({
+      id: row.id,
+      guide: row.guide,
+      guide_headline: row.guide_headline,
+      date: row.date,
+      group_size: row.group_size,
+      package_id: row.package_id,
+      notes: row.notes,
+      total_price: row.total_price,
+      status: row.status,
+      created_at: row.created_at,
+    }))
+  }
+
   const guideMockPay = pathname.match(/^\/api\/guides\/bookings\/(\d+)\/mock_pay\/$/)
   if (guideMockPay && method === 'POST') {
     requireAuth(s)

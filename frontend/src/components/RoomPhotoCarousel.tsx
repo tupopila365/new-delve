@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { BedDouble, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { mediaUrl } from '../api/client'
 
 function touchDist(a: { clientX: number; clientY: number }, b: { clientX: number; clientY: number }) {
@@ -174,7 +175,7 @@ export function RoomPhotoCarousel({ images, name }: { images: string[]; name: st
               closeLightbox()
             }}
           >
-            ×
+            <X size={22} strokeWidth={2.25} aria-hidden />
           </button>
           <div className="acc-detail__lightbox-toolbar">
             <span className="acc-detail__lightbox-counter">
@@ -209,7 +210,7 @@ export function RoomPhotoCarousel({ images, name }: { images: string[]; name: st
               prev()
             }}
           >
-            ‹
+            <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
           </button>
           <button
             type="button"
@@ -220,7 +221,7 @@ export function RoomPhotoCarousel({ images, name }: { images: string[]; name: st
               next()
             }}
           >
-            ›
+            <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
           </button>
           <p className="acc-detail__lightbox-hint">
             Pinch or scroll to zoom · swipe for next photo · Esc to close
@@ -231,7 +232,11 @@ export function RoomPhotoCarousel({ images, name }: { images: string[]; name: st
     )
 
   if (images.length === 0) {
-    return <div className="acc-detail__room-img acc-detail__room-img--placeholder" aria-hidden />
+    return (
+      <div className="acc-detail__room-img acc-detail__room-img--placeholder" aria-hidden>
+        <BedDouble size={32} strokeWidth={1.75} />
+      </div>
+    )
   }
 
   const tile = (
@@ -281,7 +286,7 @@ export function RoomPhotoCarousel({ images, name }: { images: string[]; name: st
           }}
           aria-label="Previous photo"
         >
-          ‹
+          <ChevronLeft size={20} strokeWidth={2.25} aria-hidden />
         </button>
         <button
           type="button"
@@ -292,7 +297,7 @@ export function RoomPhotoCarousel({ images, name }: { images: string[]; name: st
           }}
           aria-label="Next photo"
         >
-          ›
+          <ChevronRight size={20} strokeWidth={2.25} aria-hidden />
         </button>
         <div className="acc-detail__room-carousel-dots" role="tablist" aria-label="Room photos">
           {images.map((_, i) => (

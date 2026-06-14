@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MiniRating } from './MiniRating'
 
 export type ReviewItem = {
   name: string
@@ -88,9 +89,7 @@ export function GuestReviewCard({ r }: { r: ReviewItem }) {
             <span className="acc-detail__review-name">{r.name}</span>
             {r.place ? <span className="acc-detail__review-place">{r.place}</span> : null}
             {r.rating > 0 ? (
-              <span className="acc-detail__review-rating" aria-label={`${r.rating} out of 5`}>
-                ★ {r.rating.toFixed(1)}
-              </span>
+              <MiniRating rating={r.rating} className="acc-detail__review-rating" />
             ) : null}
           </div>
           <p className={`acc-detail__review-body${clamped ? ' acc-detail__review-body--clamped' : ''}`}>{r.body}</p>

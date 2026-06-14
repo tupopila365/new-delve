@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ArrowRight, Route } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
 import type { ReviewItem } from '../GuestReviewCard'
 
@@ -69,7 +70,7 @@ export function GuideTourPackages({
                   <img className="gd-detail__package-img" src={imgUrl} alt="" loading="lazy" />
                 ) : (
                   <div className="gd-detail__package-img gd-detail__package-img--placeholder">
-                    <span>{p.title.slice(0, 1)}</span>
+                    <Route size={22} strokeWidth={2} aria-hidden />
                   </div>
                 )}
               </div>
@@ -100,7 +101,8 @@ export function GuideTourPackages({
               )}
               {detailHref ? (
                 <Link to={detailHref} className="gd-detail__package-detail-link">
-                  View details →
+                  View package
+                  <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
                 </Link>
               ) : null}
             </li>

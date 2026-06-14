@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
+import { BookingDateFields, BookingGuestSelector, BookingNotesField, BookingTrustNote } from '../components/booking'
 import { useAuth } from '../auth/AuthContext'
 import { FoodVenueGallery } from '../components/food/FoodVenueGallery'
+import { MiniRating } from '../components/MiniRating'
 import { EmptyState } from '../components/ui'
 import {
   CommentBox,
@@ -141,6 +143,10 @@ export function FoodDetail() {
   const { profile } = useAuth()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
+  const [reservationDate, setReservationDate] = useState('')
+  const [reservationTime, setReservationTime] = useState('')
+  const [partySize, setPartySize] = useState(2)
+  const [reservationNotes, setReservationNotes] = useState('')
   const [commentDraft, setCommentDraft] = useState('')
   const [localComments, setLocalComments] = useState<VenueComment[]>([])
   const [photoFilter, setPhotoFilter] = useState<VenuePhotoCategory | 'all'>('all')
@@ -493,10 +499,18 @@ export function FoodDetail() {
           </>
         }
         sidebar={
-          <DetailActionCard kicker="Ready to eat?" title={data.name}>
+          <DetailActionCard
+            kicker="Ready to eat?"
+            title={data.name}
+            footer={
+              <BookingTrustNote>
+                The venue will confirm availability if reservations are supported.
+              </BookingTrustNote>
+            }
+          >
             {ratingVal && (
               <div className="fd-detail__action-stats">
-                <span>★ {ratingVal}</span>
+                <MiniRating rating={ratingVal} />
                 <span>{commentCount} comments</span>
                 <span>{delversCount} Delvers posts</span>
               </div>
@@ -504,7 +518,7 @@ export function FoodDetail() {
 
             <div className="fd-detail__action-meta">
               <span>{price}</span>
-              {ratingVal && <span>★ {ratingVal}</span>}
+              {ratingVal ? <MiniRating rating={ratingVal} /> : null}
               {data.is_open === true && <span>Open now</span>}
               {data.is_open === false && <span>Closed</span>}
             </div>
@@ -514,13 +528,55 @@ export function FoodDetail() {
             )}
 
             {data.reservations ? (
-              <button type="button" className="btn btn-primary fd-detail__primary-action">
-                Reserve table
-              </button>
+              <>
+                <div className="bk-inline-form">
+                  <BookingDateFields
+                    mode="single"
+                    date={{
+                      id: 'fd-res-date',
+                      label: 'Date',
+                      value: reservationDate,
+                      min: new Date().toISOString().split('T')[0],
+                      onChange: setReservationDate,
+                    }}
+                    time={{
+                      id: 'fd-res-time',
+                      label: 'Time',
+                      value: reservationTime,
+                      onChange: setReservationTime,
+                    }}
+                  />
+                  <BookingGuestSelector
+                    id="fd-party"
+                    label="Party size"
+                    value={partySize}
+                    min={1}
+                    max={12}
+                    onChange={setPartySize}
+                  />
+                  <BookingNotesField
+                    id="fd-res-notes"
+                    label="Notes"
+                    value={reservationNotes}
+                    onChange={setReservationNotes}
+                    placeholder="Dietary needs, occasion, seating preference…"
+                  />
+                </div>
+                <button type="button" className="btn btn-primary fd-detail__primary-action" disabled title="Reservations coming soon">
+                  Request table
+                </button>
+              </>
             ) : (
-              <a href={mapUrl} className="btn btn-primary fd-detail__primary-action" target="_blank" rel="noopener noreferrer">
-                Get directions
-              </a>
+              <>
+                <a href={mapUrl} className="btn btn-primary fd-detail__primary-action" target="_blank" rel="noopener noreferrer">
+                  Get directions
+                </a>
+                {data.phone ? (
+                  <a href={`tel:${data.phone}`} className="btn btn-ghost fd-detail__primary-action">
+                    Contact venue
+                  </a>
+                ) : null}
+              </>
             )}
 
             <div className="fd-detail__action-grid">
