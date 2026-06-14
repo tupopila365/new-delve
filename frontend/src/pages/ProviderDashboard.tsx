@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useOutletContext } from 'react-router-dom'
+import { CalendarDays, Car, ClipboardList, Compass, Eye, Hotel, MessageCircle, Plus, Ticket, Utensils } from 'lucide-react'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import {
   ProviderAttentionList,
@@ -50,13 +51,13 @@ export function ProviderDashboard() {
   }
 
   const quick = [
-    { label: 'Add listing', to: '/provider/listings', emoji: '＋' },
-    { label: 'Update availability', to: '/provider/stays', emoji: '📅' },
-    { label: 'Reply to messages', to: '/messages', emoji: '💬' },
-    { label: 'Manage bookings', to: '/provider/bookings', emoji: '📅' },
-    { label: 'Create event', to: '/events/new', emoji: '🎟' },
+    { label: 'Add listing', to: '/provider/listings', Icon: Plus },
+    { label: 'Update availability', to: '/provider/stays', Icon: CalendarDays },
+    { label: 'Reply to messages', to: '/messages', Icon: MessageCircle },
+    { label: 'Manage bookings', to: '/provider/bookings', Icon: ClipboardList },
+    { label: 'Create event', to: '/events/new', Icon: Ticket },
     ...(activeBusiness
-      ? [{ label: 'View public profile', to: `/business/${activeBusiness.id}`, emoji: '👁' }]
+      ? [{ label: 'View public profile', to: `/business/${activeBusiness.id}`, Icon: Eye }]
       : []),
   ]
 
@@ -83,7 +84,7 @@ export function ProviderDashboard() {
           { value: bookingStats.pending, label: 'Pending bookings', accent: bookingStats.pending > 0 },
           { value: 2, label: 'Unread messages', accent: true },
           { value: `N$${bookingStats.revenue.toLocaleString()}`, label: 'Revenue this month' },
-          { value: '4.7 ★', label: 'Average rating' },
+          { value: '4.7', label: 'Average rating' },
           { value: listingStats.needsUpdate, label: 'Listings need updates', accent: listingStats.needsUpdate > 0 },
         ]}
       />
@@ -97,7 +98,12 @@ export function ProviderDashboard() {
             </Link>
           </div>
           {bookings.length === 0 ? (
-            <EmptyState compact icon="📅" title="No bookings yet" sub="Booking requests will appear here." />
+            <EmptyState
+              compact
+              iconElement={<CalendarDays size={24} strokeWidth={2.25} />}
+              title="No bookings yet"
+              sub="Booking requests will appear here."
+            />
           ) : (
             <div className="prov-booking-list">
               {bookings.slice(0, 4).map((b) => (
@@ -166,23 +172,23 @@ export function ProviderDashboard() {
         <h2>Listings by category</h2>
         <div className="prov-overview-card__grid">
           <Link to="/provider/stays" className="prov-overview-card__item">
-            <span>🏨 {categoryCounts.stays}</span>
+            <span><Hotel size={17} strokeWidth={2.25} aria-hidden /> {categoryCounts.stays}</span>
             <small>Stays</small>
           </Link>
           <Link to="/provider/guides" className="prov-overview-card__item">
-            <span>🧭 {categoryCounts.guides}</span>
+            <span><Compass size={17} strokeWidth={2.25} aria-hidden /> {categoryCounts.guides}</span>
             <small>Guides</small>
           </Link>
           <Link to="/provider/transport" className="prov-overview-card__item">
-            <span>🚗 {categoryCounts.transport}</span>
+            <span><Car size={17} strokeWidth={2.25} aria-hidden /> {categoryCounts.transport}</span>
             <small>Transport</small>
           </Link>
           <Link to="/provider/food" className="prov-overview-card__item">
-            <span>🍽 {categoryCounts.food}</span>
+            <span><Utensils size={17} strokeWidth={2.25} aria-hidden /> {categoryCounts.food}</span>
             <small>Food & drink</small>
           </Link>
           <Link to="/events/new" className="prov-overview-card__item prov-overview-card__item--planned">
-            <span>🎟 {categoryCounts.events}</span>
+            <span><Ticket size={17} strokeWidth={2.25} aria-hidden /> {categoryCounts.events}</span>
             <small>Events</small>
           </Link>
         </div>
@@ -197,7 +203,7 @@ export function ProviderDashboard() {
       <section className="prov-overview-card prov-overview-card--events">
         <h2>Events</h2>
         <p className="prov-page__hint">
-          Create and manage events, tickets, attendees, and venue details. Full event management is available through event creation.
+          Create and manage events, attendees, and venue details. Full event management is available through event creation.
         </p>
         <Link to="/events/new" className="btn btn-primary">
           Create event
@@ -206,4 +212,3 @@ export function ProviderDashboard() {
     </div>
   )
 }
-
