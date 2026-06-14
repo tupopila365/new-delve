@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
+import { ProfileMessageLinkInterceptor } from './components/ProfileMessageLinkInterceptor'
 import { Account } from './pages/Account'
 import { AccommodationBook } from './pages/AccommodationBook'
 import { AccommodationDetail } from './pages/AccommodationDetail'
@@ -23,6 +24,7 @@ import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { Messages } from './pages/Messages'
 import { MessageThread } from './pages/MessageThread'
+import { MessageUser } from './pages/MessageUser'
 import { PostDetail } from './pages/PostDetail'
 import { Register } from './pages/Register'
 import { SearchPage } from './pages/SearchPage'
@@ -53,62 +55,66 @@ import { PlatformAdminBookings } from './pages/PlatformAdminBookings'
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/create" element={<CreateHub />} />
-        <Route path="/create/post" element={<CreatePost />} />
-        <Route path="/posts/:id" element={<PostDetail />} />
-        <Route path="/u/:username" element={<UserProfile />} />
-        <Route path="/dashboard" element={<UserDashboard />} />
-        <Route path="/business/:id" element={<BusinessProfile />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/accommodation" element={<AccommodationList />} />
-        <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />
-        <Route path="/accommodation/:id" element={<AccommodationDetail />} />
-        <Route path="/accommodation/:id/book" element={<AccommodationBook />} />
-        <Route path="/journeys" element={<TripsList />} />
-        <Route path="/journeys/new" element={<CreateJourney />} />
-        <Route path="/journeys/:id" element={<TripDetail />} />
-        <Route path="/delvers" element={<DelversSocial />} />
-        <Route path="/delvers/new" element={<DelversNew />} />
-        <Route path="/community" element={<Community />} />
-        <Route path="/transport" element={<Transport />} />
-        <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
-        <Route path="/transport/bus/:id" element={<BusTripDetail />} />
-        <Route path="/events" element={<EventsList />} />
-        <Route path="/events/new" element={<CreateEvent />} />
-        <Route path="/events/:id" element={<EventDetail />} />
-        <Route path="/food" element={<FoodList />} />
-        <Route path="/food/:id" element={<FoodDetail />} />
-        <Route path="/guides" element={<GuidesList />} />
-        <Route path="/guides/:guideId/packages/:packageSlug" element={<TourPackageDetail />} />
-        <Route path="/guides/:id" element={<GuideDetail />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/messages/:id" element={<MessageThread />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<PlatformAdmin />} />
-          <Route path="users" element={<PlatformAdminUsers />} />
-          <Route path="businesses" element={<PlatformAdminBusinesses />} />
-          <Route path="bookings" element={<PlatformAdminBookings />} />
+    <>
+      <ProfileMessageLinkInterceptor />
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/create" element={<CreateHub />} />
+          <Route path="/create/post" element={<CreatePost />} />
+          <Route path="/posts/:id" element={<PostDetail />} />
+          <Route path="/u/:username" element={<UserProfile />} />
+          <Route path="/dashboard" element={<UserDashboard />} />
+          <Route path="/business/:id" element={<BusinessProfile />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/accommodation" element={<AccommodationList />} />
+          <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />
+          <Route path="/accommodation/:id" element={<AccommodationDetail />} />
+          <Route path="/accommodation/:id/book" element={<AccommodationBook />} />
+          <Route path="/journeys" element={<TripsList />} />
+          <Route path="/journeys/new" element={<CreateJourney />} />
+          <Route path="/journeys/:id" element={<TripDetail />} />
+          <Route path="/delvers" element={<DelversSocial />} />
+          <Route path="/delvers/new" element={<DelversNew />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/transport" element={<Transport />} />
+          <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
+          <Route path="/transport/bus/:id" element={<BusTripDetail />} />
+          <Route path="/events" element={<EventsList />} />
+          <Route path="/events/new" element={<CreateEvent />} />
+          <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/food" element={<FoodList />} />
+          <Route path="/food/:id" element={<FoodDetail />} />
+          <Route path="/guides" element={<GuidesList />} />
+          <Route path="/guides/:guideId/packages/:packageSlug" element={<TourPackageDetail />} />
+          <Route path="/guides/:id" element={<GuideDetail />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/u/:username" element={<MessageUser />} />
+          <Route path="/messages/:id" element={<MessageThread />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<PlatformAdmin />} />
+            <Route path="users" element={<PlatformAdminUsers />} />
+            <Route path="businesses" element={<PlatformAdminBusinesses />} />
+            <Route path="bookings" element={<PlatformAdminBookings />} />
+          </Route>
+          <Route path="/provider" element={<ProviderLayout />}>
+            <Route index element={<ProviderDashboard />} />
+            <Route path="listings" element={<ProviderListings />} />
+            <Route path="bookings" element={<ProviderBookings />} />
+            <Route path="reviews" element={<ProviderReviews />} />
+            <Route path="stays" element={<StaysAdmin />} />
+            <Route path="guides" element={<GuidesAdmin />} />
+            <Route path="transport" element={<TransportAdmin />} />
+            <Route path="food" element={<FoodAdmin />} />
+          </Route>
         </Route>
-        <Route path="/provider" element={<ProviderLayout />}>
-          <Route index element={<ProviderDashboard />} />
-          <Route path="listings" element={<ProviderListings />} />
-          <Route path="bookings" element={<ProviderBookings />} />
-          <Route path="reviews" element={<ProviderReviews />} />
-          <Route path="stays" element={<StaysAdmin />} />
-          <Route path="guides" element={<GuidesAdmin />} />
-          <Route path="transport" element={<TransportAdmin />} />
-          <Route path="food" element={<FoodAdmin />} />
-        </Route>
-      </Route>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }
