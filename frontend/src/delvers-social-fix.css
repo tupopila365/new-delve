@@ -1,0 +1,159 @@
+.dv-page {
+  width: min(100%, 1040px);
+}
+
+.dv-page__top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 0 0 22px 22px;
+  padding: 12px 16px 14px;
+  margin: -24px 0 14px;
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 10px 28px rgba(28,20,16,.07);
+}
+
+.dv-page__tabs {
+  order: -2;
+  justify-content: center;
+  border-bottom: 1px solid var(--hairline-light);
+  padding: 0 0 6px;
+}
+
+.dv-page__tab {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 10px 10px 8px;
+  box-shadow: none;
+  color: var(--text-secondary);
+  font-weight: 850;
+}
+
+.dv-page__tab--active {
+  background: transparent;
+  color: var(--text);
+  box-shadow: inset 0 -3px 0 var(--text);
+}
+
+.dv-page__hero {
+  margin: 0;
+}
+
+.dv-page__hero .mk-hero__top {
+  align-items: center;
+  gap: 16px;
+}
+
+.dv-page__hero .mk-hero__title {
+  font-size: clamp(28px,3vw,38px);
+  line-height: 1;
+}
+
+.dv-page__hero .mk-hero__sub {
+  margin-top: 6px;
+  font-size: 13px;
+  max-width: 58ch;
+}
+
+.dv-page__hero .mk-hero__support {
+  display: none;
+}
+
+.dv-page__search {
+  max-width: 560px;
+  margin: 0;
+}
+
+.dv-page__quick-chips {
+  display: none !important;
+}
+
+.dv-page__results-hint {
+  max-width: 650px;
+  margin: 0 auto 10px;
+}
+
+.dv-page__layout {
+  gap: 18px;
+}
+
+.dv-page__main {
+  max-width: 680px;
+  width: 100%;
+  justify-self: end;
+}
+
+.dv-page__featured,
+.dv-page__composer,
+.dv-page__feed {
+  border-radius: 20px;
+}
+
+.dv-page__featured {
+  padding: 12px;
+}
+
+.dv-page__section-head h2 {
+  font-size: 16px;
+}
+
+.dv-page__profiles {
+  grid-auto-columns: 96px;
+  gap: 10px;
+}
+
+.dv-profile-card {
+  min-height: 112px;
+  padding: 10px 8px;
+  border: 0;
+  box-shadow: none;
+}
+
+.dv-profile-card__avatar {
+  width: 52px;
+  height: 52px;
+}
+
+.dv-page__feed {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dv-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dv-feed-card {
+  border-radius: 20px;
+  border: 1px solid var(--hairline-light);
+  box-shadow: 0 10px 28px rgba(28,20,16,.06);
+}
+
+.dv-feed-card__media {
+  aspect-ratio: 4 / 5;
+}
+
+@media (min-width: 900px) {
+  .dv-page__layout {
+    grid-template-columns: minmax(0, 680px) 280px;
+  }
+}
+
+@media (max-width: 899px) {
+  .dv-page__top {
+    margin: -16px -16px 12px;
+  }
+
+  .dv-page__hero .mk-hero__top {
+    display: grid;
+  }
+
+  .dv-page__main {
+    max-width: none;
+  }
+}
