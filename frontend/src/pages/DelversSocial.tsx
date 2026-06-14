@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bookmark, Camera, Compass, Heart, MapPin, MessageCircle, Plus, Search, Share2, TrendingUp, UserRound, Users, Video, X } from 'lucide-react'
+import { Bookmark, Camera, Compass, Heart, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Users, Video, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState, ListSkeleton } from '../components/ui'
@@ -167,67 +167,54 @@ export function DelversSocial() {
         {query ? <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X size={16} /></button> : null}
       </section>
 
-      <div className="ds-shell">
-        <main className="ds-main">
-          <section className="ds-stories" aria-label="Creators and places">
-            {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} />)}
-            {PLACES.map((place) => (
-              <button key={place} type="button" className="ds-place-bubble" onClick={() => setQuery(place)}>
-                <span><MapPin size={18} strokeWidth={2.25} /></span>
-                <small>{place}</small>
-              </button>
-            ))}
-          </section>
+      <main className="ds-main ds-main--centered">
+        <section className="ds-stories" aria-label="Creators and places">
+          {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} />)}
+          {PLACES.map((place) => (
+            <button key={place} type="button" className="ds-place-bubble" onClick={() => setQuery(place)}>
+              <span><MapPin size={18} strokeWidth={2.25} /></span>
+              <small>{place}</small>
+            </button>
+          ))}
+        </section>
 
-          {toast ? <p className="ds-toast" role="status">{toast}</p> : null}
+        {toast ? <p className="ds-toast" role="status">{toast}</p> : null}
 
-          {isLoading ? <ListSkeleton count={4} /> : null}
+        {isLoading ? <ListSkeleton count={4} /> : null}
 
-          {isError ? (
-            <EmptyState
-              iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
-              title="We couldn't load Delvers"
-              sub="Please check your connection and try again."
-              cta={{ label: 'Try again', onClick: () => void refetch() }}
+        {isError ? (
+          <EmptyState
+            iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
+            title="We couldn't load Delvers"
+            sub="Please check your connection and try again."
+            cta={{ label: 'Try again', onClick: () => void refetch() }}
+          />
+        ) : null}
+
+        {!isLoading && !isError && posts.length === 0 ? (
+          <EmptyState
+            iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
+            title="No posts found"
+            sub="Try a different tab, place, or search term."
+            cta={{ label: 'Show all', onClick: () => { setTab('foryou'); setQuery('') } }}
+          />
+        ) : null}
+
+        <section className="ds-feed" aria-label="Delvers feed">
+          {posts.map((post) => (
+            <SocialPost
+              key={post.id}
+              post={post}
+              signedIn={!!profile}
+              likeBusy={likeMut.isPending && likeMut.variables === post.id}
+              saveBusy={saveMut.isPending && saveMut.variables === post.id}
+              onLike={() => profile && likeMut.mutate(post.id)}
+              onSave={() => profile && saveMut.mutate(post.id)}
+              onShare={() => onShare(post.id)}
             />
-          ) : null}
-
-          {!isLoading && !isError && posts.length === 0 ? (
-            <EmptyState
-              iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
-              title="No posts found"
-              sub="Try a different tab, place, or search term."
-              cta={{ label: 'Show all', onClick: () => { setTab('foryou'); setQuery('') } }}
-            />
-          ) : null}
-
-          <section className="ds-feed" aria-label="Delvers feed">
-            {posts.map((post) => (
-              <SocialPost
-                key={post.id}
-                post={post}
-                signedIn={!!profile}
-                likeBusy={likeMut.isPending && likeMut.variables === post.id}
-                saveBusy={saveMut.isPending && saveMut.variables === post.id}
-                onLike={() => profile && likeMut.mutate(post.id)}
-                onSave={() => profile && saveMut.mutate(post.id)}
-                onShare={() => onShare(post.id)}
-              />
-            ))}
-          </section>
-        </main>
-
-        <aside className="ds-rail" aria-label="Discovery">
-          <section>
-            <h2>Trending places</h2>
-            {PLACES.map((place) => <button key={place} type="button" onClick={() => setQuery(place)}>{place}</button>)}
-          </section>
-          <section>
-            <h2>Creators</h2>
-            {creators.slice(0, 5).map((creator) => <Link key={creator.username} to={`/u/${creator.username}`}>{creator.display_name}</Link>)}
-          </section>
-        </aside>
-      </div>
+          ))}
+        </section>
+      </main>
     </div>
   )
 }
