@@ -28,7 +28,7 @@ import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/Di
 import { MarketplaceHero, QuickFilterChips } from '../components/marketplace'
 import { EmptyState, ListSkeleton } from '../components/ui'
 
-type FeedTab = 'foryou' | 'following' | 'trending' | 'nearby' | 'photos' | 'tips'
+type FeedTab = 'foryou' | 'trending' | 'nearby' | 'photos' | 'tips'
 
 type PinPost = {
   id: number
@@ -63,8 +63,7 @@ type QuickFilter = {
 }
 
 const FEED_TABS: { id: FeedTab; label: string; Icon: ComponentType<LucideProps> }[] = [
-  { id: 'foryou', label: 'For you', Icon: Compass },
-  { id: 'following', label: 'Following', Icon: Users },
+  { id: 'foryou', label: 'Recommended', Icon: Compass },
   { id: 'trending', label: 'Trending', Icon: TrendingUp },
   { id: 'nearby', label: 'Nearby', Icon: MapPin },
   { id: 'photos', label: 'Photos', Icon: Camera },
@@ -148,8 +147,6 @@ export function Delvers() {
         return data.filter((p) => p.image || p.video)
       case 'tips':
         return data.filter((p) => !p.image && !p.video && !!p.body?.trim())
-      case 'following':
-        return []
       default:
         return data
     }
@@ -280,21 +277,12 @@ export function Delvers() {
   const hasFilters = !!(quickFilter || searchInput.trim() || feedTab !== 'foryou')
 
   const resultsHint = useMemo(() => {
-    if (searchInput.trim()) {
-      return `${filteredPosts.length} result${filteredPosts.length === 1 ? '' : 's'} for "${searchInput.trim()}"`
-    }
-    if (quickFilter || feedTab !== 'foryou') {
-      return `${filteredPosts.length} post${filteredPosts.length === 1 ? '' : 's'} match your filters`
-    }
-    return 'Travel moments, tips, and photos from Delvers near and far.'
+    if (searchInput.trim()) return `${filteredPosts.length} result${filteredPosts.length === 1 ? '' : 's'} for "${searchInput.trim()}"`
+    if (quickFilter || feedTab !== 'foryou') return `${filteredPosts.length} post${filteredPosts.length === 1 ? '' : 's'} match your filters`
+    return 'Travel moments, tips, route notes, and photos from Delvers.'
   }, [filteredPosts.length, feedTab, quickFilter, searchInput])
 
-  const quickChips = QUICK_FILTERS.map(({ id, label, Icon }) => ({
-    id,
-    label,
-    Icon,
-    active: quickFilter === id,
-  }))
+  const quickChips = QUICK_FILTERS.map(({ id, label, Icon }) => ({ id, label, Icon, active: quickFilter === id }))
 
   return (
     <div className="dv-page disc-page mk-page ev-page">
@@ -302,8 +290,8 @@ export function Delvers() {
         <MarketplaceHero
           className="dv-page__hero"
           title="Discover Delvers"
-          subtitle="Follow travellers, locals, guides, and creators sharing real places, routes, food spots, and travel moments."
-          support="Find people worth following before your next trip."
+          subtitle="Explore traveller posts, local tips, route notes, food finds, and real travel moments before you go."
+          support="Use the feed to find practical proof from people who have been there."
           action={
             profile ? (
               <Link to="/delvers/new" className="btn btn-primary dv-page__create-btn">
@@ -330,22 +318,17 @@ export function Delvers() {
               ref={searchInputRef}
               type="search"
               className="acc-page__search-input input"
-              placeholder="Search Delvers, places, posts, tips, or routes…"
+              placeholder="Search people, places, posts, tips, routes..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               autoComplete="off"
               enterKeyHint="search"
             />
-            {searchInput && (
-              <button
-                type="button"
-                className="acc-page__search-clear"
-                onClick={() => setSearchInput('')}
-                aria-label="Clear search"
-              >
+            {searchInput ? (
+              <button type="button" className="acc-page__search-clear" onClick={() => setSearchInput('')} aria-label="Clear search">
                 <X size={16} strokeWidth={2.25} aria-hidden />
               </button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -372,97 +355,73 @@ export function Delvers() {
           className="dv-page__quick-chips"
         />
 
-        {hasFilters && (
+        {hasFilters ? (
           <div className="dv-page__active-filters">
             <button type="button" className="dv-page__clear" onClick={clearFilters}>
               Show all
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
       <p className="dv-page__results-hint" role="status">
         {resultsHint}
       </p>
 
-      {shareMsg ? (
-        <p className="dv-page__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
+      {shareMsg ? <p className="dv-page__toast" role="status">{shareMsg}</p> : null}
 
       <div className="disc-page__layout dv-page__layout">
         <main className="disc-page__main dv-page__main" ref={feedRef}>
-          {isError && (
+          {isError ? (
             <EmptyState
               iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
               title="We couldn't load Delvers"
               sub="Please check your connection and try again."
               cta={{ label: 'Try again', onClick: () => void refetch() }}
             />
-          )}
+          ) : null}
 
-          {isLoading && !isError && <ListSkeleton count={4} className="dv-page__skeleton" />}
+          {isLoading && !isError ? <ListSkeleton count={4} className="dv-page__skeleton" /> : null}
 
-          {!isLoading && !isError && data?.length === 0 && (
+          {!isLoading && !isError && data?.length === 0 ? (
             <EmptyState
               iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
               title="No posts yet"
               sub="Travel moments, tips, routes, and photos will appear here once Delvers start sharing."
-              cta={
-                profile
-                  ? { label: 'Share a moment', to: '/delvers/new' }
-                  : { label: 'Join the community', to: '/community' }
-              }
+              cta={profile ? { label: 'Share a moment', to: '/delvers/new' } : { label: 'Join the community', to: '/community' }}
             />
-          )}
+          ) : null}
 
-          {!isLoading && !isError && data && data.length > 0 && feedTab === 'following' && (
-            <EmptyState
-              compact
-              iconElement={<Users size={24} strokeWidth={2} aria-hidden />}
-              title="No followed Delvers yet"
-              sub="Follow travellers from their profiles to see their moments here."
-              cta={{ label: 'Browse feed', onClick: () => setFeedTab('foryou') }}
-            />
-          )}
-
-          {!isLoading && !isError && filteredPosts.length === 0 && data && data.length > 0 && feedTab !== 'following' && (
+          {!isLoading && !isError && filteredPosts.length === 0 && data && data.length > 0 ? (
             <EmptyState
               iconElement={<Search size={28} strokeWidth={2} aria-hidden />}
               title="No Delvers or posts found"
               sub="Try changing your search, topic, or filters."
               cta={{ label: 'Show all', onClick: clearFilters }}
             />
-          )}
+          ) : null}
 
-          {!isLoading && !isError && filteredPosts.length > 0 && feedTab !== 'following' && (
+          {!isLoading && !isError && filteredPosts.length > 0 ? (
             <>
-              {featuredDelvers.length > 0 && !hasFilters && (
+              {featuredDelvers.length > 0 && !hasFilters ? (
                 <section className="dv-page__featured" aria-labelledby="dv-featured-title">
                   <div className="dv-page__section-head">
                     <div>
-                      <h2 id="dv-featured-title">People to follow</h2>
-                      <p>Travellers, locals, and creators sharing useful travel moments.</p>
+                      <h2 id="dv-featured-title">Travel creators to explore</h2>
+                      <p>Travellers and locals sharing practical posts for your next trip.</p>
                     </div>
                   </div>
                   <div className="dv-page__profiles h-scroll">
-                    {featuredDelvers.map((d) => (
-                      <FeaturedDelverCard key={d.username} delver={d} />
-                    ))}
+                    {featuredDelvers.map((d) => <FeaturedDelverCard key={d.username} delver={d} />)}
                   </div>
                 </section>
-              )}
+              ) : null}
 
               <section className="dv-page__composer" aria-labelledby="dv-composer-title">
-                <h2 id="dv-composer-title" className="visually-hidden">
-                  Share a travel moment
-                </h2>
+                <h2 id="dv-composer-title" className="visually-hidden">Share a travel moment</h2>
                 <div className="dv-composer-card">
-                  <p className="dv-composer-card__title">Have something to share?</p>
-                  <p className="dv-composer-card__text">
-                    Post a travel tip, route note, or moment for other Delvers.
-                  </p>
+                  <p className="dv-composer-card__title">Have something useful to share?</p>
+                  <p className="dv-composer-card__text">Post a travel tip, route note, photo, or local moment for other Delvers.</p>
                   {profile ? (
                     <Link to="/delvers/new" className="btn btn-primary dv-composer-card__btn">
                       <Camera size={15} strokeWidth={2.25} aria-hidden />
@@ -478,9 +437,7 @@ export function Delvers() {
               </section>
 
               <section className="dv-page__feed" aria-labelledby="dv-feed-title">
-                <h2 id="dv-feed-title" className="visually-hidden">
-                  Delvers feed
-                </h2>
+                <h2 id="dv-feed-title" className="visually-hidden">Delvers feed</h2>
                 <div className="dv-feed">
                   {filteredPosts.map((post) => (
                     <FeedPostCard
@@ -497,7 +454,7 @@ export function Delvers() {
                 </div>
               </section>
             </>
-          )}
+          ) : null}
         </main>
 
         <DiscoverySidebar sections={sidebarSections} ariaLabel="Delvers discovery" />
@@ -512,7 +469,7 @@ export function Delvers() {
               <input
                 type="search"
                 className="dv-search-overlay__input"
-                placeholder="Search Delvers, places, posts, tips, or routes…"
+                placeholder="Search people, places, posts, tips, routes..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 autoFocus
@@ -531,15 +488,10 @@ export function Delvers() {
 }
 
 function FeaturedDelverCard({ delver }: { delver: DelverProfile }) {
-  const initial = delver.display_name.trim().charAt(0).toUpperCase() || '?'
   return (
     <Link to={`/u/${encodeURIComponent(delver.username)}`} className="dv-profile-card">
       <div className="dv-profile-card__avatar" aria-hidden>
-        {delver.avatar ? (
-          <img src={mediaUrl(delver.avatar) || delver.avatar} alt="" />
-        ) : (
-          <UserRound size={22} strokeWidth={2} />
-        )}
+        {delver.avatar ? <img src={mediaUrl(delver.avatar) || delver.avatar} alt="" /> : <UserRound size={22} strokeWidth={2} />}
       </div>
       <p className="dv-profile-card__name">{delver.display_name}</p>
       <p className="dv-profile-card__username">@{delver.username}</p>
@@ -554,7 +506,7 @@ function FeaturedDelverCard({ delver }: { delver: DelverProfile }) {
         {delver.totalLikes > 0 ? ` · ${formatCount(delver.totalLikes)} likes` : ''}
       </p>
       <span className="dv-profile-card__cta">
-        View profile
+        Open profile
         <ArrowRight size={13} strokeWidth={2.5} aria-hidden />
       </span>
     </Link>
@@ -590,11 +542,7 @@ function FeedPostCard({
       <header className="dv-feed-card__head">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="dv-feed-card__author">
           <span className="dv-feed-card__avatar" aria-hidden>
-            {post.author.avatar ? (
-              <img src={mediaUrl(post.author.avatar) || ''} alt="" />
-            ) : (
-              initial
-            )}
+            {post.author.avatar ? <img src={mediaUrl(post.author.avatar) || ''} alt="" /> : initial}
           </span>
           <span className="dv-feed-card__author-meta">
             <strong>{name}</strong>
