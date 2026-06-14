@@ -7,7 +7,6 @@ export type StorySlide = {
   headline: string
   sub?: string
   durationMs?: number
-  /** Per-slide footer CTA (e.g. link to a listing). */
   ctaPath?: string
   ctaLabel?: string
 }
@@ -37,58 +36,45 @@ const U = {
   pin2: 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?auto=format&fit=crop&w=1080&q=80',
 }
 
-const FLOWER_MP4 = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
-
 const IMG_MS = 5200
 
-function img(
-  id: string,
-  src: string,
-  headline: string,
-  sub?: string,
-  durationMs = IMG_MS,
-): StorySlide {
+function img(id: string, src: string, headline: string, sub?: string, durationMs = IMG_MS): StorySlide {
   return { id, kind: 'image', src, headline, sub, durationMs }
-}
-
-function vid(id: string, src: string, headline: string, sub?: string): StorySlide {
-  return { id, kind: 'video', src, headline, sub, durationMs: 12000 }
 }
 
 const BASE: Record<StoryChannelId, StorySlide[]> = {
   stays: [
-    img('s1', U.stay1, 'Find your stay', 'Boutique rooms & desert lodges across Namibia'),
-    img('s2', U.stay2, 'Book with confidence', 'Real listings from local hosts'),
-    img('s3', U.stay1, 'Filter what matters', 'Guests, price, region — in seconds'),
+    img('s1', U.stay1, 'Find your stay', 'Boutique rooms and desert lodges across Namibia'),
+    img('s2', U.stay2, 'Request with confidence', 'Real listings from local hosts'),
+    img('s3', U.stay1, 'Filter what matters', 'Guests, price, and region in seconds'),
   ],
   go: [
-    img('g1', U.road, 'Hit the road', '4x4s and city cars, ready when you are'),
-    img('g2', U.bus, 'Bus seats online', 'Pick a route, choose your seat, pay in-app'),
-    vid('g3', FLOWER_MP4, 'Mock checkout', 'Full flow for demos — no real charge'),
+    img('g1', U.road, 'Hit the road', 'Vehicle rentals and transfers for flexible travel'),
+    img('g2', U.bus, 'Plan the route', 'Compare bus trips, operators, and departure times'),
+    img('g3', U.road, 'Confirm the details', 'Request transport and finalize arrangements with providers'),
   ],
   live: [
     img('l1', U.event, "What's on near you", 'Markets, music, and community events'),
-    img('l2', U.night, 'Tonight & this week', 'Save the ones you love'),
-    img('l3', U.event, 'Create your own', 'Post events for the city'),
+    img('l2', U.night, 'Tonight and this week', 'Save the events worth showing up for'),
+    img('l3', U.event, 'Create your own', 'Post events for travellers and locals'),
   ],
   eat: [
-    img('e1', U.food, 'Taste the place', 'Grills, cafés, and local flavours'),
+    img('e1', U.food, 'Taste the place', 'Grills, cafes, and local flavours'),
     img('e2', U.cafe, 'Read the room', 'Cuisine, region, and price at a glance'),
   ],
   tours: [
     img('t1', U.tour, 'Walk with a local', 'Guides who know every dune and story'),
-    img('t2', U.guide, 'Book by the hour', 'Languages & regions on every profile'),
+    img('t2', U.guide, 'Request an experience', 'Languages and regions on every profile'),
   ],
   pins: [
-    img('p1', U.pin1, 'Delvers pins', 'Save ideas like Pinterest, vibe like Instagram'),
-    vid('p2', FLOWER_MP4, 'Photo & video', 'Short clips and stills in one grid'),
+    img('p1', U.pin1, 'Delvers pins', 'Save travel ideas and local tips'),
+    img('p2', U.pin2, 'Photo and video', 'Short clips and stills in one grid'),
     img('p3', U.pin2, 'Your boards', 'Collect places to go later'),
   ],
 }
 
 export function buildSlidesForChannel(id: StoryChannelId, preview: StoryPreviewMedia): StorySlide[] {
   const slides = BASE[id].map((s) => ({ ...s }))
-
   const first = slides[0]
   if (!first || first.kind !== 'image') return slides
 
@@ -113,12 +99,8 @@ export function buildSlidesForChannel(id: StoryChannelId, preview: StoryPreviewM
       swap(preview.vehicleImage)
       break
     case 'pins':
-      if (preview.pinVideo) {
-        slides[1] = { ...slides[1], kind: 'video', src: preview.pinVideo }
-      }
-      if (preview.pinImage) {
-        first.src = preview.pinImage
-      }
+      if (preview.pinImage) first.src = preview.pinImage
+      if (preview.pinVideo) slides[1] = { ...slides[1], kind: 'video', src: preview.pinVideo }
       break
     default:
       break
@@ -127,11 +109,11 @@ export function buildSlidesForChannel(id: StoryChannelId, preview: StoryPreviewM
   return slides
 }
 
-export const STORY_CHANNELS: { id: StoryChannelId; label: string; emoji: string; explorePath: string }[] = [
-  { id: 'stays', label: 'Stays', emoji: '🛏', explorePath: '/accommodation' },
-  { id: 'go', label: 'Transport', emoji: '🚐', explorePath: '/transport' },
-  { id: 'live', label: 'Events', emoji: '✨', explorePath: '/events' },
-  { id: 'eat', label: 'Food', emoji: '🍽', explorePath: '/food' },
-  { id: 'tours', label: 'Guides', emoji: '🧭', explorePath: '/guides' },
-  { id: 'pins', label: 'Delvers', emoji: '📌', explorePath: '/delvers' },
+export const STORY_CHANNELS: { id: StoryChannelId; label: string; explorePath: string }[] = [
+  { id: 'stays', label: 'Stays', explorePath: '/accommodation' },
+  { id: 'go', label: 'Transport', explorePath: '/transport' },
+  { id: 'live', label: 'Events', explorePath: '/events' },
+  { id: 'eat', label: 'Food', explorePath: '/food' },
+  { id: 'tours', label: 'Guides', explorePath: '/guides' },
+  { id: 'pins', label: 'Delvers', explorePath: '/delvers' },
 ]
