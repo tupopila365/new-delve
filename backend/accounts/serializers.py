@@ -158,8 +158,9 @@ class MyBusinessSerializer(serializers.ModelSerializer):
 class PublicProfileSerializer(serializers.ModelSerializer):
     """Public fields for /@username-style profile pages (no email)."""
 
+    id = serializers.IntegerField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
 
     class Meta:
         model = Profile
-        fields = ("username", "display_name", "bio", "region", "city", "avatar", "user_type", "is_private", "posts_visibility", "allow_messages")
+        fields = ("id", "username", "display_name", "bio", "region", "city", "avatar", "user_type", "is_private", "posts_visibility", "allow_messages")
