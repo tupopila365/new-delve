@@ -1,11 +1,11 @@
-import type { LucideIcon } from 'lucide-react'
+import type { ElementType } from 'react'
 
 type Chip = {
   id: string
   label: string
   /** @deprecated Use Icon instead. Kept so older pages do not break while they are migrated. */
   emoji?: string
-  Icon?: LucideIcon
+  Icon?: ElementType
   active?: boolean
 }
 
