@@ -1,0 +1,42 @@
+.story-create .story-create-caption {
+  left: 50%;
+  top: 78%;
+  right: auto;
+  bottom: auto;
+  width: max-content;
+  max-width: calc(100% - 36px);
+  min-width: 118px;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.story-create .story-create-caption.is-dragging {
+  cursor: grabbing;
+  outline: 2px solid rgba(255, 250, 242, 0.92);
+  outline-offset: 3px;
+}
+
+.story-create .story-create-caption:focus-visible {
+  outline: 2px solid rgba(255, 250, 242, 0.95);
+  outline-offset: 3px;
+}
+
+.story-create .story-create-caption__hint {
+  display: block;
+  margin-top: 3px;
+  color: rgba(255, 250, 242, 0.72);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.story-create-drag-note {
+  margin: -2px 0 0;
+  color: #7c6351;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
