@@ -6,6 +6,7 @@ import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import '../delvers-topbar-clean.css'
+import '../delvers-stories-polish.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
@@ -202,7 +203,8 @@ export function DelversSocial() {
       </header>
 
       <main className="ds-main ds-main--centered">
-        <section className="ds-stories" aria-label="Creators and places">
+        <section className="ds-stories ds-stories--polished" aria-label="Creators and places">
+          <CreateBubble signedIn={!!profile} />
           {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} />)}
           {PLACES.map((place) => (
             <button key={place} type="button" className="ds-place-bubble" onClick={() => setQuery(place)}>
@@ -250,6 +252,15 @@ export function DelversSocial() {
         </section>
       </main>
     </div>
+  )
+}
+
+function CreateBubble({ signedIn }: { signedIn: boolean }) {
+  return (
+    <Link to={signedIn ? '/delvers/new' : '/community'} className="ds-create-bubble">
+      <span><Plus size={22} strokeWidth={2.5} aria-hidden /></span>
+      <small>{signedIn ? 'Create' : 'Join'}</small>
+    </Link>
   )
 }
 
