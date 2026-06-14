@@ -1,16 +1,17 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Briefcase, ImagePlus, Landmark, Music, Sparkles, Trophy, Utensils, X, type LucideIcon } from 'lucide-react'
 import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
-const CATEGORIES = [
-  { value: 'music', label: 'Music', emoji: '🎵' },
-  { value: 'sports', label: 'Sports', emoji: '🏆' },
-  { value: 'culture', label: 'Culture', emoji: '🎭' },
-  { value: 'business', label: 'Business', emoji: '💼' },
-  { value: 'food', label: 'Food & drink', emoji: '🍽' },
-  { value: 'other', label: 'Other', emoji: '✨' },
+const CATEGORIES: { value: string; label: string; Icon: LucideIcon }[] = [
+  { value: 'music', label: 'Music', Icon: Music },
+  { value: 'sports', label: 'Sports', Icon: Trophy },
+  { value: 'culture', label: 'Culture', Icon: Landmark },
+  { value: 'business', label: 'Business', Icon: Briefcase },
+  { value: 'food', label: 'Food & drink', Icon: Utensils },
+  { value: 'other', label: 'Other', Icon: Sparkles },
 ]
 
 type CreatedEvent = { id: number }
@@ -84,18 +85,7 @@ export function CreateEvent() {
     <div className="ce-page">
       <div className="ce-page__bar">
         <button type="button" className="up__back" onClick={() => navigate(-1)} aria-label="Go back">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
+          <ArrowLeft size={20} strokeWidth={2.25} aria-hidden />
         </button>
         <h1 className="ce-page__title">Create event</h1>
       </div>
@@ -109,7 +99,6 @@ export function CreateEvent() {
         }}
         noValidate
       >
-        {/* Cover image */}
         <div className="ce-form__cover-wrap">
           <input
             ref={fileRef}
@@ -128,7 +117,7 @@ export function CreateEvent() {
                 aria-label="Remove cover image"
                 onClick={() => { onCoverChange(null); if (fileRef.current) fileRef.current.value = '' }}
               >
-                ×
+                <X size={16} strokeWidth={2.35} aria-hidden />
               </button>
             </div>
           ) : (
@@ -138,14 +127,15 @@ export function CreateEvent() {
               onClick={() => fileRef.current?.click()}
               aria-label="Add cover image"
             >
-              <span className="ce-form__cover-icon" aria-hidden>🖼️</span>
+              <span className="ce-form__cover-icon" aria-hidden>
+                <ImagePlus size={24} strokeWidth={2.25} />
+              </span>
               <span>Add cover photo</span>
               <span className="ce-form__cover-hint">JPG, PNG — optional</span>
             </button>
           )}
         </div>
 
-        {/* Title */}
         <div className="ce-form__field">
           <label className="ce-form__label" htmlFor="ce-title">
             Event title <span aria-hidden>*</span>
@@ -163,27 +153,29 @@ export function CreateEvent() {
           />
         </div>
 
-        {/* Category */}
         <div className="ce-form__field">
           <label className="ce-form__label" htmlFor="ce-category">
             Category
           </label>
           <div className="ce-form__chips" role="group" aria-label="Event category">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                className={`ce-form__chip${category === c.value ? ' ce-form__chip--active' : ''}`}
-                onClick={() => setCategory(c.value)}
-                aria-pressed={category === c.value}
-              >
-                <span aria-hidden>{c.emoji}</span> {c.label}
-              </button>
-            ))}
+            {CATEGORIES.map((c) => {
+              const Icon = c.Icon
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  className={`ce-form__chip${category === c.value ? ' ce-form__chip--active' : ''}`}
+                  onClick={() => setCategory(c.value)}
+                  aria-pressed={category === c.value}
+                >
+                  <Icon size={15} strokeWidth={2.25} aria-hidden />
+                  {c.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* Date/time */}
         <div className="ce-form__row">
           <div className="ce-form__field">
             <label className="ce-form__label" htmlFor="ce-starts">
@@ -213,7 +205,6 @@ export function CreateEvent() {
           </div>
         </div>
 
-        {/* Venue */}
         <div className="ce-form__field">
           <label className="ce-form__label" htmlFor="ce-venue">
             Venue
@@ -229,7 +220,6 @@ export function CreateEvent() {
           />
         </div>
 
-        {/* City + Region */}
         <div className="ce-form__row">
           <div className="ce-form__field">
             <label className="ce-form__label" htmlFor="ce-city">
@@ -259,7 +249,6 @@ export function CreateEvent() {
           </div>
         </div>
 
-        {/* Description */}
         <div className="ce-form__field">
           <label className="ce-form__label" htmlFor="ce-desc">
             Description <span className="ce-form__label-opt">(optional)</span>
@@ -267,14 +256,13 @@ export function CreateEvent() {
           <textarea
             id="ce-desc"
             className="input ce-form__textarea"
-            placeholder="Tell people what to expect — lineup, dress code, parking, etc."
+            placeholder="Tell people what to expect."
             rows={5}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
 
-        {/* Free entry toggle */}
         <label className="ce-form__toggle">
           <input
             type="checkbox"
@@ -285,14 +273,12 @@ export function CreateEvent() {
           <span className="ce-form__toggle-label">Free entry</span>
         </label>
 
-        {/* Error */}
         {err && (
           <p className="ce-form__err" role="alert">
             {err}
           </p>
         )}
 
-        {/* Actions */}
         <div className="ce-form__actions">
           <button
             type="submit"
