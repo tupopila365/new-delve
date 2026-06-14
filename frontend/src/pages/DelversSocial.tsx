@@ -8,6 +8,7 @@ import { EmptyState, ListSkeleton } from '../components/ui'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
 import '../delvers-post-card-polish.css'
+import '../delvers-feed-mobile.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
@@ -246,7 +247,7 @@ export function DelversSocial() {
           />
         ) : null}
 
-        <section className="ds-feed" aria-label="Delvers feed">
+        <section id="delvers-feed" className="ds-feed" aria-label="Delvers feed">
           {posts.map((post) => (
             <SocialPost
               key={post.id}
@@ -261,6 +262,25 @@ export function DelversSocial() {
           ))}
         </section>
       </main>
+
+      <nav className="ds-mobile-actions" aria-label="Delvers mobile actions">
+        <a href="#delvers-feed" className="ds-mobile-action ds-mobile-action--active">
+          <Compass size={20} strokeWidth={2.25} aria-hidden />
+          <span>Feed</span>
+        </a>
+        <button type="button" className="ds-mobile-action" onClick={() => setSearchOpen(true)}>
+          <Search size={20} strokeWidth={2.25} aria-hidden />
+          <span>Search</span>
+        </button>
+        <Link to={profile ? '/delvers/new' : '/community'} className="ds-mobile-action ds-mobile-action--create">
+          <Plus size={20} strokeWidth={2.5} aria-hidden />
+          <span>{profile ? 'Create' : 'Join'}</span>
+        </Link>
+        <Link to={profile ? '/account' : '/login'} className="ds-mobile-action">
+          <UserRound size={20} strokeWidth={2.25} aria-hidden />
+          <span>Profile</span>
+        </Link>
+      </nav>
     </div>
   )
 }
