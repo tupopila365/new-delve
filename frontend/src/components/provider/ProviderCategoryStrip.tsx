@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
 import { ProviderQuickActions } from './ProviderQuickActions'
 
 type Attention = {
@@ -12,7 +13,7 @@ type Props = {
   title: string
   subtitle: string
   attention?: Attention[]
-  quickActions?: { label: string; to: string; emoji?: string }[]
+  quickActions?: { label: string; to: string; emoji?: string; Icon?: LucideIcon }[]
   publicTo?: string
 }
 
