@@ -39,7 +39,7 @@ export function DelversCommentsPanel({ postId, open, count = 0 }: Props) {
   const commentsQuery = useQuery({
     queryKey: ['delvers-post-comments', postId],
     enabled: open,
-    queryFn: () => apiFetch<DelversComment[]>(`/api/social/posts/${postId}/comments/`, { auth: false }),
+    queryFn: () => apiFetch<DelversComment[]>(`/api/social/posts/${postId}/comments/`),
     staleTime: 20_000,
   })
 
