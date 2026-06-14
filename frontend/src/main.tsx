@@ -6,6 +6,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import App from './App.tsx'
 import './index.css'
+import './delvers-polish.css'
 
 /** Stale PWA caches from broken builds can serve a blank page in dev — clear them. */
 if (import.meta.env.DEV) {
