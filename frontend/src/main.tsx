@@ -14,6 +14,7 @@ import './home-stories-delvers-style.css'
 import './user-profile-redesign.css'
 import './user-profile-font-fix.css'
 import './user-profile-card-fix.css'
+import './delve-black-background.css'
 
 /** Stale PWA caches from broken builds can serve a blank page in dev — clear them. */
 if (import.meta.env.DEV) {
