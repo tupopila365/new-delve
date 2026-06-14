@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
   BadgeCheck,
   BadgeDollarSign,
   Binoculars,
-  CalendarDays,
   Camera,
   Clock,
   Compass,
@@ -70,15 +69,13 @@ type Guide = {
 }
 
 type GuideComment = { id: string; author: string; body: string; ago: string }
+type LanguageRow = { language: string; level: string }
+type WhyHighlight = { label: string; Icon: LucideIcon }
 
 const SEED_QUESTIONS: GuideComment[] = [
   { id: 'q1', author: 'Mila K.', body: 'Can you pick us up at the hotel?', ago: '3h ago' },
   { id: 'q2', author: 'Jonas T.', body: 'Is this suitable for families with kids?', ago: '1d ago' },
 ]
-
-type LanguageRow = { language: string; level: string }
-
-type WhyHighlight = { label: string; Icon: LucideIcon }
 
 function normalizeLanguagesDetail(raw: unknown): LanguageRow[] {
   if (!Array.isArray(raw)) return []
@@ -121,35 +118,17 @@ function buildWhyBookHighlights(g: Guide): WhyHighlight[] {
     { label: 'Local knowledge', Icon: Compass },
     { label: 'Private experiences', Icon: Users },
   ]
-  if (g.default_meeting_point || g.regions?.length) {
-    items.push({ label: 'Flexible routes', Icon: Route })
-  }
-  if (g.languages?.[0]) {
-    items.push({ label: `Speaks ${g.languages[0]}`, Icon: Languages })
-  }
-  if (g.response_hours_typical != null && g.response_hours_typical <= 6) {
-    items.push({ label: 'Fast response', Icon: Clock })
-  }
-  if (g.years_guiding != null && g.years_guiding >= 3) {
-    items.push({ label: `${g.years_guiding} years guiding`, Icon: BadgeCheck })
-  }
+  if (g.default_meeting_point || g.regions?.length) items.push({ label: 'Flexible routes', Icon: Route })
+  if (g.languages?.[0]) items.push({ label: `Speaks ${g.languages[0]}`, Icon: Languages })
+  if (g.response_hours_typical != null && g.response_hours_typical <= 6) items.push({ label: 'Fast response', Icon: Clock })
+  if (g.years_guiding != null && g.years_guiding >= 3) items.push({ label: `${g.years_guiding} years guiding`, Icon: BadgeCheck })
 
   const specs = (g.specialities || []).join(' ').toLowerCase()
-  if (specs.includes('culture') || specs.includes('history') || specs.includes('architecture')) {
-    items.push({ label: 'Culture specialist', Icon: Landmark })
-  }
-  if (specs.includes('wildlife') || specs.includes('nature') || specs.includes('safari')) {
-    items.push({ label: 'Wildlife specialist', Icon: Binoculars })
-  }
-  if (specs.includes('food') || specs.includes('culinary')) {
-    items.push({ label: 'Food tour host', Icon: Utensils })
-  }
-  if (specs.includes('photography') || specs.includes('photo')) {
-    items.push({ label: 'Photography friendly', Icon: Camera })
-  }
-  if (specs.includes('family')) {
-    items.push({ label: 'Family friendly', Icon: Users })
-  }
+  if (specs.includes('culture') || specs.includes('history') || specs.includes('architecture')) items.push({ label: 'Culture specialist', Icon: Landmark })
+  if (specs.includes('wildlife') || specs.includes('nature') || specs.includes('safari')) items.push({ label: 'Wildlife specialist', Icon: Binoculars })
+  if (specs.includes('food') || specs.includes('culinary')) items.push({ label: 'Food tour host', Icon: Utensils })
+  if (specs.includes('photography') || specs.includes('photo')) items.push({ label: 'Photography friendly', Icon: Camera })
+  if (specs.includes('family')) items.push({ label: 'Family friendly', Icon: Users })
 
   const unique: WhyHighlight[] = []
   for (const item of items) {
@@ -172,9 +151,7 @@ function guideTrustBadges(g: Guide): string[] {
 
 function GuideAvatar({ photo, name, className = '' }: { photo: string | null; name: string; className?: string }) {
   const resolved = mediaUrl(photo)
-  if (resolved) {
-    return <img className={className} src={resolved} alt={name} />
-  }
+  if (resolved) return <img className={className} src={resolved} alt={name} />
   return (
     <div className={`gd-detail__hero-photo gd-detail__hero-photo--placeholder ${className}`.trim()} aria-hidden={false}>
       <UserRound size={48} strokeWidth={1.5} className="gd-detail__avatar-icon" aria-hidden />
@@ -184,6 +161,7 @@ function GuideAvatar({ photo, name, className = '' }: { photo: string | null; na
 
 export function GuideDetail() {
   const { id } = useParams()
+  const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const { profile } = useAuth()
 
@@ -191,6 +169,7 @@ export function GuideDetail() {
   const [shareMsg, setShareMsg] = useState('')
   const [commentDraft, setCommentDraft] = useState('')
   const [questions, setQuestions] = useState<GuideComment[]>(SEED_QUESTIONS)
+  const [selectedPackage, setSelectedPackage] = useState<TourPackage | null>(null)
 
   const { data: g, isLoading, isError, refetch } = useQuery({
     queryKey: ['guide', id],
@@ -212,10 +191,9 @@ export function GuideDetail() {
 
   const similarGuides: SimilarGuide[] = useMemo(() => {
     if (!allGuides || !g) return []
-    const rid = g.id
     const regs = g.regions || []
     return allGuides
-      .filter((o) => o.id !== rid && regionsOverlap(regs, o.regions || []))
+      .filter((o) => o.id !== g.id && regionsOverlap(regs, o.regions || []))
       .sort((a, b) => parseFloat(String(b.rating_avg ?? 0)) - parseFloat(String(a.rating_avg ?? 0)))
       .slice(0, 3)
       .map((o) => ({
@@ -289,10 +267,24 @@ export function GuideDetail() {
   const regionLine = (g.regions || []).slice(0, 2).join(' · ')
   const trustItems = guideTrustBadges(g)
   const specialityLabel = (g.specialities || [])[0] || 'Local guide'
-
-  const initialPackageId = searchParams.get('package') ?? ''
+  const initialPackageId = selectedPackage?.id ?? searchParams.get('package') ?? ''
   const initialDate = searchParams.get('date') ?? ''
   const initialGuests = parseInt(searchParams.get('guests') ?? '2', 10)
+
+  const hasCredentials =
+    (g.years_guiding != null && g.years_guiding > 0) ||
+    g.licensed_guide ||
+    certifications.length > 0 ||
+    langsDetail.length > 0 ||
+    (g.languages && g.languages.length > 0)
+
+  const scrollToRequest = () => {
+    document.getElementById('guide-request-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const mobileSubtitle = [g.hourly_rate ? `From $${g.hourly_rate}/hr` : null, regionLine || null]
+    .filter(Boolean)
+    .join(' · ')
 
   const bookingCard = (
     <div id="guide-request-panel">
@@ -315,21 +307,6 @@ export function GuideDetail() {
       />
     </div>
   )
-
-  const hasCredentials =
-    (g.years_guiding != null && g.years_guiding > 0) ||
-    g.licensed_guide ||
-    certifications.length > 0 ||
-    langsDetail.length > 0 ||
-    (g.languages && g.languages.length > 0)
-
-  const scrollToRequest = () => {
-    document.getElementById('guide-request-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  const mobileSubtitle = [g.hourly_rate ? `From $${g.hourly_rate}/hr` : null, regionLine || null]
-    .filter(Boolean)
-    .join(' · ')
 
   return (
     <DetailPage prefix="gd-detail" className="gd-detail--premium" toast={shareMsg || null}>
@@ -501,36 +478,32 @@ export function GuideDetail() {
               {packages.length > 0 ? (
                 <GuideTourPackages
                   packages={packages}
-                  selectedId={selectedPackageId}
-                  onSelect={onPackageSelect}
+                  selectedId={selectedPackage?.id ?? null}
+                  onSelect={setSelectedPackage}
                   selectable
                   guideId={Number(id)}
-                  title="Experiences & packages"
-                  intro="Book a set itinerary or compare packages before you request a guide."
+                  title="Experiences and packages"
+                  intro="Choose a set itinerary or compare packages before you request a guide."
                 />
               ) : (
                 <div className="gd-detail__section-empty">
-                  <h2 className="gd-detail__section-title">Experiences & packages</h2>
+                  <h2 className="gd-detail__section-title">Experiences and packages</h2>
                   <p className="gd-detail__section-empty-title">No experiences listed yet</p>
                   <p className="gd-detail__section-empty-sub">
                     This guide&apos;s packages will appear here once added. You can still message the guide.
                   </p>
-                  {g.user && profile?.email_verified ? (
-                    <GuideAskButton guideUserId={g.user} label="Message guide" />
-                  ) : null}
+                  {g.user && profile?.email_verified ? <GuideAskButton guideUserId={g.user} label="Message guide" /> : null}
                 </div>
               )}
             </section>
 
             <section className="detail-section gd-detail__portfolio-block">
               {portfolio.length > 0 ? (
-                <GuidePortfolio items={portfolio} title="Portfolio & photos" />
+                <GuidePortfolio items={portfolio} title="Portfolio and photos" />
               ) : (
                 <div className="gd-detail__section-empty">
-                  <h2 className="gd-detail__section-title">Portfolio & photos</h2>
-                  <p className="gd-detail__section-empty-sub">
-                    Portfolio photos will appear here once this guide adds them.
-                  </p>
+                  <h2 className="gd-detail__section-title">Portfolio and photos</h2>
+                  <p className="gd-detail__section-empty-sub">Portfolio photos will appear here once this guide adds them.</p>
                 </div>
               )}
             </section>
@@ -605,18 +578,9 @@ export function GuideDetail() {
               onDraftChange={setCommentDraft}
               onPost={postQuestion}
               postLabel="Post question"
-              comments={questions.map((q) => ({
-                id: q.id,
-                author: q.author,
-                body: q.body,
-                ago: q.ago,
-              }))}
+              comments={questions.map((q) => ({ id: q.id, author: q.author, body: q.body, ago: q.ago }))}
               className="gd-detail__questions"
-              footer={
-                g.user && profile?.email_verified ? (
-                  <GuideAskButton guideUserId={g.user} label="Message guide" />
-                ) : null
-              }
+              footer={g.user && profile?.email_verified ? <GuideAskButton guideUserId={g.user} label="Message guide" /> : null}
             />
 
             {similarGuides.length > 0 ? (
