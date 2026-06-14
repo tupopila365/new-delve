@@ -122,7 +122,7 @@ export function ProviderLayout() {
               >
                 {item.label}
                 {item.to === '/provider/bookings' && pendingProviderBookings > 0 ? (
-                  <NavBadge value={pendingProviderBookings} label={`${pendingProviderBookings} pending provider bookings`} />
+                  <NavBadge count={pendingProviderBookings} />
                 ) : null}
               </NavLink>
             )
