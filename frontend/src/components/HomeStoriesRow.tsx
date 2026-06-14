@@ -6,6 +6,15 @@ type Props = {
   preview: StoryPreviewMedia
 }
 
+const STORY_CHANNEL_INITIALS: Record<StoryChannelId, string> = {
+  stays: 'S',
+  go: 'T',
+  live: 'E',
+  eat: 'F',
+  tours: 'G',
+  pins: 'D',
+}
+
 export function HomeStoriesRow({ preview }: Props) {
   const [channelId, setChannelId] = useState<StoryChannelId | null>(null)
 
@@ -18,7 +27,7 @@ export function HomeStoriesRow({ preview }: Props) {
 
   return (
     <>
-      <div className="stories-row" aria-label="Highlights — tap to watch">
+      <div className="stories-row" aria-label="Highlights">
         {STORY_CHANNELS.map((c) => (
           <button
             key={c.id}
@@ -28,7 +37,7 @@ export function HomeStoriesRow({ preview }: Props) {
           >
             <div className="story-bubble__ring">
               <span className="story-bubble__inner" aria-hidden>
-                {c.emoji}
+                {STORY_CHANNEL_INITIALS[c.id]}
               </span>
             </div>
             <span className="story-bubble__label">{c.label}</span>
