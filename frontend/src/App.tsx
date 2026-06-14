@@ -10,6 +10,7 @@ import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
 import { CreateHub } from './pages/CreateHub'
 import { CreatePost } from './pages/CreatePost'
+import { CreateStory } from './pages/CreateStory'
 import { DelversSocial } from './pages/DelversSocial'
 import { DelversNew } from './pages/DelversNew'
 import { EventDetail } from './pages/EventDetail'
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreateHub />} />
           <Route path="/create/post" element={<CreatePost />} />
+          <Route path="/stories/new" element={<CreateStory />} />
           <Route path="/posts/:id" element={<PostDetail />} />
           <Route path="/u/:username" element={<UserProfile />} />
           <Route path="/dashboard" element={<UserDashboard />} />
@@ -75,7 +77,8 @@ export default function App() {
           <Route path="/journeys/new" element={<CreateJourney />} />
           <Route path="/journeys/:id" element={<TripDetail />} />
           <Route path="/delvers" element={<DelversSocial />} />
-          <Route path="/delvers/new" element={<DelversNew />} />
+          <Route path="/delvers/new" element={<CreateStory />} />
+          <Route path="/delvers/pin/new" element={<DelversNew />} />
           <Route path="/community" element={<Community />} />
           <Route path="/transport" element={<Transport />} />
           <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
