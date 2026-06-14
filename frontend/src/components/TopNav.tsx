@@ -87,9 +87,9 @@ export function TopNav() {
         </Link>
 
         <Link
-          to={profile ? '/create' : '/login'}
+          to={profile ? '/create/post' : '/login'}
           className="app-topnav__post-btn"
-          aria-label="Create"
+          aria-label="Create post"
         >
           <IconPlus />
           Create
