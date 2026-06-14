@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
+import '../delvers-post-card-polish.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
@@ -64,6 +65,15 @@ function postText(post: PinPost): string {
   if (post.delvers_board) return post.delvers_board
   if (post.region) return `Travel moment from ${post.region}`
   return 'Travel moment'
+}
+
+function likesLabel(count: number): string {
+  return `${formatCount(count)} ${count === 1 ? 'like' : 'likes'}`
+}
+
+function commentsLabel(count?: number): string {
+  if (!count) return 'Be the first to comment'
+  return `View all ${formatCount(count)} ${count === 1 ? 'comment' : 'comments'}`
 }
 
 export function DelversSocial() {
@@ -289,6 +299,7 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   const video = mediaUrl(post.video)
   const text = postText(post)
   const date = formatDate(post.created_at)
+  const commentCount = post.comments_count ?? 0
 
   return (
     <article className="ds-post">
@@ -297,30 +308,43 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           <span>{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</span>
           <strong>{name}<small>@{post.author.username}</small></strong>
         </Link>
-        {post.region ? <span className="ds-post__region"><MapPin size={13} />{post.region}</span> : null}
+        {post.region ? <span className="ds-post__region"><MapPin size={13} strokeWidth={2.25} aria-hidden />{post.region}</span> : null}
       </header>
 
-      <Link to={`/posts/${post.id}`} className="ds-post__media">
-        {image ? <img src={image} alt={text} loading="lazy" /> : video ? <div className="ds-post__video"><Video size={34} /><span>Video clip</span></div> : <div className="ds-post__text-media"><Compass size={34} /></div>}
+      <Link to={`/posts/${post.id}`} className="ds-post__media" aria-label={`Open post by ${name}`}>
+        {image ? (
+          <img src={image} alt={text} loading="lazy" />
+        ) : video ? (
+          <div className="ds-post__video"><Video size={34} strokeWidth={2} aria-hidden /><span>Video clip</span></div>
+        ) : (
+          <div className="ds-post__text-media"><Compass size={34} strokeWidth={2} aria-hidden /><span>Travel note</span></div>
+        )}
       </Link>
 
-      <div className="ds-post__actions">
+      <div className="ds-post__actions" aria-label="Post actions">
         {signedIn ? (
-          <button type="button" onClick={onLike} disabled={likeBusy} className={post.liked_by_me ? 'is-active' : ''} aria-label="Like post"><Heart size={20} fill={post.liked_by_me ? 'currentColor' : 'none'} /></button>
-        ) : <Link to="/login" aria-label="Like post"><Heart size={20} /></Link>}
-        <Link to={`/posts/${post.id}`} aria-label="View comments"><MessageCircle size={20} /></Link>
-        <button type="button" onClick={onShare} aria-label="Share post"><Share2 size={20} /></button>
+          <button type="button" onClick={onLike} disabled={likeBusy} className={post.liked_by_me ? 'is-active' : ''} aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}>
+            <Heart size={22} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        ) : <Link to="/login" aria-label="Like post"><Heart size={22} strokeWidth={2.25} aria-hidden /></Link>}
+        <Link to={`/posts/${post.id}`} aria-label="View comments"><MessageCircle size={22} strokeWidth={2.25} aria-hidden /></Link>
+        <button type="button" onClick={onShare} aria-label="Share post"><Share2 size={22} strokeWidth={2.25} aria-hidden /></button>
         {signedIn ? (
-          <button type="button" onClick={onSave} disabled={saveBusy} className={post.saved_by_me ? 'is-active' : ''} aria-label="Save post"><Bookmark size={20} fill={post.saved_by_me ? 'currentColor' : 'none'} /></button>
-        ) : <Link to="/login" aria-label="Save post"><Bookmark size={20} /></Link>}
+          <button type="button" onClick={onSave} disabled={saveBusy} className={`ds-post__action--save${post.saved_by_me ? ' is-active' : ''}`} aria-label={post.saved_by_me ? 'Unsave post' : 'Save post'}>
+            <Bookmark size={22} strokeWidth={2.25} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        ) : <Link to="/login" className="ds-post__action--save" aria-label="Save post"><Bookmark size={22} strokeWidth={2.25} aria-hidden /></Link>}
       </div>
 
       <div className="ds-post__copy">
-        <strong>{formatCount(post.likes_count || 0)} likes</strong>
-        <p><b>{post.author.username}</b> {text}</p>
-        {post.delvers_board ? <span>{post.delvers_board}</span> : null}
-        <Link to={`/posts/${post.id}`}>View {post.comments_count ? formatCount(post.comments_count) : ''} comments</Link>
-        {date ? <small>{date}</small> : null}
+        <p className="ds-post__likes">{likesLabel(post.likes_count || 0)}</p>
+        <p className="ds-post__caption">
+          <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ds-post__caption-author">{post.author.username}</Link>{' '}
+          <span>{text}</span>
+        </p>
+        {post.delvers_board ? <span className="ds-post__topic">{post.delvers_board}</span> : null}
+        <Link to={`/posts/${post.id}`} className="ds-post__comments">{commentsLabel(commentCount)}</Link>
+        {date ? <small className="ds-post__date">{date}</small> : null}
       </div>
     </article>
   )
