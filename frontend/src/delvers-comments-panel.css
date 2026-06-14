@@ -1,0 +1,137 @@
+.ds-comments-panel {
+  margin: 0.85rem 1rem 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(72, 48, 32, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 252, 246, 0.78);
+  box-shadow: 0 16px 42px rgba(72, 48, 32, 0.08);
+}
+
+.ds-comments-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: #3f2d22;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.ds-comments-panel__head span,
+.ds-comments-panel__refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.ds-comments-panel__refresh {
+  border: 0;
+  background: transparent;
+  color: #8a654d;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.ds-comments-panel__refresh:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ds-comments-panel__loading {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.2rem 0;
+}
+
+.ds-comments-panel__loading span {
+  height: 0.7rem;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(72, 48, 32, 0.08), rgba(72, 48, 32, 0.15), rgba(72, 48, 32, 0.08));
+}
+
+.ds-comments-panel__loading span:nth-child(2) {
+  width: 82%;
+}
+
+.ds-comments-panel__loading span:nth-child(3) {
+  width: 58%;
+}
+
+.ds-comments-panel__notice {
+  margin: 0;
+  color: #7b604d;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ds-comments-panel__notice a {
+  color: #573824;
+  font-weight: 800;
+}
+
+.ds-comments-panel__list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ds-comments-panel__item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.ds-comments-panel__avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f2e6d9;
+  color: #6f4a32;
+  overflow: hidden;
+}
+
+.ds-comments-panel__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ds-comments-panel__body {
+  min-width: 0;
+}
+
+.ds-comments-panel__body p {
+  margin: 0;
+  color: #39281f;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  word-wrap: break-word;
+}
+
+.ds-comments-panel__body a {
+  color: #2f2119;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.ds-comments-panel__body small {
+  display: block;
+  margin-top: 0.18rem;
+  color: #9a7a63;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 640px) {
+  .ds-comments-panel {
+    margin-inline: 0.75rem;
+    border-radius: 18px;
+  }
+}
