@@ -120,8 +120,30 @@
 }
 
 .sp-header + .acc-page .mk-hero,
-.sp-header + .acc-page > .acc-page__search {
+.sp-header + .acc-page > .acc-page__search,
+.sp-header + .acc-page > .acc-page__quick-chips,
+.sp-header + .acc-page > .acc-page__discover,
+.sp-header + .acc-page .discovery-sidebar,
+.sp-header + .acc-page .disc-page__aside,
+.sp-header + .acc-page .disc-page__layout > aside,
+.sp-header + .acc-page .disc-page__layout > nav {
   display: none !important;
+}
+
+.sp-header + .acc-page .disc-page__layout {
+  display: block !important;
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.sp-header + .acc-page .disc-page__main {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.sp-header + .acc-page .acc-page__filter-panel {
+  max-width: 980px;
+  margin-inline: auto;
 }
 
 @media (min-width: 760px) {
