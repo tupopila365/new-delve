@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Bell, Bookmark, Camera, Compass, Heart, Home, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { DelversCommentComposer } from '../components/DelversCommentComposer'
 import { EmptyState } from '../components/ui'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
@@ -189,6 +190,10 @@ export function DelversSocial() {
     setQuery('')
   }
 
+  const refreshFeed = () => {
+    void qc.invalidateQueries({ queryKey: qk })
+  }
+
   const openCreatorStories = (creator: Creator) => {
     const rows = (data ?? []).filter((post) => post.author.username === creator.username)
     if (rows.length === 0) return
@@ -300,6 +305,7 @@ export function DelversSocial() {
               onLike={() => profile && likeMut.mutate(post.id)}
               onSave={() => profile && saveMut.mutate(post.id)}
               onShare={() => onShare(post.id)}
+              onCommented={refreshFeed}
             />
           ))}
         </section>
@@ -472,7 +478,7 @@ function StoryViewer({ target, index, onIndex, onClose }: {
   )
 }
 
-function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShare }: {
+function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShare, onCommented }: {
   post: PinPost
   signedIn: boolean
   likeBusy: boolean
@@ -480,7 +486,9 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   onLike: () => void
   onSave: () => void
   onShare: () => void
+  onCommented: () => void
 }) {
+  const [commentOpen, setCommentOpen] = useState(false)
   const name = post.author.display_name || post.author.username
   const avatar = mediaUrl(post.author.avatar ?? null)
   const image = mediaUrl(post.image)
@@ -515,7 +523,11 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
             <Heart size={22} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
           </button>
         ) : <Link to="/login" aria-label="Like post"><Heart size={22} strokeWidth={2.25} aria-hidden /></Link>}
-        <Link to={`/posts/${post.id}`} aria-label="View comments"><MessageCircle size={22} strokeWidth={2.25} aria-hidden /></Link>
+        {signedIn ? (
+          <button type="button" onClick={() => setCommentOpen((open) => !open)} className={commentOpen ? 'is-active' : ''} aria-label={commentOpen ? 'Close comment box' : 'Write comment'}>
+            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
+          </button>
+        ) : <Link to="/login" aria-label="Write comment"><MessageCircle size={22} strokeWidth={2.25} aria-hidden /></Link>}
         <button type="button" onClick={onShare} aria-label="Share post"><Share2 size={22} strokeWidth={2.25} aria-hidden /></button>
         {signedIn ? (
           <button type="button" onClick={onSave} disabled={saveBusy} className={`ds-post__action--save${post.saved_by_me ? ' is-active' : ''}`} aria-label={post.saved_by_me ? 'Unsave post' : 'Save post'}>
@@ -523,6 +535,10 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           </button>
         ) : <Link to="/login" className="ds-post__action--save" aria-label="Save post"><Bookmark size={22} strokeWidth={2.25} aria-hidden /></Link>}
       </div>
+
+      {commentOpen ? (
+        <DelversCommentComposer postId={post.id} onClose={() => setCommentOpen(false)} onCommented={onCommented} />
+      ) : null}
 
       <div className="ds-post__copy">
         <p className="ds-post__likes">{likesLabel(post.likes_count || 0)}</p>
