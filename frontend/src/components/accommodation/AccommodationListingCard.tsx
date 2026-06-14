@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BedDouble,
@@ -43,9 +44,9 @@ type Props = {
   saved: boolean
   likeCount: number
   likeBusy?: boolean
-  onLike: (event: React.MouseEvent) => void
-  onSave: (event: React.MouseEvent) => void
-  onShare: (event: React.MouseEvent) => void
+  onLike: (event: MouseEvent) => void
+  onSave: (event: MouseEvent) => void
+  onShare: (event: MouseEvent) => void
 }
 
 const FALLBACK_IMAGES: Record<string, string> = {
