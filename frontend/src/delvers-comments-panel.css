@@ -1,3 +1,23 @@
+.ds-post__comments {
+  display: inline-flex;
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: #8a654d;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 750;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ds-post__comments:hover,
+.ds-post__comments:focus-visible {
+  color: #4c3425;
+  text-decoration: underline;
+}
+
 .ds-comments-panel {
   margin: 0.85rem 1rem 0;
   padding: 0.85rem;
