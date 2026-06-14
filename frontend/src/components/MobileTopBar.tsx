@@ -22,7 +22,7 @@ export function MobileTopBar() {
             <IconSearch />
           </Link>
           {profile ? (
-            <Link to="/create" className="mobile-topbar__icon" aria-label="Create">
+            <Link to="/create/post" className="mobile-topbar__icon" aria-label="Create post">
               <IconPlus />
             </Link>
           ) : null}
