@@ -1,0 +1,75 @@
+:root {
+  --bg: #050505;
+}
+
+html,
+body,
+#root,
+.app-shell,
+.app-main,
+.app-main--home,
+.page-home {
+  background: #050505 !important;
+}
+
+body {
+  background-color: #050505 !important;
+}
+
+.app-main {
+  color-scheme: dark;
+}
+
+.mobile-topbar,
+.mobile-topbar__sections,
+.mobile-topbar__more-panel {
+  background: rgba(5, 5, 5, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.mobile-topbar__logo,
+.mobile-topbar__sect,
+.mobile-topbar__more-item {
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.mobile-topbar__icon,
+.bottom-nav {
+  background: rgba(20, 20, 20, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.bottom-nav a,
+.bottom-nav__action,
+.bottom-nav__label {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.bottom-nav a svg,
+.bottom-nav__action svg,
+.mobile-topbar__icon svg {
+  stroke: rgba(255, 255, 255, 0.88) !important;
+}
+
+.app-topnav {
+  background: rgba(5, 5, 5, 0.86) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(18px);
+}
+
+.app-topnav__logo,
+.app-topnav__link,
+.app-topnav__icon-btn,
+.app-topnav__post-btn {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.app-topnav__more-panel {
+  background: rgba(16, 16, 16, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.app-topnav__more-item {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
