@@ -5,23 +5,30 @@
 }
 
 .dv-page__top {
-  border-radius: 34px;
-  padding: clamp(18px, 4vw, 34px);
+  border-radius: 28px;
+  padding: clamp(18px, 3vw, 28px);
   margin-bottom: 18px;
   background: linear-gradient(145deg, #ffffff, #faf4ec);
   border: 1px solid var(--hairline-light);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .dv-page__hero h1,
 .dv-page__hero .mk-hero__title {
-  max-width: 12ch;
-  font-size: clamp(42px, 8vw, 82px);
-  line-height: .92;
+  max-width: 100%;
+  font-size: clamp(38px, 4.4vw, 58px);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+.dv-page__hero p,
+.dv-page__hero .mk-hero__subtitle,
+.dv-page__hero .mk-hero__support {
+  max-width: 58ch;
 }
 
 .dv-page__search {
-  max-width: 760px;
+  max-width: 660px;
   margin-bottom: 14px;
 }
 
@@ -53,7 +60,7 @@
 .dv-page__featured,
 .dv-page__composer,
 .dv-page__feed {
-  border-radius: 30px;
+  border-radius: 26px;
   background: #ffffff;
   border: 1px solid var(--hairline-light);
   box-shadow: var(--shadow-sm);
@@ -67,16 +74,16 @@
 .dv-page__profiles {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(150px, 1fr);
+  grid-auto-columns: 220px;
   gap: 12px;
   overflow-x: auto;
   padding: 14px 2px 2px;
 }
 
 .dv-profile-card {
-  min-height: 210px;
+  min-height: 190px;
   padding: 16px;
-  border-radius: 24px;
+  border-radius: 22px;
   background: #ffffff;
   border: 1px solid var(--hairline-light);
   box-shadow: var(--shadow-sm);
@@ -84,13 +91,13 @@
 }
 
 .dv-profile-card__avatar {
-  width: 62px;
-  height: 62px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   overflow: hidden;
   display: grid;
   place-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
@@ -109,14 +116,14 @@
 
 .dv-feed-card {
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: 24px;
   background: #ffffff;
   border: 1px solid var(--hairline-light);
   box-shadow: var(--shadow-sm);
 }
 
 .dv-feed-card__media {
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: #1b1714;
 }
