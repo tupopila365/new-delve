@@ -1,0 +1,116 @@
+.ds-topbar--clean {
+  grid-template-columns: auto minmax(280px, 1fr) auto;
+  gap: 18px;
+  min-height: 62px;
+  padding: 8px 14px;
+  border-radius: 0 0 18px 18px;
+}
+
+.ds-topbar--clean .ds-brand {
+  min-width: 108px;
+}
+
+.ds-topbar--clean .ds-tabs {
+  justify-content: center;
+  gap: clamp(12px, 2.2vw, 24px);
+}
+
+.ds-topbar--clean .ds-tab {
+  padding: 12px 2px 9px;
+  font-size: 14px;
+}
+
+.ds-topbar--clean .ds-topbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 126px;
+}
+
+.ds-topbar-search {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  grid-template-columns: 42px 0 0;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: width 0.22s ease, grid-template-columns 0.22s ease, background 0.22s ease;
+}
+
+.ds-topbar-search--open {
+  width: min(280px, 28vw);
+  grid-template-columns: 42px minmax(120px, 1fr) 36px;
+  background: #111;
+}
+
+.ds-search-trigger,
+.ds-search-close {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #fff;
+}
+
+.ds-search-close {
+  width: 36px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ds-topbar-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.ds-topbar-search--open input {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ds-topbar-search input::placeholder {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.ds-search-card {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .ds-topbar--clean {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ds-topbar--clean .ds-tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    order: 3;
+  }
+
+  .ds-topbar--clean .ds-topbar__actions {
+    min-width: 0;
+  }
+
+  .ds-topbar-search--open {
+    width: min(230px, 52vw);
+  }
+
+  .ds-topbar--clean .ds-brand {
+    min-width: 0;
+  }
+}
