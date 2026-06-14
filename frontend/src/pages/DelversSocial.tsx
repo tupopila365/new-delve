@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Bookmark, Camera, Compass, Heart, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
+import { Bell, Bookmark, Camera, Compass, Heart, Home, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { EmptyState, ListSkeleton } from '../components/ui'
+import { EmptyState } from '../components/ui'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
 import '../delvers-post-card-polish.css'
 import '../delvers-feed-mobile.css'
+import '../delvers-empty-loading.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
@@ -172,6 +173,11 @@ export function DelversSocial() {
     setSearchOpen(false)
   }
 
+  const showAll = () => {
+    setTab('foryou')
+    setQuery('')
+  }
+
   return (
     <div className="ds-page">
       <header className="ds-topbar ds-topbar--clean">
@@ -227,7 +233,7 @@ export function DelversSocial() {
 
         {toast ? <p className="ds-toast" role="status">{toast}</p> : null}
 
-        {isLoading ? <ListSkeleton count={4} /> : null}
+        {isLoading ? <DelversFeedSkeleton /> : null}
 
         {isError ? (
           <EmptyState
@@ -239,12 +245,7 @@ export function DelversSocial() {
         ) : null}
 
         {!isLoading && !isError && posts.length === 0 ? (
-          <EmptyState
-            iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
-            title="No posts found"
-            sub="Try a different tab, place, or search term."
-            cta={{ label: 'Show all', onClick: () => { setTab('foryou'); setQuery('') } }}
-          />
+          <DelversEmptyState signedIn={!!profile} onShowAll={showAll} />
         ) : null}
 
         <section id="delvers-feed" className="ds-feed" aria-label="Delvers feed">
@@ -264,10 +265,10 @@ export function DelversSocial() {
       </main>
 
       <nav className="ds-mobile-actions" aria-label="Delvers mobile actions">
-        <a href="#delvers-feed" className="ds-mobile-action ds-mobile-action--active">
-          <Compass size={20} strokeWidth={2.25} aria-hidden />
-          <span>Feed</span>
-        </a>
+        <Link to="/" className="ds-mobile-action">
+          <Home size={20} strokeWidth={2.25} aria-hidden />
+          <span>Home</span>
+        </Link>
         <button type="button" className="ds-mobile-action" onClick={() => setSearchOpen(true)}>
           <Search size={20} strokeWidth={2.25} aria-hidden />
           <span>Search</span>
@@ -275,6 +276,10 @@ export function DelversSocial() {
         <Link to={profile ? '/delvers/new' : '/community'} className="ds-mobile-action ds-mobile-action--create">
           <Plus size={20} strokeWidth={2.5} aria-hidden />
           <span>{profile ? 'Create' : 'Join'}</span>
+        </Link>
+        <Link to={profile ? '/messages' : '/login'} className="ds-mobile-action">
+          <Bell size={20} strokeWidth={2.25} aria-hidden />
+          <span>Alerts</span>
         </Link>
         <Link to={profile ? '/account' : '/login'} className="ds-mobile-action">
           <UserRound size={20} strokeWidth={2.25} aria-hidden />
@@ -301,6 +306,55 @@ function CreatorBubble({ creator }: { creator: Creator }) {
       <span>{avatar ? <img src={avatar} alt="" /> : <UserRound size={22} strokeWidth={2} />}</span>
       <small>{creator.display_name}</small>
     </Link>
+  )
+}
+
+function DelversFeedSkeleton() {
+  return (
+    <section className="ds-feed-skeleton" aria-label="Loading Delvers posts">
+      {[0, 1, 2].map((item) => (
+        <article className="ds-skeleton-post" key={item} aria-hidden="true">
+          <div className="ds-skeleton-head">
+            <span className="ds-skeleton-avatar" />
+            <span className="ds-skeleton-lines">
+              <span className="ds-skeleton-line ds-skeleton-line--medium" />
+              <span className="ds-skeleton-line ds-skeleton-line--short" />
+            </span>
+          </div>
+          <div className="ds-skeleton-media" />
+          <div className="ds-skeleton-actions">
+            <span className="ds-skeleton-chip" />
+            <span className="ds-skeleton-chip" />
+            <span className="ds-skeleton-chip" />
+            <span className="ds-skeleton-chip" />
+          </div>
+          <div className="ds-skeleton-copy">
+            <span className="ds-skeleton-line ds-skeleton-line--short" />
+            <span className="ds-skeleton-line ds-skeleton-line--wide" />
+            <span className="ds-skeleton-line ds-skeleton-line--medium" />
+          </div>
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowAll: () => void }) {
+  return (
+    <section className="ds-empty-social" aria-label="No Delvers posts">
+      <div>
+        <span className="ds-empty-social__icon"><Camera size={30} strokeWidth={2.1} aria-hidden /></span>
+        <h2>No posts yet</h2>
+        <p>Share the first Delvers moment, travel tip, route discovery, or local story for others to explore.</p>
+        <div className="ds-empty-social__actions">
+          <Link to={signedIn ? '/delvers/new' : '/community'} className="ds-empty-social__primary">
+            <Plus size={16} strokeWidth={2.5} aria-hidden />
+            {signedIn ? 'Create post' : 'Join Delvers'}
+          </Link>
+          <button type="button" className="ds-empty-social__secondary" onClick={onShowAll}>Show all</button>
+        </div>
+      </div>
+    </section>
   )
 }
 
