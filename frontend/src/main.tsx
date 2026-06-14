@@ -9,6 +9,7 @@ import './index.css'
 import './delvers-polish.css'
 import './delvers-social-top.css'
 import './delvers-social-feed.css'
+import './delvers-social-fix.css'
 
 /** Stale PWA caches from broken builds can serve a blank page in dev — clear them. */
 if (import.meta.env.DEV) {
