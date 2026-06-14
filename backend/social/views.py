@@ -232,12 +232,14 @@ class PostViewSet(viewsets.ModelViewSet):
         qs = base.filter(pk__in=top_ids).order_by(order_case)
         return Response(PostSerializer(qs, many=True, context={"request": request}).data)
 
-    @action(detail=True, methods=["get", "post"], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=["get", "post"], permission_classes=[permissions.AllowAny])
     def comments(self, request, pk=None):
         post = self.get_object()
         if request.method == "GET":
-            qs = post.comments.select_related("author", "author__profile")
+            qs = post.comments.select_related("author", "author__profile").order_by("created_at")
             return Response(CommentSerializer(qs, many=True).data)
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
         ser = CommentSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         Comment.objects.create(
