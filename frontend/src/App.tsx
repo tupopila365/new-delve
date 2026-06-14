@@ -9,7 +9,7 @@ import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
 import { CreateHub } from './pages/CreateHub'
 import { CreatePost } from './pages/CreatePost'
-import { Delvers } from './pages/Delvers'
+import { DelversSocial } from './pages/DelversSocial'
 import { DelversNew } from './pages/DelversNew'
 import { EventDetail } from './pages/EventDetail'
 import { EventsList } from './pages/EventsList'
@@ -70,7 +70,7 @@ export default function App() {
         <Route path="/journeys" element={<TripsList />} />
         <Route path="/journeys/new" element={<CreateJourney />} />
         <Route path="/journeys/:id" element={<TripDetail />} />
-        <Route path="/delvers" element={<Delvers />} />
+        <Route path="/delvers" element={<DelversSocial />} />
         <Route path="/delvers/new" element={<DelversNew />} />
         <Route path="/community" element={<Community />} />
         <Route path="/transport" element={<Transport />} />
