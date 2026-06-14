@@ -10,6 +10,7 @@ import '../delvers-stories-polish.css'
 import '../delvers-post-card-polish.css'
 import '../delvers-feed-mobile.css'
 import '../delvers-empty-loading.css'
+import '../delvers-story-viewer.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
@@ -36,6 +37,14 @@ type Creator = {
   region: string
   posts: number
   likes: number
+}
+
+type StoryTarget = {
+  kind: 'creator' | 'place'
+  title: string
+  subtitle: string
+  avatar: string | null
+  posts: PinPost[]
 }
 
 const TABS: { id: FeedTab; label: string }[] = [
@@ -84,6 +93,8 @@ export function DelversSocial() {
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const [storyTarget, setStoryTarget] = useState<StoryTarget | null>(null)
+  const [storyIndex, setStoryIndex] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
   const qk = ['delvers-social', profile?.region] as const
@@ -178,6 +189,36 @@ export function DelversSocial() {
     setQuery('')
   }
 
+  const openCreatorStories = (creator: Creator) => {
+    const rows = (data ?? []).filter((post) => post.author.username === creator.username)
+    if (rows.length === 0) return
+    setStoryTarget({
+      kind: 'creator',
+      title: creator.display_name,
+      subtitle: `@${creator.username} · ${rows.length} ${rows.length === 1 ? 'story' : 'stories'}`,
+      avatar: creator.avatar,
+      posts: rows,
+    })
+    setStoryIndex(0)
+  }
+
+  const openPlaceStories = (place: string) => {
+    const placeKey = place.trim().toLowerCase()
+    const rows = (data ?? []).filter((post) => post.region?.trim().toLowerCase().includes(placeKey))
+    if (rows.length === 0) {
+      setQuery(place)
+      return
+    }
+    setStoryTarget({
+      kind: 'place',
+      title: place,
+      subtitle: `${rows.length} ${rows.length === 1 ? 'story' : 'stories'} from this place`,
+      avatar: null,
+      posts: rows,
+    })
+    setStoryIndex(0)
+  }
+
   return (
     <div className="ds-page">
       <header className="ds-topbar ds-topbar--clean">
@@ -222,9 +263,9 @@ export function DelversSocial() {
       <main className="ds-main ds-main--centered">
         <section className="ds-stories ds-stories--polished" aria-label="Creators and places">
           <CreateBubble signedIn={!!profile} />
-          {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} />)}
+          {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} onOpen={() => openCreatorStories(creator)} />)}
           {PLACES.map((place) => (
-            <button key={place} type="button" className="ds-place-bubble" onClick={() => setQuery(place)}>
+            <button key={place} type="button" className="ds-place-bubble" onClick={() => openPlaceStories(place)}>
               <span><MapPin size={18} strokeWidth={2.25} /></span>
               <small>{place}</small>
             </button>
@@ -286,6 +327,15 @@ export function DelversSocial() {
           <span>Profile</span>
         </Link>
       </nav>
+
+      {storyTarget ? (
+        <StoryViewer
+          target={storyTarget}
+          index={storyIndex}
+          onIndex={setStoryIndex}
+          onClose={() => setStoryTarget(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -299,13 +349,13 @@ function CreateBubble({ signedIn }: { signedIn: boolean }) {
   )
 }
 
-function CreatorBubble({ creator }: { creator: Creator }) {
+function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => void }) {
   const avatar = mediaUrl(creator.avatar)
   return (
-    <Link to={`/u/${encodeURIComponent(creator.username)}`} className="ds-creator-bubble">
+    <button type="button" className="ds-creator-bubble" onClick={onOpen} aria-label={`Open stories by ${creator.display_name}`}>
       <span>{avatar ? <img src={avatar} alt="" /> : <UserRound size={22} strokeWidth={2} />}</span>
       <small>{creator.display_name}</small>
-    </Link>
+    </button>
   )
 }
 
@@ -355,6 +405,70 @@ function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowA
         </div>
       </div>
     </section>
+  )
+}
+
+function StoryViewer({ target, index, onIndex, onClose }: {
+  target: StoryTarget
+  index: number
+  onIndex: (next: number) => void
+  onClose: () => void
+}) {
+  const post = target.posts[index]
+  const image = mediaUrl(post?.image ?? null)
+  const video = mediaUrl(post?.video ?? null)
+  const caption = post ? postText(post) : ''
+  const canPrev = index > 0
+  const canNext = index < target.posts.length - 1
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+      if (event.key === 'ArrowLeft' && canPrev) onIndex(index - 1)
+      if (event.key === 'ArrowRight' && canNext) onIndex(index + 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canNext, canPrev, index, onClose, onIndex])
+
+  if (!post) return null
+
+  return (
+    <div className="ds-story-viewer" role="dialog" aria-modal="true" aria-label={`${target.title} stories`}>
+      <article className="ds-story-viewer__card">
+        <div className="ds-story-viewer__progress" aria-hidden>
+          {target.posts.map((story, storyPosition) => (
+            <span key={story.id} className={storyPosition < index ? 'is-seen' : storyPosition === index ? 'is-active' : ''} />
+          ))}
+        </div>
+
+        <header className="ds-story-viewer__head">
+          <span className="ds-story-viewer__avatar">
+            {target.avatar ? <img src={mediaUrl(target.avatar) || ''} alt="" /> : target.kind === 'place' ? <MapPin size={20} strokeWidth={2.25} aria-hidden /> : target.title.charAt(0).toUpperCase()}
+          </span>
+          <span className="ds-story-viewer__meta">
+            <strong>{target.title}</strong>
+            <small>{target.subtitle}</small>
+          </span>
+          <button type="button" className="ds-story-viewer__close" onClick={onClose} aria-label="Close stories">
+            <X size={19} strokeWidth={2.35} aria-hidden />
+          </button>
+        </header>
+
+        <div className="ds-story-viewer__media">
+          {image ? <img src={image} alt={caption} /> : video ? <video src={video} controls autoPlay playsInline /> : <div className="ds-story-viewer__note"><Compass size={34} strokeWidth={2} aria-hidden /><p>{caption}</p></div>}
+        </div>
+        <div className="ds-story-viewer__scrim" aria-hidden />
+
+        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--prev" disabled={!canPrev} onClick={() => onIndex(index - 1)} aria-label="Previous story" />
+        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--next" disabled={!canNext} onClick={() => onIndex(index + 1)} aria-label="Next story" />
+
+        <div className="ds-story-viewer__caption">
+          <p>{caption}</p>
+          <Link to={`/posts/${post.id}`} onClick={onClose}>Open post</Link>
+        </div>
+      </article>
+    </div>
   )
 }
 
