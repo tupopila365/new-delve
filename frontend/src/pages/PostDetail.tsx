@@ -5,6 +5,7 @@ import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { IgPostCard, type FeedPost } from '../components/IgPostCard'
 import { DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
+import '../post-detail-social-connect.css'
 
 export function PostDetail() {
   const { id } = useParams()
@@ -80,15 +81,15 @@ export function PostDetail() {
           <button type="button" className="post-detail-page__back" onClick={() => navigate(-1)} aria-label="Go back">
             ← Back
           </button>
-          <Link to="/" className="post-detail-page__home">
-            Home
+          <Link to="/delvers" className="post-detail-page__home">
+            Delvers
           </Link>
         </div>
 
         {!validId && (
           <p className="page-sub" role="alert">
             Invalid post link.{' '}
-            <Link to="/">Return home</Link>
+            <Link to="/delvers">Return to Delvers</Link>
           </p>
         )}
 
