@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
+import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
 import { TopNav } from './TopNav'
 
 export function AppLayout() {
@@ -21,6 +22,7 @@ export function AppLayout() {
   const homeMain = loc.pathname === '/'
   const providerMode = loc.pathname.startsWith('/provider')
   const adminMode = loc.pathname.startsWith('/admin')
+  const staysPage = loc.pathname === '/accommodation'
 
   if (providerMode || adminMode) {
     return (
@@ -37,6 +39,15 @@ export function AppLayout() {
       <TopNav />
       <MobileTopBar />
       <main className={homeMain ? 'app-main app-main--home' : 'app-main'}>
+        {staysPage ? (
+          <ServiceProviderPageHeader
+            title="Places to stay"
+            subtitle="Search stays and open filters without leaving the results."
+            searchPlaceholder="Search city, region, or stay"
+            searchInputSelector="#acc-search"
+            filterButtonSelector=".acc-page__filter-btn"
+          />
+        ) : null}
         <Outlet />
       </main>
       <BottomNav />
