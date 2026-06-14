@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 type Chip = {
   id: string
   label: string
+  /** @deprecated Use Icon instead. Kept so older pages do not break while they are migrated. */
   emoji?: string
   Icon?: LucideIcon
   active?: boolean
@@ -28,13 +29,7 @@ export function QuickFilterChips({ chips, onChipClick, ariaLabel = 'Quick filter
             onClick={() => onChipClick(chip.id)}
             aria-pressed={chip.active ?? false}
           >
-            {Icon ? (
-              <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
-            ) : chip.emoji ? (
-              <span className="acc-quick-chip__emoji" aria-hidden>
-                {chip.emoji}
-              </span>
-            ) : null}
+            {Icon ? <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden /> : null}
             {chip.label}
           </button>
         )
