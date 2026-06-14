@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ImagePlus, Music, Send, Sparkles, Type, Video, Wand2, X } from 'lucide-react'
 import { ApiError, apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import '../../story-create.css'
+import '../../story-caption-drag.css'
 
 type MediaKind = 'image' | 'video'
 type StoryFilter = 'original' | 'warm' | 'mono' | 'dusk' | 'vivid'
-type CaptionAlign = 'bottom' | 'middle' | 'top'
+type CaptionPosition = { x: number; y: number }
 
 const FILTERS: { id: StoryFilter; label: string }[] = [
   { id: 'original', label: 'Original' },
@@ -26,20 +27,32 @@ const MUSIC = [
   'Desert sunset',
 ]
 
+const CAPTION_PRESETS: { label: string; position: CaptionPosition }[] = [
+  { label: 'Top', position: { x: 50, y: 18 } },
+  { label: 'Middle', position: { x: 50, y: 50 } },
+  { label: 'Bottom', position: { x: 50, y: 78 } },
+]
+
 function filterClass(filter: StoryFilter): string {
   return filter === 'original' ? '' : `story-create-preview__media--${filter}`
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n))
 }
 
 export function CreateStoryComposer() {
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const phoneRef = useRef<HTMLDivElement>(null)
   const [mediaKind, setMediaKind] = useState<MediaKind>('image')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [caption, setCaption] = useState('')
   const [region, setRegion] = useState(profile?.region ?? '')
   const [filter, setFilter] = useState<StoryFilter>('original')
-  const [captionAlign, setCaptionAlign] = useState<CaptionAlign>('bottom')
+  const [captionPosition, setCaptionPosition] = useState<CaptionPosition>({ x: 50, y: 78 })
+  const [captionDragging, setCaptionDragging] = useState(false)
   const [music, setMusic] = useState(MUSIC[0])
   const [musicFile, setMusicFile] = useState<File | null>(null)
   const [error, setError] = useState('')
@@ -51,6 +64,37 @@ export function CreateStoryComposer() {
   }, [preview])
 
   const captionPreview = useMemo(() => caption.trim() || 'Add a short caption', [caption])
+
+  const moveCaptionToPointer = (event: PointerEvent<HTMLElement>) => {
+    const rect = phoneRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 9, 91)
+    const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 9, 91)
+    setCaptionPosition({ x, y })
+  }
+
+  const startCaptionDrag = (event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setCaptionDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+    moveCaptionToPointer(event)
+  }
+
+  const dragCaption = (event: PointerEvent<HTMLDivElement>) => {
+    if (!captionDragging) return
+    moveCaptionToPointer(event)
+  }
+
+  const stopCaptionDrag = (event: PointerEvent<HTMLDivElement>) => {
+    setCaptionDragging(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  const nudgeCaption = (dx: number, dy: number) => {
+    setCaptionPosition((pos) => ({ x: clamp(pos.x + dx, 9, 91), y: clamp(pos.y + dy, 9, 91) }))
+  }
 
   const onPickFile = (nextFile: File | null) => {
     if (preview) URL.revokeObjectURL(preview)
@@ -106,7 +150,7 @@ export function CreateStoryComposer() {
 
       <section className="story-create-shell">
         <div className="story-create-preview" aria-label="Story preview">
-          <div className="story-create-preview__phone">
+          <div ref={phoneRef} className="story-create-preview__phone">
             {preview && mediaKind === 'image' ? (
               <img src={preview} alt="" className={`story-create-preview__media ${filterClass(filter)}`} />
             ) : null}
@@ -125,8 +169,25 @@ export function CreateStoryComposer() {
               </label>
             ) : null}
 
-            <div className={`story-create-caption story-create-caption--${captionAlign}`}>
+            <div
+              className={`story-create-caption${captionDragging ? ' is-dragging' : ''}`}
+              style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }}
+              role="button"
+              tabIndex={0}
+              aria-label="Drag caption to move it"
+              onPointerDown={startCaptionDrag}
+              onPointerMove={dragCaption}
+              onPointerUp={stopCaptionDrag}
+              onPointerCancel={stopCaptionDrag}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft') nudgeCaption(-3, 0)
+                if (event.key === 'ArrowRight') nudgeCaption(3, 0)
+                if (event.key === 'ArrowUp') nudgeCaption(0, -3)
+                if (event.key === 'ArrowDown') nudgeCaption(0, 3)
+              }}
+            >
               {captionPreview}
+              <span className="story-create-caption__hint">Drag</span>
             </div>
 
             {music !== MUSIC[0] || musicFile ? (
@@ -163,9 +224,10 @@ export function CreateStoryComposer() {
           <div className="story-create-section">
             <span className="story-create-label"><Type size={14} strokeWidth={2.2} aria-hidden /> Caption</span>
             <textarea value={caption} onChange={(event) => setCaption(event.target.value)} rows={3} placeholder="Write a short story caption" />
+            <p className="story-create-drag-note">Drag the caption directly on the preview. You can also use keyboard arrow keys while it is selected.</p>
             <div className="story-create-align">
-              {(['bottom', 'middle', 'top'] as CaptionAlign[]).map((item) => (
-                <button key={item} type="button" className={captionAlign === item ? 'is-active' : ''} onClick={() => setCaptionAlign(item)}>{item}</button>
+              {CAPTION_PRESETS.map((item) => (
+                <button key={item.label} type="button" onClick={() => setCaptionPosition(item.position)}>{item.label}</button>
               ))}
             </div>
           </div>
