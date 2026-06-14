@@ -1,10 +1,11 @@
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bookmark, Camera, Compass, Heart, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Users, Video, X } from 'lucide-react'
+import { Bookmark, Camera, Compass, Heart, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState, ListSkeleton } from '../components/ui'
+import '../delvers-topbar-clean.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
@@ -68,7 +69,9 @@ export function DelversSocial() {
   const { profile } = useAuth()
   const [tab, setTab] = useState<FeedTab>('foryou')
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
   const qk = ['delvers-social', profile?.region] as const
 
@@ -90,6 +93,11 @@ export function DelversSocial() {
     mutationFn: (id: number) => apiFetch(`/api/social/posts/${id}/save/`, { method: 'POST' }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: qk }),
   })
+
+  useEffect(() => {
+    if (!searchOpen) return
+    searchInputRef.current?.focus()
+  }, [searchOpen])
 
   const creators = useMemo((): Creator[] => {
     const map = new Map<string, Creator>()
@@ -142,9 +150,19 @@ export function DelversSocial() {
     }
   }
 
+  const onSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSearchOpen(false)
+  }
+
+  const closeSearch = () => {
+    setQuery('')
+    setSearchOpen(false)
+  }
+
   return (
     <div className="ds-page">
-      <header className="ds-topbar">
+      <header className="ds-topbar ds-topbar--clean">
         <Link to="/delvers" className="ds-brand">DELVE <span>Delvers</span></Link>
         <nav className="ds-tabs" aria-label="Delvers feed tabs">
           {TABS.map((item) => (
@@ -154,18 +172,34 @@ export function DelversSocial() {
           ))}
         </nav>
         <div className="ds-topbar__actions">
+          <form
+            className={`ds-topbar-search${searchOpen || query ? ' ds-topbar-search--open' : ''}`}
+            role="search"
+            aria-label="Search Delvers"
+            onSubmit={onSearchSubmit}
+          >
+            <button type="button" className="ds-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Open Delvers search">
+              <Search size={18} strokeWidth={2.25} aria-hidden />
+            </button>
+            <input
+              ref={searchInputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search Delvers"
+              aria-label="Search posts, places, routes, creators"
+            />
+            {searchOpen || query ? (
+              <button type="button" className="ds-search-close" onClick={closeSearch} aria-label="Clear search">
+                <X size={16} strokeWidth={2.25} aria-hidden />
+              </button>
+            ) : null}
+          </form>
           <Link to={profile ? '/delvers/new' : '/community'} className="ds-create">
             <Plus size={16} strokeWidth={2.5} aria-hidden />
             {profile ? 'Create' : 'Join'}
           </Link>
         </div>
       </header>
-
-      <section className="ds-search-card" aria-label="Search Delvers">
-        <Search size={18} strokeWidth={2.25} aria-hidden />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search posts, places, routes, creators..." />
-        {query ? <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X size={16} /></button> : null}
-      </section>
 
       <main className="ds-main ds-main--centered">
         <section className="ds-stories" aria-label="Creators and places">
