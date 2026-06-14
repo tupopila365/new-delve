@@ -15,20 +15,7 @@ import './user-profile-redesign.css'
 import './user-profile-font-fix.css'
 import './user-profile-card-fix.css'
 import './delve-black-background.css'
-
-/** Stale PWA caches from broken builds can serve a blank page in dev — clear them. */
-if (import.meta.env.DEV) {
-  if ('serviceWorker' in navigator) {
-    void navigator.serviceWorker.getRegistrations().then((regs) => {
-      for (const r of regs) void r.unregister()
-    })
-  }
-  if ('caches' in window) {
-    void caches.keys().then((keys) => {
-      for (const k of keys) void caches.delete(k)
-    })
-  }
-}
+import './home-mobile-redesign.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
