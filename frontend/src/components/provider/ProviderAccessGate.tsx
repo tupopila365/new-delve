@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Building2 } from 'lucide-react'
 import { EmptyState } from '../ui'
 
 type Props = {
@@ -13,7 +14,7 @@ export function ProviderAccessGate({
   return (
     <div className="prov-access">
       <EmptyState
-        icon="🏢"
+        iconElement={<Building2 size={28} strokeWidth={2.25} />}
         title={title}
         sub={sub}
         cta={{ label: 'Go to account', to: '/account' }}
