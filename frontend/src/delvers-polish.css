@@ -24,3 +24,42 @@
   max-width: 760px;
   margin-bottom: 14px;
 }
+
+.dv-page__tabs {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+}
+
+.dv-page__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--hairline-light);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #ffffff;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.dv-page__tab--active {
+  background: var(--text);
+  color: #ffffff;
+}
+
+.dv-page__featured,
+.dv-page__composer,
+.dv-page__feed {
+  border-radius: 30px;
+  background: #ffffff;
+  border: 1px solid var(--hairline-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.dv-page__featured,
+.dv-page__feed {
+  padding: 16px;
+}
