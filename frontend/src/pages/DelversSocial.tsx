@@ -5,6 +5,7 @@ import { Bell, Bookmark, Camera, Compass, Heart, Home, MapPin, MessageCircle, Pl
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DelversCommentComposer } from '../components/DelversCommentComposer'
+import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
 import { EmptyState } from '../components/ui'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
@@ -84,7 +85,7 @@ function likesLabel(count: number): string {
 }
 
 function commentsLabel(count?: number): string {
-  if (!count) return 'Be the first to comment'
+  if (!count) return 'View comments'
   return `View all ${formatCount(count)} ${count === 1 ? 'comment' : 'comments'}`
 }
 
@@ -278,7 +279,6 @@ export function DelversSocial() {
         </section>
 
         {toast ? <p className="ds-toast" role="status">{toast}</p> : null}
-
         {isLoading ? <DelversFeedSkeleton /> : null}
 
         {isError ? (
@@ -489,6 +489,7 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   onCommented: () => void
 }) {
   const [commentOpen, setCommentOpen] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
   const name = post.author.display_name || post.author.username
   const avatar = mediaUrl(post.author.avatar ?? null)
   const image = mediaUrl(post.image)
@@ -496,6 +497,11 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   const text = postText(post)
   const date = formatDate(post.created_at)
   const commentCount = post.comments_count ?? 0
+
+  const handleCommented = () => {
+    onCommented()
+    setCommentsOpen(true)
+  }
 
   return (
     <article className="ds-post">
@@ -537,7 +543,7 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
       </div>
 
       {commentOpen ? (
-        <DelversCommentComposer postId={post.id} onClose={() => setCommentOpen(false)} onCommented={onCommented} />
+        <DelversCommentComposer postId={post.id} onClose={() => setCommentOpen(false)} onCommented={handleCommented} />
       ) : null}
 
       <div className="ds-post__copy">
@@ -547,9 +553,13 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           <span>{text}</span>
         </p>
         {post.delvers_board ? <span className="ds-post__topic">{post.delvers_board}</span> : null}
-        <Link to={`/posts/${post.id}`} className="ds-post__comments">{commentsLabel(commentCount)}</Link>
+        <button type="button" className="ds-post__comments" onClick={() => setCommentsOpen((open) => !open)} aria-expanded={commentsOpen}>
+          {commentsOpen ? 'Hide comments' : commentsLabel(commentCount)}
+        </button>
         {date ? <small className="ds-post__date">{date}</small> : null}
       </div>
+
+      <DelversCommentsPanel postId={post.id} open={commentsOpen} count={commentCount} />
     </article>
   )
 }
