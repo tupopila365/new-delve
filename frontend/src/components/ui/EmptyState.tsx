@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 type Cta = { label: string; to: string } | { label: string; onClick: () => void }
 
 type Props = {
+  /** @deprecated Prefer iconElement. Kept for backward compatibility, but not rendered for product consistency. */
   icon?: string
   iconElement?: ReactNode
   title: string
@@ -14,16 +15,12 @@ type Props = {
   compact?: boolean
 }
 
-export function EmptyState({ icon, iconElement, title, sub, cta, action, className = '', compact }: Props) {
+export function EmptyState({ iconElement, title, sub, cta, action, className = '', compact }: Props) {
   return (
     <div className={`ui-empty${compact ? ' ui-empty--compact' : ''} ${className}`.trim()}>
       {iconElement ? (
         <div className="ui-empty__icon ui-empty__icon--graphic" aria-hidden>
           {iconElement}
-        </div>
-      ) : icon ? (
-        <div className="ui-empty__icon" aria-hidden>
-          {icon}
         </div>
       ) : null}
       <p className="ui-empty__title">{title}</p>
