@@ -7,6 +7,8 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import App from './App.tsx'
 import './index.css'
 import './delvers-polish.css'
+import './delvers-social-top.css'
+import './delvers-social-feed.css'
 
 /** Stale PWA caches from broken builds can serve a blank page in dev — clear them. */
 if (import.meta.env.DEV) {
