@@ -1,0 +1,74 @@
+.dv-page__top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-radius: 0 0 24px 24px;
+  padding: 14px 18px 16px;
+  margin: -24px 0 18px;
+  background: rgba(255,255,255,.96);
+  border: 1px solid var(--hairline-light);
+  box-shadow: 0 14px 36px rgba(28,20,16,.08);
+  backdrop-filter: blur(16px);
+}
+
+.dv-page__hero {
+  margin-bottom: 12px;
+}
+
+.dv-page__hero h1,
+.dv-page__hero .mk-hero__title {
+  max-width: 100%;
+  font-size: clamp(30px,3.2vw,44px);
+  line-height: 1.02;
+  letter-spacing: -.04em;
+}
+
+.dv-page__hero p,
+.dv-page__hero .mk-hero__subtitle,
+.dv-page__hero .mk-hero__support {
+  max-width: 54ch;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.dv-page__create-btn {
+  min-height: 42px;
+  padding: 10px 18px;
+  border-radius: 999px;
+}
+
+.dv-page__search {
+  max-width: 620px;
+  margin-bottom: 10px;
+}
+
+.dv-page__search .acc-page__search-inner {
+  min-height: 48px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.dv-page__tabs {
+  gap: 8px;
+  padding: 2px 0 8px;
+  margin: 0;
+}
+
+.dv-page__tab {
+  padding: 8px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 899px) {
+  .dv-page__top {
+    margin: -16px -16px 14px;
+    border-radius: 0 0 22px 22px;
+  }
+
+  .dv-page__hero h1,
+  .dv-page__hero .mk-hero__title {
+    font-size: clamp(30px,10vw,42px);
+  }
+}
