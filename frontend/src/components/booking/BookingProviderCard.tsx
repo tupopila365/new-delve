@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { MapPin, MessageCircle } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 
 type Props = {
   name: string
