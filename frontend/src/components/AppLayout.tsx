@@ -1,4 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom'
+import { AccommodationCardsEnhancer } from './accommodation/AccommodationCardsEnhancer'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -40,13 +41,16 @@ export function AppLayout() {
       <MobileTopBar />
       <main className={homeMain ? 'app-main app-main--home' : 'app-main'}>
         {staysPage ? (
-          <ServiceProviderPageHeader
-            title="Places to stay"
-            subtitle="Search stays and open filters without leaving the results."
-            searchPlaceholder="Search city, region, or stay"
-            searchInputSelector="#acc-search"
-            filterButtonSelector=".acc-page__filter-btn"
-          />
+          <>
+            <AccommodationCardsEnhancer />
+            <ServiceProviderPageHeader
+              title="Places to stay"
+              subtitle="Search stays and open filters without leaving the results."
+              searchPlaceholder="Search city, region, or stay"
+              searchInputSelector="#acc-search"
+              filterButtonSelector=".acc-page__filter-btn"
+            />
+          </>
         ) : null}
         <Outlet />
       </main>
