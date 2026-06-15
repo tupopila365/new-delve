@@ -11,6 +11,7 @@ type Props = {
   searchInputSelector?: string
   filterButtonSelector?: string
   filterGroups?: ServiceProviderFilterGroup[]
+  filterScope?: string
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
@@ -27,6 +28,7 @@ export function ServiceProviderPageHeader({
   searchInputSelector,
   filterButtonSelector,
   filterGroups,
+  filterScope,
 }: Props) {
   const [searchValue, setSearchValue] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -82,7 +84,7 @@ export function ServiceProviderPageHeader({
         </label>
 
         {filterGroups ? (
-          <ServiceProviderFilterButton groups={filterGroups} />
+          <ServiceProviderFilterButton groups={filterGroups} scope={filterScope} />
         ) : (
           <button
             type="button"
