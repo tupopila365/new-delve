@@ -5,6 +5,8 @@ import { FoodCardsEnhancer } from './food/FoodCardsEnhancer'
 import { FeaturedFood } from './food/FeaturedFood'
 import { FeaturedGuides } from './guides/FeaturedGuides'
 import { GuidesCardsEnhancer } from './guides/GuidesCardsEnhancer'
+import { FeaturedTransport } from './transport/FeaturedTransport'
+import { TransportCardsEnhancer } from './transport/TransportCardsEnhancer'
 import { TransportPageEnhancer } from './transport/TransportPageEnhancer'
 import { TransportPlanRental, TransportRouteSteps } from './transport/TransportPlanner'
 import { BottomNav } from './BottomNav'
@@ -230,6 +232,7 @@ export function AppLayout() {
         {transportPage ? (
           <>
             <TransportPageEnhancer />
+            <TransportCardsEnhancer />
             <ServiceProviderPageHeader
               title="Transport"
               subtitle="Search vehicle rentals and shared trips."
@@ -238,10 +241,12 @@ export function AppLayout() {
               filterGroups={transportFilterGroups}
               filterScope="transport"
             />
+            <div className="tp-mode-slot" data-transport-mode-slot />
             <div className="tp-planner-wrap">
               <TransportPlanRental />
               <TransportRouteSteps />
             </div>
+            <FeaturedTransport />
           </>
         ) : null}
         <Outlet />
