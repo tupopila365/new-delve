@@ -1,0 +1,56 @@
+.tp-page,
+.tp-page.mk-page,
+.tp-page.disc-page,
+.tp-page.ev-page,
+.tp-page.acc-page {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.tp-page::before,
+.tp-page::after,
+.tp-page > .mk-hero,
+.tp-page .mk-hero,
+.tp-page > .acc-page__search,
+.tp-page .acc-page__search,
+.tp-page > .ev-page__discover,
+.tp-page .ev-page__discover,
+.tp-page > .tp-page__rental-dates,
+.tp-page .tp-page__rental-dates,
+.tp-page > .tp-page__bus-travel-date,
+.tp-page .tp-page__bus-travel-date,
+.tp-page > .tp-page__bus-search,
+.tp-page .tp-page__bus-search,
+.tp-page > .quick-filter-chips,
+.tp-page .quick-filter-chips {
+  display: none !important;
+}
+
+.tp-page .disc-page__layout {
+  margin-top: 8px !important;
+}
+
+.tp-page__mode-bar {
+  width: min(100%, 980px) !important;
+  margin: 0 auto 12px !important;
+}
+
+.tp-page .disc-page__sidebar,
+.tp-page .discovery-sidebar,
+.tp-page .disc-page__aside,
+.tp-page .disc-page__layout > aside,
+.tp-page .disc-page__layout > nav {
+  display: none !important;
+}
+
+.tp-page .disc-page__layout {
+  display: block !important;
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.tp-page .disc-page__main {
+  width: 100% !important;
+  max-width: none !important;
+}
