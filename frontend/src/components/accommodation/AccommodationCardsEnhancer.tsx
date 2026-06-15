@@ -28,25 +28,47 @@ function listingIdFromHref(href: string) {
   return match?.[1] ?? href
 }
 
-function addOverlayActions(card: HTMLAnchorElement) {
+function addImageActionRow(card: HTMLAnchorElement) {
   const media = card.querySelector<HTMLElement>('.acc-media-card__img-wrap')
-  if (!media || media.querySelector('.stay-card-overlay-actions')) return
+  if (!media) return
+
+  let row = media.querySelector<HTMLDivElement>('.stay-card-image-actions')
+  if (!row) {
+    row = document.createElement('div')
+    row.className = 'stay-card-image-actions'
+    media.appendChild(row)
+  }
+
+  const likeButton = media.querySelector<HTMLButtonElement>('.acc-media-card__save')
+  if (likeButton && likeButton.parentElement !== row) {
+    likeButton.classList.add('stay-card-image-actions__like')
+    row.appendChild(likeButton)
+  }
+
+  if (row.querySelector('[data-stay-save]')) return
 
   const listingId = listingIdFromHref(card.getAttribute('href') || '')
   const savedIds = readSaved()
   const isSaved = savedIds.includes(listingId)
 
-  const actions = document.createElement('div')
-  actions.className = 'stay-card-overlay-actions'
-  actions.innerHTML = `
-    <button type="button" class="stay-card-overlay-actions__btn${isSaved ? ' is-active' : ''}" data-stay-save="${listingId}" aria-label="${isSaved ? 'Remove saved stay' : 'Save stay'}" title="${isSaved ? 'Saved' : 'Save'}">
-      ${icon('save')}<span>${isSaved ? 'Saved' : 'Save'}</span>
-    </button>
-    <button type="button" class="stay-card-overlay-actions__btn" data-stay-share="${listingId}" aria-label="Share stay" title="Share">
-      ${icon('share')}<span>Share</span>
-    </button>
-  `
-  media.appendChild(actions)
+  const saveButton = document.createElement('button')
+  saveButton.type = 'button'
+  saveButton.className = `stay-card-image-actions__btn${isSaved ? ' is-active' : ''}`
+  saveButton.dataset.staySave = listingId
+  saveButton.setAttribute('aria-label', isSaved ? 'Remove saved stay' : 'Save stay')
+  saveButton.setAttribute('title', isSaved ? 'Saved' : 'Save')
+  saveButton.innerHTML = `${icon('save')}<span>${isSaved ? 'Saved' : 'Save'}</span>`
+
+  const shareButton = document.createElement('button')
+  shareButton.type = 'button'
+  shareButton.className = 'stay-card-image-actions__btn'
+  shareButton.dataset.stayShare = listingId
+  shareButton.setAttribute('aria-label', 'Share stay')
+  shareButton.setAttribute('title', 'Share')
+  shareButton.innerHTML = `${icon('share')}<span>Share</span>`
+
+  row.appendChild(saveButton)
+  row.appendChild(shareButton)
 }
 
 export function AccommodationCardsEnhancer() {
@@ -61,7 +83,7 @@ export function AccommodationCardsEnhancer() {
           })
         }
 
-        addOverlayActions(card)
+        addImageActionRow(card)
         card.dataset.enhancedStayCard = 'true'
       })
     }
