@@ -11,11 +11,16 @@
 
 .acc-page__grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)) !important;
-  gap: 11px !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 285px)) !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  max-width: 980px;
+  margin-inline: auto;
 }
 
 .acc-media-card.media-card {
+  width: 100%;
+  max-width: 285px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 20px !important;
@@ -26,7 +31,7 @@
 
 .acc-media-card__img-wrap {
   position: relative;
-  aspect-ratio: 1.55 / 1;
+  aspect-ratio: 1.22 / 1;
   background: #191919;
 }
 
@@ -51,8 +56,8 @@
 .acc-media-card__save {
   top: 8px !important;
   right: 82px !important;
-  width: 34px !important;
-  height: 34px !important;
+  width: 32px !important;
+  height: 32px !important;
   border: 0 !important;
   background: rgba(5, 5, 5, 0.72) !important;
   color: #fffaf2 !important;
@@ -99,7 +104,7 @@
 .acc-media-card .media-card__body {
   display: grid;
   gap: 6px;
-  padding: 10px !important;
+  padding: 11px !important;
   background: #101010 !important;
 }
 
@@ -195,8 +200,8 @@
 .stay-card-overlay-actions__btn {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 50%;
   background: rgba(5, 5, 5, 0.72);
@@ -228,16 +233,28 @@
 
 @media (max-width: 640px) {
   .acc-page__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 9px !important;
+    grid-template-columns: minmax(0, 78vw) !important;
+    justify-content: start !important;
+    gap: 12px !important;
+    overflow-x: auto;
+    padding-inline: 2px 16px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .acc-page__grid::-webkit-scrollbar {
+    display: none;
   }
 
   .acc-media-card.media-card {
+    max-width: 300px;
     border-radius: 18px !important;
+    scroll-snap-align: start;
   }
 
   .acc-media-card__img-wrap {
-    aspect-ratio: 1.3 / 1;
+    aspect-ratio: 1.18 / 1;
   }
 
   .acc-media-card__save,
@@ -252,17 +269,17 @@
 
   .acc-media-card .media-card__body {
     gap: 5px;
-    padding: 8px !important;
+    padding: 9px !important;
   }
 
   .acc-media-card__title {
-    font-size: 0.82rem !important;
+    font-size: 0.84rem !important;
   }
 
   .acc-media-card__location,
   .acc-media-card__guests,
   .acc-media-card__rating-row {
-    font-size: 0.66rem !important;
+    font-size: 0.67rem !important;
   }
 
   .acc-media-card__amenities,
@@ -271,16 +288,16 @@
   }
 
   .acc-media-card__price {
-    font-size: 0.82rem !important;
+    font-size: 0.84rem !important;
   }
 }
 
 @media (max-width: 390px) {
   .acc-page__grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 82vw) !important;
   }
 
   .acc-media-card__img-wrap {
-    aspect-ratio: 1.55 / 1;
+    aspect-ratio: 1.22 / 1;
   }
 }
