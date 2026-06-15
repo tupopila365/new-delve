@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeftRight, CalendarDays, MapPin, Route } from 'lucide-react'
+import { ArrowLeftRight, CalendarDays, ChevronDown, MapPin, Route } from 'lucide-react'
 import { mockBusTrips } from '../../mocks/mockData'
 import './TransportPlanner.css'
 
@@ -78,7 +78,37 @@ function PlaceInput({
   )
 }
 
+function PlannerToggle({
+  icon,
+  title,
+  summary,
+  open,
+  onToggle,
+}: {
+  icon: React.ReactNode
+  title: string
+  summary: string
+  open: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button type="button" className="tp-planner-card__toggle" onClick={onToggle} aria-expanded={open}>
+      <span className="tp-planner-card__icon" aria-hidden>
+        {icon}
+      </span>
+      <span className="tp-planner-card__toggle-copy">
+        <strong>{title}</strong>
+        <span>{summary}</span>
+      </span>
+      <span className={`tp-planner-card__chevron${open ? ' tp-planner-card__chevron--open' : ''}`} aria-hidden>
+        <ChevronDown size={17} strokeWidth={2.4} />
+      </span>
+    </button>
+  )
+}
+
 export function TransportPlanRental() {
+  const [open, setOpen] = useState(false)
   const [pickup, setPickup] = useState('')
   const [dropoff, setDropoff] = useState('')
   const days = tripDays(pickup, dropoff)
@@ -94,44 +124,58 @@ export function TransportPlanRental() {
     setInputValue('#tp-dropoff', value)
   }
 
+  const summary = days
+    ? `${days} ${days === 1 ? 'day' : 'days'} selected`
+    : pickup || dropoff
+      ? 'Finish selecting rental dates'
+      : 'Pick-up and drop-off dates'
+
   return (
-    <section className="tp-planner-card" aria-labelledby="tp-plan-rental-title">
-      <div className="tp-planner-card__head">
-        <span className="tp-planner-card__icon" aria-hidden>
-          <CalendarDays size={16} strokeWidth={2.35} />
-        </span>
-        <div>
-          <h2 id="tp-plan-rental-title">Plan your rental</h2>
-          <p>Optional dates for vehicle estimates.</p>
+    <section className={`tp-planner-card${open ? ' tp-planner-card--open' : ''}`} aria-labelledby="tp-plan-rental-title">
+      <PlannerToggle
+        icon={<CalendarDays size={16} strokeWidth={2.35} />}
+        title="Plan your rental"
+        summary={summary}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+
+      {!open ? (
+        <div className="tp-planner-preview" aria-hidden="true">
+          <span>Pick-up date</span>
+          <span>Drop-off date</span>
         </div>
-      </div>
-      <div className="tp-planner-card__grid">
-        <label className="tp-step-field" htmlFor="tp-rental-pickup-new">
-          <span>Pick-up</span>
-          <input
-            id="tp-rental-pickup-new"
-            className="tp-step-field__input"
-            type="date"
-            min={minDate}
-            value={pickup}
-            onChange={(event) => updatePickup(event.target.value)}
-          />
-        </label>
-        <label className="tp-step-field" htmlFor="tp-rental-dropoff-new">
-          <span>Drop-off</span>
-          <input
-            id="tp-rental-dropoff-new"
-            className="tp-step-field__input"
-            type="date"
-            min={pickup || minDate}
-            value={dropoff}
-            onChange={(event) => updateDropoff(event.target.value)}
-          />
-        </label>
-      </div>
-      <p className="tp-planner-card__hint">
-        {days ? `${days} ${days === 1 ? 'day' : 'days'} selected.` : 'Leave empty to browse without dates.'}
-      </p>
+      ) : (
+        <div className="tp-planner-card__content">
+          <div className="tp-planner-card__grid">
+            <label className="tp-step-field" htmlFor="tp-rental-pickup-new">
+              <span>Pick-up</span>
+              <input
+                id="tp-rental-pickup-new"
+                className="tp-step-field__input"
+                type="date"
+                min={minDate}
+                value={pickup}
+                onChange={(event) => updatePickup(event.target.value)}
+              />
+            </label>
+            <label className="tp-step-field" htmlFor="tp-rental-dropoff-new">
+              <span>Drop-off</span>
+              <input
+                id="tp-rental-dropoff-new"
+                className="tp-step-field__input"
+                type="date"
+                min={pickup || minDate}
+                value={dropoff}
+                onChange={(event) => updateDropoff(event.target.value)}
+              />
+            </label>
+          </div>
+          <p className="tp-planner-card__hint">
+            {days ? `${days} ${days === 1 ? 'day' : 'days'} selected.` : 'Leave empty to browse without dates.'}
+          </p>
+        </div>
+      )}
     </section>
   )
 }
@@ -147,6 +191,7 @@ export function TransportRouteSteps() {
     return [...set].sort((a, b) => a.localeCompare(b))
   }, [])
 
+  const [open, setOpen] = useState(false)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
@@ -167,28 +212,38 @@ export function TransportRouteSteps() {
     updateTo(nextTo)
   }
 
+  const summary = from && to ? `${from} → ${to}` : from ? `From ${from}` : to ? `To ${to}` : 'From and to places'
+
   return (
-    <section className="tp-planner-card tp-planner-card--route" aria-labelledby="tp-shared-route-title">
-      <div className="tp-planner-card__head">
-        <span className="tp-planner-card__icon" aria-hidden>
-          <Route size={16} strokeWidth={2.35} />
-        </span>
-        <div>
-          <h2 id="tp-shared-route-title">Shared trip route</h2>
-          <p>Choose where the shared trip starts and ends.</p>
+    <section className={`tp-planner-card tp-planner-card--route${open ? ' tp-planner-card--open' : ''}`} aria-labelledby="tp-shared-route-title">
+      <PlannerToggle
+        icon={<Route size={16} strokeWidth={2.35} />}
+        title="Shared trip route"
+        summary={summary}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+      />
+
+      {!open ? (
+        <div className="tp-planner-preview" aria-hidden="true">
+          <span>From</span>
+          <span>To</span>
         </div>
-      </div>
-      <div className="tp-route-steps">
-        <PlaceInput id="tp-route-from-new" label="From" value={from} onChange={updateFrom} placeholder="Windhoek" places={places} />
-        <button type="button" className="tp-route-steps__swap" onClick={swap} aria-label="Swap from and to">
-          <ArrowLeftRight size={17} strokeWidth={2.35} aria-hidden />
-        </button>
-        <PlaceInput id="tp-route-to-new" label="To" value={to} onChange={updateTo} placeholder="Swakopmund" places={places} />
-      </div>
-      <p className="tp-planner-card__hint">
-        <MapPin size={12} strokeWidth={2.25} aria-hidden />
-        Travel date is hidden for now; routes show all upcoming shared trips.
-      </p>
+      ) : (
+        <div className="tp-planner-card__content">
+          <div className="tp-route-steps">
+            <PlaceInput id="tp-route-from-new" label="From" value={from} onChange={updateFrom} placeholder="Windhoek" places={places} />
+            <button type="button" className="tp-route-steps__swap" onClick={swap} aria-label="Swap from and to">
+              <ArrowLeftRight size={17} strokeWidth={2.35} aria-hidden />
+            </button>
+            <PlaceInput id="tp-route-to-new" label="To" value={to} onChange={updateTo} placeholder="Swakopmund" places={places} />
+          </div>
+          <p className="tp-planner-card__hint">
+            <MapPin size={12} strokeWidth={2.25} aria-hidden />
+            Routes show all upcoming shared trips.
+          </p>
+        </div>
+      )}
     </section>
   )
 }
