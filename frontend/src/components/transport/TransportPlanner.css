@@ -1,0 +1,127 @@
+.tp-planner-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: min(100%, 980px);
+  margin: 0 auto 14px;
+}
+
+.tp-planner-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: #151515;
+  color: #fffaf2;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+.tp-planner-card__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.tp-planner-card__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  background: rgba(232, 98, 10, 0.16);
+  color: #ff9a52;
+}
+
+.tp-planner-card__head h2 {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 950;
+  letter-spacing: -0.01em;
+}
+
+.tp-planner-card__head p,
+.tp-planner-card__hint {
+  margin: 2px 0 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.74rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.tp-planner-card__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 0;
+}
+
+.tp-planner-card__grid,
+.tp-route-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.tp-route-steps {
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  align-items: end;
+}
+
+.tp-step-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tp-step-field span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.tp-step-field__input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 760;
+  outline: none;
+  padding: 0 10px;
+}
+
+.tp-step-field__input:focus {
+  border-color: rgba(255, 154, 82, 0.72);
+  box-shadow: 0 0 0 3px rgba(255, 154, 82, 0.14);
+}
+
+.tp-route-steps__swap {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 38px;
+  border: 0;
+  border-radius: 13px;
+  background: rgba(255, 154, 82, 0.16);
+  color: #ff9a52;
+}
+
+@media (max-width: 720px) {
+  .tp-planner-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .tp-planner-card__grid,
+  .tp-route-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .tp-route-steps__swap {
+    width: 100%;
+  }
+}
