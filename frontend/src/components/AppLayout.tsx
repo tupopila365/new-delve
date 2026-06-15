@@ -53,6 +53,35 @@ const stayFilterGroups: ServiceProviderFilterGroup[] = [
   },
 ]
 
+const foodFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'food-cuisine',
+    title: 'Cuisine',
+    singleSelect: true,
+    options: [
+      { id: 'cafe', label: 'Café', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Café' } },
+      { id: 'grill', label: 'Grill', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Grill' } },
+      { id: 'seafood', label: 'Seafood', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Seafood' } },
+      { id: 'local', label: 'Local food', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Local food' } },
+      { id: 'bakery', label: 'Bakery', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Bakery' } },
+      { id: 'fast-food', label: 'Fast food', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Fast food' } },
+    ],
+  },
+  {
+    id: 'food-mood',
+    title: 'Mood',
+    singleSelect: true,
+    options: [
+      { id: 'open-now', label: 'Open now', action: { type: 'clickText', selector: '.fd-page__quick-chips button', text: 'Open now' } },
+      { id: 'favourite', label: 'Local favourite', action: { type: 'clickText', selector: '.fd-page__quick-chips button', text: 'Local favourite' } },
+      { id: 'cheap', label: 'Cheap eats', action: { type: 'clickText', selector: '.fd-page__quick-chips button', text: 'Cheap eats' } },
+      { id: 'date', label: 'Date night', action: { type: 'clickText', selector: '.fd-page__quick-chips button', text: 'Date night' } },
+      { id: 'family', label: 'Family friendly', action: { type: 'clickText', selector: '.fd-page__quick-chips button', text: 'Family friendly' } },
+      { id: 'takeaway', label: 'Takeaway', action: { type: 'clickText', selector: '.fd-page__quick-chips button', text: 'Takeaway' } },
+    ],
+  },
+]
+
 export function AppLayout() {
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
@@ -106,6 +135,14 @@ export function AppLayout() {
         {foodPage ? (
           <>
             <FoodCardsEnhancer />
+            <ServiceProviderPageHeader
+              title="Food & drinks"
+              subtitle="Search restaurants, cafés, bars, and local food spots."
+              searchPlaceholder="Search cuisine, venue, city, or mood"
+              searchInputSelector="#fd-search"
+              filterGroups={foodFilterGroups}
+              filterScope="food"
+            />
             <FeaturedFood />
           </>
         ) : null}
