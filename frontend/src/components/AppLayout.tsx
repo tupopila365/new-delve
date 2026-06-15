@@ -5,6 +5,8 @@ import { FoodCardsEnhancer } from './food/FoodCardsEnhancer'
 import { FeaturedFood } from './food/FeaturedFood'
 import { FeaturedGuides } from './guides/FeaturedGuides'
 import { GuidesCardsEnhancer } from './guides/GuidesCardsEnhancer'
+import { TransportPageEnhancer } from './transport/TransportPageEnhancer'
+import { TransportPlanRental, TransportRouteSteps } from './transport/TransportPlanner'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -121,6 +123,30 @@ const guideFilterGroups: ServiceProviderFilterGroup[] = [
   },
 ]
 
+const transportFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'transport-type',
+    title: 'Transport type',
+    singleSelect: true,
+    options: [
+      { id: 'all', label: 'All transport', action: { type: 'clickText', selector: '.tp-mode-btn', text: 'All transport' } },
+      { id: 'car', label: 'Vehicle rentals', action: { type: 'clickText', selector: '.tp-mode-btn', text: 'Vehicle rentals' } },
+      { id: 'shared', label: 'Shared trips', action: { type: 'clickText', selector: '.tp-mode-btn', text: 'Shared trips' } },
+    ],
+  },
+  {
+    id: 'transport-needs',
+    title: 'Needs',
+    singleSelect: true,
+    options: [
+      { id: 'airport', label: 'Airport pickup', action: { type: 'clickText', selector: '.tp-page button', text: 'Airport pickup' } },
+      { id: 'self-drive', label: 'Self-drive', action: { type: 'clickText', selector: '.tp-page button', text: 'Self-drive' } },
+      { id: 'budget', label: 'Budget friendly', action: { type: 'clickText', selector: '.tp-page button', text: 'Budget friendly' } },
+      { id: 'week', label: 'This week', action: { type: 'clickText', selector: '.tp-page button', text: 'This week' } },
+    ],
+  },
+]
+
 export function AppLayout() {
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
@@ -142,6 +168,7 @@ export function AppLayout() {
   const staysPage = loc.pathname === '/accommodation'
   const foodPage = loc.pathname === '/food'
   const guidesPage = loc.pathname === '/guides'
+  const transportPage = loc.pathname === '/transport'
 
   if (providerMode || adminMode) {
     return (
@@ -198,6 +225,23 @@ export function AppLayout() {
               filterScope="guides"
             />
             <FeaturedGuides />
+          </>
+        ) : null}
+        {transportPage ? (
+          <>
+            <TransportPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Transport"
+              subtitle="Search vehicle rentals and shared trips."
+              searchPlaceholder="Search Windhoek, airport pickup, Etosha, shared route"
+              searchInputSelector="#tp-search"
+              filterGroups={transportFilterGroups}
+              filterScope="transport"
+            />
+            <div className="tp-planner-wrap">
+              <TransportPlanRental />
+              <TransportRouteSteps />
+            </div>
           </>
         ) : null}
         <Outlet />
