@@ -3,6 +3,8 @@ import { AccommodationCardsEnhancer } from './accommodation/AccommodationCardsEn
 import { FeaturedStays } from './accommodation/FeaturedStays'
 import { FoodCardsEnhancer } from './food/FoodCardsEnhancer'
 import { FeaturedFood } from './food/FeaturedFood'
+import { FeaturedGuides } from './guides/FeaturedGuides'
+import { GuidesCardsEnhancer } from './guides/GuidesCardsEnhancer'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -82,6 +84,43 @@ const foodFilterGroups: ServiceProviderFilterGroup[] = [
   },
 ]
 
+const guideFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'guide-type',
+    title: 'Guide type',
+    singleSelect: true,
+    options: [
+      { id: 'culture', label: 'Culture', action: { type: 'clickText', selector: '.gd-page__quick-chips button, .disc-side-card__link', text: 'Culture' } },
+      { id: 'wildlife', label: 'Wildlife', action: { type: 'clickText', selector: '.gd-page__quick-chips button, .disc-side-card__link', text: 'Wildlife' } },
+      { id: 'food', label: 'Food tours', action: { type: 'clickText', selector: '.gd-page__quick-chips button, .disc-side-card__link', text: 'Food tours' } },
+      { id: 'walks', label: 'City walks', action: { type: 'clickText', selector: '.gd-page__quick-chips button, .disc-side-card__link', text: 'City walks' } },
+      { id: 'photo', label: 'Photography', action: { type: 'clickText', selector: '.gd-page__quick-chips button, .disc-side-card__link', text: 'Photography' } },
+    ],
+  },
+  {
+    id: 'guide-trust',
+    title: 'Trust',
+    singleSelect: true,
+    options: [
+      { id: 'licensed', label: 'Licensed guides', action: { type: 'clickText', selector: '.gd-page__quick-chips button', text: 'Licensed guides' } },
+      { id: 'fast', label: 'Fast response', action: { type: 'clickText', selector: '.gd-page__quick-chips button', text: 'Fast response' } },
+      { id: 'budget', label: 'Budget friendly', action: { type: 'clickText', selector: '.gd-page__quick-chips button', text: 'Budget friendly' } },
+    ],
+  },
+  {
+    id: 'guide-areas',
+    title: 'Popular areas',
+    singleSelect: true,
+    options: [
+      { id: 'windhoek', label: 'Windhoek', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Windhoek' } },
+      { id: 'swakopmund', label: 'Swakopmund', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Swakopmund' } },
+      { id: 'etosha', label: 'Etosha', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Etosha' } },
+      { id: 'walvis', label: 'Walvis Bay', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Walvis Bay' } },
+      { id: 'sossusvlei', label: 'Sossusvlei', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Sossusvlei' } },
+    ],
+  },
+]
+
 export function AppLayout() {
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
@@ -102,6 +141,7 @@ export function AppLayout() {
   const adminMode = loc.pathname.startsWith('/admin')
   const staysPage = loc.pathname === '/accommodation'
   const foodPage = loc.pathname === '/food'
+  const guidesPage = loc.pathname === '/guides'
 
   if (providerMode || adminMode) {
     return (
@@ -144,6 +184,20 @@ export function AppLayout() {
               filterScope="food"
             />
             <FeaturedFood />
+          </>
+        ) : null}
+        {guidesPage ? (
+          <>
+            <GuidesCardsEnhancer />
+            <ServiceProviderPageHeader
+              title="Local guides"
+              subtitle="Search trusted local experts, guide types, languages, and regions."
+              searchPlaceholder="Search culture, wildlife, Windhoek, food tours"
+              searchInputSelector="#gd-search"
+              filterGroups={guideFilterGroups}
+              filterScope="guides"
+            />
+            <FeaturedGuides />
           </>
         ) : null}
         <Outlet />
