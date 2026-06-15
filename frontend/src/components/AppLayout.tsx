@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { AccommodationCardsEnhancer } from './accommodation/AccommodationCardsEnhancer'
+import { FeaturedStays } from './accommodation/FeaturedStays'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -50,6 +51,7 @@ export function AppLayout() {
               searchInputSelector="#acc-search"
               filterButtonSelector=".acc-page__filter-btn"
             />
+            <FeaturedStays />
           </>
         ) : null}
         <Outlet />
