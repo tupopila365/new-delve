@@ -18,9 +18,9 @@ function writeSaved(ids: string[]) {
 
 function icon(name: 'save' | 'share') {
   if (name === 'save') {
-    return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>'
+    return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>'
   }
-  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.59 13.51l6.83 3.98"></path><path d="M15.41 6.51L8.59 10.49"></path></svg>'
+  return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.59 13.51l6.83 3.98"></path><path d="M15.41 6.51L8.59 10.49"></path></svg>'
 }
 
 function listingIdFromHref(href: string) {
@@ -42,24 +42,24 @@ export function AccommodationCardsEnhancer() {
           })
         }
 
-        const body = card.querySelector<HTMLElement>('.media-card__body')
-        if (!body) return
+        const media = card.querySelector<HTMLElement>('.acc-media-card__img-wrap')
+        if (!media) return
 
         const listingId = listingIdFromHref(card.getAttribute('href') || '')
         const savedIds = readSaved()
         const isSaved = savedIds.includes(listingId)
 
         const actions = document.createElement('div')
-        actions.className = 'stay-card-extra-actions'
+        actions.className = 'stay-card-overlay-actions'
         actions.innerHTML = `
-          <button type="button" class="stay-card-extra-actions__btn${isSaved ? ' is-active' : ''}" data-stay-save="${listingId}" aria-label="${isSaved ? 'Remove saved stay' : 'Save stay'}">
+          <button type="button" class="stay-card-overlay-actions__btn${isSaved ? ' is-active' : ''}" data-stay-save="${listingId}" aria-label="${isSaved ? 'Remove saved stay' : 'Save stay'}" title="${isSaved ? 'Saved' : 'Save'}">
             ${icon('save')}<span>${isSaved ? 'Saved' : 'Save'}</span>
           </button>
-          <button type="button" class="stay-card-extra-actions__btn" data-stay-share="${listingId}" aria-label="Share stay">
+          <button type="button" class="stay-card-overlay-actions__btn" data-stay-share="${listingId}" aria-label="Share stay" title="Share">
             ${icon('share')}<span>Share</span>
           </button>
         `
-        body.appendChild(actions)
+        media.appendChild(actions)
       })
     }
 
@@ -84,6 +84,7 @@ export function AccommodationCardsEnhancer() {
         writeSaved(next)
         saveButton.classList.toggle('is-active', !saved)
         saveButton.setAttribute('aria-label', saved ? 'Save stay' : 'Remove saved stay')
+        saveButton.setAttribute('title', saved ? 'Save' : 'Saved')
         const label = saveButton.querySelector('span')
         if (label) label.textContent = saved ? 'Save' : 'Saved'
         return
