@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Filter, Search, X } from 'lucide-react'
+import { ServiceProviderFilterButton, type ServiceProviderFilterGroup } from './ServiceProviderFilterButton'
 import './ServiceProviderPageHeader.css'
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
   searchPlaceholder?: string
   searchInputSelector?: string
   filterButtonSelector?: string
+  filterGroups?: ServiceProviderFilterGroup[]
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
@@ -24,6 +26,7 @@ export function ServiceProviderPageHeader({
   searchPlaceholder = 'Search providers',
   searchInputSelector,
   filterButtonSelector,
+  filterGroups,
 }: Props) {
   const [searchValue, setSearchValue] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -78,15 +81,19 @@ export function ServiceProviderPageHeader({
           ) : null}
         </label>
 
-        <button
-          type="button"
-          className={filtersOpen ? 'sp-header__filter sp-header__filter--active' : 'sp-header__filter'}
-          onClick={toggleFilters}
-          aria-expanded={filtersOpen}
-        >
-          <Filter size={16} strokeWidth={2.25} aria-hidden />
-          <span>{filtersOpen ? 'Hide filters' : 'Filters'}</span>
-        </button>
+        {filterGroups ? (
+          <ServiceProviderFilterButton groups={filterGroups} />
+        ) : (
+          <button
+            type="button"
+            className={filtersOpen ? 'sp-header__filter sp-header__filter--active' : 'sp-header__filter'}
+            onClick={toggleFilters}
+            aria-expanded={filtersOpen}
+          >
+            <Filter size={16} strokeWidth={2.25} aria-hidden />
+            <span>{filtersOpen ? 'Hide filters' : 'Filters'}</span>
+          </button>
+        )}
       </div>
     </section>
   )
