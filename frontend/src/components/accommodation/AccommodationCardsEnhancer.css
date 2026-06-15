@@ -29,6 +29,10 @@
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22) !important;
 }
 
+.acc-media-card--filtered-out {
+  display: none !important;
+}
+
 .acc-media-card__img-wrap {
   position: relative;
   aspect-ratio: 1.18 / 1;
