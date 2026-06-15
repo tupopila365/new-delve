@@ -1,6 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { AccommodationCardsEnhancer } from './accommodation/AccommodationCardsEnhancer'
 import { FeaturedStays } from './accommodation/FeaturedStays'
+import { FoodCardsEnhancer } from './food/FoodCardsEnhancer'
+import { FeaturedFood } from './food/FeaturedFood'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -70,6 +72,7 @@ export function AppLayout() {
   const providerMode = loc.pathname.startsWith('/provider')
   const adminMode = loc.pathname.startsWith('/admin')
   const staysPage = loc.pathname === '/accommodation'
+  const foodPage = loc.pathname === '/food'
 
   if (providerMode || adminMode) {
     return (
@@ -98,6 +101,12 @@ export function AppLayout() {
               filterScope="stays"
             />
             <FeaturedStays />
+          </>
+        ) : null}
+        {foodPage ? (
+          <>
+            <FoodCardsEnhancer />
+            <FeaturedFood />
           </>
         ) : null}
         <Outlet />
