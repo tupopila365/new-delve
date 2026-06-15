@@ -1,0 +1,291 @@
+.tp-page .tp-page__featured {
+  display: none !important;
+}
+
+.tp-page__car-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 285px)) !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.tp-vehicle-card {
+  display: block !important;
+  width: 100%;
+  max-width: 285px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  background: #151515 !important;
+  color: #fffaf2 !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22) !important;
+}
+
+.tp-vehicle-card__img-wrap {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1.22 / 1;
+  background: #1d1d1d;
+}
+
+.tp-vehicle-card__img,
+.tp-vehicle-card__placeholder {
+  display: grid !important;
+  place-items: center;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  background: #202020 !important;
+}
+
+.tp-vehicle-card__body {
+  display: grid !important;
+  gap: 6px !important;
+  padding: 11px !important;
+  background: #151515 !important;
+}
+
+.tp-vehicle-card__type-badge {
+  position: absolute !important;
+  left: 9px !important;
+  top: 9px !important;
+  z-index: 3;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  padding: 0 9px !important;
+  border-radius: 999px;
+  background: rgba(5, 5, 5, 0.72) !important;
+  color: #fffaf2 !important;
+  font-size: 0.68rem !important;
+  font-weight: 900 !important;
+  backdrop-filter: blur(12px);
+}
+
+.tp-vehicle-card__make,
+.tp-vehicle-card__region,
+.tp-vehicle-card__specs,
+.tp-vehicle-card__total-est {
+  color: rgba(255, 255, 255, 0.58) !important;
+  font-size: 0.74rem !important;
+  font-weight: 720 !important;
+  line-height: 1.25 !important;
+  margin: 0 !important;
+}
+
+.tp-vehicle-card .media-card__title {
+  display: -webkit-box !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  color: #fffaf2 !important;
+  font-size: 0.93rem !important;
+  font-weight: 950 !important;
+  line-height: 1.18 !important;
+  letter-spacing: -0.01em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.tp-vehicle-card__region,
+.tp-vehicle-card__specs,
+.tp-vehicle-card__price {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-vehicle-card__spec-pill,
+.tp-vehicle-card__trans-badge {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.68) !important;
+  font-size: 0.7rem !important;
+  font-weight: 850 !important;
+}
+
+.tp-vehicle-card__price {
+  color: #ff9a52 !important;
+  font-size: 0.82rem !important;
+  font-weight: 950 !important;
+}
+
+.tp-vehicle-card__per,
+.tp-page__card-cta,
+.tp-vehicle-card__total-est {
+  display: none !important;
+}
+
+.tp-page__trip-list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
+  gap: 12px !important;
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.tp-trip-card {
+  display: grid !important;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 0 !important;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  background: #151515 !important;
+  color: #fffaf2 !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18) !important;
+}
+
+.tp-trip-card__media {
+  position: relative;
+  min-height: 155px;
+  background: #202020;
+}
+
+.tp-trip-card__img,
+.tp-trip-card__media-placeholder {
+  display: grid !important;
+  place-items: center;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.tp-trip-card__body {
+  display: grid !important;
+  gap: 7px !important;
+  min-width: 0;
+  padding: 12px !important;
+}
+
+.tp-trip-card__route {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: #fffaf2 !important;
+  font-size: 0.93rem !important;
+  font-weight: 950 !important;
+  line-height: 1.18 !important;
+}
+
+.tp-trip-card__city {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-trip-card__operator,
+.tp-trip-card__time-date,
+.tp-trip-card__time-main,
+.tp-trip-card__arrival,
+.tp-trip-card__duration,
+.tp-trip-card__seats,
+.tp-trip-card__fare-label {
+  color: rgba(255, 255, 255, 0.58) !important;
+  font-size: 0.72rem !important;
+  font-weight: 760 !important;
+  line-height: 1.25 !important;
+}
+
+.tp-trip-card__operator,
+.tp-trip-card__time-date,
+.tp-trip-card__arrival,
+.tp-trip-card__duration,
+.tp-trip-card__seats {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  margin: 0 !important;
+}
+
+.tp-trip-card__meta,
+.tp-trip-card__bottom {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px !important;
+}
+
+.tp-trip-card__fare-value {
+  color: #ff9a52 !important;
+  font-size: 0.84rem !important;
+  font-weight: 950 !important;
+}
+
+.transport-card-image-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transport-card-image-actions .acc-media-card__save,
+.transport-card-image-actions__btn {
+  position: static !important;
+  inset: auto !important;
+  display: grid;
+  place-items: center;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: rgba(5, 5, 5, 0.72) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(12px);
+}
+
+.transport-card-image-actions__btn span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.transport-card-image-actions .acc-media-card__save--saved,
+.transport-card-image-actions__btn--saved {
+  background: rgba(232, 98, 10, 0.92) !important;
+  color: #fffaf2 !important;
+}
+
+@media (max-width: 640px) {
+  .tp-page__car-grid,
+  .tp-page__trip-list {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .tp-vehicle-card {
+    max-width: 100%;
+  }
+
+  .tp-vehicle-card__img-wrap {
+    aspect-ratio: 1.18 / 1;
+  }
+
+  .tp-trip-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tp-trip-card__media {
+    min-height: auto;
+    aspect-ratio: 1.18 / 1;
+  }
+}
