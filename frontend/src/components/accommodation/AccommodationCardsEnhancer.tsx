@@ -28,38 +28,41 @@ function listingIdFromHref(href: string) {
   return match?.[1] ?? href
 }
 
+function addOverlayActions(card: HTMLAnchorElement) {
+  const media = card.querySelector<HTMLElement>('.acc-media-card__img-wrap')
+  if (!media || media.querySelector('.stay-card-overlay-actions')) return
+
+  const listingId = listingIdFromHref(card.getAttribute('href') || '')
+  const savedIds = readSaved()
+  const isSaved = savedIds.includes(listingId)
+
+  const actions = document.createElement('div')
+  actions.className = 'stay-card-overlay-actions'
+  actions.innerHTML = `
+    <button type="button" class="stay-card-overlay-actions__btn${isSaved ? ' is-active' : ''}" data-stay-save="${listingId}" aria-label="${isSaved ? 'Remove saved stay' : 'Save stay'}" title="${isSaved ? 'Saved' : 'Save'}">
+      ${icon('save')}<span>${isSaved ? 'Saved' : 'Save'}</span>
+    </button>
+    <button type="button" class="stay-card-overlay-actions__btn" data-stay-share="${listingId}" aria-label="Share stay" title="Share">
+      ${icon('share')}<span>Share</span>
+    </button>
+  `
+  media.appendChild(actions)
+}
+
 export function AccommodationCardsEnhancer() {
   useEffect(() => {
     const enhance = () => {
       document.querySelectorAll<HTMLAnchorElement>('.acc-media-card').forEach((card) => {
-        if (card.dataset.enhancedStayCard === 'true') return
-        card.dataset.enhancedStayCard = 'true'
-
         const image = card.querySelector<HTMLImageElement>('.acc-media-card__img')
-        if (image) {
+        if (image && image.dataset.fallbackBound !== 'true') {
+          image.dataset.fallbackBound = 'true'
           image.addEventListener('error', () => {
             if (image.src !== FALLBACK_STAY_IMAGE) image.src = FALLBACK_STAY_IMAGE
           })
         }
 
-        const media = card.querySelector<HTMLElement>('.acc-media-card__img-wrap')
-        if (!media) return
-
-        const listingId = listingIdFromHref(card.getAttribute('href') || '')
-        const savedIds = readSaved()
-        const isSaved = savedIds.includes(listingId)
-
-        const actions = document.createElement('div')
-        actions.className = 'stay-card-overlay-actions'
-        actions.innerHTML = `
-          <button type="button" class="stay-card-overlay-actions__btn${isSaved ? ' is-active' : ''}" data-stay-save="${listingId}" aria-label="${isSaved ? 'Remove saved stay' : 'Save stay'}" title="${isSaved ? 'Saved' : 'Save'}">
-            ${icon('save')}<span>${isSaved ? 'Saved' : 'Save'}</span>
-          </button>
-          <button type="button" class="stay-card-overlay-actions__btn" data-stay-share="${listingId}" aria-label="Share stay" title="Share">
-            ${icon('share')}<span>Share</span>
-          </button>
-        `
-        media.appendChild(actions)
+        addOverlayActions(card)
+        card.dataset.enhancedStayCard = 'true'
       })
     }
 
