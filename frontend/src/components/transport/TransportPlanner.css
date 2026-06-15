@@ -10,7 +10,7 @@
   display: grid;
   gap: 10px;
   min-width: 0;
-  padding: 13px;
+  padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   background: #151515;
@@ -18,10 +18,28 @@
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
-.tp-planner-card__head {
-  display: flex;
+.tp-planner-card--open {
+  padding: 13px;
+}
+
+.tp-planner-card__toggle {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 30px;
   align-items: center;
   gap: 9px;
+  width: 100%;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+  text-align: left;
+}
+
+.tp-planner-card__toggle:focus-visible {
+  outline: 3px solid rgba(255, 154, 82, 0.22);
+  outline-offset: 2px;
 }
 
 .tp-planner-card__icon {
@@ -34,27 +52,75 @@
   color: #ff9a52;
 }
 
-.tp-planner-card__head h2 {
-  margin: 0;
+.tp-planner-card__toggle-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tp-planner-card__toggle-copy strong {
+  overflow: hidden;
+  color: #fffaf2;
   font-size: 0.94rem;
   font-weight: 950;
   letter-spacing: -0.01em;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tp-planner-card__head p,
+.tp-planner-card__toggle-copy span,
 .tp-planner-card__hint {
-  margin: 2px 0 0;
   color: rgba(255, 255, 255, 0.58);
   font-size: 0.74rem;
   font-weight: 720;
   line-height: 1.35;
 }
 
+.tp-planner-card__chevron {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.72);
+  transition: transform 160ms ease;
+}
+
+.tp-planner-card__chevron--open {
+  transform: rotate(180deg);
+}
+
+.tp-planner-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 43px;
+}
+
+.tp-planner-preview span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.69rem;
+  font-weight: 900;
+}
+
+.tp-planner-card__content {
+  display: grid;
+  gap: 10px;
+}
+
 .tp-planner-card__hint {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-top: 0;
+  margin: 0;
 }
 
 .tp-planner-card__grid,
@@ -123,5 +189,9 @@
 
   .tp-route-steps__swap {
     width: 100%;
+  }
+
+  .tp-planner-preview {
+    padding-left: 0;
   }
 }
