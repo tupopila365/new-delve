@@ -1,3 +1,25 @@
+.fd-page,
+.fd-page.mk-page,
+.fd-page.disc-page {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.fd-page::before,
+.fd-page::after,
+.fd-page > .mk-hero,
+.fd-page > .fd-page__search,
+.fd-page > .fd-page__quick-chips,
+.fd-page > .fd-active-filters,
+.fd-page > .fd-filters-panel,
+.fd-page > .fd-page__discover,
+.fd-page .mk-hero,
+.fd-page .fd-page__search,
+.fd-page .fd-page__quick-chips,
+.fd-page .fd-active-filters,
+.fd-page .fd-filters-panel,
+.fd-page .fd-page__discover,
 .fd-page .fd-featured-section {
   display: none !important;
 }
