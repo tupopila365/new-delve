@@ -119,12 +119,26 @@
   color: #ff9a52;
 }
 
-/* Remove the old accommodation listing header area from /accommodation. */
+/* Remove the old accommodation listing header area and its background from /accommodation. */
+.acc-page.ev-page,
+.acc-page.disc-page,
+.acc-page.mk-page,
+.acc-page {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.acc-page::before,
+.acc-page::after,
 .acc-page > .mk-hero,
 .acc-page > .acc-page__search,
 .acc-page > .acc-page__quick-chips,
 .acc-page > .acc-page__discover,
 .acc-page .mk-hero,
+.acc-page .acc-page__quick-chips,
+.acc-page .acc-page__discover,
+.acc-page .acc-page__search,
 .acc-page .discovery-sidebar,
 .acc-page .disc-page__aside,
 .acc-page .disc-page__layout > aside,
