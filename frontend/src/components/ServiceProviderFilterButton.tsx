@@ -25,6 +25,7 @@ export type ServiceProviderFilterGroup = {
 type Props = {
   groups: ServiceProviderFilterGroup[]
   label?: string
+  scope?: string
 }
 
 function textOf(node: HTMLElement) {
@@ -39,7 +40,12 @@ function runAction(action?: ServiceProviderFilterAction) {
   target?.click()
 }
 
-export function ServiceProviderFilterButton({ groups, label = 'Filters' }: Props) {
+function dispatchFilterChange(scope: string | undefined, selected: string[]) {
+  if (!scope) return
+  window.dispatchEvent(new CustomEvent('service-provider-filters-change', { detail: { scope, selected } }))
+}
+
+export function ServiceProviderFilterButton({ groups, label = 'Filters', scope }: Props) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
 
@@ -51,21 +57,25 @@ export function ServiceProviderFilterButton({ groups, label = 'Filters' }: Props
   }, [groups])
 
   const toggleOption = (group: ServiceProviderFilterGroup, option: ServiceProviderFilterOption) => {
-    setSelected((current) => {
-      const active = current.includes(option.id)
-      if (group.singleSelect) {
-        const groupIds = group.options.map((item) => item.id)
-        const withoutGroup = current.filter((id) => !groupIds.includes(id))
-        return active ? withoutGroup : [...withoutGroup, option.id]
-      }
-      return active ? current.filter((id) => id !== option.id) : [...current, option.id]
-    })
+    const active = selected.includes(option.id)
+    let next: string[]
+    if (group.singleSelect) {
+      const groupIds = group.options.map((item) => item.id)
+      const withoutGroup = selected.filter((id) => !groupIds.includes(id))
+      next = active ? withoutGroup : [...withoutGroup, option.id]
+    } else {
+      next = active ? selected.filter((id) => id !== option.id) : [...selected, option.id]
+    }
+
+    setSelected(next)
+    dispatchFilterChange(scope, next)
     runAction(option.action)
   }
 
   const clearAll = () => {
     selected.forEach((id) => runAction(optionMap.get(id)?.action))
     setSelected([])
+    dispatchFilterChange(scope, [])
   }
 
   return (
@@ -86,7 +96,7 @@ export function ServiceProviderFilterButton({ groups, label = 'Filters' }: Props
           <div className="sp-filter__panel-head">
             <div>
               <strong>Find what fits</strong>
-              <p>Tick what matters most.</p>
+              <p>Tap a few boxes. Keep it simple.</p>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Close filters">
               <X size={16} strokeWidth={2.25} aria-hidden />
