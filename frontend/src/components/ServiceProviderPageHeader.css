@@ -119,7 +119,7 @@
   color: #ff9a52;
 }
 
-/* Remove the old accommodation listing header area and its background from /accommodation. */
+/* Remove the old accommodation listing header area, old filter UI, and old background from /accommodation. */
 .acc-page.ev-page,
 .acc-page.disc-page,
 .acc-page.mk-page,
@@ -135,10 +135,12 @@
 .acc-page > .acc-page__search,
 .acc-page > .acc-page__quick-chips,
 .acc-page > .acc-page__discover,
+.acc-page > .acc-page__filter-panel,
 .acc-page .mk-hero,
 .acc-page .acc-page__quick-chips,
 .acc-page .acc-page__discover,
 .acc-page .acc-page__search,
+.acc-page .acc-page__filter-panel,
 .acc-page .discovery-sidebar,
 .acc-page .disc-page__aside,
 .acc-page .disc-page__layout > aside,
@@ -155,11 +157,6 @@
 .acc-page .disc-page__main {
   width: 100% !important;
   max-width: none !important;
-}
-
-.acc-page .acc-page__filter-panel {
-  max-width: 980px;
-  margin-inline: auto;
 }
 
 @media (min-width: 760px) {
