@@ -28,6 +28,11 @@ function listingIdFromHref(href: string) {
   return match?.[1] ?? href
 }
 
+function numberFromText(text: string | undefined | null) {
+  const match = text?.match(/\d+(?:\.\d+)?/)
+  return match ? Number.parseFloat(match[0]) : 0
+}
+
 function addImageActionRow(card: HTMLAnchorElement) {
   const media = card.querySelector<HTMLElement>('.acc-media-card__img-wrap')
   if (!media) return
@@ -71,8 +76,28 @@ function addImageActionRow(card: HTMLAnchorElement) {
   row.appendChild(shareButton)
 }
 
+function matchesLocalFilters(card: HTMLAnchorElement, selected: string[]) {
+  const rating = numberFromText(card.querySelector('.acc-media-card__rating-row')?.textContent)
+  const bedrooms = numberFromText(card.querySelector('.acc-media-card__guests')?.textContent)
+
+  if (selected.includes('rating-5') && rating < 5) return false
+  if (selected.includes('rating-4') && rating < 4) return false
+  if (selected.includes('bed-1') && bedrooms < 1) return false
+  if (selected.includes('bed-2') && bedrooms < 2) return false
+  if (selected.includes('bed-3') && bedrooms < 3) return false
+  return true
+}
+
+function applyLocalFilters(selected: string[]) {
+  document.querySelectorAll<HTMLAnchorElement>('.acc-media-card').forEach((card) => {
+    card.classList.toggle('acc-media-card--filtered-out', !matchesLocalFilters(card, selected))
+  })
+}
+
 export function AccommodationCardsEnhancer() {
   useEffect(() => {
+    let activeLocalFilters: string[] = []
+
     const enhance = () => {
       document.querySelectorAll<HTMLAnchorElement>('.acc-media-card').forEach((card) => {
         const image = card.querySelector<HTMLImageElement>('.acc-media-card__img')
@@ -86,11 +111,19 @@ export function AccommodationCardsEnhancer() {
         addImageActionRow(card)
         card.dataset.enhancedStayCard = 'true'
       })
+      applyLocalFilters(activeLocalFilters)
     }
 
     enhance()
     const observer = new MutationObserver(enhance)
     observer.observe(document.body, { childList: true, subtree: true })
+
+    const onFilterChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ scope?: string; selected?: string[] }>).detail
+      if (detail?.scope !== 'stays') return
+      activeLocalFilters = detail.selected ?? []
+      applyLocalFilters(activeLocalFilters)
+    }
 
     const onClick = async (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target : null
@@ -129,9 +162,11 @@ export function AccommodationCardsEnhancer() {
       }
     }
 
+    window.addEventListener('service-provider-filters-change', onFilterChange)
     document.addEventListener('click', onClick, true)
     return () => {
       observer.disconnect()
+      window.removeEventListener('service-provider-filters-change', onFilterChange)
       document.removeEventListener('click', onClick, true)
     }
   }, [])
