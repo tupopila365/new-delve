@@ -17,8 +17,25 @@ const stayFilterGroups: ServiceProviderFilterGroup[] = [
       { id: 'guesthouse', label: 'Guest house', action: { type: 'clickText', selector: '.acc-page__property-chip', text: 'Guest house' } },
       { id: 'apartment', label: 'Apartment', action: { type: 'clickText', selector: '.acc-page__property-chip', text: 'Apartment' } },
       { id: 'lodge', label: 'Lodge', action: { type: 'clickText', selector: '.acc-page__property-chip', text: 'Lodge' } },
-      { id: 'villa', label: 'Villa', action: { type: 'clickText', selector: '.acc-page__property-chip', text: 'Villa' } },
-      { id: 'camping', label: 'Camping', action: { type: 'clickText', selector: '.acc-page__property-chip', text: 'Camping' } },
+    ],
+  },
+  {
+    id: 'stay-quality',
+    title: 'Quality',
+    singleSelect: true,
+    options: [
+      { id: 'rating-5', label: '5 star', helper: 'Top-rated only' },
+      { id: 'rating-4', label: '4+ star', helper: 'Very good stays' },
+    ],
+  },
+  {
+    id: 'stay-bedrooms',
+    title: 'Bedrooms',
+    singleSelect: true,
+    options: [
+      { id: 'bed-1', label: '1+ bedroom' },
+      { id: 'bed-2', label: '2+ bedrooms' },
+      { id: 'bed-3', label: '3+ bedrooms' },
     ],
   },
   {
@@ -30,7 +47,6 @@ const stayFilterGroups: ServiceProviderFilterGroup[] = [
       { id: 'pet', label: 'Pet friendly', action: { type: 'clickText', selector: '.acc-page__quick-chips button', text: 'Pet friendly' } },
       { id: 'budget', label: 'Budget', helper: 'Lower priced stays', action: { type: 'clickText', selector: '.acc-page__quick-chips button', text: 'Budget' } },
       { id: 'family', label: 'Family friendly', action: { type: 'clickText', selector: '.acc-page__quick-chips button', text: 'Family friendly' } },
-      { id: 'coast', label: 'Near coast', action: { type: 'clickText', selector: '.acc-page__quick-chips button', text: 'Near coast' } },
     ],
   },
 ]
@@ -79,6 +95,7 @@ export function AppLayout() {
               searchPlaceholder="Search city, region, or stay"
               searchInputSelector="#acc-search"
               filterGroups={stayFilterGroups}
+              filterScope="stays"
             />
             <FeaturedStays />
           </>
