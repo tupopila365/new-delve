@@ -54,8 +54,6 @@
 }
 
 .acc-media-card__save {
-  top: 8px !important;
-  right: 84px !important;
   width: 34px !important;
   height: 34px !important;
   border: 0 !important;
@@ -183,33 +181,40 @@
   font-weight: 800 !important;
 }
 
-.stay-card-extra-actions {
+.stay-card-extra-actions,
+.stay-card-overlay-actions {
   display: none !important;
 }
 
-.stay-card-overlay-actions {
+.stay-card-image-actions {
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 4;
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.stay-card-overlay-actions__btn {
+.stay-card-image-actions .acc-media-card__save,
+.stay-card-image-actions__btn {
+  position: static !important;
+  inset: auto !important;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(5, 5, 5, 0.72);
-  color: rgba(255, 255, 255, 0.92);
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: rgba(5, 5, 5, 0.72) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(12px);
 }
 
-.stay-card-overlay-actions__btn span {
+.stay-card-image-actions__btn span {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -217,9 +222,10 @@
   clip: rect(0 0 0 0);
 }
 
-.stay-card-overlay-actions__btn.is-active {
-  background: rgba(232, 98, 10, 0.92);
-  color: #fffaf2;
+.stay-card-image-actions__btn.is-active,
+.stay-card-image-actions .acc-media-card__save--saved {
+  background: rgba(232, 98, 10, 0.92) !important;
+  color: #fffaf2 !important;
 }
 
 .acc-page__summary,
@@ -248,14 +254,10 @@
     aspect-ratio: 1.18 / 1;
   }
 
-  .acc-media-card__save,
-  .stay-card-overlay-actions__btn {
+  .stay-card-image-actions .acc-media-card__save,
+  .stay-card-image-actions__btn {
     width: 34px !important;
     height: 34px !important;
-  }
-
-  .acc-media-card__save {
-    right: 84px !important;
   }
 
   .acc-media-card .media-card__body {
