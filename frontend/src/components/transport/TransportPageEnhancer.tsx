@@ -16,10 +16,22 @@ function replaceText(root: ParentNode) {
   })
 }
 
+function moveModeBar() {
+  const slot = document.querySelector<HTMLElement>('[data-transport-mode-slot]')
+  const modeBar = document.querySelector<HTMLElement>('.tp-page__mode-bar')
+  if (!slot || !modeBar || modeBar.parentElement === slot) return
+  slot.appendChild(modeBar)
+}
+
 export function TransportPageEnhancer() {
   useEffect(() => {
-    replaceText(document.body)
-    const observer = new MutationObserver(() => replaceText(document.body))
+    const sync = () => {
+      replaceText(document.body)
+      moveModeBar()
+    }
+
+    sync()
+    const observer = new MutationObserver(sync)
     observer.observe(document.body, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
   }, [])
