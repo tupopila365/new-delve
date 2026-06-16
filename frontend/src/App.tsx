@@ -53,6 +53,9 @@ import { PlatformAdmin } from './pages/PlatformAdmin'
 import { PlatformAdminUsers } from './pages/PlatformAdminUsers'
 import { PlatformAdminBusinesses } from './pages/PlatformAdminBusinesses'
 import { PlatformAdminBookings } from './pages/PlatformAdminBookings'
+import { ListingGalleryPage } from './pages/ListingGalleryPage'
+import { ListingReviewsPage } from './pages/ListingReviewsPage'
+import { ListingMomentsPage } from './pages/ListingMomentsPage'
 
 export default function App() {
   return (
@@ -88,6 +91,9 @@ export default function App() {
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/food" element={<FoodList />} />
           <Route path="/food/:id" element={<FoodDetail />} />
+          <Route path="/listing/:type/:id/gallery" element={<ListingGalleryPage />} />
+          <Route path="/listing/:type/:id/reviews" element={<ListingReviewsPage />} />
+          <Route path="/listing/:type/:id/moments" element={<ListingMomentsPage />} />
           <Route path="/guides" element={<GuidesList />} />
           <Route path="/guides/:guideId/packages/:packageSlug" element={<TourPackageDetail />} />
           <Route path="/guides/:id" element={<GuideDetail />} />

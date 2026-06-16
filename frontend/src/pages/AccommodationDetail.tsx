@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import {
   BedDouble,
   Building2,
@@ -21,21 +22,28 @@ import {
 import { apiFetch, mediaUrl } from '../api/client'
 import { BookingTrustNote } from '../components/booking'
 import { RoomPhotoCarousel } from '../components/RoomPhotoCarousel'
-import { AccommodationGallery, buildGalleryItems } from '../components/AccommodationGallery'
-import { GuestReviewCard, normalizeReviews } from '../components/GuestReviewCard'
+import { buildGalleryItems } from '../components/AccommodationGallery'
+import { normalizeReviews } from '../components/GuestReviewCard'
 import { MiniRating } from '../components/MiniRating'
 import {
-  CommentBox,
-  DelversMoments,
   DetailActionCard,
   DetailHeroWrap,
   DetailLayout,
   DetailPage,
   DetailSkeleton,
   MobileStickyCTA,
-  SocialActionRow,
   TrustBadgeRow,
 } from '../components/detail'
+import {
+  ListingAskQuestion,
+  ListingDelversMoments,
+  ListingDetails,
+  ListingFaq,
+  ListingGalleryGrid,
+  ListingIdentityHeader,
+  ListingLocationCard,
+  ListingReviews,
+} from '../components/listing'
 import { EmptyState } from '../components/ui'
 
 const PROPERTY_LABELS: Record<string, string> = {
@@ -246,7 +254,6 @@ export function AccommodationDetail() {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [guests, setGuests] = useState(1)
-  const [commentDraft, setCommentDraft] = useState('')
   const [stayQuestions, setStayQuestions] = useState([
     { id: 's1', author: 'Mila K.', body: 'Is early check-in possible?', ago: '2d ago' },
     { id: 's2', author: 'Alex R.', body: 'How far is the nearest shop on foot?', ago: '5d ago' },
@@ -262,7 +269,6 @@ export function AccommodationDetail() {
   const reviews = useMemo(() => (data ? normalizeReviews(data.guest_reviews) : []), [data])
   const roomTypes = useMemo(() => (data ? normalizeRoomTypes(data.room_types) : []), [data])
   const rules = useMemo(() => (data?.house_rules ? parseHouseRules(data.house_rules) : []), [data])
-  const hasPolicies = Boolean(data?.check_in_from || data?.check_out_until || data?.cancellation_policy)
 
   const onShare = async (title: string) => {
     try {
@@ -275,14 +281,11 @@ export function AccommodationDetail() {
     }
   }
 
-  const postStayQuestion = () => {
-    const body = commentDraft.trim()
-    if (!body) return
+  const postStayQuestion = (body: string) => {
     setStayQuestions((prev) => [
       { id: `local-${Date.now()}`, author: 'Guest', body, ago: 'Just now' },
       ...prev,
     ])
-    setCommentDraft('')
   }
 
   if (isLoading) {
@@ -323,6 +326,12 @@ export function AccommodationDetail() {
 
   const mapHref = openStreetMapSearchUrl(data.city || '', data.region || '')
   const galleryItems = buildGalleryItems(data.media_gallery, data.cover_image)
+  const listingImages = galleryItems.map((item, index) => ({
+    id: index,
+    src: mediaUrl(item.src) || item.src,
+    alt: data.title,
+  }))
+  const detailBackTo = `/accommodation/${id}`
   const loveItems = whyGuestsLove(data)
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
   const todayStr = new Date().toISOString().split('T')[0]
@@ -341,9 +350,26 @@ export function AccommodationDetail() {
       image: mediaUrl(item.src) || item.src,
       author: `guest${index + 1}`,
       body: 'Saved this stay for a quiet weekend.',
+      taggedListing: data.title,
     })),
-    { id: 'placeholder', author: 'traveller', body: 'Morning view from the room.' },
+    { id: 'placeholder', author: 'traveller', body: 'Morning view from the room.', taggedListing: data.title },
   ]
+
+  const policyRows = [
+    data.check_in_from
+      ? { label: 'Check-in', value: `From ${data.check_in_from}`, icon: <Clock size={14} strokeWidth={2.25} aria-hidden /> }
+      : null,
+    data.check_out_until
+      ? { label: 'Check-out', value: `By ${data.check_out_until}`, icon: <Clock size={14} strokeWidth={2.25} aria-hidden /> }
+      : null,
+    data.cancellation_policy
+      ? {
+          label: 'Cancellation',
+          value: data.cancellation_policy,
+          icon: <ShieldCheck size={14} strokeWidth={2.25} aria-hidden />,
+        }
+      : null,
+  ].filter(Boolean) as { label: string; value: string; icon: ReactNode }[]
 
   const trustItems = [
     ...(data.max_guests >= 4 ? ['Good for families'] : []),
@@ -365,29 +391,37 @@ export function AccommodationDetail() {
         onSave={() => setSaved((v) => !v)}
         onShare={() => onShare(data.title)}
       >
-        <AccommodationGallery variant="detail" items={galleryItems} title={data.title} />
+        <ListingGalleryGrid
+          listingType="accommodation"
+          listingId={id!}
+          images={listingImages}
+          backTo={detailBackTo}
+          variant="hero"
+        />
       </DetailHeroWrap>
 
-      <section className="acc-detail__identity detail-section">
-        <div className="acc-detail__meta-row">
-          {data.property_type ? (
-            <span className="acc-detail__pill">{propertyTypeLabel(data.property_type)}</span>
-          ) : null}
-          {data.rating_avg ? (
-            <span className="acc-detail__pill acc-detail__pill--rating">
-              <MiniRating rating={data.rating_avg} count={data.rating_count} />
-            </span>
-          ) : null}
-          {locationLine ? (
-            <span className="acc-detail__pill acc-detail__pill--location">
-              <MapPin size={13} strokeWidth={2.25} aria-hidden />
-              {locationLine}
-            </span>
-          ) : null}
-        </div>
+      <ListingIdentityHeader
+        name={data.title}
+        tagline={`Hosted by @${data.owner_username}`}
+        categoryLabel={data.property_type ? propertyTypeLabel(data.property_type) : null}
+        rating={data.rating_avg}
+        reviewCount={data.rating_count}
+        locationLabel={locationLine || null}
+        saved={saved}
+        onSave={() => setSaved((v) => !v)}
+        onShare={() => onShare(data.title)}
+        actions={[
+          {
+            id: 'message-host',
+            label: 'Message host',
+            icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
+            href: `/u/${encodeURIComponent(data.owner_username)}`,
+          },
+        ]}
+        className="acc-detail__identity"
+      />
 
-        <h1 className="display acc-detail__title">{data.title}</h1>
-
+      <section className="acc-detail__quick-stats detail-section">
         <div className="acc-detail__stats">
           <span className="acc-detail__stat">
             <BedDouble size={15} strokeWidth={2.25} aria-hidden />
@@ -402,22 +436,9 @@ export function AccommodationDetail() {
             <span className="acc-detail__stat-unit"> / night</span>
           </span>
         </div>
-
-        <p className="acc-detail__host-line">
-          Hosted by{' '}
-          <Link to={`/u/${encodeURIComponent(data.owner_username)}`}>@{data.owner_username}</Link>
-        </p>
-
         {trustItems.length > 0 ? (
           <TrustBadgeRow items={trustItems} className="acc-detail__trust-row" />
         ) : null}
-
-        <SocialActionRow saved={saved} onSave={() => setSaved((v) => !v)} onShare={() => onShare(data.title)}>
-          <Link to={`/u/${encodeURIComponent(data.owner_username)}`} className="acc-detail__message-link">
-            <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
-            Message host
-          </Link>
-        </SocialActionRow>
       </section>
 
       <DetailLayout
@@ -438,11 +459,13 @@ export function AccommodationDetail() {
               </div>
             </section>
 
-            {data.description?.trim() ? (
-              <section className="detail-section acc-detail__about">
-                <h2 className="acc-detail__section-title">About this stay</h2>
-                <p className="acc-detail__about-text">{data.description}</p>
-              </section>
+            {data.description?.trim() || policyRows.length > 0 ? (
+              <ListingDetails
+                title="About this stay"
+                description={data.description?.trim() || null}
+                rows={policyRows}
+                className="acc-detail__about"
+              />
             ) : null}
 
             {roomTypes.length > 0 ? (
@@ -534,128 +557,60 @@ export function AccommodationDetail() {
               </section>
             ) : null}
 
-            {hasPolicies ? (
-              <section className="detail-section acc-detail__policies-block">
-                <h2 className="acc-detail__section-title">Policies</h2>
-                <dl className="acc-detail__policy-grid">
-                  {data.check_in_from ? (
-                    <>
-                      <dt>
-                        <Clock size={14} strokeWidth={2.25} aria-hidden />
-                        Check-in
-                      </dt>
-                      <dd>From {data.check_in_from}</dd>
-                    </>
-                  ) : null}
-                  {data.check_out_until ? (
-                    <>
-                      <dt>
-                        <Clock size={14} strokeWidth={2.25} aria-hidden />
-                        Check-out
-                      </dt>
-                      <dd>By {data.check_out_until}</dd>
-                    </>
-                  ) : null}
-                </dl>
-                {data.cancellation_policy ? (
-                  <div className="acc-detail__policy-block">
-                    <h3 className="acc-detail__policy-sub">
-                      <ShieldCheck size={16} strokeWidth={2.25} aria-hidden />
-                      Cancellation
-                    </h3>
-                    <p className="acc-detail__policy-text">{data.cancellation_policy}</p>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
+            <ListingLocationCard
+              address={locationLine || null}
+              mapUrl={mapHref}
+              viewMapLabel="View map"
+              className="acc-detail__map-card"
+            />
 
-            <section className="detail-section acc-detail__map-card">
-              <h2 className="acc-detail__section-title">Location</h2>
-              {locationLine ? (
-                <p className="acc-detail__map-sub">
-                  <MapPin size={16} strokeWidth={2.25} aria-hidden />
-                  {locationLine}
-                </p>
-              ) : null}
-              <div className="acc-detail__map-visual" aria-hidden />
-              <p className="acc-detail__map-copy">
-                Open the area on OpenStreetMap to plan your route — buses, rides, or self-drive from town centres and
-                airports.
-              </p>
-              <a href={mapHref} className="btn btn-primary acc-detail__map-btn" target="_blank" rel="noopener noreferrer">
-                <MapPin size={16} strokeWidth={2.25} aria-hidden />
-                View on map
-              </a>
-            </section>
-
-            <DelversMoments
-              title="Delvers moments from this stay"
-              subtitle="Guest photos, room views, and nearby places — not host gallery shots."
+            <ListingDelversMoments
+              listingType="accommodation"
+              listingId={id!}
+              title="From Delvers"
               moments={delversMoments.filter((m) => m.id !== 'placeholder')}
+              backTo={detailBackTo}
               className="acc-detail__moments"
               showWhenEmpty
-              emptyMessage="No guest moments yet — travellers share photos on Delvers after their stay."
+              emptyMessage="No guest moments yet."
             />
 
-            <CommentBox
+            <ListingAskQuestion
               className="acc-detail__comments"
-              title="Questions for recent guests"
-              subtitle="Ask about check-in, neighbourhood, parking, Wi-Fi, what to pack, safety, or shops nearby."
-              draft={commentDraft}
-              onDraftChange={setCommentDraft}
-              onPost={postStayQuestion}
-              comments={stayQuestions}
-              postLabel="Ask question"
+              title="Ask a question"
+              placeholder="Ask about check-in, parking, Wi-Fi…"
+              onSubmit={postStayQuestion}
+            />
+            {stayQuestions.length > 0 ? (
+              <div className="dl-detail__comment-list acc-detail__question-list">
+                {stayQuestions.map((c) => (
+                  <article key={c.id} className="dl-detail__comment">
+                    <div className="dl-detail__comment-avatar" aria-hidden>
+                      {c.author.trim().charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="dl-detail__comment-meta">
+                        <strong>{c.author}</strong> · {c.ago}
+                      </p>
+                      <p className="dl-detail__comment-body">{c.body}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            <ListingReviews
+              listingType="accommodation"
+              listingId={id!}
+              reviews={reviews}
+              rating={data.rating_avg}
+              count={data.rating_count}
+              backTo={detailBackTo}
+              emptyMessage="Ratings and written reviews will appear here after guests complete their stay."
+              className="acc-detail__reviews"
             />
 
-            <section className="detail-section acc-detail__reviews">
-              <h2 className="acc-detail__section-title">Guest reviews</h2>
-              <div className="acc-detail__reviews-summary">
-                {data.rating_avg != null ? (
-                  <>
-                    <div className="acc-detail__reviews-score">
-                      <MiniRating rating={data.rating_avg} count={data.rating_count} />
-                    </div>
-                    <p className="acc-detail__reviews-summary-text">
-                      {data.rating_count != null && data.rating_count > 0
-                        ? `Based on ${data.rating_count} ${data.rating_count === 1 ? 'rating' : 'ratings'} from verified stays on DELVE.`
-                        : 'Overall guest score from ratings on this listing.'}
-                    </p>
-                  </>
-                ) : (
-                  <p className="acc-detail__reviews-summary-text acc-detail__reviews-summary-text--solo">
-                    {reviews.length > 0
-                      ? 'No aggregate score on this listing yet — read guest comments below.'
-                      : 'Ratings and written reviews will appear here after guests complete their stay.'}
-                  </p>
-                )}
-              </div>
-              {reviews.length > 0 ? (
-                <div className="acc-detail__review-list">
-                  {reviews.map((r, i) => (
-                    <GuestReviewCard key={`${i}-${r.name}`} r={r} />
-                  ))}
-                </div>
-              ) : (
-                <div className="acc-detail__reviews-empty" role="status">
-                  No written guest comments yet.
-                </div>
-              )}
-            </section>
-
-            {faqs.length > 0 ? (
-              <section className="detail-section acc-detail__faq">
-                <h2 className="acc-detail__section-title">FAQ</h2>
-                <div className="acc-detail__faq-list">
-                  {faqs.map((f, i) => (
-                    <details key={`faq-${i}`} className="acc-detail__faq-item">
-                      <summary className="acc-detail__faq-q">{f.question}</summary>
-                      <p className="acc-detail__faq-a">{f.answer}</p>
-                    </details>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            <ListingFaq items={faqs} title="FAQ" className="acc-detail__faq" />
           </>
         }
         sidebar={
