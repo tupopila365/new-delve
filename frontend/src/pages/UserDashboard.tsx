@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, Heart, MessageCircle, Settings, Sparkles } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../api/client'
+import { CalendarDays, Heart, Sparkles } from 'lucide-react'
+import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { UserBookingCard, bookingNextStep } from '../components/booking'
@@ -145,41 +145,19 @@ export function UserDashboard() {
   const pendingBookings =
     (stayBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length +
     (guideBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length
-  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
-
   return (
     <div className="udash">
-      <section className="udash__hero">
-        <div className="udash__hero-user">
-          {profile.avatar ? (
-            <img className="udash__avatar" src={mediaUrl(profile.avatar) || ''} alt="" />
-          ) : (
-            <div className="udash__avatar udash__avatar--init" aria-hidden>
-              {initial}
-            </div>
-          )}
-          <div>
-            <p className="udash__kicker">My travel dashboard</p>
-            <h1>Welcome back, {profile.display_name || profile.username}</h1>
-            <p className="udash__sub">Bookings, saved items, messages, and quick actions — your private control center.</p>
-          </div>
-        </div>
-        <div className="udash__hero-actions">
-          <Link to={`/u/${profile.username}`} className="btn btn-ghost">
-            Public profile
-          </Link>
-          <Link to="/settings" className="btn btn-primary">
-            Settings
-          </Link>
-        </div>
-      </section>
+      <div className="udash__top-links">
+        <Link to={`/u/${profile.username}`}>Public profile</Link>
+        <Link to="/settings">Settings</Link>
+      </div>
 
       <DashboardStatGrid
         stats={[
-          { value: allBookingsCount || '—', label: 'Bookings', to: '/dashboard#bookings', accent: pendingBookings > 0 },
-          { value: <MessageCircle size={22} strokeWidth={2} aria-hidden />, label: 'Messages', to: '/messages' },
-          { value: <Heart size={22} strokeWidth={2} aria-hidden />, label: 'Saved', to: '/dashboard#saved' },
-          { value: <Settings size={22} strokeWidth={2} aria-hidden />, label: 'Account', to: '/account' },
+          { value: allBookingsCount || '0', label: 'Bookings', to: '/dashboard#bookings', accent: pendingBookings > 0 },
+          { value: 'Inbox', label: 'Messages', to: '/messages' },
+          { value: 'Saved', label: 'Saved', to: '/dashboard#saved' },
+          { value: 'Account', label: 'Account', to: '/account' },
         ]}
       />
 

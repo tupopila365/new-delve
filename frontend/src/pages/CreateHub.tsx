@@ -1,32 +1,20 @@
-import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Camera,
   Car,
+  Clapperboard,
   Compass,
   Hotel,
   MessageCircle,
   Route,
   Ticket,
   Utensils,
-  type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { apiFetch } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
-import { PROVIDER_CREATE_OPTIONS, USER_CREATE_OPTIONS, type CreateOptionIcon } from '../data/createOptions'
-import { PageHeader } from '../components/ui'
-
-const CREATE_OPTION_ICONS: Record<CreateOptionIcon, LucideIcon> = {
-  camera: Camera,
-  route: Route,
-  ticket: Ticket,
-  message: MessageCircle,
-  hotel: Hotel,
-  utensils: Utensils,
-  compass: Compass,
-  car: Car,
-}
+import { CreateHubGrid } from '../components/create'
+import { EmptyState } from '../components/ui'
 
 export function CreateHub() {
   const { profile } = useAuth()
@@ -42,73 +30,44 @@ export function CreateHub() {
 
   if (!profile) {
     return (
-      <div className="create-hub">
-        <div className="create-hub__card">
-          <h1>Create on DELVE</h1>
-          <p>Sign in to post, plan journeys, list events, or manage your business.</p>
-          <Link to="/login" className="btn btn-primary">
-            Sign in
-          </Link>
-        </div>
+      <div className="create-page">
+        <EmptyState
+          icon="✨"
+          title="Create on DELVE"
+          sub="Sign in to post photos, stories, journeys, events, or manage your business."
+          cta={{ label: 'Sign in', to: '/login' }}
+        />
       </div>
     )
   }
 
   return (
-    <div className="create-hub">
-      <PageHeader
-        title="What do you want to create?"
-        subtitle="Choose what you want to share or manage."
+    <div className="create-page">
+      <CreateHubGrid
+        primary={{
+          to: '/create/post',
+          label: 'Photo or video post',
+          hint: 'Filters, crop, captions, music — like IG & TikTok',
+          Icon: Camera,
+        }}
+        items={[
+          { to: '/stories/new', label: 'Story', Icon: Clapperboard },
+          { to: '/journeys/new', label: 'Journey', Icon: Route },
+          { to: '/events/new', label: 'Event', Icon: Ticket },
+          { to: '/community', label: 'Ask a question', Icon: MessageCircle },
+        ]}
+        providerItems={
+          showProviderTools
+            ? [
+                { to: '/provider/stays', label: 'Stay listing', Icon: Hotel },
+                { to: '/provider/food', label: 'Food & drink venue', Icon: Utensils },
+                { to: '/provider/guides', label: 'Guide experience', Icon: Compass },
+                { to: '/provider/transport', label: 'Transport listing', Icon: Car },
+                { to: '/events/new', label: 'Business event', Icon: Ticket },
+              ]
+            : undefined
+        }
       />
-
-      <section className="create-hub__group">
-        <h2>For you</h2>
-        <div className="create-hub__grid">
-          {USER_CREATE_OPTIONS.map((opt) => {
-            const Icon = CREATE_OPTION_ICONS[opt.icon]
-            return (
-              <Link key={opt.to} to={opt.to} className="create-hub__option">
-                <span className="create-hub__emoji create-hub__icon" aria-hidden>
-                  <Icon size={22} strokeWidth={2.25} />
-                </span>
-                <div>
-                  <strong>{opt.title}</strong>
-                  <p>{opt.desc}</p>
-                </div>
-                <span className="create-hub__arrow" aria-hidden>
-                  ›
-                </span>
-              </Link>
-            )
-          })}
-        </div>
-      </section>
-
-      {showProviderTools ? (
-        <section className="create-hub__group create-hub__group--provider">
-          <h2>Provider tools</h2>
-          <p className="create-hub__group-sub">Listings and experiences you manage as a business.</p>
-          <div className="create-hub__grid">
-            {PROVIDER_CREATE_OPTIONS.map((opt) => {
-              const Icon = CREATE_OPTION_ICONS[opt.icon]
-              return (
-                <Link key={`${opt.to}-${opt.title}`} to={opt.to} className="create-hub__option create-hub__option--provider">
-                  <span className="create-hub__emoji create-hub__icon" aria-hidden>
-                    <Icon size={22} strokeWidth={2.25} />
-                  </span>
-                  <div>
-                    <strong>{opt.title}</strong>
-                    <p>{opt.desc}</p>
-                  </div>
-                  <span className="create-hub__arrow" aria-hidden>
-                    ›
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      ) : null}
     </div>
   )
 }

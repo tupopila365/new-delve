@@ -1,0 +1,71 @@
+.party-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.party-picker__label {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.party-picker__input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fffaf2;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.party-picker__input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.party-picker__input:focus {
+  border-color: rgba(232, 98, 10, 0.45);
+  outline: none;
+}
+
+.party-picker__hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.party-picker__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.party-picker__suggestions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.62);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.party-picker__suggestions button.is-active {
+  border-color: rgba(232, 98, 10, 0.45);
+  background: rgba(232, 98, 10, 0.12);
+  color: #ff9a52;
+}
+
+.party-picker__suggestions button:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  opacity: 1;
+}

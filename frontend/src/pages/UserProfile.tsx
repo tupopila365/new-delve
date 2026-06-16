@@ -20,7 +20,6 @@ import {
   MessageCircle,
   Plus,
   Route,
-  Share2,
   ShieldCheck,
   Ticket,
   UserRound,
@@ -31,6 +30,8 @@ import { PostMedia } from '../components/PostMedia'
 import type { FeedPost } from '../components/IgPostCard'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/ui'
+import { ProfileBioSection } from '../components/profile/ProfileBioSection'
+import { ProfileStatsRow } from '../components/profile/ProfileStatsRow'
 import { loadUserTrips } from '../data/userTrips'
 import type { MockTrip } from '../data/mockTrips'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
@@ -172,7 +173,6 @@ export function UserProfile() {
   })
 
   const displayName = pub?.display_name || username
-  const locationLabel = [pub?.city, pub?.region].filter(Boolean).join(', ')
 
   const { data: businesses = [] } = useQuery({
     queryKey: ['user-businesses', username],
@@ -194,9 +194,6 @@ export function UserProfile() {
     }
   }
 
-  const profileKicker =
-    pub?.user_type === 'service_provider' ? 'Service provider' : 'Delver profile'
-
   return (
     <div className="up up--premium">
       <div className="up__bar">
@@ -213,7 +210,6 @@ export function UserProfile() {
 
       {loadingProfile && !profileNotFound && (
         <div className="up__sk-head">
-          <div className="skeleton up__sk-cover" />
           <div className="up__sk-row">
             <div className="skeleton up__sk-av" />
             <div className="up__sk-lines">
@@ -244,106 +240,18 @@ export function UserProfile() {
 
       {pub && (
         <>
-          <div className="up__hero">
-            <div className="up__cover" aria-hidden>
-              <Compass size={40} strokeWidth={1.5} className="up__cover-icon" />
-            </div>
-
-            <div className="up__head">
-              <div className="up__av-wrap">
-                {pub.avatar ? (
-                  <img
-                    className="up__av"
-                    src={mediaUrl(pub.avatar) || ''}
-                    alt={displayName}
-                  />
-                ) : (
-                  <div className="up__av up__av--letter" aria-hidden>
-                    <UserRound size={36} strokeWidth={1.75} />
-                  </div>
-                )}
-              </div>
-
-              <div className="up__actions">
-                {isMe ? (
-                  <>
-                    <Link to="/settings" className="btn btn-ghost up__action-btn">
-                      Edit profile
-                    </Link>
-                    <Link to="/create" className="btn btn-primary up__action-btn">
-                      <Plus size={15} strokeWidth={2.5} aria-hidden />
-                      Share a moment
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-ghost up__action-btn"
-                      disabled
-                      title="Follow coming soon"
-                      aria-label="Follow (coming soon)"
-                    >
-                      <Users size={15} strokeWidth={2.25} aria-hidden />
-                      Follow
-                    </button>
-                    {messagesDisabled ? (
-                      <span
-                        className="btn btn-ghost up__action-btn up__action-btn--disabled"
-                        aria-disabled="true"
-                        title="This user has disabled message requests"
-                      >
-                        <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
-                        Message
-                      </span>
-                    ) : (
-                      <Link to="/messages" className="btn btn-primary up__action-btn">
-                        <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
-                        Message
-                      </Link>
-                    )}
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-ghost up__action-btn up__action-btn--icon"
-                  onClick={() => void onShareProfile()}
-                  aria-label="Share profile"
-                >
-                  <Share2 size={15} strokeWidth={2.25} aria-hidden />
-                </button>
-              </div>
-            </div>
-
-            <div className="up__meta">
-              <p className="up__kicker">{profileKicker}</p>
-              <h1 className="up__name">{displayName}</h1>
-              <p className="up__handle">@{pub.username}</p>
-              {locationLabel ? (
-                <p className="up__place">
-                  <MapPin size={14} strokeWidth={2.25} aria-hidden />
-                  {locationLabel}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <section className="up__about detail-section" aria-labelledby="up-about-title">
-            <h2 id="up-about-title" className="up__section-title">
-              About
-            </h2>
-            {pub.bio ? (
-              <p className="up__bio">{pub.bio}</p>
-            ) : (
-              <p className="up__bio up__bio--empty">This Delver has not added a bio yet.</p>
-            )}
-            {pub.user_type === 'service_provider' && (
-              <span className="up__badge">
-                <Compass size={12} strokeWidth={2.25} aria-hidden />
-                Community contributor
-              </span>
-            )}
-          </section>
+          <ProfileBioSection
+            displayName={displayName}
+            username={pub.username}
+            avatar={pub.avatar}
+            bio={pub.bio}
+            city={pub.city}
+            region={pub.region}
+            userType={pub.user_type}
+            isMe={isMe}
+            messagesDisabled={messagesDisabled}
+            onShare={() => void onShareProfile()}
+          />
 
           {businesses.length > 0 && !isBlocked && (
             <section className="up__businesses detail-section">
@@ -395,34 +303,15 @@ export function UserProfile() {
             </div>
           )}
 
-          <div className="up__stats">
-            <div className="up__stat">
-              <Camera size={14} strokeWidth={2.25} aria-hidden />
-              <span className="up__stat-n">{isBlocked ? '—' : (posts?.length ?? 0)}</span>
-              <span className="up__stat-l">Posts</span>
-            </div>
-            <div className="up__stat">
-              <Route size={14} strokeWidth={2.25} aria-hidden />
-              <span className="up__stat-n">{isBlocked ? '—' : journeyCount}</span>
-              <span className="up__stat-l">Journeys</span>
-            </div>
-            <div className="up__stat">
-              <Heart size={14} strokeWidth={2.25} aria-hidden />
-              <span className="up__stat-n">{isBlocked ? '—' : formatCount(totalLikes)}</span>
-              <span className="up__stat-l">Likes</span>
-            </div>
-            <div className="up__stat">
-              <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
-              <span className="up__stat-n">{isBlocked ? '—' : formatCount(totalComments)}</span>
-              <span className="up__stat-l">Comments</span>
-            </div>
-            {isMe && (
-              <Link to="/messages" className="up__stat up__stat--link" aria-label="Messages">
-                <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
-                <span className="up__stat-l">Messages</span>
-              </Link>
-            )}
-          </div>
+          <ProfileStatsRow
+            blocked={isBlocked}
+            stats={[
+              { value: posts?.length ?? 0, label: 'posts' },
+              { value: journeyCount, label: 'journeys' },
+              { value: formatCount(totalLikes), label: 'likes' },
+              { value: formatCount(totalComments), label: 'comments' },
+            ]}
+          />
 
           {!isBlocked && (
             <div className="up__tabs" role="tablist" aria-label="Profile sections">

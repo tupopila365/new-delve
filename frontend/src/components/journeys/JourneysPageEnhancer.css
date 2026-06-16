@@ -1,0 +1,64 @@
+.jn-page,
+.jn-page.mk-page,
+.jn-page.disc-page {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.jn-page::before,
+.jn-page::after,
+.jn-page .mk-hero,
+.jn-page .jn-page__search-sync,
+.jn-page .jn-page__quick-chips,
+.jn-page .jn-page__budget-sync,
+.jn-page .jn-page__filter-toggle-row,
+.jn-page .jn-page__discover-panel {
+  display: none !important;
+}
+
+.jn-page .disc-page__layout {
+  display: block !important;
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.jn-page .disc-page__main {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.jn-page .discovery-sidebar,
+.jn-page .disc-page__aside,
+.jn-page .disc-page__layout > aside,
+.jn-page .disc-page__layout > nav {
+  display: none !important;
+}
+
+.jn-page__results-hint {
+  width: min(100%, 980px);
+  margin: 0 auto 12px;
+  padding-inline: 4px;
+}
+
+.jn-page__active-filters {
+  width: min(100%, 980px);
+  margin: 0 auto 10px;
+  padding-inline: 4px;
+}
+
+.jn-page__toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom, 0px) + 84px);
+  z-index: 40;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.92);
+  color: #fffaf2;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}

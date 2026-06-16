@@ -1,0 +1,21 @@
+.create-page {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 0 16px calc(var(--page-bottom-clearance, 96px));
+  color: #fffaf2;
+  background: transparent !important;
+}
+
+.create-page .ui-empty {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.create-page .ui-empty__title {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.create-page .ui-empty__sub {
+  color: rgba(255, 255, 255, 0.42);
+}

@@ -1,0 +1,49 @@
+.ev-page,
+.ev-page.mk-page,
+.ev-page.disc-page {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.ev-page::before,
+.ev-page::after,
+.ev-page .mk-hero,
+.ev-page .ev-page__search-sync,
+.ev-page .ev-page__quick-chips,
+.ev-page .ev-page__category-sync,
+.ev-page .ev-page__discover,
+.ev-page .ev-page__story-rings,
+.ev-page .ev-page__stories {
+  display: none !important;
+}
+
+.ev-page .disc-page__layout {
+  display: block !important;
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.ev-page .disc-page__main {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.ev-page .discovery-sidebar,
+.ev-page .disc-page__aside,
+.ev-page .disc-page__layout > aside,
+.ev-page .disc-page__layout > nav {
+  display: none !important;
+}
+
+.ev-page__results-hint {
+  width: min(100%, 980px);
+  margin: 0 auto 12px;
+  padding-inline: 4px;
+}
+
+.ev-page__filter-summary {
+  width: min(100%, 980px);
+  margin: 0 auto 10px;
+  padding-inline: 4px;
+}

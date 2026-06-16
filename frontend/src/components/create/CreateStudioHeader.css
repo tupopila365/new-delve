@@ -1,0 +1,63 @@
+.create-studio-header {
+  position: sticky;
+  top: calc(var(--safe-top, 0px));
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 11, 11, 0.96);
+  backdrop-filter: blur(16px);
+}
+
+.create-studio-header__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+}
+
+.create-studio-header__copy {
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+
+.create-studio-header__copy strong {
+  color: #fffaf2;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.create-studio-header__copy span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.create-studio-header__share {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #e8620a;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.create-studio-header__share:disabled {
+  opacity: 0.45;
+}
+
+.create-studio-header__spacer {
+  width: 40px;
+}

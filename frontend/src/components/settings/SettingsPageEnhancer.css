@@ -1,0 +1,232 @@
+.settings-page {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 0 16px calc(var(--page-bottom-clearance, 96px));
+  color: #fffaf2;
+  background: transparent !important;
+}
+
+.settings-page__top-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.settings-page__top-links a {
+  color: #ff9a52;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.settings-page .sp__tabs {
+  display: flex;
+  gap: 0;
+  margin: 0 0 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.settings-page .sp__tab {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  padding: 10px 8px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.settings-page .sp__tab--active {
+  color: #ff9a52;
+}
+
+.settings-page .sp__tab--active::after {
+  bottom: -1px;
+  height: 2px;
+  background: #e8620a;
+}
+
+.settings-page__panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+}
+
+.settings-page .sp__section-title {
+  margin: 0 0 12px;
+  color: #fffaf2;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.settings-page .sp__section-sub,
+.settings-page .sp__field-hint,
+.settings-page .sp__toggle-sub,
+.settings-page .sp__radio-desc,
+.settings-page .sp__av-hint,
+.settings-page .sp__char-count,
+.settings-page .sp__info-label,
+.settings-page .sp__action-sub {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.settings-page .sp__label,
+.settings-page .sp__toggle-label,
+.settings-page .sp__radio-label,
+.settings-page .sp__info-val,
+.settings-page .sp__action-title {
+  color: #fffaf2;
+}
+
+.settings-page .input,
+.settings-page select.input,
+.settings-page textarea.input {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fffaf2;
+}
+
+.settings-page .input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.settings-page .input:focus {
+  border-color: rgba(232, 98, 10, 0.45);
+  outline: none;
+}
+
+.settings-page .sp__banner {
+  margin-bottom: 12px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.settings-page .sp__banner--ok {
+  background: rgba(22, 163, 74, 0.16);
+  color: #86efac;
+  border: 1px solid rgba(22, 163, 74, 0.28);
+}
+
+.settings-page .sp__banner--err {
+  background: rgba(220, 38, 38, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(220, 38, 38, 0.28);
+}
+
+.settings-page .sp__av-circle {
+  width: 72px;
+  height: 72px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(232, 98, 10, 0.16);
+  color: #ff9a52;
+}
+
+.settings-page .sp__av-edit {
+  border-color: #0b0b0b;
+  background: #e8620a;
+}
+
+.settings-page .sp__av-remove {
+  color: #fca5a5;
+}
+
+.settings-page .sp__toggle-card,
+.settings-page .sp__radio-card,
+.settings-page .sp__info-card,
+.settings-page .sp__action-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.settings-page .sp__radio-card--active {
+  border-color: rgba(232, 98, 10, 0.45);
+  background: rgba(232, 98, 10, 0.08);
+}
+
+.settings-page .sp__radio-dot {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.settings-page .sp__radio-card--active .sp__radio-dot {
+  border-color: #e8620a;
+}
+
+.settings-page .sp__sw-track {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.settings-page .sp__sw input:checked ~ .sp__sw-track {
+  background: #e8620a;
+}
+
+.settings-page .sp__info-row {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.settings-page .sp__verify-link {
+  color: #ff9a52;
+}
+
+.settings-page .sp__verify-banner {
+  background: rgba(232, 98, 10, 0.12);
+  border-top-color: rgba(232, 98, 10, 0.22);
+  color: #ff9a52;
+}
+
+.settings-page .sp__divider {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-page .sp__danger-title {
+  color: #fca5a5;
+}
+
+.settings-page .sp__save-btn,
+.settings-page .sp__signout-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.settings-page .sp__save-btn {
+  margin-top: 16px;
+}
+
+.settings-page .sp__signout-btn {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #ff9a52;
+}
+
+.settings-page .pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.settings-page .ui-empty {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.settings-page .ui-empty__title {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.settings-page .ui-empty__sub {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+@media (max-width: 420px) {
+  .settings-page .sp__tab {
+    font-size: 0.7rem;
+    padding-inline: 6px;
+  }
+}

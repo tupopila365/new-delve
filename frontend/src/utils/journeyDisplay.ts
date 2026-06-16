@@ -1,4 +1,5 @@
 import type { MockTrip } from '../data/mockTrips'
+import { partyDisplayLabel } from '../components/journeys/PartyPicker'
 
 const HOOK_BY_TAG: Record<string, string> = {
   '4x4': 'Best for a first-time desert road trip',
@@ -45,4 +46,73 @@ export function isWeekendTrip(t: MockTrip) {
 
 export function isBudgetTrip(t: MockTrip) {
   return t.total_cost < 5000 || t.tags.includes('budget')
+}
+
+const COUNTRY_NAMES: Record<string, string> = {
+  NA: 'Namibia',
+  BW: 'Botswana',
+  ZA: 'South Africa',
+  ZM: 'Zambia',
+  ZW: 'Zimbabwe',
+}
+
+const TRANSPORT_LABELS: Record<string, string> = {
+  car: 'Self-drive',
+  bus: 'Bus',
+  flight: 'Flight',
+  train: 'Train',
+  boat: 'Boat',
+  walk: 'Walking',
+}
+
+export const JOURNEY_DEFAULT_IMAGE = '/images/default-journey.jpg'
+
+export function dayLabel(days: number) {
+  return `${days} ${days === 1 ? 'day' : 'days'}`
+}
+
+export function countryLabel(code: string) {
+  return COUNTRY_NAMES[code] ?? code
+}
+
+export function routeLabel(trip: MockTrip) {
+  const places = trip.stops.map((s) => s.place_name)
+  if (places.length === 0) return trip.countries.map(countryLabel).join(', ')
+  if (places.length <= 2) return places.join(' → ')
+  return `${places[0]} → ${places[places.length - 1]}`
+}
+
+export function stopsPreviewLabel(trip: MockTrip, max = 3) {
+  const places = trip.stops.map((s) => s.place_name)
+  if (places.length === 0) return null
+  if (places.length <= max) return places.join(' · ')
+  return `${places.slice(0, max).join(' · ')} +${places.length - max} more`
+}
+
+export function partyLabel(party: string) {
+  return partyDisplayLabel(party)
+}
+
+export function transportLabel(modes: string[]) {
+  if (modes.length === 0) return 'Mixed transport'
+  return modes.map((mode) => TRANSPORT_LABELS[mode] ?? mode.replace(/_/g, ' ')).join(' · ')
+}
+
+export function formatJourneyCost(amount: number, currency = 'NAD') {
+  const prefix = currency === 'NAD' ? 'N$' : `${currency} `
+  return `${prefix}${amount.toLocaleString()}`
+}
+
+export function journeyCoverSrc(cover: string | null | undefined) {
+  return cover?.trim() ? cover : JOURNEY_DEFAULT_IMAGE
+}
+
+export function journeyStyleTags(trip: MockTrip): string[] {
+  const accent = journeyAccentBadge(trip)
+  const tags: string[] = []
+  if (accent) tags.push(accent)
+  if (trip.tags.includes('photography') && !tags.includes('Photography')) tags.push('Photography')
+  if (trip.tags.includes('4x4') && !tags.some((tag) => tag.includes('4'))) tags.push('4×4 route')
+  if (trip.tags.includes('food') && !tags.includes('Food')) tags.push('Food')
+  return tags.slice(0, 3)
 }

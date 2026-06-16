@@ -1,0 +1,8 @@
+.msg-page,
+.msg-page.mk-page {
+  background: transparent !important;
+}
+
+.msg-page .msg-page__search-sync {
+  display: none !important;
+}

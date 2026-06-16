@@ -1,0 +1,105 @@
+.create-hub-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-hub-grid__primary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px;
+  border: 1px solid rgba(232, 98, 10, 0.35);
+  border-radius: 16px;
+  background: rgba(232, 98, 10, 0.12);
+  color: #fffaf2;
+  text-decoration: none;
+}
+
+.create-hub-grid__primary strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.create-hub-grid__primary small {
+  display: block;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.create-hub-grid__primary-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ff9a52;
+}
+
+.create-hub-grid__section {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.create-hub-grid__list {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.create-hub-grid__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+  text-decoration: none;
+}
+
+.create-hub-grid__row:first-child {
+  border-top: 0;
+}
+
+.create-hub-grid__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  opacity: 1;
+}
+
+.create-hub-grid__row--accent .create-hub-grid__label {
+  color: #ff9a52;
+}
+
+.create-hub-grid__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ff9a52;
+}
+
+.create-hub-grid__label {
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.create-hub-grid__row svg:last-child {
+  color: rgba(255, 255, 255, 0.28);
+}

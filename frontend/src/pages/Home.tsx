@@ -2,7 +2,6 @@ import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  ArrowRight,
   Calendar,
   Camera,
   Car,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { HomeStoriesRow } from '../components/HomeStoriesRow'
+import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { MiniRating } from '../components/MiniRating'
 import { ListSkeleton } from '../components/ui'
 import { homeCoverSrc } from '../data/homeDefaults'
@@ -38,54 +38,14 @@ const moodChips = [
 ]
 
 const categoryShortcuts = [
-  {
-    to: '/accommodation',
-    label: 'Find places to stay',
-    desc: 'Guesthouses, lodges, apartments, and unique stays',
-    Icon: HomeIcon,
-  },
-  {
-    to: '/food',
-    label: 'Eat and drink',
-    desc: 'Restaurants, cafes, grills, and local food spots',
-    Icon: Utensils,
-  },
-  {
-    to: '/guides',
-    label: 'Find a guide',
-    desc: 'Culture, wildlife, city walks, and hidden places',
-    Icon: Users,
-  },
-  {
-    to: '/events',
-    label: 'Events near you',
-    desc: 'Markets, music, culture, meetups, and gatherings',
-    Icon: Ticket,
-  },
-  {
-    to: '/transport',
-    label: 'Transport',
-    desc: 'Vehicle rentals, bus trips, routes, and pickup options',
-    Icon: Car,
-  },
-  {
-    to: '/journeys',
-    label: 'Real journeys',
-    desc: 'Routes, costs, photos, and tips from travellers',
-    Icon: Map,
-  },
-  {
-    to: '/community',
-    label: 'Ask locals',
-    desc: 'Safety, prices, routes, stays, food, and events',
-    Icon: MessageCircle,
-  },
-  {
-    to: '/delvers',
-    label: 'Delvers',
-    desc: 'Photos, tips, and travel clips from the community',
-    Icon: Camera,
-  },
+  { to: '/accommodation', label: 'Stays', Icon: HomeIcon },
+  { to: '/food', label: 'Food & drink', Icon: Utensils },
+  { to: '/guides', label: 'Guides', Icon: Users },
+  { to: '/events', label: 'Events', Icon: Ticket },
+  { to: '/transport', label: 'Transport', Icon: Car },
+  { to: '/journeys', label: 'Journeys', Icon: Map },
+  { to: '/community', label: 'Ask locals', Icon: MessageCircle },
+  { to: '/delvers', label: 'Delvers', Icon: Camera },
 ] as const
 
 const communityPreview = [
@@ -374,21 +334,7 @@ export function Home() {
           <HomeStoriesRow preview={storyPreview} />
         </section>
 
-        <nav className="home-category-grid" aria-label="Browse DELVE categories">
-          {categoryShortcuts.map((s) => (
-            <Link key={s.label} to={s.to} className="home-category-card">
-              <span className="home-category-card__icon-wrap" aria-hidden>
-                <s.Icon size={22} strokeWidth={2} />
-              </span>
-              <span className="home-category-card__title">{s.label}</span>
-              <p className="home-category-card__desc">{s.desc}</p>
-              <span className="home-category-card__footer">
-                Explore
-                <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
-              </span>
-            </Link>
-          ))}
-        </nav>
+        <HomeCategoryGrid items={categoryShortcuts} />
 
         <section className="home-mood-section" aria-labelledby="home-mood-heading">
           <div className="home-mood-section__head">

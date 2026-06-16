@@ -70,7 +70,7 @@ export type MockTrip = {
   ends_on: string
   countries: string[]
   transport_modes: string[]
-  party: 'solo' | 'couple' | 'family' | 'group'
+  party: string
   tags: string[]
   total_cost: number
   currency: string

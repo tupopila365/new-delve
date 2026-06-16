@@ -1,5 +1,5 @@
-import { CreateStoryComposer } from '../components/stories/CreateStoryComposer'
+import { SocialCreateComposer } from '../components/create'
 
 export function CreateStory() {
-  return <CreateStoryComposer />
+  return <SocialCreateComposer mode="story" />
 }

@@ -1,0 +1,4 @@
+.cm-simple {
+  width: min(100%, 680px);
+  margin-inline: auto;
+}

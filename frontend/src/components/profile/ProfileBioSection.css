@@ -1,0 +1,149 @@
+.profile-bio {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+.profile-bio__top {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.profile-bio__avatar-wrap {
+  width: 80px;
+  height: 80px;
+}
+
+.profile-bio__avatar {
+  display: block;
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #161616;
+}
+
+.profile-bio__avatar--empty {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-bio__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.profile-bio__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fffaf2;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.profile-bio__btn--accent {
+  border-color: rgba(232, 98, 10, 0.4);
+  background: rgba(232, 98, 10, 0.14);
+  color: #ff9a52;
+}
+
+.profile-bio__btn--icon {
+  width: 34px;
+  padding: 0;
+}
+
+.profile-bio__btn--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.profile-bio__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.profile-bio__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-bio__name {
+  margin: 0;
+  color: #fffaf2;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.profile-bio__handle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.profile-bio__place {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.profile-bio__text {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-weight: 650;
+  white-space: pre-wrap;
+}
+
+.profile-bio__text--empty {
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.profile-bio__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .profile-bio__top {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .profile-bio__avatar-wrap,
+  .profile-bio__avatar {
+    width: 72px;
+    height: 72px;
+  }
+}

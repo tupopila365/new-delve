@@ -9,6 +9,18 @@ import { FeaturedTransport } from './transport/FeaturedTransport'
 import { TransportCardsEnhancer } from './transport/TransportCardsEnhancer'
 import { TransportPageEnhancer } from './transport/TransportPageEnhancer'
 import { TransportPlanRental, TransportRouteSteps } from './transport/TransportPlanner'
+import { JourneysPageEnhancer } from './journeys/JourneysPageEnhancer'
+import { FeaturedJourneys } from './journeys/FeaturedJourneys'
+import { EventsPageEnhancer } from './events/EventsPageEnhancer'
+import { FeaturedEvents } from './events/FeaturedEvents'
+import { MessagesPageEnhancer } from './messages/MessagesPageEnhancer'
+import { CommunityPageEnhancer } from './community/CommunityPageEnhancer'
+import { UserDashboardPageEnhancer } from './dashboard/UserDashboardPageEnhancer'
+import { AccountPageEnhancer } from './account/AccountPageEnhancer'
+import { SettingsPageEnhancer } from './settings/SettingsPageEnhancer'
+import { CreatePageEnhancer } from './create/CreatePageEnhancer'
+import { CreateJourneyPageEnhancer } from './journeys/CreateJourneyPageEnhancer'
+import { CreateEventPageEnhancer } from './events/CreateEventPageEnhancer'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -125,6 +137,88 @@ const guideFilterGroups: ServiceProviderFilterGroup[] = [
   },
 ]
 
+const journeyFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'journey-style',
+    title: 'Journey style',
+    singleSelect: true,
+    options: [
+      { id: 'weekend', label: 'Weekend trips', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Weekend trips' } },
+      { id: 'nature', label: 'Nature', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Nature' } },
+      { id: 'culture', label: 'Culture', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Culture' } },
+      { id: 'food', label: 'Food', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Food' } },
+      { id: 'coast', label: 'Coast', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Coast' } },
+      { id: 'adventure', label: 'Adventure', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Adventure' } },
+      { id: 'family', label: 'Family friendly', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Family friendly' } },
+      { id: 'budget', label: 'Budget friendly', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Budget friendly' } },
+    ],
+  },
+  {
+    id: 'journey-budget',
+    title: 'Budget range',
+    singleSelect: true,
+    options: [
+      { id: 'under-2k', label: 'Under N$2k', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'Under N$2k' } },
+      { id: '2-5k', label: 'N$2–5k', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'N$2–5k' } },
+      { id: '5-12k', label: 'N$5–12k', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'N$5–12k' } },
+      { id: '12k-plus', label: 'N$12k+', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'N$12k+' } },
+    ],
+  },
+]
+
+const eventFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'event-type',
+    title: 'Event type',
+    singleSelect: true,
+    options: [
+      { id: 'music', label: 'Music', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Music' } },
+      { id: 'culture', label: 'Culture', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Culture' } },
+      { id: 'food', label: 'Food & drink', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Food' } },
+      { id: 'sports', label: 'Sports', action: { type: 'clickText', selector: '.ev-page__category-sync button', text: 'Sports' } },
+      { id: 'business', label: 'Business', action: { type: 'clickText', selector: '.ev-page__category-sync button', text: 'Business' } },
+    ],
+  },
+  {
+    id: 'event-when',
+    title: 'When',
+    singleSelect: true,
+    options: [
+      { id: 'today', label: 'Today', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Today' } },
+      { id: 'weekend', label: 'This weekend', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'This weekend' } },
+      { id: 'free', label: 'Free', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Free' } },
+    ],
+  },
+]
+
+const messageFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'msg-when',
+    title: 'Show',
+    singleSelect: true,
+    options: [
+      { id: 'all', label: 'All chats', action: { type: 'clickText', selector: '.msg-page__filter-sync button', text: 'All' } },
+      { id: 'today', label: 'Active today', action: { type: 'clickText', selector: '.msg-page__filter-sync button', text: 'Today' } },
+    ],
+  },
+]
+
+const communityFilterGroups: ServiceProviderFilterGroup[] = [
+  {
+    id: 'community-topics',
+    title: 'Topics',
+    singleSelect: true,
+    options: [
+      { id: 'safety', label: 'Safety', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Safety' } },
+      { id: 'transport', label: 'Transport', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Transport' } },
+      { id: 'food', label: 'Food', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Food' } },
+      { id: 'stay', label: 'Stay', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Stay' } },
+      { id: 'prices', label: 'Prices', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Prices' } },
+      { id: 'visas', label: 'Visas', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Visas' } },
+    ],
+  },
+]
+
 const transportFilterGroups: ServiceProviderFilterGroup[] = [
   {
     id: 'transport-type',
@@ -152,6 +246,20 @@ const transportFilterGroups: ServiceProviderFilterGroup[] = [
 export function AppLayout() {
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
+  const createStudio =
+    loc.pathname === '/create/post' ||
+    loc.pathname === '/stories/new' ||
+    loc.pathname === '/delvers/new'
+
+  if (createStudio) {
+    return (
+      <div className="app-shell app-shell--create">
+        <main className="app-main app-main--create">
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
 
   if (delversFeed) {
     return (
@@ -171,6 +279,16 @@ export function AppLayout() {
   const foodPage = loc.pathname === '/food'
   const guidesPage = loc.pathname === '/guides'
   const transportPage = loc.pathname === '/transport'
+  const journeysPage = loc.pathname === '/journeys'
+  const eventsPage = loc.pathname === '/events'
+  const messagesPage = loc.pathname === '/messages'
+  const communityPage = loc.pathname === '/community'
+  const dashboardPage = loc.pathname === '/dashboard'
+  const accountPage = loc.pathname === '/account'
+  const settingsPage = loc.pathname === '/settings'
+  const createPage = loc.pathname === '/create'
+  const createJourneyPage = loc.pathname === '/journeys/new'
+  const createEventPage = loc.pathname === '/events/new'
 
   if (providerMode || adminMode) {
     return (
@@ -247,6 +365,130 @@ export function AppLayout() {
               <TransportRouteSteps />
             </div>
             <FeaturedTransport />
+          </>
+        ) : null}
+        {journeysPage ? (
+          <>
+            <JourneysPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Explore journeys"
+              subtitle="Discover real travel stories, itineraries, routes, and saved experiences from travellers and locals."
+              eyebrow="Journeys"
+              searchPlaceholder="Search Etosha, coast, weekend trip, food journey…"
+              searchInputSelector="#jn-search"
+              filterGroups={journeyFilterGroups}
+              filterScope="journeys"
+            />
+            <FeaturedJourneys />
+          </>
+        ) : null}
+        {eventsPage ? (
+          <>
+            <EventsPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Events happening soon"
+              subtitle="Find markets, music, culture nights, food events, meetups, and local gatherings."
+              eyebrow="Events"
+              searchPlaceholder="Search market, music, Windhoek, food, meetup…"
+              searchInputSelector="#ev-search"
+              filterGroups={eventFilterGroups}
+              filterScope="events"
+            />
+            <FeaturedEvents />
+          </>
+        ) : null}
+        {messagesPage ? (
+          <>
+            <MessagesPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Messages"
+              subtitle="Chats with hosts, guides, providers, and travellers."
+              eyebrow="Inbox"
+              searchPlaceholder="Search name or message"
+              searchInputSelector="#msg-search"
+              filterGroups={messageFilterGroups}
+              filterScope="messages"
+            />
+          </>
+        ) : null}
+        {communityPage ? (
+          <>
+            <CommunityPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Ask a question"
+              subtitle="Get help from locals and travellers — anywhere in the world."
+              eyebrow="Community"
+              searchPlaceholder="Search questions…"
+              searchInputSelector="#cm-search"
+              filterGroups={communityFilterGroups}
+              filterScope="community"
+            />
+          </>
+        ) : null}
+        {dashboardPage ? (
+          <>
+            <UserDashboardPageEnhancer />
+            <ServiceProviderPageHeader
+              title="My travel dashboard"
+              subtitle="Bookings, saved items, messages, and quick actions."
+              eyebrow="Dashboard"
+              showTools={false}
+            />
+          </>
+        ) : null}
+        {accountPage ? (
+          <>
+            <AccountPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Account"
+              subtitle="Your profile, verification status, and shortcuts."
+              eyebrow="You"
+              showTools={false}
+            />
+          </>
+        ) : null}
+        {settingsPage ? (
+          <>
+            <SettingsPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Settings"
+              subtitle="Edit profile, privacy, preferences, and account details."
+              eyebrow="Preferences"
+              showTools={false}
+            />
+          </>
+        ) : null}
+        {createPage ? (
+          <>
+            <CreatePageEnhancer />
+            <ServiceProviderPageHeader
+              title="Create"
+              subtitle="Post photos and videos, stories, journeys, and more."
+              eyebrow="Share"
+              showTools={false}
+            />
+          </>
+        ) : null}
+        {createJourneyPage ? (
+          <>
+            <CreateJourneyPageEnhancer />
+            <ServiceProviderPageHeader
+              title="New journey"
+              subtitle="Share your route, stops, cover media, costs, and travel tips."
+              eyebrow="Journeys"
+              showTools={false}
+            />
+          </>
+        ) : null}
+        {createEventPage ? (
+          <>
+            <CreateEventPageEnhancer />
+            <ServiceProviderPageHeader
+              title="Create event"
+              subtitle="Add a cover, date, venue, and details for your gathering."
+              eyebrow="Events"
+              showTools={false}
+            />
           </>
         ) : null}
         <Outlet />

@@ -1,0 +1,49 @@
+.msg-empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 40px 18px;
+  text-align: center;
+}
+
+.msg-empty__icon {
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.msg-empty__title {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.86rem;
+  font-weight: 850;
+  line-height: 1.3;
+}
+
+.msg-empty__subtitle {
+  margin: 0;
+  max-width: 26ch;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.74rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.msg-empty__action {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ff9a52;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.msg-empty__action:hover {
+  color: #ffb07a;
+  opacity: 1;
+}

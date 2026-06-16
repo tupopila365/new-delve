@@ -1,0 +1,195 @@
+.ce-page {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 0 16px calc(var(--page-bottom-clearance, 96px));
+  color: #fffaf2;
+  background: transparent !important;
+}
+
+.ce-page__bar,
+.ce-page__title {
+  display: none !important;
+}
+
+.ce-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ce-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ce-form__section-title {
+  margin: 0;
+  color: #fffaf2;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.ce-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ce-form__label {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ce-form__label-opt {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 650;
+}
+
+.ce-form__input,
+.ce-form__textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fffaf2;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.ce-form__textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.ce-form__input::placeholder,
+.ce-form__textarea::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.ce-form__input:focus,
+.ce-form__textarea:focus {
+  border-color: rgba(232, 98, 10, 0.45);
+  outline: none;
+}
+
+.ce-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .ce-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ce-form__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.ce-form__toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ce-form__toggle-box {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.16);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ce-form__toggle-box::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+
+.ce-form__toggle input:checked ~ .ce-form__toggle-box {
+  background: #e8620a;
+}
+
+.ce-form__toggle input:checked ~ .ce-form__toggle-box::after {
+  transform: translateX(18px);
+}
+
+.ce-form__toggle-label {
+  color: #fffaf2;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.ce-form__err {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.14);
+  border: 1px solid rgba(220, 38, 38, 0.28);
+  color: #fca5a5;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.ce-form__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ce-form__submit {
+  min-height: 46px;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.ce-form__cancel {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+  text-decoration: none;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.ce-page .ui-empty {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ce-page .ui-empty__title {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.ce-page .ui-empty__sub {
+  color: rgba(255, 255, 255, 0.42);
+}

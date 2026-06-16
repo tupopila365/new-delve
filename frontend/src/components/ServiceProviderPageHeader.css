@@ -49,6 +49,11 @@
   line-height: 1.4;
 }
 
+.sp-header--simple .sp-header__subtitle {
+  display: block;
+  margin-top: 3px;
+}
+
 .sp-header__tools {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

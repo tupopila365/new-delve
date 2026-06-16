@@ -10,14 +10,15 @@ import {
   CURRENCY_OPTIONS,
   defaultCurrencyForCountry,
 } from '../lib/countryCurrencyPreferences'
+import { EmptyState } from '../components/ui'
 
 type SettingsTab = 'profile' | 'privacy' | 'preferences' | 'account'
 
-const TABS: { id: SettingsTab; label: string; icon: string }[] = [
-  { id: 'profile', label: 'Edit profile', icon: '👤' },
-  { id: 'privacy', label: 'Privacy', icon: '🔒' },
-  { id: 'preferences', label: 'Preferences', icon: '🌍' },
-  { id: 'account', label: 'Account', icon: '⚙️' },
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'privacy', label: 'Privacy' },
+  { id: 'preferences', label: 'Prefs' },
+  { id: 'account', label: 'Account' },
 ]
 
 function SaveBanner({ saved, error }: { saved: boolean; error: string | null }) {
@@ -128,9 +129,13 @@ export function Settings() {
 
   if (!profile) {
     return (
-      <div className="sp">
-        <h1 className="display sp__title">Settings</h1>
-        <p className="page-sub"><Link to="/login">Sign in</Link> to manage your settings.</p>
+      <div className="settings-page">
+        <EmptyState
+          icon="⚙️"
+          title="Sign in to manage settings"
+          sub="Edit your profile, privacy, and preferences after you sign in."
+          cta={{ label: 'Sign in', to: '/login' }}
+        />
       </div>
     )
   }
@@ -139,34 +144,12 @@ export function Settings() {
   const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
 
   return (
-    <div className="sp">
-      {/* Header */}
-      <div className="sp__bar">
-        <button type="button" className="up__back" onClick={() => navigate(-1)} aria-label="Go back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-        </button>
-        <h1 className="sp__title">Settings</h1>
+    <div className="settings-page">
+      <div className="settings-page__top-links">
+        <Link to={`/u/${profile.username}`}>View profile</Link>
+        <Link to="/account">Account hub</Link>
       </div>
 
-      {/* Profile mini-card */}
-      <div className="sp__who">
-        <div className="sp__who-av" aria-hidden>
-          {avatarSrc
-            ? <img src={avatarSrc} alt="" />
-            : <span>{initial}</span>}
-        </div>
-        <div>
-          <p className="sp__who-name">{profile.display_name || profile.username}</p>
-          <p className="sp__who-handle">@{profile.username}</p>
-        </div>
-        <Link to={`/u/${profile.username}`} className="sp__who-view btn btn-ghost">
-          View profile
-        </Link>
-      </div>
-
-      {/* Tab strip */}
       <div className="sp__tabs" role="tablist" aria-label="Settings sections">
         {TABS.map((t) => (
           <button
@@ -178,7 +161,6 @@ export function Settings() {
             className={tab === t.id ? 'sp__tab sp__tab--active' : 'sp__tab'}
             onClick={() => { setTab(t.id); setSaved(false); setError(null) }}
           >
-            <span aria-hidden>{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -188,7 +170,7 @@ export function Settings() {
 
       {/* ── EDIT PROFILE ── */}
       {tab === 'profile' && (
-        <section className="sp__section" id="sp-panel-profile" role="tabpanel" aria-labelledby="sp-tab-profile">
+        <section className="sp__section settings-page__panel" id="sp-panel-profile" role="tabpanel" aria-labelledby="sp-tab-profile">
           <h2 id="sp-profile-title" className="sp__section-title">Edit profile</h2>
 
           {/* Avatar */}
@@ -304,7 +286,7 @@ export function Settings() {
 
       {/* ── PRIVACY ── */}
       {tab === 'privacy' && (
-        <section className="sp__section" id="sp-panel-privacy" role="tabpanel" aria-labelledby="sp-tab-privacy">
+        <section className="sp__section settings-page__panel" id="sp-panel-privacy" role="tabpanel" aria-labelledby="sp-tab-privacy">
           <h2 id="sp-privacy-title" className="sp__section-title">Privacy &amp; visibility</h2>
 
           {/* Private account */}
@@ -402,7 +384,7 @@ export function Settings() {
 
       {/* ── PREFERENCES ── */}
       {tab === 'preferences' && (
-        <section className="sp__section" id="sp-panel-preferences" role="tabpanel" aria-labelledby="sp-tab-preferences">
+        <section className="sp__section settings-page__panel" id="sp-panel-preferences" role="tabpanel" aria-labelledby="sp-tab-preferences">
           <h2 id="sp-pref-title" className="sp__section-title">Region &amp; pricing</h2>
           <p className="sp__section-sub">
             Choose your location and preferred currency. This controls how prices are shown across the app.
@@ -458,7 +440,7 @@ export function Settings() {
 
       {/* ── ACCOUNT ── */}
       {tab === 'account' && (
-        <section className="sp__section" id="sp-panel-account" role="tabpanel" aria-labelledby="sp-tab-account">
+        <section className="sp__section settings-page__panel" id="sp-panel-account" role="tabpanel" aria-labelledby="sp-tab-account">
           <h2 id="sp-acct-title" className="sp__section-title">Account</h2>
 
           {/* Read-only info */}

@@ -1,10 +1,19 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { apiFetch, mediaUrl } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
-import { DashboardPageHeader } from '../components/dashboard'
 import { EmptyState } from '../components/ui'
+
+function AccountRow({ to, label, accent = false }: { to: string; label: string; accent?: boolean }) {
+  return (
+    <Link to={to} className={`account-page__row${accent ? ' account-page__row--accent' : ''}`}>
+      <span>{label}</span>
+      <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
+    </Link>
+  )
+}
 
 export function Account() {
   const { profile, logout } = useAuth()
@@ -18,7 +27,6 @@ export function Account() {
   if (!profile) {
     return (
       <div className="account-page">
-        <DashboardPageHeader title="Account" subtitle="Sign in to manage your DELVE account." />
         <EmptyState
           icon="👤"
           title="You are not signed in"
@@ -34,27 +42,15 @@ export function Account() {
 
   return (
     <div className="account-page">
-      <DashboardPageHeader
-        title="Account"
-        subtitle="Profile information, verification, and shortcuts"
-        action={
-          <Link to="/dashboard" className="btn btn-primary">
-            My travel dashboard
-          </Link>
-        }
-      />
-
-      <section className="account-page__profile card">
-        <div className="account-page__avatar-wrap">
-          {profile.avatar ? (
-            <img className="account-page__avatar" src={mediaUrl(profile.avatar) || ''} alt="" />
-          ) : (
-            <div className="account-page__avatar account-page__avatar--init" aria-hidden>
-              {initial}
-            </div>
-          )}
-        </div>
-        <div className="account-page__info">
+      <section className="account-page__profile" aria-label="Your account">
+        {profile.avatar ? (
+          <img className="account-page__avatar" src={mediaUrl(profile.avatar) || ''} alt="" />
+        ) : (
+          <div className="account-page__avatar account-page__avatar--init" aria-hidden>
+            {initial}
+          </div>
+        )}
+        <div>
           <h2 className="account-page__name">{profile.display_name || profile.username}</h2>
           <p className="account-page__handle">@{profile.username}</p>
           <div className="account-page__badges">
@@ -76,60 +72,36 @@ export function Account() {
         </div>
       </section>
 
-      <section className="account-page__section detail-section">
-        <h2 className="account-page__section-title">Shortcuts</h2>
-        <div className="account-page__links">
-          <Link to={`/u/${profile.username}`} className="account-page__link">
-            View public profile
-          </Link>
-          <Link to="/dashboard" className="account-page__link">
-            Travel dashboard
-          </Link>
-          <Link to="/settings" className="account-page__link">
-            Settings &amp; privacy
-          </Link>
-          <Link to="/messages" className="account-page__link">
-            Messages
-          </Link>
-        </div>
-      </section>
+      <nav className="account-page__group" aria-label="Account shortcuts">
+        <h2 className="account-page__group-title">Shortcuts</h2>
+        <AccountRow to={`/u/${profile.username}`} label="Public profile" />
+        <AccountRow to="/dashboard" label="Travel dashboard" />
+        <AccountRow to="/settings" label="Settings & privacy" />
+        <AccountRow to="/messages" label="Messages" />
+      </nav>
 
       {isProvider ? (
-        <section className="account-page__section detail-section account-page__section--provider">
-          <h2 className="account-page__section-title">Provider tools</h2>
-          <p className="account-page__section-sub">Manage your business separately from your traveller account.</p>
-          <div className="account-page__links">
-            <Link to="/provider" className="account-page__link account-page__link--accent">
-              Provider dashboard
-            </Link>
-            <Link to="/provider/listings" className="account-page__link">
-              Listings
-            </Link>
-            {businesses.map((b) => (
-              <Link key={b.id} to={`/business/${b.id}`} className="account-page__link">
-                {b.business_name} (public profile)
-              </Link>
-            ))}
-          </div>
-        </section>
+        <nav className="account-page__group" aria-label="Provider tools">
+          <h2 className="account-page__group-title">Provider</h2>
+          <p className="account-page__group-sub">Manage your business separately from your traveller account.</p>
+          <AccountRow to="/provider" label="Provider dashboard" accent />
+          <AccountRow to="/provider/listings" label="Listings" />
+          {businesses.map((b) => (
+            <AccountRow key={b.id} to={`/business/${b.id}`} label={`${b.business_name} (public)`} />
+          ))}
+        </nav>
       ) : null}
 
       {profile.is_staff ? (
-        <section className="account-page__section detail-section account-page__section--admin">
-          <h2 className="account-page__section-title">Admin tools</h2>
-          <div className="account-page__links">
-            <Link to="/admin" className="account-page__link account-page__link--accent">
-              Platform admin
-            </Link>
-          </div>
-        </section>
+        <nav className="account-page__group" aria-label="Admin tools">
+          <h2 className="account-page__group-title">Admin</h2>
+          <AccountRow to="/admin" label="Platform admin" accent />
+        </nav>
       ) : null}
 
-      <section className="account-page__section detail-section">
-        <button type="button" className="btn btn-ghost account-page__logout" onClick={logout}>
-          Sign out
-        </button>
-      </section>
+      <button type="button" className="account-page__logout" onClick={logout}>
+        Sign out
+      </button>
     </div>
   )
 }

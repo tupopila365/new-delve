@@ -3,15 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { saveUserTrip } from '../data/userTrips'
 import type { TripCost, TripStop } from '../data/mockTrips'
+import { MediaCoverEditor, JourneyStopMoment, type StopMoment } from '../components/create'
+import { PartyPicker, normalizePartyValue } from '../components/journeys/PartyPicker'
+import { EmptyState } from '../components/ui'
 
 /* ── constants ─────────────────────────────────────────────── */
-
-const PARTY_OPTIONS = [
-  { value: 'solo', label: 'Solo', emoji: '🧭' },
-  { value: 'couple', label: 'Couple', emoji: '💑' },
-  { value: 'family', label: 'Family', emoji: '👨‍👩‍👧' },
-  { value: 'group', label: 'Group', emoji: '🙌' },
-] as const
 
 const TRANSPORT_OPTIONS = [
   { value: 'car', label: 'Car', emoji: '🚗' },
@@ -68,6 +64,7 @@ type FormStop = {
   left_on: string
   notes: string
   cost: string
+  moment: StopMoment
 }
 
 type FormCost = {
@@ -83,7 +80,16 @@ function uid() {
 }
 
 function emptyStop(): FormStop {
-  return { key: uid(), place_name: '', country_code: 'NA', arrived_on: '', left_on: '', notes: '', cost: '' }
+  return {
+    key: uid(),
+    place_name: '',
+    country_code: 'NA',
+    arrived_on: '',
+    left_on: '',
+    notes: '',
+    cost: '',
+    moment: { preview: null, mediaKind: null },
+  }
 }
 
 function emptyCost(): FormCost {
@@ -108,7 +114,7 @@ export function CreateJourney() {
   const [coverImage, setCoverImage] = useState('')
   const [startsOn, setStartsOn] = useState('')
   const [endsOn, setEndsOn] = useState('')
-  const [party, setParty] = useState<'solo' | 'couple' | 'family' | 'group'>('solo')
+  const [party, setParty] = useState('solo')
 
   // Step 2 — stops
   const [stops, setStops] = useState<FormStop[]>([emptyStop()])
@@ -127,10 +133,12 @@ export function CreateJourney() {
   if (!profile) {
     return (
       <div className="cj-page">
-        <h1 className="cj-page__title">Create a journey</h1>
-        <p className="page-sub">
-          <Link to="/login">Sign in</Link> to log your travels.
-        </p>
+        <EmptyState
+          icon="🗺️"
+          title="Sign in to create a journey"
+          sub="Log your route, stops, photos, and costs to share with other travellers."
+          cta={{ label: 'Sign in', to: '/login' }}
+        />
       </div>
     )
   }
@@ -223,7 +231,17 @@ export function CreateJourney() {
       left_on: s.left_on,
       notes: s.notes.trim(),
       cost: Number(s.cost) || undefined,
-      entries: [],
+      entries: s.moment.preview
+        ? [
+            {
+              id: 1,
+              body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
+              image: s.moment.preview,
+              video: null,
+              happened_at: s.arrived_on,
+            },
+          ]
+        : [],
     }))
 
     const builtCosts: TripCost[] = costs
@@ -243,7 +261,7 @@ export function CreateJourney() {
       ends_on: endsOn,
       countries: selectedCountries,
       transport_modes: selectedTransport,
-      party,
+      party: normalizePartyValue(party),
       tags: selectedTags,
       total_cost: totalCost,
       currency: 'NAD',
@@ -266,17 +284,6 @@ export function CreateJourney() {
 
   return (
     <div className="cj-page">
-      {/* Header */}
-      <div className="cj-page__bar">
-        <button type="button" className="up__back" onClick={() => navigate(-1)} aria-label="Go back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-        </button>
-        <h1 className="cj-page__title">New journey</h1>
-      </div>
-
-      {/* Step indicators */}
       <div className="cj-steps" aria-label="Form progress">
         {STEPS.map((s) => (
           <div key={s.id} className={`cj-step${step === s.id ? ' cj-step--active' : step > s.id ? ' cj-step--done' : ''}`}>
@@ -317,36 +324,20 @@ export function CreateJourney() {
             </div>
           </div>
 
-          {startsOn && endsOn && (
+          {startsOn && endsOn ? (
             <p className="cj-form__calc">
-              🗓 {daysPreview} {daysPreview === 1 ? 'day' : 'days'}
+              {daysPreview} {daysPreview === 1 ? 'day' : 'days'}
             </p>
-          )}
+          ) : null}
 
-          <div className="ce-form__field">
-            <label className="ce-form__label">Who travelled?</label>
-            <div className="ce-form__chips">
-              {PARTY_OPTIONS.map((p) => (
-                <button key={p.value} type="button"
-                  className={`ce-form__chip${party === p.value ? ' ce-form__chip--active' : ''}`}
-                  onClick={() => setParty(p.value)}
-                  aria-pressed={party === p.value}
-                >
-                  <span aria-hidden>{p.emoji}</span> {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <PartyPicker value={party} onChange={setParty} />
 
-          <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="cj-cover">Cover image URL <span className="ce-form__label-opt">(optional)</span></label>
-            <input id="cj-cover" type="url" className="input ce-form__input" placeholder="https://…" value={coverImage} onChange={(e) => setCoverImage(e.target.value)} />
-            {coverImage && (
-              <div className="cj-form__cover-preview">
-                <img src={coverImage} alt="Cover preview" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              </div>
-            )}
-          </div>
+          <MediaCoverEditor
+            label="Cover photo or video"
+            value={coverImage || null}
+            onChange={(url) => setCoverImage(url ?? '')}
+            defaultAspect="16:9"
+          />
         </div>
       )}
 
@@ -402,6 +393,11 @@ export function CreateJourney() {
                   <label className="ce-form__label" htmlFor={`cj-notes-${stop.key}`}>Notes <span className="ce-form__label-opt">optional</span></label>
                   <textarea id={`cj-notes-${stop.key}`} className="input ce-form__textarea" rows={2} placeholder="What was memorable about this stop…" value={stop.notes} onChange={(e) => updateStop(stop.key, { notes: e.target.value })} />
                 </div>
+
+                <JourneyStopMoment
+                  value={stop.moment}
+                  onChange={(moment) => updateStop(stop.key, { moment })}
+                />
               </div>
             </div>
           ))}
@@ -554,7 +550,7 @@ export function CreateJourney() {
           </button>
         ) : (
           <button type="button" className="btn btn-primary cj-nav__next" onClick={publish}>
-            Publish journey 🗺️
+            Publish journey
           </button>
         )}
       </div>

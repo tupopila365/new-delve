@@ -1,0 +1,183 @@
+.account-page {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 0 16px calc(var(--page-bottom-clearance, 96px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #fffaf2;
+  background: transparent !important;
+}
+
+.account-page__profile {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: none;
+}
+
+.account-page__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.account-page__avatar--init {
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  font-weight: 900;
+  background: rgba(232, 98, 10, 0.22);
+  color: #ff9a52;
+}
+
+.account-page__name {
+  margin: 0;
+  color: #fffaf2;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.account-page__handle {
+  margin: 2px 0 8px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.account-page__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.account-page .pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.account-page .pill--staff {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
+.account-page .pill--ok {
+  background: rgba(22, 163, 74, 0.16);
+  color: #86efac;
+}
+
+.account-page .pill--warn {
+  background: rgba(232, 98, 10, 0.16);
+  color: #ff9a52;
+}
+
+.account-page__hint {
+  margin: 8px 0 0;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.account-page__hint a {
+  color: #ff9a52;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.account-page__group {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.account-page__group-title {
+  margin: 0;
+  padding: 12px 14px 8px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-page__group-sub {
+  margin: -4px 0 0;
+  padding: 0 14px 10px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.72rem;
+}
+
+.account-page__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.account-page__row:first-of-type {
+  border-top: 0;
+}
+
+.account-page__row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  opacity: 1;
+}
+
+.account-page__row--accent span {
+  color: #ff9a52;
+}
+
+.account-page__row svg {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.account-page__logout {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #ff9a52;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.account-page__logout:hover {
+  border-color: rgba(232, 98, 10, 0.35);
+  background: rgba(232, 98, 10, 0.08);
+}
+
+.account-page .ui-empty {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.account-page .ui-empty__title {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.account-page .ui-empty__sub {
+  color: rgba(255, 255, 255, 0.42);
+}

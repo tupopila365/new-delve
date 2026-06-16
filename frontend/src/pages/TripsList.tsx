@@ -5,21 +5,16 @@ import {
   BadgeDollarSign,
   Bookmark,
   CalendarDays,
-  Camera,
   ChevronLeft,
   ChevronRight,
   Heart,
   Landmark,
   Map,
   MapPin,
-  MessageCircle,
   Mountain,
   Plus,
   Route,
-  Search,
   Share2,
-  SlidersHorizontal,
-  Sparkles,
   Trees,
   UserRound,
   Users,
@@ -33,17 +28,19 @@ import { loadUserTrips } from '../data/userTrips'
 import {
   isBudgetTrip,
   isWeekendTrip,
-  journeyAccentBadge,
+  journeyCoverSrc,
+  JOURNEY_DEFAULT_IMAGE,
+  countryLabel,
+  dayLabel,
 } from '../utils/journeyDisplay'
 import { useAuth } from '../auth/AuthContext'
+import { useJourneyEngagement } from '../hooks/useJourneyEngagement'
+import { JourneyListingCard } from '../components/journeys/JourneyListingCard'
+import { JourneySectionHead } from '../components/journeys/JourneySectionHead'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
-import { MarketplaceHero, QuickFilterChips } from '../components/marketplace'
+import { QuickFilterChips, SearchPanel } from '../components/marketplace'
 import { EmptyState } from '../components/ui'
-
-const JOURNEY_DEFAULT_IMAGE = '/images/default-journey.jpg'
 const RECENT_STORY_COUNT = 5
-const FEATURED_COUNT = 3
-const STOP_PREVIEW_COUNT = 3
 
 type FilterIcon = ComponentType<LucideProps>
 
@@ -124,42 +121,6 @@ const TOP_DESTINATIONS = [
   'Lüderitz',
 ] as const
 
-const COUNTRY_NAMES: Record<string, string> = {
-  NA: 'Namibia',
-  BW: 'Botswana',
-  ZA: 'South Africa',
-  ZM: 'Zambia',
-  ZW: 'Zimbabwe',
-}
-
-function dayLabel(n: number) {
-  return `${n} ${n === 1 ? 'day' : 'days'}`
-}
-
-function countryLabel(code: string) {
-  return COUNTRY_NAMES[code] ?? code
-}
-
-function routeLabel(trip: MockTrip) {
-  const places = trip.stops.map((s) => s.place_name)
-  if (places.length === 0) return trip.countries.map(countryLabel).join(', ')
-  if (places.length <= 2) return places.join(' to ')
-  return `${places[0]} to ${places[places.length - 1]}`
-}
-
-function stopsPreview(trip: MockTrip) {
-  const places = trip.stops.map((s) => s.place_name)
-  if (places.length === 0) return null
-  if (places.length <= STOP_PREVIEW_COUNT) return places
-  const shown = places.slice(0, STOP_PREVIEW_COUNT)
-  const remaining = places.length - STOP_PREVIEW_COUNT
-  return { shown, remaining }
-}
-
-function journeyCoverSrc(cover: string | null | undefined) {
-  return cover?.trim() ? cover : ''
-}
-
 function onJourneyImgError(e: React.SyntheticEvent<HTMLImageElement>) {
   e.currentTarget.onerror = null
   e.currentTarget.src = JOURNEY_DEFAULT_IMAGE
@@ -175,24 +136,15 @@ function resultsHint(count: number, filters: { quick: string; search: string; bu
   return 'Explore travel stories and itineraries.'
 }
 
-function styleBadges(trip: MockTrip): string[] {
-  const accent = journeyAccentBadge(trip)
-  const badges: string[] = []
-  if (accent) badges.push(accent)
-  if (trip.tags.includes('photography') && !badges.includes('Photography')) badges.push('Photography')
-  if (trip.tags.includes('4x4') && !badges.some((b) => b.includes('4'))) badges.push('4x4 route')
-  return badges.slice(0, 2)
-}
-
 export function TripsList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const allTrips = useMemo(() => [...loadUserTrips(), ...mockTrips], [])
+  const engagement = useJourneyEngagement(allTrips)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [quickFilter, setQuickFilter] = useState('')
   const [selectedBucket, setSelectedBucket] = useState<(typeof BUDGET_BUCKETS)[number] | null>(null)
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null)
   const [storyShareMsg, setStoryShareMsg] = useState('')
@@ -234,14 +186,9 @@ export function TripsList() {
 
   const recentStories = useMemo(() => filtered.slice(0, RECENT_STORY_COUNT), [filtered])
 
-  const featuredJourneys = useMemo(() => {
-    if (filtered.length === 0) return []
-    return [...filtered].sort((a, b) => b.saves_count - a.saves_count || b.likes_count - a.likes_count).slice(0, FEATURED_COUNT)
-  }, [filtered])
-
   const curated = useMemo(() => {
     if (filtered.length === 0) return null
-    const used = new Set<number>(featuredJourneys.map((t) => t.id))
+    const used = new Set<number>()
     const remaining = () => filtered.filter((t) => !used.has(t.id))
 
     const weekendRail = remaining().filter((t) => isWeekendTrip(t)).slice(0, 6)
@@ -250,7 +197,7 @@ export function TripsList() {
     const budgetRail = remaining().filter((t) => isBudgetTrip(t)).slice(0, 6)
 
     return { weekendRail, budgetRail }
-  }, [filtered, featuredJourneys])
+  }, [filtered])
 
   const mostSaved = useMemo(
     () => [...allTrips].sort((a, b) => b.saves_count - a.saves_count)[0]?.saves_count ?? 0,
@@ -366,130 +313,70 @@ export function TripsList() {
   }))
 
   return (
-    <div className="jn-page ev-page acc-page disc-page mk-page">
-      <div className="jn-page__top">
-        <MarketplaceHero
-          className="jn-page__header"
-          title="Explore journeys"
-          subtitle="Discover real travel stories, itineraries, routes, and saved experiences from travellers and locals."
-          support="Find inspiration by destination, travel style, duration, and mood."
-          action={
-            <Link
-              to={profile ? '/journeys/new' : '/login'}
-              className="btn btn-primary jn-page__create-btn"
-            >
-              <Plus size={16} strokeWidth={2.5} aria-hidden />
-              Create journey
-            </Link>
-          }
-        />
+    <div className="jn-page ev-page disc-page mk-page">
+      <SearchPanel
+        id="jn-search"
+        label="Search journeys"
+        placeholder="Search Etosha, coast, weekend trip, food journey…"
+        value={searchInput}
+        onChange={setSearchInput}
+        onClear={() => setSearchInput('')}
+        className="jn-page__search-sync"
+      />
 
-        <div className="acc-page__search jn-page__search">
-          <label className="visually-hidden" htmlFor="jn-search">
-            Search journeys
-          </label>
-          <div className="acc-page__search-inner">
-            <Search className="acc-page__search-icon" size={18} strokeWidth={2} aria-hidden />
-            <input
-              id="jn-search"
-              type="search"
-              className="acc-page__search-input input"
-              placeholder="Search Etosha, coast, weekend trip, food journey…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              autoComplete="off"
-              enterKeyHint="search"
-            />
-            {searchInput && (
+      <QuickFilterChips
+        chips={quickChips}
+        onChipClick={handleQuickChip}
+        ariaLabel="Journey style filters"
+        className="jn-page__quick-chips"
+      />
+
+      <div className="jn-page__budget-sync" aria-hidden>
+        <div className="jn-page__budget-chips" role="group" aria-label="Budget range">
+          {BUDGET_BUCKETS.map((b) => {
+            const active = selectedBucket?.label === b.label
+            return (
               <button
+                key={b.label}
                 type="button"
-                className="acc-page__search-clear"
-                onClick={() => setSearchInput('')}
-                aria-label="Clear search"
+                className={`acc-quick-chip ev-page__discover-chip${active ? ' acc-quick-chip--active' : ''}`}
+                aria-pressed={active}
+                onClick={() => setSelectedBucket(active ? null : b)}
               >
-                <X size={16} strokeWidth={2.25} aria-hidden />
+                <BadgeDollarSign className="jn-filter-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
+                {b.label}
               </button>
-            )}
-          </div>
+            )
+          })}
         </div>
-
-        <QuickFilterChips
-          chips={quickChips}
-          onChipClick={handleQuickChip}
-          ariaLabel="Journey style filters"
-          className="jn-page__quick-chips"
-        />
-
-        <div className="jn-page__filter-toggle-row">
-          <button
-            type="button"
-            className="jn-page__filter-toggle"
-            onClick={() => setShowAdvanced((v) => !v)}
-            aria-expanded={showAdvanced}
-            aria-controls="jn-advanced-panel"
-          >
-            <SlidersHorizontal size={15} strokeWidth={2.25} aria-hidden />
-            {showAdvanced ? 'Hide budget filters' : 'Budget filters'}
-          </button>
-          {hasFilters && (
-            <button type="button" className="jn-page__clear-filters" onClick={clearAll}>
-              Clear all
-            </button>
-          )}
-        </div>
-
-        {hasFilters && (
-          <div className="jn-page__active-filters" aria-label="Active filters">
-            {quickFilter && (
-              <span className="jn-page__active-filter">
-                {QUICK_FILTERS.find((f) => f.id === quickFilter)?.label}
-              </span>
-            )}
-            {selectedBucket && (
-              <span className="jn-page__active-filter">{selectedBucket.label}</span>
-            )}
-            {search && <span className="jn-page__active-filter">&ldquo;{search}&rdquo;</span>}
-          </div>
-        )}
-
-        {showAdvanced && (
-          <section
-            id="jn-advanced-panel"
-            className="ev-page__discover card jn-page__discover-panel"
-            aria-labelledby="jn-advanced-title"
-          >
-            <h2 id="jn-advanced-title" className="ev-page__discover-title">
-              Budget range
-            </h2>
-            <p className="ev-page__discover-sub">Filter by total trip cost — combine with search and style filters.</p>
-            <div
-              className="ev-page__discover-chips jn-page__budget-chips"
-              role="group"
-              aria-label="Budget range"
-            >
-              {BUDGET_BUCKETS.map((b) => {
-                const active = selectedBucket?.label === b.label
-                return (
-                  <button
-                    key={b.label}
-                    type="button"
-                    className={`acc-quick-chip ev-page__discover-chip${active ? ' acc-quick-chip--active' : ''}`}
-                    aria-pressed={active}
-                    onClick={() => setSelectedBucket(active ? null : b)}
-                  >
-                    <BadgeDollarSign className="jn-filter-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
-                    {b.label}
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        )}
       </div>
+
+      {hasFilters && (
+        <div className="jn-page__active-filters" aria-label="Active filters">
+          {quickFilter && (
+            <span className="jn-page__active-filter">
+              {QUICK_FILTERS.find((f) => f.id === quickFilter)?.label}
+            </span>
+          )}
+          {selectedBucket && (
+            <span className="jn-page__active-filter">{selectedBucket.label}</span>
+          )}
+          {search && <span className="jn-page__active-filter">&ldquo;{search}&rdquo;</span>}
+          <button type="button" className="jn-page__clear-filters" onClick={clearAll}>
+            Clear all
+          </button>
+        </div>
+      )}
 
       <p className="jn-page__results-hint" role="status">
         {hint}
       </p>
+
+      {engagement.shareMsg ? (
+        <p className="jn-page__toast" role="status">
+          {engagement.shareMsg}
+        </p>
+      ) : null}
 
       {recentStories.length > 0 && (
         <section className="ev-page__story-rings jn-page__story-rings" aria-labelledby="jn-rings-title">
@@ -546,32 +433,13 @@ export function TripsList() {
             />
           ) : (
             <>
-              {featuredJourneys.length > 0 && (
-                <section className="jn-page__featured" aria-labelledby="jn-featured-title">
-                  <div className="jn-page__section-head">
-                    <div>
-                      <h2 id="jn-featured-title">Featured journeys</h2>
-                      <p>Routes and stories travellers are saving for their next trip.</p>
-                    </div>
-                    <span className="jn-page__featured-badge">
-                      <Sparkles size={13} strokeWidth={2.25} aria-hidden />
-                      Featured
-                    </span>
-                  </div>
-                  <div className={`jn-page__featured-grid${featuredJourneys.length === 1 ? ' jn-page__featured-grid--solo' : ''}`}>
-                    {featuredJourneys.map((t, i) => (
-                      <FeaturedJourney key={t.id} trip={t} prominent={i === 0} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
               {showDiscoveryRails && curated && curated.weekendRail.length > 0 && (
                 <JourneyRail
                   id="jn-weekend"
                   title="Weekend trips"
                   sub="Short loops and long weekends — easy inspiration for your next escape."
                   trips={curated.weekendRail}
+                  engagement={engagement}
                 />
               )}
 
@@ -581,22 +449,32 @@ export function TripsList() {
                   title="Budget friendly"
                   sub="Full cost breakdowns and practical routes under N$5k."
                   trips={curated.budgetRail}
+                  engagement={engagement}
                 />
               )}
 
               <section className="jn-page__all" aria-labelledby="jn-all-title">
-                <div className="jn-page__section-head">
-                  <div>
-                    <h2 id="jn-all-title">{hasFilters ? 'Matching journeys' : 'All journeys'}</h2>
-                    <p>Browse routes with photos, stops, travel tips, and creator notes.</p>
-                  </div>
-                  <span>
-                    {filtered.length} {filtered.length === 1 ? 'journey' : 'journeys'}
-                  </span>
-                </div>
+                <JourneySectionHead
+                  id="jn-all-title"
+                  title={hasFilters ? 'Matching journeys' : 'All journeys'}
+                  subtitle="Browse routes with photos, stops, travel tips, and creator notes."
+                  trailing={
+                    <span className="journey-section-head__meta">
+                      {filtered.length} {filtered.length === 1 ? 'journey' : 'journeys'}
+                    </span>
+                  }
+                />
                 <div className="jn-page__grid">
                   {filtered.map((t) => (
-                    <JourneyCard key={t.id} trip={t} />
+                    <JourneyListingCard
+                      key={t.id}
+                      trip={t}
+                      liked={engagement.isLiked(t)}
+                      saved={engagement.isSaved(t)}
+                      onLike={(event) => engagement.toggleLike(t, event)}
+                      onSave={(event) => engagement.toggleSave(t, event)}
+                      onShare={(event) => engagement.shareJourney(t, event)}
+                    />
                   ))}
                 </div>
               </section>
@@ -738,208 +616,34 @@ export function TripsList() {
   )
 }
 
-function FeaturedJourney({ trip, prominent = false }: { trip: MockTrip; prominent?: boolean }) {
-  const accent = journeyAccentBadge(trip)
-  const cover = journeyCoverSrc(trip.cover_image)
-
-  return (
-    <Link
-      to={`/journeys/${trip.id}`}
-      className={`jn-featured${prominent ? ' jn-featured--prominent' : ' jn-featured--compact'}`}
-    >
-      {cover ? (
-        <img
-          className="jn-featured__img"
-          src={cover}
-          alt={trip.title}
-          loading="lazy"
-          onError={onJourneyImgError}
-        />
-      ) : (
-        <div className="jn-featured__img jn-featured__img--placeholder" aria-hidden>
-          <Route size={prominent ? 40 : 28} strokeWidth={1.75} />
-        </div>
-      )}
-      <div className="jn-featured__overlay" aria-hidden />
-      <div className="jn-featured__body">
-        <span className="jn-featured__eyebrow">
-          <Sparkles size={12} strokeWidth={2.25} aria-hidden />
-          Featured journey
-        </span>
-        <h3 className="jn-featured__title">{trip.title}</h3>
-        <p className="jn-featured__sub">
-          <MapPin size={13} strokeWidth={2.25} aria-hidden />
-          {routeLabel(trip)}
-          {' · '}
-          {dayLabel(trip.days)}
-          {trip.stops.length > 0 && (
-            <>
-              {' · '}
-              {trip.stops.length} {trip.stops.length === 1 ? 'stop' : 'stops'}
-            </>
-          )}
-        </p>
-        <p className="jn-featured__creator">
-          <UserRound size={13} strokeWidth={2.25} aria-hidden />
-          Created by {trip.author.display_name}
-        </p>
-        {accent ? <span className="jn-featured__badge">{accent}</span> : null}
-        <span className="jn-featured__cta">
-          View journey
-          <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
-        </span>
-        {(trip.likes_count > 0 || trip.saves_count > 0) && (
-          <div className="jn-featured__social" aria-label="Journey engagement">
-            {trip.likes_count > 0 && (
-              <span>
-                <Heart size={12} strokeWidth={2.25} aria-hidden />
-                {trip.likes_count}
-              </span>
-            )}
-            {trip.saves_count > 0 && (
-              <span>
-                <Bookmark size={12} strokeWidth={2.25} aria-hidden />
-                {trip.saves_count}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </Link>
-  )
-}
-
-function JourneyCard({ trip }: { trip: MockTrip }) {
-  const accent = journeyAccentBadge(trip)
-  const badges = styleBadges(trip)
-  const cover = journeyCoverSrc(trip.cover_image)
-  const stops = stopsPreview(trip)
-
-  return (
-    <Link to={`/journeys/${trip.id}`} className="jn-card jn-card--browse card">
-      <div className="jn-card__img-wrap">
-        {accent ? <span className="jn-card__badge jn-card__badge--style">{accent}</span> : null}
-        <span className="jn-card__badge jn-card__badge--right">
-          <CalendarDays size={11} strokeWidth={2.5} aria-hidden />
-          {dayLabel(trip.days)}
-        </span>
-        {cover ? (
-          <img
-            className="jn-card__img"
-            src={cover}
-            alt={trip.title}
-            loading="lazy"
-            onError={onJourneyImgError}
-          />
-        ) : (
-          <div className="jn-card__img jn-card__placeholder" aria-hidden>
-            <Map size={32} strokeWidth={1.75} />
-          </div>
-        )}
-      </div>
-      <div className="jn-card__body jn-card__body--browse">
-        {badges.length > 0 && (
-          <div className="jn-card__style-row">
-            {badges.map((b) => (
-              <span key={b} className="jn-card__style-badge">
-                {b}
-              </span>
-            ))}
-          </div>
-        )}
-        <h3 className="jn-card__title">{trip.title}</h3>
-        <p className="jn-card__route">
-          <Route size={13} strokeWidth={2.25} aria-hidden />
-          {routeLabel(trip)}
-        </p>
-        <p className="jn-card__summary">{trip.summary}</p>
-
-        {stops && (
-          <p className="jn-card__stops">
-            <MapPin size={12} strokeWidth={2.25} aria-hidden />
-            {Array.isArray(stops) ? (
-              stops.join(' · ')
-            ) : (
-              <>
-                {stops.shown.join(' · ')}
-                <span className="jn-card__stops-more"> +{stops.remaining} more stops</span>
-              </>
-            )}
-          </p>
-        )}
-
-        <div className="jn-card__meta-row">
-          <span className="jn-card__meta-item">
-            <UserRound size={12} strokeWidth={2.25} aria-hidden />
-            Created by {trip.author.display_name}
-          </span>
-          {trip.stops.length > 0 && (
-            <span className="jn-card__meta-item">
-              <MapPin size={12} strokeWidth={2.25} aria-hidden />
-              {trip.stops.length} {trip.stops.length === 1 ? 'stop' : 'stops'}
-            </span>
-          )}
-        </div>
-
-        {(trip.likes_count > 0 || trip.comments_count > 0 || trip.saves_count > 0) && (
-          <div className="jn-card__social" aria-label="Journey engagement">
-            {trip.likes_count > 0 && (
-              <span>
-                <Heart size={12} strokeWidth={2.25} aria-hidden />
-                {trip.likes_count}
-              </span>
-            )}
-            {trip.saves_count > 0 && (
-              <span>
-                <Bookmark size={12} strokeWidth={2.25} aria-hidden />
-                {trip.saves_count}
-              </span>
-            )}
-            {trip.comments_count > 0 && (
-              <span>
-                <MessageCircle size={12} strokeWidth={2.25} aria-hidden />
-                {trip.comments_count}
-              </span>
-            )}
-            {trip.tags.includes('photography') && (
-              <span className="jn-card__social-photo" aria-label="Includes photos">
-                <Camera size={12} strokeWidth={2.25} aria-hidden />
-              </span>
-            )}
-          </div>
-        )}
-
-        <span className="jn-card__cta">
-          View journey
-          <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
-        </span>
-      </div>
-    </Link>
-  )
-}
-
 function JourneyRail({
   id,
   title,
   sub,
   trips,
+  engagement,
 }: {
   id: string
   title: string
   sub: string
   trips: MockTrip[]
+  engagement: ReturnType<typeof useJourneyEngagement>
 }) {
   return (
     <section className="jn-page__rail" aria-labelledby={id}>
-      <div className="jn-page__section-head jn-page__section-head--rail">
-        <div>
-          <h2 id={id}>{title}</h2>
-          <p>{sub}</p>
-        </div>
-      </div>
+      <JourneySectionHead id={id} title={title} subtitle={sub} variant="rail" />
       <div className="jn-rail-scroll h-scroll">
         {trips.map((t) => (
-          <JourneyCard key={`${id}-${t.id}`} trip={t} />
+          <JourneyListingCard
+            key={`${id}-${t.id}`}
+            trip={t}
+            variant="rail"
+            liked={engagement.isLiked(t)}
+            saved={engagement.isSaved(t)}
+            onLike={(event) => engagement.toggleLike(t, event)}
+            onSave={(event) => engagement.toggleSave(t, event)}
+            onShare={(event) => engagement.shareJourney(t, event)}
+          />
         ))}
       </div>
     </section>

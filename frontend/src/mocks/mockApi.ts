@@ -1521,6 +1521,33 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     messagingEnsureSeed()
   }
 
+  if (pathname === '/api/messaging/people/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const qq = (q.get('q') || '').trim().toLowerCase()
+    const results = Object.values(s.profiles)
+      .filter((p) => p.username !== me && p.allow_messages !== false)
+      .filter((p) => {
+        if (!qq) return true
+        return (
+          textMatch(p.username, qq) ||
+          textMatch(p.display_name, qq) ||
+          textMatch(p.city ?? '', qq) ||
+          textMatch(p.region ?? '', qq)
+        )
+      })
+      .slice(0, qq ? 20 : 12)
+      .map((p) => ({
+        id: messagingNumericIdForUsername(p.username),
+        username: p.username,
+        display_name: p.display_name,
+        avatar: p.avatar ?? null,
+        city: p.city ?? '',
+        region: p.region ?? '',
+      }))
+    return { results }
+  }
+
   if (pathname === '/api/messaging/conversations/' && method === 'GET') {
     requireAuth(s)
     const me = messagingNumericIdForUsername(s.currentUser as string)

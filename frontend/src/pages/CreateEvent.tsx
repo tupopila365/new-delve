@@ -1,18 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Briefcase, ImagePlus, Landmark, Music, Sparkles, Trophy, Utensils, X, type LucideIcon } from 'lucide-react'
 import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-
-const CATEGORIES: { value: string; label: string; Icon: LucideIcon }[] = [
-  { value: 'music', label: 'Music', Icon: Music },
-  { value: 'sports', label: 'Sports', Icon: Trophy },
-  { value: 'culture', label: 'Culture', Icon: Landmark },
-  { value: 'business', label: 'Business', Icon: Briefcase },
-  { value: 'food', label: 'Food & drink', Icon: Utensils },
-  { value: 'other', label: 'Other', Icon: Sparkles },
-]
+import { MediaCoverEditor } from '../components/create'
+import { EventCategoryPicker } from '../components/events/EventCategoryPicker'
+import { EmptyState } from '../components/ui'
 
 type CreatedEvent = { id: number }
 
@@ -30,17 +23,9 @@ export function CreateEvent() {
   const [city, setCity] = useState('')
   const [region, setRegion] = useState(profile?.region ?? '')
   const [isFree, setIsFree] = useState(false)
-  const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
   const [err, setErr] = useState<string | null>(null)
-
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  function onCoverChange(file: File | null) {
-    if (coverPreview) URL.revokeObjectURL(coverPreview)
-    setCoverFile(file)
-    setCoverPreview(file ? URL.createObjectURL(file) : null)
-  }
 
   const canSubmit = title.trim().length > 0 && startsAt.length > 0
 
@@ -57,11 +42,11 @@ export function CreateEvent() {
       fd.append('city', city.trim())
       fd.append('region', region.trim())
       fd.append('is_published', 'true')
+      if (isFree) fd.append('is_free', 'true')
       if (coverFile) fd.append('cover_image', coverFile)
       return apiFetch<CreatedEvent>('/api/events/', { method: 'POST', body: fd })
     },
     onSuccess: async (data) => {
-      if (coverPreview) URL.revokeObjectURL(coverPreview)
       await qc.invalidateQueries({ queryKey: ['events'] })
       navigate(`/events/${data.id}`)
     },
@@ -73,23 +58,18 @@ export function CreateEvent() {
   if (!profile) {
     return (
       <div className="ce-page">
-        <h1 className="display ce-page__title">Create an event</h1>
-        <p className="page-sub">
-          You need to <Link to="/login">sign in</Link> to create events.
-        </p>
+        <EmptyState
+          icon="🎟️"
+          title="Sign in to create an event"
+          sub="List markets, music nights, meetups, and gatherings for travellers and locals."
+          cta={{ label: 'Sign in', to: '/login' }}
+        />
       </div>
     )
   }
 
   return (
     <div className="ce-page">
-      <div className="ce-page__bar">
-        <button type="button" className="up__back" onClick={() => navigate(-1)} aria-label="Go back">
-          <ArrowLeft size={20} strokeWidth={2.25} aria-hidden />
-        </button>
-        <h1 className="ce-page__title">Create event</h1>
-      </div>
-
       <form
         className="ce-form"
         onSubmit={(e) => {
@@ -99,192 +79,163 @@ export function CreateEvent() {
         }}
         noValidate
       >
-        <div className="ce-form__cover-wrap">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="visually-hidden"
-            aria-label="Cover image"
-            onChange={(e) => onCoverChange(e.target.files?.[0] ?? null)}
+        <section className="ce-form__section" aria-labelledby="ce-cover-title">
+          <h2 id="ce-cover-title" className="ce-form__section-title">
+            Cover
+          </h2>
+          <MediaCoverEditor
+            label="Event cover photo or video"
+            value={coverPreview}
+            onChange={setCoverPreview}
+            onFileReady={setCoverFile}
+            defaultAspect="16:9"
           />
-          {coverPreview ? (
-            <div className="ce-form__cover-preview">
-              <img src={coverPreview} alt="Cover preview" />
-              <button
-                type="button"
-                className="ce-form__cover-remove"
-                aria-label="Remove cover image"
-                onClick={() => { onCoverChange(null); if (fileRef.current) fileRef.current.value = '' }}
-              >
-                <X size={16} strokeWidth={2.35} aria-hidden />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="ce-form__cover-btn"
-              onClick={() => fileRef.current?.click()}
-              aria-label="Add cover image"
-            >
-              <span className="ce-form__cover-icon" aria-hidden>
-                <ImagePlus size={24} strokeWidth={2.25} />
-              </span>
-              <span>Add cover photo</span>
-              <span className="ce-form__cover-hint">JPG, PNG — optional</span>
-            </button>
-          )}
-        </div>
+        </section>
 
-        <div className="ce-form__field">
-          <label className="ce-form__label" htmlFor="ce-title">
-            Event title <span aria-hidden>*</span>
-          </label>
-          <input
-            id="ce-title"
-            type="text"
-            className="input ce-form__input"
-            placeholder="e.g. Live Jazz Night at The Venue"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            maxLength={200}
-            autoComplete="off"
-          />
-        </div>
+        <section className="ce-form__section" aria-labelledby="ce-basics-title">
+          <h2 id="ce-basics-title" className="ce-form__section-title">
+            Basics
+          </h2>
 
-        <div className="ce-form__field">
-          <label className="ce-form__label" htmlFor="ce-category">
-            Category
-          </label>
-          <div className="ce-form__chips" role="group" aria-label="Event category">
-            {CATEGORIES.map((c) => {
-              const Icon = c.Icon
-              return (
-                <button
-                  key={c.value}
-                  type="button"
-                  className={`ce-form__chip${category === c.value ? ' ce-form__chip--active' : ''}`}
-                  onClick={() => setCategory(c.value)}
-                  aria-pressed={category === c.value}
-                >
-                  <Icon size={15} strokeWidth={2.25} aria-hidden />
-                  {c.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="ce-form__row">
           <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="ce-starts">
-              Start date &amp; time <span aria-hidden>*</span>
+            <label className="ce-form__label" htmlFor="ce-title">
+              Event title <span aria-hidden>*</span>
             </label>
             <input
-              id="ce-starts"
-              type="datetime-local"
+              id="ce-title"
+              type="text"
               className="input ce-form__input"
-              value={startsAt}
-              onChange={(e) => setStartsAt(e.target.value)}
+              placeholder="Live jazz night, food market, beach cleanup…"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               required
+              maxLength={200}
+              autoComplete="off"
             />
           </div>
-          <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="ce-ends">
-              End date &amp; time <span className="ce-form__label-opt">(optional)</span>
-            </label>
-            <input
-              id="ce-ends"
-              type="datetime-local"
-              className="input ce-form__input"
-              value={endsAt}
-              min={startsAt}
-              onChange={(e) => setEndsAt(e.target.value)}
-            />
+
+          <EventCategoryPicker value={category} onChange={setCategory} />
+        </section>
+
+        <section className="ce-form__section" aria-labelledby="ce-when-title">
+          <h2 id="ce-when-title" className="ce-form__section-title">
+            When
+          </h2>
+
+          <div className="ce-form__row">
+            <div className="ce-form__field">
+              <label className="ce-form__label" htmlFor="ce-starts">
+                Start <span aria-hidden>*</span>
+              </label>
+              <input
+                id="ce-starts"
+                type="datetime-local"
+                className="input ce-form__input"
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
+                required
+              />
+            </div>
+            <div className="ce-form__field">
+              <label className="ce-form__label" htmlFor="ce-ends">
+                End <span className="ce-form__label-opt">optional</span>
+              </label>
+              <input
+                id="ce-ends"
+                type="datetime-local"
+                className="input ce-form__input"
+                value={endsAt}
+                min={startsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="ce-form__field">
-          <label className="ce-form__label" htmlFor="ce-venue">
-            Venue
-          </label>
-          <input
-            id="ce-venue"
-            type="text"
-            className="input ce-form__input"
-            placeholder="e.g. The Warehouse, Windhoek"
-            value={venue}
-            onChange={(e) => setVenue(e.target.value)}
-            maxLength={200}
-          />
-        </div>
+        <section className="ce-form__section" aria-labelledby="ce-where-title">
+          <h2 id="ce-where-title" className="ce-form__section-title">
+            Where
+          </h2>
 
-        <div className="ce-form__row">
           <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="ce-city">
-              City
+            <label className="ce-form__label" htmlFor="ce-venue">
+              Venue
             </label>
             <input
-              id="ce-city"
+              id="ce-venue"
               type="text"
               className="input ce-form__input"
-              placeholder="e.g. Windhoek"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              placeholder="The Warehouse, community hall, beach…"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              maxLength={200}
             />
           </div>
+
+          <div className="ce-form__row">
+            <div className="ce-form__field">
+              <label className="ce-form__label" htmlFor="ce-city">
+                City
+              </label>
+              <input
+                id="ce-city"
+                type="text"
+                className="input ce-form__input"
+                placeholder="Windhoek"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+            </div>
+            <div className="ce-form__field">
+              <label className="ce-form__label" htmlFor="ce-region">
+                Region
+              </label>
+              <input
+                id="ce-region"
+                type="text"
+                className="input ce-form__input"
+                placeholder="Khomas"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="ce-form__section" aria-labelledby="ce-about-title">
+          <h2 id="ce-about-title" className="ce-form__section-title">
+            About
+          </h2>
+
           <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="ce-region">
-              Region
+            <label className="ce-form__label" htmlFor="ce-desc">
+              Description <span className="ce-form__label-opt">optional</span>
             </label>
-            <input
-              id="ce-region"
-              type="text"
-              className="input ce-form__input"
-              placeholder="e.g. Khomas"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
+            <textarea
+              id="ce-desc"
+              className="input ce-form__textarea"
+              placeholder="What should people expect? Dress code, lineup, tickets at door…"
+              rows={5}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-        </div>
 
-        <div className="ce-form__field">
-          <label className="ce-form__label" htmlFor="ce-desc">
-            Description <span className="ce-form__label-opt">(optional)</span>
+          <label className="ce-form__toggle">
+            <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
+            <span className="ce-form__toggle-box" aria-hidden />
+            <span className="ce-form__toggle-label">Free entry</span>
           </label>
-          <textarea
-            id="ce-desc"
-            className="input ce-form__textarea"
-            placeholder="Tell people what to expect."
-            rows={5}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
+        </section>
 
-        <label className="ce-form__toggle">
-          <input
-            type="checkbox"
-            checked={isFree}
-            onChange={(e) => setIsFree(e.target.checked)}
-          />
-          <span className="ce-form__toggle-box" aria-hidden />
-          <span className="ce-form__toggle-label">Free entry</span>
-        </label>
-
-        {err && (
+        {err ? (
           <p className="ce-form__err" role="alert">
             {err}
           </p>
-        )}
+        ) : null}
 
         <div className="ce-form__actions">
-          <button
-            type="submit"
-            className="btn btn-primary ce-form__submit"
-            disabled={!canSubmit || mut.isPending}
-          >
+          <button type="submit" className="btn btn-primary ce-form__submit" disabled={!canSubmit || mut.isPending}>
             {mut.isPending ? 'Publishing…' : 'Publish event'}
           </button>
           <Link to="/events" className="btn btn-ghost ce-form__cancel">

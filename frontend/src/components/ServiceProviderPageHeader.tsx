@@ -12,6 +12,7 @@ type Props = {
   filterButtonSelector?: string
   filterGroups?: ServiceProviderFilterGroup[]
   filterScope?: string
+  showTools?: boolean
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
@@ -29,6 +30,7 @@ export function ServiceProviderPageHeader({
   filterButtonSelector,
   filterGroups,
   filterScope,
+  showTools = true,
 }: Props) {
   const [searchValue, setSearchValue] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -57,46 +59,51 @@ export function ServiceProviderPageHeader({
   }
 
   return (
-    <section className="sp-header" aria-label={`${title} header`}>
+    <section
+      className={showTools ? 'sp-header' : 'sp-header sp-header--simple'}
+      aria-label={`${title} header`}
+    >
       <div className="sp-header__copy">
         <p className="sp-header__eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
         {subtitle ? <p className="sp-header__subtitle">{subtitle}</p> : null}
       </div>
 
-      <div className="sp-header__tools">
-        <label className="sp-header__search">
-          <Search size={17} strokeWidth={2.25} aria-hidden />
-          <span className="visually-hidden">Search {title}</span>
-          <input
-            type="search"
-            value={searchValue}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={searchPlaceholder}
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-          {searchValue ? (
-            <button type="button" onClick={clearSearch} aria-label="Clear search">
-              <X size={15} strokeWidth={2.25} aria-hidden />
-            </button>
-          ) : null}
-        </label>
+      {showTools ? (
+        <div className="sp-header__tools">
+          <label className="sp-header__search">
+            <Search size={17} strokeWidth={2.25} aria-hidden />
+            <span className="visually-hidden">Search {title}</span>
+            <input
+              type="search"
+              value={searchValue}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder}
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+            {searchValue ? (
+              <button type="button" onClick={clearSearch} aria-label="Clear search">
+                <X size={15} strokeWidth={2.25} aria-hidden />
+              </button>
+            ) : null}
+          </label>
 
-        {filterGroups ? (
-          <ServiceProviderFilterButton groups={filterGroups} scope={filterScope} />
-        ) : (
-          <button
-            type="button"
-            className={filtersOpen ? 'sp-header__filter sp-header__filter--active' : 'sp-header__filter'}
-            onClick={toggleFilters}
-            aria-expanded={filtersOpen}
-          >
-            <Filter size={16} strokeWidth={2.25} aria-hidden />
-            <span>{filtersOpen ? 'Hide filters' : 'Filters'}</span>
-          </button>
-        )}
-      </div>
+          {filterGroups ? (
+            <ServiceProviderFilterButton groups={filterGroups} scope={filterScope} />
+          ) : (
+            <button
+              type="button"
+              className={filtersOpen ? 'sp-header__filter sp-header__filter--active' : 'sp-header__filter'}
+              onClick={toggleFilters}
+              aria-expanded={filtersOpen}
+            >
+              <Filter size={16} strokeWidth={2.25} aria-hidden />
+              <span>{filtersOpen ? 'Hide filters' : 'Filters'}</span>
+            </button>
+          )}
+        </div>
+      ) : null}
     </section>
   )
 }
