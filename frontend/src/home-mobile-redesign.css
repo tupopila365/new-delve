@@ -2,8 +2,8 @@
 .page-home {
   min-height: 100%;
   background:
-    radial-gradient(circle at 50% 0%, rgba(232, 98, 10, 0.16), transparent 22rem),
-    #050505 !important;
+    radial-gradient(circle at 50% 0%, rgba(232, 98, 10, 0.14), transparent 22rem),
+    var(--bg, #181614) !important;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -12,7 +12,7 @@
   margin: 0 0 12px;
   border-radius: 0 0 28px 28px;
   overflow: hidden;
-  background: #080808;
+  background: #1e1b18;
 }
 
 .page-home .ta-hero__bg {

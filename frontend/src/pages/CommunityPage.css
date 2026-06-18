@@ -14,41 +14,6 @@
   gap: 14px;
 }
 
-.cm-simple__intro {
-  display: grid;
-  gap: 12px;
-}
-
-.cm-simple__intro p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.9rem;
-  font-weight: 650;
-  line-height: 1.45;
-}
-
-.cm-simple__ask-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-}
-
-.cm-simple__form {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-}
-
-.cm-simple__form-note {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 0.78rem;
-  font-weight: 650;
-  line-height: 1.4;
-}
-
 .cm-simple__count {
   margin: 0;
   color: rgba(255, 255, 255, 0.52);
@@ -71,9 +36,5 @@
 @media (max-width: 640px) {
   .cm-simple {
     padding-inline: 12px;
-  }
-
-  .cm-simple__ask-btn {
-    width: 100%;
   }
 }

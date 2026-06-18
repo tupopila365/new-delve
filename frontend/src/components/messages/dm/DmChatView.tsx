@@ -1,0 +1,174 @@
+import type { FormEvent, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Bot, Loader2, Send, UserRound } from 'lucide-react'
+import { DM_QUICK_REPLIES, formatMessageTime, type AutomatedMessage } from './messagingUtils'
+import './dm-chat.css'
+
+export type DmMessage = {
+  id: number | string
+  sender_username: string
+  body: string
+  created_at?: string
+}
+
+type Person = {
+  username: string
+  display_name?: string
+  avatar?: string | null
+  city?: string
+  region?: string
+}
+
+type Props = {
+  person: Person
+  personName: string
+  myUsername: string
+  messages: DmMessage[]
+  automatedMessages?: AutomatedMessage[]
+  body: string
+  onBodyChange: (value: string) => void
+  onSend: () => void
+  sending?: boolean
+  loading?: boolean
+  opening?: boolean
+  backLabel?: string
+  onBack: () => void
+  inboxHref?: string
+  statusSlot?: ReactNode
+  showQuickReplies?: boolean
+}
+
+export function DmChatView({
+  person,
+  personName,
+  myUsername,
+  messages,
+  automatedMessages = [],
+  body,
+  onBodyChange,
+  onSend,
+  sending = false,
+  loading = false,
+  opening = false,
+  backLabel = 'Back',
+  onBack,
+  inboxHref = '/messages',
+  statusSlot,
+  showQuickReplies = true,
+}: Props) {
+  const location = [person.city, person.region].filter(Boolean).join(', ')
+  const showAutomated = automatedMessages.length > 0 && messages.length === 0 && !loading
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!body.trim() || sending) return
+    onSend()
+  }
+
+  const applyQuickReply = (text: string) => {
+    onBodyChange(body.trim() ? `${body.trim()}\n${text}` : text)
+  }
+
+  return (
+    <section className="dm-chat" aria-label={`Chat with ${personName}`}>
+      <header className="dm-chat__head">
+        <button type="button" className="dm-chat__back" onClick={onBack} aria-label={backLabel}>
+          <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
+        </button>
+        <Link to={`/u/${encodeURIComponent(person.username)}`} className="dm-chat__person">
+          <span className="dm-chat__avatar" aria-hidden>
+            {person.avatar ? <img src={person.avatar} alt="" /> : <UserRound size={18} strokeWidth={2} />}
+          </span>
+          <span className="dm-chat__person-copy">
+            <strong>{personName}</strong>
+            <small>
+              @{person.username}
+              {location ? ` · ${location}` : ''}
+            </small>
+          </span>
+        </Link>
+        <Link to={inboxHref} className="dm-chat__inbox">
+          Inbox
+        </Link>
+      </header>
+
+      {statusSlot}
+
+      <div className="dm-chat__thread" aria-label="Messages" aria-live="polite">
+        {opening ? (
+          <div className="dm-chat__state">
+            <Loader2 size={22} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+            <p>Opening chat…</p>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="dm-chat__state">
+            <Loader2 size={22} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+            <p>Loading messages…</p>
+          </div>
+        ) : null}
+
+        {!opening && !loading ? (
+          <>
+            {showAutomated
+              ? automatedMessages.map((msg) => (
+                  <article key={msg.id} className="dm-chat__bubble dm-chat__bubble--auto">
+                    {msg.label ? (
+                      <span className="dm-chat__auto-label">
+                        <Bot size={12} strokeWidth={2.25} aria-hidden />
+                        {msg.label}
+                      </span>
+                    ) : null}
+                    <p>{msg.body}</p>
+                  </article>
+                ))
+              : null}
+
+            {messages.map((message) => {
+              const mine = message.sender_username === myUsername
+              return (
+                <article
+                  key={message.id}
+                  className={`dm-chat__bubble ${mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs'}`.trim()}
+                >
+                  <p>{message.body}</p>
+                  {message.created_at ? (
+                    <small>{formatMessageTime(message.created_at)}</small>
+                  ) : null}
+                </article>
+              )
+            })}
+          </>
+        ) : null}
+      </div>
+
+      {showQuickReplies && !opening ? (
+        <div className="dm-chat__quick" aria-label="Quick replies">
+          {DM_QUICK_REPLIES.map((text) => (
+            <button key={text} type="button" className="dm-chat__quick-btn" onClick={() => applyQuickReply(text)}>
+              {text}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <form className="dm-chat__composer" onSubmit={onSubmit}>
+        <textarea
+          value={body}
+          onChange={(event) => onBodyChange(event.target.value)}
+          placeholder={`Message ${personName}…`}
+          rows={1}
+          aria-label={`Message ${personName}`}
+        />
+        <button type="submit" disabled={!body.trim() || sending || opening} aria-label="Send message">
+          {sending ? (
+            <Loader2 size={18} strokeWidth={2.4} className="dm-chat__spin" aria-hidden />
+          ) : (
+            <Send size={18} strokeWidth={2.4} aria-hidden />
+          )}
+        </button>
+      </form>
+    </section>
+  )
+}

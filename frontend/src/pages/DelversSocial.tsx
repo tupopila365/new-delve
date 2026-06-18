@@ -165,9 +165,9 @@ export function DelversSocial() {
     return list
   }, [data, profile?.region, query, tab])
 
-  const onShare = async (id: number) => {
+  const onShare = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/posts/${id}`)
+      await navigator.clipboard.writeText(`${window.location.origin}/delvers`)
       setToast('Link copied')
       window.setTimeout(() => setToast(''), 1400)
     } catch {
@@ -304,7 +304,7 @@ export function DelversSocial() {
               saveBusy={saveMut.isPending && saveMut.variables === post.id}
               onLike={() => profile && likeMut.mutate(post.id)}
               onSave={() => profile && saveMut.mutate(post.id)}
-              onShare={() => onShare(post.id)}
+              onShare={onShare}
               onCommented={refreshFeed}
             />
           ))}
@@ -471,7 +471,6 @@ function StoryViewer({ target, index, onIndex, onClose }: {
 
         <div className="ds-story-viewer__caption">
           <p>{caption}</p>
-          <Link to={`/posts/${post.id}`} onClick={onClose}>Open post</Link>
         </div>
       </article>
     </div>
@@ -490,6 +489,8 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
 }) {
   const [commentOpen, setCommentOpen] = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
+  const [heartBurst, setHeartBurst] = useState(false)
+  const lastTapRef = useRef(0)
   const name = post.author.display_name || post.author.username
   const avatar = mediaUrl(post.author.avatar ?? null)
   const image = mediaUrl(post.image)
@@ -513,7 +514,31 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
         {post.region ? <span className="ds-post__region"><MapPin size={13} strokeWidth={2.25} aria-hidden />{post.region}</span> : null}
       </header>
 
-      <Link to={`/posts/${post.id}`} className="ds-post__media" aria-label={`Open post by ${name}`}>
+      <div
+        className="ds-post__media"
+        role="img"
+        aria-label={`${image || video ? 'Photo' : 'Note'} by ${name}. Double-tap to like.`}
+        onDoubleClick={() => {
+          if (!signedIn) return
+          onLike()
+          setHeartBurst(true)
+          window.setTimeout(() => setHeartBurst(false), 720)
+        }}
+        onTouchEnd={(e) => {
+          const now = Date.now()
+          if (now - lastTapRef.current < 320) {
+            if (signedIn) {
+              onLike()
+              setHeartBurst(true)
+              window.setTimeout(() => setHeartBurst(false), 720)
+            }
+            lastTapRef.current = 0
+            e.preventDefault()
+          } else {
+            lastTapRef.current = now
+          }
+        }}
+      >
         {image ? (
           <img src={image} alt={text} loading="lazy" />
         ) : video ? (
@@ -521,7 +546,12 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
         ) : (
           <div className="ds-post__text-media"><Compass size={34} strokeWidth={2} aria-hidden /><span>Travel note</span></div>
         )}
-      </Link>
+        {heartBurst ? (
+          <span className="ds-post__heart-burst" aria-hidden>
+            <Heart size={72} strokeWidth={2} fill="currentColor" />
+          </span>
+        ) : null}
+      </div>
 
       <div className="ds-post__actions" aria-label="Post actions">
         {signedIn ? (

@@ -107,6 +107,45 @@ export function journeyCoverSrc(cover: string | null | undefined) {
   return cover?.trim() ? cover : JOURNEY_DEFAULT_IMAGE
 }
 
+export function fmtJourneyDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-NA', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+export function fmtJourneyDateShort(iso: string) {
+  return new Date(iso).toLocaleDateString('en-NA', { day: 'numeric', month: 'short' })
+}
+
+export function nightsBetween(arrived: string, left: string) {
+  return Math.max(1, Math.round((new Date(left).getTime() - new Date(arrived).getTime()) / 86400000))
+}
+
+export function dayRangeLabel(arrived: string, left: string) {
+  const a = fmtJourneyDateShort(arrived)
+  const b = fmtJourneyDateShort(left)
+  return a === b ? `Day ${a}` : `${a} – ${b}`
+}
+
+export function buildJourneyGalleryImages(
+  trip: MockTrip,
+  photoItems: { src: string; caption: string; place: string }[],
+): import('../components/listing/types').ListingGalleryItem[] {
+  const images: import('../components/listing/types').ListingGalleryItem[] = []
+  const cover = journeyCoverSrc(trip.cover_image)
+  if (cover) {
+    images.push({ id: 'cover', src: cover, alt: trip.title })
+  }
+  for (const [i, p] of photoItems.entries()) {
+    if (images.some((img) => img.src === p.src)) continue
+    images.push({
+      id: `photo-${i}`,
+      src: p.src,
+      alt: p.caption || p.place,
+      caption: p.place,
+    })
+  }
+  return images.length > 0 ? images : [{ src: JOURNEY_DEFAULT_IMAGE, alt: trip.title }]
+}
+
 export function journeyStyleTags(trip: MockTrip): string[] {
   const accent = journeyAccentBadge(trip)
   const tags: string[] = []

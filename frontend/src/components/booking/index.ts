@@ -42,3 +42,58 @@ export { GuideRequestAccessGate } from './GuideRequestAccessGate'
 export { GUIDE_TIME_PRESETS } from './guideRequestShared'
 export type { GuideRequestPhase, GuideBookingRecord } from './guideRequestShared'
 export { UserBookingCard } from './UserBookingCard'
+
+export {
+  nightsBetween,
+  formatStayDate,
+  formatStayRange,
+  todayIsoDate,
+  googleCalendarUrl,
+  buildBookingSearchParams,
+  checkStayAvailability,
+  validateStayDates,
+  formatGuideDate,
+  validateGuideBookingInput,
+  checkGuidePackageAvailability,
+  buildGuideBookingSearchParams,
+  googleCalendarGuideUrl,
+  nextAvailableGuideDate,
+  guidePackageDetailPath,
+  guidePackageBookPath,
+} from './bookingUtils'
+export type {
+  AvailabilityStatus,
+  AvailabilityCheckInput,
+  AvailabilityCheckResult,
+  GuideAvailabilityInput,
+} from './bookingUtils'
+export { BookingAccessGate } from './BookingAccessGate'
+export { BookingRoomCard } from './BookingRoomCard'
+export type { BookingRoomCardData } from './BookingRoomCard'
+export { BookingDetailsList } from './BookingDetailsList'
+export type { BookingDetailItem } from './BookingDetailsList'
+export { BookingReviewHeader } from './BookingReviewHeader'
+export { BookingInlineCard } from './BookingInlineCard'
+export { BookingReservePanel } from './BookingReservePanel'
+export { BookingSentPanel } from './BookingSentPanel'
+
+export {
+  StayBookingLayout,
+  StayTripSummary,
+  StayAvailabilityPanel,
+  StayDetailsPanel,
+  StayReviewPanel,
+  StayConfirmedPanel,
+} from './stay'
+export type { StayBookingStep } from './stay'
+
+export {
+  GuideBookingLayout,
+  GuideTripSummary,
+  GuideAvailabilityPanel,
+  GuideDetailsPanel,
+  GuideReviewPanel,
+  GuideConfirmedPanel,
+  GuidePackageReserveCard,
+} from './guide'
+export type { GuideBookingStep } from './guide'

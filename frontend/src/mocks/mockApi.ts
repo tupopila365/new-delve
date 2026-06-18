@@ -687,6 +687,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     const mp = s.profiles[key]
     return {
+      id: messagingNumericIdForUsername(key),
       username: mp.username,
       display_name: mp.display_name,
       bio: mp.bio,

@@ -1,19 +1,52 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { buildProviderAutomatedMessages, DmChatView } from '../components/messages/dm'
+import '../components/messages/dm/dm-chat.css'
 
 type Msg = { id: number; sender_username: string; body: string; created_at: string }
+
+type Conversation = {
+  id: number
+  participants_detail: { id: number; username: string; display_name: string }[]
+}
+
+type PublicProfile = {
+  username: string
+  display_name: string
+  bio?: string
+  city?: string
+  region?: string
+  user_type?: string
+}
 
 export function MessageThread() {
   const { id } = useParams()
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [body, setBody] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
 
-  const { data: messages } = useQuery({
+  const { data: conversation } = useQuery({
+    queryKey: ['conversation', id],
+    enabled: !!profile && !!id,
+    queryFn: () => apiFetch<Conversation>(`/api/messaging/conversations/${id}/`),
+  })
+
+  const other = useMemo(
+    () => conversation?.participants_detail.find((p) => p.username !== profile?.username),
+    [conversation?.participants_detail, profile?.username],
+  )
+
+  const { data: otherProfile } = useQuery({
+    queryKey: ['message-profile', other?.username],
+    enabled: Boolean(other?.username),
+    queryFn: () => apiFetch<PublicProfile>(`/api/accounts/users/${encodeURIComponent(other!.username)}/`, { auth: false }),
+  })
+
+  const { data: messages, isLoading } = useQuery({
     queryKey: ['msgs', id],
     enabled: !!profile && !!id,
     queryFn: () => apiFetch<Msg[]>(`/api/messaging/conversations/${id}/messages/`),
@@ -24,55 +57,60 @@ export function MessageThread() {
     mutationFn: () =>
       apiFetch(`/api/messaging/conversations/${id}/messages/`, {
         method: 'POST',
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body: body.trim() }),
       }),
     onSuccess: () => {
       setBody('')
       void qc.invalidateQueries({ queryKey: ['msgs', id] })
+      void qc.invalidateQueries({ queryKey: ['conversations'] })
     },
   })
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const personName = other?.display_name?.trim() || other?.username || 'Conversation'
+  const automatedMessages = useMemo(() => {
+    if (!otherProfile) return []
+    return buildProviderAutomatedMessages(otherProfile)
+  }, [otherProfile])
 
   if (!profile) {
     return (
-      <p>
-        <Link to="/login">Sign in</Link>
-      </p>
+      <main className="dm-page dm-page--centered">
+        <p>
+          <Link to="/login">Sign in</Link> to view messages.
+        </p>
+      </main>
+    )
+  }
+
+  if (!other) {
+    return (
+      <main className="dm-page dm-page--centered">
+        <div className="dm-chat__state">Loading conversation…</div>
+      </main>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 8rem)' }}>
-      <Link to="/messages" style={{ marginBottom: 8 }}>
-        ← Inbox
-      </Link>
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {(Array.isArray(messages) ? messages : []).map((m) => (
-          <div
-            key={m.id}
-            className="card"
-            style={{
-              padding: '0.65rem 0.85rem',
-              alignSelf: m.sender_username === profile.username ? 'flex-end' : 'flex-start',
-              maxWidth: '85%',
-              background: m.sender_username === profile.username ? 'var(--accent-soft)' : 'var(--bg-elevated)',
-            }}
-          >
-            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-secondary)' }}>{m.sender_username}</div>
-            <div>{m.body}</div>
-          </div>
-        ))}
-        <div ref={bottomRef} />
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <input className="input" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message…" />
-        <button type="button" className="btn btn-primary" disabled={!body.trim() || sendMut.isPending} onClick={() => sendMut.mutate()}>
-          Send
-        </button>
-      </div>
-    </div>
+    <main className="dm-page">
+      <DmChatView
+        person={{
+          username: other.username,
+          display_name: other.display_name,
+          city: otherProfile?.city,
+          region: otherProfile?.region,
+        }}
+        personName={personName}
+        myUsername={profile.username}
+        messages={Array.isArray(messages) ? messages : []}
+        automatedMessages={automatedMessages}
+        body={body}
+        onBodyChange={setBody}
+        onSend={() => sendMut.mutate()}
+        sending={sendMut.isPending}
+        loading={isLoading}
+        onBack={() => navigate('/messages')}
+        backLabel="Back to inbox"
+      />
+    </main>
   )
 }

@@ -19913,12 +19913,12 @@ a.chip.chip--accent:hover {
 }
 
 .gd-detail__identity {
-  margin-bottom: 28px;
-  padding: 22px 24px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(28, 20, 16, 0.06);
-  box-shadow: 0 18px 55px rgba(28, 20, 16, 0.07);
+  margin-bottom: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .gd-detail__meta-row {
@@ -21513,12 +21513,12 @@ a.chip.chip--accent:hover {
 }
 
 .gpkg-detail__identity {
-  margin-bottom: 20px;
-  padding: 22px 24px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(28, 20, 16, 0.06);
-  box-shadow: 0 18px 55px rgba(28, 20, 16, 0.07);
+  margin-bottom: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .gpkg-detail__eyebrow {

@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
+import { messageProviderPath } from '../messages/messageProviderUtils'
 
 type Props = {
   name: string
   role?: string
   avatar?: string
   href?: string
+  messageUsername?: string
   onMessage?: () => void
   messageLabel?: string
   className?: string
@@ -16,6 +18,7 @@ export function BookingProviderCard({
   role,
   avatar,
   href,
+  messageUsername,
   onMessage,
   messageLabel = 'Message provider',
   className = '',
@@ -47,7 +50,15 @@ export function BookingProviderCard({
           </span>
         </div>
       )}
-      {onMessage ? (
+      {messageUsername ? (
+        <Link
+          to={messageProviderPath(messageUsername)}
+          className="btn btn-ghost btn-sm bk-provider__msg"
+        >
+          <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+          {messageLabel}
+        </Link>
+      ) : onMessage ? (
         <button type="button" className="btn btn-ghost btn-sm bk-provider__msg" onClick={onMessage}>
           <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
           {messageLabel}

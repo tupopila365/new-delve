@@ -30,14 +30,10 @@ function avatarLetter(name: string) {
 export function IgPostCard({
   post,
   queryKey,
-  linkMedia = true,
   mediaVariant = 'feed',
 }: {
   post: FeedPost
   queryKey: unknown[]
-  /** When false, media is not wrapped in a link (e.g. on the post detail page). */
-  linkMedia?: boolean
-  /** Detail page uses `detail` for sharp media + controls over a blurred backdrop. */
   mediaVariant?: PostMediaVariant
 }) {
   const { profile } = useAuth()
@@ -84,15 +80,7 @@ export function IgPostCard({
         </span>
       </header>
 
-      {linkMedia ? (
-        <Link to={`/posts/${post.id}`} className="ig-post__media-link">
-          {hasMedia ? (
-            <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
-          ) : (
-            <div className="post-media-placeholder">No photo or video — tap to open post</div>
-          )}
-        </Link>
-      ) : hasMedia ? (
+      {hasMedia ? (
         <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
       ) : (
         <div className="post-media-placeholder">No photo or video</div>

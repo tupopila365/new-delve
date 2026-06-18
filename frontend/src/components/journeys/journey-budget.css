@@ -1,0 +1,164 @@
+.jn-budget-section .listing-section__title {
+  color: var(--listing-text, #fffaf2);
+}
+
+.jn-budget {
+  background: #000;
+  border: 1px solid var(--listing-border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  padding: 16px;
+  color: #fffaf2;
+}
+
+.jn-budget__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.jn-budget__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.jn-budget__value {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.jn-budget__stat--main .jn-budget__value {
+  font-size: 1.35rem;
+}
+
+.jn-budget__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.jn-budget__bar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
+}
+
+.jn-budget__bar-seg {
+  min-width: 2px;
+}
+
+.jn-budget__bar-seg:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.jn-budget__bar-seg:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+.jn-budget__categories,
+.jn-budget__expense-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.jn-budget__categories {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 14px;
+}
+
+.jn-budget__cat-row,
+.jn-budget__expense-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.jn-budget__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.jn-budget__cat-name,
+.jn-budget__expense-note {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fffaf2;
+  min-width: 0;
+}
+
+.jn-budget__cat-pct {
+  font-size: 12px;
+  color: rgba(255, 250, 242, 0.5);
+  text-align: right;
+}
+
+.jn-budget__cat-amt,
+.jn-budget__expense-amt {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.jn-budget__expenses-title {
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 242, 0.5);
+}
+
+.jn-budget__expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jn-budget__expense-cat {
+  font-size: 11px;
+  color: rgba(255, 250, 242, 0.45);
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .jn-budget__summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .jn-budget__stat--main {
+    grid-column: 1 / -1;
+  }
+
+  .jn-budget__cat-row {
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+  }
+
+  .jn-budget__expense-row {
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+  }
+
+  .jn-budget__expense-cat,
+  .jn-budget__cat-pct {
+    display: none;
+  }
+}

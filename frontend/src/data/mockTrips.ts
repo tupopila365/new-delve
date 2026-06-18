@@ -1,5 +1,7 @@
 /** Mock travel diary trips for the Journeys feed — no backend needed. */
 
+import type { VenueStoryChannelInput } from '../components/food/stories/types'
+
 const IMG = {
   dunes: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=1200&q=70',
   coast: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=70',
@@ -82,6 +84,7 @@ export type MockTrip = {
   comments_count: number
   liked_by_me: boolean
   saved_by_me: boolean
+  journey_stories?: VenueStoryChannelInput[]
 }
 
 export const mockTrips: MockTrip[] = [
@@ -134,7 +137,7 @@ export const mockTrips: MockTrip[] = [
         cost: 2800,
         entries: [
           { id: 6, body: 'Fish and chips at the jetty. Cold Atlantic breeze, warm coffee.', image: IMG.coast, video: null },
-          { id: 7, body: 'Sandboarding down Dune 7 — faces full of sand, zero regrets.', image: IMG.hike, video: null },
+          { id: 7, body: 'Sandboarding down Dune 7 — faces full of sand, zero regrets.', image: IMG.hike, video: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' },
           { id: 8, body: 'Cape Cross seal colony on the way back — thousands of seals, incredible noise.', image: IMG.seal, video: null },
         ],
       },

@@ -1,6 +1,36 @@
 import type { ReactNode } from 'react'
 import type { ReviewItem } from '../GuestReviewCard'
 
+export type ListingLabelItem = {
+  id?: string | number
+  label: string
+  icon?: ReactNode
+}
+
+export type ListingQuickChip = {
+  id?: string | number
+  label: string
+  icon?: ReactNode
+  accent?: boolean
+}
+
+export type ListingRoomOption = {
+  id?: string | number
+  name: string
+  description?: string | null
+  maxGuests?: number | null
+  bedrooms?: number | null
+  bedSummary?: string | null
+  pricePerNight?: string | null
+  compareAtPrice?: string | null
+  fallbackPrice?: string | null
+  image?: string | null
+  images?: ListingGalleryItem[]
+  badge?: string | null
+  featured?: boolean
+  bookHref: string
+}
+
 export type ListingGalleryItem = {
   id?: string | number
   src: string

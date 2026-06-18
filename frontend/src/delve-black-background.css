@@ -1,5 +1,9 @@
+/* App canvas — warm dark charcoal (not pure black) */
 :root {
-  --bg: #050505;
+  --bg: #181614;
+  --bg-elevated: #221f1c;
+  --bg-nav: rgba(24, 22, 20, 0.94);
+  --bg-nav-solid: #1e1b18;
 }
 
 html,
@@ -9,11 +13,11 @@ body,
 .app-main,
 .app-main--home,
 .page-home {
-  background: #050505 !important;
+  background: var(--bg) !important;
 }
 
 body {
-  background-color: #050505 !important;
+  background-color: var(--bg) !important;
 }
 
 .app-main {
@@ -23,7 +27,7 @@ body {
 .mobile-topbar,
 .mobile-topbar__sections,
 .mobile-topbar__more-panel {
-  background: rgba(5, 5, 5, 0.94) !important;
+  background: var(--bg-nav) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -35,7 +39,7 @@ body {
 
 .mobile-topbar__icon,
 .bottom-nav {
-  background: rgba(20, 20, 20, 0.92) !important;
+  background: rgba(30, 27, 24, 0.94) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   color: rgba(255, 255, 255, 0.9) !important;
 }
@@ -53,7 +57,7 @@ body {
 }
 
 .app-topnav {
-  background: rgba(5, 5, 5, 0.86) !important;
+  background: rgba(24, 22, 20, 0.9) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   backdrop-filter: blur(18px);
 }
@@ -66,7 +70,7 @@ body {
 }
 
 .app-topnav__more-panel {
-  background: rgba(16, 16, 16, 0.96) !important;
+  background: rgba(30, 27, 24, 0.96) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 

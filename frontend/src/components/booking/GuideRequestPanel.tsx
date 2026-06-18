@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { apiFetch } from '../../api/client'
 import { friendlyApiMessage } from '../../utils/friendlyError'
-import type { TourPackage } from '../guide/GuideTourPackages'
+import type { TourPackage } from '../guide/types'
 import { GuideAskButton } from '../guide/GuideAskButton'
 import { DetailActionCard } from '../detail'
 import { BookingDateFields } from './BookingDateFields'

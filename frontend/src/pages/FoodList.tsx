@@ -3,22 +3,17 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowRight,
   BadgeDollarSign,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Coffee,
   Croissant,
   Fish,
   Flame,
-  Heart,
   MapPin,
   Moon,
   Sandwich,
   SlidersHorizontal,
   Soup,
-  Sparkles,
   Star,
   Truck,
   Users,
@@ -27,12 +22,13 @@ import {
   X,
 } from 'lucide-react'
 import { apiFetch } from '../api/client'
-import { useAuth } from '../auth/AuthContext'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
-import { MarketplaceBadge, MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
-import { MiniRating } from '../components/MiniRating'
+import { MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
+import { FoodListingCard, VenueSpotlightStories } from '../components/food'
+import type { VenueStoryChannelInput } from '../components/food/stories/types'
+import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
 import { EmptyState, ListSkeleton } from '../components/ui'
-import { foodCoverSrc, foodOpenBadge, pickFeaturedFood } from '../utils/foodDisplay'
+import { foodCoverSrc, foodOpenBadge } from '../utils/foodDisplay'
 
 type Venue = {
   id: number
@@ -51,6 +47,7 @@ type Venue = {
   tagline?: string | null
   popular_dish?: string | null
   closes_at?: string | null
+  venue_stories?: VenueStoryChannelInput[]
 }
 
 const CUISINE_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
@@ -91,28 +88,10 @@ function cuisineMeta(value: string) {
   return CUISINE_OPTIONS.find((c) => c.value === value) ?? { label: value, Icon: Utensils }
 }
 
-function priceLabel(level: number): string {
-  return '$'.repeat(Math.max(1, Math.min(4, level || 1)))
-}
-
 function onFoodImgError(e: React.SyntheticEvent<HTMLImageElement>, cuisine: string) {
   const img = e.currentTarget
   const fallback = foodCoverSrc(null, cuisine)
   if (img.src !== fallback) img.src = fallback
-}
-
-function venueBlurb(v: Venue): string {
-  return v.tagline?.trim() || v.description?.trim() || ''
-}
-
-function venueTrustBadges(v: Venue): string[] {
-  const badges: string[] = []
-  if ((v.rating_count ?? 0) >= 80) badges.push('Local favourite')
-  if (v.is_open === true) badges.push('Open now')
-  if (v.popular_dish) badges.push('Popular dish')
-  if ((v.price_level || 2) <= 1) badges.push('Budget friendly')
-  if (v.cuisine === 'grill' || v.cuisine === 'local') badges.push('Good for groups')
-  return badges.slice(0, 3)
 }
 
 function resultsSummary(count: number, hasFilters: boolean, search: string) {
@@ -127,22 +106,12 @@ function resultsSummary(count: number, hasFilters: boolean, search: string) {
 }
 
 export function FoodList() {
-  const { profile } = useAuth()
   const [cuisine, setCuisine] = useState('')
   const [mood, setMood] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
-  const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null)
-  const [storyReactions, setStoryReactions] = useState<Record<number, 'love' | 'fire' | 'wow' | null>>({})
-  const [storyReactionCounts, setStoryReactionCounts] = useState<
-    Record<number, { love: number; fire: number; wow: number }>
-  >({})
-  const [storyComments, setStoryComments] = useState<Record<number, string[]>>({})
-  const [storyDraft, setStoryDraft] = useState('')
-  const [shareMsg, setShareMsg] = useState('')
-  const [showCommentInput, setShowCommentInput] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -173,14 +142,8 @@ export function FoodList() {
     return list
   }, [data, mood])
 
-  const featured = useMemo(() => venues.slice(0, 6), [venues])
+  const featured = useMemo(() => venues.slice(0, 5), [venues])
   const showRichSections = featured.length >= 4
-  const topPick = useMemo(() => pickFeaturedFood(venues), [venues])
-  const gridVenues = useMemo(() => {
-    if (!topPick) return venues
-    return venues.filter((v) => v.id !== topPick.id)
-  }, [venues, topPick])
-  const activeStory = activeStoryIdx != null ? featured[activeStoryIdx] : null
   const openNowCount = useMemo(() => (data ?? []).filter((v) => v.is_open === true).length, [data])
   const favouritesCount = useMemo(
     () => (data ?? []).filter((v) => (v.rating_count ?? 0) >= 80).length,
@@ -188,86 +151,6 @@ export function FoodList() {
   )
 
   const hasFilters = !!(cuisine || search || mood)
-
-  useEffect(() => {
-    if (activeStoryIdx == null) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setActiveStoryIdx(null)
-      if (e.key === 'ArrowRight' && featured.length > 0) {
-        setActiveStoryIdx((idx) => (idx == null ? 0 : (idx + 1) % featured.length))
-      }
-      if (e.key === 'ArrowLeft' && featured.length > 0) {
-        setActiveStoryIdx((idx) => (idx == null ? 0 : (idx - 1 + featured.length) % featured.length))
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [activeStoryIdx, featured.length])
-
-  useEffect(() => {
-    if (activeStoryIdx == null || featured.length === 0) return
-    const t = window.setTimeout(() => {
-      setActiveStoryIdx((idx) => {
-        if (idx == null) return null
-        if (idx >= featured.length - 1) return null
-        return idx + 1
-      })
-    }, 15000)
-    return () => window.clearTimeout(t)
-  }, [activeStoryIdx, featured.length])
-
-  useEffect(() => {
-    if (!shareMsg) return
-    const t = window.setTimeout(() => setShareMsg(''), 1600)
-    return () => window.clearTimeout(t)
-  }, [shareMsg])
-
-  useEffect(() => {
-    if (!activeStory) {
-      setStoryDraft('')
-      setShowCommentInput(false)
-      return
-    }
-    const id = activeStory.id
-    setStoryReactionCounts((prev) => {
-      if (prev[id]) return prev
-      return { ...prev, [id]: { love: 0, fire: 0, wow: 0 } }
-    })
-  }, [activeStory])
-
-  const onReactStory = (venueId: number, reaction: 'love' | 'fire' | 'wow') => {
-    const prevReaction = storyReactions[venueId] ?? null
-    const nextReaction = prevReaction === reaction ? null : reaction
-    setStoryReactions((prev) => ({ ...prev, [venueId]: nextReaction }))
-    setStoryReactionCounts((prev) => {
-      const cur = prev[venueId] ?? { love: 0, fire: 0, wow: 0 }
-      const out = { ...cur }
-      if (prevReaction) out[prevReaction] = Math.max(0, out[prevReaction] - 1)
-      if (nextReaction) out[nextReaction] += 1
-      return { ...prev, [venueId]: out }
-    })
-  }
-
-  const onShareStory = async (venueId: number) => {
-    const url = `${window.location.origin}/food/${venueId}`
-    try {
-      await navigator.clipboard.writeText(url)
-      setShareMsg('Link copied')
-    } catch {
-      setShareMsg('Copy failed')
-    }
-  }
-
-  const onCommentStory = (venueId: number) => {
-    const body = storyDraft.trim()
-    if (!body) return
-    const author = profile?.display_name?.trim() || profile?.username || 'You'
-    setStoryComments((prev) => ({
-      ...prev,
-      [venueId]: [`${author}: ${body}`, ...(prev[venueId] ?? [])].slice(0, 8),
-    }))
-    setStoryDraft('')
-  }
 
   const clearAll = () => {
     setCuisine('')
@@ -325,7 +208,7 @@ export function FoodList() {
   }, [cuisine, data?.length, favouritesCount, openNowCount])
 
   return (
-    <div className="fd-page disc-page mk-page">
+    <div className="ev-page fd-page acc-page disc-page mk-page">
       <MarketplaceHero
         title="Eat & drink"
         subtitle="Find restaurants, cafés, grills, bars, and local food spots travellers recommend."
@@ -407,69 +290,31 @@ export function FoodList() {
 
       <div className="fd-page__layout disc-page__layout">
         <main className="fd-page__main disc-page__main">
-          {!isLoading && !isError && (
-            <p className="fd-page__results-summary" role="status">
-              {venues.length > 0
-                ? resultsSummary(venues.length, hasFilters, search)
-                : hasFilters || search
-                  ? resultsSummary(0, hasFilters, search)
-                  : resultsSummary(0, false, '')}
-            </p>
-          )}
-
           {!isLoading && showRichSections && (
-            <section className="ev-page__story-rings" aria-labelledby="fd-story-rings-title">
-              <div className="ev-page__stories-head">
-                <h2 id="fd-story-rings-title" className="ev-page__stories-title">
-                  Meet the kitchens
-                </h2>
-                <span className="ev-page__stories-sub">Tap to open</span>
-              </div>
-              <div className="ev-page__story-rings-row">
-                {featured.map((f, i) => (
-                  <button
-                    key={`fd-ring-${f.id}`}
-                    type="button"
-                    className="ev-story-ring"
-                    onClick={() => setActiveStoryIdx(i)}
-                    aria-label={`Open story for ${f.name}`}
-                  >
-                    <span className="ev-story-ring__avatar">
-                      <img
-                        src={foodCoverSrc(f.cover_image, f.cuisine)}
-                        alt=""
-                        onError={(e) => onFoodImgError(e, f.cuisine)}
-                      />
-                    </span>
-                    <span className="ev-story-ring__label">{f.name}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
+            <VenueSpotlightStories venues={featured} />
           )}
 
           {!isLoading && featured.length > 0 && (
-            <section className="fd-featured-section" aria-labelledby="fd-featured-title">
-              <div className="fd-featured-section__head">
+            <section className="acc-featured fd-featured-section" aria-labelledby="fd-featured-title">
+              <div className="acc-featured__head">
                 <div>
-                  <h2 id="fd-featured-title" className="fd-featured-section__title">
+                  <h2 id="fd-featured-title" className="acc-featured__title">
                     Popular food spots
                   </h2>
-                  <p className="fd-featured-section__sub">
+                  <p className="acc-featured__sub">
                     Restaurants, cafés, and local favourites people are checking out.
                   </p>
                 </div>
               </div>
-              <div className="fd-featured-rail">
+              <div className="acc-featured__rail">
                 {featured.map((f) => {
-                  const meta = cuisineMeta(f.cuisine)
                   const location = f.city ? `${f.city}, ${f.region}` : f.region
                   const openLabel = foodOpenBadge(f.is_open, f.closes_at)
                   return (
-                    <Link key={`fd-featured-${f.id}`} to={`/food/${f.id}`} className="fd-featured-card">
-                      <div className="fd-featured-card__media">
+                    <Link key={`fd-featured-${f.id}`} to={`/food/${f.id}`} className="acc-featured-card">
+                      <div className="acc-featured-card__media">
                         <img
-                          className="fd-featured-card__img"
+                          className="acc-featured-card__img"
                           src={foodCoverSrc(f.cover_image, f.cuisine)}
                           alt={f.name}
                           loading="lazy"
@@ -478,27 +323,23 @@ export function FoodList() {
                         {openLabel ? (
                           <span
                             className={`fd-card__open-badge${f.is_open === false ? ' fd-card__open-badge--closed' : ''}`}
+                            style={{ position: 'absolute', left: 10, bottom: 10, zIndex: 2 }}
                           >
                             {openLabel}
                           </span>
                         ) : null}
                       </div>
-                      <div className="fd-featured-card__body">
-                        <span className="fd-featured-card__cuisine">
-                          <meta.Icon size={13} strokeWidth={2.25} aria-hidden />
-                          {meta.label}
-                        </span>
-                        <p className="fd-featured-card__name">{f.name}</p>
-                        <p className="fd-featured-card__meta">
+                      <div className="acc-featured-card__body">
+                        <span className="acc-featured-card__type">{cuisineLabel(f.cuisine)}</span>
+                        <p className="acc-featured-card__title">{f.name}</p>
+                        <p className="acc-featured-card__meta">
                           <MapPin size={12} strokeWidth={2.25} aria-hidden />
                           {location}
                         </p>
-                        <div className="fd-featured-card__foot">
-                          {f.rating_avg != null ? (
-                            <MiniRating rating={f.rating_avg} count={f.rating_count} />
-                          ) : null}
-                          <span className="fd-featured-card__price">{priceLabel(f.price_level)}</span>
-                        </div>
+                        <p className="acc-featured-card__price">
+                          From {priceLevelLabel(f.price_level)}
+                          <span> / person</span>
+                        </p>
                       </div>
                     </Link>
                   )
@@ -508,14 +349,14 @@ export function FoodList() {
           )}
 
           {hasFilters && (
-            <div className="fd-page__filter-summary">
-              <span className="fd-page__filter-text">
+            <div className="ev-page__filter-summary acc-page__filter-summary">
+              <span className="ev-page__filter-summary-text acc-page__filter-summary-text">
                 Filtered
                 {cuisine ? ` · ${cuisineMeta(cuisine).label}` : ''}
                 {mood ? ` · ${MOOD_FILTERS.find((m) => m.id === mood)?.label}` : ''}
                 {search ? ` · “${search}”` : ''}
               </span>
-              <button type="button" className="fd-page__filter-clear" onClick={clearAll}>
+              <button type="button" className="ev-page__filter-clear acc-page__filter-clear" onClick={clearAll}>
                 Clear all
               </button>
             </div>
@@ -537,13 +378,15 @@ export function FoodList() {
             </div>
           )}
 
-          {!isLoading && topPick && (
-            <FoodFeaturedCard venue={topPick} saved={savedIds.has(topPick.id)} onToggleSave={toggleSaved} />
+          {!isLoading && !isError && venues.length > 0 && (
+            <p className="acc-page__results-summary fd-page__results-summary" role="status">
+              {resultsSummary(venues.length, hasFilters, search)}
+            </p>
           )}
 
-          <div className="fd-page__grid">
-            {gridVenues.map((f) => (
-              <FoodVenueCard key={f.id} venue={f} saved={savedIds.has(f.id)} onToggleSave={toggleSaved} />
+          <div className="acc-page__grid ev-page__grid fd-page__grid">
+            {venues.map((f) => (
+              <FoodListingCard key={f.id} venue={f} saved={savedIds.has(f.id)} onToggleSave={toggleSaved} />
             ))}
           </div>
 
@@ -570,322 +413,6 @@ export function FoodList() {
 
         <DiscoverySidebar sections={sidebarSections} ariaLabel="Food discovery" />
       </div>
-
-      {shareMsg ? (
-        <p className="fd-page__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
-
-      {activeStory && (
-        <div
-          className="ev-story-viewer"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Food story: ${activeStory.name}`}
-          onClick={() => setActiveStoryIdx(null)}
-        >
-          <div className="ev-story-viewer__card" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="ev-story-viewer__close"
-              aria-label="Close story"
-              onClick={() => setActiveStoryIdx(null)}
-            >
-              <X size={20} strokeWidth={2.25} aria-hidden />
-            </button>
-            <img
-              className="ev-story-viewer__img"
-              src={foodCoverSrc(activeStory.cover_image, activeStory.cuisine)}
-              alt={activeStory.name}
-              onError={(e) => onFoodImgError(e, activeStory.cuisine)}
-            />
-            <div className="ev-story-viewer__meta">
-              <div className="ev-story-viewer__progress" aria-hidden>
-                <span
-                  key={activeStory.id}
-                  className="ev-story-viewer__progress-fill"
-                  style={{ animationDuration: '15s' }}
-                />
-              </div>
-              <p className="ev-story-viewer__author-row">
-                {activeStory.owner_username ? (
-                  <Link className="ev-story-viewer__author" to={`/u/${activeStory.owner_username}`}>
-                    @{activeStory.owner_display_name?.trim() || activeStory.owner_username}
-                  </Link>
-                ) : (
-                  <span className="ev-story-viewer__author">@food-host</span>
-                )}
-              </p>
-              <p className="ev-story-viewer__title">{activeStory.name}</p>
-              <p className="ev-story-viewer__sub">
-                {cuisineMeta(activeStory.cuisine).label} · {activeStory.city || activeStory.region}
-              </p>
-              <div className="ev-story-viewer__social" role="group" aria-label="Story actions">
-                <button
-                  type="button"
-                  className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'love' ? ' ev-story-viewer__react--active' : ''}`}
-                  onClick={() => onReactStory(activeStory.id, 'love')}
-                  aria-label="React with love"
-                >
-                  <Heart size={16} strokeWidth={2.25} fill={storyReactions[activeStory.id] === 'love' ? 'currentColor' : 'none'} aria-hidden />
-                  {storyReactionCounts[activeStory.id]?.love ?? 0}
-                </button>
-                <button
-                  type="button"
-                  className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'fire' ? ' ev-story-viewer__react--active' : ''}`}
-                  onClick={() => onReactStory(activeStory.id, 'fire')}
-                  aria-label="React with fire"
-                >
-                  <Flame size={16} strokeWidth={2.25} aria-hidden />
-                  {storyReactionCounts[activeStory.id]?.fire ?? 0}
-                </button>
-                <button
-                  type="button"
-                  className={`ev-story-viewer__react${storyReactions[activeStory.id] === 'wow' ? ' ev-story-viewer__react--active' : ''}`}
-                  onClick={() => onReactStory(activeStory.id, 'wow')}
-                  aria-label="React with surprise"
-                >
-                  <Sparkles size={16} strokeWidth={2.25} aria-hidden />
-                  {storyReactionCounts[activeStory.id]?.wow ?? 0}
-                </button>
-                <button type="button" className="ev-story-viewer__share" onClick={() => onShareStory(activeStory.id)}>
-                  Share
-                </button>
-                <button
-                  type="button"
-                  className="ev-story-viewer__share"
-                  onClick={() => setShowCommentInput((v) => !v)}
-                >
-                  {showCommentInput ? 'Close comment' : 'Comment'}
-                </button>
-              </div>
-              {showCommentInput && (
-                <div className="ev-story-viewer__comment-box">
-                  <label className="visually-hidden" htmlFor="fd-story-comment">
-                    Write a comment
-                  </label>
-                  <input
-                    id="fd-story-comment"
-                    className="input ev-story-viewer__comment-input"
-                    placeholder="Write a comment…"
-                    value={storyDraft}
-                    onChange={(e) => setStoryDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') onCommentStory(activeStory.id)
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost ev-story-viewer__comment-send"
-                    onClick={() => onCommentStory(activeStory.id)}
-                    disabled={!storyDraft.trim()}
-                  >
-                    Send
-                  </button>
-                </div>
-              )}
-              {shareMsg && <p className="ev-story-viewer__share-msg">{shareMsg}</p>}
-              {(storyComments[activeStory.id] ?? []).length > 0 && (
-                <div className="ev-story-viewer__comments">
-                  {(storyComments[activeStory.id] ?? []).map((c, idx) => (
-                    <p key={`${activeStory.id}-c-${idx}`} className="ev-story-viewer__comment-item">
-                      {c}
-                    </p>
-                  ))}
-                </div>
-              )}
-              <Link className="btn btn-primary ev-story-viewer__cta" to={`/food/${activeStory.id}`}>
-                View place
-              </Link>
-            </div>
-            {featured.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  className="ev-story-viewer__nav ev-story-viewer__nav--prev"
-                  aria-label="Previous story"
-                  onClick={() =>
-                    setActiveStoryIdx((idx) =>
-                      idx == null ? 0 : (idx - 1 + featured.length) % featured.length,
-                    )
-                  }
-                >
-                  <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  className="ev-story-viewer__nav ev-story-viewer__nav--next"
-                  aria-label="Next story"
-                  onClick={() => setActiveStoryIdx((idx) => (idx == null ? 0 : (idx + 1) % featured.length))}
-                >
-                  <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
-  )
-}
-
-function FoodFeaturedCard({
-  venue: f,
-  saved,
-  onToggleSave,
-}: {
-  venue: Venue
-  saved: boolean
-  onToggleSave: (id: number, e: React.MouseEvent) => void
-}) {
-  const meta = cuisineMeta(f.cuisine)
-  const MetaIcon = meta.Icon
-  const location = f.city ? `${f.city}, ${f.region}` : f.region
-  const price = priceLabel(f.price_level)
-  const openLabel = foodOpenBadge(f.is_open, f.closes_at)
-
-  return (
-    <Link to={`/food/${f.id}`} className="fd-featured">
-      <div className="fd-featured__media">
-        <img
-          src={foodCoverSrc(f.cover_image, f.cuisine)}
-          alt={f.name}
-          loading="lazy"
-          onError={(e) => onFoodImgError(e, f.cuisine)}
-        />
-        <button
-          type="button"
-          className={`acc-media-card__save fd-featured__save${saved ? ' acc-media-card__save--saved' : ''}`}
-          aria-label={saved ? 'Remove from saved' : 'Save venue'}
-          onClick={(e) => onToggleSave(f.id, e)}
-        >
-          <Heart size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-        </button>
-        {openLabel ? (
-          <span className={`fd-card__open-badge${f.is_open === false ? ' fd-card__open-badge--closed' : ''}`}>
-            {openLabel}
-          </span>
-        ) : null}
-      </div>
-      <div className="fd-featured__body">
-        <span className="fd-featured__badge">Featured today</span>
-        <h2 className="fd-featured__name">{f.name}</h2>
-        <p className="fd-featured__meta">
-          <MetaIcon size={14} strokeWidth={2.25} aria-hidden />
-          {meta.label}
-          <span aria-hidden> · </span>
-          <MapPin size={13} strokeWidth={2.25} aria-hidden />
-          {location}
-          {f.rating_avg != null ? (
-            <>
-              <span aria-hidden> · </span>
-              <MiniRating rating={f.rating_avg} count={f.rating_count} />
-            </>
-          ) : null}
-        </p>
-        <p className="fd-featured__desc">
-          {venueBlurb(f) || f.popular_dish || 'A local favourite worth booking ahead.'}
-        </p>
-        <p className="fd-featured__price">
-          {price}
-          {openLabel ? ` · ${openLabel}` : ''}
-        </p>
-        <span className="fd-featured__cta">
-          View place
-          <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
-        </span>
-      </div>
-    </Link>
-  )
-}
-
-function FoodVenueCard({
-  venue: f,
-  saved,
-  onToggleSave,
-}: {
-  venue: Venue
-  saved: boolean
-  onToggleSave: (id: number, e: React.MouseEvent) => void
-}) {
-  const meta = cuisineMeta(f.cuisine)
-  const price = priceLabel(f.price_level)
-  const location = f.city ? `${f.city}, ${f.region}` : f.region
-  const openLabel = foodOpenBadge(f.is_open, f.closes_at)
-  const badges = venueTrustBadges(f)
-  const MetaIcon = meta.Icon
-
-  return (
-    <Link to={`/food/${f.id}`} className="fd-card">
-      <div className="fd-card__img-wrap">
-        <img
-          className="fd-card__img"
-          src={foodCoverSrc(f.cover_image, f.cuisine)}
-          alt={f.name}
-          loading="lazy"
-          onError={(e) => onFoodImgError(e, f.cuisine)}
-        />
-        <button
-          type="button"
-          className={`acc-media-card__save fd-card__save${saved ? ' acc-media-card__save--saved' : ''}`}
-          aria-label={saved ? 'Remove from saved' : 'Save venue'}
-          onClick={(e) => onToggleSave(f.id, e)}
-        >
-          <Heart size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-        </button>
-        {openLabel ? (
-          <span className={`fd-card__open-badge${f.is_open === false ? ' fd-card__open-badge--closed' : ''}`}>
-            {openLabel}
-          </span>
-        ) : null}
-      </div>
-      <div className="fd-card__body">
-        {badges.length > 0 ? (
-          <div className="fd-card__badges">
-            {badges.map((b) => (
-              <MarketplaceBadge key={b}>{b}</MarketplaceBadge>
-            ))}
-          </div>
-        ) : null}
-        <div className="fd-card__top-row">
-          <span className="fd-card__cuisine">
-            <MetaIcon size={13} strokeWidth={2.25} aria-hidden />
-            {meta.label}
-          </span>
-          <span className="fd-card__price" aria-label={`Price level: ${price}`}>
-            {price}
-          </span>
-        </div>
-        <h2 className="fd-card__name">{f.name}</h2>
-        <p className="fd-card__location">
-          <MapPin size={13} strokeWidth={2.25} aria-hidden />
-          {location}
-        </p>
-        {f.rating_avg != null && (
-          <div className="fd-card__rating">
-            <MiniRating rating={f.rating_avg} count={f.rating_count} />
-          </div>
-        )}
-        {f.popular_dish ? (
-          <p className="fd-card__dish">
-            Known for: <strong>{f.popular_dish}</strong>
-          </p>
-        ) : null}
-        {venueBlurb(f) ? <p className="fd-card__tagline">{venueBlurb(f)}</p> : null}
-        <div className="fd-card__footer">
-          <p className="fd-card__rate-row">
-            <span className="fd-card__rate-from">From</span>
-            <strong className="fd-card__rate-amount">{price}</strong>
-            <span className="fd-card__rate-unit"> typical</span>
-          </p>
-          <span className="fd-card__book">
-            View place
-            <ArrowRight size={14} strokeWidth={2.25} aria-hidden />
-          </span>
-        </div>
-      </div>
-    </Link>
   )
 }

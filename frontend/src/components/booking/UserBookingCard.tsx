@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { CalendarDays, MapPin, Users } from 'lucide-react'
 import { BOOKING_SERVICE_LABELS, type BookingServiceType } from './bookingStatus'
 import { BookingStatusBadge } from './BookingStatusBadge'
+import { MessageProviderLink } from '../messages'
 
 type Props = {
   serviceType: BookingServiceType
@@ -14,6 +15,7 @@ type Props = {
   price?: string
   href?: string
   messageTo?: string
+  messageUsername?: string
   onMessage?: () => void
   onCancel?: () => void
   cancelDisabled?: boolean
@@ -35,6 +37,7 @@ export function UserBookingCard({
   price,
   href,
   messageTo,
+  messageUsername,
   onMessage,
   onCancel,
   cancelDisabled,
@@ -82,7 +85,9 @@ export function UserBookingCard({
             {viewLabel}
           </Link>
         ) : null}
-        {messageTo ? (
+        {messageUsername ? (
+          <MessageProviderLink username={messageUsername} label={messageLabel} size="sm" variant="ghost" />
+        ) : messageTo ? (
           <Link to={messageTo} className="btn btn-ghost btn-sm">
             {messageLabel}
           </Link>

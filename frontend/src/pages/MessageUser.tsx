@@ -1,10 +1,15 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Lock, MessageCircle, Send, UserRound } from 'lucide-react'
+import { Lock, MessageCircle, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import '../message-user.css'
+import {
+  buildProviderAutomatedMessages,
+  DmChatView,
+  messagingUserIdForUsername,
+} from '../components/messages/dm'
+import '../components/messages/dm/dm-chat.css'
 
 type PublicMessageProfile = {
   id?: number
@@ -15,6 +20,7 @@ type PublicMessageProfile = {
   region?: string
   avatar?: string | null
   allow_messages?: boolean
+  user_type?: string
 }
 
 type Conversation = {
@@ -34,25 +40,12 @@ function displayName(profile?: PublicMessageProfile): string {
   return profile?.display_name?.trim() || profile?.username || 'Delver'
 }
 
-function fallbackUserId(username: string): number | null {
-  if (username.toLowerCase() === 'demo_user') return 1
-  if (username.toLowerCase() === 'demo_provider') return 2
-  return null
-}
-
-function messageTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
-
 export function MessageUser() {
   const { username: rawUsername } = useParams()
   const username = rawUsername?.trim() ?? ''
   const { profile: me } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const bottomRef = useRef<HTMLDivElement>(null)
   const startedFor = useRef('')
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [body, setBody] = useState('')
@@ -67,10 +60,12 @@ export function MessageUser() {
   const target = targetQuery.data
   const targetName = displayName(target)
   const targetAvatar = mediaUrl(target?.avatar ?? null)
-  const targetLocation = [target?.city, target?.region].filter(Boolean).join(', ')
   const isSelf = Boolean(me && target && me.username.toLowerCase() === target.username.toLowerCase())
   const messagesAllowed = target?.allow_messages !== false
-  const otherUserId = useMemo(() => target?.id ?? fallbackUserId(username), [target?.id, username])
+  const otherUserId = useMemo(
+    () => (username ? target?.id ?? messagingUserIdForUsername(username) : null),
+    [target?.id, username],
+  )
 
   const startMut = useMutation({
     mutationFn: (userId: number) =>
@@ -109,24 +104,96 @@ export function MessageUser() {
     },
   })
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messagesQuery.data])
+  const automatedMessages = useMemo(
+    () => (target ? buildProviderAutomatedMessages(target) : []),
+    [target],
+  )
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!conversation?.id || !body.trim() || sendMut.isPending) return
-    sendMut.mutate()
-  }
+  const opening =
+    Boolean(target && messagesAllowed && !isSelf && !conversation?.id && !startMut.isError && !targetQuery.isError)
+
+  const chatReady = Boolean(conversation?.id && me && target)
 
   if (!me) {
     return (
       <main className="dm-page dm-page--centered">
-        <section className="dm-card dm-card--auth">
+        <section className="dm-card">
           <Lock size={28} strokeWidth={2} aria-hidden />
           <h1>Sign in to message {targetName}</h1>
           <p>Messages are private and only available inside your DELVE account.</p>
-          <Link to="/login" className="btn btn-primary">Sign in</Link>
+          <Link to="/login" className="btn btn-primary">
+            Sign in
+          </Link>
+        </section>
+      </main>
+    )
+  }
+
+  if (targetQuery.isLoading) {
+    return (
+      <main className="dm-page">
+        <div className="dm-chat__state" style={{ margin: 'auto' }}>
+          Loading profile…
+        </div>
+      </main>
+    )
+  }
+
+  if (targetQuery.isError || !target) {
+    return (
+      <main className="dm-page dm-page--centered">
+        <section className="dm-card">
+          <MessageCircle size={26} strokeWidth={2} aria-hidden />
+          <h1>Profile not found</h1>
+          <p>This user may have changed their username or removed the account.</p>
+          <Link to="/messages" className="btn btn-ghost">
+            Open inbox
+          </Link>
+        </section>
+      </main>
+    )
+  }
+
+  if (isSelf) {
+    return (
+      <main className="dm-page dm-page--centered">
+        <section className="dm-card">
+          <UserRound size={26} strokeWidth={2} aria-hidden />
+          <h1>This is your profile</h1>
+          <p>You cannot send a message to yourself.</p>
+          <Link to="/messages" className="btn btn-ghost">
+            Open inbox
+          </Link>
+        </section>
+      </main>
+    )
+  }
+
+  if (!messagesAllowed) {
+    return (
+      <main className="dm-page dm-page--centered">
+        <section className="dm-card">
+          <Lock size={26} strokeWidth={2} aria-hidden />
+          <h1>Messages are disabled</h1>
+          <p>This provider is not accepting message requests right now.</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (startMut.isError) {
+    return (
+      <main className="dm-page dm-page--centered">
+        <section className="dm-card">
+          <MessageCircle size={26} strokeWidth={2} aria-hidden />
+          <h1>Could not open chat</h1>
+          <p>Try again from the listing, or open your inbox.</p>
+          <button type="button" className="btn btn-primary" onClick={() => startMut.mutate(otherUserId!)}>
+            Try again
+          </button>
+          <Link to="/messages" className="btn btn-ghost" style={{ marginTop: 8 }}>
+            Open inbox
+          </Link>
         </section>
       </main>
     )
@@ -134,101 +201,48 @@ export function MessageUser() {
 
   return (
     <main className="dm-page">
-      <section className="dm-shell" aria-label={`Message ${targetName}`}>
-        <header className="dm-head">
-          <button type="button" className="dm-back" onClick={() => navigate(-1)} aria-label="Go back">
-            <ArrowLeft size={19} strokeWidth={2.25} aria-hidden />
-          </button>
-          <Link to={`/u/${encodeURIComponent(target?.username ?? username)}`} className="dm-person">
-            <span className="dm-person__avatar" aria-hidden>
-              {targetAvatar ? <img src={targetAvatar} alt="" /> : <UserRound size={19} strokeWidth={2} />}
-            </span>
-            <span>
-              <strong>{targetName}</strong>
-              <small>@{target?.username ?? username}{targetLocation ? ` · ${targetLocation}` : ''}</small>
-            </span>
-          </Link>
-        </header>
-
-        {targetQuery.isLoading ? (
-          <div className="dm-status">Loading profile…</div>
-        ) : null}
-
-        {targetQuery.isError ? (
-          <div className="dm-empty">
-            <MessageCircle size={26} strokeWidth={2} aria-hidden />
-            <h2>Profile not found</h2>
-            <p>This user may have changed their username or removed the account.</p>
-          </div>
-        ) : null}
-
-        {isSelf ? (
-          <div className="dm-empty">
-            <UserRound size={26} strokeWidth={2} aria-hidden />
-            <h2>This is your profile</h2>
-            <p>You cannot send a message to yourself.</p>
-            <Link to="/messages" className="btn btn-ghost">Open inbox</Link>
-          </div>
-        ) : null}
-
-        {!isSelf && !messagesAllowed ? (
-          <div className="dm-empty">
-            <Lock size={26} strokeWidth={2} aria-hidden />
-            <h2>Messages are disabled</h2>
-            <p>This user is not accepting message requests right now.</p>
-          </div>
-        ) : null}
-
-        {!isSelf && messagesAllowed && !conversation?.id && !startMut.isError ? (
-          <div className="dm-status">Opening chat…</div>
-        ) : null}
-
-        {startMut.isError || (!otherUserId && target && messagesAllowed && !isSelf) ? (
-          <div className="dm-empty">
-            <MessageCircle size={26} strokeWidth={2} aria-hidden />
-            <h2>Could not open chat</h2>
-            <p>Try again from the profile, or open your inbox.</p>
-            <Link to="/messages" className="btn btn-ghost">Open inbox</Link>
-          </div>
-        ) : null}
-
-        {conversation?.id ? (
-          <>
-            <div className="dm-messages" aria-label="Conversation messages">
-              {(messagesQuery.data ?? []).length === 0 && !messagesQuery.isLoading ? (
-                <div className="dm-empty dm-empty--compact">
-                  <MessageCircle size={24} strokeWidth={2} aria-hidden />
-                  <h2>Start the conversation</h2>
-                  <p>Send a clear, friendly message. Keep travel details in one place.</p>
-                </div>
-              ) : null}
-
-              {(messagesQuery.data ?? []).map((message) => {
-                const mine = message.sender_username === me.username
-                return (
-                  <article key={message.id} className={mine ? 'dm-bubble dm-bubble--mine' : 'dm-bubble'}>
-                    <p>{message.body}</p>
-                    <small>{messageTime(message.created_at)}</small>
-                  </article>
-                )
-              })}
-              <div ref={bottomRef} />
-            </div>
-
-            <form className="dm-composer" onSubmit={onSubmit}>
-              <textarea
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                placeholder={`Message ${targetName}`}
-                rows={1}
-              />
-              <button type="submit" disabled={!body.trim() || sendMut.isPending} aria-label="Send message">
-                <Send size={18} strokeWidth={2.4} aria-hidden />
-              </button>
-            </form>
-          </>
-        ) : null}
-      </section>
+      {chatReady ? (
+        <DmChatView
+          person={{
+            username: target.username,
+            display_name: target.display_name,
+            avatar: targetAvatar,
+            city: target.city,
+            region: target.region,
+          }}
+          personName={targetName}
+          myUsername={me.username}
+          messages={messagesQuery.data ?? []}
+          automatedMessages={automatedMessages}
+          body={body}
+          onBodyChange={setBody}
+          onSend={() => sendMut.mutate()}
+          sending={sendMut.isPending}
+          loading={messagesQuery.isLoading && !messagesQuery.data}
+          opening={opening}
+          onBack={() => navigate(-1)}
+        />
+      ) : (
+        <DmChatView
+          person={{
+            username: target.username,
+            display_name: target.display_name,
+            avatar: targetAvatar,
+            city: target.city,
+            region: target.region,
+          }}
+          personName={targetName}
+          myUsername={me.username}
+          messages={[]}
+          automatedMessages={[]}
+          body=""
+          onBodyChange={() => {}}
+          onSend={() => {}}
+          opening
+          onBack={() => navigate(-1)}
+          showQuickReplies={false}
+        />
+      )}
     </main>
   )
 }

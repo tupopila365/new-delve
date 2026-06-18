@@ -162,6 +162,8 @@ export type MockEvent = {
   capacity?: number
 }
 
+import type { VenueStoryChannelInput } from '../components/food/stories/types'
+
 export type MockFoodVenue = {
   id: number
   name: string
@@ -178,6 +180,7 @@ export type MockFoodVenue = {
   tagline?: string | null
   popular_dish?: string | null
   closes_at?: string | null
+  venue_stories?: VenueStoryChannelInput[]
 }
 
 export type MockGuide = {
@@ -1128,6 +1131,25 @@ export const mockFood: MockFoodVenue[] = [
     tagline: 'Fresh local plates, lunch specials, and dinner favourites.',
     popular_dish: 'Flame-grilled oryx steak',
     closes_at: '9 PM',
+    venue_stories: [
+      {
+        id: 'grill-night',
+        label: 'Grill night',
+        coverSrc: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1080&q=80',
+        slides: [
+          {
+            headline: 'Fire up Friday',
+            sub: 'Live flame grill from 6pm — first round of local brews on the house for tables of four.',
+            src: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1080&q=80',
+          },
+          {
+            headline: 'Ask for the oryx',
+            sub: 'Our signature flame-grilled oryx steak — medium-rare with chimichurri.',
+            src: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1080&q=80',
+          },
+        ],
+      },
+    ],
   },
   {
     id: 502,

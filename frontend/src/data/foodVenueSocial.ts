@@ -1,4 +1,5 @@
 import { foodCoverSrc } from '../utils/foodDisplay'
+import type { VenueStoryChannelInput } from '../components/food/stories/types'
 
 export type VenuePhotoCategory = 'food' | 'interior' | 'menu' | 'exterior' | 'owner'
 
@@ -52,6 +53,7 @@ export type FoodVenueSocial = {
 type BaseVenue = {
   id: number
   name: string
+  description?: string
   cuisine: string
   cover_image: string | null
   owner_username: string
@@ -59,6 +61,7 @@ type BaseVenue = {
   rating_count?: number | null
   popular_dish?: string | null
   tagline?: string | null
+  venue_stories?: VenueStoryChannelInput[]
 }
 
 const GALLERY_POOL = {

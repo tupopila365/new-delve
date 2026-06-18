@@ -1,0 +1,105 @@
+/* Day-by-day — same timeline language as route & stops */
+
+.jn-diary-section {
+  color: var(--listing-text, var(--text));
+}
+
+.jn-diary {
+  display: flex;
+  flex-direction: column;
+}
+
+.jn-diary__day {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.jn-diary__content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 22px;
+}
+
+.jn-diary__head {
+  margin-bottom: 10px;
+}
+
+.jn-diary__chapter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--listing-accent, var(--accent));
+}
+
+.jn-diary__chapter svg {
+  opacity: 0.9;
+}
+
+.jn-diary__place {
+  margin: 0 0 3px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--listing-text, var(--text));
+}
+
+.jn-diary__dates {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--listing-text-muted, var(--text-secondary));
+}
+
+.jn-diary__cost {
+  font-weight: 700;
+  color: var(--listing-text, var(--text));
+}
+
+.jn-diary__entries {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.jn-diary__entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.jn-diary__thumb {
+  margin: 0;
+}
+
+.jn-diary__note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--listing-text, var(--text));
+  max-width: 52ch;
+}
+
+.jn-diary__empty-day {
+  margin: 0;
+  font-size: 13px;
+  color: var(--listing-text-muted, var(--text-secondary));
+  font-style: italic;
+}
+
+.jn-diary__empty {
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 480px) {
+  .jn-diary__note {
+    font-size: 13px;
+  }
+}

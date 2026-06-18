@@ -1,0 +1,25 @@
+.fd-venue-stories {
+  padding: 0 var(--page-pad, 1rem) 1.25rem;
+  max-width: var(--content-max, 1120px);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.fd-venue-stories__head {
+  margin-bottom: 0.65rem;
+}
+
+.fd-venue-stories__rings {
+  padding-bottom: 0.15rem;
+}
+
+.acc-detail-page .fd-venue-stories {
+  padding-left: max(var(--page-pad, 1rem), env(safe-area-inset-left));
+  padding-right: max(var(--page-pad, 1rem), env(safe-area-inset-right));
+}
+
+@media (min-width: 768px) {
+  .fd-venue-stories {
+    padding-bottom: 1.5rem;
+  }
+}

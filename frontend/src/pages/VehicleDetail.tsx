@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { BookingDateFields, BookingPriceSummary, BookingTrustNote, UserBookingErrorState } from '../components/booking'
+import { MessageProviderLink } from '../components/messages'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { buildVehicleGalleryItems, TransportGallery } from '../components/TransportGallery'
@@ -434,16 +435,19 @@ export function VehicleDetail() {
         {createMut.isPending ? 'Sending…' : 'Request vehicle'}
       </button>
 
-      {providerProfileHref ? (
+      {v?.owner_username ? (
+        <MessageProviderLink
+          username={v.owner_username}
+          variant="ghost"
+          className="tp-detail__message-btn"
+        />
+      ) : providerProfileHref ? (
         <Link to={providerProfileHref} className="tp-detail__message-btn">
           <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
           Message provider
         </Link>
       ) : (
-        <Link to="/messages" className="tp-detail__message-btn">
-          <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
-          Contact provider
-        </Link>
+        <MessageProviderLink variant="ghost" className="tp-detail__message-btn" fallbackToInbox />
       )}
 
       {!profile ? (
@@ -736,10 +740,11 @@ export function VehicleDetail() {
                           View provider profile
                         </Link>
                       ) : null}
-                      <Link to="/messages" className="btn btn-ghost btn-sm">
-                        <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
-                        Message provider
-                      </Link>
+                      <MessageProviderLink
+                        username={v.owner_username}
+                        size="sm"
+                        variant="ghost"
+                      />
                     </div>
                   </div>
                 </div>

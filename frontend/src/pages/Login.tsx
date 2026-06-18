@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { readLoginReturnPath } from '../utils/authRedirect'
 
 export function Login() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -17,7 +19,7 @@ export function Login() {
     setBusy(true)
     try {
       await login(username.trim(), password)
-      nav('/')
+      nav(readLoginReturnPath(searchParams.toString(), '/'))
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : 'Login failed')
     } finally {

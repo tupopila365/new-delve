@@ -1,9 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { ProfileMessageLinkInterceptor } from './components/ProfileMessageLinkInterceptor'
 import { Account } from './pages/Account'
 import { AccommodationBook } from './pages/AccommodationBook'
 import { AccommodationDetail } from './pages/AccommodationDetail'
+import { AccommodationRoomDetail } from './pages/AccommodationRoomDetail'
 import { AccommodationList } from './pages/AccommodationList'
 import { AccommodationStoryNew } from './pages/AccommodationStoryNew'
 import { BusTripDetail } from './pages/BusTripDetail'
@@ -19,6 +20,7 @@ import { FoodDetail } from './pages/FoodDetail'
 import { FoodList } from './pages/FoodList'
 import { GuideDetail } from './pages/GuideDetail'
 import { TourPackageDetail } from './pages/TourPackageDetail'
+import { GuidePackageBook } from './pages/GuidePackageBook'
 import { CreateEvent } from './pages/CreateEvent'
 import { GuidesList } from './pages/GuidesList'
 import { Home } from './pages/Home'
@@ -26,7 +28,6 @@ import { Login } from './pages/Login'
 import { Messages } from './pages/Messages'
 import { MessageThread } from './pages/MessageThread'
 import { MessageUser } from './pages/MessageUser'
-import { PostDetail } from './pages/PostDetail'
 import { Register } from './pages/Register'
 import { SearchPage } from './pages/SearchPage'
 import { Settings } from './pages/Settings'
@@ -57,6 +58,14 @@ import { ListingGalleryPage } from './pages/ListingGalleryPage'
 import { ListingReviewsPage } from './pages/ListingReviewsPage'
 import { ListingMomentsPage } from './pages/ListingMomentsPage'
 
+function LegacyGuidePackageBookRedirect() {
+  const { guideId, packageSlug } = useParams<{ guideId: string; packageSlug: string }>()
+  const [searchParams] = useSearchParams()
+  const qs = searchParams.toString()
+  const target = `/guides/${guideId}/book/${encodeURIComponent(packageSlug ?? '')}${qs ? `?${qs}` : ''}`
+  return <Navigate to={target} replace />
+}
+
 export default function App() {
   return (
     <>
@@ -67,7 +76,7 @@ export default function App() {
           <Route path="/create" element={<CreateHub />} />
           <Route path="/create/post" element={<CreatePost />} />
           <Route path="/stories/new" element={<CreateStory />} />
-          <Route path="/posts/:id" element={<PostDetail />} />
+          <Route path="/posts/:id" element={<Navigate to="/delvers" replace />} />
           <Route path="/u/:username" element={<UserProfile />} />
           <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/business/:id" element={<BusinessProfile />} />
@@ -75,6 +84,7 @@ export default function App() {
           <Route path="/accommodation" element={<AccommodationList />} />
           <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />
           <Route path="/accommodation/:id" element={<AccommodationDetail />} />
+          <Route path="/accommodation/:id/room/:roomSlug" element={<AccommodationRoomDetail />} />
           <Route path="/accommodation/:id/book" element={<AccommodationBook />} />
           <Route path="/journeys" element={<TripsList />} />
           <Route path="/journeys/new" element={<CreateJourney />} />
@@ -95,6 +105,11 @@ export default function App() {
           <Route path="/listing/:type/:id/reviews" element={<ListingReviewsPage />} />
           <Route path="/listing/:type/:id/moments" element={<ListingMomentsPage />} />
           <Route path="/guides" element={<GuidesList />} />
+          <Route path="/guides/:guideId/book/:packageSlug" element={<GuidePackageBook />} />
+          <Route
+            path="/guides/:guideId/packages/:packageSlug/book"
+            element={<LegacyGuidePackageBookRedirect />}
+          />
           <Route path="/guides/:guideId/packages/:packageSlug" element={<TourPackageDetail />} />
           <Route path="/guides/:id" element={<GuideDetail />} />
           <Route path="/messages" element={<Messages />} />

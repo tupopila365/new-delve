@@ -32,6 +32,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/ui'
 import { ProfileBioSection } from '../components/profile/ProfileBioSection'
 import { ProfileStatsRow } from '../components/profile/ProfileStatsRow'
+import { ProfilePostViewer, filterProfileMediaPosts } from '../components/profile'
 import { loadUserTrips } from '../data/userTrips'
 import type { MockTrip } from '../data/mockTrips'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
@@ -92,6 +93,7 @@ export function UserProfile() {
 
   const [tab, setTab] = useState<Tab>('posts')
   const [shareMsg, setShareMsg] = useState('')
+  const [mediaViewer, setMediaViewer] = useState<{ posts: FeedPost[]; index: number } | null>(null)
 
   const {
     data: pub,
@@ -120,9 +122,17 @@ export function UserProfile() {
   })
 
   const photoPosts = useMemo(
-    () => (posts ?? []).filter((p) => p.image || p.video),
+    () => filterProfileMediaPosts(posts ?? []),
     [posts],
   )
+
+  const openMediaViewer = (sourcePosts: FeedPost[], postId: number) => {
+    const list = filterProfileMediaPosts(sourcePosts)
+    const idx = list.findIndex((p) => p.id === postId)
+    if (idx >= 0) setMediaViewer({ posts: list, index: idx })
+  }
+
+  const closeMediaViewer = () => setMediaViewer(null)
 
   const totalLikes = useMemo(
     () => (posts ?? []).reduce((n, p) => n + (p.likes_count ?? 0), 0),
@@ -340,11 +350,18 @@ export function UserProfile() {
                   isMe={isMe}
                   loading={loadingPosts}
                   posts={posts}
+                  onOpenMedia={(id) => openMediaViewer(posts ?? [], id)}
                 />
               )}
 
               {tab === 'photos' && (
-                <PhotosTab isMe={isMe} loading={loadingPosts} posts={photoPosts} postsHidden={postsHidden} />
+                <PhotosTab
+                  isMe={isMe}
+                  loading={loadingPosts}
+                  posts={photoPosts}
+                  postsHidden={postsHidden}
+                  onOpenMedia={(id) => openMediaViewer(photoPosts, id)}
+                />
               )}
 
               {tab === 'journeys' && (
@@ -373,7 +390,13 @@ export function UserProfile() {
                 <BookingsTab loading={loadingBookings} bookings={bookings} />
               )}
 
-              {tab === 'saved' && isMe && <SavedTab loading={loadingSaved} saved={saved} />}
+              {tab === 'saved' && isMe && (
+                <SavedTab
+                  loading={loadingSaved}
+                  saved={saved}
+                  onOpenMedia={(id) => openMediaViewer(saved ?? [], id)}
+                />
+              )}
 
               {tab === 'events' && (
                 <EventsTab isMe={isMe} loading={loadingEvents} events={events} />
@@ -392,6 +415,16 @@ export function UserProfile() {
           )}
         </>
       )}
+
+      {mediaViewer ? (
+        <ProfilePostViewer
+          posts={mediaViewer.posts}
+          index={mediaViewer.index}
+          onClose={closeMediaViewer}
+          onChange={(index) => setMediaViewer((v) => (v ? { ...v, index } : null))}
+          queryKey={['user-posts', username]}
+        />
+      ) : null}
     </div>
   )
 }
@@ -401,11 +434,13 @@ function PostsTab({
   isMe,
   loading,
   posts,
+  onOpenMedia,
 }: {
   postsHidden: boolean
   isMe: boolean
   loading: boolean
   posts: FeedPost[] | undefined
+  onOpenMedia: (postId: number) => void
 }) {
   if (postsHidden) {
     return (
@@ -436,7 +471,7 @@ function PostsTab({
       ) : posts && posts.length > 0 ? (
         <div className="up__post-cards">
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} />
+            <PostCard key={p.id} post={p} onOpenMedia={onOpenMedia} />
           ))}
         </div>
       ) : (
@@ -460,11 +495,13 @@ function PhotosTab({
   loading,
   posts,
   postsHidden,
+  onOpenMedia,
 }: {
   isMe: boolean
   loading: boolean
   posts: FeedPost[]
   postsHidden: boolean
+  onOpenMedia: (postId: number) => void
 }) {
   if (postsHidden) {
     return (
@@ -500,32 +537,67 @@ function PhotosTab({
   return (
     <div className="up__grid">
       {posts.map((p) => (
-        <Link key={p.id} to={`/posts/${p.id}`} className="up__grid-cell">
+        <button
+          key={p.id}
+          type="button"
+          className="up__grid-cell up__grid-cell--btn"
+          onClick={() => onOpenMedia(p.id)}
+          aria-label={postPreview(p.body)}
+        >
           <PostMedia image={p.image} video={p.video} variant="pin" alt={postPreview(p.body)} />
           {p.is_delvers ? (
             <span className="up__pin-badge" aria-label="Delvers post">
               <Compass size={11} strokeWidth={2.5} aria-hidden />
             </span>
           ) : null}
-        </Link>
+        </button>
       ))}
     </div>
   )
 }
 
-function PostCard({ post }: { post: FeedPost }) {
+function PostCard({ post, onOpenMedia }: { post: FeedPost; onOpenMedia: (postId: number) => void }) {
   const preview = postPreview(post.body)
-  return (
-    <Link to={`/posts/${post.id}`} className="up__post-card card">
-      {post.image || post.video ? (
+  const hasMedia = Boolean(post.image || post.video)
+
+  if (hasMedia) {
+    return (
+      <button type="button" className="up__post-card card up__post-card--btn" onClick={() => onOpenMedia(post.id)}>
         <div className="up__post-card__media">
           <PostMedia image={post.image} video={post.video} variant="pin" alt={preview} />
         </div>
-      ) : (
-        <div className="up__post-card__media up__post-card__media--text">
-          <MessageCircle size={24} strokeWidth={1.75} aria-hidden />
+        <div className="up__post-card__body">
+          {post.region ? (
+            <p className="up__post-card__region">
+              <MapPin size={12} strokeWidth={2.25} aria-hidden />
+              {post.region}
+            </p>
+          ) : null}
+          <p className="up__post-card__caption">{preview}</p>
+          <div className="up__post-card__meta">
+            {post.likes_count > 0 && (
+              <span>
+                <Heart size={12} strokeWidth={2.25} aria-hidden />
+                {formatCount(post.likes_count)}
+              </span>
+            )}
+            {(post.comments_count ?? 0) > 0 && (
+              <span>
+                <MessageCircle size={12} strokeWidth={2.25} aria-hidden />
+                {formatCount(post.comments_count ?? 0)}
+              </span>
+            )}
+          </div>
         </div>
-      )}
+      </button>
+    )
+  }
+
+  return (
+    <article className="up__post-card card">
+      <div className="up__post-card__media up__post-card__media--text">
+        <MessageCircle size={24} strokeWidth={1.75} aria-hidden />
+      </div>
       <div className="up__post-card__body">
         {post.region ? (
           <p className="up__post-card__region">
@@ -548,12 +620,8 @@ function PostCard({ post }: { post: FeedPost }) {
             </span>
           )}
         </div>
-        <span className="up__post-card__cta">
-          View post
-          <ArrowRight size={13} strokeWidth={2.5} aria-hidden />
-        </span>
       </div>
-    </Link>
+    </article>
   )
 }
 
@@ -722,7 +790,15 @@ function BookingsTab({
   )
 }
 
-function SavedTab({ loading, saved }: { loading: boolean; saved: FeedPost[] | undefined }) {
+function SavedTab({
+  loading,
+  saved,
+  onOpenMedia,
+}: {
+  loading: boolean
+  saved: FeedPost[] | undefined
+  onOpenMedia: (postId: number) => void
+}) {
   if (loading) {
     return (
       <div className="up__grid">
@@ -745,15 +821,27 @@ function SavedTab({ loading, saved }: { loading: boolean; saved: FeedPost[] | un
 
   return (
     <div className="up__grid">
-      {saved.map((p) => (
-        <Link key={p.id} to={`/posts/${p.id}`} className="up__grid-cell">
-          {p.image || p.video ? (
-            <PostMedia image={p.image} video={p.video} variant="pin" alt={postPreview(p.body)} />
-          ) : (
+      {saved.map((p) => {
+        const hasMedia = Boolean(p.image || p.video)
+        if (hasMedia) {
+          return (
+            <button
+              key={p.id}
+              type="button"
+              className="up__grid-cell up__grid-cell--btn"
+              onClick={() => onOpenMedia(p.id)}
+              aria-label={postPreview(p.body)}
+            >
+              <PostMedia image={p.image} video={p.video} variant="pin" alt={postPreview(p.body)} />
+            </button>
+          )
+        }
+        return (
+          <div key={p.id} className="up__grid-cell">
             <div className="up__grid-text">{postPreview(p.body)}</div>
-          )}
-        </Link>
-      ))}
+          </div>
+        )
+      })}
     </div>
   )
 }

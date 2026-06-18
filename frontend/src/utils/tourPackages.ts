@@ -1,4 +1,4 @@
-import type { TourPackage } from '../components/guide/GuideTourPackages'
+import type { TourPackage } from '../components/guide/types'
 import { normalizeReviews } from '../components/GuestReviewCard'
 
 function mergeGalleryUrls(o: Record<string, unknown>): string[] {

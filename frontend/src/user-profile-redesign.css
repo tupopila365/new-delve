@@ -306,6 +306,19 @@
   box-shadow: none;
 }
 
+button.up__grid-cell--btn,
+button.up__post-card--btn {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  cursor: pointer;
+  text-align: inherit;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+}
+
 .up__grid-cell img,
 .up__grid-cell video {
   width: 100%;

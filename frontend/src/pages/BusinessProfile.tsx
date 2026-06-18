@@ -15,7 +15,6 @@ import {
   Compass,
   Image as ImageIcon,
   MapPin,
-  MessageCircle,
   Navigation,
   Share2,
   ShieldCheck,
@@ -37,6 +36,7 @@ import { mockStays, mockGuides, mockVehicles, mockFood, mockEvents } from '../mo
 import { DelversMoments, DetailPage, DetailSkeleton, TrustBadgeRow } from '../components/detail'
 import { MiniRating } from '../components/MiniRating'
 import { EmptyState } from '../components/ui'
+import { MessageProviderLink } from '../components/messages'
 
 type ServiceTab = 'all' | 'stays' | 'food' | 'guides' | 'transport' | 'events'
 
@@ -360,10 +360,12 @@ export function BusinessProfile() {
         </div>
 
         <div className="bp__actions">
-          <Link to="/messages" className="btn btn-primary bp__action-btn">
-            <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
-            Message provider
-          </Link>
+          <MessageProviderLink
+            username={business.owner_username}
+            variant="primary"
+            size="block"
+            className="bp__action-btn"
+          />
           <Link to={`/u/${business.owner_username}`} className="btn btn-ghost bp__action-btn">
             View owner profile
           </Link>

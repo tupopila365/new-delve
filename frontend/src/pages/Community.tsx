@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { MessageCircle, Plus } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
-import { CommunityQuestionCard } from '../components/community/CommunityQuestionCard'
+import { CommunityAskQuestion, CommunityQuestionCard } from '../components/community'
 import { EmptyState } from '../components/ui'
 import type { QaQuestion } from '../utils/communityDisplay'
 import './CommunityPage.css'
@@ -101,10 +100,7 @@ const INITIAL_LIKES: Record<string, number> = {
 export function Community({ embedded = false }: CommunityProps = {}) {
   const { profile } = useAuth()
   const [search, setSearch] = useState('')
-  const [askOpen, setAskOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [draftPlace, setDraftPlace] = useState('')
-  const [draftQuestion, setDraftQuestion] = useState('')
   const [questions, setQuestions] = useState(MOCK_QUESTIONS)
   const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set())
   const [likeCounts, setLikeCounts] = useState(INITIAL_LIKES)
@@ -193,63 +189,7 @@ export function Community({ embedded = false }: CommunityProps = {}) {
       )}
 
       <div className="cm-simple__panel">
-        <div className="cm-simple__intro">
-          <p>Ask anything about a place. Locals and travellers answer in plain language.</p>
-          {profile ? (
-            <button type="button" className="btn btn-primary cm-simple__ask-btn" onClick={() => setAskOpen((v) => !v)}>
-              <Plus size={16} strokeWidth={2.5} aria-hidden />
-              {askOpen ? 'Close' : 'Ask a question'}
-            </button>
-          ) : (
-            <Link to="/login" className="btn btn-primary cm-simple__ask-btn">
-              <Plus size={16} strokeWidth={2.5} aria-hidden />
-              Sign in to ask
-            </Link>
-          )}
-        </div>
-
-        {askOpen && profile && (
-          <form
-            className="cm-simple__form card"
-            onSubmit={(e) => {
-              e.preventDefault()
-              setAskOpen(false)
-              setDraftPlace('')
-              setDraftQuestion('')
-            }}
-          >
-            <div className="field">
-              <label className="label" htmlFor="cm-place">
-                Where?
-              </label>
-              <input
-                id="cm-place"
-                className="input"
-                type="text"
-                placeholder="City and country, e.g. Bangkok, Thailand"
-                value={draftPlace}
-                onChange={(e) => setDraftPlace(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label className="label" htmlFor="cm-question">
-                Your question
-              </label>
-              <textarea
-                id="cm-question"
-                className="input"
-                rows={4}
-                placeholder="What do you need to know?"
-                value={draftQuestion}
-                onChange={(e) => setDraftQuestion(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="btn btn-primary btn-block">
-              Post question
-            </button>
-            <p className="cm-simple__form-note">Preview only — questions are reviewed before they go live.</p>
-          </form>
-        )}
+        <CommunityAskQuestion signedIn={Boolean(profile)} />
 
         <p className="cm-simple__count" role="status">
           {filtered.length} {filtered.length === 1 ? 'question' : 'questions'}
@@ -261,7 +201,7 @@ export function Community({ embedded = false }: CommunityProps = {}) {
             iconElement={<MessageCircle size={28} strokeWidth={2} aria-hidden />}
             title="No questions found"
             sub="Try different words, or be the first to ask."
-            cta={profile ? { label: 'Ask a question', onClick: () => setAskOpen(true) } : { label: 'Sign in', to: '/login' }}
+            cta={profile ? { label: 'Ask a question', onClick: () => document.getElementById('community-ask-trigger')?.click() } : { label: 'Sign in', to: '/login' }}
           />
         ) : (
           <ul className="cm-simple__list">

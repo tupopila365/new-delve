@@ -1,0 +1,103 @@
+.msg-provider-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.msg-provider-link--inline {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 750;
+}
+
+.msg-provider-link--inline:hover {
+  color: var(--accent-hover, #ff8a3d);
+}
+
+/* Provider card — avatar + info + message */
+.msg-provider-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--listing-surface, #111);
+  border: 1px solid var(--listing-border, rgba(255, 255, 255, 0.12));
+}
+
+.msg-provider-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.msg-provider-card__avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--listing-surface-strong, #1a1a1a);
+  color: var(--listing-text-muted, rgba(255, 250, 242, 0.72));
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.msg-provider-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.msg-provider-card__copy {
+  min-width: 0;
+}
+
+.msg-provider-card__kicker {
+  margin: 0 0 2px;
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--listing-text-subtle, rgba(255, 250, 242, 0.48));
+}
+
+.msg-provider-card__name {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--listing-text, #fffaf2);
+}
+
+.msg-provider-card__bio {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--listing-text-muted, rgba(255, 250, 242, 0.72));
+}
+
+.msg-provider-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Light surfaces (business profile, transport detail) */
+.bp__actions .msg-provider-link,
+.tp-detail__provider-actions .msg-provider-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.tp-detail__message-btn.msg-provider-link {
+  width: 100%;
+}
