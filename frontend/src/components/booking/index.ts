@@ -97,3 +97,6 @@ export {
   GuidePackageReserveCard,
 } from './guide'
 export type { GuideBookingStep } from './guide'
+
+export { VehicleReserveCard, VehicleBookingStatus, BusTripReserveCard, BusTripBookingStatus } from './transport'
+export type { GroupReserveResponse, Reservation } from './transport'

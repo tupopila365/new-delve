@@ -6,6 +6,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { GuidePackageReserveCard } from '../booking/guide'
 import { guidePackageBookPath } from '../booking/bookingUtils'
@@ -30,7 +31,9 @@ import type { ReviewItem } from '../GuestReviewCard'
 import type { TourPackage } from './types'
 import { GuideCredentialsCard } from './GuideCredentialsCard'
 import { GuideExperiencePicker } from './GuideExperiencePicker'
+import { buildGuideStoryChannels } from './guideStoriesUtils'
 import { GuideSimilarGuides, type SimilarGuide } from './GuideSimilarGuides'
+import { VenueStoriesSection } from '../food/stories'
 import {
   buildGuideDetailRows,
   buildGuideGallery,
@@ -104,6 +107,12 @@ export function GuideDetailView({
   const mapHref = primaryRegion
     ? openStreetMapSearchUrl(displayName, primaryRegion, meetingPoint || regionLine || primaryRegion)
     : ''
+
+  const guidePath = `/guides/${guideId}`
+  const storyChannels = useMemo(
+    () => buildGuideStoryChannels(guide, { guideId, guidePath, portfolio, packages }),
+    [guide, guideId, guidePath, portfolio, packages],
+  )
 
   const mobileSubtitle = [guide.hourly_rate ? `From $${guide.hourly_rate}/hr` : null, regionLine || null]
     .filter(Boolean)
@@ -219,6 +228,16 @@ export function GuideDetailView({
         chips={quickChips}
         highlights={trustHighlights}
         className="gd-detail__quick-info acc-detail__quick-info"
+      />
+
+      <VenueStoriesSection
+        listingName={guide.headline}
+        explorePath={guidePath}
+        channels={storyChannels}
+        title="Guide moments"
+        subtitle="Experiences, portfolio & highlights — tap to watch"
+        ctaLabel="View guide"
+        className="gd-detail__stories acc-detail__section"
       />
 
       <DetailLayout
