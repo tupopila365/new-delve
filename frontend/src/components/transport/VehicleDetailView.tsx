@@ -288,7 +288,6 @@ export function VehicleDetailView({
               listingId={vehicleId}
               title="Delvers moments with this ride"
               moments={delversMoments}
-              backTo={detailBackTo}
               className="tp-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="Photos and tips will appear after travellers rent this vehicle."

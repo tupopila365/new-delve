@@ -215,7 +215,6 @@ export function FoodDetailView({
               listingId={venueId}
               title="From Delvers"
               moments={delversMoments}
-              backTo={detailBackTo}
               className="fd-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="No traveller photos yet — share yours on Delvers after you visit."
@@ -234,7 +233,6 @@ export function FoodDetailView({
               reviews={reviews}
               rating={data.rating_avg}
               count={data.rating_count}
-              backTo={detailBackTo}
               emptyMessage="Reviews will appear here once guests leave feedback."
               className="fd-detail__reviews acc-detail__reviews"
             />

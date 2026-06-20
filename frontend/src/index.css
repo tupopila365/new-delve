@@ -7289,7 +7289,10 @@ a.chip.chip--accent:hover {
   border-radius: 20px;
   white-space: nowrap;
   font-weight: 800;
+  min-height: 38px;
+  padding-block: 0;
   padding-inline: 16px;
+  font-size: 0.82rem;
   box-shadow: 0 8px 22px rgba(249, 115, 22, 0.22);
 }
 
@@ -9696,7 +9699,7 @@ a.chip.chip--accent:hover {
   }
 
   .td.acc-detail-page {
-    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 88px);
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 
   .acc-detail__love-grid,
@@ -13303,7 +13306,7 @@ a.chip.chip--accent:hover {
   }
 
   .tp-detail--premium {
-    padding-bottom: 110px;
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 
   .tp-detail__love-grid,
@@ -15146,6 +15149,11 @@ a.chip.chip--accent:hover {
   .ev-page__create-btn {
     width: 100%;
     justify-content: center;
+    min-height: 34px;
+    border-radius: 14px;
+    padding-inline: 12px;
+    font-size: 0.78rem;
+    box-shadow: 0 6px 16px rgba(249, 115, 22, 0.2);
   }
 
   .ev-page .mk-hero__action {
@@ -15953,7 +15961,7 @@ a.chip.chip--accent:hover {
   }
 
   .ev-detail--premium {
-    padding-bottom: 110px;
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 
   .evd-hero {
@@ -17346,6 +17354,9 @@ a.chip.chip--accent:hover {
 
 .dl-detail__hero-action,
 .fd-detail__hero-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: none;
   padding: 10px 14px;
   border-radius: 999px;
@@ -17360,6 +17371,45 @@ a.chip.chip--accent:hover {
 .dl-detail__hero-action--saved,
 .fd-detail__hero-action--saved {
   color: var(--accent-hover);
+}
+
+@media (max-width: 460px) {
+  .dl-detail__hero-back,
+  .fd-detail__hero-back,
+  .acc-detail__gallery-back {
+    max-width: 44vw;
+    padding: 8px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dl-detail__hero-actions,
+  .fd-detail__hero-actions,
+  .acc-detail__gallery-actions {
+    gap: 8px;
+  }
+
+  .dl-detail__hero-action,
+  .fd-detail__hero-action {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 8px 10px;
+    font-size: 0;
+    gap: 0;
+  }
+
+  .dl-detail__hero-action svg,
+  .fd-detail__hero-action svg {
+    margin: 0;
+  }
+
+  .listing-gallery__count {
+    top: 56px;
+    right: 10px;
+    padding: 4px 9px;
+    font-size: 0.68rem;
+  }
 }
 
 .dl-detail__layout,
@@ -17750,17 +17800,6 @@ a.chip.chip--accent:hover {
     display: none;
   }
 
-  .dl-detail__mobile-bar,
-  .fd-detail__mobile-bar,
-  .evd-mobile-bar,
-  .acc-detail__mobile-bar,
-  .td-mobile-bar,
-  .tp-detail__mobile-bar,
-  .gd-detail__mobile-bar,
-  .gpkg-detail__mobile-bar {
-    display: flex;
-  }
-
   .dl-detail,
   .fd-detail,
   .acc-detail-page,
@@ -17769,7 +17808,7 @@ a.chip.chip--accent:hover {
   .tp-detail.tp-detail--premium,
   .gd-detail.gd-detail--premium,
   .gpkg-detail.gpkg-detail--premium {
-    padding-bottom: var(--page-bottom-clearance);
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 
   .dl-detail__moments-grid,
@@ -18866,7 +18905,7 @@ a.chip.chip--accent:hover {
   }
 
   .fd-detail {
-    padding-bottom: 110px;
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 
   .fd-detail__gallery {
@@ -20884,7 +20923,7 @@ a.chip.chip--accent:hover {
   }
 
   .gd-detail--premium {
-    padding-bottom: 110px;
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 
   .gd-detail__why-grid,
@@ -25844,11 +25883,15 @@ a.chip.chip--accent:hover {
     height: 300px;
     border-radius: 24px;
   }
+
+  .td--premium {
+    gap: 6px;
+  }
 }
 
 @media (max-width: 900px) {
   .td--premium {
-    padding-bottom: 110px;
+    padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
   }
 }
 
@@ -32775,6 +32818,16 @@ a.chip.chip--accent:hover {
 
 .bk-user-card {
   padding: 1rem 1.1rem;
+}
+
+.bk-user-card__main {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.bk-user-card__main:hover {
+  opacity: 1;
 }
 
 .bk-user-card__head {

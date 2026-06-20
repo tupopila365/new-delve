@@ -341,9 +341,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/accounts/token/' && method === 'POST') {
     let username = ''
     if (isJsonBody(init.body)) {
-      const data = JSON.parse(init.body) as { username?: string }
-      username = (data.username || '').trim() || 'demo_user'
+      const data = JSON.parse(init.body) as { username?: string; email?: string }
+      const email = (data.email || '').trim().toLowerCase()
+      username = (data.username || '').trim()
+      if (!username && email) {
+        username =
+          Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || ''
+      }
+      if (!username && email.includes('@')) {
+        username = email.split('@')[0] || ''
+      }
     }
+    if (!username) username = 'demo_user'
     if (!s.profiles[username]) {
       s.profiles[username] = {
         username,

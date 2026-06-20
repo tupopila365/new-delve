@@ -89,15 +89,24 @@ function commentsLabel(count?: number): string {
   return `View all ${formatCount(count)} ${count === 1 ? 'comment' : 'comments'}`
 }
 
+function postEntry(profile: ReturnType<typeof useAuth>['profile']) {
+  if (profile) {
+    return { to: '/create', label: 'Post', ariaLabel: 'Post photo, story, or journey' }
+  }
+  return { to: '/login', label: 'Join', ariaLabel: 'Sign in to post on Delvers' }
+}
+
 export function DelversSocial() {
   const { profile } = useAuth()
   const [tab, setTab] = useState<FeedTab>('foryou')
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [mobileChromeHidden, setMobileChromeHidden] = useState(false)
   const [toast, setToast] = useState('')
   const [storyTarget, setStoryTarget] = useState<StoryTarget | null>(null)
   const [storyIndex, setStoryIndex] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const lastScrollTopRef = useRef(0)
   const qc = useQueryClient()
   const qk = ['delvers-social', profile?.region] as const
 
@@ -124,6 +133,42 @@ export function DelversSocial() {
     if (!searchOpen) return
     searchInputRef.current?.focus()
   }, [searchOpen])
+
+  useEffect(() => {
+    const onScroll = () => {
+      const viewportWidth = window.innerWidth
+      if (viewportWidth > 700) {
+        setMobileChromeHidden(false)
+        lastScrollTopRef.current = 0
+        return
+      }
+
+      const top = Math.max(window.scrollY, document.documentElement.scrollTop, document.body.scrollTop, 0)
+      const delta = top - lastScrollTopRef.current
+
+      if (top <= 8) {
+        setMobileChromeHidden(false)
+      } else if (delta > 6) {
+        setMobileChromeHidden(true)
+      } else if (delta < -6) {
+        setMobileChromeHidden(false)
+      }
+
+      lastScrollTopRef.current = top
+    }
+
+    const onResize = () => {
+      if (window.innerWidth > 700) setMobileChromeHidden(false)
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize, { passive: true })
+    onScroll()
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
 
   const creators = useMemo((): Creator[] => {
     const map = new Map<string, Creator>()
@@ -225,8 +270,10 @@ export function DelversSocial() {
     setStoryIndex(0)
   }
 
+  const postAction = postEntry(profile)
+
   return (
-    <div className="ds-page">
+    <div className={mobileChromeHidden ? 'ds-page ds-page--chrome-hidden' : 'ds-page'}>
       <header className="ds-topbar ds-topbar--clean">
         <Link to="/delvers" className="ds-brand">DELVE <span>Delvers</span></Link>
         <nav className="ds-tabs" aria-label="Delvers feed tabs">
@@ -259,16 +306,16 @@ export function DelversSocial() {
               </button>
             ) : null}
           </form>
-          <Link to={profile ? '/delvers/new' : '/community'} className="ds-create">
+          <Link to={postAction.to} className="ds-post-entry" aria-label={postAction.ariaLabel}>
             <Plus size={16} strokeWidth={2.5} aria-hidden />
-            {profile ? 'Create' : 'Join'}
+            {postAction.label}
           </Link>
         </div>
       </header>
 
       <main className="ds-main ds-main--centered">
         <section className="ds-stories ds-stories--polished" aria-label="Creators and places">
-          <CreateBubble signedIn={!!profile} />
+          <CreateStoryBubble signedIn={!!profile} />
           {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} onOpen={() => openCreatorStories(creator)} />)}
           {PLACES.map((place) => (
             <button key={place} type="button" className="ds-place-bubble" onClick={() => openPlaceStories(place)}>
@@ -320,9 +367,9 @@ export function DelversSocial() {
           <Search size={20} strokeWidth={2.25} aria-hidden />
           <span>Search</span>
         </button>
-        <Link to={profile ? '/delvers/new' : '/community'} className="ds-mobile-action ds-mobile-action--create">
+        <Link to={postAction.to} className="ds-mobile-action ds-mobile-action--create" aria-label={postAction.ariaLabel}>
           <Plus size={20} strokeWidth={2.5} aria-hidden />
-          <span>{profile ? 'Create' : 'Join'}</span>
+          <span>{postAction.label}</span>
         </Link>
         <Link to={profile ? '/messages' : '/login'} className="ds-mobile-action">
           <Bell size={20} strokeWidth={2.25} aria-hidden />
@@ -346,15 +393,6 @@ export function DelversSocial() {
   )
 }
 
-function CreateBubble({ signedIn }: { signedIn: boolean }) {
-  return (
-    <Link to={signedIn ? '/delvers/new' : '/community'} className="ds-create-bubble">
-      <span><Plus size={22} strokeWidth={2.5} aria-hidden /></span>
-      <small>{signedIn ? 'Create' : 'Join'}</small>
-    </Link>
-  )
-}
-
 function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => void }) {
   const avatar = mediaUrl(creator.avatar)
   return (
@@ -362,6 +400,19 @@ function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => vo
       <span>{avatar ? <img src={avatar} alt="" /> : <UserRound size={22} strokeWidth={2} />}</span>
       <small>{creator.display_name}</small>
     </button>
+  )
+}
+
+function CreateStoryBubble({ signedIn }: { signedIn: boolean }) {
+  return (
+    <Link
+      to={signedIn ? '/stories/new' : '/login'}
+      className="ds-create-bubble"
+      aria-label={signedIn ? 'Create a story' : 'Sign in to create a story'}
+    >
+      <span><Video size={22} strokeWidth={2.4} aria-hidden /></span>
+      <small>Story</small>
+    </Link>
   )
 }
 
@@ -396,6 +447,10 @@ function DelversFeedSkeleton() {
 }
 
 function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowAll: () => void }) {
+  const action = signedIn
+    ? { to: '/create', label: 'Post something', ariaLabel: 'Post photo, story, or journey' }
+    : { to: '/login', label: 'Join Delvers', ariaLabel: 'Sign in to post on Delvers' }
+
   return (
     <section className="ds-empty-social" aria-label="No Delvers posts">
       <div>
@@ -403,9 +458,9 @@ function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowA
         <h2>No posts yet</h2>
         <p>Share the first Delvers moment, travel tip, route discovery, or local story for others to explore.</p>
         <div className="ds-empty-social__actions">
-          <Link to={signedIn ? '/delvers/new' : '/community'} className="ds-empty-social__primary">
+          <Link to={action.to} className="ds-empty-social__primary" aria-label={action.ariaLabel}>
             <Plus size={16} strokeWidth={2.5} aria-hidden />
-            {signedIn ? 'Create post' : 'Join Delvers'}
+            {action.label}
           </Link>
           <button type="button" className="ds-empty-social__secondary" onClick={onShowAll}>Show all</button>
         </div>

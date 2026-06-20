@@ -214,7 +214,6 @@ export function TourPackageDetailView({
               listingId={`${guideId}-${pkg.id}`}
               rating={reviewRating ?? guide.rating_avg}
               count={reviewCount ?? guide.rating_count}
-              backTo={`/guides/${guideId}/packages/${encodeURIComponent(pkg.id)}`}
               emptyMessage={reviewsEmptyMessage}
               className="gpkg-detail__reviews acc-detail__comments"
             />

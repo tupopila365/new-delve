@@ -49,8 +49,8 @@ export function UserBookingCard({
 }: Props) {
   const typeLabel = BOOKING_SERVICE_LABELS[serviceType]
 
-  return (
-    <article className={`bk-user-card card ${className}`.trim()}>
+  const mainContent = (
+    <>
       <div className="bk-user-card__head">
         <span className={`bk-user-card__type bk-user-card__type--${serviceType}`}>{typeLabel}</span>
         <BookingStatusBadge status={status} />
@@ -79,6 +79,18 @@ export function UserBookingCard({
       </ul>
       {price ? <p className="bk-user-card__price">{price}</p> : null}
       {nextStep ? <p className="bk-user-card__next">{nextStep}</p> : null}
+    </>
+  )
+
+  return (
+    <article className={`bk-user-card card ${className}`.trim()}>
+      {href ? (
+        <Link to={href} className="bk-user-card__main" aria-label={`${viewLabel}: ${title}`}>
+          {mainContent}
+        </Link>
+      ) : (
+        <div className="bk-user-card__main">{mainContent}</div>
+      )}
       <div className="bk-user-card__actions">
         {href ? (
           <Link to={href} className="btn btn-ghost btn-sm">

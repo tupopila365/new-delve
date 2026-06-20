@@ -4,6 +4,7 @@
   min-height: 62px;
   padding: 8px 14px;
   border-radius: 0 0 18px 18px;
+  transition: transform 0.22s ease, opacity 0.2s ease;
 }
 
 .ds-topbar--clean .ds-brand {
@@ -26,6 +27,21 @@
   justify-content: flex-end;
   gap: 10px;
   min-width: 126px;
+}
+
+.ds-post-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(232, 98, 10, 0.28);
 }
 
 .ds-topbar-search {
@@ -112,5 +128,15 @@
 
   .ds-topbar--clean .ds-brand {
     min-width: 0;
+  }
+
+  .ds-post-entry {
+    display: none;
+  }
+
+  .ds-page--chrome-hidden .ds-topbar--clean {
+    transform: translateY(calc(-100% - 8px));
+    opacity: 0;
+    pointer-events: none;
   }
 }

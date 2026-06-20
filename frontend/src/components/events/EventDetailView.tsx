@@ -272,7 +272,6 @@ export function EventDetailView({
               listingId={eventId}
               title="Delvers moments from this event"
               moments={delversMoments}
-              backTo={detailBackTo}
               className="ev-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="Photos and tips will appear after people attend this event."

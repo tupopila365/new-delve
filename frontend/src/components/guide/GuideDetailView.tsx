@@ -288,7 +288,6 @@ export function GuideDetailView({
               listingId={guide.id}
               rating={guide.rating_avg}
               count={guide.rating_count}
-              backTo={`/guides/${guideId}`}
               emptyMessage="Reviews will appear here after travellers complete experiences with this guide."
               className="gd-detail__reviews acc-detail__comments"
             />

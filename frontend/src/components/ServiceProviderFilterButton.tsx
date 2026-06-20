@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, SlidersHorizontal, X } from 'lucide-react'
 import './ServiceProviderFilterButton.css'
 
@@ -45,9 +46,26 @@ function dispatchFilterChange(scope: string | undefined, selected: string[]) {
   window.dispatchEvent(new CustomEvent('service-provider-filters-change', { detail: { scope, selected } }))
 }
 
+function useMobileSheet() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 520px)').matches : false,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 520px)')
+    const onChange = () => setMobile(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return mobile
+}
+
 export function ServiceProviderFilterButton({ groups, label = 'Filters', scope }: Props) {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
+  const mobileSheet = useMobileSheet()
 
   const selectedCount = selected.length
   const optionMap = useMemo(() => {
@@ -78,6 +96,74 @@ export function ServiceProviderFilterButton({ groups, label = 'Filters', scope }
     dispatchFilterChange(scope, [])
   }
 
+  const panel = open ? (
+    <div
+      className={mobileSheet ? 'sp-filter__panel sp-filter__panel--sheet' : 'sp-filter__panel'}
+      role="dialog"
+      aria-label="Service provider filters"
+    >
+      <div className="sp-filter__panel-head">
+        <div>
+          <strong>Find what fits</strong>
+          <p>Tap a few boxes. Keep it simple.</p>
+        </div>
+        <button type="button" onClick={() => setOpen(false)} aria-label="Close filters">
+          <X size={16} strokeWidth={2.25} aria-hidden />
+        </button>
+      </div>
+
+      {groups.map((group) => (
+        <section key={group.id} className="sp-filter__group">
+          <h3>{group.title}</h3>
+          <div className="sp-filter__options">
+            {group.options.map((option) => {
+              const active = selected.includes(option.id)
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={active ? 'sp-filter__option sp-filter__option--active' : 'sp-filter__option'}
+                  onClick={() => toggleOption(group, option)}
+                  aria-pressed={active}
+                >
+                  <span className="sp-filter__tick" aria-hidden>
+                    {active ? <Check size={11} strokeWidth={2.7} /> : null}
+                  </span>
+                  <span>
+                    <b>{option.label}</b>
+                    {option.helper ? <small>{option.helper}</small> : null}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ))}
+
+      {selectedCount > 0 ? (
+        <button type="button" className="sp-filter__clear" onClick={clearAll}>
+          Clear filters
+        </button>
+      ) : null}
+    </div>
+  ) : null
+
+  const mobileOverlay =
+    open && mobileSheet
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              className="sp-filter__backdrop"
+              aria-label="Close filters"
+              onClick={() => setOpen(false)}
+            />
+            {panel}
+          </>,
+          document.body,
+        )
+      : null
+
   return (
     <div className="sp-filter">
       <button
@@ -91,53 +177,8 @@ export function ServiceProviderFilterButton({ groups, label = 'Filters', scope }
         {selectedCount > 0 ? <b>{selectedCount}</b> : null}
       </button>
 
-      {open ? (
-        <div className="sp-filter__panel" role="dialog" aria-label="Service provider filters">
-          <div className="sp-filter__panel-head">
-            <div>
-              <strong>Find what fits</strong>
-              <p>Tap a few boxes. Keep it simple.</p>
-            </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close filters">
-              <X size={16} strokeWidth={2.25} aria-hidden />
-            </button>
-          </div>
-
-          {groups.map((group) => (
-            <section key={group.id} className="sp-filter__group">
-              <h3>{group.title}</h3>
-              <div className="sp-filter__options">
-                {group.options.map((option) => {
-                  const active = selected.includes(option.id)
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={active ? 'sp-filter__option sp-filter__option--active' : 'sp-filter__option'}
-                      onClick={() => toggleOption(group, option)}
-                      aria-pressed={active}
-                    >
-                      <span className="sp-filter__tick" aria-hidden>
-                        {active ? <Check size={13} strokeWidth={2.7} /> : null}
-                      </span>
-                      <span>
-                        <b>{option.label}</b>
-                        {option.helper ? <small>{option.helper}</small> : null}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
-
-          {selectedCount > 0 ? (
-            <button type="button" className="sp-filter__clear" onClick={clearAll}>
-              Clear filters
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {open && !mobileSheet ? panel : null}
+      {mobileOverlay}
     </div>
   )
 }

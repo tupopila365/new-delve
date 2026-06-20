@@ -21,11 +21,8 @@ import { HomeStoriesRow } from '../components/HomeStoriesRow'
 import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { MiniRating } from '../components/MiniRating'
 import { ListSkeleton } from '../components/ui'
-import { homeCoverSrc } from '../data/homeDefaults'
+import { HOME_HERO_BG, homeCoverSrc } from '../data/homeDefaults'
 import { mockTrips } from '../data/mockTrips'
-
-const HERO_BG =
-  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2000&q=78'
 
 const moodChips = [
   { label: 'Weekend away', q: 'weekend' },
@@ -277,7 +274,7 @@ export function Home() {
   return (
     <div className="page-home">
       <section className="ta-hero ta-hero--bleed ta-hero--home" aria-label="Discover DELVE">
-        <div className="ta-hero__bg" style={{ backgroundImage: `url(${HERO_BG})` }} role="img" aria-label="Scenic travel landscape" />
+        <div className="ta-hero__bg" style={{ backgroundImage: `url(${HOME_HERO_BG})` }} role="img" aria-label="Scenic travel landscape" />
         <div className="ta-hero__scrim" aria-hidden />
         <div className="ta-hero__grain" aria-hidden />
         <div className="ta-hero__inner ta-hero__inner--home">

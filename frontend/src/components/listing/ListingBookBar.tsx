@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { MobileStickyCTA } from '../detail/MobileStickyCTA'
 
 type Props = {
   title: string
@@ -8,8 +7,6 @@ type Props = {
   className?: string
 }
 
-export function ListingBookBar({ title, subtitle, action, className = '' }: Props) {
-  return (
-    <MobileStickyCTA title={title} subtitle={subtitle} action={action} className={className} />
-  )
+export function ListingBookBar(_props: Props) {
+  return null
 }

@@ -3,6 +3,7 @@ import { AppLayout } from './components/AppLayout'
 import { ProfileMessageLinkInterceptor } from './components/ProfileMessageLinkInterceptor'
 import { Account } from './pages/Account'
 import { AccommodationBook } from './pages/AccommodationBook'
+import { BookingDetail } from './pages/BookingDetail'
 import { AccommodationDetail } from './pages/AccommodationDetail'
 import { AccommodationRoomDetail } from './pages/AccommodationRoomDetail'
 import { AccommodationList } from './pages/AccommodationList'
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="/posts/:id" element={<Navigate to="/delvers" replace />} />
           <Route path="/u/:username" element={<UserProfile />} />
           <Route path="/dashboard" element={<UserDashboard />} />
+          <Route path="/dashboard/bookings/:service/:id" element={<BookingDetail />} />
           <Route path="/business/:id" element={<BusinessProfile />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/accommodation" element={<AccommodationList />} />

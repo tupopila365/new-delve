@@ -699,7 +699,7 @@ function JourneysTab({
           iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
           title="No journeys shared yet"
           sub="Routes and travel stories will appear here once added."
-          cta={isMe ? { label: 'Create journey', to: '/journeys/new' } : undefined}
+          cta={undefined}
         />
       ) : null}
     </>
@@ -769,7 +769,12 @@ function BookingsTab({
   return (
     <div className="up__book-list">
       {bookings.map((b) => (
-        <div key={b.id} className="up__book-item">
+        <Link
+          key={b.id}
+          to={`/dashboard/bookings/stay/${b.id}`}
+          className="up__book-item"
+          aria-label={`View booking for ${b.listing_title}`}
+        >
           <div className="up__book-icon" aria-hidden>
             <Building2 size={20} strokeWidth={2} />
           </div>
@@ -784,7 +789,7 @@ function BookingsTab({
           >
             {b.status}
           </span>
-        </div>
+        </Link>
       ))}
     </div>
   )

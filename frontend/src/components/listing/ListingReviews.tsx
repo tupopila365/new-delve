@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { GuestReviewCard } from '../GuestReviewCard'
 import type { ReviewItem } from '../GuestReviewCard'
+import { listingSeeAllPath } from '../../utils/listingSeeAll'
 import { ListingSection } from './ListingSection'
 import './listing-detail.css'
 
@@ -12,7 +13,6 @@ type Props = {
   rating?: string | number | null
   count?: number | null
   maxVisible?: number
-  backTo?: string
   emptyMessage?: string
   className?: string
 }
@@ -25,12 +25,11 @@ export function ListingReviews({
   rating,
   count,
   maxVisible = 3,
-  backTo,
   emptyMessage = 'No reviews yet.',
   className = '',
 }: Props) {
   const visible = reviews.slice(0, maxVisible)
-  const reviewsPath = `/listing/${listingType}/${listingId}/reviews`
+  const reviewsPath = listingSeeAllPath(listingType, listingId, 'reviews')
   const ratingNum = rating != null ? parseFloat(String(rating)) : null
   const hasRating = ratingNum != null && !Number.isNaN(ratingNum)
   const reviewCount = count ?? reviews.length
@@ -40,11 +39,7 @@ export function ListingReviews({
       title={title}
       action={
         reviews.length > 0 ? (
-          <Link
-            className="listing-section__link"
-            to={reviewsPath}
-            state={{ title, reviews, rating, count, backTo }}
-          >
+          <Link className="listing-section__link" to={reviewsPath}>
             See all
           </Link>
         ) : null

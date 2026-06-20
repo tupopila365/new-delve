@@ -39,7 +39,6 @@ export function ListingHeroGallery({
         listingType={listingType}
         listingId={listingId}
         images={images}
-        backTo={backTo}
         variant="hero"
       />
     </DetailHeroWrap>

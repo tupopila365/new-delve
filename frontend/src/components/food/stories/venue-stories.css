@@ -16,6 +16,13 @@
 .acc-detail-page .fd-venue-stories {
   padding-left: max(var(--page-pad, 1rem), env(safe-area-inset-left));
   padding-right: max(var(--page-pad, 1rem), env(safe-area-inset-right));
+  padding-top: 0;
+}
+
+@media (max-width: 640px) {
+  .acc-detail-page .fd-venue-stories {
+    padding-bottom: 0.65rem;
+  }
 }
 
 @media (min-width: 768px) {

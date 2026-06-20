@@ -87,12 +87,12 @@ export function TopNav() {
         </Link>
 
         <Link
-          to={profile ? '/create/post' : '/login'}
+          to={profile ? '/create' : '/login'}
           className="app-topnav__post-btn"
-          aria-label="Create post"
+          aria-label={profile ? 'Post photo, story, or journey' : 'Sign in to post'}
         >
           <IconPlus />
-          Create
+          Post
         </Link>
 
         <ProfileMenu avatarClassName="app-topnav__avatar" />

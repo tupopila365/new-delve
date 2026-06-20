@@ -92,7 +92,8 @@
 .ds-mobile-action:focus-visible,
 .ds-search-trigger:focus-visible,
 .ds-search-close:focus-visible,
-.ds-create:focus-visible {
+.ds-create:focus-visible,
+.ds-post-entry:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }

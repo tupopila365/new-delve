@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { listingSeeAllPath } from '../../utils/listingSeeAll'
 import { ListingSection } from './ListingSection'
 import type { ListingGalleryItem } from './types'
 import './listing-detail.css'
@@ -10,7 +11,6 @@ type Props = {
   listingId: string | number
   title?: string
   maxVisible?: number
-  backTo?: string
   className?: string
   variant?: 'hero' | 'grid'
 }
@@ -21,7 +21,6 @@ export function ListingGalleryGrid({
   listingId,
   title = 'Photos',
   maxVisible = 6,
-  backTo,
   className = '',
   variant = 'grid',
 }: Props) {
@@ -32,10 +31,10 @@ export function ListingGalleryGrid({
 
   const visible = images.slice(0, maxVisible)
   const extra = images.length - visible.length
-  const galleryPath = `/listing/${listingType}/${listingId}/gallery`
+  const galleryPath = listingSeeAllPath(listingType, listingId, 'gallery')
   const seeAll =
     images.length > 1 ? (
-      <Link className="listing-section__link" to={galleryPath} state={{ title, images, backTo }}>
+      <Link className="listing-section__link" to={galleryPath}>
         See all
       </Link>
     ) : null
@@ -59,11 +58,7 @@ export function ListingGalleryGrid({
         </div>
         {images.length > 1 ? (
           <>
-            <Link
-              className="listing-gallery__count"
-              to={galleryPath}
-              state={{ title, images, backTo }}
-            >
+            <Link className="listing-gallery__count" to={galleryPath}>
               {active + 1}/{images.length}
             </Link>
             <div className="listing-gallery__dots" aria-hidden>
@@ -94,7 +89,6 @@ export function ListingGalleryGrid({
                 <Link
                   className="listing-gallery__more"
                   to={galleryPath}
-                  state={{ title, images, backTo }}
                   aria-label={`View all ${images.length} photos`}
                 >
                   +{extra}

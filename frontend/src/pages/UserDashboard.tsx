@@ -104,7 +104,7 @@ export function UserDashboard() {
         peopleLabel: `${b.guests} ${b.guests === 1 ? 'guest' : 'guests'}`,
         status: b.status,
         price: b.total_price ? `N$${b.total_price}` : undefined,
-        href: b.listing ? `/accommodation/${b.listing}` : '/accommodation',
+        href: `/dashboard/bookings/stay/${b.id}`,
         viewLabel: 'View stay',
         messageLabel: 'Message host',
       }))
@@ -124,9 +124,7 @@ export function UserDashboard() {
           peopleLabel: `${b.group_size} ${b.group_size === 1 ? 'traveller' : 'travellers'}`,
           status: b.status,
           price: b.total_price ? `N$${b.total_price}` : undefined,
-          href: isExperience
-            ? `/guides/${b.guide}/packages/${encodeURIComponent(b.package_id!)}`
-            : `/guides/${b.guide}`,
+          href: `/dashboard/bookings/guide/${b.id}`,
           viewLabel: isExperience ? 'View experience' : 'View guide',
           messageLabel: 'Message guide',
         }

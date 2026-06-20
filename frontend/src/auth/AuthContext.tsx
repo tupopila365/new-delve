@@ -36,7 +36,7 @@ type AuthState = {
   profile: Profile | null
   loading: boolean
   refreshProfile: () => Promise<void>
-  login: (username: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -76,11 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshProfile()
   }, [refreshProfile])
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const tokens = await apiFetch<{ access: string; refresh: string }>('/api/accounts/token/', {
       method: 'POST',
       auth: false,
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     })
     setTokens(tokens.access, tokens.refresh)
     const me = await apiFetch<Profile>('/api/accounts/me/')

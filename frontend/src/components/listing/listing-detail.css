@@ -1,7 +1,8 @@
 /* —— Listing kit: dark social surface (IG / TikTok on black) —— */
 
 .listing-section,
-.listing-page {
+.listing-page,
+.acc-detail-page {
   --listing-text: #fffaf2;
   --listing-text-muted: rgba(255, 250, 242, 0.72);
   --listing-text-subtle: rgba(255, 250, 242, 0.48);
@@ -1136,12 +1137,54 @@
   margin-bottom: 0;
 }
 
+@media (max-width: 640px) {
+  .td.acc-detail-page .acc-detail__gallery-wrap {
+    margin-bottom: 8px;
+  }
+}
+
 .td.acc-detail-page .listing-identity {
   padding-top: 16px;
 }
 
 .td.acc-detail-page .listing-quick-info {
   margin-bottom: 4px;
+}
+
+.acc-detail-page .fd-venue-stories .ev-page__stories-title {
+  color: var(--listing-text, #fffaf2);
+}
+
+.acc-detail-page .fd-venue-stories .ev-page__stories-sub {
+  color: var(--listing-text-subtle, rgba(255, 250, 242, 0.48));
+}
+
+.acc-detail-page .fd-venue-stories .ev-page__stories-head {
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.acc-detail-page .ev-story-ring__label {
+  color: var(--listing-text-muted);
+}
+
+.acc-detail-page .fd-venue-stories {
+  padding-top: 0;
+}
+
+.jn-detail__intro {
+  display: grid;
+  gap: 6px;
+}
+
+.td.acc-detail-page .jn-detail__intro .fd-venue-stories {
+  padding-bottom: 0;
+}
+
+.td.acc-detail-page .jn-detail__intro .listing-quick-info {
+  margin: 0;
+  padding-inline: max(var(--page-pad, 1rem), env(safe-area-inset-left))
+    max(var(--page-pad, 1rem), env(safe-area-inset-right));
 }
 
 .td.acc-detail-page .acc-detail__rooms {
@@ -1203,5 +1246,111 @@
 @media (max-width: 640px) {
   .listing-section--bleed {
     margin-inline: -16px;
+  }
+
+  .acc-detail-page .listing-section {
+    padding: 8px 0;
+  }
+
+  .acc-detail-page .listing-identity {
+    padding-bottom: 6px;
+  }
+
+  .acc-detail-page .listing-identity__chips {
+    margin-top: 6px;
+  }
+
+  .acc-detail-page .listing-quick-info {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    gap: 4px;
+  }
+
+  .acc-detail-page .listing-quick-info__stats {
+    font-size: 0.74rem;
+    line-height: 1.3;
+  }
+
+  .acc-detail-page .listing-quick-info__highlights {
+    font-size: 0.68rem;
+    line-height: 1.35;
+  }
+
+  .acc-detail-page .fd-venue-stories {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .td.acc-detail-page .jn-detail__intro {
+    gap: 4px;
+  }
+
+  .td.acc-detail-page .dl-detail__main {
+    gap: 12px;
+  }
+
+  .td.acc-detail-page .dl-detail__main .listing-section:first-child {
+    padding-top: 4px;
+    border-top: 0;
+  }
+
+  .acc-detail-page .ev-page__story-rings-row {
+    gap: 8px;
+  }
+
+  .acc-detail-page .ev-story-ring {
+    flex: 0 0 76px;
+    grid-template-rows: 56px auto;
+    row-gap: 4px;
+  }
+
+  .acc-detail-page .ev-story-ring__avatar {
+    width: 56px;
+    height: 56px;
+  }
+
+  .acc-detail-page .ev-story-ring__label {
+    font-size: 10px;
+  }
+
+  .acc-detail-page .fd-venue-stories .ev-page__stories-head {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .acc-detail-page .fd-venue-stories .ev-page__stories-title {
+    font-size: 0.88rem;
+  }
+
+  .acc-detail-page .fd-venue-stories .ev-page__stories-sub {
+    font-size: 0.66rem;
+  }
+
+  .td.acc-detail-page .listing-identity {
+    padding-top: 8px;
+  }
+
+  .listing-identity__top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .listing-identity__actions {
+    order: -1;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .listing-identity__copy {
+    width: 100%;
+  }
+
+  .listing-identity__name {
+    font-size: clamp(1.15rem, 5.4vw, 1.45rem);
+    overflow-wrap: anywhere;
   }
 }

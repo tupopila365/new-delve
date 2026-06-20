@@ -172,43 +172,45 @@ export function JourneyDetailView({
         className="jn-detail__identity acc-detail__identity"
       />
 
-      <ListingQuickInfo
-        chips={[
-          {
-            id: 'days',
-            label: `${trip.days} days`,
-            icon: <CalendarDays size={15} strokeWidth={2.25} aria-hidden />,
-          },
-          {
-            id: 'stops',
-            label: `${trip.stops.length} ${trip.stops.length === 1 ? 'stop' : 'stops'}`,
-            icon: <MapPin size={15} strokeWidth={2.25} aria-hidden />,
-          },
-          {
-            id: 'party',
-            label: partyLabel(trip.party),
-            icon: <Users size={15} strokeWidth={2.25} aria-hidden />,
-          },
-          ...transportChips,
-          {
-            id: 'cost',
-            label: `${formatJourneyCost(trip.total_cost)} total`,
-            accent: true,
-          },
-        ]}
-        highlights={trustHighlights}
-        className="jn-detail__quick-info acc-detail__quick-info"
-      />
+      <div className="jn-detail__intro">
+        <VenueStoriesSection
+          listingName={trip.title}
+          explorePath={`/journeys/${journeyId}`}
+          channels={storyChannels}
+          title="Along the way"
+          subtitle="Route highlights, moments & tips"
+          ctaLabel="View journey"
+          className="jn-detail__stories"
+        />
 
-      <VenueStoriesSection
-        listingName={trip.title}
-        explorePath={`/journeys/${journeyId}`}
-        channels={storyChannels}
-        title="Along the way"
-        subtitle="Route highlights, moments & tips"
-        ctaLabel="View journey"
-        className="jn-detail__stories acc-detail__section"
-      />
+        <ListingQuickInfo
+          chips={[
+            {
+              id: 'days',
+              label: `${trip.days} days`,
+              icon: <CalendarDays size={15} strokeWidth={2.25} aria-hidden />,
+            },
+            {
+              id: 'stops',
+              label: `${trip.stops.length} ${trip.stops.length === 1 ? 'stop' : 'stops'}`,
+              icon: <MapPin size={15} strokeWidth={2.25} aria-hidden />,
+            },
+            {
+              id: 'party',
+              label: partyLabel(trip.party),
+              icon: <Users size={15} strokeWidth={2.25} aria-hidden />,
+            },
+            ...transportChips,
+            {
+              id: 'cost',
+              label: `${formatJourneyCost(trip.total_cost)} total`,
+              accent: true,
+            },
+          ]}
+          highlights={trustHighlights}
+          className="jn-detail__quick-info acc-detail__quick-info"
+        />
+      </div>
 
       <DetailLayout
         main={

@@ -2,10 +2,11 @@ import os
 
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .business_access import business_permissions
@@ -20,6 +21,27 @@ from .serializers import (
 )
 
 
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    email = serializers.EmailField(write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.pop(self.username_field, None)
+
+    def validate(self, attrs):
+        email = (attrs.get("email") or "").strip().lower()
+        password = attrs.get("password")
+        if not email:
+            raise serializers.ValidationError({"email": "Email is required."})
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist as exc:
+            raise serializers.ValidationError({"email": "No account found with this email."}) from exc
+        attrs[self.username_field] = user.get_username()
+        attrs["password"] = password
+        return super().validate(attrs)
+
+
 class RegisterThrottle(AnonRateThrottle):
     scope = "register"
 
@@ -30,6 +52,7 @@ class LoginThrottle(AnonRateThrottle):
 
 class ThrottledTokenView(TokenObtainPairView):
     throttle_classes = [LoginThrottle]
+    serializer_class = EmailTokenObtainPairSerializer
 
 
 class CheckUsernameView(APIView):

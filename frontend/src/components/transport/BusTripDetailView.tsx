@@ -268,7 +268,6 @@ export function BusTripDetailView({
               listingId={tripId}
               title="Delvers moments on this route"
               moments={delversMoments}
-              backTo={detailBackTo}
               className="tp-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="Photos and tips will appear after travellers complete this route."

@@ -214,7 +214,6 @@ export function AccommodationDetailView({
               listingId={listingId}
               title="From Delvers"
               moments={delversMoments.filter((m) => m.id !== 'placeholder')}
-              backTo={detailBackTo}
               className="acc-detail__moments"
               showWhenEmpty
               emptyMessage="No guest moments yet."
@@ -233,7 +232,6 @@ export function AccommodationDetailView({
               reviews={reviews}
               rating={data.rating_avg}
               count={data.rating_count}
-              backTo={detailBackTo}
               emptyMessage="Ratings and written reviews will appear here after guests complete their stay."
               className="acc-detail__reviews"
             />
