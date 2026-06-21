@@ -1,10 +1,11 @@
 .biz-profile {
   width: min(100%, 640px);
   margin: 0 auto;
+  min-height: 100dvh;
   padding: 0 16px calc(var(--bottom-nav-h, 64px) + var(--safe-bottom, 0px) + 24px);
   color: #fffaf2;
+  background: #0c0a09;
 }
-
 .biz-profile__bar {
   position: sticky;
   top: calc(var(--safe-top, 0px) + 4px);
@@ -404,4 +405,59 @@
   font-size: 0.78rem;
   font-weight: 800;
   text-align: center;
+}
+
+.biz-profile__state {
+  padding: 28px 20px;
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.biz-profile__state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  border-radius: 16px;
+  background: rgba(255, 154, 82, 0.15);
+  color: #ff9a52;
+}
+
+.biz-profile__state-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fffaf2;
+}
+
+.biz-profile__state-msg {
+  margin: 0 0 18px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.biz-profile__state-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: #ff9a52;
+  color: #1a0f05;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.biz-profile__state-cta:hover {
+  filter: brightness(1.05);
 }

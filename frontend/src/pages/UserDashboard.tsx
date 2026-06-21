@@ -1,14 +1,25 @@
 import { useMemo } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, Heart, Sparkles } from 'lucide-react'
-import { apiFetch } from '../api/client'
+import {
+  Bookmark,
+  CalendarDays,
+  Car,
+  Compass,
+  Hotel,
+  MessageCircle,
+  PenLine,
+  Plus,
+  Settings,
+  Sparkles,
+  User,
+} from 'lucide-react'
+import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { UserBookingCard, bookingNextStep } from '../components/booking'
 import type { BookingServiceType } from '../components/booking'
-import { DashboardSection, DashboardStatGrid } from '../components/dashboard'
-import { EmptyState } from '../components/ui'
+import '../components/dashboard/user-dashboard.css'
 
 type StayBooking = {
   id: number
@@ -69,6 +80,10 @@ function humanizePackageId(packageId: string): string {
   return trimmed
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function locationLine(city?: string | null, region?: string | null) {
+  return [city, region].filter(Boolean).join(', ')
 }
 
 export function UserDashboard() {
@@ -139,69 +154,124 @@ export function UserDashboard() {
 
   const isProvider = profile.user_type === 'service_provider' || businesses.length > 0
   const loadingBookings = loadingStays || loadingGuides
-  const allBookingsCount = (stayBookings?.length ?? 0) + (guideBookings?.length ?? 0)
+  const activeBookings = dashboardBookings.length
   const pendingBookings =
     (stayBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length +
     (guideBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length
+
+  const displayName = profile.display_name?.trim() || profile.username
+  const avatar = mediaUrl(profile.avatar) || profile.avatar
+  const where = locationLine(profile.city, profile.region)
+
   return (
-    <div className="udash">
-      <div className="udash__top-links">
-        <Link to={`/u/${profile.username}`}>Public profile</Link>
-        <Link to="/settings">Settings</Link>
+    <div className="t-dash">
+      <div className="t-dash__welcome">
+        {avatar ? (
+          <img src={avatar} alt="" className="t-dash__avatar" />
+        ) : (
+          <span className="t-dash__avatar t-dash__avatar--init" aria-hidden>
+            {displayName.charAt(0).toUpperCase()}
+          </span>
+        )}
+        <div className="t-dash__welcome-body">
+          <p className="t-dash__welcome-name">Hi, {displayName}</p>
+          {where ? <p className="t-dash__welcome-meta">{where}</p> : null}
+          <div className="t-dash__welcome-links">
+            <Link to={`/u/${profile.username}`}>Public profile</Link>
+            <Link to="/settings">Settings</Link>
+          </div>
+        </div>
       </div>
 
-      <DashboardStatGrid
-        stats={[
-          { value: allBookingsCount || '0', label: 'Bookings', to: '/dashboard#bookings', accent: pendingBookings > 0 },
-          { value: 'Inbox', label: 'Messages', to: '/messages' },
-          { value: 'Saved', label: 'Saved', to: '/dashboard#saved' },
-          { value: 'Account', label: 'Account', to: '/account' },
-        ]}
-      />
+      <nav className="t-dash__nav" aria-label="Dashboard shortcuts">
+        <Link
+          to="#bookings"
+          className={`t-dash__nav-item${pendingBookings > 0 ? ' t-dash__nav-item--accent' : ''}`}
+        >
+          <span className="t-dash__nav-icon" aria-hidden>
+            <CalendarDays size={20} strokeWidth={2.25} />
+          </span>
+          <span className="t-dash__nav-value">{activeBookings}</span>
+          <span className="t-dash__nav-label">Bookings</span>
+        </Link>
+        <Link to="/messages" className="t-dash__nav-item">
+          <span className="t-dash__nav-icon" aria-hidden>
+            <MessageCircle size={20} strokeWidth={2.25} />
+          </span>
+          <span className="t-dash__nav-value t-dash__nav-value--text">Open</span>
+          <span className="t-dash__nav-label">Inbox</span>
+        </Link>
+        <Link to="#saved" className="t-dash__nav-item">
+          <span className="t-dash__nav-icon" aria-hidden>
+            <Bookmark size={20} strokeWidth={2.25} />
+          </span>
+          <span className="t-dash__nav-value">0</span>
+          <span className="t-dash__nav-label">Saved</span>
+        </Link>
+        <Link to="/account" className="t-dash__nav-item">
+          <span className="t-dash__nav-icon" aria-hidden>
+            <User size={20} strokeWidth={2.25} />
+          </span>
+          <span className="t-dash__nav-value">
+            <Settings size={18} strokeWidth={2.25} />
+          </span>
+          <span className="t-dash__nav-label">Account</span>
+        </Link>
+      </nav>
 
       {isProvider ? (
-        <DashboardSection
-          title="Your businesses"
-          action={
-            <Link to="/provider" className="btn btn-primary">
+        <section className="t-dash__section">
+          <div className="t-dash__section-head">
+            <h2 className="t-dash__section-title">Your businesses</h2>
+            <Link to="/provider" className="t-dash__btn-primary">
               Provider dashboard
             </Link>
-          }
-        >
-          <div className="udash__biz-grid">
+          </div>
+          <div className="t-dash__biz-list">
             {businesses.map((b) => (
-              <Link key={b.id} to={`/business/${b.id}`} className="udash__biz-card">
-                {b.logo ? <img src={b.logo} alt="" /> : <span>{b.business_name.charAt(0)}</span>}
+              <Link key={b.id} to={`/business/${b.id}`} className="t-dash__biz-card">
+                {b.logo ? (
+                  <img src={b.logo} alt="" className="t-dash__biz-logo" />
+                ) : (
+                  <span className="t-dash__biz-logo t-dash__biz-logo--init" aria-hidden>
+                    {b.business_name.charAt(0)}
+                  </span>
+                )}
                 <div>
-                  <strong>{b.business_name}</strong>
-                  <small>
-                    {b.city}, {b.region}
-                  </small>
+                  <span className="t-dash__biz-name">{b.business_name}</span>
+                  <span className="t-dash__biz-meta">{locationLine(b.city, b.region)}</span>
                 </div>
               </Link>
             ))}
           </div>
-          <p className="udash__hint">Provider tools are separate from your traveller dashboard.</p>
-        </DashboardSection>
+          <p className="t-dash__hint">Provider tools live separately from your traveller bookings.</p>
+        </section>
       ) : null}
 
-      <DashboardSection id="bookings" title="My bookings & requests">
+      <section className="t-dash__section" id="bookings">
+        <div className="t-dash__section-head">
+          <h2 className="t-dash__section-title">My bookings & requests</h2>
+        </div>
+
         {loadingBookings ? (
-          <div className="udash__list">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="skeleton udash__list-sk" />
+          <div className="t-dash__bookings">
+            {[1, 2].map((i) => (
+              <div key={i} className="t-dash__sk" />
             ))}
           </div>
         ) : dashboardBookings.length === 0 ? (
-          <EmptyState
-            compact
-            iconElement={<CalendarDays size={28} strokeWidth={2} aria-hidden />}
-            title="No bookings yet"
-            sub="Start by exploring stays, guides, events, or transport."
-            cta={{ label: 'Explore stays', to: '/accommodation' }}
-          />
+          <div className="t-dash__empty">
+            <span className="t-dash__empty-icon" aria-hidden>
+              <CalendarDays size={22} strokeWidth={2.25} />
+            </span>
+            <h3>No bookings yet</h3>
+            <p>Explore stays, guides, or transport to plan your next trip.</p>
+            <Link to="/accommodation" className="t-dash__empty-btn">
+              Explore stays
+            </Link>
+          </div>
         ) : (
-          <div className="udash__booking-cards">
+          <div className="t-dash__bookings">
             {dashboardBookings.map((b) => (
               <UserBookingCard
                 key={b.key}
@@ -223,54 +293,83 @@ export function UserDashboard() {
             ))}
           </div>
         )}
-        <div className="udash__links">
-          <Link to="/accommodation">Explore stays</Link>
-          <Link to="/guides">Browse guides</Link>
-          <Link to="/transport">Browse transport</Link>
-          <Link to="/events">Browse events</Link>
+
+        <div className="t-dash__explore">
+          <Link to="/accommodation">
+            <Hotel size={12} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />
+            Stays
+          </Link>
+          <Link to="/guides">
+            <Compass size={12} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />
+            Guides
+          </Link>
+          <Link to="/transport">
+            <Car size={12} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />
+            Transport
+          </Link>
           <Link to="/community">Ask locals</Link>
         </div>
-      </DashboardSection>
+      </section>
 
-      <DashboardSection id="saved" title="Saved places & journeys">
-        <EmptyState
-          compact
-          iconElement={<Heart size={28} strokeWidth={2} aria-hidden />}
-          title="No saved places yet"
-          sub="Save stays, food spots, guides, events, and journeys to plan later."
-          cta={{ label: 'View on profile', to: `/u/${profile.username}` }}
-        />
-      </DashboardSection>
+      <div className="t-dash__split">
+        <section className="t-dash__section" id="saved">
+          <h2 className="t-dash__section-title">Saved</h2>
+          <div className="t-dash__empty">
+            <span className="t-dash__empty-icon" aria-hidden>
+              <Bookmark size={22} strokeWidth={2.25} />
+            </span>
+            <h3>Nothing saved yet</h3>
+            <p>Bookmark stays, guides, and places from your profile.</p>
+            <Link to={`/u/${profile.username}`} className="t-dash__empty-btn">
+              View profile
+            </Link>
+          </div>
+        </section>
 
-      <DashboardSection title="Recent activity">
-        <EmptyState
-          compact
-          iconElement={<Sparkles size={28} strokeWidth={2} aria-hidden />}
-          title="No recent activity"
-          sub="Posts, bookings, and community replies will show up here."
-          cta={{ label: 'Create a journey', to: '/journeys/new' }}
-        />
-      </DashboardSection>
+        <section className="t-dash__section">
+          <h2 className="t-dash__section-title">Recent activity</h2>
+          <div className="t-dash__empty">
+            <span className="t-dash__empty-icon" aria-hidden>
+              <Sparkles size={22} strokeWidth={2.25} />
+            </span>
+            <h3>Quiet for now</h3>
+            <p>Posts, bookings, and replies will show up here.</p>
+            <Link to="/journeys/new" className="t-dash__empty-btn">
+              Plan a journey
+            </Link>
+          </div>
+        </section>
+      </div>
 
-      <DashboardSection title="Quick actions">
-        <div className="udash__actions">
-          <Link to="/create" className="udash__action">
-            + Create Delvers post
+      <section className="t-dash__section">
+        <h2 className="t-dash__section-title">Quick actions</h2>
+        <div className="t-dash__shortcuts">
+          <Link to="/create" className="t-dash__shortcut">
+            <PenLine size={18} strokeWidth={2.25} aria-hidden />
+            Create post
           </Link>
-          <Link to="/journeys/new" className="udash__action">
-            + New journey
+          <Link to="/journeys/new" className="t-dash__shortcut">
+            <Plus size={18} strokeWidth={2.25} aria-hidden />
+            New journey
           </Link>
-          <Link to="/events/new" className="udash__action">
-            + Create event
+          <Link to="/messages" className="t-dash__shortcut">
+            <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+            Messages
           </Link>
-          <Link to="/messages" className="udash__action">
-            Open messages
+          <Link to="/accommodation" className="t-dash__shortcut">
+            <Hotel size={18} strokeWidth={2.25} aria-hidden />
+            Find stays
           </Link>
-          <Link to="/community" className="udash__action">
-            Ask locals
+          <Link to="/guides" className="t-dash__shortcut">
+            <Compass size={18} strokeWidth={2.25} aria-hidden />
+            Find guides
+          </Link>
+          <Link to="/transport" className="t-dash__shortcut">
+            <Car size={18} strokeWidth={2.25} aria-hidden />
+            Transport
           </Link>
         </div>
-      </DashboardSection>
+      </section>
     </div>
   )
 }

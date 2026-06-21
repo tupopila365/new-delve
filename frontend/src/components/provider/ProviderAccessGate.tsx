@@ -17,7 +17,7 @@ export function ProviderAccessGate({
         iconElement={<Building2 size={28} strokeWidth={2.25} />}
         title={title}
         sub={sub}
-        cta={{ label: 'Go to account', to: '/account' }}
+        cta={{ label: 'Start provider setup', to: '/provider/onboarding' }}
       />
       <p className="prov-access__alt">
         <Link to="/dashboard">Back to travel dashboard</Link>

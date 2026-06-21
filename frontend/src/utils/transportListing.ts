@@ -3,6 +3,10 @@ import { Car, Truck, Bus } from 'lucide-react'
 import { mediaUrl } from '../api/client'
 import type { ListingDetailRow, ListingGalleryItem, ListingMomentItem } from '../components/listing/types'
 import { toListingGalleryImages } from '../components/listing/listingUtils'
+import {
+  DEFAULT_PASSENGER_BUS_TIPS,
+  DEFAULT_PASSENGER_RENTAL_RULES,
+} from '../data/transportProvider'
 
 export type VehicleListing = {
   id: number
@@ -23,6 +27,7 @@ export type VehicleListing = {
   owner_username?: string
   pickup_location?: string | null
   included_features?: string[] | null
+  required_renter_documents?: string[] | null
   gallery_images?: string[] | null
   owner_display_name?: string | null
   owner_bio?: string | null
@@ -53,18 +58,9 @@ export type BusTripListing = {
   amenities?: string[] | null
 }
 
-export const DEFAULT_RENTAL_RULES = [
-  "Valid driver's license required",
-  'Deposit may be required on pick-up',
-  'Return with the same fuel level',
-  'No smoking in the vehicle',
-]
+export const DEFAULT_RENTAL_RULES = DEFAULT_PASSENGER_RENTAL_RULES
 
-export const DEFAULT_BUS_TRAVEL_TIPS = [
-  'Arrive 20 minutes before departure with your reference details.',
-  'Keep snacks and water — stops can be brief on longer routes.',
-  'Window seats fill first on popular coastal runs.',
-]
+export const DEFAULT_BUS_TRAVEL_TIPS = DEFAULT_PASSENGER_BUS_TIPS
 
 const VEHICLE_TYPE_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
   '4x4': { label: '4×4 / SUV', Icon: Car },
@@ -152,7 +148,7 @@ export function buildBusGalleryImages(trip: BusTripListing): ListingGalleryItem[
 export function buildVehicleHighlights(v: VehicleListing): string[] {
   const items = [
     v.vehicle_type === '4x4' || v.vehicle_type === 'pickup' ? 'Great for gravel roads' : 'Comfortable city driving',
-    v.seats != null && v.seats >= 5 ? 'Enough luggage space' : 'Easy to park',
+    v.seats != null && v.seats >= 5 ? 'Comfortable seating' : 'Easy to park',
     v.air_conditioning ? 'Air conditioning' : null,
     v.included_features?.some((f) => /pickup|airport/i.test(f)) ? 'Flexible pickup' : 'Local pickup',
     v.transmission === 'automatic' ? 'Automatic transmission' : null,

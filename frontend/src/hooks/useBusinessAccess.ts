@@ -27,6 +27,8 @@ export type MyBusiness = {
   city: string
   role: string | null
   permissions: BusinessPermissions
+  onboarding_completed?: boolean
+  transport_modes?: ('rental' | 'shared')[]
 }
 
 export function useBusinessAccess(activeBusinessId?: number | null) {

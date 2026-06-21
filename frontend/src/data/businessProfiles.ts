@@ -6,6 +6,9 @@ export type BusinessType =
   | 'event_organiser'
   | 'food_drink'
   | 'guide'
+  | 'journeys'
+  | 'ask_locals'
+  | 'delve_us'
   | 'multi_provider'
 
 export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'suspended' | 'rejected'
@@ -37,6 +40,9 @@ export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
   event_organiser: 'Events',
   food_drink: 'Food & drink',
   guide: 'Local guide',
+  journeys: 'Journeys',
+  ask_locals: 'Ask locals',
+  delve_us: 'Delve us',
   multi_provider: 'Multi-category',
 }
 

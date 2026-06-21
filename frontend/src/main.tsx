@@ -15,6 +15,10 @@ import './user-profile-redesign.css'
 import './user-profile-card-fix.css'
 import './delve-black-background.css'
 import './home-mobile-redesign.css'
+import './components/provider/provider-dark.css'
+import './components/provider/ui/provider-ui.css'
+import './components/provider/messages/provider-messages.css'
+import './components/provider/stays/stay-listing.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

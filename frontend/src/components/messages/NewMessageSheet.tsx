@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { Loader2, Search, UserRound, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { MessagesEmptyState } from './MessagesEmptyState'
+import type { MessagingContext } from './messageProviderUtils'
+import { messageThreadPath } from './messageProviderUtils'
 import './NewMessageSheet.css'
 
 export type MessagePerson = {
@@ -23,7 +25,13 @@ type Props = {
   open: boolean
   onClose: () => void
   recentPeople?: MessagePerson[]
+  context?: MessagingContext
 }
+
+const COMPOSE_COPY = {
+  user: { title: 'New message', placeholder: 'Search name or username', sectionSuggested: 'Suggested', sectionResults: 'Results' },
+  provider: { title: 'Message a guest', placeholder: 'Search guest name or username', sectionSuggested: 'Recent guests', sectionResults: 'Guests' },
+} as const
 
 function personLabel(person: MessagePerson): string {
   return person.display_name?.trim() || person.username
@@ -38,7 +46,8 @@ function personMeta(person: MessagePerson): string {
   return place ? `@${person.username} · ${place}` : `@${person.username}`
 }
 
-export function NewMessageSheet({ open, onClose, recentPeople = [] }: Props) {
+export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'user' }: Props) {
+  const composeCopy = COMPOSE_COPY[context]
   const navigate = useNavigate()
   const qc = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -91,7 +100,7 @@ export function NewMessageSheet({ open, onClose, recentPeople = [] }: Props) {
     onSuccess: (conversation) => {
       void qc.invalidateQueries({ queryKey: ['conversations'] })
       onClose()
-      navigate(`/messages/${conversation.id}`)
+      navigate(messageThreadPath(conversation.id, context))
     },
     onSettled: () => setStartingId(null),
   })
@@ -111,7 +120,7 @@ export function NewMessageSheet({ open, onClose, recentPeople = [] }: Props) {
   }, [debouncedQuery, recentPeople, searchResults])
 
   const list = debouncedQuery ? searchResults : suggested
-  const sectionLabel = debouncedQuery ? 'Results' : 'Suggested'
+  const sectionLabel = debouncedQuery ? composeCopy.sectionResults : composeCopy.sectionSuggested
 
   function onPick(person: MessagePerson) {
     if (startMut.isPending) return
@@ -122,7 +131,12 @@ export function NewMessageSheet({ open, onClose, recentPeople = [] }: Props) {
   if (!open) return null
 
   return (
-    <div className="msg-compose-sheet" role="dialog" aria-modal="true" aria-label="New message">
+    <div
+      className={`msg-compose-sheet${context === 'provider' ? ' msg-compose-sheet--provider' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={composeCopy.title}
+    >
       <button type="button" className="msg-compose-sheet__backdrop" onClick={onClose} aria-label="Close" />
 
       <div className="msg-compose-sheet__panel">
@@ -130,7 +144,7 @@ export function NewMessageSheet({ open, onClose, recentPeople = [] }: Props) {
           <button type="button" className="msg-compose-sheet__close" onClick={onClose} aria-label="Close">
             <X size={20} strokeWidth={2.25} aria-hidden />
           </button>
-          <h2>New message</h2>
+          <h2>{composeCopy.title}</h2>
         </header>
 
         <label className="msg-compose-sheet__search">
@@ -141,7 +155,7 @@ export function NewMessageSheet({ open, onClose, recentPeople = [] }: Props) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name or username"
+            placeholder={composeCopy.placeholder}
             autoComplete="off"
             enterKeyHint="search"
           />

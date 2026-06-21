@@ -1,9 +1,17 @@
 import re
 
 from django.contrib.auth.password_validation import validate_password
+from django.utils.text import slugify
 from rest_framework import serializers
 
-from .models import BusinessProfile, Profile, User, UserType
+from .models import (
+    BusinessProfile,
+    BusinessType,
+    BusinessVerificationDocument,
+    Profile,
+    User,
+    UserType,
+)
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -119,6 +127,8 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
             "cover_image",
             "region",
             "city",
+            "onboarding_completed",
+            "transport_modes",
         )
 
 
@@ -142,6 +152,8 @@ class MyBusinessSerializer(serializers.ModelSerializer):
             "cover_image",
             "region",
             "city",
+            "onboarding_completed",
+            "transport_modes",
             "role",
             "permissions",
         )
@@ -153,6 +165,98 @@ class MyBusinessSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         perms_map = self.context.get("permissions_map") or {}
         return perms_map.get(obj.pk, {}).get("permissions", {})
+
+
+def _unique_business_slug(base: str) -> str:
+    slug = slugify(base)[:70] or "business"
+    candidate = slug
+    n = 1
+    while BusinessProfile.objects.filter(slug=candidate).exists():
+        n += 1
+        candidate = f"{slug}-{n}"
+    return candidate
+
+
+class CreateBusinessSerializer(serializers.Serializer):
+    business_name = serializers.CharField(max_length=160)
+    business_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=BusinessType.choices),
+        min_length=1,
+    )
+    tagline = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    region = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
+    city = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
+    transport_modes = serializers.ListField(
+        child=serializers.ChoiceField(choices=[("rental", "Vehicle rentals"), ("shared", "Shared passenger transport")]),
+        required=False,
+        allow_empty=True,
+    )
+
+    def validate_business_types(self, value):
+        cleaned = list(dict.fromkeys(value))
+        if BusinessType.MULTI_PROVIDER in cleaned and len(cleaned) > 1:
+            cleaned = [t for t in cleaned if t != BusinessType.MULTI_PROVIDER]
+        if len(cleaned) > 1 and BusinessType.MULTI_PROVIDER not in cleaned:
+            cleaned.append(BusinessType.MULTI_PROVIDER)
+        return cleaned
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        business = BusinessProfile.objects.create(
+            owner=user,
+            slug=_unique_business_slug(validated_data["business_name"]),
+            business_name=validated_data["business_name"].strip(),
+            business_types=validated_data["business_types"],
+            tagline=validated_data.get("tagline", ""),
+            description=validated_data.get("description", ""),
+            region=validated_data.get("region", ""),
+            city=validated_data.get("city", ""),
+            transport_modes=validated_data.get("transport_modes", []),
+        )
+        return business
+
+
+class UpdateMyBusinessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusinessProfile
+        fields = (
+            "business_name",
+            "business_types",
+            "tagline",
+            "description",
+            "region",
+            "city",
+            "logo",
+            "cover_image",
+            "onboarding_completed",
+            "transport_modes",
+        )
+
+    def validate_business_types(self, value):
+        if not value:
+            raise serializers.ValidationError("Select at least one service type.")
+        cleaned = list(dict.fromkeys(value))
+        if len(cleaned) > 1 and BusinessType.MULTI_PROVIDER not in cleaned:
+            cleaned.append(BusinessType.MULTI_PROVIDER)
+        return cleaned
+
+
+class BusinessVerificationDocumentSerializer(serializers.ModelSerializer):
+    doc_type_label = serializers.CharField(source="get_doc_type_display", read_only=True)
+
+    class Meta:
+        model = BusinessVerificationDocument
+        fields = (
+            "id",
+            "doc_type",
+            "doc_type_label",
+            "file",
+            "status",
+            "notes",
+            "uploaded_at",
+        )
+        read_only_fields = ("status", "uploaded_at")
 
 
 class PublicProfileSerializer(serializers.ModelSerializer):

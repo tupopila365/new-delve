@@ -115,6 +115,7 @@ export type MockVehicle = {
   pickup_location?: string
   included_features?: string[]
   gallery_images?: string[]
+  required_renter_documents?: string[]
   owner_username?: string
   owner_display_name?: string
   owner_bio?: string
@@ -125,6 +126,7 @@ export type MockVehicle = {
 
 export type MockBusTrip = {
   id: number
+  owner_username?: string
   route_detail: {
     origin: string
     destination: string
@@ -405,6 +407,91 @@ export const mockProfiles: Record<string, MockProfile> = {
     bio: 'Chasing sunsets, good coffee, and hidden stays.',
     region: 'Khomas',
     city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  anna: {
+    username: 'anna',
+    email: 'anna@example.com',
+    user_type: 'normal',
+    display_name: 'Anna K.',
+    bio: 'Planning a coastal stay in Namibia.',
+    region: 'Khomas',
+    city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  james: {
+    username: 'james',
+    email: 'james@example.com',
+    user_type: 'normal',
+    display_name: 'James O.',
+    bio: 'Safari and desert tour enthusiast.',
+    region: 'Erongo',
+    city: 'Swakopmund',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  maria: {
+    username: 'maria',
+    email: 'maria@example.com',
+    user_type: 'normal',
+    display_name: 'Maria S.',
+    bio: 'Road trip across the Namib.',
+    region: 'Khomas',
+    city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  tobias: {
+    username: 'tobias',
+    email: 'tobias@example.com',
+    user_type: 'normal',
+    display_name: 'Tobias L.',
+    bio: 'Food and culture traveller.',
+    region: 'Khomas',
+    city: 'Windhoek',
+    country_code: 'NA',
+    preferred_currency: 'NAD',
+    avatar: null,
+    email_verified: true,
+    is_private: false,
+    posts_visibility: 'public',
+    allow_messages: true,
+    show_in_search: true,
+  },
+  priya: {
+    username: 'priya',
+    email: 'priya@example.com',
+    user_type: 'normal',
+    display_name: 'Priya N.',
+    bio: 'Family holiday along the coast.',
+    region: 'Erongo',
+    city: 'Walvis Bay',
     country_code: 'NA',
     preferred_currency: 'NAD',
     avatar: null,
@@ -930,6 +1017,7 @@ export const mockVehicles: MockVehicle[] = [
       'Unlimited kilometres',
       'Child seat on request',
     ],
+    required_renter_documents: ['driver_license_front', 'driver_license_back', 'national_id'],
     gallery_images: [VEH.hiluxFront, VEH.suvSide, VEH.interior, VEH.road],
   },
   {
@@ -1010,6 +1098,7 @@ export const mockVehicles: MockVehicle[] = [
 export const mockBusTrips: MockBusTrip[] = [
   {
     id: 301,
+    owner_username: 'transport_mgr',
     route_detail: {
       origin: 'Windhoek',
       destination: 'Swakopmund',
@@ -1033,6 +1122,7 @@ export const mockBusTrips: MockBusTrip[] = [
   },
   {
     id: 302,
+    owner_username: 'transport_mgr',
     route_detail: {
       origin: 'Windhoek',
       destination: 'Oshakati',
@@ -1055,6 +1145,7 @@ export const mockBusTrips: MockBusTrip[] = [
   },
   {
     id: 303,
+    owner_username: 'transport_mgr',
     route_detail: {
       origin: 'Windhoek',
       destination: 'Swakopmund',

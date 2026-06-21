@@ -48,7 +48,7 @@ export function VehicleProviderCard({
             </p>
           )}
           <p className="tp-detail__provider-bio">
-            {bio?.trim() || 'Listed on DELVE. Message the provider for pickup, insurance, and rental terms.'}
+            {bio?.trim() || 'Passenger transport on DELVE. Message for pickup times, rental terms, and seat confirmation.'}
           </p>
           <div className="tp-detail__provider-actions">
             {profileHref ? (
@@ -81,7 +81,7 @@ export function BusOperatorCard({ operatorName, className = '' }: BusOperatorPro
           <p className="tp-detail__provider-kicker">Transport operator</p>
           <p className="tp-detail__provider-name">{operatorName}</p>
           <p className="tp-detail__provider-bio">
-            Listed on DELVE. Message the operator for boarding details, luggage limits, and fare confirmation.
+            Passenger trips on DELVE. Message the operator for boarding times, stops, and fare confirmation.
           </p>
           <div className="tp-detail__provider-actions">
             <Link to="/messages" className="btn btn-ghost btn-sm">

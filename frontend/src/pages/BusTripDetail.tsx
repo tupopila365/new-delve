@@ -12,7 +12,7 @@ import { friendlyApiMessage } from '../utils/friendlyError'
 import type { BusTripListing } from '../utils/transportListing'
 
 const DEFAULT_QUESTIONS = [
-  { id: 'b1', author: 'Sam N.', body: 'How much luggage space is there under the bus?', ago: '3d ago' },
+  { id: 'b1', author: 'Sam N.', body: 'Is there a stop in Rehoboth on this run?', ago: '3d ago' },
   { id: 'b2', author: 'Leah P.', body: 'Does this route stop for food in Rehoboth?', ago: '1w ago' },
 ]
 

@@ -1,6 +1,15 @@
 export { MessageProviderLink } from './MessageProviderLink'
 export { MessageProviderCard } from './MessageProviderCard'
-export { messageProviderPath, messageProviderLabel } from './messageProviderUtils'
+export {
+  messageProviderPath,
+  messageProviderLabel,
+  messageUserPath,
+  messageInboxPath,
+  messageThreadPath,
+  messagingPaths,
+} from './messageProviderUtils'
+export type { MessagingContext } from './messageProviderUtils'
+export { ConversationInbox } from './ConversationInbox'
 export { NewMessageSheet } from './NewMessageSheet'
 export type { MessagePerson } from './NewMessageSheet'
 export { MessagesEmptyState } from './MessagesEmptyState'

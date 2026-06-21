@@ -29,6 +29,8 @@ import { VenueStoriesSection } from '../food/stories'
 import { VehicleBookingStatus, VehicleReserveCard } from '../booking/transport/VehicleReserveCard'
 import { VehicleProviderCard } from './TransportProviderCard'
 import { buildVehicleStoryChannels } from './transportStoriesUtils'
+import { renterDocLabel } from '../../data/renterDocuments'
+import type { RenterDocumentUpload } from '../../data/renterDocuments'
 import {
   buildVehicleDetailRows,
   buildVehicleGalleryImages,
@@ -66,6 +68,9 @@ type BookingProps = {
   booking: Booking | null
   onPay: () => void
   isPayPending: boolean
+  renterDocuments: Record<string, RenterDocumentUpload | undefined>
+  onRenterDocUpload: (docType: string, file: File) => void
+  onRenterDocRemove: (docType: string) => void
 }
 
 type Props = {
@@ -271,6 +276,14 @@ export function VehicleDetailView({
               className="tp-detail__rules acc-detail__rules"
             />
 
+            {(vehicle.required_renter_documents?.length ?? 0) > 0 ? (
+              <ListingRules
+                rules={(vehicle.required_renter_documents ?? []).map((id) => renterDocLabel(id))}
+                title="Documents you'll need"
+                className="tp-detail__rules acc-detail__rules"
+              />
+            ) : null}
+
             {(vehicle.owner_username || vehicle.owner_display_name) && (
               <VehicleProviderCard
                 displayName={providerName}
@@ -325,6 +338,9 @@ export function VehicleDetailView({
               onDismissErr={booking.onDismissErr}
               profile={booking.profile}
               booking={booking.booking}
+              renterDocuments={booking.renterDocuments}
+              onRenterDocUpload={booking.onRenterDocUpload}
+              onRenterDocRemove={booking.onRenterDocRemove}
             />
           ) : null
         }

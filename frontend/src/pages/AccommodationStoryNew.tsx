@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -14,10 +14,13 @@ type ListingRow = {
 
 export function AccommodationStoryNew() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('return') || '/accommodation'
+  const preselectedListing = searchParams.get('listing') || ''
   const { profile } = useAuth()
   const [body, setBody] = useState('')
   const [region, setRegion] = useState(profile?.region ?? '')
-  const [listingId, setListingId] = useState<string>('')
+  const [listingId, setListingId] = useState<string>(preselectedListing)
   const [mediaKind, setMediaKind] = useState<MediaKind>('image')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -58,7 +61,7 @@ export function AccommodationStoryNew() {
       }
       return apiFetch('/api/social/posts/', { method: 'POST', body: fd })
     },
-    onSuccess: () => nav('/accommodation'),
+    onSuccess: () => nav(returnTo),
     onError: (e) => setErr(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed'),
   })
 
@@ -89,8 +92,8 @@ export function AccommodationStoryNew() {
 
   return (
     <div className="feed-max">
-      <Link to="/accommodation" className="acc-page__back" style={{ display: 'inline-block', marginBottom: 12 }}>
-        ← Back to stays
+      <Link to={returnTo} className="acc-page__back" style={{ display: 'inline-block', marginBottom: 12 }}>
+        ← Back
       </Link>
       <h1 className="display" style={{ fontSize: '1.65rem', marginBottom: 8 }}>
         New host story

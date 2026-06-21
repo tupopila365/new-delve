@@ -69,3 +69,10 @@ export const DM_QUICK_REPLIES = [
   "I'd like to make a booking.",
   'Can you share more details?',
 ] as const
+
+export const PROVIDER_DM_QUICK_REPLIES = [
+  'Thanks for reaching out — how can I help?',
+  'Your booking is confirmed.',
+  'Could you share your arrival date?',
+  'We look forward to hosting you.',
+] as const

@@ -764,7 +764,7 @@ export function Transport() {
     <div className="tp-page ev-page acc-page disc-page mk-page">
       <MarketplaceHero
         title="Find transport"
-        subtitle="Compare vehicle rentals, bus trips, routes, pickup points, and trusted local transport providers."
+        subtitle="Passenger rentals, bus seats, and local trips — compare routes, pickup points, and trusted operators."
         support="Choose how you want to move around Namibia and beyond."
         action={
           tab === 'car' || tab === 'all' ? (

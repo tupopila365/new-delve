@@ -276,7 +276,7 @@ export function BusTripDetailView({
             <ListingAskSection
               className="tp-detail__comments acc-detail__comments"
               title="Route tips and questions"
-              placeholder="Ask about boarding point, luggage limits, stops, or pickup time…"
+              placeholder="Ask about boarding point, stops, pickup time, or seat availability…"
               initialQuestions={initialQuestions}
             />
 

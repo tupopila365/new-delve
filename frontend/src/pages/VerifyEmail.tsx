@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { apiFetch, ApiError } from '../api/client'
+import { AuthScreen } from '../components/auth'
 
 export function VerifyEmail() {
   const loc = useLocation()
-  const hint = (loc.state as { emailHint?: string } | null)?.emailHint
+  const hint = (loc.state as { emailHint?: string; isProvider?: boolean } | null)?.emailHint
+  const isProvider = (loc.state as { isProvider?: boolean } | null)?.isProvider
   const [token, setToken] = useState('')
   useEffect(() => {
     const q = new URLSearchParams(loc.search).get('token')
@@ -34,36 +36,51 @@ export function VerifyEmail() {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card">
-        <h1 className="auth-brand" style={{ fontSize: '1.75rem' }}>
-          Verify email
-        </h1>
-        <p className="auth-tagline">
-          Paste the token from your email (in dev, check the Django console).
-          {hint ? ` Sent to ${hint}.` : ''}
+    <AuthScreen
+      title="Verify email"
+      subtitle={
+        hint
+          ? `Paste the verification token from your email. Sent to ${hint}.`
+          : 'Paste the verification token from your email.'
+      }
+      hint={
+        <>
+          In dev, check the <strong>Django console</strong>.
+        </>
+      }
+      footer={
+        <>
+          Already verified? <Link to="/login">Log in</Link>
+        </>
+      }
+    >
+      {err ? <p className="auth-page__error">{err}</p> : null}
+      {msg ? (
+        <p className="auth-page__success">
+          {msg}{' '}
+          {isProvider ? (
+            <Link to="/login?next=%2Fprovider%2Fonboarding">Log in to continue setup →</Link>
+          ) : (
+            <Link to="/login">Log in →</Link>
+          )}
         </p>
-        {err && <div className="error-banner">{err}</div>}
-        {msg && (
-          <div className="success-banner">
-            {msg}{' '}
-            <Link to="/login" style={{ fontWeight: 700 }}>
-              Log in →
-            </Link>
-          </div>
-        )}
-        <form onSubmit={onSubmit}>
-          <div className="field">
-            <label className="label" htmlFor="tok">
-              Verification token
-            </label>
-            <input id="tok" className="input" value={token} onChange={(e) => setToken(e.target.value)} placeholder="UUID from email" required />
-          </div>
-          <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
-            {busy ? 'Verifying…' : 'Verify'}
-          </button>
-        </form>
-      </div>
-    </div>
+      ) : null}
+      <form className="auth-page__form" onSubmit={onSubmit}>
+        <input
+          id="tok"
+          type="text"
+          className="auth-page__input"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="Verification token"
+          autoComplete="one-time-code"
+          aria-label="Verification token"
+          required
+        />
+        <button type="submit" className="auth-page__submit" disabled={busy}>
+          {busy ? 'Verifying…' : 'Verify'}
+        </button>
+      </form>
+    </AuthScreen>
   )
 }

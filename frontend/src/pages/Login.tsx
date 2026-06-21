@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ApiError } from '../api/client'
+import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { AuthScreen } from '../components/auth'
+import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { readLoginReturnPath } from '../utils/authRedirect'
 
 export function Login() {
@@ -23,6 +24,16 @@ export function Login() {
     setBusy(true)
     try {
       await login(email.trim(), password)
+      const me = await apiFetch<{ user_type: string }>('/api/accounts/me/')
+      if (me.user_type === 'service_provider') {
+        const businesses = await apiFetch<MyBusiness[]>('/api/accounts/me/businesses/')
+        const needsOnboarding =
+          businesses.length === 0 || businesses.some((b) => b.onboarding_completed === false)
+        if (needsOnboarding) {
+          nav('/provider/onboarding')
+          return
+        }
+      }
       nav(readLoginReturnPath(returnQs, '/'))
     } catch (e2) {
       setErr(e2 instanceof ApiError ? e2.message : 'Login failed')

@@ -1,7 +1,8 @@
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Bot, Loader2, Send, UserRound } from 'lucide-react'
-import { DM_QUICK_REPLIES, formatMessageTime, type AutomatedMessage } from './messagingUtils'
+import { DM_QUICK_REPLIES, formatMessageTime, PROVIDER_DM_QUICK_REPLIES, type AutomatedMessage } from './messagingUtils'
+import type { MessagingContext } from '../messageProviderUtils'
 import './dm-chat.css'
 
 export type DmMessage = {
@@ -34,8 +35,11 @@ type Props = {
   backLabel?: string
   onBack: () => void
   inboxHref?: string
+  inboxLabel?: string
   statusSlot?: ReactNode
   showQuickReplies?: boolean
+  context?: MessagingContext
+  quickReplies?: readonly string[]
 }
 
 export function DmChatView({
@@ -53,11 +57,17 @@ export function DmChatView({
   backLabel = 'Back',
   onBack,
   inboxHref = '/messages',
+  inboxLabel = 'Inbox',
   statusSlot,
   showQuickReplies = true,
+  context = 'user',
+  quickReplies,
 }: Props) {
   const location = [person.city, person.region].filter(Boolean).join(', ')
   const showAutomated = automatedMessages.length > 0 && messages.length === 0 && !loading
+  const replies =
+    quickReplies ?? (context === 'provider' ? PROVIDER_DM_QUICK_REPLIES : DM_QUICK_REPLIES)
+  const chatClass = context === 'provider' ? 'dm-chat dm-chat--provider' : 'dm-chat'
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -70,7 +80,7 @@ export function DmChatView({
   }
 
   return (
-    <section className="dm-chat" aria-label={`Chat with ${personName}`}>
+    <section className={chatClass} aria-label={`Chat with ${personName}`}>
       <header className="dm-chat__head">
         <button type="button" className="dm-chat__back" onClick={onBack} aria-label={backLabel}>
           <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
@@ -84,11 +94,12 @@ export function DmChatView({
             <small>
               @{person.username}
               {location ? ` · ${location}` : ''}
+              {context === 'provider' ? ' · Guest' : ''}
             </small>
           </span>
         </Link>
         <Link to={inboxHref} className="dm-chat__inbox">
-          Inbox
+          {inboxLabel}
         </Link>
       </header>
 
@@ -133,9 +144,7 @@ export function DmChatView({
                   className={`dm-chat__bubble ${mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs'}`.trim()}
                 >
                   <p>{message.body}</p>
-                  {message.created_at ? (
-                    <small>{formatMessageTime(message.created_at)}</small>
-                  ) : null}
+                  {message.created_at ? <small>{formatMessageTime(message.created_at)}</small> : null}
                 </article>
               )
             })}
@@ -145,7 +154,7 @@ export function DmChatView({
 
       {showQuickReplies && !opening ? (
         <div className="dm-chat__quick" aria-label="Quick replies">
-          {DM_QUICK_REPLIES.map((text) => (
+          {replies.map((text) => (
             <button key={text} type="button" className="dm-chat__quick-btn" onClick={() => applyQuickReply(text)}>
               {text}
             </button>
@@ -157,9 +166,9 @@ export function DmChatView({
         <textarea
           value={body}
           onChange={(event) => onBodyChange(event.target.value)}
-          placeholder={`Message ${personName}…`}
+          placeholder={context === 'provider' ? `Reply to ${personName}…` : `Message ${personName}…`}
           rows={1}
-          aria-label={`Message ${personName}`}
+          aria-label={context === 'provider' ? `Reply to ${personName}` : `Message ${personName}`}
         />
         <button type="submit" disabled={!body.trim() || sending || opening} aria-label="Send message">
           {sending ? (

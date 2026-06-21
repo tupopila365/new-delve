@@ -39,11 +39,17 @@ import { CreateJourney } from './pages/CreateJourney'
 import { UserProfile } from './pages/UserProfile'
 import { VehicleDetail } from './pages/VehicleDetail'
 import { VerifyEmail } from './pages/VerifyEmail'
+import { ProviderOnboarding } from './pages/ProviderOnboarding'
 import { ProviderLayout } from './components/ProviderLayout'
 import { ProviderDashboard } from './pages/ProviderDashboard'
 import { ProviderListings } from './pages/ProviderListings'
 import { ProviderBookings } from './pages/ProviderBookings'
 import { ProviderReviews } from './pages/ProviderReviews'
+import { ProviderSettings } from './pages/ProviderSettings'
+import { ProviderAnalytics } from './pages/ProviderAnalytics'
+import { ProviderMessages } from './pages/ProviderMessages'
+import { ProviderMessageThread } from './pages/ProviderMessageThread'
+import { ProviderMessageUser } from './pages/ProviderMessageUser'
 import { StaysAdmin } from './pages/StaysAdmin'
 import { GuidesAdmin } from './pages/GuidesAdmin'
 import { TransportAdmin } from './pages/TransportAdmin'
@@ -130,6 +136,11 @@ export default function App() {
             <Route path="listings" element={<ProviderListings />} />
             <Route path="bookings" element={<ProviderBookings />} />
             <Route path="reviews" element={<ProviderReviews />} />
+            <Route path="analytics" element={<ProviderAnalytics />} />
+            <Route path="settings" element={<ProviderSettings />} />
+            <Route path="messages" element={<ProviderMessages />} />
+            <Route path="messages/u/:username" element={<ProviderMessageUser />} />
+            <Route path="messages/:id" element={<ProviderMessageThread />} />
             <Route path="stays" element={<StaysAdmin />} />
             <Route path="guides" element={<GuidesAdmin />} />
             <Route path="transport" element={<TransportAdmin />} />
@@ -139,6 +150,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/provider/onboarding" element={<ProviderOnboarding />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

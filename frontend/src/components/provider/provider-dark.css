@@ -1,0 +1,366 @@
+/* Provider shell — dark theme (higher specificity beats index.css .prov-shell) */
+
+.prov-shell.prov-shell--dark {
+  background: #0c0a09;
+  color: #fffaf2;
+}
+
+.prov-shell.prov-shell--dark .prov-main,
+.prov-shell.prov-shell--dark .prov-content {
+  background: #0c0a09;
+  color: #fffaf2;
+}
+
+.prov-shell.prov-shell--dark .prov-sidebar {
+  background: rgba(12, 10, 9, 0.98);
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+.prov-shell.prov-shell--dark .prov-sidebar__home,
+.prov-shell.prov-shell--dark .prov-sidebar__link,
+.prov-shell.prov-shell--dark .prov-sidebar__module,
+.prov-shell.prov-shell--dark .prov-sidebar__public {
+  color: rgba(255, 250, 242, 0.65);
+}
+
+.prov-shell--dark .prov-sidebar__link:hover,
+.prov-shell--dark .prov-sidebar__link--active,
+.prov-shell--dark .prov-sidebar__module:hover,
+.prov-shell--dark .prov-sidebar__module--active {
+  background: rgba(255, 154, 82, 0.12);
+  color: #ff9a52;
+}
+
+.prov-shell--dark .prov-sidebar__biz-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.prov-shell--dark .prov-sidebar__biz-card strong {
+  color: #fffaf2;
+}
+
+.prov-shell--dark .prov-sidebar__biz-card span,
+.prov-shell--dark .prov-sidebar__modules-label,
+.prov-shell--dark .prov-sidebar__perm-hint {
+  color: rgba(255, 250, 242, 0.45);
+}
+
+.prov-shell--dark .prov-sidebar__switcher select {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fffaf2;
+}
+
+.prov-shell--dark .prov-topbar {
+  background: rgba(12, 10, 9, 0.92);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.prov-shell--dark .prov-topbar__title strong {
+  color: #fffaf2;
+}
+
+.prov-shell--dark .prov-topbar__menu {
+  color: #fffaf2;
+}
+
+.prov-shell--dark .prov-content {
+  padding: 16px 16px 48px;
+}
+
+/* Dashboard on dark shell */
+.prov-shell--dark .prov-dash__title {
+  color: #fffaf2;
+}
+
+.prov-shell--dark .prov-dash__stat,
+.prov-shell--dark .prov-dash__attention-list li,
+.prov-shell--dark .prov-dash__shortcut,
+.prov-shell--dark .prov-dash__booking {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.prov-shell--dark .prov-dash__stat strong,
+.prov-shell--dark .prov-dash__attention-list li,
+.prov-shell--dark .prov-dash__shortcut,
+.prov-shell--dark .prov-dash__booking strong {
+  color: #fffaf2;
+}
+
+.prov-shell--dark .prov-dash__stat span,
+.prov-shell--dark .prov-dash__booking span {
+  color: rgba(255, 250, 242, 0.5);
+}
+
+/* Bookings page */
+.prov-bk {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.prov-bk__header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prov-bk__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fffaf2;
+}
+
+.prov-bk__sub {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.prov-bk__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.prov-bk__stat {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prov-bk__stat--wide {
+  grid-column: span 2;
+}
+
+.prov-bk__stat--accent {
+  background: rgba(255, 154, 82, 0.12);
+  border-color: rgba(255, 154, 82, 0.25);
+}
+
+.prov-bk__stat strong {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fffaf2;
+  line-height: 1.1;
+}
+
+.prov-bk__stat--accent strong {
+  color: #ff9a52;
+}
+
+.prov-bk__stat span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 250, 242, 0.45);
+}
+
+.prov-bk__search {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+  font-size: 0.92rem;
+  font-family: inherit;
+}
+
+.prov-bk__search::placeholder {
+  color: rgba(255, 250, 242, 0.35);
+}
+
+.prov-bk__search:focus {
+  outline: none;
+  border-color: rgba(255, 154, 82, 0.5);
+}
+
+.prov-bk__filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.prov-bk__filters::-webkit-scrollbar {
+  display: none;
+}
+
+.prov-bk__chip {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 250, 242, 0.65);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.prov-bk__chip--active {
+  background: #ff9a52;
+  border-color: #ff9a52;
+  color: #1a0f05;
+}
+
+.prov-bk__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prov-bk__card {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prov-bk__card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.prov-bk__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 154, 82, 0.2);
+  color: #ff9a52;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.prov-bk__card-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.prov-bk__card-meta strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fffaf2;
+}
+
+.prov-bk__card-meta span {
+  display: block;
+  font-size: 0.78rem;
+  color: rgba(255, 250, 242, 0.5);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prov-bk__card-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.78rem;
+  color: rgba(255, 250, 242, 0.5);
+}
+
+.prov-bk__card-details strong {
+  margin-left: auto;
+  font-size: 0.88rem;
+  color: #fffaf2;
+}
+
+.prov-bk__card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.prov-bk__btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+}
+
+.prov-bk__btn--primary {
+  background: #ff9a52;
+  color: #1a0f05;
+}
+
+.prov-bk__btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fffaf2;
+}
+
+.prov-bk__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: rgba(255, 250, 242, 0.5);
+  font-size: 0.88rem;
+}
+
+.prov-bk__empty strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1rem;
+  color: #fffaf2;
+}
+
+/* Topbar profile menu */
+.prov-topbar__profile {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.prov-topbar__profile .profile-menu__trigger.prov-topbar__av {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.prov-topbar__profile .profile-menu__avatar-letter {
+  font-size: 14px;
+}
+
+.prov-topbar__profile .profile-menu__panel {
+  right: 0;
+  left: auto;
+}

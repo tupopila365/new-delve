@@ -71,14 +71,81 @@ const mockBusReservationRows = new Map<
 type MockVehicleBookingRow = {
   id: number
   listing: number
+  client?: string
   start_date: string
   end_date: string
+  pickup_area?: string
   total_price: string
   status: 'pending' | 'confirmed'
   mock_payment_ref: string
+  renter_documents?: { doc_type: string; file_name: string; image_data: string }[]
 }
 const mockVehicleBookings = new Map<number, MockVehicleBookingRow>()
 let mockVehicleBookingNextId = 8000
+
+type MockUserBusiness = {
+  id: number
+  slug: string
+  owner_username: string
+  business_name: string
+  business_types: string[]
+  transport_modes?: ('rental' | 'shared')[]
+  verification_status: string
+  description: string
+  tagline: string
+  logo: string | null
+  cover_image: string | null
+  region: string
+  city: string
+  onboarding_completed: boolean
+}
+
+const mockUserBusinesses = new Map<string, MockUserBusiness[]>()
+let mockUserBusinessNextId = 9000
+
+const ownerBusinessPermissions = {
+  role: 'owner' as const,
+  permissions: {
+    view_dashboard: true,
+    manage_bookings: true,
+    manage_listings: true,
+    manage_team: true,
+    manage_payouts: true,
+    manage_settings: true,
+  },
+}
+
+function serializeMyBusiness(b: MockUserBusiness) {
+  return { ...b, ...ownerBusinessPermissions }
+}
+
+type PublicBusinessSource = (typeof mockBusinessProfiles)[number] | MockUserBusiness
+
+function serializePublicBusiness(b: PublicBusinessSource) {
+  return {
+    id: b.id,
+    slug: b.slug,
+    owner_username: b.owner_username,
+    business_name: b.business_name,
+    business_types: b.business_types,
+    verification_status: b.verification_status,
+    description: b.description,
+    tagline: b.tagline ?? '',
+    logo: b.logo,
+    cover_image: b.cover_image,
+    region: b.region,
+    city: b.city,
+  }
+}
+
+function allPublicBusinesses(): PublicBusinessSource[] {
+  const created = Array.from(mockUserBusinesses.values()).flat()
+  return [...mockBusinessProfiles, ...created]
+}
+
+function findPublicBusinessById(id: number): PublicBusinessSource | undefined {
+  return allPublicBusinesses().find((b) => b.id === id)
+}
 
 function rentalDaysInclusive(start: string, end: string): number | null {
   if (!start || !end) return null
@@ -455,71 +522,129 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/accounts/businesses/' && method === 'GET') {
     const owner = (q.get('owner') || '').trim()
     const list = owner
-      ? mockBusinessProfiles.filter((b) => b.owner_username.toLowerCase() === owner.toLowerCase())
-      : mockBusinessProfiles
-    return list.map((b) => ({
-      id: b.id,
-      slug: b.slug,
-      owner_username: b.owner_username,
-      business_name: b.business_name,
-      business_types: b.business_types,
-      verification_status: b.verification_status,
-      description: b.description,
-      tagline: b.tagline ?? '',
-      logo: b.logo,
-      cover_image: b.cover_image,
-      region: b.region,
-      city: b.city,
-    }))
+      ? allPublicBusinesses().filter((b) => b.owner_username.toLowerCase() === owner.toLowerCase())
+      : allPublicBusinesses()
+    return list.map(serializePublicBusiness)
   }
 
   const businessDetailMatch = pathname.match(/^\/api\/accounts\/businesses\/(\d+)\/?$/)
   if (businessDetailMatch && method === 'GET') {
-    const b = mockBusinessProfiles.find((x) => x.id === Number(businessDetailMatch[1]))
+    const b = findPublicBusinessById(Number(businessDetailMatch[1]))
     if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
-    return {
-      id: b.id,
-      slug: b.slug,
-      owner_username: b.owner_username,
-      business_name: b.business_name,
-      business_types: b.business_types,
-      verification_status: b.verification_status,
-      description: b.description,
-      tagline: b.tagline ?? '',
-      logo: b.logo,
-      cover_image: b.cover_image,
-      region: b.region,
-      city: b.city,
-    }
+    return serializePublicBusiness(b)
   }
 
   if (pathname === '/api/accounts/me/businesses/' && method === 'GET') {
     requireAuth(s)
     const me = s.currentUser as string
     const owned = mockBusinessProfiles.filter((b) => b.owner_username === me)
-    return owned.map((b) => ({
-      id: b.id,
-      slug: b.slug,
-      owner_username: b.owner_username,
-      business_name: b.business_name,
-      business_types: b.business_types,
-      verification_status: b.verification_status,
-      description: b.description,
-      tagline: b.tagline ?? '',
-      logo: b.logo,
-      cover_image: b.cover_image,
-      region: b.region,
-      city: b.city,
-      role: 'owner',
-      permissions: {
-        view_dashboard: true,
-        manage_bookings: true,
-        manage_listings: true,
-        manage_team: true,
-        manage_payouts: true,
-        manage_settings: true,
-      },
-    }))
+    const seeded = owned.map((b) =>
+      serializeMyBusiness({
+        id: b.id,
+        slug: b.slug,
+        owner_username: b.owner_username,
+        business_name: b.business_name,
+        business_types: b.business_types,
+        transport_modes: b.business_types.includes('transport') ? ['rental', 'shared'] : undefined,
+        verification_status: b.verification_status,
+        description: b.description,
+        tagline: b.tagline ?? '',
+        logo: b.logo,
+        cover_image: b.cover_image,
+        region: b.region,
+        city: b.city,
+        onboarding_completed: true,
+      }),
+    )
+    const created = (mockUserBusinesses.get(me) ?? []).map(serializeMyBusiness)
+    return [...seeded, ...created]
+  }
+
+  if (pathname === '/api/accounts/me/businesses/create/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const existing = mockUserBusinesses.get(me) ?? []
+    if (existing.length > 0) throw new ApiError('Already exists', 400, { detail: 'You already have a business profile.' })
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body' })
+    const data = JSON.parse(init.body) as {
+      business_name: string
+      business_types: string[]
+      transport_modes?: ('rental' | 'shared')[]
+      tagline?: string
+      description?: string
+      region?: string
+      city?: string
+    }
+    const slug = data.business_name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 70) || 'business'
+    const biz: MockUserBusiness = {
+      id: mockUserBusinessNextId++,
+      slug,
+      owner_username: me,
+      business_name: data.business_name.trim(),
+      business_types: data.business_types,
+      transport_modes: data.transport_modes,
+      verification_status: 'unverified',
+      description: data.description?.trim() ?? '',
+      tagline: data.tagline?.trim() ?? '',
+      logo: null,
+      cover_image: null,
+      region: data.region?.trim() ?? '',
+      city: data.city?.trim() ?? '',
+      onboarding_completed: false,
+    }
+    mockUserBusinesses.set(me, [biz])
+    return serializeMyBusiness(biz)
+  }
+
+  const myBizPatchMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/?$/)
+  if (myBizPatchMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const id = Number(myBizPatchMatch[1])
+    const list = mockUserBusinesses.get(me) ?? []
+    const biz = list.find((b) => b.id === id)
+    if (!biz) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (isJsonBody(init.body)) {
+      const data = JSON.parse(init.body) as Partial<MockUserBusiness>
+      if (data.business_name) biz.business_name = data.business_name.trim()
+      if (data.business_types) biz.business_types = data.business_types
+      if (data.transport_modes) biz.transport_modes = data.transport_modes
+      if (data.tagline !== undefined) biz.tagline = data.tagline
+      if (data.description !== undefined) biz.description = data.description
+      if (data.region !== undefined) biz.region = data.region
+      if (data.city !== undefined) biz.city = data.city
+      if (data.onboarding_completed !== undefined) biz.onboarding_completed = data.onboarding_completed
+    }
+    return serializeMyBusiness(biz)
+  }
+
+  const myBizDocsMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/documents\/?$/)
+  if (myBizDocsMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const id = Number(myBizDocsMatch[1])
+    const list = mockUserBusinesses.get(me) ?? []
+    if (!list.some((b) => b.id === id)) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return { id: Date.now(), doc_type: 'other', doc_type_label: 'Document', file: '', status: 'pending', notes: '', uploaded_at: new Date().toISOString() }
+  }
+
+  const myBizSubmitMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/submit-verification\/?$/)
+  if (myBizSubmitMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const id = Number(myBizSubmitMatch[1])
+    const list = mockUserBusinesses.get(me) ?? []
+    const biz = list.find((b) => b.id === id)
+    if (!biz) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    biz.onboarding_completed = true
+    biz.verification_status = 'pending'
+    return serializeMyBusiness(biz)
   }
 
   if (pathname === '/api/accounts/admin/overview/' && method === 'GET') {
@@ -614,13 +739,26 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         price_per_night: st.price_per_night,
         max_guests: st.max_guests,
         bedrooms: st.bedrooms,
-        property_type: 'guesthouse',
+        property_type: st.property_type,
         amenities: st.amenities,
         cover_image: st.cover_image,
+        media_gallery: st.media_gallery ?? [],
+        check_in_from: st.check_in_from,
+        check_out_until: st.check_out_until,
+        house_rules: st.house_rules,
+        cancellation_policy: st.cancellation_policy,
+        faqs: st.faqs ?? [],
+        room_types: st.room_types ?? [],
+        pet_friendly: st.pet_friendly,
+        wifi: st.wifi,
+        parking: st.parking,
+        pool: st.pool,
+        kitchen: st.kitchen,
+        breakfast: st.breakfast,
         rating_avg: st.rating_avg,
         rating_count: st.rating_count,
         is_active: true,
-        guest_reviews: [],
+        guest_reviews: st.guest_reviews ?? [],
       }))
   }
 
@@ -630,14 +768,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const prof = s.profiles[me]
     if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
     const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
-    return {
-      id: Date.now(),
-      ...data,
+    const id = Date.now()
+    const row = {
+      id,
+      owner_username: me,
       rating_avg: '4.5',
       rating_count: 0,
-      cover_image: null,
+      ...data,
       amenities: data.amenities ?? [],
     }
+    mockStays.push(row as (typeof mockStays)[0])
+    return row
   }
 
   const providerListingMatch = pathname.match(/^\/api\/accommodation\/provider-listings\/(\d+)\/?$/)
@@ -646,7 +787,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
     const st = mockStays.find((x) => x.id === Number(providerListingMatch[1]))
     if (st) Object.assign(st, data)
-    return { id: Number(providerListingMatch[1]), ...data, rating_avg: st?.rating_avg ?? '4.5', rating_count: st?.rating_count ?? 0 }
+    return {
+      id: Number(providerListingMatch[1]),
+      ...st,
+      ...data,
+      rating_avg: st?.rating_avg ?? '4.5',
+      rating_count: st?.rating_count ?? 0,
+    }
   }
 
   if (pathname === '/api/accommodation/provider-bookings/' && method === 'GET') {
@@ -1128,6 +1275,190 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   // ---- Transport ----
+  if (pathname === '/api/transport/provider-vehicles/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    return mockVehicles
+      .filter((v) => v.owner_username === me)
+      .map((v) => ({
+        id: v.id,
+        title: v.title,
+        make: v.make,
+        model: v.model,
+        year: v.year,
+        transmission: v.transmission,
+        seats: v.seats,
+        vehicle_type: v.vehicle_type,
+        price_per_day: v.price_per_day,
+        region: v.region,
+        city: v.city,
+        cover_image: v.cover_image,
+        description: v.description ?? '',
+        pickup_location: v.pickup_location ?? '',
+        included_features: v.included_features ?? [],
+        gallery_images: v.gallery_images ?? [],
+        required_renter_documents: v.required_renter_documents ?? [],
+        is_active: (v as { is_active?: boolean }).is_active !== false,
+      }))
+  }
+
+  if (pathname === '/api/transport/provider-vehicles/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const id = Math.max(0, ...mockVehicles.map((v) => v.id)) + 1
+    const row = {
+      id,
+      owner_username: me,
+      owner_display_name: prof.display_name ?? me,
+      owner_bio: prof.bio ?? '',
+      owner_region: prof.region ?? '',
+      owner_city: prof.city ?? '',
+      owner_avatar: prof.avatar ?? null,
+      ...data,
+      included_features: data.included_features ?? [],
+      gallery_images: data.gallery_images ?? [],
+      required_renter_documents: data.required_renter_documents ?? [],
+      is_active: data.is_active !== false,
+    }
+    mockVehicles.push(row as (typeof mockVehicles)[0])
+    return row
+  }
+
+  const providerVehicleMatch = pathname.match(/^\/api\/transport\/provider-vehicles\/(\d+)\/?$/)
+  if (providerVehicleMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const v = mockVehicles.find((x) => x.id === Number(providerVehicleMatch[1]) && x.owner_username === me)
+    if (!v) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    Object.assign(v, data)
+    return { ...v, ...data }
+  }
+
+  if (pathname === '/api/transport/provider-bus-trips/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockBusTrips
+      .filter((t) => (t as { owner_username?: string }).owner_username === me)
+      .map((t) => busTripDetailForApi(t))
+  }
+
+  if (pathname === '/api/transport/provider-bus-trips/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const id = Math.max(0, ...mockBusTrips.map((t) => t.id)) + 1
+    const row = {
+      id,
+      owner_username: me,
+      route_detail: data.route_detail,
+      departs_at: data.departs_at,
+      arrives_at: data.arrives_at,
+      price: data.price,
+      total_seats: data.total_seats,
+      occupied_seats: [],
+      available_seats: Number(data.total_seats) || 32,
+      amenities: data.amenities ?? [],
+      is_active: data.is_active !== false,
+    }
+    mockBusTrips.push(row as (typeof mockBusTrips)[0])
+    return busTripDetailForApi(row as (typeof mockBusTrips)[0])
+  }
+
+  const providerBusTripMatch = pathname.match(/^\/api\/transport\/provider-bus-trips\/(\d+)\/?$/)
+  if (providerBusTripMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const t = mockBusTrips.find(
+      (x) => x.id === Number(providerBusTripMatch[1]) && (x as { owner_username?: string }).owner_username === me,
+    )
+    if (!t) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (data.route_detail) Object.assign(t.route_detail, data.route_detail)
+    Object.assign(t, { ...data, route_detail: t.route_detail })
+    if (data.total_seats) {
+      t.available_seats = Math.max(0, Number(data.total_seats) - (t.occupied_seats?.length ?? 0))
+    }
+    return busTripDetailForApi(t)
+  }
+
+  if (pathname === '/api/transport/provider-rental-bookings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const myVehicles = mockVehicles.filter((v) => v.owner_username === me)
+    const myIds = new Set(myVehicles.map((v) => v.id))
+    const myTitles = new Set(myVehicles.map((v) => v.title))
+    const staticRows = [
+      {
+        id: 1,
+        vehicle_title: 'Toyota Hilux 4x4',
+        guest_display_name: 'Chris D.',
+        guest_username: 'demo_user',
+        check_in: '2026-05-10',
+        check_out: '2026-05-14',
+        days: 4,
+        total_price: '3120',
+        status: 'confirmed',
+        renter_document_count: 3,
+      },
+      {
+        id: 2,
+        vehicle_title: 'Mercedes V-Class People Mover',
+        guest_display_name: 'Priya N.',
+        guest_username: 'anna',
+        check_in: '2026-05-18',
+        check_out: '2026-05-20',
+        days: 2,
+        total_price: '2500',
+        status: 'pending',
+        renter_document_count: 0,
+      },
+    ]
+    const sessionRows = [...mockVehicleBookings.values()]
+      .filter((row) => myIds.has(row.listing))
+      .map((row) => {
+        const vehicle = myVehicles.find((v) => v.id === row.listing)
+        const clientKey = String(row.client ?? '')
+        const clientProf = s.profiles[clientKey]
+        const days = rentalDaysInclusive(row.start_date, row.end_date) ?? 1
+        return {
+          id: row.id,
+          vehicle_title: vehicle?.title ?? 'Vehicle rental',
+          guest_display_name: clientProf?.display_name ?? (clientKey || 'Guest'),
+          guest_username: clientKey,
+          check_in: row.start_date,
+          check_out: row.end_date,
+          days,
+          total_price: row.total_price,
+          status: row.status,
+          renter_document_count: row.renter_documents?.length ?? 0,
+        }
+      })
+    return [...staticRows.filter((r) => myTitles.has(r.vehicle_title)), ...sessionRows]
+  }
+
+  if (pathname === '/api/transport/provider-seat-bookings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const myRoutes = new Set(
+      mockBusTrips
+        .filter((t) => (t as { owner_username?: string }).owner_username === me)
+        .map((t) => `${t.route_detail.origin} → ${t.route_detail.destination}`),
+    )
+    const rows = [
+      { id: 1, route_label: 'Windhoek → Swakopmund', passenger_display_name: 'Lisa M.', passenger_username: 'demo_user', seat: 5, date: '2026-05-11', total_price: '180', status: 'confirmed' },
+      { id: 2, route_label: 'Windhoek → Oshakati', passenger_display_name: 'David O.', passenger_username: 'anna', seat: 12, date: '2026-05-15', total_price: '240', status: 'confirmed' },
+      { id: 3, route_label: 'Windhoek → Swakopmund', passenger_display_name: 'Anna F.', passenger_username: 'demo_user', seat: 18, date: '2026-05-21', total_price: '180', status: 'pending' },
+    ]
+    return rows.filter((r) => myRoutes.has(r.route_label))
+  }
+
   if (pathname === '/api/transport/vehicles/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const min = Number(q.get('min_price') || '0')
@@ -1304,11 +1635,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!prof?.email_verified) {
       throw new ApiError('Verify your email before booking.', 400, { detail: 'Email not verified.' })
     }
-    const body = JSON.parse(init.body) as { listing?: number; start_date?: string; end_date?: string }
+    const body = JSON.parse(init.body) as {
+      listing?: number
+      start_date?: string
+      end_date?: string
+      pickup_area?: string
+      renter_documents?: { doc_type: string; file_name: string; image_data: string }[]
+    }
     const listingId = Number(body.listing)
     const vehicle = mockVehicles.find((v) => v.id === listingId)
     if (!vehicle) {
       throw new ApiError('Vehicle not found.', 404, { detail: 'Not found' })
+    }
+    const required = vehicle.required_renter_documents ?? []
+    const docs = Array.isArray(body.renter_documents) ? body.renter_documents : []
+    const missingDocs = required.filter((id) => !docs.some((d) => d.doc_type === id && d.image_data))
+    if (missingDocs.length > 0) {
+      throw new ApiError('Upload all required documents.', 400, { detail: 'Missing renter documents.' })
     }
     const start = String(body.start_date || '').trim()
     const end = String(body.end_date || '').trim()
@@ -1324,14 +1667,22 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const row: MockVehicleBookingRow = {
       id,
       listing: listingId,
+      client: s.currentUser as string,
       start_date: start,
       end_date: end,
+      pickup_area: body.pickup_area || '',
       total_price: total,
       status: 'pending',
       mock_payment_ref: '',
+      renter_documents: docs,
     }
     mockVehicleBookings.set(id, row)
-    return row
+    return {
+      id: row.id,
+      status: row.status,
+      total_price: row.total_price,
+      mock_payment_ref: row.mock_payment_ref,
+    }
   }
 
   const vehBookMockPay = pathname.match(/^\/api\/transport\/vehicle-bookings\/(\d+)\/mock_pay\/$/)
@@ -1395,6 +1746,176 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   // ---- Guides ----
+  function providerGuideForUser(username: string) {
+    return mockGuides.find((g) => g.username === username)
+  }
+
+  function serializeProviderGuide(g: (typeof mockGuides)[0]) {
+    return {
+      id: g.id,
+      user: g.user,
+      username: g.username,
+      display_name: g.display_name ?? null,
+      headline: g.headline,
+      bio: g.bio,
+      languages: g.languages ?? [],
+      regions: g.regions ?? [],
+      hourly_rate: g.hourly_rate ?? null,
+      photo: g.photo ?? null,
+      rating_avg: g.rating_avg ?? '0',
+      rating_count: g.rating_count ?? 0,
+      guest_reviews: g.guest_reviews ?? [],
+      response_hours_typical: g.response_hours_typical,
+      tour_packages: g.tour_packages ?? [],
+      years_guiding: g.years_guiding,
+      certifications: g.certifications ?? [],
+      licensed_guide: g.licensed_guide ?? false,
+      languages_detail: g.languages_detail ?? [],
+      portfolio_gallery: g.portfolio_gallery ?? [],
+      default_meeting_point: g.default_meeting_point ?? '',
+      specialities: g.specialities ?? [],
+      is_active: (g as { is_active?: boolean }).is_active !== false,
+    }
+  }
+
+  if (pathname === '/api/guides/provider-profile/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const guide = providerGuideForUser(me)
+    if (!guide) return null
+    return serializeProviderGuide(guide)
+  }
+
+  if (pathname === '/api/guides/provider-profile/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    if (providerGuideForUser(me)) {
+      throw new ApiError('Bad request', 400, { detail: 'Guide profile already exists.' })
+    }
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const id = Math.max(0, ...mockGuides.map((g) => g.id)) + 1
+    const row = {
+      id,
+      user: messagingNumericIdForUsername(me),
+      username: me,
+      display_name: prof.display_name ?? me,
+      rating_avg: '0',
+      rating_count: 0,
+      guest_reviews: [],
+      ...data,
+      tour_packages: data.tour_packages ?? [],
+      is_active: data.is_active !== false,
+    }
+    mockGuides.push(row as (typeof mockGuides)[0])
+    return serializeProviderGuide(row as (typeof mockGuides)[0])
+  }
+
+  if (pathname === '/api/guides/provider-profile/' && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const guide = providerGuideForUser(me)
+    if (!guide) throw new ApiError('Not found', 404, { detail: 'Guide profile not found.' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    Object.assign(guide, data)
+    return serializeProviderGuide(guide)
+  }
+
+  if (pathname === '/api/guides/provider-bookings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const guide = providerGuideForUser(me)
+    if (!guide) return []
+    const status = (q.get('status') || '').trim()
+    const staticRows = [
+      {
+        id: 9001,
+        package_title: 'Dunes & deadvlei half-day',
+        guest_display_name: 'Sarah M.',
+        guest_username: 'demo_user',
+        date: '2026-05-12',
+        guests: 2,
+        duration_hours: 4,
+        total_price: '3600.00',
+        status: 'confirmed',
+      },
+      {
+        id: 9002,
+        package_title: 'Full Namib loop & picnic',
+        guest_display_name: 'Jonas K.',
+        guest_username: 'anna',
+        date: '2026-05-18',
+        guests: 4,
+        duration_hours: 8,
+        total_price: '12800.00',
+        status: 'pending',
+      },
+      {
+        id: 9003,
+        package_title: 'Dunes & deadvlei half-day',
+        guest_display_name: 'Marta V.',
+        guest_username: 'demo_user',
+        date: '2026-06-02',
+        guests: 3,
+        duration_hours: 4,
+        total_price: '5400.00',
+        status: 'confirmed',
+      },
+    ]
+    const sessionRows = [...mockGuideBookings.values()]
+      .filter((row) => row.guide === guide.id)
+      .map((row) => {
+        const pkg = (guide.tour_packages ?? []).find((p) => String(p.id) === String(row.package_id))
+        const clientKey = String(row.client ?? '')
+        const clientProf = s.profiles[clientKey]
+        return {
+          id: row.id,
+          package_title: pkg?.title ?? (row.package_id ? String(row.package_id) : 'Custom tour'),
+          guest_display_name: clientProf?.display_name ?? (clientKey || 'Guest'),
+          guest_username: clientKey,
+          date: String(row.date ?? ''),
+          guests: Number(row.group_size ?? 1),
+          duration_hours: Number(row.duration_hours ?? 4),
+          total_price: String(row.total_price ?? '0'),
+          status: String(row.status ?? 'pending'),
+        }
+      })
+    const all = guide.username === 'guide_pro' ? [...staticRows, ...sessionRows] : sessionRows
+    return all.filter((b) => !status || b.status === status)
+  }
+
+  const providerGuideBookingActionMatch = pathname.match(
+    /^\/api\/guides\/provider-bookings\/(\d+)\/(confirm|cancel|complete|refund)\/?$/,
+  )
+  if (providerGuideBookingActionMatch && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(providerGuideBookingActionMatch[1])
+    const action = providerGuideBookingActionMatch[2]
+    const statusMap: Record<string, string> = {
+      confirm: 'confirmed',
+      cancel: 'cancelled',
+      complete: 'completed',
+      refund: 'refunded',
+    }
+    const session = mockGuideBookings.get(bid)
+    if (session) {
+      session.status = statusMap[action] ?? session.status
+      mockGuideBookings.set(bid, session)
+    }
+    return {
+      id: bid,
+      package_title: 'Dunes & deadvlei half-day',
+      guest_display_name: 'Sarah M.',
+      guest_username: 'demo_user',
+      date: '2026-05-12',
+      guests: 2,
+      duration_hours: 4,
+      total_price: '3600.00',
+      status: statusMap[action] ?? 'confirmed',
+    }
+  }
+
   if (pathname === '/api/guides/profiles/' && method === 'GET') {
     const langQ = (q.get('language') || '').trim()
     const regionQ = (q.get('region') || '').trim()

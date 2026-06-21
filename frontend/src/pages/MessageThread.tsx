@@ -4,7 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { buildProviderAutomatedMessages, DmChatView } from '../components/messages/dm'
+import type { MessagingContext } from '../components/messages/messageProviderUtils'
+import { messageInboxPath } from '../components/messages/messageProviderUtils'
 import '../components/messages/dm/dm-chat.css'
+import '../components/provider/messages/provider-messages.css'
 
 type Msg = { id: number; sender_username: string; body: string; created_at: string }
 
@@ -22,12 +25,18 @@ type PublicProfile = {
   user_type?: string
 }
 
-export function MessageThread() {
+type Props = {
+  context?: MessagingContext
+}
+
+export function MessageThread({ context = 'user' }: Props) {
   const { id } = useParams()
   const { profile } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [body, setBody] = useState('')
+  const isProvider = context === 'provider'
+  const inboxPath = messageInboxPath(context)
 
   const { data: conversation } = useQuery({
     queryKey: ['conversation', id],
@@ -43,7 +52,8 @@ export function MessageThread() {
   const { data: otherProfile } = useQuery({
     queryKey: ['message-profile', other?.username],
     enabled: Boolean(other?.username),
-    queryFn: () => apiFetch<PublicProfile>(`/api/accounts/users/${encodeURIComponent(other!.username)}/`, { auth: false }),
+    queryFn: () =>
+      apiFetch<PublicProfile>(`/api/accounts/users/${encodeURIComponent(other!.username)}/`, { auth: false }),
   })
 
   const { data: messages, isLoading } = useQuery({
@@ -68,13 +78,15 @@ export function MessageThread() {
 
   const personName = other?.display_name?.trim() || other?.username || 'Conversation'
   const automatedMessages = useMemo(() => {
-    if (!otherProfile) return []
+    if (isProvider || !otherProfile) return []
     return buildProviderAutomatedMessages(otherProfile)
-  }, [otherProfile])
+  }, [isProvider, otherProfile])
+
+  const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
 
   if (!profile) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={`${pageClass} dm-page--centered`}>
         <p>
           <Link to="/login">Sign in</Link> to view messages.
         </p>
@@ -84,15 +96,16 @@ export function MessageThread() {
 
   if (!other) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={pageClass}>
         <div className="dm-chat__state">Loading conversation…</div>
       </main>
     )
   }
 
   return (
-    <main className="dm-page">
+    <main className={pageClass}>
       <DmChatView
+        context={context}
         person={{
           username: other.username,
           display_name: other.display_name,
@@ -108,8 +121,10 @@ export function MessageThread() {
         onSend={() => sendMut.mutate()}
         sending={sendMut.isPending}
         loading={isLoading}
-        onBack={() => navigate('/messages')}
-        backLabel="Back to inbox"
+        onBack={() => navigate(inboxPath)}
+        backLabel={isProvider ? 'Back to guest inbox' : 'Back to inbox'}
+        inboxHref={inboxPath}
+        inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
       />
     </main>
   )

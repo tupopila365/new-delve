@@ -1,254 +1,491 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bus, CalendarDays, Car, MessageCircle, Plus } from 'lucide-react'
+import { apiFetch } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
-import { mockVehicles, mockBusTrips } from '../mocks/mockData'
-import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { ProviderAccessGate } from '../components/provider'
+import {
+  BusTripListingCard,
+  BusTripListingForm,
+  EMPTY_BUS_TRIP_FORM,
+  EMPTY_VEHICLE_LISTING_FORM,
+  VehicleListingCard,
+  VehicleListingForm,
+  busTripToForm,
+  formToBusTripPayload,
+  formToVehiclePayload,
+  vehicleToForm,
+  type ProviderBusTripListing,
+  type ProviderVehicleListing,
+} from '../components/provider/transport'
+import {
+  ProviderUiChips,
+  ProviderUiEmpty,
+  ProviderUiHeader,
+  ProviderUiPage,
+  ProviderUiStats,
+} from '../components/provider/ui'
+import {
+  PASSENGER_TRANSPORT_SCOPE,
+  TRANSPORT_MODE_LABELS,
+  hasRentalTransport,
+  hasSharedTransport,
+  resolveTransportModes,
+} from '../data/transportProvider'
+import { ListSkeleton } from '../components/ui'
+import '../components/provider/transport/transport-admin.css'
+import '../components/provider/transport/transport-listing.css'
 
-const MOCK_RENTALS = [
-  { id: 1, guest: 'Chris D.', vehicle: 'Toyota Hilux 4x4', from: '2026-05-10', to: '2026-05-14', days: 4, total: 3120, status: 'confirmed' },
-  { id: 2, guest: 'Priya N.', vehicle: 'Mercedes V-Class', from: '2026-05-18', to: '2026-05-20', days: 2, total: 2500, status: 'pending' },
-  { id: 3, guest: 'Sam W.', vehicle: 'Toyota Hilux 4x4', from: '2026-06-05', to: '2026-06-10', days: 5, total: 3900, status: 'confirmed' },
-]
+type RentalBooking = {
+  id: number
+  vehicle_title: string
+  guest_display_name: string
+  guest_username: string
+  check_in: string
+  check_out: string
+  days: number
+  total_price: string
+  status: string
+  renter_document_count?: number
+}
 
-const MOCK_BUS_RESERVATIONS = [
-  { id: 1, passenger: 'Lisa M.', route: 'Windhoek → Swakopmund', seat: 5, date: '2026-05-11', total: 180, status: 'confirmed' },
-  { id: 2, passenger: 'David O.', route: 'Windhoek → Oshakati', seat: 12, date: '2026-05-15', total: 240, status: 'confirmed' },
-  { id: 3, passenger: 'Anna F.', route: 'Windhoek → Swakopmund', seat: 18, date: '2026-05-21', total: 180, status: 'pending' },
-]
+type SeatBooking = {
+  id: number
+  route_label: string
+  passenger_display_name: string
+  passenger_username: string
+  seat: number
+  date: string
+  total_price: string
+  status: string
+}
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString('en-NA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const RENTAL_TABS = [
+  { id: 'fleet', label: 'Fleet' },
+  { id: 'rentals', label: 'Rentals' },
+] as const
+
+const SHARED_TABS = [
+  { id: 'routes', label: 'Routes' },
+  { id: 'seats', label: 'Seats' },
+] as const
+
+const ALL_TABS = [
+  { id: 'fleet', label: 'Fleet' },
+  { id: 'routes', label: 'Routes' },
+  { id: 'rentals', label: 'Rentals' },
+  { id: 'seats', label: 'Seats' },
+] as const
+
+function statusClass(status: string) {
+  if (status === 'confirmed') return 'prov-ui__status prov-ui__status--confirmed'
+  if (status === 'pending') return 'prov-ui__status prov-ui__status--pending'
+  return 'prov-ui__status'
 }
 
 export function TransportAdmin() {
   const { profile } = useAuth()
-  const { canAccessProvider } = useBusinessAccess()
-  const [tab, setTab] = useState<'vehicles' | 'buses' | 'rentals' | 'reservations'>('vehicles')
+  const qc = useQueryClient()
+  const { activeBusiness, canAccessProvider, canManageListings, canManageBookings, isViewerOnly } = useBusinessAccess()
+
+  const modes = resolveTransportModes(activeBusiness)
+  const showRental = hasRentalTransport(modes)
+  const showShared = hasSharedTransport(modes)
+
+  const tabs = useMemo(() => {
+    if (showRental && showShared) return [...ALL_TABS]
+    if (showRental) return [...RENTAL_TABS]
+    if (showShared) return [...SHARED_TABS]
+    return [...ALL_TABS]
+  }, [showRental, showShared])
+
+  const defaultTab = showRental ? 'fleet' : showShared ? 'routes' : 'fleet'
+  const [tab, setTab] = useState<string>(defaultTab)
+  const [showVehicleForm, setShowVehicleForm] = useState(false)
+  const [showBusForm, setShowBusForm] = useState(false)
+  const [editVehicleId, setEditVehicleId] = useState<number | null>(null)
+  const [editBusId, setEditBusId] = useState<number | null>(null)
+  const [vehicleForm, setVehicleForm] = useState(EMPTY_VEHICLE_LISTING_FORM)
+  const [busForm, setBusForm] = useState(EMPTY_BUS_TRIP_FORM)
+  const [vehicleErr, setVehicleErr] = useState('')
+  const [busErr, setBusErr] = useState('')
+
+  const { data: vehicles = [], isLoading: loadingVehicles } = useQuery({
+    queryKey: ['provider-vehicles'],
+    queryFn: () => apiFetch<ProviderVehicleListing[]>('/api/transport/provider-vehicles/'),
+    enabled: Boolean(profile && canAccessProvider && showRental),
+  })
+
+  const { data: busTrips = [], isLoading: loadingTrips } = useQuery({
+    queryKey: ['provider-bus-trips'],
+    queryFn: () => apiFetch<ProviderBusTripListing[]>('/api/transport/provider-bus-trips/'),
+    enabled: Boolean(profile && canAccessProvider && showShared),
+  })
+
+  const { data: rentalBookings = [] } = useQuery({
+    queryKey: ['provider-rental-bookings'],
+    queryFn: () => apiFetch<RentalBooking[]>('/api/transport/provider-rental-bookings/'),
+    enabled: Boolean(profile && canAccessProvider && showRental),
+  })
+
+  const { data: seatBookings = [] } = useQuery({
+    queryKey: ['provider-seat-bookings'],
+    queryFn: () => apiFetch<SeatBooking[]>('/api/transport/provider-seat-bookings/'),
+    enabled: Boolean(profile && canAccessProvider && showShared),
+  })
+
+  const saveVehicleMut = useMutation({
+    mutationFn: async () => {
+      const body = formToVehiclePayload(vehicleForm)
+      if (editVehicleId) {
+        return apiFetch<ProviderVehicleListing>(`/api/transport/provider-vehicles/${editVehicleId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        })
+      }
+      return apiFetch<ProviderVehicleListing>('/api/transport/provider-vehicles/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-vehicles'] })
+      setShowVehicleForm(false)
+      setEditVehicleId(null)
+      setVehicleForm(EMPTY_VEHICLE_LISTING_FORM)
+      setVehicleErr('')
+    },
+    onError: (e: Error) => setVehicleErr(friendlyApiMessage(e)),
+  })
+
+  const saveBusMut = useMutation({
+    mutationFn: async () => {
+      const body = formToBusTripPayload(busForm)
+      if (editBusId) {
+        return apiFetch<ProviderBusTripListing>(`/api/transport/provider-bus-trips/${editBusId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        })
+      }
+      return apiFetch<ProviderBusTripListing>('/api/transport/provider-bus-trips/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-bus-trips'] })
+      setShowBusForm(false)
+      setEditBusId(null)
+      setBusForm(EMPTY_BUS_TRIP_FORM)
+      setBusErr('')
+    },
+    onError: (e: Error) => setBusErr(friendlyApiMessage(e)),
+  })
 
   if (!profile) return <Navigate to="/login" replace />
   if (!canAccessProvider) {
     return (
-      <div className="prov-cat-page">
+      <ProviderUiPage>
         <ProviderAccessGate />
-      </div>
+      </ProviderUiPage>
     )
   }
 
-  const myVehicles = mockVehicles.filter((v) => v.owner_username === profile.username)
-  const rentals = MOCK_RENTALS.filter((r) => myVehicles.some((v) => v.title === r.vehicle))
-  const revenue = rentals.filter((r) => r.status === 'confirmed').reduce((s, r) => s + r.total, 0)
-    + MOCK_BUS_RESERVATIONS.filter((r) => r.status === 'confirmed').reduce((s, r) => s + r.total, 0)
+  const modeLabel = modes.map((m) => TRANSPORT_MODE_LABELS[m]).join(' & ') || 'Passenger transport'
+  const pendingRentals = rentalBookings.filter((b) => b.status === 'pending').length
+  const pendingSeats = seatBookings.filter((b) => b.status === 'pending').length
+  const missingPhotos = vehicles.filter((v) => !v.cover_image).length
+  const revenue =
+    rentalBookings.filter((b) => b.status === 'confirmed').reduce((s, b) => s + parseFloat(b.total_price), 0) +
+    seatBookings.filter((b) => b.status === 'confirmed').reduce((s, b) => s + parseFloat(b.total_price), 0)
 
-  const pendingRentals = rentals.filter((r) => r.status === 'pending').length
-  const missingPhotos = myVehicles.filter((v) => !v.cover_image).length
+  const openCreateVehicle = () => {
+    setEditVehicleId(null)
+    setVehicleForm(EMPTY_VEHICLE_LISTING_FORM)
+    setShowVehicleForm(true)
+    setVehicleErr('')
+    setTab('fleet')
+  }
+
+  const openEditVehicle = (v: ProviderVehicleListing) => {
+    setEditVehicleId(v.id)
+    setVehicleForm(vehicleToForm(v))
+    setShowVehicleForm(true)
+    setVehicleErr('')
+  }
+
+  const openCreateBus = () => {
+    setEditBusId(null)
+    setBusForm({
+      ...EMPTY_BUS_TRIP_FORM,
+      operator_name: activeBusiness?.business_name ?? '',
+    })
+    setShowBusForm(true)
+    setBusErr('')
+    setTab('routes')
+  }
+
+  const openEditBus = (t: ProviderBusTripListing) => {
+    setEditBusId(t.id)
+    setBusForm(busTripToForm(t))
+    setShowBusForm(true)
+    setBusErr('')
+  }
+
+  const attention = [
+    ...(showRental && missingPhotos > 0
+      ? [{ id: 'photos', label: `${missingPhotos} vehicle${missingPhotos === 1 ? '' : 's'} missing photos`, action: 'Add photos', onClick: () => setTab('fleet') }]
+      : []),
+    ...(pendingRentals + pendingSeats > 0
+      ? [{
+          id: 'pending',
+          label: `${pendingRentals + pendingSeats} booking${pendingRentals + pendingSeats === 1 ? '' : 's'} pending`,
+          action: 'Review bookings',
+          onClick: () => setTab(pendingRentals > 0 ? 'rentals' : 'seats'),
+        }]
+      : []),
+  ]
+
+  const stats = [
+    ...(showRental ? [{ value: vehicles.length, label: 'Vehicles' }] : []),
+    ...(showShared ? [{ value: busTrips.length, label: 'Trips' }] : []),
+    { value: rentalBookings.length + seatBookings.length || '—', label: 'Bookings', accent: pendingRentals + pendingSeats > 0 },
+    { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
+  ]
 
   return (
-    <div className="prov-cat-page">
-      <ProviderCategoryStrip
+    <ProviderUiPage>
+      <ProviderUiHeader
         title="Transport"
-        subtitle="Manage vehicles, routes, schedules, prices, and transport bookings."
-        publicTo="/transport"
-        attention={[
-          ...(missingPhotos > 0
-            ? [{ label: `${missingPhotos} vehicle${missingPhotos === 1 ? '' : 's'} missing photos`, actionLabel: 'Add photos', actionTo: '#vehicles', priority: 'high' as const }]
-            : []),
-          ...(pendingRentals > 0
-            ? [{ label: `${pendingRentals} pending transport booking${pendingRentals === 1 ? '' : 's'}`, actionLabel: 'Review bookings', actionTo: '#rentals', priority: 'high' as const }]
-            : []),
-          { label: '1 route missing schedule', actionLabel: 'Manage schedule', actionTo: '#buses', priority: 'medium' as const },
-        ]}
-        quickActions={[
-          { label: 'Add vehicle', to: '#vehicles', emoji: '🚗' },
-          { label: 'Add route', to: '#buses', emoji: '🚌' },
-          { label: 'Manage bookings', to: '#rentals', emoji: '📅' },
-        ]}
+        subtitle={
+          isViewerOnly
+            ? `View ${modeLabel.toLowerCase()} listings and passenger bookings.`
+            : `Manage ${modeLabel.toLowerCase()} — what travellers see on your public transport pages.`
+        }
+        actions={
+          <>
+            <Link to="/transport" className="prov-ui__btn prov-ui__btn--ghost">View public</Link>
+            {canManageListings && showRental ? (
+              <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={openCreateVehicle}>
+                <Plus size={16} strokeWidth={2.25} aria-hidden />
+                Add vehicle
+              </button>
+            ) : canManageListings && showShared ? (
+              <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={openCreateBus}>
+                <Plus size={16} strokeWidth={2.25} aria-hidden />
+                Add trip
+              </button>
+            ) : null}
+          </>
+        }
       />
 
-      <div className="adm-bar adm-bar--compact">
-        <Link to="/provider" className="up__back" aria-label="Back to dashboard">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-        </Link>
-        <div>
-          <h2 className="adm-bar__title">Fleet &amp; routes</h2>
-          <p className="adm-bar__sub">Vehicles, bus routes, rentals, and reservations</p>
-        </div>
+      <div className="transport-scope">
+        <strong>{PASSENGER_TRANSPORT_SCOPE.title}</strong>
+        <p>{PASSENGER_TRANSPORT_SCOPE.summary}</p>
+        {modes.length > 0 ? (
+          <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: 'rgba(255,250,242,0.7)' }}>
+            Your business: <strong>{modeLabel}</strong>
+          </p>
+        ) : null}
       </div>
 
-      {/* Stats */}
-      <div className="adm-stats">
-        <div className="adm-stat">
-          <span className="adm-stat__n">{myVehicles.length}</span>
-          <span className="adm-stat__l">Vehicles</span>
-        </div>
-        <div className="adm-stat">
-          <span className="adm-stat__n">{mockBusTrips.length}</span>
-          <span className="adm-stat__l">Bus trips</span>
-        </div>
-        <div className="adm-stat">
-          <span className="adm-stat__n">{rentals.length + MOCK_BUS_RESERVATIONS.length}</span>
-          <span className="adm-stat__l">Bookings</span>
-        </div>
-        <div className="adm-stat adm-stat--accent">
-          <span className="adm-stat__n">N${revenue.toLocaleString()}</span>
-          <span className="adm-stat__l">Revenue</span>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="adm-tabs" role="tablist">
-        {(['vehicles', 'buses', 'rentals', 'reservations'] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t}
-            className={`adm-tab${tab === t ? ' adm-tab--active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t === 'vehicles' ? '🚙 Fleet' : t === 'buses' ? '🚌 Routes' : t === 'rentals' ? '🔑 Rentals' : '🎫 Reservations'}
-          </button>
-        ))}
-      </div>
-
-      {/* Fleet tab */}
-      {tab === 'vehicles' && (
-        <div className="adm-section" id="vehicles">
-          {myVehicles.length === 0 ? (
-            <div className="adm-empty">
-              <p className="adm-empty__title">No transport listings yet</p>
-              <p className="adm-empty__sub">Add vehicles or bus routes so travellers can move around.</p>
-            </div>
-          ) : (
-            <div className="adm-list">
-              {myVehicles.map((v) => (
-                <div key={v.id} className="adm-listing-card">
-                  <div className="adm-listing-card__img">
-                    {v.cover_image
-                      ? <img src={v.cover_image} alt="" />
-                      : <span aria-hidden>🚗</span>
-                    }
-                  </div>
-                  <div className="adm-listing-card__body">
-                    <div className="adm-listing-card__title-row">
-                      <p className="adm-listing-card__title">{v.title}</p>
-                      <span className="adm-badge adm-badge--green">Available</span>
-                    </div>
-                    <p className="adm-listing-card__meta">
-                      {v.make} {v.model} {v.year} · {v.vehicle_type} · {v.seats} seats · {v.transmission}
-                    </p>
-                    <p className="adm-listing-card__meta">📍 {v.city}, {v.region} · N${v.price_per_day}/day</p>
-                    {v.included_features && (
-                      <div className="adm-listing-card__amenities">
-                        {v.included_features.slice(0, 3).map((f) => (
-                          <span key={f} className="adm-pill">{f}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="adm-listing-card__actions">
-                    <Link to={`/transport/vehicle/${v.id}`} className="btn btn-ghost adm-action-btn">View</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <button type="button" className="adm-add-btn" disabled title="Full editing coming soon">
-            + Add vehicle
-          </button>
-        </div>
-      )}
-
-      {/* Bus routes tab */}
-      {tab === 'buses' && (
-        <div className="adm-section" id="buses">
-          <p className="adm-section__hint">All active bus trips across the network.</p>
-          <div className="adm-list">
-            {mockBusTrips.map((t) => {
-              const occ = t.occupied_seats.length
-              const pct = Math.round((occ / t.total_seats) * 100)
-              return (
-                <div key={t.id} className="adm-listing-card">
-                  <div className="adm-listing-card__body" style={{ flex: 1 }}>
-                    <div className="adm-listing-card__title-row">
-                      <p className="adm-listing-card__title">
-                        {t.route_detail.origin} → {t.route_detail.destination}
-                      </p>
-                      <span className={`adm-badge ${t.is_active ? 'adm-badge--green' : 'adm-badge--grey'}`}>
-                        {t.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <p className="adm-listing-card__meta">{t.route_detail.operator_name}</p>
-                    <p className="adm-listing-card__meta">
-                      🕐 {fmtDate(t.departs_at)} · N${t.price}
-                    </p>
-                    <div className="adm-bus-capacity">
-                      <div className="adm-bus-capacity__bar">
-                        <div className="adm-bus-capacity__fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="adm-bus-capacity__label">{occ}/{t.total_seats} seats · {pct}% full</span>
-                    </div>
-                  </div>
-                  <div className="adm-listing-card__actions">
-                    <Link to={`/transport/bus/${t.id}`} className="btn btn-ghost adm-action-btn">View</Link>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Rentals tab */}
-      {tab === 'rentals' && (
-        <div className="adm-section" id="rentals">
-          {rentals.length === 0 ? (
-            <div className="adm-empty">
-              <p className="adm-empty__title">No rentals found</p>
-              <p className="adm-empty__sub">Log in as <strong>transport_mgr</strong> to see vehicle rentals.</p>
-            </div>
-          ) : (
-            <div className="adm-list">
-              {rentals.map((r) => (
-                <div key={r.id} className="adm-booking-row">
-                  <div className="adm-booking-row__info">
-                    <p className="adm-booking-row__guest">{r.guest}</p>
-                    <p className="adm-booking-row__listing">{r.vehicle}</p>
-                    <p className="adm-booking-row__dates">{r.from} → {r.to} · {r.days} days</p>
-                  </div>
-                  <div className="adm-booking-row__right">
-                    <p className="adm-booking-row__total">N${r.total.toLocaleString()}</p>
-                    <span className={`adm-badge ${r.status === 'confirmed' ? 'adm-badge--green' : 'adm-badge--yellow'}`}>
-                      {r.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Bus reservations tab */}
-      {tab === 'reservations' && (
-        <div className="adm-section">
-          <div className="adm-list">
-            {MOCK_BUS_RESERVATIONS.map((r) => (
-              <div key={r.id} className="adm-booking-row">
-                <div className="adm-booking-row__info">
-                  <p className="adm-booking-row__guest">{r.passenger}</p>
-                  <p className="adm-booking-row__listing">{r.route}</p>
-                  <p className="adm-booking-row__dates">{r.date} · Seat {r.seat}</p>
-                </div>
-                <div className="adm-booking-row__right">
-                  <p className="adm-booking-row__total">N${r.total}</p>
-                  <span className={`adm-badge ${r.status === 'confirmed' ? 'adm-badge--green' : 'adm-badge--yellow'}`}>
-                    {r.status}
-                  </span>
-                </div>
-              </div>
+      {attention.length > 0 ? (
+        <section>
+          <h2 className="prov-ui__section-title">Needs attention</h2>
+          <ul className="prov-ui__attention">
+            {attention.map((item) => (
+              <li key={item.id}>
+                <span>{item.label}</span>
+                <button type="button" className="prov-ui__link" style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }} onClick={item.onClick}>
+                  {item.action}
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
+        </section>
+      ) : null}
+
+      <section>
+        <h2 className="prov-ui__section-title">Quick links</h2>
+        <div className="prov-ui__shortcuts">
+          {showRental && canManageListings ? (
+            <button type="button" className="prov-ui__shortcut" onClick={openCreateVehicle}>
+              <Car size={18} strokeWidth={2.25} aria-hidden />
+              <span>Add vehicle</span>
+            </button>
+          ) : null}
+          {showShared && canManageListings ? (
+            <button type="button" className="prov-ui__shortcut" onClick={openCreateBus}>
+              <Bus size={18} strokeWidth={2.25} aria-hidden />
+              <span>Add trip</span>
+            </button>
+          ) : null}
+          <button type="button" className="prov-ui__shortcut" onClick={() => setTab(showRental ? 'rentals' : 'seats')}>
+            <CalendarDays size={18} strokeWidth={2.25} aria-hidden />
+            <span>Bookings</span>
+          </button>
+          <Link to="/provider/messages" className="prov-ui__shortcut">
+            <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+            <span>Messages</span>
+          </Link>
         </div>
+      </section>
+
+      <ProviderUiStats columns={4} stats={stats} />
+
+      <ProviderUiChips chips={tabs} active={tab} onChange={setTab} ariaLabel="Transport sections" />
+
+      {tab === 'fleet' && showRental && (
+        <section id="fleet">
+          {loadingVehicles ? (
+            <ListSkeleton count={2} variant="row" />
+          ) : vehicles.length === 0 ? (
+            <>
+              <ProviderUiEmpty
+                title="No rental vehicles yet"
+                message="Add cars, 4×4s, or vans with photos, daily rate, pickup location, and included features."
+              />
+              {canManageListings ? (
+                <button type="button" className="transport-add-btn" onClick={openCreateVehicle}>Add rental vehicle</button>
+              ) : null}
+            </>
+          ) : (
+            <div className="transport-list">
+              {vehicles.map((v) => (
+                <VehicleListingCard key={v.id} vehicle={v} canEdit={canManageListings} onEdit={() => openEditVehicle(v)} />
+              ))}
+            </div>
+          )}
+          {canManageListings && vehicles.length > 0 ? (
+            <button type="button" className="transport-add-btn" onClick={openCreateVehicle}>Add rental vehicle</button>
+          ) : null}
+        </section>
       )}
-    </div>
+
+      {tab === 'routes' && showShared && (
+        <section id="routes">
+          {loadingTrips ? (
+            <ListSkeleton count={2} variant="row" />
+          ) : busTrips.length === 0 ? (
+            <>
+              <ProviderUiEmpty
+                title="No shared trips yet"
+                message="Add bus or shuttle routes with departure times, fares, seat capacity, and onboard amenities."
+              />
+              {canManageListings ? (
+                <button type="button" className="transport-add-btn" onClick={openCreateBus}>Add shared trip</button>
+              ) : null}
+            </>
+          ) : (
+            <div className="transport-list">
+              {busTrips.map((t) => (
+                <BusTripListingCard key={t.id} trip={t} canEdit={canManageListings} onEdit={() => openEditBus(t)} />
+              ))}
+            </div>
+          )}
+          {canManageListings && busTrips.length > 0 ? (
+            <button type="button" className="transport-add-btn" onClick={openCreateBus}>Add shared trip</button>
+          ) : null}
+        </section>
+      )}
+
+      {tab === 'rentals' && showRental && (
+        <section id="rentals">
+          {!canManageBookings ? <p className="stay-hint">Your role can view transport but not manage bookings.</p> : null}
+          {rentalBookings.length === 0 ? (
+            <ProviderUiEmpty title="No vehicle rentals yet" message="Passenger rental requests will appear here." />
+          ) : (
+            <div className="prov-ui__list">
+              {rentalBookings.map((r) => (
+                <article key={r.id} className="prov-ui__booking">
+                  <div className="prov-ui__booking-top">
+                    <span className="prov-ui__booking-avatar" aria-hidden>{r.guest_display_name.charAt(0)}</span>
+                    <div className="prov-ui__booking-meta">
+                      <strong>{r.guest_display_name}</strong>
+                      <span>{r.vehicle_title}</span>
+                    </div>
+                    <span className={statusClass(r.status)}>{r.status}</span>
+                  </div>
+                  <div className="prov-ui__booking-details">
+                    <span>
+                      {r.check_in} → {r.check_out} · {r.days} days
+                      {(r.renter_document_count ?? 0) > 0
+                        ? ` · ${r.renter_document_count} doc${r.renter_document_count === 1 ? '' : 's'} uploaded`
+                        : ''}
+                    </span>
+                    <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'seats' && showShared && (
+        <section id="seats">
+          {seatBookings.length === 0 ? (
+            <ProviderUiEmpty title="No seat bookings yet" message="Passenger seat reservations will appear here." />
+          ) : (
+            <div className="prov-ui__list">
+              {seatBookings.map((r) => (
+                <article key={r.id} className="prov-ui__booking">
+                  <div className="prov-ui__booking-top">
+                    <span className="prov-ui__booking-avatar" aria-hidden>{r.passenger_display_name.charAt(0)}</span>
+                    <div className="prov-ui__booking-meta">
+                      <strong>{r.passenger_display_name}</strong>
+                      <span>{r.route_label}</span>
+                    </div>
+                    <span className={statusClass(r.status)}>{r.status}</span>
+                  </div>
+                  <div className="prov-ui__booking-details">
+                    <span>{r.date} · Seat {r.seat}</span>
+                    <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {showVehicleForm && canManageListings ? (
+        <VehicleListingForm
+          values={vehicleForm}
+          onChange={setVehicleForm}
+          error={vehicleErr}
+          saving={saveVehicleMut.isPending}
+          isEdit={Boolean(editVehicleId)}
+          onSubmit={() => saveVehicleMut.mutate()}
+          onCancel={() => {
+            setShowVehicleForm(false)
+            setEditVehicleId(null)
+            setVehicleForm(EMPTY_VEHICLE_LISTING_FORM)
+            setVehicleErr('')
+          }}
+        />
+      ) : null}
+
+      {showBusForm && canManageListings ? (
+        <BusTripListingForm
+          values={busForm}
+          onChange={setBusForm}
+          error={busErr}
+          saving={saveBusMut.isPending}
+          isEdit={Boolean(editBusId)}
+          onSubmit={() => saveBusMut.mutate()}
+          onCancel={() => {
+            setShowBusForm(false)
+            setEditBusId(null)
+            setBusForm(EMPTY_BUS_TRIP_FORM)
+            setBusErr('')
+          }}
+        />
+      ) : null}
+    </ProviderUiPage>
   )
 }

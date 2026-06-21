@@ -26,9 +26,9 @@ import {
   BusinessProfileSection,
   BusinessProfileServiceRow,
   BusinessProfileShell,
+  BusinessProfileState,
 } from '../components/business'
 import { MiniRating } from '../components/MiniRating'
-import { EmptyState } from '../components/ui'
 
 type ServiceTab = 'all' | 'stays' | 'food' | 'guides' | 'transport' | 'events'
 
@@ -51,6 +51,14 @@ const SERVICE_TABS: { id: ServiceTab; label: string; Icon: LucideIcon }[] = [
   { id: 'transport', label: 'Transport', Icon: Car },
   { id: 'events', label: 'Events', Icon: Ticket },
 ]
+
+const TYPE_TO_KIND: Record<string, Exclude<ServiceTab, 'all'>> = {
+  accommodation: 'stays',
+  food_drink: 'food',
+  guide: 'guides',
+  transport: 'transport',
+  event_organiser: 'events',
+}
 
 const KIND_ICONS: Record<Exclude<ServiceTab, 'all'>, LucideIcon> = {
   stays: BedDouble,
@@ -166,14 +174,30 @@ export function BusinessProfile() {
     return items
   }, [business])
 
+  const allowedKinds = useMemo(() => {
+    if (!business) return new Set<Exclude<ServiceTab, 'all'>>()
+    const kinds = business.business_types
+      .filter((t) => t !== 'multi_provider')
+      .map((t) => TYPE_TO_KIND[t])
+      .filter((k): k is Exclude<ServiceTab, 'all'> => Boolean(k))
+    return new Set(kinds)
+  }, [business])
+
+  const scopedListings = useMemo(() => {
+    if (allowedKinds.size === 0) return listings
+    return listings.filter((l) => allowedKinds.has(l.kind))
+  }, [listings, allowedKinds])
+
   const visibleTabs = useMemo(() => {
-    const kinds = new Set(listings.map((l) => l.kind))
-    return SERVICE_TABS.filter((t) => t.id === 'all' || kinds.has(t.id))
-  }, [listings])
+    const kinds = new Set(scopedListings.map((l) => l.kind))
+    return SERVICE_TABS.filter(
+      (t) => t.id === 'all' || (allowedKinds.has(t.id) && kinds.has(t.id)),
+    )
+  }, [scopedListings, allowedKinds])
 
   const filteredListings = useMemo(
-    () => (serviceTab === 'all' ? listings : listings.filter((l) => l.kind === serviceTab)),
-    [listings, serviceTab],
+    () => (serviceTab === 'all' ? scopedListings : scopedListings.filter((l) => l.kind === serviceTab)),
+    [scopedListings, serviceTab],
   )
 
   const galleryPhotos = useMemo(() => {
@@ -187,11 +211,11 @@ export function BusinessProfile() {
       const src = mediaUrl(business.logo) || business.logo
       photos.push({ src, alt: `${business.business_name} logo` })
     }
-    listings.forEach((l) => {
+    scopedListings.forEach((l) => {
       if (l.image) photos.push({ src: l.image, alt: l.title })
     })
     return photos.slice(0, 9)
-  }, [business, listings])
+  }, [business, scopedListings])
 
   const onShareProfile = () => {
     if (!business) return
@@ -218,10 +242,10 @@ export function BusinessProfile() {
   if (isError) {
     return (
       <BusinessProfileShell>
-        <EmptyState
-          iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
+        <BusinessProfileState
+          icon={<AlertCircle size={28} strokeWidth={2} />}
           title="We couldn't load this business"
-          sub="Please check your connection and try again."
+          message="Please check your connection and try again."
           cta={{ label: 'Try again', onClick: () => void refetch() }}
         />
       </BusinessProfileShell>
@@ -231,10 +255,10 @@ export function BusinessProfile() {
   if (!business) {
     return (
       <BusinessProfileShell>
-        <EmptyState
-          iconElement={<Building2 size={28} strokeWidth={2} aria-hidden />}
+        <BusinessProfileState
+          icon={<Building2 size={28} strokeWidth={2} />}
           title="Business not found"
-          sub="This provider profile may have been removed or the link is incorrect."
+          message="This provider profile may have been removed or the link is incorrect."
           cta={{ label: 'Explore DELVE', to: '/' }}
         />
       </BusinessProfileShell>
@@ -246,13 +270,13 @@ export function BusinessProfile() {
   const ratingAvg = profileExtras?.rating_avg
   const ratingCount = profileExtras?.rating_count
   const responseHours = profileExtras?.response_hours
-  const listingsCount = profileExtras?.listings_count ?? listings.length
+  const listingsCount = profileExtras?.listings_count ?? scopedListings.length
   const locationLabel = [business.city, business.region].filter(Boolean).join(', ')
   const directionsUrl = locationLabel ? mapsDirectionsUrl(business.city, business.region) : null
   const logoSrc = business.logo ? mediaUrl(business.logo) || business.logo : null
 
   return (
-    <BusinessProfileShell title="Provider" onShare={onShareProfile}>
+    <BusinessProfileShell title={business.business_name} onShare={onShareProfile}>
       {shareMsg ? (
         <p className="biz-profile__toast" role="status">
           {shareMsg}
@@ -281,7 +305,7 @@ export function BusinessProfile() {
       ) : null}
 
       <BusinessProfileSection title="Services">
-        {listings.length > 0 ? (
+        {scopedListings.length > 0 ? (
           <>
             {visibleTabs.length > 1 ? (
               <div className="biz-profile__tabs" role="tablist" aria-label="Service categories">

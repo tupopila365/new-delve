@@ -5,9 +5,11 @@ import { AlertCircle, Car } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { DetailPage, DetailSkeleton } from '../components/detail'
 import { VehicleDetailView, type VehicleBooking } from '../components/transport'
+import { renterUploadFromFile } from '../components/booking/transport/RenterDocumentUploads'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { friendlyApiMessage } from '../utils/friendlyError'
+import { missingRenterDocuments, type RenterDocumentUpload } from '../data/renterDocuments'
 import type { VehicleListing } from '../utils/transportListing'
 
 const DEFAULT_QUESTIONS = [
@@ -27,6 +29,7 @@ export function VehicleDetail() {
   const [pickupArea, setPickupArea] = useState('')
   const [booking, setBooking] = useState<VehicleBooking | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [renterDocuments, setRenterDocuments] = useState<Record<string, RenterDocumentUpload | undefined>>({})
 
   const { data: vehicle, isLoading, isError, refetch } = useQuery({
     queryKey: ['veh', id],
@@ -35,11 +38,19 @@ export function VehicleDetail() {
   })
 
   const createMut = useMutation({
-    mutationFn: () =>
-      apiFetch<VehicleBooking>('/api/transport/vehicle-bookings/', {
+    mutationFn: () => {
+      const docs = Object.values(renterDocuments).filter(Boolean) as RenterDocumentUpload[]
+      return apiFetch<VehicleBooking>('/api/transport/vehicle-bookings/', {
         method: 'POST',
-        body: JSON.stringify({ listing: Number(id), start_date: start, end_date: end }),
-      }),
+        body: JSON.stringify({
+          listing: Number(id),
+          start_date: start,
+          end_date: end,
+          pickup_area: pickupArea,
+          renter_documents: docs,
+        }),
+      })
+    },
     onSuccess: (b) => {
       setBooking(b)
       void qc.invalidateQueries({ queryKey: ['veh-bookings'] })
@@ -71,6 +82,20 @@ export function VehicleDetail() {
     }
   }
 
+  async function handleRenterDocUpload(docType: string, file: File) {
+    const row = await renterUploadFromFile(docType, file)
+    setRenterDocuments((prev) => ({ ...prev, [docType]: row }))
+    setErr(null)
+  }
+
+  function handleRenterDocRemove(docType: string) {
+    setRenterDocuments((prev) => {
+      const next = { ...prev }
+      delete next[docType]
+      return next
+    })
+  }
+
   const handleReserve = () => {
     setErr(null)
     if (!profile) {
@@ -91,6 +116,12 @@ export function VehicleDetail() {
     }
     if (new Date(end) < new Date(start)) {
       setErr('Choose a return date on or after pick-up.')
+      return
+    }
+    const required = vehicle?.required_renter_documents ?? []
+    const missing = missingRenterDocuments(required, renterDocuments)
+    if (missing.length > 0) {
+      setErr('Upload all required documents before sending your request.')
       return
     }
     createMut.mutate()
@@ -156,6 +187,9 @@ export function VehicleDetail() {
           booking,
           onPay: () => booking && payMut.mutate(booking.id),
           isPayPending: payMut.isPending,
+          renterDocuments,
+          onRenterDocUpload: (docType, file) => void handleRenterDocUpload(docType, file),
+          onRenterDocRemove: handleRenterDocRemove,
         }}
       />
     </DetailPage>

@@ -726,3 +726,143 @@
     position: static;
   }
 }
+
+/* Renter document uploads (vehicle rental booking) */
+.rental-docs {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--tp-surface-raised);
+  border: 1px solid var(--tp-border-soft);
+}
+
+.rental-docs__title {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tp-accent);
+}
+
+.rental-docs__sub {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.45;
+  color: var(--tp-text-subtle);
+}
+
+.rental-docs__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rental-docs__item {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px dashed var(--tp-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.rental-docs__item--done {
+  border-style: solid;
+  border-color: rgba(255, 138, 61, 0.35);
+}
+
+.rental-docs__item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rental-docs__item-head strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--tp-text);
+}
+
+.rental-docs__hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--tp-text-subtle);
+}
+
+.rental-docs__check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--tp-accent);
+  color: #1a1008;
+  flex-shrink: 0;
+}
+
+.rental-docs__file-input {
+  display: none;
+}
+
+.rental-docs__upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--tp-border);
+  background: transparent;
+  color: var(--tp-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.rental-docs__upload-btn:hover:not(:disabled) {
+  border-color: var(--tp-accent);
+  color: var(--tp-accent);
+}
+
+.rental-docs__upload-btn--ghost {
+  margin-top: 8px;
+  font-size: 0.72rem;
+}
+
+.rental-docs__preview-wrap {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.rental-docs__preview {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--tp-border-soft);
+}
+
+.rental-docs__remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  cursor: pointer;
+}

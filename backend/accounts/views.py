@@ -10,14 +10,25 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .business_access import business_permissions
-from .models import BusinessMembership, BusinessProfile, EmailVerificationToken, User
+from .models import (
+    BusinessMembership,
+    BusinessProfile,
+    BusinessTeamRole,
+    BusinessVerificationDocument,
+    EmailVerificationToken,
+    User,
+    VerificationStatus,
+)
 from .serializers import (
     BusinessProfileSerializer,
+    BusinessVerificationDocumentSerializer,
+    CreateBusinessSerializer,
     MyBusinessSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer,
     PublicProfileSerializer,
     RegisterSerializer,
+    UpdateMyBusinessSerializer,
 )
 
 
@@ -190,4 +201,98 @@ class MyBusinessesView(APIView):
                 many=True,
                 context={"request": request, "permissions_map": perms_map},
             ).data
+        )
+
+
+def _get_owned_or_managed_business(request, pk: int) -> BusinessProfile:
+    business = get_object_or_404(BusinessProfile.objects.select_related("owner"), pk=pk)
+    perms = business_permissions(request.user, business)
+    if not perms.get("manage_settings"):
+        from rest_framework.exceptions import PermissionDenied
+
+        raise PermissionDenied("You cannot manage this business.")
+    return business
+
+
+class CreateMyBusinessView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        profile = request.user.profile
+        if profile.user_type != "service_provider":
+            return Response(
+                {"detail": "Only service providers can create a business profile."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if BusinessProfile.objects.filter(owner=request.user).exists():
+            return Response(
+                {"detail": "You already have a business profile."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = CreateBusinessSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        business = serializer.save()
+        BusinessMembership.objects.get_or_create(
+            business=business,
+            user=request.user,
+            defaults={"role": BusinessTeamRole.OWNER},
+        )
+        perms = business_permissions(request.user, business)
+        perms_map = {
+            business.pk: {"role": perms.pop("role"), "permissions": perms},
+        }
+        return Response(
+            MyBusinessSerializer(business, context={"request": request, "permissions_map": perms_map}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class UpdateMyBusinessView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        business = _get_owned_or_managed_business(request, pk)
+        serializer = UpdateMyBusinessSerializer(business, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        perms = business_permissions(request.user, business)
+        perms_map = {business.pk: {"role": perms.pop("role"), "permissions": perms}}
+        return Response(
+            MyBusinessSerializer(business, context={"request": request, "permissions_map": perms_map}).data
+        )
+
+
+class MyBusinessDocumentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        business = _get_owned_or_managed_business(request, pk)
+        docs = business.verification_documents.all()
+        return Response(
+            BusinessVerificationDocumentSerializer(docs, many=True, context={"request": request}).data
+        )
+
+    def post(self, request, pk):
+        business = _get_owned_or_managed_business(request, pk)
+        serializer = BusinessVerificationDocumentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        doc = serializer.save(business=business)
+        return Response(
+            BusinessVerificationDocumentSerializer(doc, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SubmitBusinessVerificationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        business = _get_owned_or_managed_business(request, pk)
+        business.onboarding_completed = True
+        business.verification_status = VerificationStatus.PENDING
+        business.save(update_fields=["onboarding_completed", "verification_status", "updated_at"])
+        perms = business_permissions(request.user, business)
+        perms_map = {business.pk: {"role": perms.pop("role"), "permissions": perms}}
+        return Response(
+            MyBusinessSerializer(business, context={"request": request, "permissions_map": perms_map}).data
         )

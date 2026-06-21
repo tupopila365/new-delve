@@ -1,0 +1,329 @@
+/* Provider business inbox — professional dark theme inside provider shell */
+
+.prov-msg-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+  color: #fffaf2;
+}
+
+.prov-msg-inbox__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prov-msg-inbox__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fffaf2;
+}
+
+.prov-msg-inbox__sub {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.prov-msg-inbox__search {
+  display: block;
+}
+
+.prov-msg-inbox__filters {
+  display: flex;
+  gap: 8px;
+}
+
+.prov-msg-inbox__filters .prov-msg-inbox__chip,
+.prov-msg-inbox__chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 250, 242, 0.65);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.prov-msg-inbox__chip--active {
+  background: #ff9a52;
+  border-color: #ff9a52;
+  color: #1a0f05;
+}
+
+.prov-msg-inbox__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.prov-msg-inbox__count {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.45);
+}
+
+.prov-msg-inbox__compose {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: none;
+  background: #ff9a52;
+  color: #1a0f05;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.prov-msg-inbox__compose[aria-expanded='true'] {
+  background: rgba(255, 154, 82, 0.85);
+}
+
+.prov-msg-inbox__loading {
+  display: grid;
+  gap: 8px;
+}
+
+.prov-msg-inbox__loading span {
+  display: block;
+  height: 64px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  animation: prov-msg-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes prov-msg-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.prov-msg-inbox__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prov-msg-inbox__row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.prov-msg-inbox__row:hover,
+.prov-msg-inbox__row:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 154, 82, 0.25);
+}
+
+.prov-msg-inbox__avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 154, 82, 0.15);
+  color: #ff9a52;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.prov-msg-inbox__main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.prov-msg-inbox__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prov-msg-inbox__top strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fffaf2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prov-msg-inbox__badge {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.prov-msg-inbox__top time {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 250, 242, 0.4);
+}
+
+.prov-msg-inbox__preview {
+  overflow: hidden;
+  font-size: 0.82rem;
+  color: rgba(255, 250, 242, 0.5);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prov-msg-inbox__preview--you {
+  color: rgba(255, 250, 242, 0.65);
+}
+
+.prov-msg-inbox__unread {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff9a52;
+  flex-shrink: 0;
+}
+
+/* Provider compose sheet variant */
+.msg-compose-sheet--provider .msg-compose-sheet__panel {
+  background: #141110;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fffaf2;
+}
+
+.msg-compose-sheet--provider .msg-compose-sheet__head h2 {
+  color: #fffaf2;
+}
+
+.msg-compose-sheet--provider .msg-compose-sheet__search {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fffaf2;
+}
+
+.msg-compose-sheet--provider .msg-compose-sheet__row {
+  color: #fffaf2;
+}
+
+.msg-compose-sheet--provider .msg-compose-sheet__row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Provider DM chat variant */
+.dm-chat--provider {
+  max-width: 640px;
+  margin: 0 auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.dm-chat--provider .dm-chat__head {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.dm-chat--provider .dm-chat__inbox {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ff9a52;
+  text-decoration: none;
+}
+
+.dm-chat--provider .dm-chat__bubble--mine {
+  background: #ff9a52;
+  color: #1a0f05;
+}
+
+.dm-chat--provider .dm-chat__bubble--theirs {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fffaf2;
+}
+
+.dm-chat--provider .dm-chat__quick-btn {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 250, 242, 0.75);
+}
+
+.dm-chat--provider .dm-chat__composer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dm-chat--provider .dm-chat__composer textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fffaf2;
+}
+
+.dm-chat--provider .dm-chat__composer button {
+  background: #ff9a52;
+  color: #1a0f05;
+}
+
+.prov-msg-inbox .msg-empty {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.prov-msg-inbox .msg-empty__title {
+  color: #fffaf2;
+}
+
+.prov-msg-inbox .msg-empty__subtitle {
+  color: rgba(255, 250, 242, 0.5);
+}
+
+.prov-msg-inbox .msg-empty__action {
+  color: #ff9a52;
+}
+
+.dm-page--provider {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 0 24px;
+  min-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+}

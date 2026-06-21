@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import type { ProviderBooking } from '../../data/providerData'
+import { messageUserPath } from '../messages/messageProviderUtils'
 import { BookingStatusBadge } from '../booking'
 
 type Props = {
@@ -53,7 +54,11 @@ export function ProviderBookingRow({ booking, showActions = true }: Props) {
               Complete
             </button>
           ) : null}
-          <Link to="/messages" className="btn btn-ghost btn--sm">
+          <Link
+            to={messageUserPath(booking.guestUsername, 'provider')}
+            state={{ from: '/provider/bookings', guestName: booking.guest }}
+            className="btn btn-ghost btn--sm"
+          >
             Message
           </Link>
         </div>

@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { BookingDateFields, BookingPriceSummary, UserBookingErrorState } from '../index'
 import { MessageProviderLink } from '../../messages'
+import { RenterDocumentUploads } from './RenterDocumentUploads'
+import type { RenterDocumentUpload } from '../../../data/renterDocuments'
 import {
   rentalDaysInclusive,
   vehicleLocationLine,
@@ -37,6 +39,9 @@ type Props = {
   onDismissErr: () => void
   profile: { email_verified: boolean } | null
   booking: Booking | null
+  renterDocuments?: Record<string, RenterDocumentUpload | undefined>
+  onRenterDocUpload?: (docType: string, file: File) => void
+  onRenterDocRemove?: (docType: string) => void
   className?: string
 }
 
@@ -54,6 +59,9 @@ export function VehicleReserveCard({
   onDismissErr,
   profile,
   booking,
+  renterDocuments = {},
+  onRenterDocUpload,
+  onRenterDocRemove,
   className = '',
 }: Props) {
   if (booking && booking.status !== 'pending') return null
@@ -71,6 +79,8 @@ export function VehicleReserveCard({
       : null
 
   const pickupOptions = [...new Set([vehicle.city, 'Airport', 'Provider location'].filter(Boolean) as string[])]
+
+  const requiredDocs = vehicle.required_renter_documents ?? []
 
   const authHint = !profile
     ? 'Sign in to send a vehicle request.'
@@ -148,6 +158,16 @@ export function VehicleReserveCard({
           </select>
         </div>
       </div>
+
+      {requiredDocs.length > 0 && onRenterDocUpload && onRenterDocRemove ? (
+        <RenterDocumentUploads
+          required={requiredDocs}
+          uploads={renterDocuments}
+          onUpload={onRenterDocUpload}
+          onRemove={onRenterDocRemove}
+          disabled={isPending}
+        />
+      ) : null}
 
       <BookingPriceSummary
         lines={

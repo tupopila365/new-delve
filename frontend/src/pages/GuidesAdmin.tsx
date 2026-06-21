@@ -1,256 +1,507 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CalendarDays, Compass, MessageCircle, Plus } from 'lucide-react'
+import { apiFetch } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
-import { mockGuides } from '../mocks/mockData'
-import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { ProviderAccessGate } from '../components/provider'
+import {
+  EMPTY_GUIDE_PACKAGE_FORM,
+  EMPTY_GUIDE_PROFILE_FORM,
+  GuideBookingCard,
+  GuidePackageCard,
+  GuidePackageForm,
+  GuideProfileForm,
+  GuideProfileSummaryCard,
+  formToProfilePayload,
+  normalizeProviderGuide,
+  packageToApiPayload,
+  packageToForm,
+  profileCompleteness,
+  profileToForm,
+  type GuideProviderBooking,
+  type ProviderGuideProfile,
+} from '../components/provider/guides'
+import {
+  ProviderUiChips,
+  ProviderUiEmpty,
+  ProviderUiHeader,
+  ProviderUiPage,
+  ProviderUiStats,
+} from '../components/provider/ui'
+import '../components/provider/guides/guide-listing.css'
+import { ListSkeleton } from '../components/ui'
+import type { TourPackage } from '../components/guide/types'
 
-const MOCK_INQUIRIES = [
-  { id: 1, name: 'Sarah M.', package: 'Dunes & deadvlei half-day', date: '2026-05-12', guests: 2, total: 3600, status: 'confirmed' },
-  { id: 2, name: 'Jonas K.', package: 'Etosha full-day game drive', date: '2026-05-18', guests: 4, total: 9200, status: 'pending' },
-  { id: 3, name: 'Marta V.', package: 'Dunes & deadvlei half-day', date: '2026-06-02', guests: 3, total: 5400, status: 'confirmed' },
+const TABS = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'packages', label: 'Packages' },
+  { id: 'bookings', label: 'Bookings' },
+  { id: 'reviews', label: 'Reviews' },
+] as const
+
+const BOOKING_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'confirmed', label: 'Confirmed' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'cancelled', label: 'Cancelled' },
 ]
 
-function stars(n: number) {
-  return '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n))
+const STATUS_ACTIONS: Record<string, { label: string; action: string }[]> = {
+  pending: [
+    { label: 'Confirm', action: 'confirm' },
+    { label: 'Cancel', action: 'cancel' },
+  ],
+  confirmed: [
+    { label: 'Mark complete', action: 'complete' },
+    { label: 'Cancel', action: 'cancel' },
+    { label: 'Refund', action: 'refund' },
+  ],
 }
 
 export function GuidesAdmin() {
   const { profile } = useAuth()
-  const { canAccessProvider } = useBusinessAccess()
-  const [tab, setTab] = useState<'profile' | 'packages' | 'inquiries'>('profile')
+  const qc = useQueryClient()
+  const { canManageListings, canManageBookings, isViewerOnly, canAccessProvider } = useBusinessAccess()
+
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('profile')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [showProfileForm, setShowProfileForm] = useState(false)
+  const [showPackageForm, setShowPackageForm] = useState(false)
+  const [editPackageId, setEditPackageId] = useState<string | null>(null)
+  const [profileForm, setProfileForm] = useState(EMPTY_GUIDE_PROFILE_FORM)
+  const [packageForm, setPackageForm] = useState(EMPTY_GUIDE_PACKAGE_FORM)
+  const [profileErr, setProfileErr] = useState('')
+  const [packageErr, setPackageErr] = useState('')
+
+  const { data: guide, isLoading: loadingProfile } = useQuery({
+    queryKey: ['provider-guide-profile'],
+    queryFn: async () => {
+      const raw = await apiFetch<ProviderGuideProfile | null>('/api/guides/provider-profile/')
+      return raw ? normalizeProviderGuide(raw) : null
+    },
+    enabled: Boolean(profile && canAccessProvider),
+  })
+
+  const bookingsUrl =
+    statusFilter === 'all'
+      ? '/api/guides/provider-bookings/'
+      : `/api/guides/provider-bookings/?status=${statusFilter}`
+
+  const { data: bookings = [], isLoading: loadingBookings } = useQuery({
+    queryKey: ['provider-guide-bookings', statusFilter],
+    queryFn: () => apiFetch<GuideProviderBooking[]>(bookingsUrl),
+    enabled: Boolean(profile && canAccessProvider && guide),
+  })
+
+  const packages = guide?.tour_packages ?? []
+
+  const reviews = useMemo(() => {
+    const profileReviews = (guide?.guest_reviews ?? []).map((r, i) => ({
+      id: `profile-${i}`,
+      source: 'Profile',
+      guest: r.name,
+      place: r.place,
+      rating: r.rating,
+      body: r.body,
+    }))
+    const packageReviews = packages.flatMap((pkg) =>
+      (pkg.reviews ?? []).map((r, i) => ({
+        id: `${pkg.id}-${i}`,
+        source: pkg.title,
+        guest: r.name,
+        place: r.place,
+        rating: r.rating,
+        body: r.body,
+      })),
+    )
+    return [...profileReviews, ...packageReviews]
+  }, [guide, packages])
+
+  const saveProfileMut = useMutation({
+    mutationFn: async () => {
+      const body = formToProfilePayload(profileForm, packages)
+      if (guide) {
+        return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        })
+      }
+      return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-guide-profile'] })
+      setShowProfileForm(false)
+      setProfileErr('')
+    },
+    onError: (e: Error) => setProfileErr(friendlyApiMessage(e)),
+  })
+
+  const savePackageMut = useMutation({
+    mutationFn: async () => {
+      if (!guide) throw new Error('Create your guide profile first.')
+      const nextPkg = packageToApiPayload(packageForm)
+      let nextPackages: TourPackage[]
+      if (editPackageId) {
+        nextPackages = packages.map((p) =>
+          p.id === editPackageId ? { ...p, ...nextPkg, reviews: p.reviews } : p,
+        )
+      } else {
+        if (packages.some((p) => p.id === nextPkg.id)) {
+          throw new Error('A package with this slug already exists.')
+        }
+        nextPackages = [...packages, { ...nextPkg, reviews: [] }]
+      }
+      const body = formToProfilePayload(profileToForm(guide), nextPackages)
+      return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-guide-profile'] })
+      setShowPackageForm(false)
+      setEditPackageId(null)
+      setPackageForm(EMPTY_GUIDE_PACKAGE_FORM)
+      setPackageErr('')
+    },
+    onError: (e: Error) => setPackageErr(friendlyApiMessage(e)),
+  })
+
+  const bookingActionMut = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: string }) =>
+      apiFetch<GuideProviderBooking>(`/api/guides/provider-bookings/${id}/${action}/`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-guide-bookings'] }),
+  })
 
   if (!profile) return <Navigate to="/login" replace />
   if (!canAccessProvider) {
     return (
-      <div className="prov-cat-page">
+      <ProviderUiPage>
         <ProviderAccessGate />
-      </div>
+      </ProviderUiPage>
     )
   }
 
-  const myGuides = mockGuides.filter((g) => g.username === profile.username)
-  const guide = myGuides[0] ?? null
+  const completeness = guide ? profileCompleteness(guide) : { percent: 0, missing: [] }
+  const revenue = bookings
+    .filter((b) => ['confirmed', 'completed'].includes(b.status))
+    .reduce((s, b) => s + parseFloat(b.total_price), 0)
+  const pendingBookings = bookings.filter((b) => b.status === 'pending').length
 
-  const confirmedInquiries = MOCK_INQUIRIES.filter((i) => myGuides.length > 0 && i.status === 'confirmed')
-  const revenue = confirmedInquiries.reduce((s, i) => s + i.total, 0)
+  const openCreateProfile = () => {
+    setProfileForm(guide ? profileToForm(guide) : EMPTY_GUIDE_PROFILE_FORM)
+    setShowProfileForm(true)
+    setProfileErr('')
+    setTab('profile')
+  }
 
-  const packageCount = guide?.tour_packages?.length ?? 0
-  const profileComplete = guide
-    ? Math.round(
-        ([guide.photo, guide.languages?.length, guide.regions?.length, packageCount, guide.certifications?.length]
-          .filter(Boolean).length /
-          5) *
-          100,
-      )
-    : 0
+  const openEditProfile = () => {
+    if (!guide) return
+    setProfileForm(profileToForm(guide))
+    setShowProfileForm(true)
+    setProfileErr('')
+  }
+
+  const openCreatePackage = () => {
+    setEditPackageId(null)
+    setPackageForm(EMPTY_GUIDE_PACKAGE_FORM)
+    setShowPackageForm(true)
+    setPackageErr('')
+    setTab('packages')
+  }
+
+  const openEditPackage = (pkg: TourPackage) => {
+    setEditPackageId(pkg.id)
+    setPackageForm(packageToForm(pkg))
+    setShowPackageForm(true)
+    setPackageErr('')
+  }
+
+  const attention = [
+    ...(completeness.percent < 100 && guide
+      ? [{
+          id: 'profile',
+          label: `Profile ${completeness.percent}% complete`,
+          action: 'Complete profile',
+          onClick: openEditProfile,
+        }]
+      : []),
+    ...(!guide
+      ? [{ id: 'create', label: 'No guide profile yet', action: 'Create profile', onClick: openCreateProfile }]
+      : []),
+    ...(packages.length === 0 && guide
+      ? [{ id: 'packages', label: 'Add your first tour package', action: 'Add package', onClick: openCreatePackage }]
+      : []),
+    ...(pendingBookings > 0
+      ? [{
+          id: 'pending',
+          label: `${pendingBookings} booking request${pendingBookings === 1 ? '' : 's'} pending`,
+          action: 'Review bookings',
+          onClick: () => setTab('bookings'),
+        }]
+      : []),
+  ]
 
   return (
-    <div className="prov-cat-page">
-      <ProviderCategoryStrip
-        title="Guide services"
-        subtitle="Manage your guide profile, packages, availability, and traveller requests."
-        publicTo="/guides"
-        attention={[
-          ...(guide && profileComplete < 100
-            ? [{ label: `Profile ${profileComplete}% complete`, actionLabel: 'Complete profile', actionTo: '#profile', priority: 'medium' as const }]
-            : []),
-          ...(MOCK_INQUIRIES.some((i) => i.status === 'pending')
-            ? [{ label: '1 booking request needs response', actionLabel: 'View inquiries', actionTo: '#inquiries', priority: 'high' as const }]
-            : []),
-          { label: 'Add portfolio photos', actionLabel: 'Add photos', actionTo: '#packages', priority: 'low' as const },
-        ]}
-        quickActions={[
-          { label: 'Add tour package', to: '#packages', emoji: '＋' },
-          { label: 'Update availability', to: '#profile', emoji: '📅' },
-          { label: 'Reply to messages', to: '/messages', emoji: '💬' },
+    <ProviderUiPage>
+      <ProviderUiHeader
+        title="Guides"
+        subtitle={
+          isViewerOnly
+            ? 'View your guide profile, packages, and traveller bookings.'
+            : 'Manage the profile and packages travellers see on your public guide pages.'
+        }
+        actions={
+          <>
+            <Link to="/guides" className="prov-ui__btn prov-ui__btn--ghost">
+              View public
+            </Link>
+            {canManageListings && guide ? (
+              <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={openCreatePackage}>
+                <Plus size={16} strokeWidth={2.25} aria-hidden />
+                Add package
+              </button>
+            ) : canManageListings ? (
+              <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={openCreateProfile}>
+                <Plus size={16} strokeWidth={2.25} aria-hidden />
+                Create profile
+              </button>
+            ) : null}
+          </>
+        }
+      />
+
+      {attention.length > 0 ? (
+        <section>
+          <h2 className="prov-ui__section-title">Needs attention</h2>
+          <ul className="prov-ui__attention">
+            {attention.map((item) => (
+              <li key={item.id}>
+                <span>{item.label}</span>
+                <button
+                  type="button"
+                  className="prov-ui__link"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
+                  onClick={item.onClick}
+                >
+                  {item.action}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <section>
+        <h2 className="prov-ui__section-title">Quick links</h2>
+        <div className="prov-ui__shortcuts">
+          {canManageListings ? (
+            <button type="button" className="prov-ui__shortcut" onClick={guide ? openEditProfile : openCreateProfile}>
+              <Compass size={18} strokeWidth={2.25} aria-hidden />
+              <span>{guide ? 'Edit profile' : 'Create profile'}</span>
+            </button>
+          ) : null}
+          {canManageListings && guide ? (
+            <button type="button" className="prov-ui__shortcut" onClick={openCreatePackage}>
+              <Plus size={18} strokeWidth={2.25} aria-hidden />
+              <span>Add package</span>
+            </button>
+          ) : null}
+          <button type="button" className="prov-ui__shortcut" onClick={() => setTab('bookings')}>
+            <CalendarDays size={18} strokeWidth={2.25} aria-hidden />
+            <span>Bookings</span>
+          </button>
+          <Link to="/provider/messages" className="prov-ui__shortcut">
+            <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+            <span>Messages</span>
+          </Link>
+        </div>
+      </section>
+
+      <ProviderUiStats
+        columns={4}
+        stats={[
+          { value: guide?.rating_avg ?? '—', label: 'Rating' },
+          { value: packages.length, label: 'Packages' },
+          { value: bookings.length || '—', label: 'Bookings', accent: pendingBookings > 0 },
+          { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
         ]}
       />
 
-      <div className="adm-bar adm-bar--compact">
-        <Link to="/provider" className="up__back" aria-label="Back to dashboard">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-        </Link>
-        <div>
-          <h2 className="adm-bar__title">Profile &amp; packages</h2>
-          <p className="adm-bar__sub">Guide profile, tour packages, and booking inquiries</p>
-        </div>
-      </div>
+      <ProviderUiChips chips={[...TABS]} active={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Guides sections" />
 
-      {/* Stats */}
-      <div className="adm-stats">
-        <div className="adm-stat">
-          <span className="adm-stat__n">{myGuides.length}</span>
-          <span className="adm-stat__l">Profiles</span>
-        </div>
-        <div className="adm-stat">
-          <span className="adm-stat__n">⭐ {guide ? guide.rating_avg : '—'}</span>
-          <span className="adm-stat__l">Rating</span>
-        </div>
-        <div className="adm-stat">
-          <span className="adm-stat__n">{guide?.tour_packages?.length ?? 0}</span>
-          <span className="adm-stat__l">Packages</span>
-        </div>
-        <div className="adm-stat">
-          <span className="adm-stat__n">{profileComplete}%</span>
-          <span className="adm-stat__l">Profile complete</span>
-        </div>
-        <div className="adm-stat adm-stat--accent">
-          <span className="adm-stat__n">N${revenue.toLocaleString()}</span>
-          <span className="adm-stat__l">Revenue</span>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="adm-tabs" role="tablist">
-        {(['profile', 'packages', 'inquiries'] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t}
-            className={`adm-tab${tab === t ? ' adm-tab--active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t === 'profile' ? '🪪 Profile' : t === 'packages' ? '📦 Packages' : '📩 Inquiries'}
-          </button>
-        ))}
-      </div>
-
-      {/* Profile tab */}
       {tab === 'profile' && (
-        <div className="adm-section" id="profile">
-          {!guide ? (
-            <div className="adm-empty">
-              <p className="adm-empty__title">No guide profile found</p>
-              <p className="adm-empty__sub">Log in as <strong>guide_pro</strong> to see your guide profile.</p>
-            </div>
+        <section id="profile">
+          {loadingProfile ? (
+            <ListSkeleton count={1} variant="row" />
+          ) : !guide ? (
+            <>
+              <ProviderUiEmpty
+                title="No guide profile yet"
+                message="Set up your public guide page — headline, credentials, meeting point, and portfolio photos."
+              />
+              {canManageListings ? (
+                <button type="button" className="guide-add-btn" onClick={openCreateProfile}>
+                  Create guide profile
+                </button>
+              ) : null}
+            </>
           ) : (
-            <div className="adm-guide-profile">
-              <div className="adm-guide-profile__photo">
-                {guide.photo
-                  ? <img src={guide.photo} alt="" />
-                  : <span aria-hidden>🧭</span>
-                }
-              </div>
-              <div className="adm-guide-profile__info">
-                <p className="adm-guide-profile__name">{guide.display_name ?? guide.username}</p>
-                <p className="adm-guide-profile__headline">{guide.headline}</p>
-                <p className="adm-guide-profile__bio">{guide.bio}</p>
-                <div className="adm-guide-profile__meta">
-                  <span className="adm-pill">⭐ {guide.rating_avg} ({guide.rating_count})</span>
-                  <span className="adm-pill">🗓 {guide.years_guiding ?? '?'} years guiding</span>
-                  {guide.licensed_guide && <span className="adm-pill adm-pill--green">✅ Licensed</span>}
-                  <span className="adm-pill">N${guide.hourly_rate}/hr</span>
-                </div>
-                <div className="adm-guide-profile__meta" style={{ marginTop: 6 }}>
-                  {guide.languages.map((l) => <span key={l} className="adm-pill">🌐 {l}</span>)}
-                </div>
-                {guide.certifications && guide.certifications.length > 0 && (
-                  <div className="adm-guide-profile__certs">
-                    {guide.certifications.map((c) => (
-                      <span key={c} className="adm-pill adm-pill--blue">🏅 {c}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="adm-guide-profile__actions">
-                <Link to={`/guides/${guide.id}`} className="btn btn-ghost adm-action-btn">View public page</Link>
-              </div>
-            </div>
+            <GuideProfileSummaryCard guide={guide} canEdit={canManageListings} onEdit={openEditProfile} />
           )}
-        </div>
+        </section>
       )}
 
-      {/* Packages tab */}
       {tab === 'packages' && (
-        <div className="adm-section" id="packages">
-          {!guide || !guide.tour_packages?.length ? (
-            <div className="adm-empty">
-              <p className="adm-empty__title">No guide packages yet</p>
-              <p className="adm-empty__sub">Create your first experience so travellers can book you.</p>
-            </div>
+        <section id="packages">
+          {!guide ? (
+            <ProviderUiEmpty
+              title="Create your profile first"
+              message="Add a guide profile before creating tour packages."
+            />
+          ) : loadingProfile ? (
+            <ListSkeleton count={2} variant="row" />
+          ) : packages.length === 0 ? (
+            <>
+              <ProviderUiEmpty
+                title="No tour packages yet"
+                message="Packages get their own detail pages with photos, duration, price, and reviews."
+              />
+              {canManageListings ? (
+                <button type="button" className="guide-add-btn" onClick={openCreatePackage}>
+                  Add tour package
+                </button>
+              ) : null}
+            </>
           ) : (
-            <div className="adm-list">
-              {guide.tour_packages.map((pkg) => (
-                <div key={pkg.id} className="adm-pkg-card">
-                  <div className="adm-pkg-card__img">
-                    {pkg.photo
-                      ? <img src={pkg.photo} alt="" />
-                      : <span aria-hidden>🗺️</span>
-                    }
-                  </div>
-                  <div className="adm-pkg-card__body">
-                    <div className="adm-pkg-card__title-row">
-                      <p className="adm-pkg-card__title">{pkg.title}</p>
-                      <span className="adm-badge adm-badge--green">Active</span>
-                    </div>
-                    <p className="adm-pkg-card__meta">
-                      ⏱ {pkg.hours}h · N${pkg.price} per person
-                    </p>
-                    {pkg.description && (
-                      <p className="adm-pkg-card__desc">{pkg.description}</p>
-                    )}
-                    {pkg.reviews && pkg.reviews.length > 0 && (
-                      <p className="adm-pkg-card__reviews">
-                        ⭐ {(pkg.reviews.reduce((s, r) => s + r.rating, 0) / pkg.reviews.length).toFixed(1)} · {pkg.reviews.length} review{pkg.reviews.length !== 1 ? 's' : ''}
-                      </p>
-                    )}
-                  </div>
-                </div>
+            <div className="guide-list">
+              {packages.map((pkg) => (
+                <GuidePackageCard
+                  key={pkg.id}
+                  pkg={pkg}
+                  guideId={guide.id}
+                  canEdit={canManageListings}
+                  onEdit={() => openEditPackage(pkg)}
+                />
               ))}
             </div>
           )}
-          <button type="button" className="adm-add-btn" disabled title="Full editing coming soon">
-            + Add new package
-          </button>
-        </div>
+          {canManageListings && guide && packages.length > 0 ? (
+            <button type="button" className="guide-add-btn" onClick={openCreatePackage}>
+              Add tour package
+            </button>
+          ) : null}
+        </section>
       )}
 
-      {/* Inquiries tab */}
-      {tab === 'inquiries' && (
-        <div className="adm-section" id="inquiries">
-          {!guide || MOCK_INQUIRIES.length === 0 ? (
-            <div className="adm-empty">
-              <p className="adm-empty__title">No inquiries yet</p>
-            </div>
+      {tab === 'bookings' && (
+        <section id="bookings">
+          {!guide ? (
+            <ProviderUiEmpty title="No bookings yet" message="Booking requests appear once your guide profile is live." />
           ) : (
-            <div className="adm-list">
-              {MOCK_INQUIRIES.map((i) => (
-                <div key={i.id} className="adm-booking-row">
-                  <div className="adm-booking-row__info">
-                    <p className="adm-booking-row__guest">{i.name}</p>
-                    <p className="adm-booking-row__listing">{i.package}</p>
-                    <p className="adm-booking-row__dates">{i.date} · {i.guests} {i.guests === 1 ? 'guest' : 'guests'}</p>
-                  </div>
-                  <div className="adm-booking-row__right">
-                    <p className="adm-booking-row__total">N${i.total.toLocaleString()}</p>
-                    <span className={`adm-badge ${i.status === 'confirmed' ? 'adm-badge--green' : 'adm-badge--yellow'}`}>
-                      {i.status}
+            <>
+              {!canManageBookings ? (
+                <p className="guide-hint">Your role can view guides but not manage bookings.</p>
+              ) : null}
+              <ProviderUiChips
+                chips={BOOKING_FILTERS}
+                active={statusFilter}
+                onChange={setStatusFilter}
+                ariaLabel="Filter bookings"
+              />
+              {loadingBookings ? (
+                <p className="guide-hint">Loading bookings…</p>
+              ) : bookings.length === 0 ? (
+                <ProviderUiEmpty title="No bookings found" message="Traveller booking requests will appear here." />
+              ) : (
+                <div className="prov-ui__list">
+                  {bookings.map((b) => (
+                    <GuideBookingCard
+                      key={b.id}
+                      booking={b}
+                      canManage={canManageBookings}
+                      statusActions={STATUS_ACTIONS[b.status] ?? []}
+                      actionPending={bookingActionMut.isPending}
+                      onAction={(action) => bookingActionMut.mutate({ id: b.id, action })}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {tab === 'reviews' && (
+        <section id="reviews">
+          {reviews.length === 0 ? (
+            <ProviderUiEmpty title="No reviews yet" message="Guest reviews from your profile and packages appear here." />
+          ) : (
+            <div className="prov-ui__list">
+              {reviews.map((r) => (
+                <article key={r.id} className="prov-ui-review">
+                  <div className="prov-ui-review__head">
+                    <span className="prov-ui__booking-avatar" aria-hidden>
+                      {r.guest.charAt(0)}
                     </span>
+                    <div>
+                      <strong>
+                        {r.guest}
+                        {r.place ? ` · ${r.place}` : ''}
+                      </strong>
+                      <span>{r.source}</span>
+                    </div>
+                    <span className="prov-ui-review__rating">{r.rating}</span>
                   </div>
-                </div>
+                  <p className="prov-ui-review__body">{r.body}</p>
+                </article>
               ))}
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Reviews section */}
-      {guide && (
-        <div className="adm-section" style={{ marginTop: 24 }}>
-          <h2 className="adm-section__title">Recent guest reviews</h2>
-          <div className="adm-list">
-            {((guide.guest_reviews ?? []) as { name: string; place?: string; rating: number; body: string }[]).map((r, i) => (
-              <div key={i} className="adm-review-card">
-                <div className="adm-review-card__header">
-                  <p className="adm-review-card__guest">{r.name} {r.place ? `· ${r.place}` : ''}</p>
-                  <span className="adm-review-card__stars">{stars(r.rating)}</span>
-                </div>
-                <p className="adm-review-card__body">{r.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      {showProfileForm && canManageListings ? (
+        <GuideProfileForm
+          values={profileForm}
+          onChange={setProfileForm}
+          error={profileErr}
+          saving={saveProfileMut.isPending}
+          isEdit={Boolean(guide)}
+          onSubmit={() => saveProfileMut.mutate()}
+          onCancel={() => {
+            setShowProfileForm(false)
+            setProfileErr('')
+          }}
+        />
+      ) : null}
+
+      {showPackageForm && canManageListings ? (
+        <GuidePackageForm
+          values={packageForm}
+          onChange={setPackageForm}
+          error={packageErr}
+          saving={savePackageMut.isPending}
+          isEdit={Boolean(editPackageId)}
+          onSubmit={() => savePackageMut.mutate()}
+          onCancel={() => {
+            setShowPackageForm(false)
+            setEditPackageId(null)
+            setPackageForm(EMPTY_GUIDE_PACKAGE_FORM)
+            setPackageErr('')
+          }}
+        />
+      ) : null}
+    </ProviderUiPage>
   )
 }

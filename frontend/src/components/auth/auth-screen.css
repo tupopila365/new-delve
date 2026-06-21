@@ -140,6 +140,24 @@
   line-height: 1.4;
 }
 
+.auth-page__success {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #86efac;
+  line-height: 1.4;
+}
+
+.auth-page__success a {
+  color: #ff9a52;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-page__success a:hover {
+  text-decoration: underline;
+}
+
 .auth-page__submit {
   margin-top: 8px;
   min-height: 48px;

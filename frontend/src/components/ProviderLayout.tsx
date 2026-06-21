@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
-import { ArrowLeft, Car, Compass, Hotel, Menu, Ticket, Utensils, type LucideIcon } from 'lucide-react'
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { ArrowLeft, Car, Compass, Hotel, Menu, Utensils, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
-import { mediaUrl } from '../api/client'
-import { BUSINESS_TYPE_LABELS } from '../data/businessProfiles'
 import { useBusinessAccess, type MyBusiness } from '../hooks/useBusinessAccess'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { NavBadge } from './NavBadge'
+import { ProfileMenu } from './ProfileMenu'
 import { ProviderAccessGate } from './provider'
 import { ListSkeleton } from './ui'
 
@@ -14,19 +13,18 @@ const NAV = [
   { to: '/provider', label: 'Overview', end: true },
   { to: '/provider/listings', label: 'Listings' },
   { to: '/provider/bookings', label: 'Bookings' },
-  { to: '/provider/messages', label: 'Messages', external: '/messages' },
+  { to: '/provider/messages', label: 'Messages' },
   { to: '/provider/reviews', label: 'Reviews' },
-  { to: '/provider/settings', label: 'Settings', external: '/settings' },
+  { to: '/provider/analytics', label: 'Analytics' },
+  { to: '/provider/settings', label: 'Settings', end: false },
 ] as const
 
-const MODULE_LINKS: { to: string; label: string; Icon: LucideIcon }[] = [
-  { to: '/provider/stays', label: 'Stays', Icon: Hotel },
-  { to: '/provider/guides', label: 'Guides', Icon: Compass },
-  { to: '/provider/transport', label: 'Transport', Icon: Car },
-  { to: '/provider/food', label: 'Food & drink', Icon: Utensils },
+const MODULE_LINKS: { to: string; label: string; Icon: LucideIcon; serviceType: string }[] = [
+  { to: '/provider/stays', label: 'Stays', Icon: Hotel, serviceType: 'accommodation' },
+  { to: '/provider/guides', label: 'Guides', Icon: Compass, serviceType: 'guide' },
+  { to: '/provider/transport', label: 'Transport', Icon: Car, serviceType: 'transport' },
+  { to: '/provider/food', label: 'Food & drink', Icon: Utensils, serviceType: 'food_drink' },
 ]
-
-const EVENTS_LINK = { to: '/events/new', label: 'Events', Icon: Ticket, hint: 'Create and manage' }
 
 function verificationLabel(status?: string) {
   if (status === 'verified') return 'Verified'
@@ -41,7 +39,7 @@ export function ProviderLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeBusinessId, setActiveBusinessId] = useState<number | null>(null)
 
-  const { businesses, activeBusiness, canManageListings, canManageBookings, isViewerOnly, isLoading, canAccessProvider } =
+  const { businesses, activeBusiness, canManageListings, canManageBookings, isLoading, canAccessProvider } =
     useBusinessAccess(activeBusinessId)
 
   const resolvedBusiness: MyBusiness | undefined =
@@ -53,7 +51,7 @@ export function ProviderLayout() {
 
   if (isLoading) {
     return (
-      <div className="prov-shell prov-shell--polished">
+      <div className="prov-shell prov-shell--polished prov-shell--dark">
         <div className="prov-content prov-page">
           <p className="prov-page__sub">Loading provider dashboard…</p>
           <ListSkeleton count={4} variant="row" />
@@ -64,7 +62,7 @@ export function ProviderLayout() {
 
   if (!canAccessProvider) {
     return (
-      <div className="prov-shell prov-shell--polished">
+      <div className="prov-shell prov-shell--polished prov-shell--dark">
         <div className="prov-content">
           <ProviderAccessGate />
         </div>
@@ -74,9 +72,19 @@ export function ProviderLayout() {
 
   const isModule = MODULE_LINKS.some((m) => location.pathname.startsWith(m.to))
   const noBusiness = businesses.length === 0
+  const onboardingIncomplete = resolvedBusiness && resolvedBusiness.onboarding_completed === false
+
+  const activeTypes = resolvedBusiness?.business_types ?? []
+  const visibleModules = MODULE_LINKS.filter(
+    (m) => activeTypes.includes(m.serviceType) || activeTypes.includes('multi_provider'),
+  )
+
+  if (noBusiness || onboardingIncomplete) {
+    return <Navigate to="/provider/onboarding" replace />
+  }
 
   return (
-    <div className="prov-shell prov-shell--polished">
+    <div className="prov-shell prov-shell--polished prov-shell--dark">
       <aside className={`prov-sidebar${mobileOpen ? ' prov-sidebar--open' : ''}`}>
         <div className="prov-sidebar__brand">
           <Link to="/" className="prov-sidebar__home" onClick={() => setMobileOpen(false)}>
@@ -105,12 +113,7 @@ export function ProviderLayout() {
         ) : null}
 
         <nav className="prov-sidebar__nav" aria-label="Provider dashboard">
-          {NAV.map((item) =>
-            'external' in item && item.external ? (
-              <Link key={item.to} to={item.external} className="prov-sidebar__link" onClick={() => setMobileOpen(false)}>
-                {item.label}
-              </Link>
-            ) : (
+          {NAV.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -125,13 +128,12 @@ export function ProviderLayout() {
                   <NavBadge count={pendingProviderBookings} />
                 ) : null}
               </NavLink>
-            )
-          )}
+            ))}
         </nav>
 
         <div className="prov-sidebar__modules">
           <p className="prov-sidebar__modules-label">Categories</p>
-          {MODULE_LINKS.map((m) => {
+          {visibleModules.map((m) => {
             const Icon = m.Icon
             return (
               <NavLink
@@ -147,11 +149,6 @@ export function ProviderLayout() {
               </NavLink>
             )
           })}
-          <Link to={EVENTS_LINK.to} className="prov-sidebar__module prov-sidebar__module--planned" onClick={() => setMobileOpen(false)}>
-            <EVENTS_LINK.Icon size={16} strokeWidth={2.25} aria-hidden />
-            {EVENTS_LINK.label}
-            <small>{EVENTS_LINK.hint}</small>
-          </Link>
         </div>
 
         <div className="prov-sidebar__foot">
@@ -182,45 +179,19 @@ export function ProviderLayout() {
           </button>
           <div className="prov-topbar__title">
             <strong>{resolvedBusiness?.business_name ?? 'Provider dashboard'}</strong>
-            {resolvedBusiness ? (
-              <span>
-                {resolvedBusiness.role ? `${resolvedBusiness.role} · ` : ''}
-                {isViewerOnly ? 'View only · ' : ''}
-                {verificationLabel(resolvedBusiness.verification_status)} ·{' '}
-                {resolvedBusiness.business_types
-                  .filter((t) => t !== 'multi_provider')
-                  .map((t) => BUSINESS_TYPE_LABELS[t as keyof typeof BUSINESS_TYPE_LABELS] ?? t)
-                  .join(' · ') || 'Provider'}
-              </span>
-            ) : (
-              <span>Business tools</span>
-            )}
           </div>
-          {profile.avatar ? (
-            <img className="prov-topbar__av" src={mediaUrl(profile.avatar) || ''} alt="" />
-          ) : (
-            <span className="prov-topbar__av prov-topbar__av--init">
-              {(profile.display_name || profile.username).charAt(0).toUpperCase()}
-            </span>
-          )}
+          <ProfileMenu className="prov-topbar__profile" avatarClassName="prov-topbar__av" />
         </header>
 
         <div className="prov-content">
-          {noBusiness ? (
-            <ProviderAccessGate
-              title="You need a business profile to use provider tools"
-              sub="Connect or create a business profile to manage listings, bookings, messages, and reviews on DELVE."
-            />
-          ) : (
-            <Outlet
-              context={{
-                activeBusiness: resolvedBusiness,
-                businesses,
-                canManageListings,
-                canManageBookings,
-              }}
-            />
-          )}
+          <Outlet
+            context={{
+              activeBusiness: resolvedBusiness,
+              businesses,
+              canManageListings,
+              canManageBookings,
+            }}
+          />
         </div>
       </div>
 

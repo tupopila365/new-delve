@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Lock, MessageCircle, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -9,7 +9,10 @@ import {
   DmChatView,
   messagingUserIdForUsername,
 } from '../components/messages/dm'
+import type { MessagingContext } from '../components/messages/messageProviderUtils'
+import { messageInboxPath } from '../components/messages/messageProviderUtils'
 import '../components/messages/dm/dm-chat.css'
+import '../components/provider/messages/provider-messages.css'
 
 type PublicMessageProfile = {
   id?: number
@@ -40,19 +43,32 @@ function displayName(profile?: PublicMessageProfile): string {
   return profile?.display_name?.trim() || profile?.username || 'Delver'
 }
 
-export function MessageUser() {
-  const { username: rawUsername } = useParams()
-  const username = rawUsername?.trim() ?? ''
+type Props = {
+  context?: MessagingContext
+}
+
+export function MessageUser({ context = 'user' }: Props) {
+  const location = useLocation()
+  const backTo = (location.state as { from?: string; guestName?: string } | null)?.from
+  const username = useMemo(() => {
+    const parts = location.pathname.split('/')
+    const uIdx = parts.indexOf('u')
+    return uIdx >= 0 ? decodeURIComponent(parts[uIdx + 1] ?? '').trim() : ''
+  }, [location.pathname])
+
   const { profile: me } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const startedFor = useRef('')
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [body, setBody] = useState('')
+  const inboxPath = messageInboxPath(context)
+  const isProvider = context === 'provider'
 
   const targetQuery = useQuery({
     queryKey: ['message-profile', username],
-    queryFn: () => apiFetch<PublicMessageProfile>(`/api/accounts/users/${encodeURIComponent(username)}/`, { auth: false }),
+    queryFn: () =>
+      apiFetch<PublicMessageProfile>(`/api/accounts/users/${encodeURIComponent(username)}/`, { auth: false }),
     enabled: Boolean(username),
     retry: false,
   })
@@ -104,19 +120,27 @@ export function MessageUser() {
     },
   })
 
-  const automatedMessages = useMemo(
-    () => (target ? buildProviderAutomatedMessages(target) : []),
-    [target],
-  )
+  const automatedMessages = useMemo(() => {
+    if (isProvider || !target) return []
+    return buildProviderAutomatedMessages(target)
+  }, [isProvider, target])
 
-  const opening =
-    Boolean(target && messagesAllowed && !isSelf && !conversation?.id && !startMut.isError && !targetQuery.isError)
+  const opening = Boolean(
+    target && messagesAllowed && !isSelf && !conversation?.id && !startMut.isError && !targetQuery.isError,
+  )
 
   const chatReady = Boolean(conversation?.id && me && target)
 
+  function handleBack() {
+    if (backTo) navigate(backTo)
+    else navigate(inboxPath)
+  }
+
+  const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
+
   if (!me) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={`${pageClass} dm-page--centered`}>
         <section className="dm-card">
           <Lock size={28} strokeWidth={2} aria-hidden />
           <h1>Sign in to message {targetName}</h1>
@@ -131,7 +155,7 @@ export function MessageUser() {
 
   if (targetQuery.isLoading) {
     return (
-      <main className="dm-page">
+      <main className={pageClass}>
         <div className="dm-chat__state" style={{ margin: 'auto' }}>
           Loading profile…
         </div>
@@ -141,13 +165,13 @@ export function MessageUser() {
 
   if (targetQuery.isError || !target) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={`${pageClass} dm-page--centered`}>
         <section className="dm-card">
           <MessageCircle size={26} strokeWidth={2} aria-hidden />
           <h1>Profile not found</h1>
           <p>This user may have changed their username or removed the account.</p>
-          <Link to="/messages" className="btn btn-ghost">
-            Open inbox
+          <Link to={inboxPath} className="btn btn-ghost">
+            {isProvider ? 'Back to guest inbox' : 'Open inbox'}
           </Link>
         </section>
       </main>
@@ -156,13 +180,13 @@ export function MessageUser() {
 
   if (isSelf) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={`${pageClass} dm-page--centered`}>
         <section className="dm-card">
           <UserRound size={26} strokeWidth={2} aria-hidden />
           <h1>This is your profile</h1>
           <p>You cannot send a message to yourself.</p>
-          <Link to="/messages" className="btn btn-ghost">
-            Open inbox
+          <Link to={inboxPath} className="btn btn-ghost">
+            {isProvider ? 'Back to guest inbox' : 'Open inbox'}
           </Link>
         </section>
       </main>
@@ -171,11 +195,11 @@ export function MessageUser() {
 
   if (!messagesAllowed) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={`${pageClass} dm-page--centered`}>
         <section className="dm-card">
           <Lock size={26} strokeWidth={2} aria-hidden />
           <h1>Messages are disabled</h1>
-          <p>This provider is not accepting message requests right now.</p>
+          <p>This person is not accepting message requests right now.</p>
         </section>
       </main>
     )
@@ -183,16 +207,16 @@ export function MessageUser() {
 
   if (startMut.isError) {
     return (
-      <main className="dm-page dm-page--centered">
+      <main className={`${pageClass} dm-page--centered`}>
         <section className="dm-card">
           <MessageCircle size={26} strokeWidth={2} aria-hidden />
           <h1>Could not open chat</h1>
-          <p>Try again from the listing, or open your inbox.</p>
+          <p>Try again from the booking, or open your inbox.</p>
           <button type="button" className="btn btn-primary" onClick={() => startMut.mutate(otherUserId!)}>
             Try again
           </button>
-          <Link to="/messages" className="btn btn-ghost" style={{ marginTop: 8 }}>
-            Open inbox
+          <Link to={inboxPath} className="btn btn-ghost" style={{ marginTop: 8 }}>
+            {isProvider ? 'Back to guest inbox' : 'Open inbox'}
           </Link>
         </section>
       </main>
@@ -200,9 +224,10 @@ export function MessageUser() {
   }
 
   return (
-    <main className="dm-page">
+    <main className={pageClass}>
       {chatReady ? (
         <DmChatView
+          context={context}
           person={{
             username: target.username,
             display_name: target.display_name,
@@ -220,10 +245,14 @@ export function MessageUser() {
           sending={sendMut.isPending}
           loading={messagesQuery.isLoading && !messagesQuery.data}
           opening={opening}
-          onBack={() => navigate(-1)}
+          onBack={handleBack}
+          inboxHref={inboxPath}
+          inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
+          backLabel={isProvider ? 'Back to guest inbox' : 'Back'}
         />
       ) : (
         <DmChatView
+          context={context}
           person={{
             username: target.username,
             display_name: target.display_name,
@@ -239,7 +268,9 @@ export function MessageUser() {
           onBodyChange={() => {}}
           onSend={() => {}}
           opening
-          onBack={() => navigate(-1)}
+          onBack={handleBack}
+          inboxHref={inboxPath}
+          inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
           showQuickReplies={false}
         />
       )}

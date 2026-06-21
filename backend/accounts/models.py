@@ -97,6 +97,9 @@ class BusinessType(models.TextChoices):
     EVENT_ORGANISER = "event_organiser", "Event organiser"
     FOOD_DRINK = "food_drink", "Food & drink"
     GUIDE = "guide", "Guide"
+    JOURNEYS = "journeys", "Journeys"
+    ASK_LOCALS = "ask_locals", "Ask locals"
+    DELVE_US = "delve_us", "Delve us"
     MULTI_PROVIDER = "multi_provider", "Multi-category"
 
 
@@ -133,6 +136,8 @@ class BusinessProfile(models.Model):
     cover_image = models.ImageField(upload_to="business_covers/", blank=True, null=True)
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
+    onboarding_completed = models.BooleanField(default=False)
+    transport_modes = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -141,6 +146,50 @@ class BusinessProfile(models.Model):
 
     def __str__(self):
         return self.business_name
+
+
+class VerificationDocumentType(models.TextChoices):
+    NATIONAL_ID = "national_id", "National ID / passport"
+    BUSINESS_REGISTRATION = "business_registration", "Business registration"
+    TOURISM_LICENSE = "tourism_license", "Tourism / hospitality license"
+    DRIVER_LICENSE = "driver_license", "Driver's license"
+    VEHICLE_REGISTRATION = "vehicle_registration", "Vehicle registration"
+    TRANSPORT_INSURANCE = "transport_insurance", "Transport insurance"
+    OPERATING_PERMIT = "operating_permit", "Operating permit"
+    TOUR_GUIDE_LICENSE = "tour_guide_license", "Tour guide license"
+    FIRST_AID_CERT = "first_aid_cert", "First aid certificate"
+    FIRE_SAFETY_CERT = "fire_safety_cert", "Fire safety certificate"
+    FOOD_HANDLING_CERT = "food_handling_cert", "Food handling certificate"
+    OTHER = "other", "Other supporting document"
+
+
+class VerificationDocumentStatus(models.TextChoices):
+    PENDING = "pending", "Pending review"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
+class BusinessVerificationDocument(models.Model):
+    business = models.ForeignKey(
+        BusinessProfile,
+        on_delete=models.CASCADE,
+        related_name="verification_documents",
+    )
+    doc_type = models.CharField(max_length=40, choices=VerificationDocumentType.choices)
+    file = models.FileField(upload_to="business_verification/")
+    status = models.CharField(
+        max_length=16,
+        choices=VerificationDocumentStatus.choices,
+        default=VerificationDocumentStatus.PENDING,
+    )
+    notes = models.TextField(blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"{self.get_doc_type_display()} — {self.business.business_name}"
 
 
 class BusinessMembership(models.Model):
