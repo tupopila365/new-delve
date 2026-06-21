@@ -7,6 +7,7 @@ import { AccommodationDetailView } from '../components/accommodation'
 import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
 import type { AccommodationListing } from '../utils/accommodationListing'
+import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 
 const DEFAULT_QUESTIONS = [
   { id: 's1', author: 'Mila K.', body: 'Is early check-in possible?', ago: '2d ago' },
@@ -73,6 +74,7 @@ export function AccommodationDetail() {
 
   return (
     <DetailPage prefix="acc-detail-page" className="td" toast={shareMsg || null}>
+      <PromotionOpenTracker />
       <AccommodationDetailView
         data={data}
         listingId={id}

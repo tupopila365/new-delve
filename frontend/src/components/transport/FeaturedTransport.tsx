@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { Featured, type FeaturedItem } from '../Featured'
+import { FEATURED_API, useFeaturedPlacement, type FeaturedPartnerFields } from '../../hooks/useFeaturedPlacement'
+import { partnerBadgeFields } from '../../utils/featuredPartner'
 
-type Vehicle = {
+type Vehicle = FeaturedPartnerFields & {
   id: number
   title: string
   make: string
@@ -55,7 +57,7 @@ function vehicleToFeatured(vehicle: Vehicle): FeaturedItem {
     href: `/transport/vehicle/${vehicle.id}`,
     image: mediaUrl(vehicle.cover_image) || FALLBACK_TRANSPORT_IMAGE,
     fallbackImage: FALLBACK_TRANSPORT_IMAGE,
-    eyebrow: 'Vehicle rental',
+    ...partnerBadgeFields(vehicle, 'Vehicle rental'),
     location,
     meta: specs || `${vehicle.make} ${vehicle.model}${vehicle.year ? ` · ${vehicle.year}` : ''}`,
     price: `N$${vehicle.price_per_day}/day`,
@@ -77,11 +79,10 @@ function tripToFeatured(trip: Trip): FeaturedItem {
 }
 
 export function FeaturedTransport() {
-  const { data: vehicles, isLoading: vehiclesLoading } = useQuery({
-    queryKey: ['featured-transport-vehicles'],
-    queryFn: () => apiFetch<Vehicle[]>('/api/transport/vehicles/', { auth: false }),
-    staleTime: 45_000,
-  })
+  const { data: vehicles, isLoading: vehiclesLoading } = useFeaturedPlacement<Vehicle>(
+    'featured-transport-vehicles',
+    FEATURED_API.transport,
+  )
 
   const { data: trips, isLoading: tripsLoading } = useQuery({
     queryKey: ['featured-transport-shared-trips'],
@@ -89,10 +90,9 @@ export function FeaturedTransport() {
     staleTime: 45_000,
   })
 
-  const items: FeaturedItem[] = [
-    ...(vehicles ?? []).slice(0, 4).map(vehicleToFeatured),
-    ...(trips ?? []).slice(0, 4).map(tripToFeatured),
-  ].slice(0, 8)
+  const promotedVehicles = (vehicles ?? []).slice(0, 8).map(vehicleToFeatured)
+  const organicTrips = (trips ?? []).slice(0, Math.max(0, 8 - promotedVehicles.length)).map(tripToFeatured)
+  const items: FeaturedItem[] = [...promotedVehicles, ...organicTrips].slice(0, 8)
 
   if (vehiclesLoading && tripsLoading) return null
 

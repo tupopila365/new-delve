@@ -42,6 +42,7 @@ import { VerifyEmail } from './pages/VerifyEmail'
 import { ProviderOnboarding } from './pages/ProviderOnboarding'
 import { ProviderLayout } from './components/ProviderLayout'
 import { ProviderDashboard } from './pages/ProviderDashboard'
+import { ProviderPromotions } from './pages/ProviderPromotions'
 import { ProviderListings } from './pages/ProviderListings'
 import { ProviderBookings } from './pages/ProviderBookings'
 import { ProviderReviews } from './pages/ProviderReviews'
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="/provider" element={<ProviderLayout />}>
             <Route index element={<ProviderDashboard />} />
             <Route path="listings" element={<ProviderListings />} />
+            <Route path="promotions" element={<ProviderPromotions />} />
             <Route path="bookings" element={<ProviderBookings />} />
             <Route path="reviews" element={<ProviderReviews />} />
             <Route path="analytics" element={<ProviderAnalytics />} />

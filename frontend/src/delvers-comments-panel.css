@@ -149,6 +149,22 @@
   font-size: 0.74rem;
 }
 
+.ds-comments-panel__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.18rem;
+}
+
+.ds-comments-panel__meta small {
+  margin-top: 0;
+}
+
+.ds-comments-panel__report {
+  margin-left: auto;
+  color: #9a7a63;
+}
+
 @media (max-width: 640px) {
   .ds-comments-panel {
     margin-inline: 0.75rem;

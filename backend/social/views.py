@@ -23,7 +23,7 @@ class FeedView(APIView):
             region = (request.user.profile.region or "").strip()
 
         qs = (
-            Post.objects.filter(is_delvers=False)
+            Post.objects.filter(is_delvers=False, is_hidden=False)
             .exclude(is_accommodation_story=True)
             .select_related("author", "author__profile")
             .annotate(
@@ -47,7 +47,17 @@ class FeedView(APIView):
             .order_by("-feed_score", "-created_at")[:50]
         )
         ser = PostSerializer(qs, many=True, context={"request": request})
-        return Response(ser.data)
+        from promotions.feed_services import inject_feed_promotions
+        from promotions.models import PromotionPlacement
+
+        return Response(
+            inject_feed_promotions(
+                ser.data,
+                placement=PromotionPlacement.COMMUNITY_FEED,
+                region=region,
+                context={"request": request},
+            )
+        )
 
 
 class DelversFeedView(APIView):
@@ -59,7 +69,7 @@ class DelversFeedView(APIView):
             region = (request.user.profile.region or "").strip()
 
         qs = (
-            Post.objects.filter(is_delvers=True)
+            Post.objects.filter(is_delvers=True, is_hidden=False)
             .exclude(is_accommodation_story=True)
             .select_related("author", "author__profile")
             .annotate(
@@ -83,7 +93,17 @@ class DelversFeedView(APIView):
             .order_by("-feed_score", "-created_at")[:80]
         )
         ser = PostSerializer(qs, many=True, context={"request": request})
-        return Response(ser.data)
+        from promotions.feed_services import inject_feed_promotions
+        from promotions.models import PromotionPlacement
+
+        return Response(
+            inject_feed_promotions(
+                ser.data,
+                placement=PromotionPlacement.DELVERS_FEED,
+                region=region,
+                context={"request": request},
+            )
+        )
 
 
 class UserPublicPostsView(APIView):
@@ -94,7 +114,7 @@ class UserPublicPostsView(APIView):
     def get(self, request, username):
         author = get_object_or_404(User.objects.select_related("profile"), username__iexact=username)
         qs = (
-            Post.objects.filter(author=author)
+            Post.objects.filter(author=author, is_hidden=False)
             .select_related("author", "author__profile")
             .annotate(
                 likes_count=Count("likes", distinct=True),
@@ -114,7 +134,7 @@ class AccommodationStoriesFeedView(APIView):
 
     def get(self, request):
         qs = (
-            Post.objects.filter(is_accommodation_story=True)
+            Post.objects.filter(is_accommodation_story=True, is_hidden=False)
             .filter(Q(image__isnull=False) | Q(video__isnull=False))
             .select_related("author", "author__profile", "listing")
             .annotate(
@@ -135,6 +155,9 @@ class PostViewSet(viewsets.ModelViewSet):
         comments_count=Count("comments", distinct=True),
     )
     serializer_class = PostSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_hidden=False)
 
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
@@ -185,6 +208,7 @@ class PostViewSet(viewsets.ModelViewSet):
         base = (
             Post.objects.exclude(pk=post.pk)
             .exclude(is_accommodation_story=True)
+            .filter(is_hidden=False)
             .select_related("author", "author__profile")
             .annotate(
                 likes_count=Count("likes", distinct=True),
@@ -236,7 +260,11 @@ class PostViewSet(viewsets.ModelViewSet):
     def comments(self, request, pk=None):
         post = self.get_object()
         if request.method == "GET":
-            qs = post.comments.select_related("author", "author__profile").order_by("created_at")
+            qs = (
+                post.comments.filter(is_hidden=False)
+                .select_related("author", "author__profile")
+                .order_by("created_at")
+            )
             return Response(CommentSerializer(qs, many=True).data)
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)

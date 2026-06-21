@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Compass, MapPin, MessageCircle, Plus, Share2, UserRound, Users } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { ReportButton } from '../report/ReportButton'
 import './ProfileBioSection.css'
 
 type Props = {
@@ -98,6 +99,18 @@ export function ProfileBioSection({
               >
                 <Share2 size={14} strokeWidth={2.25} aria-hidden />
               </button>
+              {!isMe ? (
+                <ReportButton
+                  className="profile-bio__btn profile-bio__btn--report"
+                  iconOnly
+                  triggerLabel="Report profile"
+                  target={{
+                    target_type: 'user',
+                    target_id: username,
+                    target_label: `@${username}`,
+                  }}
+                />
+              ) : null}
             </>
           )}
         </div>

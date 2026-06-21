@@ -178,6 +178,11 @@ export function BusTripDetailView({
         saved={saved}
         onSave={onSave}
         onShare={onShare}
+        reportTarget={{
+          target_type: 'listing',
+          target_id: `bus-trip:${tripId}`,
+          target_label: routeTitle,
+        }}
         actions={[
           {
             id: 'contact-operator',

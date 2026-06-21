@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import BusinessMembership, BusinessProfile, EmailVerificationToken, Profile, User
+from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, PlatformBookingNote, PlatformSettings, Profile, User
 
 
 @admin.register(User)
@@ -33,3 +33,27 @@ class BusinessProfileAdmin(admin.ModelAdmin):
 class BusinessMembershipAdmin(admin.ModelAdmin):
     list_display = ("business", "user", "role", "created_at")
     list_filter = ("role",)
+
+
+@admin.register(BusinessVerificationDocument)
+class BusinessVerificationDocumentAdmin(admin.ModelAdmin):
+    list_display = ("business", "doc_type", "status", "uploaded_at")
+    list_filter = ("status", "doc_type")
+
+
+@admin.register(AdminAuditLog)
+class AdminAuditLogAdmin(admin.ModelAdmin):
+    list_display = ("action", "target_type", "target_id", "actor", "created_at")
+    list_filter = ("action", "target_type")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(PlatformBookingNote)
+class PlatformBookingNoteAdmin(admin.ModelAdmin):
+    list_display = ("booking_type", "booking_id", "author", "created_at")
+    list_filter = ("booking_type",)
+
+
+@admin.register(PlatformSettings)
+class PlatformSettingsAdmin(admin.ModelAdmin):
+    list_display = ("singleton_key", "announcement_active", "updated_at", "updated_by")

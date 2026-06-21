@@ -125,6 +125,15 @@ export function MessageThread({ context = 'user' }: Props) {
         backLabel={isProvider ? 'Back to guest inbox' : 'Back to inbox'}
         inboxHref={inboxPath}
         inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
+        reportTarget={
+          id
+            ? {
+                target_type: 'conversation',
+                target_id: String(id),
+                target_label: `Conversation with @${other.username}`,
+              }
+            : undefined
+        }
       />
     </main>
   )

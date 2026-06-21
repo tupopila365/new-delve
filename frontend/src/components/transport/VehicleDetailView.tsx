@@ -178,6 +178,11 @@ export function VehicleDetailView({
         saved={saved}
         onSave={onSave}
         onShare={onShare}
+        reportTarget={{
+          target_type: 'listing',
+          target_id: `vehicle:${vehicleId}`,
+          target_label: vehicle.title,
+        }}
         actions={[
           providerProfileHref
             ? {

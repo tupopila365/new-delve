@@ -22,9 +22,13 @@ import {
   X,
 } from 'lucide-react'
 import { apiFetch } from '../api/client'
+import { CategorySpotlightHero } from '../components/CategorySpotlightHero'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
+import { partnerBadgeFields } from '../utils/featuredPartner'
 import { MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
 import { FoodListingCard, VenueSpotlightStories } from '../components/food'
+import '../components/Featured.css'
 import type { VenueStoryChannelInput } from '../components/food/stories/types'
 import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
 import { EmptyState, ListSkeleton } from '../components/ui'
@@ -48,6 +52,8 @@ type Venue = {
   popular_dish?: string | null
   closes_at?: string | null
   venue_stories?: VenueStoryChannelInput[]
+  is_featured_partner?: boolean
+  partner_label?: string
 }
 
 const CUISINE_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
@@ -131,6 +137,11 @@ export function FoodList() {
     queryFn: () => apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: false }),
   })
 
+  const { data: spotlight = [] } = useFeaturedPlacement<Venue>('food-spotlight', FEATURED_API.spotlight('food'))
+  const { data: featuredFood = [] } = useFeaturedPlacement<Venue>('food-featured-rail', FEATURED_API.food)
+
+  const spotlightVenue = spotlight[0]
+
   const venues = useMemo(() => {
     let list = data ?? []
     if (mood === 'open') list = list.filter((v) => v.is_open === true)
@@ -142,7 +153,7 @@ export function FoodList() {
     return list
   }, [data, mood])
 
-  const featured = useMemo(() => venues.slice(0, 5), [venues])
+  const featured = useMemo(() => featuredFood.slice(0, 5), [featuredFood])
   const showRichSections = featured.length >= 4
   const openNowCount = useMemo(() => (data ?? []).filter((v) => v.is_open === true).length, [data])
   const favouritesCount = useMemo(
@@ -290,6 +301,20 @@ export function FoodList() {
 
       <div className="fd-page__layout disc-page__layout">
         <main className="fd-page__main disc-page__main">
+          {spotlightVenue?.is_featured_partner ? (
+            <CategorySpotlightHero
+              title={spotlightVenue.name}
+              subtitle={spotlightVenue.tagline || spotlightVenue.popular_dish || cuisineLabel(spotlightVenue.cuisine)}
+              href={`/food/${spotlightVenue.id}`}
+              image={foodCoverSrc(spotlightVenue.cover_image, spotlightVenue.cuisine)}
+              fallbackImage={foodCoverSrc(null, spotlightVenue.cuisine)}
+              partnerLabel={spotlightVenue.partner_label || 'Featured Partner'}
+              location={spotlightVenue.city ? `${spotlightVenue.city}, ${spotlightVenue.region}` : spotlightVenue.region}
+              meta={`From ${priceLevelLabel(spotlightVenue.price_level)} / person`}
+              rating={spotlightVenue.rating_avg ? Number.parseFloat(spotlightVenue.rating_avg).toFixed(1) : null}
+            />
+          ) : null}
+
           {!isLoading && showRichSections && (
             <VenueSpotlightStories venues={featured} />
           )}
@@ -310,6 +335,7 @@ export function FoodList() {
                 {featured.map((f) => {
                   const location = f.city ? `${f.city}, ${f.region}` : f.region
                   const openLabel = foodOpenBadge(f.is_open, f.closes_at)
+                  const partner = partnerBadgeFields(f, cuisineLabel(f.cuisine))
                   return (
                     <Link key={`fd-featured-${f.id}`} to={`/food/${f.id}`} className="acc-featured-card">
                       <div className="acc-featured-card__media">
@@ -320,7 +346,11 @@ export function FoodList() {
                           loading="lazy"
                           onError={(e) => onFoodImgError(e, f.cuisine)}
                         />
-                        {openLabel ? (
+                        {partner.isFeaturedPartner && partner.partnerLabel ? (
+                          <span className="featured-card__partner" style={{ position: 'absolute', left: 10, top: 10, zIndex: 2 }}>
+                            {partner.partnerLabel}
+                          </span>
+                        ) : openLabel ? (
                           <span
                             className={`fd-card__open-badge${f.is_open === false ? ' fd-card__open-badge--closed' : ''}`}
                             style={{ position: 'absolute', left: 10, bottom: 10, zIndex: 2 }}
@@ -330,7 +360,7 @@ export function FoodList() {
                         ) : null}
                       </div>
                       <div className="acc-featured-card__body">
-                        <span className="acc-featured-card__type">{cuisineLabel(f.cuisine)}</span>
+                        <span className="acc-featured-card__type">{partner.eyebrow ?? cuisineLabel(f.cuisine)}</span>
                         <p className="acc-featured-card__title">{f.name}</p>
                         <p className="acc-featured-card__meta">
                           <MapPin size={12} strokeWidth={2.25} aria-hidden />

@@ -145,6 +145,11 @@ export function FoodDetailView({
         saved={saved}
         onSave={onSave}
         onShare={onShare}
+        reportTarget={{
+          target_type: 'listing',
+          target_id: `food:${venueId}`,
+          target_label: data.name,
+        }}
         actions={[
           {
             id: 'message-venue',

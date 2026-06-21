@@ -136,6 +136,11 @@ export function AccommodationDetailView({
         saved={saved}
         onSave={onSave}
         onShare={onShare}
+        reportTarget={{
+          target_type: 'listing',
+          target_id: `accommodation:${listingId}`,
+          target_label: data.title,
+        }}
         actions={[
           {
             id: 'message-host',

@@ -6,6 +6,14 @@ import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DelversCommentComposer } from '../components/DelversCommentComposer'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
+import { ReportButton } from '../components/report/ReportButton'
+import { SponsoredListingFeedCard } from '../components/social/SponsoredListingFeedCard'
+import {
+  type DelversFeedPost,
+  type DelversFeedItem,
+  isFeedPost,
+  isSponsoredListingItem,
+} from '../components/social/delversFeedTypes'
 import { EmptyState } from '../components/ui'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
@@ -13,24 +21,11 @@ import '../delvers-post-card-polish.css'
 import '../delvers-feed-mobile.css'
 import '../delvers-empty-loading.css'
 import '../delvers-story-viewer.css'
+import '../components/Featured.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
-type PinPost = {
-  id: number
-  author: { username: string; display_name: string; avatar?: string | null }
-  body: string
-  region: string
-  image: string | null
-  video: string | null
-  delvers_board: string
-  liked_by_me: boolean
-  saved_by_me: boolean
-  likes_count: number
-  saves_count: number
-  comments_count?: number
-  created_at?: string
-}
+type PinPost = DelversFeedPost
 
 type Creator = {
   username: string
@@ -113,7 +108,7 @@ export function DelversSocial() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk,
     queryFn: () =>
-      apiFetch<PinPost[]>(
+      apiFetch<DelversFeedItem[]>(
         `/api/social/delvers/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
         { auth: false },
       ),
@@ -172,7 +167,7 @@ export function DelversSocial() {
 
   const creators = useMemo((): Creator[] => {
     const map = new Map<string, Creator>()
-    for (const post of data ?? []) {
+    for (const post of (data ?? []).filter(isFeedPost)) {
       const key = post.author.username
       const current = map.get(key)
       if (current) {
@@ -197,14 +192,36 @@ export function DelversSocial() {
     let list = [...(data ?? [])]
     const homeRegion = profile?.region?.trim().toLowerCase()
 
-    if (tab === 'nearby' && homeRegion) list = list.filter((p) => p.region?.trim().toLowerCase() === homeRegion)
-    if (tab === 'trending') list = list.sort((a, b) => b.likes_count + b.saves_count - (a.likes_count + a.saves_count))
-    if (tab === 'photos') list = list.filter((p) => p.image || p.video)
-    if (tab === 'tips') list = list.filter((p) => !p.image && !p.video && p.body?.trim())
+    if (tab === 'nearby' && homeRegion) {
+      list = list.filter((p) => {
+        if (isSponsoredListingItem(p)) {
+          return (p.listing_subtitle || '').toLowerCase().includes(homeRegion)
+        }
+        return p.region?.trim().toLowerCase() === homeRegion
+      })
+    }
+    if (tab === 'trending') {
+      list.sort((a, b) => {
+        const sa = isFeedPost(a) ? a.likes_count + a.saves_count : -1
+        const sb = isFeedPost(b) ? b.likes_count + b.saves_count : -1
+        return sb - sa
+      })
+    }
+    if (tab === 'photos') {
+      list = list.filter((p) => (isFeedPost(p) ? p.image || p.video : Boolean(p.listing_image)))
+    }
+    if (tab === 'tips') {
+      list = list.filter((p) => isFeedPost(p) && !p.image && !p.video && p.body?.trim())
+    }
 
     const q = query.trim().toLowerCase()
     if (q) {
-      list = list.filter((p) => [p.body, p.region, p.delvers_board, p.author.username, p.author.display_name].join(' ').toLowerCase().includes(q))
+      list = list.filter((p) => {
+        if (isSponsoredListingItem(p)) {
+          return [p.listing_title, p.listing_subtitle, p.listing_meta, p.listing_type].join(' ').toLowerCase().includes(q)
+        }
+        return [p.body, p.region, p.delvers_board, p.author.username, p.author.display_name].join(' ').toLowerCase().includes(q)
+      })
     }
 
     return list
@@ -241,7 +258,7 @@ export function DelversSocial() {
   }
 
   const openCreatorStories = (creator: Creator) => {
-    const rows = (data ?? []).filter((post) => post.author.username === creator.username)
+    const rows = (data ?? []).filter(isFeedPost).filter((post) => post.author.username === creator.username)
     if (rows.length === 0) return
     setStoryTarget({
       kind: 'creator',
@@ -255,7 +272,7 @@ export function DelversSocial() {
 
   const openPlaceStories = (place: string) => {
     const placeKey = place.trim().toLowerCase()
-    const rows = (data ?? []).filter((post) => post.region?.trim().toLowerCase().includes(placeKey))
+    const rows = (data ?? []).filter(isFeedPost).filter((post) => post.region?.trim().toLowerCase().includes(placeKey))
     if (rows.length === 0) {
       setQuery(place)
       return
@@ -342,19 +359,23 @@ export function DelversSocial() {
         ) : null}
 
         <section id="delvers-feed" className="ds-feed" aria-label="Delvers feed">
-          {posts.map((post) => (
-            <SocialPost
-              key={post.id}
-              post={post}
-              signedIn={!!profile}
-              likeBusy={likeMut.isPending && likeMut.variables === post.id}
-              saveBusy={saveMut.isPending && saveMut.variables === post.id}
-              onLike={() => profile && likeMut.mutate(post.id)}
-              onSave={() => profile && saveMut.mutate(post.id)}
-              onShare={onShare}
-              onCommented={refreshFeed}
-            />
-          ))}
+          {posts.map((item) =>
+            isSponsoredListingItem(item) ? (
+              <SponsoredListingFeedCard key={item.id} item={item} />
+            ) : (
+              <SocialPost
+                key={item.id}
+                post={item}
+                signedIn={!!profile}
+                likeBusy={likeMut.isPending && likeMut.variables === item.id}
+                saveBusy={saveMut.isPending && saveMut.variables === item.id}
+                onLike={() => profile && likeMut.mutate(item.id)}
+                onSave={() => profile && saveMut.mutate(item.id)}
+                onShare={onShare}
+                onCommented={refreshFeed}
+              />
+            ),
+          )}
         </section>
       </main>
 
@@ -560,7 +581,10 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   }
 
   return (
-    <article className="ds-post">
+    <article className={`ds-post${post.is_sponsored ? ' ds-post--sponsored' : ''}`}>
+      {post.is_sponsored ? (
+        <span className="featured-card__partner ds-post__sponsored">{post.sponsor_label || 'Sponsored'}</span>
+      ) : null}
       <header className="ds-post__head">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ds-post__author">
           <span>{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</span>
@@ -620,6 +644,16 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           </button>
         ) : <Link to="/login" aria-label="Write comment"><MessageCircle size={22} strokeWidth={2.25} aria-hidden /></Link>}
         <button type="button" onClick={onShare} aria-label="Share post"><Share2 size={22} strokeWidth={2.25} aria-hidden /></button>
+        <ReportButton
+          className="ds-post__report"
+          iconOnly
+          triggerLabel="Report post"
+          target={{
+            target_type: 'post',
+            target_id: String(post.id),
+            target_label: post.body?.slice(0, 60) || `Post by @${post.author.username}`,
+          }}
+        />
         {signedIn ? (
           <button type="button" onClick={onSave} disabled={saveBusy} className={`ds-post__action--save${post.saved_by_me ? ' is-active' : ''}`} aria-label={post.saved_by_me ? 'Unsave post' : 'Save post'}>
             <Bookmark size={22} strokeWidth={2.25} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />

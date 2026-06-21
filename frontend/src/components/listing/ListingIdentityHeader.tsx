@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Clock, Share2, Bookmark } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ReportButton } from '../report/ReportButton'
 import { ListingSection } from './ListingSection'
 import './listing-detail.css'
 
@@ -26,6 +27,7 @@ type Props = {
   onSave?: () => void
   saved?: boolean
   actions?: Action[]
+  reportTarget?: { target_type: string; target_id: string; target_label?: string }
   className?: string
 }
 
@@ -42,6 +44,7 @@ export function ListingIdentityHeader({
   onSave,
   saved = false,
   actions = [],
+  reportTarget,
   className = '',
 }: Props) {
   const ratingNum = rating != null ? parseFloat(String(rating)) : null
@@ -94,6 +97,9 @@ export function ListingIdentityHeader({
               </button>
             )
           })}
+          {reportTarget ? (
+            <ReportButton className="listing-identity__icon-btn" iconOnly triggerLabel="Report listing" target={reportTarget} />
+          ) : null}
         </div>
       </div>
 

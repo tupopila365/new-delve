@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiFetch, mediaUrl } from '../../api/client'
+import { mediaUrl } from '../../api/client'
 import { Featured, type FeaturedItem } from '../Featured'
+import { FEATURED_API, useFeaturedPlacement } from '../../hooks/useFeaturedPlacement'
+import { partnerBadgeFields } from '../../utils/featuredPartner'
 
 type Stay = {
   id: number
@@ -11,6 +12,8 @@ type Stay = {
   cover_image: string | null
   property_type?: string | null
   rating_avg?: string | null
+  is_featured_partner?: boolean
+  partner_label?: string
 }
 
 const STAY_FALLBACK = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80'
@@ -21,19 +24,15 @@ function typeLabel(value?: string | null) {
 }
 
 export function FeaturedStays() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['featured-stays-rail'],
-    queryFn: () => apiFetch<Stay[]>('/api/accommodation/listings/?ordering=-created_at', { auth: false }),
-    staleTime: 45_000,
-  })
+  const { data, isLoading } = useFeaturedPlacement<Stay>('featured-stays-rail', FEATURED_API.stays)
 
-  const items: FeaturedItem[] = (data ?? []).slice(0, 8).map((stay) => ({
+  const items: FeaturedItem[] = (data ?? []).map((stay) => ({
     id: stay.id,
     title: stay.title,
     href: `/accommodation/${stay.id}`,
     image: mediaUrl(stay.cover_image),
     fallbackImage: STAY_FALLBACK,
-    eyebrow: typeLabel(stay.property_type),
+    ...partnerBadgeFields(stay, typeLabel(stay.property_type)),
     location: stay.city ? `${stay.city}, ${stay.region}` : stay.region,
     price: `From $${stay.price_per_night}`,
     rating: stay.rating_avg ? Number.parseFloat(stay.rating_avg).toFixed(1) : null,

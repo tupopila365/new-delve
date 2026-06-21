@@ -1,0 +1,1196 @@
+import { ApiError } from '../api/client'
+import type {
+  ActivityItem,
+  AdminBooking,
+  AdminBookingDetail,
+  AdminBusiness,
+  AdminListing,
+  AdminProfile,
+  AdminReport,
+  AdminUser,
+  BusinessDocumentsResponse,
+  ModerationItem,
+  PlatformOverview,
+  PlatformSettings,
+  PromotionCampaign,
+  PromotionConflictSummary,
+  UnverifiedEmailUser,
+} from '../api/types'
+import { DEMO_ACTIVITY, DEMO_BOOKINGS, DEMO_LISTINGS, DEMO_REPORTS, demoAnalytics } from '../data/demoData'
+
+type MockProfile = AdminProfile & { password: string; user_type: string; is_staff: boolean }
+
+const profiles: Record<string, MockProfile> = {
+  demo_admin: {
+    username: 'demo_admin',
+    email: 'admin@delve.local',
+    display_name: 'DELVE Admin',
+    password: 'demo12345',
+    user_type: 'normal',
+    is_staff: true,
+  },
+  demo_user: {
+    username: 'demo_user',
+    email: 'user@delve.local',
+    display_name: 'Demo Traveller',
+    password: 'demo12345',
+    user_type: 'normal',
+    is_staff: false,
+  },
+  stays_host: {
+    username: 'stays_host',
+    email: 'host@delve.local',
+    display_name: 'Stays Host',
+    password: 'demo12345',
+    user_type: 'service_provider',
+    is_staff: false,
+  },
+}
+
+let currentUser: string | null = localStorage.getItem('delve_admin_mock_user')
+let mockReports: AdminReport[] = DEMO_REPORTS.map((r, i) => ({
+  id: r.id,
+  reporter_username: r.reporter,
+  target_type: r.type.toLowerCase(),
+  target_id: String(i + 100),
+  target_label: r.item,
+  reason: 'spam',
+  reason_label: r.reason,
+  description: r.reason,
+  status: r.status,
+  severity: r.severity,
+  created_at: r.date,
+}))
+
+let mockModeration: ModerationItem[] = [
+  {
+    id: 'post-12',
+    target_type: 'post',
+    target_id: '12',
+    title: 'Dune sunset panorama',
+    author: 'photo_nam',
+    status: 'reported',
+    reason: 'Spam / misleading location',
+    severity: 'medium',
+  },
+  {
+    id: 'comment-4',
+    target_type: 'comment',
+    target_id: '4',
+    title: 'Reply on community thread',
+    author: 'demo_user',
+    status: 'reported',
+    reason: 'Harassment',
+    severity: 'high',
+  },
+]
+
+let auditId = 1
+const auditLog: ActivityItem[] = [...DEMO_ACTIVITY]
+let reportIdCounter = mockReports.length + 1
+
+let mockListings: AdminListing[] = [...DEMO_LISTINGS]
+let mockBookings: AdminBooking[] = [...DEMO_BOOKINGS]
+let promotionIdCounter = 6
+let mockPromotions: PromotionCampaign[] = [
+  {
+    id: 1,
+    placement: 'homepage_stays',
+    placement_label: 'Homepage — Featured stays',
+    target_type: 'accommodation',
+    target_type_label: 'Stay listing',
+    target_id: '1',
+    target_label: 'Freesia Hotel',
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 6 * 86400000).toISOString(),
+    status: 'active',
+    status_label: 'Active',
+    is_live: true,
+    priority: 10,
+    label: 'Featured Partner',
+    admin_notes: 'Launch partner — complimentary slot',
+    provider_notes: '',
+    rejection_reason: '',
+    product_id: null,
+    product_name: null,
+    amount_cents: 0,
+    currency: 'NAD',
+    payment_status: 'paid',
+    payment_ref: '',
+    receipt_number: '',
+    paid_at: new Date(Date.now() - 86400000).toISOString(),
+    refund_amount_cents: 0,
+    created_by_username: 'demo_admin',
+    requested_by_username: null,
+    reviewed_by_username: null,
+    reviewed_at: null,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    placement: 'homepage_food',
+    placement_label: 'Homepage — Featured food',
+    target_type: 'food',
+    target_type_label: 'Food venue',
+    target_id: '4',
+    target_label: 'Oryx Grill House',
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 6 * 86400000).toISOString(),
+    status: 'active',
+    status_label: 'Active',
+    is_live: true,
+    priority: 8,
+    label: 'Featured Partner',
+    admin_notes: '',
+    provider_notes: '',
+    rejection_reason: '',
+    product_id: null,
+    product_name: null,
+    amount_cents: 0,
+    currency: 'NAD',
+    payment_status: 'paid',
+    payment_ref: '',
+    receipt_number: '',
+    paid_at: new Date(Date.now() - 86400000).toISOString(),
+    refund_amount_cents: 0,
+    created_by_username: 'demo_admin',
+    requested_by_username: null,
+    reviewed_by_username: null,
+    reviewed_at: null,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    placement: 'category_spotlight',
+    placement_label: 'Category list — Hero spotlight',
+    target_type: 'food',
+    target_type_label: 'Food venue',
+    target_id: '4',
+    target_label: 'Oryx Grill House',
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 6 * 86400000).toISOString(),
+    status: 'active',
+    status_label: 'Active',
+    is_live: true,
+    priority: 10,
+    label: 'Featured Partner',
+    admin_notes: 'Food list hero',
+    provider_notes: '',
+    rejection_reason: '',
+    product_id: null,
+    product_name: null,
+    amount_cents: 0,
+    currency: 'NAD',
+    payment_status: 'paid',
+    payment_ref: '',
+    receipt_number: '',
+    paid_at: new Date(Date.now() - 86400000).toISOString(),
+    refund_amount_cents: 0,
+    created_by_username: 'demo_admin',
+    requested_by_username: null,
+    reviewed_by_username: null,
+    reviewed_at: null,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    placement: 'delvers_feed',
+    placement_label: 'Delvers feed — Sponsored',
+    target_type: 'accommodation',
+    target_type_label: 'Stay listing',
+    target_id: '1',
+    target_label: 'Freesia Hotel',
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 6 * 86400000).toISOString(),
+    status: 'active',
+    status_label: 'Active',
+    is_live: true,
+    priority: 10,
+    label: 'Sponsored',
+    admin_notes: 'Tour operator stay boost',
+    provider_notes: '',
+    rejection_reason: '',
+    product_id: null,
+    product_name: null,
+    amount_cents: 0,
+    currency: 'NAD',
+    payment_status: 'paid',
+    payment_ref: '',
+    receipt_number: '',
+    paid_at: new Date(Date.now() - 86400000).toISOString(),
+    refund_amount_cents: 0,
+    created_by_username: 'demo_admin',
+    requested_by_username: null,
+    reviewed_by_username: null,
+    reviewed_at: null,
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 5,
+    placement: 'homepage_guides',
+    placement_label: 'Homepage — Featured guides',
+    target_type: 'guide',
+    target_type_label: 'Guide profile',
+    target_id: '2',
+    target_label: 'Desert Trails with Kai',
+    region: 'Erongo',
+    starts_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 10 * 86400000).toISOString(),
+    status: 'requested',
+    status_label: 'Requested',
+    is_live: false,
+    priority: 0,
+    label: 'Featured Partner',
+    admin_notes: '',
+    provider_notes: 'EFT ref #8842 — want Erongo spotlight for winter season',
+    rejection_reason: '',
+    product_id: null,
+    product_name: null,
+    amount_cents: 0,
+    currency: 'NAD',
+    payment_status: 'pending',
+    payment_ref: '',
+    receipt_number: '',
+    paid_at: null,
+    refund_amount_cents: 0,
+    created_by_username: 'demo_provider',
+    requested_by_username: 'demo_provider',
+    reviewed_by_username: null,
+    reviewed_at: null,
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
+const mockBookingNotes: Record<string, { id: number; author_username: string; body: string; created_at: string }[]> = {
+  'vehicle:1044': [
+    {
+      id: 1,
+      author_username: 'demo_admin',
+      body: 'Customer claims vehicle was not available at pickup. Provider investigating.',
+      created_at: '2026-05-21T10:00:00Z',
+    },
+  ],
+}
+let bookingNoteId = 2
+
+let mockUnverifiedUsers: UnverifiedEmailUser[] = [
+  {
+    id: 99,
+    username: 'new_traveller',
+    email: 'new.traveller@example.com',
+    display_name: 'New Traveller',
+    date_joined: '2026-06-18T08:00:00Z',
+    user_type: 'normal',
+  },
+  {
+    id: 100,
+    username: 'pending_host',
+    email: 'pending.host@example.com',
+    display_name: 'Pending Host',
+    date_joined: '2026-06-19T09:00:00Z',
+    user_type: 'service_provider',
+  },
+]
+
+let mockSettings: PlatformSettings = {
+  feature_flags: {
+    delvers_social: true,
+    new_bookings: true,
+    provider_registration: true,
+    maintenance_mode: false,
+  },
+  announcement_title: '',
+  announcement_body: '',
+  announcement_active: false,
+  updated_at: new Date().toISOString(),
+  updated_by_username: 'demo_admin',
+}
+
+const mockDocs: Record<number, BusinessDocumentsResponse['documents']> = {
+  2: [
+    {
+      id: 1,
+      doc_type: 'business_registration',
+      doc_type_label: 'Business registration',
+      file: 'https://via.placeholder.com/400x300?text=Business+Registration',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-01T10:00:00Z',
+    },
+    {
+      id: 2,
+      doc_type: 'tourism_license',
+      doc_type_label: 'Tourism / hospitality license',
+      file: 'https://via.placeholder.com/400x300?text=Tourism+License',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-01T10:05:00Z',
+    },
+  ],
+  3: [
+    {
+      id: 3,
+      doc_type: 'operating_permit',
+      doc_type_label: 'Operating permit',
+      file: 'https://via.placeholder.com/400x300?text=Operating+Permit',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-02T08:00:00Z',
+    },
+  ],
+  4: [
+    {
+      id: 4,
+      doc_type: 'tour_guide_license',
+      doc_type_label: 'Tour guide license',
+      file: 'https://via.placeholder.com/400x300?text=Guide+License',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-03T12:00:00Z',
+    },
+  ],
+}
+
+let businesses: AdminBusiness[] = [
+  {
+    id: 1,
+    business_name: 'Freesia Hotel',
+    owner_username: 'stays_host',
+    verification_status: 'verified',
+    city: 'Windhoek',
+    region: 'Khomas',
+    business_types: ['accommodation'],
+    document_count: 2,
+  },
+  {
+    id: 2,
+    business_name: 'Coastal Vibes',
+    owner_username: 'guide_pro',
+    verification_status: 'pending',
+    city: 'Swakopmund',
+    region: 'Erongo',
+    business_types: ['guide'],
+    document_count: 2,
+  },
+  {
+    id: 3,
+    business_name: 'Namibia Wheels',
+    owner_username: 'transport_mgr',
+    verification_status: 'pending',
+    city: 'Windhoek',
+    region: 'Khomas',
+    business_types: ['transport'],
+    document_count: 1,
+  },
+  {
+    id: 4,
+    business_name: ';llmlm',
+    owner_username: 'guide_pro',
+    verification_status: 'pending',
+    city: 'Windhoek',
+    region: 'Khomas',
+    business_types: ['guide'],
+    document_count: 1,
+  },
+]
+
+let mockUsers: AdminUser[] = Object.entries(profiles).map(([username, p], i) => ({
+  id: i + 1,
+  username,
+  email: p.email,
+  display_name: p.display_name ?? username,
+  is_active: true,
+  is_staff: p.is_staff,
+  user_type: p.user_type,
+  date_joined: '2026-01-15T08:00:00Z',
+  email_verified: true,
+  region: 'Khomas',
+  city: 'Windhoek',
+  businesses_count: businesses.filter((b) => b.owner_username === username).length,
+}))
+
+function normalizePath(path: string): string {
+  const url = new URL(path, 'http://mock.local')
+  const p = url.pathname.replace(/\/+$/, '') || '/'
+  const qs = url.searchParams
+  return qs.toString() ? `${p}?${qs}` : p
+}
+
+function publicProfile(p: MockProfile): AdminProfile {
+  const { password: _pw, ...rest } = p
+  return rest
+}
+
+function requireAuth() {
+  if (!currentUser) throw new ApiError('Unauthorized', 401, { detail: 'Authentication required.' })
+}
+
+function requireStaff() {
+  requireAuth()
+  if (!profiles[currentUser!]?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+}
+
+function refreshPromotionStatus(c: PromotionCampaign): PromotionCampaign {
+  if (c.status === 'cancelled' || c.status === 'requested' || c.status === 'rejected' || c.status === 'pending_payment' || c.status === 'refunded') return c
+  const now = Date.now()
+  const start = new Date(c.starts_at).getTime()
+  const end = new Date(c.ends_at).getTime()
+  let status: PromotionCampaign['status'] = 'scheduled'
+  let status_label = 'Scheduled'
+  if (now > end) {
+    status = 'expired'
+    status_label = 'Expired'
+  } else if (now >= start) {
+    status = 'active'
+    status_label = 'Active'
+  }
+  const is_live = status === 'active'
+  return { ...c, status, status_label, is_live, updated_at: new Date().toISOString() }
+}
+
+const PLACEMENT_LABELS: Record<string, string> = {
+  homepage_stays: 'Homepage — Featured stays',
+  homepage_guides: 'Homepage — Featured guides',
+  homepage_food: 'Homepage — Featured food',
+  homepage_events: 'Homepage — Featured events',
+  homepage_transport: 'Homepage — Featured transport',
+  delvers_feed: 'Delvers feed — Sponsored',
+  community_feed: 'Community feed — Sponsored',
+}
+
+const PLACEMENT_MAX: Record<string, number> = {
+  homepage_stays: 2,
+  homepage_guides: 2,
+  homepage_food: 2,
+  homepage_events: 2,
+  homepage_transport: 2,
+  category_spotlight: 1,
+  delvers_feed: 2,
+  community_feed: 2,
+}
+
+function mockPromotionConflicts(params: URLSearchParams): PromotionConflictSummary {
+  const placement = params.get('placement') || ''
+  const startsAt = new Date(params.get('starts_at') || '')
+  const endsAt = new Date(params.get('ends_at') || '')
+  const region = (params.get('region') || '').trim()
+  const targetType = params.get('target_type') || ''
+  const maxSlots = PLACEMENT_MAX[placement] ?? 2
+
+  const conflicts = mockPromotions.filter((c) => {
+    if (c.placement !== placement || c.status === 'cancelled' || c.status === 'requested' || c.status === 'rejected' || c.status === 'pending_payment' || c.status === 'refunded') return false
+    if (placement === 'category_spotlight' && targetType && c.target_type !== targetType) return false
+    const start = new Date(c.starts_at).getTime()
+    const end = new Date(c.ends_at).getTime()
+    if (!(startsAt.getTime() < end && endsAt.getTime() > start)) return false
+    if (region) return !c.region || c.region.toLowerCase() === region.toLowerCase()
+    return !c.region
+  })
+
+  const booked = conflicts.length
+  const warnings: string[] = []
+  if (booked >= maxSlots) {
+    warnings.push(`All ${maxSlots} slot${maxSlots === 1 ? '' : 's'} already booked for this period.`)
+  } else if (booked === maxSlots - 1 && maxSlots > 1) {
+    warnings.push(`Slot ${maxSlots} is the only slot left for this period.`)
+  }
+  conflicts.slice(0, maxSlots).forEach((row, idx) => {
+    warnings.push(
+      `Slot ${idx + 1} booked — ${row.target_label} (${new Date(row.starts_at).toLocaleDateString()} → ${new Date(row.ends_at).toLocaleDateString()})`,
+    )
+  })
+
+  return {
+    placement,
+    max_slots: maxSlots,
+    booked_slots: Math.min(booked, maxSlots),
+    available_slots: Math.max(0, maxSlots - booked),
+    has_conflict: booked >= maxSlots,
+    warnings,
+    conflicts: conflicts.map((c) => ({
+      id: c.id,
+      target_label: c.target_label,
+      target_type: c.target_type,
+      target_id: c.target_id,
+      starts_at: c.starts_at,
+      ends_at: c.ends_at,
+      priority: c.priority,
+      region: c.region,
+    })),
+  }
+}
+
+function pushAudit(text: string, type: ActivityItem['type'] = 'system') {
+  auditLog.unshift({ id: auditId++, text, time: 'Just now', type })
+}
+
+export async function mockApiFetch(path: string, init: RequestInit = {}): Promise<unknown> {
+  const full = normalizePath(path)
+  const [pathname, query] = full.split('?')
+  const method = (init.method ?? 'GET').toUpperCase()
+  const params = new URLSearchParams(query ?? '')
+
+  if (pathname === '/api/accounts/token' && method === 'POST') {
+    const body = JSON.parse(String(init.body)) as { username: string; password: string }
+    const p = profiles[body.username?.trim()]
+    if (!p || p.password !== body.password) {
+      throw new ApiError('Invalid credentials', 401, { detail: 'Invalid credentials' })
+    }
+    currentUser = body.username.trim()
+    localStorage.setItem('delve_admin_mock_user', currentUser)
+    return { access: 'mock-access', refresh: 'mock-refresh' }
+  }
+
+  if (pathname === '/api/accounts/me' && method === 'GET') {
+    requireAuth()
+    const p = profiles[currentUser!]
+    if (!p) throw new ApiError('Unauthorized', 401, { detail: 'Authentication required.' })
+    return { ...publicProfile(p), email_verified: true }
+  }
+
+  if (pathname === '/api/accounts/admin/overview' && method === 'GET') {
+    requireStaff()
+    const pending = businesses.filter((b) => b.verification_status === 'pending').length
+    const overview: PlatformOverview = {
+      users: mockUsers.length + 20,
+      providers: mockUsers.filter((u) => u.user_type === 'service_provider').length + 6,
+      businesses: businesses.length,
+      businesses_pending: pending,
+      listings: 42,
+      listings_stays: 12,
+      listings_guides: 8,
+      listings_transport: 14,
+      listings_food: 8,
+      listings_events: 6,
+      listings_posts: 24,
+      bookings: mockBookings.length + 32,
+      bookings_pending: mockBookings.filter((b) => b.status === 'pending').length + 2,
+      bookings_stays: 18,
+      bookings_guides: 10,
+      bookings_transport: 8,
+      reports_open: mockReports.filter((r) => ['new', 'under_review', 'escalated'].includes(r.status)).length,
+      users_unverified_email: mockUnverifiedUsers.length,
+    }
+    return overview
+  }
+
+  if (pathname === '/api/accounts/admin/activity' && method === 'GET') {
+    requireStaff()
+    return auditLog.slice(0, 50)
+  }
+
+  if (pathname === '/api/accounts/admin/users' && method === 'GET') {
+    requireStaff()
+    return mockUsers
+  }
+
+  const userDetailMatch = pathname.match(/^\/api\/accounts\/admin\/users\/(\d+)$/)
+  if (userDetailMatch && method === 'GET') {
+    requireStaff()
+    const user = mockUsers.find((u) => u.id === Number(userDetailMatch[1]))
+    if (!user) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return user
+  }
+
+  const userUpdateMatch = pathname.match(/^\/api\/accounts\/admin\/users\/(\d+)\/update$/)
+  if (userUpdateMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(userUpdateMatch[1])
+    const user = mockUsers.find((u) => u.id === id)
+    if (!user) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as { is_active?: boolean; is_staff?: boolean }
+    if (typeof body.is_active === 'boolean') {
+      user.is_active = body.is_active
+      pushAudit(
+        `${body.is_active ? 'Account reactivated' : 'Account suspended'} — @${user.username}`,
+        'user',
+      )
+    }
+    if (typeof body.is_staff === 'boolean') {
+      user.is_staff = body.is_staff
+      profiles[user.username].is_staff = body.is_staff
+      pushAudit(
+        `${body.is_staff ? 'Promoted to platform admin' : 'Removed admin access'} — @${user.username}`,
+        'user',
+      )
+    }
+    return user
+  }
+
+  if (pathname === '/api/accounts/admin/businesses' && method === 'GET') {
+    requireStaff()
+    let rows = [...businesses]
+    const status = params.get('status')
+    if (status) rows = rows.filter((b) => b.verification_status === status)
+    return rows
+  }
+
+  const bizDocsMatch = pathname.match(/^\/api\/accounts\/admin\/businesses\/(\d+)\/documents$/)
+  if (bizDocsMatch && method === 'GET') {
+    requireStaff()
+    const id = Number(bizDocsMatch[1])
+    const business = businesses.find((b) => b.id === id)
+    if (!business) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return {
+      business,
+      documents: mockDocs[id] ?? [],
+    } satisfies BusinessDocumentsResponse
+  }
+
+  const bizVerifyMatch = pathname.match(/^\/api\/accounts\/admin\/businesses\/(\d+)\/verification$/)
+  if (bizVerifyMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(bizVerifyMatch[1])
+    const business = businesses.find((b) => b.id === id)
+    if (!business) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as { verification_status?: string; reason?: string }
+    if (body.verification_status) {
+      business.verification_status = body.verification_status
+      if (body.reason) business.verification_notes = body.reason
+      pushAudit(
+        `Business verification updated — ${business.business_name} → ${body.verification_status}`,
+        'business',
+      )
+    }
+    return business
+  }
+
+  if (pathname === '/api/reports' && method === 'POST') {
+    requireAuth()
+    const body = JSON.parse(String(init.body)) as {
+      target_type: string
+      target_id: string
+      target_label?: string
+      reason: string
+      description?: string
+    }
+    const report: AdminReport = {
+      id: reportIdCounter++,
+      reporter_username: currentUser!,
+      target_type: body.target_type,
+      target_id: body.target_id,
+      target_label: body.target_label ?? body.target_id,
+      reason: body.reason,
+      reason_label: body.reason.replace(/_/g, ' '),
+      description: body.description ?? '',
+      status: 'new',
+      severity: body.reason === 'safety_concern' ? 'critical' : 'medium',
+      created_at: new Date().toISOString(),
+    }
+    mockReports.unshift(report)
+    pushAudit(`New report — ${report.target_type}:${report.target_id}`, 'report')
+    return report
+  }
+
+  if (pathname === '/api/accounts/admin/reports' && method === 'GET') {
+    requireStaff()
+    let rows = [...mockReports]
+    const status = params.get('status')
+    if (status) rows = rows.filter((r) => r.status === status)
+    return rows
+  }
+
+  const reportDetailMatch = pathname.match(/^\/api\/accounts\/admin\/reports\/(\d+)$/)
+  if (reportDetailMatch && method === 'GET') {
+    requireStaff()
+    const report = mockReports.find((r) => r.id === Number(reportDetailMatch[1]))
+    if (!report) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return report
+  }
+
+  if (reportDetailMatch && method === 'PATCH') {
+    requireStaff()
+    const report = mockReports.find((r) => r.id === Number(reportDetailMatch[1]))
+    if (!report) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as {
+      status?: string
+      action?: string
+      admin_notes?: string
+    }
+    if (body.status) report.status = body.status
+    if (body.admin_notes) report.admin_notes = body.admin_notes
+    if (body.action === 'dismiss') report.status = 'dismissed'
+    if (body.action === 'warn') report.status = 'resolved'
+    if (body.action === 'suspend') {
+      report.status = 'resolved'
+      pushAudit(`Account suspended via report #${report.id}`, 'user')
+    }
+    if (body.action === 'remove_content') {
+      report.status = 'resolved'
+      mockModeration = mockModeration.map((m) =>
+        m.target_type === report.target_type && m.target_id === report.target_id
+          ? { ...m, status: 'hidden', reason: body.admin_notes ?? m.reason }
+          : m,
+      )
+    }
+    pushAudit(`Report #${report.id} — ${body.action ?? body.status}`, 'report')
+    return report
+  }
+
+  if (pathname === '/api/accounts/admin/moderation' && method === 'GET') {
+    requireStaff()
+    return mockModeration
+  }
+
+  if (pathname === '/api/accounts/admin/moderation' && method === 'PATCH') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      target_type: string
+      target_id: string
+      action: 'remove' | 'restore'
+      reason?: string
+    }
+    mockModeration = mockModeration.map((m) =>
+      m.target_type === body.target_type && m.target_id === body.target_id
+        ? {
+            ...m,
+            status: body.action === 'remove' ? 'hidden' : 'reported',
+            reason: body.reason ?? m.reason,
+          }
+        : m,
+    )
+    pushAudit(`Content ${body.action} — ${body.target_type}:${body.target_id}`, 'report')
+    return { ok: true }
+  }
+
+  if (pathname === '/api/accounts/admin/listings' && method === 'GET') {
+    requireStaff()
+    return mockListings
+  }
+
+  if (pathname === '/api/accounts/admin/listings' && method === 'PATCH') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      listing_type: string
+      listing_id: number
+      published: boolean
+      reason?: string
+    }
+    mockListings = mockListings.map((item) =>
+      item.listing_type === body.listing_type && item.listing_id === body.listing_id
+        ? { ...item, status: body.published ? 'published' : 'unpublished' }
+        : item,
+    )
+    const updated = mockListings.find(
+      (item) => item.listing_type === body.listing_type && item.listing_id === body.listing_id,
+    )
+    pushAudit(
+      `${body.published ? 'Republished' : 'Unpublished'} ${body.listing_type}:${body.listing_id}`,
+      'listing',
+    )
+    return updated
+  }
+
+  if (pathname === '/api/accounts/admin/bookings' && method === 'GET') {
+    requireStaff()
+    return mockBookings
+  }
+
+  const bookingDetailMatch = pathname.match(/^\/api\/accounts\/admin\/bookings\/([^/]+)\/(\d+)$/)
+  if (bookingDetailMatch) {
+    requireStaff()
+    const bookingType = bookingDetailMatch[1]
+    const bookingId = Number(bookingDetailMatch[2])
+    const row = mockBookings.find((b) => b.booking_type === bookingType && b.booking_id === bookingId)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const key = `${bookingType}:${bookingId}`
+    const detail: AdminBookingDetail = {
+      ...row,
+      dispute_notes: mockBookingNotes[key] ?? [],
+      mock_payment_ref: `MOCK-${bookingId}`,
+    }
+    if (method === 'GET') return detail
+    if (method === 'PATCH') {
+      const body = JSON.parse(String(init.body)) as { note?: string; status?: string }
+      if (body.note?.trim()) {
+        const note = {
+          id: bookingNoteId++,
+          author_username: currentUser!,
+          body: body.note.trim(),
+          created_at: new Date().toISOString(),
+        }
+        mockBookingNotes[key] = [note, ...(mockBookingNotes[key] ?? [])]
+        mockBookings = mockBookings.map((b) =>
+          b.booking_type === bookingType && b.booking_id === bookingId
+            ? { ...b, has_dispute_notes: true }
+            : b,
+        )
+        pushAudit(`Booking note — ${key}`, 'booking')
+      }
+      if (body.status) {
+        mockBookings = mockBookings.map((b) =>
+          b.booking_type === bookingType && b.booking_id === bookingId ? { ...b, status: body.status! } : b,
+        )
+        pushAudit(`Booking status → ${body.status} — ${key}`, 'booking')
+      }
+      return {
+        ...mockBookings.find((b) => b.booking_type === bookingType && b.booking_id === bookingId)!,
+        dispute_notes: mockBookingNotes[key] ?? [],
+        mock_payment_ref: `MOCK-${bookingId}`,
+      } as AdminBookingDetail
+    }
+  }
+
+  if (pathname === '/api/accounts/admin/email-verification' && method === 'GET') {
+    requireStaff()
+    return mockUnverifiedUsers
+  }
+
+  const emailVerifyMatch = pathname.match(/^\/api\/accounts\/admin\/email-verification\/(\d+)$/)
+  if (emailVerifyMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(emailVerifyMatch[1])
+    const user = mockUnverifiedUsers.find((u) => u.id === id)
+    if (!user) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as { action: 'verify' | 'resend' }
+    if (body.action === 'verify') {
+      mockUnverifiedUsers = mockUnverifiedUsers.filter((u) => u.id !== id)
+      pushAudit(`Email manually verified — @${user.username}`, 'user')
+      return { ...user, email_verified: true, detail: 'Email marked as verified.' }
+    }
+    pushAudit(`Verification email resent — @${user.username}`, 'user')
+    return { ...user, detail: 'Verification email sent.' }
+  }
+
+  if (pathname === '/api/accounts/admin/analytics' && method === 'GET') {
+    requireStaff()
+    const days = Number(params.get('days') || '30')
+    return demoAnalytics(days)
+  }
+
+  if (pathname === '/api/accounts/admin/notifications' && method === 'GET') {
+    requireStaff()
+    const items = []
+    const critical = mockReports.filter((r) => r.severity === 'critical' && ['new', 'escalated'].includes(r.status))
+    if (critical.length) {
+      items.push({
+        id: 'critical-reports',
+        level: 'critical',
+        title: `${critical.length} critical report${critical.length === 1 ? '' : 's'}`,
+        message: 'Safety or fraud reports need immediate review.',
+        action_to: '/admin/reports',
+      })
+    }
+    const pending = businesses.filter((b) => b.verification_status === 'pending')
+    if (pending.length) {
+      items.push({
+        id: 'pending-verifications',
+        level: 'high',
+        title: `${pending.length} pending verification${pending.length === 1 ? '' : 's'}`,
+        message: 'Businesses waiting for document review.',
+        action_to: '/admin/verifications',
+      })
+    }
+    const open = mockReports.filter((r) => r.status === 'new' || r.status === 'escalated')
+    if (open.length) {
+      items.push({
+        id: 'open-reports',
+        level: 'medium',
+        title: `${open.length} open report${open.length === 1 ? '' : 's'}`,
+        message: 'New or escalated traveller reports.',
+        action_to: '/admin/reports',
+      })
+    }
+    if (mockUnverifiedUsers.length) {
+      items.push({
+        id: 'unverified-email',
+        level: 'low',
+        title: `${mockUnverifiedUsers.length} unverified email${mockUnverifiedUsers.length === 1 ? '' : 's'}`,
+        message: 'Accounts that have not confirmed their email.',
+        action_to: '/admin/email-verification',
+      })
+    }
+    return items
+  }
+
+  if (pathname === '/api/accounts/admin/settings' && method === 'GET') {
+    requireStaff()
+    return mockSettings
+  }
+
+  if (pathname === '/api/accounts/admin/settings' && method === 'PATCH') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as Partial<PlatformSettings>
+    if (body.feature_flags) mockSettings.feature_flags = { ...mockSettings.feature_flags, ...body.feature_flags }
+    if (body.announcement_title != null) mockSettings.announcement_title = body.announcement_title
+    if (body.announcement_body != null) mockSettings.announcement_body = body.announcement_body
+    if (body.announcement_active != null) mockSettings.announcement_active = body.announcement_active
+    mockSettings.updated_at = new Date().toISOString()
+    mockSettings.updated_by_username = currentUser!
+    pushAudit('Platform settings updated', 'system')
+    return mockSettings
+  }
+
+  if (pathname === '/api/accounts/admin/promotions/analytics' && method === 'GET') {
+    requireStaff()
+    const days = Number(params.get('days') || 30)
+    const metricsById: Record<number, { impressions: number; clicks: number; listing_opens: number; bookings: number }> = {
+      1: { impressions: 1240, clicks: 62, listing_opens: 18, bookings: 3 },
+      2: { impressions: 890, clicks: 8, listing_opens: 2, bookings: 0 },
+      3: { impressions: 420, clicks: 28, listing_opens: 9, bookings: 1 },
+      4: { impressions: 680, clicks: 41, listing_opens: 11, bookings: 2 },
+    }
+    const rows = mockPromotions.map((c) => {
+      const m = metricsById[c.id] ?? { impressions: 0, clicks: 0, listing_opens: 0, bookings: 0 }
+      const ctr_pct = m.impressions ? Math.round((m.clicks / m.impressions) * 10000) / 100 : 0
+      const underperforming = m.impressions >= 50 && ctr_pct < 1
+      const effective_priority = underperforming ? Math.round((c.priority || 0) * 0.45) : c.priority
+      return {
+        id: c.id,
+        target_label: c.target_label,
+        placement: c.placement,
+        placement_label: c.placement_label,
+        region: c.region || 'National',
+        status: c.status,
+        status_label: c.status_label,
+        priority: c.priority,
+        starts_at: c.starts_at,
+        ends_at: c.ends_at,
+        ...m,
+        ctr_pct,
+        effective_priority,
+        underperforming,
+      }
+    })
+    const totals = rows.reduce(
+      (acc, r) => ({
+        campaigns: acc.campaigns + 1,
+        impressions: acc.impressions + r.impressions,
+        clicks: acc.clicks + r.clicks,
+        listing_opens: acc.listing_opens + r.listing_opens,
+        bookings: acc.bookings + r.bookings,
+        revenue_cents: acc.revenue_cents + (mockPromotions.find((x) => x.id === r.id)?.payment_status === 'paid' ? 250000 : 0),
+        underperforming: acc.underperforming + (r.underperforming ? 1 : 0),
+      }),
+      { campaigns: 0, impressions: 0, clicks: 0, listing_opens: 0, bookings: 0, revenue_cents: 0, underperforming: 0 },
+    )
+    const ctr_pct = totals.impressions ? Math.round((totals.clicks / totals.impressions) * 10000) / 100 : 0
+    const byPlacementMap = new Map<string, { placement: string; label: string; impressions: number; clicks: number; bookings: number }>()
+    rows.forEach((r) => {
+      const bucket = byPlacementMap.get(r.placement) ?? { placement: r.placement, label: r.placement_label, impressions: 0, clicks: 0, bookings: 0 }
+      bucket.impressions += r.impressions
+      bucket.clicks += r.clicks
+      bucket.bookings += r.bookings
+      byPlacementMap.set(r.placement, bucket)
+    })
+    return {
+      days,
+      totals: { ...totals, ctr_pct },
+      funnel: [
+        { label: 'Impressions', value: totals.impressions },
+        { label: 'Clicks', value: totals.clicks },
+        { label: 'Listing opens', value: totals.listing_opens },
+        { label: 'Bookings', value: totals.bookings },
+      ],
+      by_placement: [...byPlacementMap.values()].map((b) => ({
+        ...b,
+        ctr_pct: b.impressions ? Math.round((b.clicks / b.impressions) * 10000) / 100 : 0,
+      })),
+      campaigns: rows.sort((a, b) => b.impressions - a.impressions),
+    }
+  }
+
+  if (pathname === '/api/accounts/admin/promotions' && method === 'GET') {
+    requireStaff()
+    mockPromotions = mockPromotions.map(refreshPromotionStatus)
+    let rows = [...mockPromotions]
+    const statusFilter = params.get('status')
+    const placement = params.get('placement')
+    if (statusFilter) rows = rows.filter((c) => c.status === statusFilter)
+    if (placement) rows = rows.filter((c) => c.placement === placement)
+    return rows.sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())
+  }
+
+  if (pathname === '/api/accounts/admin/promotions/conflicts' && method === 'GET') {
+    requireStaff()
+    return mockPromotionConflicts(params)
+  }
+
+  if (pathname === '/api/accounts/admin/promotions' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      placement: string
+      target_type: string
+      target_id: string
+      target_label?: string
+      region?: string
+      starts_at: string
+      ends_at: string
+      priority?: number
+      label?: string
+      admin_notes?: string
+    }
+    const conflictParams = new URLSearchParams({
+      placement: body.placement,
+      starts_at: body.starts_at,
+      ends_at: body.ends_at,
+      region: body.region ?? '',
+    })
+    if (body.placement === 'category_spotlight') conflictParams.set('target_type', body.target_type)
+    const conflict = mockPromotionConflicts(conflictParams)
+    if (conflict.has_conflict) {
+      throw new ApiError('Bad request', 400, { non_field_errors: conflict.warnings })
+    }
+    const row: PromotionCampaign = refreshPromotionStatus({
+      id: promotionIdCounter++,
+      placement: body.placement,
+      placement_label: PLACEMENT_LABELS[body.placement] ?? body.placement,
+      target_type: body.target_type,
+      target_type_label: body.target_type,
+      target_id: body.target_id,
+      target_label: body.target_label ?? '',
+      region: body.region ?? '',
+      starts_at: body.starts_at,
+      ends_at: body.ends_at,
+      status: 'scheduled',
+      status_label: 'Scheduled',
+      is_live: false,
+      priority: body.priority ?? 0,
+      label: body.label?.trim() || 'Featured Partner',
+      admin_notes: body.admin_notes ?? '',
+      provider_notes: '',
+      rejection_reason: '',
+      product_id: null,
+      product_name: null,
+      amount_cents: 0,
+      currency: 'NAD',
+      payment_status: 'pending',
+      payment_ref: '',
+      receipt_number: '',
+      paid_at: null,
+      refund_amount_cents: 0,
+      created_by_username: currentUser!,
+      requested_by_username: null,
+      reviewed_by_username: null,
+      reviewed_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    mockPromotions = [row, ...mockPromotions]
+    pushAudit(`Featured partner campaign — ${row.target_label}`, 'listing')
+    return row
+  }
+
+  const promotionDetailMatch = pathname.match(/^\/api\/accounts\/admin\/promotions\/(\d+)$/)
+  if (promotionDetailMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(promotionDetailMatch[1])
+    const idx = mockPromotions.findIndex((c) => c.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as {
+      cancel?: boolean
+      status?: string
+      approve?: boolean
+      reject?: boolean
+      rejection_reason?: string
+    }
+    if (body.approve) {
+      if (mockPromotions[idx].status !== 'requested') {
+        throw new ApiError('Bad request', 400, { detail: 'Only requested campaigns can be approved.' })
+      }
+      const row = mockPromotions[idx]
+      const conflictParams = new URLSearchParams({
+        placement: row.placement,
+        starts_at: row.starts_at,
+        ends_at: row.ends_at,
+        region: row.region ?? '',
+        exclude_id: String(row.id),
+      })
+      if (row.placement === 'category_spotlight') conflictParams.set('target_type', row.target_type)
+      const conflict = mockPromotionConflicts(conflictParams)
+      if (conflict.has_conflict) {
+        throw new ApiError('Bad request', 400, { non_field_errors: conflict.warnings })
+      }
+      mockPromotions[idx] = refreshPromotionStatus({
+        ...mockPromotions[idx],
+        status: 'scheduled',
+        status_label: 'Scheduled',
+        reviewed_by_username: currentUser!,
+        reviewed_at: new Date().toISOString(),
+        rejection_reason: '',
+        updated_at: new Date().toISOString(),
+      })
+      pushAudit(`Promotion approved — ${mockPromotions[idx].target_label}`, 'listing')
+      return mockPromotions[idx]
+    }
+    if (body.reject) {
+      if (mockPromotions[idx].status !== 'requested') {
+        throw new ApiError('Bad request', 400, { detail: 'Only requested campaigns can be rejected.' })
+      }
+      const reason = (body.rejection_reason || '').trim()
+      if (!reason) throw new ApiError('Bad request', 400, { detail: 'rejection_reason is required.' })
+      mockPromotions[idx] = {
+        ...mockPromotions[idx],
+        status: 'rejected',
+        status_label: 'Rejected',
+        rejection_reason: reason,
+        reviewed_by_username: currentUser!,
+        reviewed_at: new Date().toISOString(),
+        is_live: false,
+        updated_at: new Date().toISOString(),
+      }
+      pushAudit(`Promotion rejected — ${mockPromotions[idx].target_label}`, 'listing')
+      return mockPromotions[idx]
+    }
+    if (body.cancel || body.status === 'cancelled') {
+      mockPromotions[idx] = {
+        ...mockPromotions[idx],
+        status: 'cancelled',
+        status_label: 'Cancelled',
+        is_live: false,
+        updated_at: new Date().toISOString(),
+      }
+      pushAudit(`Campaign cancelled — ${mockPromotions[idx].target_label}`, 'listing')
+      return mockPromotions[idx]
+    }
+    mockPromotions[idx] = refreshPromotionStatus(mockPromotions[idx])
+    pushAudit(`Campaign updated — ${mockPromotions[idx].target_label}`, 'listing')
+    return mockPromotions[idx]
+  }
+
+  const userDeleteMatch = pathname.match(/^\/api\/accounts\/admin\/users\/(\d+)\/delete$/)
+  if (userDeleteMatch && method === 'POST') {
+    requireStaff()
+    const id = Number(userDeleteMatch[1])
+    const user = mockUsers.find((u) => u.id === id)
+    if (!user) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as { confirm_username: string }
+    if (body.confirm_username !== user.username) {
+      throw new ApiError('Bad request', 400, { detail: 'confirm_username must match.' })
+    }
+    if (user.is_staff) throw new ApiError('Bad request', 400, { detail: 'Staff accounts cannot be deleted.' })
+    mockUsers = mockUsers.map((u) =>
+      u.id === id
+        ? {
+            ...u,
+            username: `deleted_${id}`,
+            email: `deleted_${id}@deleted.delve`,
+            display_name: 'Deleted user',
+            is_active: false,
+          }
+        : u,
+    )
+    pushAudit(`Account deleted (GDPR) — @${body.confirm_username}`, 'user')
+    return { detail: 'Account deleted. Personal data anonymized.', id, username: `deleted_${id}` }
+  }
+
+  throw new ApiError(`Mock route not found: ${method} ${pathname}`, 404, null)
+}
+
+export function mockLogout() {
+  currentUser = null
+  localStorage.removeItem('delve_admin_mock_user')
+}
+
+if (currentUser && !profiles[currentUser]) {
+  currentUser = null
+  localStorage.removeItem('delve_admin_mock_user')
+}

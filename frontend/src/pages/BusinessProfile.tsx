@@ -27,6 +27,7 @@ import {
   BusinessProfileServiceRow,
   BusinessProfileShell,
   BusinessProfileState,
+  BusinessProfileEmptyServices,
 } from '../components/business'
 import { MiniRating } from '../components/MiniRating'
 
@@ -274,9 +275,10 @@ export function BusinessProfile() {
   const locationLabel = [business.city, business.region].filter(Boolean).join(', ')
   const directionsUrl = locationLabel ? mapsDirectionsUrl(business.city, business.region) : null
   const logoSrc = business.logo ? mediaUrl(business.logo) || business.logo : null
+  const coverSrc = business.cover_image ? mediaUrl(business.cover_image) || business.cover_image : null
 
   return (
-    <BusinessProfileShell title={business.business_name} onShare={onShareProfile}>
+    <BusinessProfileShell onShare={onShareProfile}>
       {shareMsg ? (
         <p className="biz-profile__toast" role="status">
           {shareMsg}
@@ -287,6 +289,7 @@ export function BusinessProfile() {
         name={business.business_name}
         tagline={business.tagline}
         logo={logoSrc}
+        cover={coverSrc}
         verified={verified}
         serviceLabel={primaryServiceLabel(types)}
         location={locationLabel || null}
@@ -296,6 +299,7 @@ export function BusinessProfile() {
         listingsCount={listingsCount}
         ownerUsername={business.owner_username}
         ownerProfileHref={`/u/${business.owner_username}`}
+        businessId={business.id}
       />
 
       {business.description?.trim() ? (
@@ -341,7 +345,7 @@ export function BusinessProfile() {
             </div>
           </>
         ) : (
-          <p className="biz-profile__empty">No services listed yet.</p>
+          <BusinessProfileEmptyServices businessTypes={types} />
         )}
       </BusinessProfileSection>
 

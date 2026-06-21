@@ -129,6 +129,7 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
             "city",
             "onboarding_completed",
             "transport_modes",
+            "verification_notes",
         )
 
 

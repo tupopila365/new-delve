@@ -27,6 +27,8 @@ export type EventListing = {
   saves_count?: number
   liked_by_me?: boolean
   saved_by_me?: boolean
+  is_featured_partner?: boolean
+  partner_label?: string
 }
 
 export type EventDateParts = {

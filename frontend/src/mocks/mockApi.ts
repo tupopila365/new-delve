@@ -21,6 +21,16 @@ type MockState = {
   nextPostId: number
   likes: Record<string, number[]>
   saves: Record<string, number[]>
+  comments: Record<string, MockComment[]>
+  nextCommentId: number
+}
+
+type MockComment = {
+  id: number
+  author: { username: string; display_name: string; avatar: string | null }
+  body: string
+  created_at: string
+  is_hidden?: boolean
 }
 
 const KEY = 'delve_mock_state_v7'
@@ -208,6 +218,415 @@ function nowIso() {
 /** Session-local likes on accommodation listings (listing id → usernames). */
 const mockListingLikes = new Map<number, Set<string>>()
 
+type MockFeaturedCampaign = {
+  id: number
+  placement: string
+  target_type: string
+  target_id: number
+  region: string
+  starts_at: string
+  ends_at: string
+  status: 'requested' | 'scheduled' | 'active' | 'expired' | 'rejected' | 'cancelled'
+  priority: number
+  label: string
+}
+
+const PLACEMENT_MAX_SLOTS: Record<string, number> = {
+  homepage_stays: 2,
+  homepage_guides: 2,
+  homepage_food: 2,
+  homepage_events: 2,
+  homepage_transport: 2,
+  delvers_feed: 2,
+  community_feed: 2,
+}
+
+let mockFeaturedCampaigns: MockFeaturedCampaign[] = [
+  {
+    id: 1,
+    placement: 'homepage_stays',
+    target_type: 'accommodation',
+    target_id: 101,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 10,
+    label: 'Featured Partner',
+  },
+  {
+    id: 2,
+    placement: 'homepage_food',
+    target_type: 'food',
+    target_id: 501,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 8,
+    label: 'Featured Partner',
+  },
+  {
+    id: 3,
+    placement: 'category_spotlight',
+    target_type: 'food',
+    target_id: 501,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 10,
+    label: 'Featured Partner',
+  },
+  {
+    id: 4,
+    placement: 'delvers_feed',
+    target_type: 'accommodation',
+    target_id: 101,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 10,
+    label: 'Sponsored',
+  },
+  {
+    id: 5,
+    placement: 'delvers_feed',
+    target_type: 'post',
+    target_id: 702,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 8,
+    label: 'Sponsored',
+  },
+]
+
+const PROMOTION_PRICING = [
+  { placement: 'homepage_stays', label: 'Homepage — Featured stays', price_label: 'N$2,500 / week', note: 'Up to 2 slots on the stays rail' },
+  { placement: 'homepage_guides', label: 'Homepage — Featured guides', price_label: 'N$2,000 / week', note: 'Up to 2 slots' },
+  { placement: 'homepage_food', label: 'Homepage — Featured food', price_label: 'N$1,800 / week', note: 'Up to 2 slots' },
+  { placement: 'homepage_events', label: 'Homepage — Featured events', price_label: 'N$1,500 / week', note: 'Up to 2 slots' },
+  { placement: 'homepage_transport', label: 'Homepage — Featured transport', price_label: 'N$1,800 / week', note: 'Up to 2 slots' },
+  { placement: 'delvers_feed', label: 'Delvers feed — Sponsored', price_label: 'N$1,200 / week', note: 'Positions 3 & 8 in feed' },
+]
+
+const PLACEMENT_LABELS: Record<string, string> = {
+  homepage_stays: 'Homepage — Featured stays',
+  homepage_guides: 'Homepage — Featured guides',
+  homepage_food: 'Homepage — Featured food',
+  homepage_events: 'Homepage — Featured events',
+  homepage_transport: 'Homepage — Featured transport',
+  delvers_feed: 'Delvers feed — Sponsored',
+}
+
+type MockPromotionProduct = {
+  id: number
+  slug: string
+  name: string
+  placement: string
+  placement_label: string
+  region: string
+  duration_days: number
+  price_cents: number
+  price_display: string
+  currency: string
+}
+
+type MockProviderCampaign = {
+  id: number
+  placement: string
+  placement_label: string
+  target_type: string
+  target_id: string
+  target_label: string
+  region: string
+  starts_at: string
+  ends_at: string
+  status: 'pending_payment' | 'requested' | 'scheduled' | 'active' | 'expired' | 'rejected' | 'cancelled' | 'refunded'
+  status_label: string
+  is_live: boolean
+  label: string
+  product_id: number | null
+  product_name: string | null
+  amount_cents: number
+  amount_display: string
+  currency: string
+  payment_status: 'pending' | 'paid' | 'refunded' | 'failed'
+  payment_status_label: string
+  payment_provider: string
+  payment_ref: string
+  receipt_number: string
+  paid_at: string | null
+  refunded_at: string | null
+  refund_amount_cents: number
+  refund_reason: string
+  can_pay: boolean
+  can_cancel: boolean
+  refund_preview: { amount_cents: number; amount_display: string; note: string }
+  provider_notes: string
+  rejection_reason: string
+  metrics?: {
+    impressions: number
+    clicks: number
+    listing_opens: number
+    bookings: number
+    ctr_pct: number
+    underperforming: boolean
+  }
+  created_at: string
+}
+
+const MOCK_PROMOTION_PRODUCTS: MockPromotionProduct[] = [
+  { id: 1, slug: 'homepage_stays_7d_national', name: 'Homepage featured 7 days — Stays — National', placement: 'homepage_stays', placement_label: PLACEMENT_LABELS.homepage_stays, region: '', duration_days: 7, price_cents: 250_000, price_display: 'N$2,500.00', currency: 'NAD' },
+  { id: 2, slug: 'homepage_stays_7d_khomas', name: 'Homepage featured 7 days — Stays — Khomas', placement: 'homepage_stays', placement_label: PLACEMENT_LABELS.homepage_stays, region: 'Khomas', duration_days: 7, price_cents: 250_000, price_display: 'N$2,500.00', currency: 'NAD' },
+  { id: 3, slug: 'homepage_food_7d_national', name: 'Homepage featured 7 days — Food — National', placement: 'homepage_food', placement_label: PLACEMENT_LABELS.homepage_food, region: '', duration_days: 7, price_cents: 180_000, price_display: 'N$1,800.00', currency: 'NAD' },
+  { id: 4, slug: 'delvers_feed_7d_national', name: 'Sponsored 7 days — Delvers feed — National', placement: 'delvers_feed', placement_label: PLACEMENT_LABELS.delvers_feed, region: '', duration_days: 7, price_cents: 120_000, price_display: 'N$1,200.00', currency: 'NAD' },
+]
+
+let providerPromotionIdCounter = 1
+let mockProviderPromotionRequests: MockProviderCampaign[] = []
+
+const mockPromotionMetrics: Record<number, { impressions: number; clicks: number; listing_opens: number }> = {
+  1: { impressions: 1240, clicks: 62, listing_opens: 18 },
+  2: { impressions: 890, clicks: 12, listing_opens: 4 },
+  3: { impressions: 420, clicks: 28, listing_opens: 9 },
+  4: { impressions: 680, clicks: 41, listing_opens: 11 },
+}
+
+function mockRefundPreview(c: MockProviderCampaign) {
+  const now = Date.now()
+  const start = new Date(c.starts_at).getTime()
+  const end = new Date(c.ends_at).getTime()
+  if (c.payment_status !== 'paid') {
+    return { amount_cents: 0, amount_display: '', note: 'No payment to refund.' }
+  }
+  if (now < start) {
+    return { amount_cents: c.amount_cents, amount_display: c.amount_display, note: 'Full refund — cancelled before the campaign starts.' }
+  }
+  if (now >= end) {
+    return { amount_cents: 0, amount_display: '', note: 'Campaign has ended — no refund.' }
+  }
+  const remaining = Math.max(0, end - now)
+  const total = Math.max(1, end - start)
+  const refund = Math.floor(c.amount_cents * (remaining / total) * 0.5)
+  return {
+    amount_cents: refund,
+    amount_display: refund ? `N$${(refund / 100).toFixed(2)}` : '',
+    note: refund ? 'Partial refund — 50% of unused time.' : 'No refund — less than one day unused.',
+  }
+}
+
+function enrichMockCampaign(c: MockProviderCampaign): MockProviderCampaign {
+  const canPay = c.status === 'pending_payment' && c.payment_status === 'pending'
+  const canCancel = ['pending_payment', 'scheduled', 'active'].includes(c.status)
+  const m = mockPromotionMetrics[c.id] ?? { impressions: 0, clicks: 0, listing_opens: 0 }
+  const ctr_pct = m.impressions ? Math.round((m.clicks / m.impressions) * 10000) / 100 : 0
+  return {
+    ...c,
+    can_pay: canPay,
+    can_cancel: canCancel,
+    refund_preview: mockRefundPreview(c),
+    is_live: c.status === 'active',
+    metrics: {
+      impressions: m.impressions,
+      clicks: m.clicks,
+      listing_opens: m.listing_opens,
+      bookings: Math.floor(m.listing_opens * 0.15),
+      ctr_pct,
+      underperforming: m.impressions >= 50 && ctr_pct < 1,
+    },
+  }
+}
+
+function activeFeaturedCampaigns(placement: string, region: string, targetType?: string) {
+  const now = Date.now()
+  region = region.trim()
+  return mockFeaturedCampaigns
+    .filter((c) => c.placement === placement && !['cancelled', 'requested', 'rejected', 'pending_payment', 'refunded'].includes(c.status))
+    .filter((c) => (targetType ? c.target_type === targetType : true))
+    .filter((c) => {
+      const start = new Date(c.starts_at).getTime()
+      const end = new Date(c.ends_at).getTime()
+      return now >= start && now <= end
+    })
+    .filter((c) => (region ? !c.region || c.region.toLowerCase() === region.toLowerCase() : !c.region))
+    .sort((a, b) => b.priority - a.priority)
+}
+
+function mergeFeaturedRail<T extends { id: number }>(
+  s: MockState,
+  placement: string,
+  region: string,
+  source: T[],
+  enrich: (row: T) => Record<string, unknown>,
+  limit = 8,
+) {
+  const max = PLACEMENT_MAX_SLOTS[placement] ?? 2
+  const campaigns = activeFeaturedCampaigns(placement, region).slice(0, max)
+  const promotedIds = new Set<number>()
+  const promoted: Record<string, unknown>[] = []
+
+  for (const campaign of campaigns) {
+    if (promotedIds.has(campaign.target_id)) continue
+    const row = source.find((x) => x.id === campaign.target_id)
+    if (!row) continue
+    promotedIds.add(campaign.target_id)
+    promoted.push({
+      ...enrich(row),
+      is_featured_partner: true,
+      partner_label: campaign.label,
+      promotion_id: campaign.id,
+    })
+  }
+
+  let organic = source.filter((row) => !promotedIds.has(row.id))
+  if (region) {
+    const r = region.toLowerCase()
+    organic = organic.filter((row) => {
+      const rec = row as Record<string, unknown>
+      const regionVal = String(rec.region ?? '')
+      const cityVal = String(rec.city ?? '')
+      const regionsVal = Array.isArray(rec.regions) ? rec.regions.join(' ') : ''
+      return regionVal.toLowerCase().includes(r) || cityVal.toLowerCase().includes(r) || regionsVal.toLowerCase().includes(r)
+    })
+  }
+  const remaining = Math.max(0, limit - promoted.length)
+  const organicRows = organic.slice(0, remaining).map((row) => ({
+    ...enrich(row),
+    is_featured_partner: false,
+    partner_label: '',
+  }))
+  return [...promoted, ...organicRows]
+}
+
+function categorySpotlightMock(s: MockState, region: string, category: string) {
+  const targetMap: Record<string, string> = {
+    stays: 'accommodation',
+    accommodation: 'accommodation',
+    guides: 'guide',
+    guide: 'guide',
+    food: 'food',
+    events: 'event',
+    event: 'event',
+    transport: 'vehicle',
+    vehicle: 'vehicle',
+  }
+  const targetType = targetMap[category.toLowerCase()]
+  if (!targetType) return []
+  const campaigns = activeFeaturedCampaigns('category_spotlight', region, targetType).slice(0, 1)
+  for (const campaign of campaigns) {
+    if (targetType === 'food') {
+      const row = mockFood.find((x) => x.id === campaign.target_id)
+      if (row) return [{ ...row, is_featured_partner: true, partner_label: campaign.label, promotion_id: campaign.id }]
+    }
+    if (targetType === 'accommodation') {
+      const row = mockStays.find((x) => x.id === campaign.target_id)
+      if (row) {
+        return [{
+          ...enrichAccommodationListingRow(s, row),
+          is_featured_partner: true,
+          partner_label: campaign.label,
+          promotion_id: campaign.id,
+        }]
+      }
+    }
+  }
+  return []
+}
+
+function homepageFeaturedStays(s: MockState, region: string) {
+  return mergeFeaturedRail(s, 'homepage_stays', region, mockStays, (row) => enrichAccommodationListingRow(s, row))
+}
+
+const FEED_INJECT_INDICES = [2, 7]
+
+function buildMockListingCard(campaign: MockFeaturedCampaign) {
+  if (campaign.target_type === 'accommodation') {
+    const stay = mockStays.find((x) => x.id === campaign.target_id)
+    if (!stay) return null
+    return {
+      feed_item_type: 'sponsored_listing',
+      id: `sponsored-${campaign.id}-accommodation-${stay.id}`,
+      is_sponsored: true,
+      sponsor_label: campaign.label,
+      promotion_id: campaign.id,
+      listing_type: 'accommodation',
+      listing_id: stay.id,
+      listing_title: stay.title,
+      listing_subtitle: stay.city ? `${stay.city}, ${stay.region}` : stay.region,
+      listing_image: stay.cover_image,
+      listing_meta: stay.property_type || 'Stay',
+      listing_price: `From $${stay.price_per_night}/night`,
+      listing_href: `/accommodation/${stay.id}`,
+    }
+  }
+  if (campaign.target_type === 'guide') {
+    const guide = mockGuides.find((x) => x.id === campaign.target_id)
+    if (!guide) return null
+    return {
+      feed_item_type: 'sponsored_listing',
+      id: `sponsored-${campaign.id}-guide-${guide.id}`,
+      is_sponsored: true,
+      sponsor_label: campaign.label,
+      promotion_id: campaign.id,
+      listing_type: 'guide',
+      listing_id: guide.id,
+      listing_title: guide.headline,
+      listing_subtitle: (guide.regions || []).slice(0, 2).join(', ') || 'Local guide',
+      listing_image: guide.photo,
+      listing_meta: 'Local expert',
+      listing_price: guide.hourly_rate ? `From $${guide.hourly_rate}/hr` : 'View profile',
+      listing_href: `/guides/${guide.id}`,
+    }
+  }
+  return null
+}
+
+function injectMockFeedPromotions(
+  s: MockState,
+  organic: Record<string, unknown>[],
+  placement: string,
+  region: string,
+  requireDelvers: boolean | null,
+) {
+  const max = PLACEMENT_MAX_SLOTS[placement] ?? 2
+  const campaigns = activeFeaturedCampaigns(placement, region).slice(0, max)
+  const promoted: Record<string, unknown>[] = []
+  const promotedPostIds = new Set<number>()
+
+  for (const campaign of campaigns) {
+    if (campaign.target_type === 'post') {
+      const post = s.posts.find((p) => p.id === campaign.target_id && !p.is_hidden)
+      if (!post) continue
+      if (requireDelvers === true && !post.is_delvers) continue
+      if (requireDelvers === false && post.is_delvers) continue
+      if (promotedPostIds.has(post.id)) continue
+      promotedPostIds.add(post.id)
+      promoted.push({
+        ...withMeFlags(s, [post])[0],
+        feed_item_type: 'post',
+        is_sponsored: true,
+        sponsor_label: campaign.label,
+        promotion_id: campaign.id,
+      })
+      continue
+    }
+    const card = buildMockListingCard(campaign)
+    if (card) promoted.push(card)
+  }
+
+  let result = organic.filter((row) => !(typeof row.id === 'number' && promotedPostIds.has(row.id)))
+  for (let i = 0; i < promoted.length && i < FEED_INJECT_INDICES.length; i++) {
+    const at = FEED_INJECT_INDICES[i]
+    if (at <= result.length) result.splice(at, 0, promoted[i])
+    else result.push(promoted[i])
+  }
+  return result
+}
+
 function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[number]) {
   const likers = mockListingLikes.get(row.id)
   return {
@@ -342,6 +761,8 @@ function loadState(): MockState {
       const stored = JSON.parse(raw) as MockState
       // Always merge seed profiles so new demo accounts are available
       stored.profiles = { ...mockProfiles, ...stored.profiles }
+      stored.comments = stored.comments ?? {}
+      stored.nextCommentId = stored.nextCommentId ?? 1
       return stored
     } catch {
       // fallthrough
@@ -354,6 +775,8 @@ function loadState(): MockState {
     nextPostId: Math.max(...mockPosts.map((p) => p.id)) + 1,
     likes: {},
     saves: {},
+    comments: {},
+    nextCommentId: 1,
   }
   localStorage.setItem(KEY, JSON.stringify(seed))
   return seed
@@ -387,6 +810,10 @@ function withMeFlags(s: MockState, posts: MockPost[]) {
     liked_by_me: liked.has(p.id),
     saved_by_me: saved.has(p.id),
   }))
+}
+
+function visiblePosts(posts: MockPost[]) {
+  return posts.filter((p) => !p.is_hidden)
 }
 
 function textMatch(hay: string, needle: string) {
@@ -860,15 +1287,16 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   // ---- Social feeds ----
   if (pathname === '/api/social/feed/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
-    const posts = s.posts
+    const posts = visiblePosts(s.posts)
       .filter((p) => !p.is_delvers && !p.is_accommodation_story)
       .filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
     const ranked = [...posts].sort((a, b) => b.likes_count + b.saves_count - (a.likes_count + a.saves_count))
-    return withMeFlags(s, ranked).slice(0, 50)
+    const organic = withMeFlags(s, ranked).slice(0, 50) as Record<string, unknown>[]
+    return injectMockFeedPromotions(s, organic, 'community_feed', region, false)
   }
 
   if (pathname === '/api/social/accommodation-stories/' && method === 'GET') {
-    const list = s.posts
+    const list = visiblePosts(s.posts)
       .filter((p) => Boolean(p.is_accommodation_story) && (p.image || p.video))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, list).slice(0, 120)
@@ -876,16 +1304,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/social/delvers/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
-    const posts = s.posts.filter((p) => p.is_delvers && !p.is_accommodation_story).filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
+    const posts = visiblePosts(s.posts).filter((p) => p.is_delvers && !p.is_accommodation_story).filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
     const ranked = [...posts].sort((a, b) => b.saves_count - a.saves_count)
-    return withMeFlags(s, ranked).slice(0, 80)
+    const organic = withMeFlags(s, ranked).slice(0, 80) as Record<string, unknown>[]
+    return injectMockFeedPromotions(s, organic, 'delvers_feed', region, true)
   }
 
   const userPostsMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/posts\/$/)
   if (userPostsMatch && method === 'GET') {
     const slug = decodeURIComponent(userPostsMatch[1])
     const unLower = slug.toLowerCase()
-    const list = s.posts.filter((p) => p.author.username.toLowerCase() === unLower)
+    const list = visiblePosts(s.posts).filter((p) => p.author.username.toLowerCase() === unLower)
     const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, sorted).slice(0, 60)
   }
@@ -897,10 +1326,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!post) {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
+    if (post.is_hidden) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
     const board = (post.delvers_board || '').trim().toLowerCase()
     const regionLower = (post.region || '').trim().toLowerCase()
     const authorU = post.author.username.toLowerCase()
-    const others = s.posts.filter((p) => p.id !== id && !p.is_accommodation_story)
+    const others = visiblePosts(s.posts).filter((p) => p.id !== id && !p.is_accommodation_story)
     const ordered: typeof s.posts = []
     const seen = new Set<number>()
 
@@ -934,10 +1366,53 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (postDetailMatch && method === 'GET') {
     const id = Number(postDetailMatch[1])
     const post = s.posts.find((p) => p.id === id)
-    if (!post) {
+    if (!post || post.is_hidden) {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
     return withMeFlags(s, [post])[0]
+  }
+
+  const postCommentsMatch = pathname.match(/^\/api\/social\/posts\/(\d+)\/comments\/?$/)
+  if (postCommentsMatch) {
+    const id = Number(postCommentsMatch[1])
+    const post = s.posts.find((p) => p.id === id)
+    if (!post || post.is_hidden) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const key = String(id)
+    if (!s.comments[key]) s.comments[key] = []
+
+    if (method === 'GET') {
+      return s.comments[key].filter((c) => !c.is_hidden)
+    }
+
+    if (method === 'POST') {
+      requireAuth(s)
+      if (!isJsonBody(init?.body)) {
+        throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+      }
+      const body = JSON.parse(init.body) as { body?: string }
+      const text = (body.body || '').trim()
+      if (!text) {
+        throw new ApiError('Bad request', 400, { detail: 'Comment body is required.' })
+      }
+      const me = s.currentUser as string
+      const profile = s.profiles[me]
+      const comment: MockComment = {
+        id: s.nextCommentId++,
+        author: {
+          username: me,
+          display_name: profile.display_name || me,
+          avatar: profile.avatar,
+        },
+        body: text,
+        created_at: nowIso(),
+      }
+      s.comments[key].push(comment)
+      post.comments_count = (post.comments_count || 0) + 1
+      saveState(s)
+      return { detail: 'ok' }
+    }
   }
 
   if (pathname === '/api/social/posts/' && method === 'POST') {
@@ -1046,6 +1521,349 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     s.saves[me] = [...arr]
     saveState(s)
     return { saved: true }
+  }
+
+  // ---- Promotions ----
+  if (pathname === '/api/promotions/featured/stays' && method === 'GET') {
+    return homepageFeaturedStays(s, (q.get('region') || '').trim())
+  }
+  if (pathname === '/api/promotions/featured/guides' && method === 'GET') {
+    return mergeFeaturedRail(s, 'homepage_guides', (q.get('region') || '').trim(), mockGuides, (row) => ({ ...row }))
+  }
+  if (pathname === '/api/promotions/featured/food' && method === 'GET') {
+    return mergeFeaturedRail(s, 'homepage_food', (q.get('region') || '').trim(), mockFood, (row) => ({ ...row }))
+  }
+  if (pathname === '/api/promotions/featured/events' && method === 'GET') {
+    return mergeFeaturedRail(s, 'homepage_events', (q.get('region') || '').trim(), mockEvents, (row) => ({ ...row }))
+  }
+  if (pathname === '/api/promotions/featured/transport' && method === 'GET') {
+    return mergeFeaturedRail(s, 'homepage_transport', (q.get('region') || '').trim(), mockVehicles, (row) => ({ ...row }))
+  }
+  const spotlightMatch = pathname.match(/^\/api\/promotions\/spotlight\/([^/]+)$/)
+  if (spotlightMatch && method === 'GET') {
+    return categorySpotlightMock(s, (q.get('region') || '').trim(), spotlightMatch[1])
+  }
+
+  if (pathname === '/api/promotions/pricing/' && method === 'GET') {
+    return { pricing: PROMOTION_PRICING, note: 'Display only — payment is arranged offline.' }
+  }
+
+  if (pathname === '/api/promotions/track/' && method === 'POST') {
+    const body = JSON.parse(String(init.body)) as { promotion_id?: number; event?: string }
+    const id = Number(body.promotion_id)
+    const event = body.event
+    if (!id || !event) return { ok: false }
+    if (!mockPromotionMetrics[id]) mockPromotionMetrics[id] = { impressions: 0, clicks: 0, listing_opens: 0 }
+    if (event === 'impression') mockPromotionMetrics[id].impressions += 1
+    if (event === 'click') mockPromotionMetrics[id].clicks += 1
+    if (event === 'open') mockPromotionMetrics[id].listing_opens += 1
+    return { ok: true }
+  }
+
+  if (pathname === '/api/promotions/my/analytics/' && method === 'GET') {
+    requireAuth(s)
+    const rows = mockProviderPromotionRequests.map(enrichMockCampaign)
+    let impressions = 0
+    let clicks = 0
+    let listing_opens = 0
+    let spend_cents = 0
+    rows.forEach((c) => {
+      const m = mockPromotionMetrics[c.id] ?? { impressions: 0, clicks: 0, listing_opens: 0 }
+      impressions += m.impressions
+      clicks += m.clicks
+      listing_opens += m.listing_opens
+      if (c.payment_status === 'paid') spend_cents += c.amount_cents
+    })
+    Object.entries(mockPromotionMetrics).forEach(([id, m]) => {
+      if (rows.some((c) => c.id === Number(id))) return
+      impressions += m.impressions
+      clicks += m.clicks
+      listing_opens += m.listing_opens
+    })
+    const bookings = Math.max(0, Math.floor(listing_opens * 0.15))
+    return {
+      totals: {
+        impressions,
+        clicks,
+        listing_opens,
+        bookings,
+        ctr_pct: impressions ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+        spend_cents,
+        roi_proxy: spend_cents > 0 && bookings > 0 ? Math.round((bookings / (spend_cents / 100)) * 100) / 100 : null,
+      },
+      campaigns: rows.map((c) => {
+        const m = mockPromotionMetrics[c.id] ?? { impressions: 0, clicks: 0, listing_opens: 0 }
+        const ctr_pct = m.impressions ? Math.round((m.clicks / m.impressions) * 10000) / 100 : 0
+        return {
+          id: c.id,
+          target_label: c.target_label,
+          product_name: c.product_name,
+          status: c.status,
+          status_label: c.status_label,
+          starts_at: c.starts_at,
+          ends_at: c.ends_at,
+          impressions: m.impressions,
+          clicks: m.clicks,
+          listing_opens: m.listing_opens,
+          bookings: Math.floor(m.listing_opens * 0.15),
+          ctr_pct,
+          underperforming: m.impressions >= 50 && ctr_pct < 1,
+        }
+      }),
+    }
+  }
+
+  if (pathname === '/api/promotions/products/' && method === 'GET') {
+    let rows = [...MOCK_PROMOTION_PRODUCTS]
+    const placement = (q.get('placement') || '').trim()
+    const region = (q.get('region') || '').trim()
+    if (placement) rows = rows.filter((p) => p.placement === placement)
+    if (region) rows = rows.filter((p) => !p.region || p.region.toLowerCase() === region.toLowerCase())
+    return rows
+  }
+
+  if (pathname === '/api/promotions/purchase/' && method === 'POST') {
+    requireAuth(s)
+    const body = JSON.parse(String(init.body)) as {
+      product_id: number
+      target_type: string
+      target_id: string
+      target_label?: string
+      starts_at: string
+      provider_notes?: string
+    }
+    const product = MOCK_PROMOTION_PRODUCTS.find((p) => p.id === body.product_id)
+    if (!product) throw new ApiError('Bad request', 400, { product_id: 'Product not found.' })
+    const start = new Date(body.starts_at)
+    const end = new Date(start)
+    end.setDate(end.getDate() + product.duration_days)
+    const row = enrichMockCampaign({
+      id: providerPromotionIdCounter++,
+      placement: product.placement,
+      placement_label: product.placement_label,
+      target_type: body.target_type,
+      target_id: body.target_id,
+      target_label: body.target_label ?? '',
+      region: product.region,
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+      status: 'pending_payment',
+      status_label: 'Pending payment',
+      is_live: false,
+      label: product.placement === 'delvers_feed' ? 'Sponsored' : 'Featured Partner',
+      product_id: product.id,
+      product_name: product.name,
+      amount_cents: product.price_cents,
+      amount_display: product.price_display,
+      currency: product.currency,
+      payment_status: 'pending',
+      payment_status_label: 'Pending',
+      payment_provider: '',
+      payment_ref: '',
+      receipt_number: '',
+      paid_at: null,
+      refunded_at: null,
+      refund_amount_cents: 0,
+      refund_reason: '',
+      can_pay: true,
+      can_cancel: true,
+      refund_preview: { amount_cents: 0, amount_display: '', note: 'No payment to refund.' },
+      provider_notes: body.provider_notes ?? '',
+      rejection_reason: '',
+      created_at: new Date().toISOString(),
+    })
+    mockProviderPromotionRequests = [row, ...mockProviderPromotionRequests]
+    return row
+  }
+
+  const campaignMatch = pathname.match(/^\/api\/promotions\/campaigns\/(\d+)(\/receipt\/)?$/)
+  if (campaignMatch) {
+    requireAuth(s)
+    const id = Number(campaignMatch[1])
+    const isReceipt = Boolean(campaignMatch[2])
+    const idx = mockProviderPromotionRequests.findIndex((c) => c.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (method === 'GET' && isReceipt) {
+      const c = mockProviderPromotionRequests[idx]
+      if (c.payment_status !== 'paid') throw new ApiError('Bad request', 400, { detail: 'Receipt available after payment.' })
+      return {
+        receipt_number: c.receipt_number,
+        campaign_id: c.id,
+        product_name: c.product_name ?? c.placement_label,
+        target_label: c.target_label,
+        placement_label: c.placement_label,
+        region: c.region || 'National',
+        starts_at: c.starts_at,
+        ends_at: c.ends_at,
+        amount_cents: c.amount_cents,
+        amount_display: c.amount_display,
+        currency: c.currency,
+        payment_ref: c.payment_ref,
+        paid_at: c.paid_at,
+        payment_status: c.payment_status,
+        status: c.status,
+        status_label: c.status_label,
+      }
+    }
+    if (method === 'POST' && !isReceipt) {
+      const body = JSON.parse(String(init.body)) as { action?: string; reason?: string }
+      const c = mockProviderPromotionRequests[idx]
+      if (body.action === 'mock_pay') {
+        if (c.status !== 'pending_payment') throw new ApiError('Bad request', 400, { detail: 'Campaign is not awaiting payment.' })
+        const paidAt = new Date().toISOString()
+        const receipt = `DELVE-PR-${String(c.id).padStart(6, '0')}`
+        const ref = `mock_${Math.random().toString(16).slice(2, 18)}`
+        mockProviderPromotionRequests[idx] = enrichMockCampaign({
+          ...c,
+          status: 'scheduled',
+          status_label: 'Scheduled',
+          payment_status: 'paid',
+          payment_status_label: 'Paid',
+          payment_provider: 'mock',
+          payment_ref: ref,
+          receipt_number: receipt,
+          paid_at: paidAt,
+        })
+        const updated = mockProviderPromotionRequests[idx]
+        return {
+          campaign: updated,
+          receipt: {
+            receipt_number: receipt,
+            campaign_id: updated.id,
+            product_name: updated.product_name ?? updated.placement_label,
+            target_label: updated.target_label,
+            placement_label: updated.placement_label,
+            region: updated.region || 'National',
+            starts_at: updated.starts_at,
+            ends_at: updated.ends_at,
+            amount_cents: updated.amount_cents,
+            amount_display: updated.amount_display,
+            currency: updated.currency,
+            payment_ref: ref,
+            paid_at: paidAt,
+            payment_status: 'paid',
+            status: updated.status,
+            status_label: updated.status_label,
+          },
+          detail: 'Payment successful (mock).',
+        }
+      }
+      if (body.action === 'cancel') {
+        const preview = mockRefundPreview(c)
+        const refund = preview.amount_cents
+        mockProviderPromotionRequests[idx] = enrichMockCampaign({
+          ...c,
+          status: refund > 0 ? 'refunded' : 'cancelled',
+          status_label: refund > 0 ? 'Refunded' : 'Cancelled',
+          payment_status: refund > 0 ? 'refunded' : c.payment_status,
+          payment_status_label: refund > 0 ? 'Refunded' : c.payment_status_label,
+          refund_amount_cents: refund,
+          refund_reason: body.reason?.trim() || preview.note,
+          refunded_at: refund > 0 ? new Date().toISOString() : null,
+          can_pay: false,
+          can_cancel: false,
+        })
+        const updated = mockProviderPromotionRequests[idx]
+        return {
+          campaign: updated,
+          refund_amount_cents: refund,
+          refund_amount_display: preview.amount_display,
+          refund_note: preview.note,
+        }
+      }
+      throw new ApiError('Bad request', 400, { detail: 'Unknown action.' })
+    }
+  }
+
+  if (pathname === '/api/promotions/my/' && method === 'GET') {
+    requireAuth(s)
+    return mockProviderPromotionRequests
+      .filter((r) => r.status !== 'cancelled')
+      .map(enrichMockCampaign)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+
+  if (pathname === '/api/promotions/provider/listings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const rows: { target_type: string; target_id: string; label: string; region: string; city: string; category_label: string }[] = []
+    mockStays.filter((st) => st.owner_username === me).forEach((st) => {
+      rows.push({ target_type: 'accommodation', target_id: String(st.id), label: st.title, region: st.region, city: st.city, category_label: 'Stay' })
+    })
+    mockFood.filter((f) => f.owner_username === me).forEach((f) => {
+      rows.push({ target_type: 'food', target_id: String(f.id), label: f.name, region: f.region, city: f.city, category_label: 'Food & drink' })
+    })
+    mockGuides.filter((g) => g.username === me).forEach((g) => {
+      rows.push({ target_type: 'guide', target_id: String(g.id), label: g.headline, region: (g.regions || []).join(', '), city: '', category_label: 'Guide' })
+    })
+    mockEvents.filter((ev) => ev.organizer_username === me).forEach((ev) => {
+      rows.push({ target_type: 'event', target_id: String(ev.id), label: ev.title, region: ev.region, city: ev.city, category_label: 'Event' })
+    })
+    mockVehicles.filter((v) => v.owner_username === me).forEach((v) => {
+      rows.push({ target_type: 'vehicle', target_id: String(v.id), label: v.title || `${v.make} ${v.model}`, region: v.region, city: v.city, category_label: 'Vehicle' })
+    })
+    s.posts.filter((p) => p.author.username === me && p.is_delvers && !p.is_hidden).forEach((p) => {
+      rows.push({
+        target_type: 'post',
+        target_id: String(p.id),
+        label: (p.body || p.delvers_board || `Post #${p.id}`).slice(0, 80),
+        region: p.region,
+        city: '',
+        category_label: 'Delvers post',
+      })
+    })
+    return rows
+  }
+
+  if (pathname === '/api/promotions/requests/' && method === 'POST') {
+    requireAuth(s)
+    const body = JSON.parse(String(init.body)) as {
+      placement: string
+      target_type: string
+      target_id: string
+      target_label?: string
+      region?: string
+      starts_at: string
+      ends_at: string
+      provider_notes?: string
+    }
+    const row = enrichMockCampaign({
+      id: providerPromotionIdCounter++,
+      placement: body.placement,
+      placement_label: PLACEMENT_LABELS[body.placement] ?? body.placement,
+      target_type: body.target_type,
+      target_id: body.target_id,
+      target_label: body.target_label ?? '',
+      region: body.region ?? '',
+      starts_at: body.starts_at,
+      ends_at: body.ends_at,
+      status: 'requested',
+      status_label: 'Requested',
+      is_live: false,
+      label: body.placement === 'delvers_feed' ? 'Sponsored' : 'Featured Partner',
+      product_id: null,
+      product_name: null,
+      amount_cents: 0,
+      amount_display: '',
+      currency: 'NAD',
+      payment_status: 'pending',
+      payment_status_label: 'Pending',
+      payment_provider: '',
+      payment_ref: '',
+      receipt_number: '',
+      paid_at: null,
+      refunded_at: null,
+      refund_amount_cents: 0,
+      refund_reason: '',
+      can_pay: false,
+      can_cancel: false,
+      refund_preview: { amount_cents: 0, amount_display: '', note: 'No payment to refund.' },
+      provider_notes: body.provider_notes ?? '',
+      rejection_reason: '',
+      created_at: new Date().toISOString(),
+    })
+    mockProviderPromotionRequests = [row, ...mockProviderPromotionRequests]
+    return row
   }
 
   // ---- Accommodation ----
@@ -2200,7 +3018,36 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       events: mockEvents.filter((e) => textMatch(e.title, qq) || textMatch(e.region, qq)).slice(0, 8),
       food: mockFood.filter((f) => textMatch(f.name, qq) || textMatch(f.region, qq)).slice(0, 8),
       guides: mockGuides.filter((g) => textMatch(g.headline, qq)).slice(0, 8),
-      posts: withMeFlags(s, s.posts).filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq)).slice(0, 8),
+      posts: withMeFlags(s, visiblePosts(s.posts)).filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq)).slice(0, 8),
+    }
+  }
+
+  if (pathname === '/api/reports/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as {
+      target_type?: string
+      target_id?: string
+      target_label?: string
+      reason?: string
+      description?: string
+    }
+    if (!body.target_type || !body.target_id || !body.reason) {
+      throw new ApiError('Bad request', 400, { detail: 'target_type, target_id, and reason are required.' })
+    }
+    return {
+      id: Date.now(),
+      reporter_username: s.currentUser,
+      target_type: body.target_type,
+      target_id: body.target_id,
+      target_label: body.target_label || '',
+      reason: body.reason,
+      description: body.description || '',
+      status: 'new',
+      severity: 'medium',
+      created_at: nowIso(),
     }
   }
 

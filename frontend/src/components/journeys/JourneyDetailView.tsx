@@ -153,6 +153,11 @@ export function JourneyDetailView({
         saved={saved}
         onSave={onSave}
         onShare={onShare}
+        reportTarget={{
+          target_type: 'listing',
+          target_id: `journey:${journeyId}`,
+          target_label: trip.title,
+        }}
         actions={[
           {
             id: 'like',

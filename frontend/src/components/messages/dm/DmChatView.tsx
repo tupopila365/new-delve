@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Bot, Loader2, Send, UserRound } from 'lucide-react'
+import { ReportButton } from '../../report/ReportButton'
 import { DM_QUICK_REPLIES, formatMessageTime, PROVIDER_DM_QUICK_REPLIES, type AutomatedMessage } from './messagingUtils'
 import type { MessagingContext } from '../messageProviderUtils'
 import './dm-chat.css'
@@ -40,6 +41,7 @@ type Props = {
   showQuickReplies?: boolean
   context?: MessagingContext
   quickReplies?: readonly string[]
+  reportTarget?: { target_type: string; target_id: string; target_label?: string }
 }
 
 export function DmChatView({
@@ -62,6 +64,7 @@ export function DmChatView({
   showQuickReplies = true,
   context = 'user',
   quickReplies,
+  reportTarget,
 }: Props) {
   const location = [person.city, person.region].filter(Boolean).join(', ')
   const showAutomated = automatedMessages.length > 0 && messages.length === 0 && !loading
@@ -98,6 +101,14 @@ export function DmChatView({
             </small>
           </span>
         </Link>
+        {reportTarget ? (
+          <ReportButton
+            className="dm-chat__report"
+            iconOnly
+            triggerLabel="Report conversation"
+            target={reportTarget}
+          />
+        ) : null}
         <Link to={inboxHref} className="dm-chat__inbox">
           {inboxLabel}
         </Link>

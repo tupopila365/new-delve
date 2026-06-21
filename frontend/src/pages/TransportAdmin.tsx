@@ -332,7 +332,7 @@ export function TransportAdmin() {
             <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
             <span>Messages</span>
           </Link>
-        </div>
+      </div>
       </section>
 
       <ProviderUiStats columns={4} stats={stats} />
@@ -357,9 +357,9 @@ export function TransportAdmin() {
             <div className="transport-list">
               {vehicles.map((v) => (
                 <VehicleListingCard key={v.id} vehicle={v} canEdit={canManageListings} onEdit={() => openEditVehicle(v)} />
-              ))}
-            </div>
-          )}
+                        ))}
+                      </div>
+                    )}
           {canManageListings && vehicles.length > 0 ? (
             <button type="button" className="transport-add-btn" onClick={openCreateVehicle}>Add rental vehicle</button>
           ) : null}
@@ -421,7 +421,7 @@ export function TransportAdmin() {
                   </div>
                 </article>
               ))}
-            </div>
+                </div>
           )}
         </section>
       )}

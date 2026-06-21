@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '../../api/client'
 import { foodCoverSrc } from '../../utils/foodDisplay'
 import { Featured, type FeaturedItem } from '../Featured'
+import { FEATURED_API, useFeaturedPlacement } from '../../hooks/useFeaturedPlacement'
+import { partnerBadgeFields } from '../../utils/featuredPartner'
 
 type FoodVenue = {
   id: number
@@ -15,6 +15,8 @@ type FoodVenue = {
   rating_count?: number | null
   is_open?: boolean | null
   popular_dish?: string | null
+  is_featured_partner?: boolean
+  partner_label?: string
 }
 
 function cuisineLabel(value?: string | null) {
@@ -27,19 +29,15 @@ function priceLabel(level: number) {
 }
 
 export function FeaturedFood() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['featured-food-rail'],
-    queryFn: () => apiFetch<FoodVenue[]>('/api/food/venues/', { auth: false }),
-    staleTime: 45_000,
-  })
+  const { data, isLoading } = useFeaturedPlacement<FoodVenue>('featured-food-rail', FEATURED_API.food)
 
-  const items: FeaturedItem[] = (data ?? []).slice(0, 8).map((venue) => ({
+  const items: FeaturedItem[] = (data ?? []).map((venue) => ({
     id: venue.id,
     title: venue.name,
     href: `/food/${venue.id}`,
     image: foodCoverSrc(venue.cover_image, venue.cuisine),
     fallbackImage: foodCoverSrc(null, venue.cuisine),
-    eyebrow: venue.is_open === true ? 'Open now' : cuisineLabel(venue.cuisine),
+    ...partnerBadgeFields(venue, venue.is_open === true ? 'Open now' : cuisineLabel(venue.cuisine)),
     location: venue.city ? `${venue.city}, ${venue.region}` : venue.region,
     meta: venue.popular_dish ? `Known for ${venue.popular_dish}` : cuisineLabel(venue.cuisine),
     price: `${priceLabel(venue.price_level)} typical`,

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { MessageCircle, RefreshCw, UserRound } from 'lucide-react'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
+import { ReportButton } from './report/ReportButton'
 import '../delvers-comments-panel.css'
 
 type CommentAuthor = {
@@ -105,7 +106,19 @@ export function DelversCommentsPanel({ postId, open, count = 0 }: Props) {
                     <Link to={`/u/${encodeURIComponent(comment.author.username)}`}>{comment.author.username}</Link>{' '}
                     <span>{comment.body}</span>
                   </p>
-                  {comment.created_at ? <small>{formatCommentDate(comment.created_at)}</small> : null}
+                  <div className="ds-comments-panel__meta">
+                    {comment.created_at ? <small>{formatCommentDate(comment.created_at)}</small> : null}
+                    <ReportButton
+                      className="ds-comments-panel__report"
+                      iconOnly
+                      triggerLabel="Report comment"
+                      target={{
+                        target_type: 'comment',
+                        target_id: String(comment.id),
+                        target_label: comment.body.slice(0, 60),
+                      }}
+                    />
+                  </div>
                 </div>
               </li>
             )

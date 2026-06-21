@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { apiFetch, mediaUrl } from '../../api/client'
+import { mediaUrl } from '../../api/client'
 import { Featured, type FeaturedItem } from '../Featured'
+import { FEATURED_API, useFeaturedPlacement } from '../../hooks/useFeaturedPlacement'
+import { partnerBadgeFields } from '../../utils/featuredPartner'
 
 type Guide = {
   id: number
@@ -18,6 +19,8 @@ type Guide = {
   licensed_guide?: boolean
   response_hours_typical?: number | null
   tour_packages?: unknown[]
+  is_featured_partner?: boolean
+  partner_label?: string
 }
 
 const FALLBACK_GUIDE_PHOTO = '/images/default-journey.jpg'
@@ -31,14 +34,16 @@ function priceLabel(rate: string | null) {
   return `From $${rate}/hr`
 }
 
-export function FeaturedGuides() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['featured-guides-rail'],
-    queryFn: () => apiFetch<Guide[]>('/api/guides/profiles/', { auth: false }),
-    staleTime: 45_000,
-  })
+function guideEyebrow(guide: Guide) {
+  if (guide.licensed_guide) return 'Licensed guide'
+  if (guide.response_hours_typical != null && guide.response_hours_typical <= 3) return 'Fast response'
+  return 'Local expert'
+}
 
-  const items: FeaturedItem[] = (data ?? []).slice(0, 8).map((guide) => {
+export function FeaturedGuides() {
+  const { data, isLoading } = useFeaturedPlacement<Guide>('featured-guides-rail', FEATURED_API.guides)
+
+  const items: FeaturedItem[] = (data ?? []).map((guide) => {
     const regions = (guide.regions || []).slice(0, 2).join(' · ')
     const specs = (guide.specialities || []).slice(0, 2).join(' · ')
     const langs = (guide.languages || []).slice(0, 2).join(' · ')
@@ -48,7 +53,7 @@ export function FeaturedGuides() {
       href: `/guides/${guide.id}`,
       image: mediaUrl(guide.photo) || FALLBACK_GUIDE_PHOTO,
       fallbackImage: FALLBACK_GUIDE_PHOTO,
-      eyebrow: guide.licensed_guide ? 'Licensed guide' : guide.response_hours_typical != null && guide.response_hours_typical <= 3 ? 'Fast response' : 'Local expert',
+      ...partnerBadgeFields(guide, guideEyebrow(guide)),
       location: regions,
       meta: specs || langs || guideName(guide),
       price: priceLabel(guide.hourly_rate),

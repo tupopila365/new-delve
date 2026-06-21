@@ -12,6 +12,7 @@ import { ListSkeleton } from './ui'
 const NAV = [
   { to: '/provider', label: 'Overview', end: true },
   { to: '/provider/listings', label: 'Listings' },
+  { to: '/provider/promotions', label: 'Promotions' },
   { to: '/provider/bookings', label: 'Bookings' },
   { to: '/provider/messages', label: 'Messages' },
   { to: '/provider/reviews', label: 'Reviews' },

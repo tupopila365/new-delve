@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     "food",
     "guides",
     "messaging",
+    "reports",
+    "promotions",
 ]
 
 MIDDLEWARE = [

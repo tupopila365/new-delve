@@ -125,6 +125,11 @@ export function TourPackageDetailView({
         saved={saved}
         onSave={onSave}
         onShare={onShare}
+        reportTarget={{
+          target_type: 'listing',
+          target_id: `guide-package:${guideId}-${pkg.id}`,
+          target_label: pkg.title,
+        }}
         actions={[
           {
             id: 'view-guide',

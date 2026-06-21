@@ -30,6 +30,7 @@ export type MockPost = {
   delvers_board: string
   is_delvers: boolean
   is_accommodation_story?: boolean
+  is_hidden?: boolean
   listing?: { id: number; title: string } | null
   created_at: string
   likes_count: number

@@ -138,6 +138,10 @@ class BusinessProfile(models.Model):
     city = models.CharField(max_length=120, blank=True)
     onboarding_completed = models.BooleanField(default=False)
     transport_modes = models.JSONField(default=list, blank=True)
+    verification_notes = models.TextField(
+        blank=True,
+        help_text="Admin notes on verification decision (shown to provider later).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -206,6 +210,97 @@ class BusinessMembership(models.Model):
 
     def __str__(self):
         return f"{self.user.username} @ {self.business.business_name} ({self.role})"
+
+
+class AdminAuditLog(models.Model):
+    """Platform admin actions for accountability and activity feeds."""
+
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_audit_actions",
+    )
+    action = models.CharField(max_length=64)
+    target_type = models.CharField(max_length=32)
+    target_id = models.CharField(max_length=64)
+    detail = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action} on {self.target_type}:{self.target_id}"
+
+
+class PlatformBookingNote(models.Model):
+    """Internal admin notes on bookings (disputes, support follow-ups)."""
+
+    booking_type = models.CharField(max_length=32)
+    booking_id = models.PositiveIntegerField()
+    author = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="booking_admin_notes",
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["booking_type", "booking_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.booking_type}:{self.booking_id} note"
+
+
+DEFAULT_FEATURE_FLAGS = {
+    "delvers_social": True,
+    "new_bookings": True,
+    "provider_registration": True,
+    "maintenance_mode": False,
+}
+
+
+class PlatformSettings(models.Model):
+    """Singleton platform configuration (feature flags, announcements)."""
+
+    singleton_key = models.CharField(max_length=16, unique=True, default="default")
+    feature_flags = models.JSONField(default=dict, blank=True)
+    announcement_title = models.CharField(max_length=200, blank=True)
+    announcement_body = models.TextField(blank=True)
+    announcement_active = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="platform_settings_updates",
+    )
+
+    class Meta:
+        verbose_name_plural = "Platform settings"
+
+    def __str__(self):
+        return "Platform settings"
+
+    @classmethod
+    def load(cls) -> "PlatformSettings":
+        obj, _ = cls.objects.get_or_create(
+            singleton_key="default",
+            defaults={"feature_flags": DEFAULT_FEATURE_FLAGS.copy()},
+        )
+        merged = DEFAULT_FEATURE_FLAGS.copy()
+        merged.update(obj.feature_flags or {})
+        obj.feature_flags = merged
+        return obj
 
 
 def generate_username_suggestion(base: str) -> str:

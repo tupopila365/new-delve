@@ -325,7 +325,7 @@ export function GuidesAdmin() {
             <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
             <span>Messages</span>
           </Link>
-        </div>
+      </div>
       </section>
 
       <ProviderUiStats
@@ -399,7 +399,7 @@ export function GuidesAdmin() {
           {canManageListings && guide && packages.length > 0 ? (
             <button type="button" className="guide-add-btn" onClick={openCreatePackage}>
               Add tour package
-            </button>
+          </button>
           ) : null}
         </section>
       )}
@@ -435,7 +435,7 @@ export function GuidesAdmin() {
                       onAction={(action) => bookingActionMut.mutate({ id: b.id, action })}
                     />
                   ))}
-                </div>
+        </div>
               )}
             </>
           )}
