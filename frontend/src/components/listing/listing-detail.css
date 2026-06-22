@@ -741,6 +741,23 @@
   border: 1px solid var(--listing-border-soft);
 }
 
+.listing-moments__thumb--btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--listing-border-soft);
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.listing-moments__thumb--btn:focus-visible {
+  outline: 2px solid var(--accent-ring, rgba(232, 98, 10, 0.65));
+  outline-offset: 2px;
+}
+
 .listing-moments__thumb img {
   width: 100%;
   height: 100%;

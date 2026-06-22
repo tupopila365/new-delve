@@ -148,9 +148,10 @@ export function getProviderAnalytics(
   owner: string | undefined,
   businessTypes: string[],
   period: AnalyticsPeriod = '30d',
+  listingsOverride?: ProviderListing[],
 ): ProviderAnalyticsSnapshot {
   const scale = periodScale(period)
-  const listings = scopeListings(owner ?? '', businessTypes)
+  const listings = listingsOverride ?? scopeListings(owner ?? '', businessTypes)
   const bookings = scopeBookings(businessTypes)
   const bookingStats = getBookingStats(bookings)
 

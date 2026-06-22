@@ -7,6 +7,7 @@ import {
   MapPin,
   MessageCircle,
   Navigation,
+  Pencil,
   Sparkles,
   Ticket,
   UserRound,
@@ -25,7 +26,7 @@ import {
   ListingQuickInfo,
 } from '../listing'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
-import { VenueStoriesSection } from '../food/stories'
+import { ProviderStoriesRow } from '../ProviderStoriesRow'
 import {
   admissionLabel,
   buildEventDetailRows,
@@ -44,7 +45,7 @@ import {
   type EventDetail,
   type EventListItem,
 } from '../../utils/eventListing'
-import { buildEventStoryChannels } from './eventStoriesUtils'
+import { buildEventProviderStoryItems } from './eventStoriesUtils'
 import { EventDateShowcase } from './EventDateShowcase'
 import { EventOrganizerCard } from './EventOrganizerCard'
 import { EventRelatedSection } from './EventRelatedSection'
@@ -54,6 +55,7 @@ import './event-detail.css'
 type Props = {
   event: EventDetail
   eventId: string
+  editHref?: string
   saved: boolean
   onSave: () => void
   onShare: () => void
@@ -64,6 +66,7 @@ type Props = {
 export function EventDetailView({
   event,
   eventId,
+  editHref,
   saved,
   onSave,
   onShare,
@@ -94,8 +97,8 @@ export function EventDetailView({
   const mapHref = openStreetMapSearchUrl(event.venue ?? '', event.city ?? '', event.region)
   const gcalUrl = buildGoogleCalendarUrl(event)
 
-  const storyChannels = useMemo(
-    () => buildEventStoryChannels(event, { eventId, eventPath }),
+  const storyItems = useMemo(
+    () => buildEventProviderStoryItems(event, { eventId, eventPath }),
     [event, eventId, eventPath],
   )
 
@@ -199,6 +202,16 @@ export function EventDetailView({
           target_label: event.title,
         }}
         actions={[
+          ...(editHref
+            ? [
+                {
+                  id: 'edit',
+                  label: 'Edit event',
+                  icon: <Pencil size={14} strokeWidth={2.25} aria-hidden />,
+                  href: editHref,
+                },
+              ]
+            : []),
           {
             id: 'calendar',
             label: 'Add to calendar',
@@ -232,10 +245,9 @@ export function EventDetailView({
         className="ev-detail__quick-info acc-detail__quick-info"
       />
 
-      <VenueStoriesSection
-        listingName={event.title}
-        explorePath={eventPath}
-        channels={storyChannels}
+      <ProviderStoriesRow
+        items={storyItems}
+        ariaLabel="Event highlights"
         title="Feel the vibe"
         subtitle="The event, plan your night & venue — tap to watch"
         ctaLabel="View event"

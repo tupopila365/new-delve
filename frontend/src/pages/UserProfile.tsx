@@ -152,11 +152,13 @@ export function UserProfile() {
   })
 
   const { data: events, isLoading: loadingEvents } = useQuery({
-    queryKey: ['user-events', username],
+    queryKey: ['user-events', username, isMe],
     queryFn: () =>
-      apiFetch<UserEvent[]>(`/api/events/?organizer=${encodeURIComponent(username)}`).catch(
-        () => [] as UserEvent[],
-      ),
+      apiFetch<UserEvent[]>(
+        isMe
+          ? '/api/events/?mine=1'
+          : `/api/events/?organizer=${encodeURIComponent(username)}`,
+      ).catch(() => [] as UserEvent[]),
     enabled: Boolean(pub) && !profileNotFound && !isBlocked,
   })
 

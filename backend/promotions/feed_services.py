@@ -160,7 +160,7 @@ def _resolve_sponsored_listing(campaign, target_type: str) -> dict | None:
             subtitle=location,
             image=event.cover_image.name if event.cover_image else None,
             meta=event.get_category_display() if hasattr(event, "get_category_display") else event.category,
-            price="Free" if getattr(event, "is_free", False) else "View event",
+            price="Free" if event.is_free else (f"N${event.price}" if event.price else "View event"),
         )
 
     if target_type == PromotionTargetType.VEHICLE:

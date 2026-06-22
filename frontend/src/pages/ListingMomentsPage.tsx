@@ -20,7 +20,10 @@ export function ListingMomentsPage() {
       loading={isLoading}
       notFound={notFound || (!isLoading && !data && Boolean(error))}
     >
-      <ListingSeeAllMomentsView moments={data?.moments.moments ?? []} />
+      <ListingSeeAllMomentsView
+        moments={data?.moments.moments ?? []}
+        queryKey={['listing-moments', type, id]}
+      />
     </ListingSeeAllLayout>
   )
 }

@@ -180,7 +180,13 @@ def list_platform_listings(
                 rows.append(row)
 
     if not type_filter or type_filter == "event":
-        for item in Event.objects.select_related("organizer").order_by("-created_at")[:120]:
+        for item in Event.objects.select_related("organizer", "organizer__profile").order_by("-created_at")[:120]:
+            if item.is_free:
+                price_label = "Free"
+            elif item.price:
+                price_label = f"N${item.price}"
+            else:
+                price_label = ""
             row = _listing_row(
                 listing_type="event",
                 listing_id=item.pk,
@@ -189,7 +195,7 @@ def list_platform_listings(
                 region=item.region,
                 city=item.city,
                 published=item.is_published,
-                price_label="",
+                price_label=price_label,
                 category_label="Event",
                 created_at=item.created_at,
             )

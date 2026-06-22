@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { AccommodationCardsEnhancer } from './accommodation/AccommodationCardsEnhancer'
 import { FeaturedStays } from './accommodation/FeaturedStays'
+import { HostStoriesRow } from './HostStoriesRow'
 import { FoodCardsEnhancer } from './food/FoodCardsEnhancer'
 import { FeaturedFood } from './food/FeaturedFood'
 import { FeaturedGuides } from './guides/FeaturedGuides'
@@ -288,7 +289,7 @@ export function AppLayout() {
   const settingsPage = loc.pathname === '/settings'
   const createPage = loc.pathname === '/create'
   const createJourneyPage = loc.pathname === '/journeys/new'
-  const createEventPage = loc.pathname === '/events/new'
+  const createEventPage = loc.pathname === '/events/new' || /^\/events\/\d+\/edit$/.test(loc.pathname)
 
   if (providerMode || adminMode) {
     return (
@@ -317,6 +318,7 @@ export function AppLayout() {
               filterScope="stays"
             />
             <FeaturedStays />
+            <HostStoriesRow />
           </>
         ) : null}
         {foodPage ? (

@@ -178,6 +178,22 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+.listing-see-all__moment-thumb--btn {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: none;
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.listing-see-all__moment-thumb--btn:focus-visible {
+  outline: 2px solid rgba(232, 98, 10, 0.75);
+  outline-offset: 2px;
+}
+
 .listing-see-all__moment-thumb img {
   width: 100%;
   height: 100%;

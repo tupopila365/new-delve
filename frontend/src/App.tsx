@@ -23,6 +23,7 @@ import { GuideDetail } from './pages/GuideDetail'
 import { TourPackageDetail } from './pages/TourPackageDetail'
 import { GuidePackageBook } from './pages/GuidePackageBook'
 import { CreateEvent } from './pages/CreateEvent'
+import { EditEvent } from './pages/EditEvent'
 import { GuidesList } from './pages/GuidesList'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
@@ -107,6 +108,7 @@ export default function App() {
           <Route path="/transport/bus/:id" element={<BusTripDetail />} />
           <Route path="/events" element={<EventsList />} />
           <Route path="/events/new" element={<CreateEvent />} />
+          <Route path="/events/:id/edit" element={<EditEvent />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/food" element={<FoodList />} />
           <Route path="/food/:id" element={<FoodDetail />} />

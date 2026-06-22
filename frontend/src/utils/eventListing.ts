@@ -158,12 +158,21 @@ export function buildEventDetailRows(event: EventDetail): ListingDetailRow[] {
 
 export function buildEventMoments(event: EventDetail): ListingMomentItem[] {
   const cover = eventCoverSrc(event.cover_image, event.category)
+  const cat = categoryMeta(event.category)
+  const altCover = eventCoverSrc(null, event.category)
   return [
     {
       id: 'm1',
       image: cover,
       author: 'localguide',
       body: 'Saved this for the weekend — who else is going?',
+      taggedListing: event.title,
+    },
+    {
+      id: 'm3',
+      image: altCover,
+      author: 'localguide',
+      body: `${cat.label} night — great energy and a friendly crowd.`,
       taggedListing: event.title,
     },
     {

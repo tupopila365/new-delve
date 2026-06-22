@@ -13,7 +13,10 @@ export function useFeaturedPlacement<T extends FeaturedPartnerFields>(
 ) {
   return useQuery({
     queryKey: [queryKey],
-    queryFn: () => apiFetch<T[]>(url, { auth: false }),
+    queryFn: async () => {
+      const raw = await apiFetch<unknown>(url, { auth: false })
+      return Array.isArray(raw) ? (raw as T[]) : []
+    },
     staleTime: 45_000,
   })
 }

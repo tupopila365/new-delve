@@ -10,7 +10,8 @@ import {
   ProviderUiPage,
   ProviderUiStats,
 } from '../components/provider/ui'
-import { getListingStats, getProviderListings, type ListingCategory } from '../data/providerData'
+import { getListingStats, type ListingCategory } from '../data/providerData'
+import { useProviderListings } from '../hooks/useProviderListings'
 import { categoryModuleLinks, listingTypeChips, listingsPageSubtitle } from '../utils/providerCategories'
 
 const STATUS_FILTERS = [
@@ -30,7 +31,7 @@ export function ProviderListings() {
   const moduleLinks = useMemo(() => categoryModuleLinks(businessTypes), [businessTypes])
   const addListingTo = moduleLinks[0]?.to ?? '/provider/stays'
 
-  const allListings = useMemo(() => getProviderListings(owner), [owner])
+  const allListings = useProviderListings(owner)
   const stats = getListingStats(allListings)
 
   const [search, setSearch] = useState('')

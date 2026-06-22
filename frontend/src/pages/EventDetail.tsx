@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, Ticket } from 'lucide-react'
 import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EventDetailView } from '../components/events'
 import { EmptyState } from '../components/ui'
@@ -15,6 +16,7 @@ const DEFAULT_QUESTIONS = [
 
 export function EventDetail() {
   const { id } = useParams()
+  const { profile } = useAuth()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
 
@@ -90,6 +92,11 @@ export function EventDetail() {
       <EventDetailView
         event={data}
         eventId={id}
+        editHref={
+          profile?.username && data.organizer_username === profile.username
+            ? `/events/${id}/edit`
+            : undefined
+        }
         saved={saved}
         onSave={() => setSaved((v) => !v)}
         onShare={() => onShare(data.title)}

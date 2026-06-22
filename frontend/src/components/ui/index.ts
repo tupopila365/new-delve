@@ -1,4 +1,5 @@
 export { EmptyState } from './EmptyState'
 export { PageHeader } from './PageHeader'
+export { PageBottomCta } from './PageBottomCta'
 export { PremiumCard } from './PremiumCard'
 export { ListSkeleton } from './ListSkeleton'

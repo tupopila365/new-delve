@@ -1,111 +1,56 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { mediaUrl } from '../api/client'
 import { buildHostAccommodationSlides } from '../data/hostAccommodationStories'
-import type { StorySlide } from '../data/homeStories'
 import { mockHostAccommodationStoryPins } from '../mocks/mockData'
-import { StoryViewer } from './StoryViewer'
+import { ProviderStoriesRow, type ProviderStoryItem } from './ProviderStoriesRow'
 
-type StoryAuthor = {
-  username: string
-  display_name: string
-  avatar: string | null
-  slides: StorySlide[]
-}
-
-function avatarInitial(name: string) {
-  const w = name.trim()
-  return w ? w.charAt(0).toUpperCase() : '?'
-}
-
-function labelForUser(displayName: string, username: string) {
+function hostLabel(displayName: string, username: string) {
   const d = displayName.trim()
-  if (!d || d.toLowerCase() === username.toLowerCase()) {
-    return `@${username}`
-  }
-  return d.length > 14 ? `${d.slice(0, 13)}…` : d
+  if (!d || d.toLowerCase() === username.toLowerCase()) return `@${username}`
+  return d
 }
 
-/** Story rings on Places to stay — uses static mock pins (no network). */
+/** Host stories on the stays page. */
 export function HostStoriesRow() {
-  const [openUser, setOpenUser] = useState<string | null>(null)
-
   const pins = mockHostAccommodationStoryPins
 
-  const authors = useMemo(() => {
+  const items = useMemo((): ProviderStoryItem[] => {
     const map = new Map<string, typeof pins>()
     for (const p of pins) {
       const u = p.author.username
       if (!map.has(u)) map.set(u, [])
       map.get(u)!.push(p)
     }
-    const rows: (StoryAuthor & { latest: number })[] = []
+
+    const rows: (ProviderStoryItem & { latest: number })[] = []
     for (const [, userPosts] of map) {
       const slides = buildHostAccommodationSlides(userPosts)
       if (slides.length === 0) continue
       const first = userPosts[0]
+      const username = first.author.username
+      const displayName = first.author.display_name || username
       const latest = Math.max(...userPosts.map((x) => new Date(x.created_at || 0).getTime()))
       rows.push({
-        username: first.author.username,
-        display_name: first.author.display_name || first.author.username,
-        avatar: first.author.avatar ?? null,
+        id: username,
+        label: hostLabel(displayName, username),
+        channelLabel: `@${username}`,
+        explorePath: `/u/${encodeURIComponent(username)}`,
+        coverSrc: first.author.avatar ? mediaUrl(first.author.avatar) || null : null,
+        fallbackInitial: displayName,
         slides,
         latest,
       })
     }
+
     rows.sort((a, b) => b.latest - a.latest)
-    return rows.slice(0, 36).map(({ username, display_name, avatar, slides }) => ({
-      username,
-      display_name,
-      avatar,
-      slides,
-    }))
+    return rows.slice(0, 12).map(({ latest: _latest, ...item }) => item)
   }, [pins])
 
-  const active = openUser ? authors.find((a) => a.username === openUser) : null
-
-  if (authors.length === 0) {
-    return null
-  }
-
   return (
-    <>
-      <div className="stories-row acc-host-stories-row" aria-label="Hosts — tap a ring for their stories (demo)">
-        {authors.map((a) => {
-          const name = a.display_name || a.username
-          const initial = avatarInitial(name)
-          const label = labelForUser(a.display_name, a.username)
-          return (
-            <button
-              key={a.username}
-              type="button"
-              className="story-bubble story-bubble--btn acc-host-story-bubble"
-              onClick={() => setOpenUser(a.username)}
-            >
-              <div className="story-bubble__ring">
-                <div className={`story-bubble__inner${a.avatar ? ' story-bubble__inner--avatar' : ''}`} aria-hidden>
-                  {a.avatar ? (
-                    <img src={mediaUrl(a.avatar) || ''} alt="" className="story-bubble__avatar-img" />
-                  ) : (
-                    <span>{initial}</span>
-                  )}
-                </div>
-              </div>
-              <span className="story-bubble__label">{label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {active && (
-        <StoryViewer
-          open
-          onClose={() => setOpenUser(null)}
-          channelLabel={`@${active.username}`}
-          explorePath={`/u/${encodeURIComponent(active.username)}`}
-          slides={active.slides}
-          ctaLabel="View host"
-        />
-      )}
-    </>
+    <ProviderStoriesRow
+      items={items}
+      ariaLabel="Host stories"
+      ctaLabel="View host"
+    />
   )
 }

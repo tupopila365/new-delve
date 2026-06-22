@@ -1,4 +1,5 @@
-import { mockStays, mockGuides, mockVehicles, mockFood, mockEvents } from '../mocks/mockData'
+import { mockStays, mockGuides, mockVehicles, mockFood } from '../mocks/mockData'
+import type { EventListing } from '../utils/eventDisplay'
 
 export type ListingCategory = 'Stay' | 'Guide' | 'Transport' | 'Food' | 'Event'
 export type ListingStatus = 'published' | 'draft' | 'needs_update' | 'pending_review' | 'suspended'
@@ -70,7 +71,28 @@ function demoBookings(seed: number | string) {
   return n % 8
 }
 
-export function getProviderListings(owner?: string): ProviderListing[] {
+export function eventToProviderListing(e: EventListing & { is_published?: boolean }): ProviderListing {
+  return {
+    id: `event-${e.id}`,
+    title: e.title,
+    category: 'Event',
+    status: e.is_published === false ? 'draft' : e.cover_image ? 'published' : 'needs_update',
+    city: e.city ?? e.venue ?? '',
+    region: e.region ?? '',
+    price: e.is_free ? 'Free' : e.price ? `N$${e.price}` : 'Paid',
+    rating: '—',
+    ratingCount: 0,
+    bookings: demoBookings(e.id),
+    views: demoViews(e.id),
+    updated: 'Recently',
+    healthIssue: !e.cover_image ? 'Add event poster' : undefined,
+    image: e.cover_image,
+    publicPath: `/events/${e.id}`,
+    editPath: `/events/${e.id}/edit`,
+  }
+}
+
+export function getProviderMockListings(owner?: string): ProviderListing[] {
   if (!owner) return []
 
   const stays = mockStays
@@ -163,28 +185,13 @@ export function getProviderListings(owner?: string): ProviderListing[] {
       editPath: '/provider/food',
     }))
 
-  const events = mockEvents
-    .filter((e) => e.organizer_username === owner)
-    .map((e) => ({
-      id: `event-${e.id}`,
-      title: e.title,
-      category: 'Event' as const,
-      status: e.cover_image ? ('published' as const) : ('draft' as const),
-      city: e.venue,
-      region: '',
-      price: e.is_free ? 'Free' : e.price ? `N$${e.price}` : 'Paid',
-      rating: '—',
-      ratingCount: 0,
-      bookings: demoBookings(e.id),
-      views: demoViews(e.id),
-      updated: '5 days ago',
-      healthIssue: !e.cover_image ? 'Add event poster' : undefined,
-      image: e.cover_image,
-      publicPath: `/events/${e.id}`,
-      editPath: '/events/new',
-    }))
+  return [...stays, ...guides, ...vehicles, ...food]
+}
 
-  return [...stays, ...guides, ...vehicles, ...food, ...events]
+export function getProviderListings(owner?: string, apiEvents: EventListing[] = []): ProviderListing[] {
+  const mock = getProviderMockListings(owner)
+  if (!owner) return mock
+  return [...mock, ...apiEvents.map((e) => eventToProviderListing(e))]
 }
 
 const DEMO_BOOKINGS: ProviderBooking[] = [

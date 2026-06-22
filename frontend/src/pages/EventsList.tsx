@@ -14,11 +14,11 @@ import {
 } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { EventListingCard } from '../components/events/EventListingCard'
+import { EventListingCard, EventStoriesRow } from '../components/events'
 import { JourneySectionHead } from '../components/journeys/JourneySectionHead'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 import { QuickFilterChips, SearchPanel } from '../components/marketplace'
-import { EmptyState, ListSkeleton } from '../components/ui'
+import { EmptyState, ListSkeleton, PageBottomCta } from '../components/ui'
 import { useEventEngagement } from '../hooks/useEventEngagement'
 import { CATEGORY_OPTIONS, categoryMeta, type EventListing } from '../utils/eventDisplay'
 
@@ -128,6 +128,8 @@ export function EventsList() {
     }).length
   }, [events])
 
+  const storyEvents = useMemo(() => displayEvents.slice(0, 6), [displayEvents])
+
   const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
     return [
       {
@@ -206,6 +208,10 @@ export function EventsList() {
           </button>
         ))}
       </div>
+
+      {!isLoading && !isError && storyEvents.length > 0 ? (
+        <EventStoriesRow events={storyEvents} />
+      ) : null}
 
       <div className="disc-page__layout ev-page__layout">
         <main className="disc-page__main ev-page__main">
@@ -308,14 +314,15 @@ export function EventsList() {
           ) : null}
 
           {!isLoading && !isError && displayEvents.length > 0 ? (
-            <section className="ev-page__bottom-cta" aria-labelledby="ev-cta-title">
-              <h2 id="ev-cta-title">Hosting something local?</h2>
-              <p>Share your market, workshop, concert, or meetup so travellers can find it.</p>
-              <Link to={profile ? '/events/new' : '/login'} className="btn btn-primary">
-                <Plus size={16} strokeWidth={2.5} aria-hidden />
-                {profile ? 'Create event' : 'Sign in to create'}
-              </Link>
-            </section>
+            <PageBottomCta
+              title="Hosting something local?"
+              description="Share your market, workshop, concert, or meetup so travellers can find it."
+              action={{
+                label: profile ? 'Create event' : 'Sign in to create',
+                to: profile ? '/events/new' : '/login',
+                icon: <Plus size={16} strokeWidth={2.5} aria-hidden />,
+              }}
+            />
           ) : null}
         </main>
 

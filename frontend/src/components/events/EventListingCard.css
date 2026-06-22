@@ -273,35 +273,6 @@
   text-decoration: none;
 }
 
-.ev-page__bottom-cta {
-  display: grid;
-  gap: 8px;
-  margin-top: 22px;
-  padding: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  text-align: center;
-}
-
-.ev-page__bottom-cta h2 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.ev-page__bottom-cta p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.84rem;
-  line-height: 1.4;
-}
-
-.ev-page__bottom-cta .btn {
-  justify-self: center;
-  margin-top: 4px;
-}
-
 .ev-page__category-sync {
   display: none;
 }

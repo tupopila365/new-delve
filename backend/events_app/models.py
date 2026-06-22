@@ -30,6 +30,14 @@ class Event(models.Model):
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     cover_image = models.ImageField(upload_to="events/", blank=True, null=True)
+    is_free = models.BooleanField(default=False)
+    price = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="Admission price amount (e.g. 150); UI prefixes currency.",
+    )
+    ticket_url = models.URLField(blank=True)
+    capacity = models.PositiveIntegerField(null=True, blank=True)
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

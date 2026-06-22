@@ -16,8 +16,8 @@ import {
   getBookingStats,
   getListingStats,
   getProviderBookings,
-  getProviderListings,
 } from '../data/providerData'
+import { useProviderListings } from '../hooks/useProviderListings'
 import { categoriesForBusinessTypes } from '../utils/providerCategories'
 
 export function ProviderDashboard() {
@@ -26,7 +26,7 @@ export function ProviderDashboard() {
   const businessTypes = activeBusiness?.business_types ?? []
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
 
-  const listings = getProviderListings(owner)
+  const listings = useProviderListings(owner)
   const allBookings = getProviderBookings()
   const bookings = useMemo(() => {
     if (allowedCategories.length === 0) return allBookings
@@ -37,8 +37,8 @@ export function ProviderDashboard() {
   const bookingStats = getBookingStats(bookings)
   const attention = getAttentionItems(listings, bookings)
   const analytics = useMemo(
-    () => getProviderAnalytics(owner, businessTypes, '30d'),
-    [owner, businessTypes],
+    () => getProviderAnalytics(owner, businessTypes, '30d', listings),
+    [owner, businessTypes, listings],
   )
 
   return (

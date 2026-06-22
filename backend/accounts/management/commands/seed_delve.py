@@ -517,17 +517,40 @@ class Command(BaseCommand):
                     },
                 )
 
-        if not Event.objects.filter(title="Windhoek Night Market").exists():
-            Event.objects.create(
-                organizer=u1,
-                title="Windhoek Night Market",
-                description="Food trucks, live music, local makers.",
-                category=EventCategory.FOOD,
-                starts_at=timezone.now() + timedelta(days=5),
-                venue="Warehouse district",
-                region="Khomas",
-                city="Windhoek",
-            )
+        Event.objects.update_or_create(
+            title="Windhoek Night Market",
+            defaults={
+                "organizer": u1,
+                "description": "Food trucks, live music, local makers.",
+                "category": EventCategory.FOOD,
+                "starts_at": timezone.now() + timedelta(days=5),
+                "venue": "Warehouse district",
+                "region": "Khomas",
+                "city": "Windhoek",
+                "is_free": True,
+                "price": "",
+                "capacity": 500,
+                "is_published": True,
+            },
+        )
+
+        Event.objects.update_or_create(
+            title="Coastal Sunset Picnic",
+            defaults={
+                "organizer": u2,
+                "description": "Golden hour views and chill beats by the sea.",
+                "category": EventCategory.MUSIC,
+                "starts_at": timezone.now() + timedelta(days=8),
+                "venue": "Swakopmund shore",
+                "region": "Erongo",
+                "city": "Swakopmund",
+                "is_free": False,
+                "price": "150",
+                "ticket_url": "https://example.com/tickets/coastal-sunset",
+                "capacity": 200,
+                "is_published": True,
+            },
+        )
 
         if not FoodVenue.objects.filter(name="Oryx Grill House").exists():
             FoodVenue.objects.create(

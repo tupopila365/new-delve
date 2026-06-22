@@ -1,4 +1,5 @@
 import type { VenueStoryChannel, VenueStorySlide } from '../food/stories/types'
+import type { ProviderStoryItem } from '../ProviderStoriesRow'
 import {
   admissionLabel,
   buildEventGalleryImages,
@@ -11,6 +12,52 @@ import {
   organizerLabel,
   type EventDetail,
 } from '../../utils/eventListing'
+
+export function eventSlideToStorySlide(slide: VenueStorySlide) {
+  return slide
+}
+
+export function buildEventSpotlightChannel(
+  event: EventDetail,
+  options: { eventId: string; eventPath?: string },
+): VenueStoryChannel | null {
+  const eventPath = options.eventPath ?? `/events/${options.eventId}`
+  const cover = eventCoverSrc(event.cover_image, event.category)
+  const channels = buildEventStoryChannels(event, { eventId: options.eventId, eventPath })
+
+  if (channels.length === 0) {
+    return {
+      id: `spotlight-${event.id}`,
+      label: event.title,
+      coverSrc: cover,
+      slides: [
+        {
+          id: `${event.id}-intro`,
+          kind: 'image',
+          src: cover,
+          headline: event.title,
+          sub: eventLocationLine(event),
+          ctaPath: eventPath,
+          ctaLabel: 'View event',
+        },
+      ],
+    }
+  }
+
+  const slides = channels
+    .map((channel) => channel.slides[0])
+    .filter((slide): slide is VenueStorySlide => !!slide)
+    .slice(0, 5)
+
+  if (slides.length === 0) return null
+
+  return {
+    id: `spotlight-${event.id}`,
+    label: event.title,
+    coverSrc: cover,
+    slides,
+  }
+}
 
 export function buildEventStoryChannels(
   event: EventDetail,
@@ -106,4 +153,19 @@ export function buildEventStoryChannels(
   }
 
   return channels
+}
+
+export function buildEventProviderStoryItems(
+  event: EventDetail,
+  options: { eventId: string; eventPath?: string },
+): ProviderStoryItem[] {
+  const eventPath = options.eventPath ?? `/events/${options.eventId}`
+  return buildEventStoryChannels(event, { eventId: options.eventId, eventPath }).map((channel) => ({
+    id: channel.id,
+    label: channel.label,
+    channelLabel: `${event.title} · ${channel.label}`,
+    explorePath: eventPath,
+    coverSrc: channel.coverSrc,
+    slides: channel.slides.map(eventSlideToStorySlide),
+  }))
 }

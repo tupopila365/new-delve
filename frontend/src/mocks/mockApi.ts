@@ -801,6 +801,11 @@ function parseQuery(path: string) {
   return { pathname: u.pathname, q: u.searchParams }
 }
 
+function featuredPromotionPath(pathname: string, segment: string): boolean {
+  const base = `/api/promotions/featured/${segment}`
+  return pathname === base || pathname === `${base}/`
+}
+
 function withMeFlags(s: MockState, posts: MockPost[]) {
   const me = s.currentUser
   const liked = me ? new Set(s.likes[me] || []) : new Set<number>()
@@ -1524,22 +1529,22 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   // ---- Promotions ----
-  if (pathname === '/api/promotions/featured/stays' && method === 'GET') {
+  if (featuredPromotionPath(pathname, 'stays') && method === 'GET') {
     return homepageFeaturedStays(s, (q.get('region') || '').trim())
   }
-  if (pathname === '/api/promotions/featured/guides' && method === 'GET') {
+  if (featuredPromotionPath(pathname, 'guides') && method === 'GET') {
     return mergeFeaturedRail(s, 'homepage_guides', (q.get('region') || '').trim(), mockGuides, (row) => ({ ...row }))
   }
-  if (pathname === '/api/promotions/featured/food' && method === 'GET') {
+  if (featuredPromotionPath(pathname, 'food') && method === 'GET') {
     return mergeFeaturedRail(s, 'homepage_food', (q.get('region') || '').trim(), mockFood, (row) => ({ ...row }))
   }
-  if (pathname === '/api/promotions/featured/events' && method === 'GET') {
+  if (featuredPromotionPath(pathname, 'events') && method === 'GET') {
     return mergeFeaturedRail(s, 'homepage_events', (q.get('region') || '').trim(), mockEvents, (row) => ({ ...row }))
   }
-  if (pathname === '/api/promotions/featured/transport' && method === 'GET') {
+  if (featuredPromotionPath(pathname, 'transport') && method === 'GET') {
     return mergeFeaturedRail(s, 'homepage_transport', (q.get('region') || '').trim(), mockVehicles, (row) => ({ ...row }))
   }
-  const spotlightMatch = pathname.match(/^\/api\/promotions\/spotlight\/([^/]+)$/)
+  const spotlightMatch = pathname.match(/^\/api\/promotions\/spotlight\/([^/]+)\/?$/)
   if (spotlightMatch && method === 'GET') {
     return categorySpotlightMock(s, (q.get('region') || '').trim(), spotlightMatch[1])
   }
@@ -2525,14 +2530,84 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/events/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const category = (q.get('category') || '').trim()
-    return mockEvents
+    const organizer = (q.get('organizer') || '').trim()
+    const mine = (q.get('mine') || '').trim().toLowerCase()
+    let rows = mockEvents
+    if (mine === '1' || mine === 'true' || mine === 'yes') {
+      requireAuth(s)
+      rows = rows.filter((e) => e.organizer_username === s.currentUser)
+    } else if (organizer) {
+      rows = rows.filter((e) => textMatch(e.organizer_username, organizer))
+    }
+    return rows
       .filter((e) => (region ? textMatch(e.region, region) || textMatch(e.city, region) : true))
       .filter((e) => (category ? e.category === category : true))
+  }
+  if (pathname === '/api/events/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const profile = s.profiles[me]
+    const fd = init.body instanceof FormData ? init.body : null
+    const get = (key: string) => (fd ? String(fd.get(key) || '').trim() : '')
+    const nextId = mockEvents.reduce((max, e) => Math.max(max, e.id), 0) + 1
+    const isFree = get('is_free') === 'true'
+    const capRaw = get('capacity')
+    const capNum = capRaw ? Number.parseInt(capRaw, 10) : NaN
+    const created = {
+      id: nextId,
+      title: get('title'),
+      description: get('description'),
+      category: get('category') || 'other',
+      starts_at: get('starts_at') || new Date().toISOString(),
+      ends_at: get('ends_at') || null,
+      venue: get('venue'),
+      region: get('region'),
+      city: get('city'),
+      cover_image: null as string | null,
+      organizer_username: me,
+      organizer_display_name: profile?.display_name || me,
+      is_free: isFree,
+      price: isFree ? undefined : get('price') || undefined,
+      ticket_url: get('ticket_url') || undefined,
+      capacity: Number.isFinite(capNum) && capNum > 0 ? capNum : undefined,
+      is_published: true,
+    }
+    mockEvents.push(created as (typeof mockEvents)[0])
+    return { id: created.id }
   }
   const eventMatch = pathname.match(/^\/api\/events\/(\d+)\/$/)
   if (eventMatch && method === 'GET') {
     const id = Number(eventMatch[1])
     return mockEvents.find((e) => e.id === id) || { detail: 'Not found' }
+  }
+  if (eventMatch && (method === 'PATCH' || method === 'PUT')) {
+    requireAuth(s)
+    const id = Number(eventMatch[1])
+    const ev = mockEvents.find((e) => e.id === id)
+    if (!ev) return { detail: 'Not found' }
+    const me = s.currentUser as string
+    if (ev.organizer_username !== me) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const fd = init.body instanceof FormData ? init.body : null
+    const get = (key: string) => (fd ? String(fd.get(key) || '').trim() : '')
+    if (get('title')) ev.title = get('title')
+    if (fd?.has('description')) ev.description = get('description')
+    if (get('category')) ev.category = get('category')
+    if (get('starts_at')) ev.starts_at = get('starts_at')
+    if (fd?.has('ends_at')) ev.ends_at = get('ends_at') || null
+    if (fd?.has('venue')) ev.venue = get('venue')
+    if (fd?.has('city')) ev.city = get('city')
+    if (fd?.has('region')) ev.region = get('region')
+    if (fd?.has('is_free')) {
+      ev.is_free = get('is_free') === 'true'
+      if (ev.is_free) ev.price = undefined
+    }
+    if (fd?.has('price') && !ev.is_free) ev.price = get('price') || undefined
+    if (fd?.has('ticket_url')) ev.ticket_url = get('ticket_url') || undefined
+    if (fd?.has('capacity')) {
+      const capNum = Number.parseInt(get('capacity'), 10)
+      ev.capacity = Number.isFinite(capNum) && capNum > 0 ? capNum : undefined
+    }
+    return { ...ev }
   }
 
   // ---- Food ----
