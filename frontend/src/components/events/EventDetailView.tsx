@@ -15,7 +15,6 @@ import {
 } from 'lucide-react'
 import { DetailLayout } from '../detail'
 import {
-  ListingAskSection,
   ListingBookBar,
   ListingDelversMoments,
   ListingDetails,
@@ -24,15 +23,17 @@ import {
   ListingIdentityHeader,
   ListingLocationCard,
   ListingQuickInfo,
+  ListingReviews,
 } from '../listing'
+import type { ListingMomentItem } from '../listing/types'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
+import type { ReviewItem } from '../GuestReviewCard'
 import { ProviderStoriesRow } from '../ProviderStoriesRow'
 import {
   admissionLabel,
   buildEventDetailRows,
   buildEventGalleryImages,
   buildEventHighlights,
-  buildEventMoments,
   buildEventTrustHighlights,
   buildGoogleCalendarUrl,
   categoryMeta,
@@ -45,10 +46,13 @@ import {
   type EventDetail,
   type EventListItem,
 } from '../../utils/eventListing'
+import { externalTicketHref, resolveTicketingMode } from '../../utils/eventTicketing'
 import { buildEventProviderStoryItems } from './eventStoriesUtils'
+import { EventAskSection } from './EventAskSection'
 import { EventDateShowcase } from './EventDateShowcase'
 import { EventOrganizerCard } from './EventOrganizerCard'
 import { EventRelatedSection } from './EventRelatedSection'
+import { EventReviewForm } from './EventReviewForm'
 import { EventTicketCard } from './EventTicketCard'
 import './event-detail.css'
 
@@ -60,7 +64,25 @@ type Props = {
   onSave: () => void
   onShare: () => void
   relatedEvents: EventListItem[]
-  initialQuestions?: ListingQuestionItem[]
+  moments?: ListingMomentItem[]
+  questions?: ListingQuestionItem[]
+  questionsLoading?: boolean
+  canAnswerQuestions?: boolean
+  reviews?: ReviewItem[]
+  reviewRating?: string | number | null
+  reviewCount?: number | null
+  showReviewForm?: boolean
+  myBookingId?: number | null
+  ticketQr?: { booking_ref: string; qr_payload: string } | null
+  attending?: boolean
+  rsvpPending?: boolean
+  bookingStatus?: string
+  bookingTotal?: string | number | null
+  mockPaymentRef?: string | null
+  payPending?: boolean
+  onRsvp?: () => void
+  onCancelRsvp?: () => void
+  onPay?: () => void
 }
 
 export function EventDetailView({
@@ -71,7 +93,25 @@ export function EventDetailView({
   onSave,
   onShare,
   relatedEvents,
-  initialQuestions,
+  moments = [],
+  questions = [],
+  questionsLoading = false,
+  canAnswerQuestions = false,
+  reviews = [],
+  reviewRating,
+  reviewCount,
+  showReviewForm = false,
+  myBookingId,
+  ticketQr,
+  attending = false,
+  rsvpPending = false,
+  bookingStatus,
+  bookingTotal,
+  mockPaymentRef,
+  payPending = false,
+  onRsvp,
+  onCancelRsvp,
+  onPay,
 }: Props) {
   const cat = categoryMeta(event.category)
   const CatIcon = cat.Icon
@@ -84,7 +124,7 @@ export function EventDetailView({
   const locationLine = eventLocationLine(event)
   const cityLine = [event.city, event.region].filter(Boolean).join(', ')
   const hasLocation = Boolean(event.venue?.trim() || event.city || event.region)
-  const hasTicketing = Boolean(event.ticket_url?.trim())
+  const ticketingMode = resolveTicketingMode(event)
   const priceLabel = admissionLabel(event)
   const countdown = eventCountdownLabel(event.starts_at)
   const eventPath = `/events/${eventId}`
@@ -93,7 +133,6 @@ export function EventDetailView({
   const trustHighlights = buildEventTrustHighlights(event)
   const highlightLabels = buildEventHighlights(event)
   const detailRows = buildEventDetailRows(event)
-  const delversMoments = buildEventMoments(event)
   const mapHref = openStreetMapSearchUrl(event.venue ?? '', event.city ?? '', event.region)
   const gcalUrl = buildGoogleCalendarUrl(event)
 
@@ -154,11 +193,28 @@ export function EventDetailView({
     .filter(Boolean)
     .join(' · ')
 
-  const bookAction = hasTicketing ? (
-    <a href={event.ticket_url!} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+  const bookAction = attending ? (
+    bookingStatus === 'pending' && onPay ? (
+      <button type="button" className="btn btn-primary" onClick={onPay}>
+        <Ticket size={16} strokeWidth={2.25} aria-hidden />
+        Pay now
+      </button>
+    ) : (
+      <Link to="#event-ticket-panel" className="btn btn-primary">
+        <Ticket size={16} strokeWidth={2.25} aria-hidden />
+        You're going
+      </Link>
+    )
+  ) : ticketingMode === 'external' ? (
+    <a href={externalTicketHref(eventId)} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
       <Ticket size={16} strokeWidth={2.25} aria-hidden />
       Get tickets
     </a>
+  ) : onRsvp ? (
+    <button type="button" className="btn btn-primary" onClick={onRsvp} disabled={rsvpPending}>
+      <Ticket size={16} strokeWidth={2.25} aria-hidden />
+      {resolveTicketingMode(event) === 'on_platform' ? `Reserve · N$${event.price}` : 'RSVP'}
+    </button>
   ) : (
     <Link to={organizerProfileHref} className="btn btn-primary">
       <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
@@ -288,21 +344,56 @@ export function EventDetailView({
               listingType="event"
               listingId={eventId}
               title="Delvers moments from this event"
-              moments={delversMoments}
+              moments={moments}
               className="ev-detail__moments acc-detail__moments"
               showWhenEmpty
-              emptyMessage="Photos and tips will appear after people attend this event."
+              emptyMessage="Be the first to share a moment from this event."
+            />
+            <p className="ev-detail__moment-cta">
+              <Link to={`/events/${eventId}/moment/new`} className="text-link">
+                Share your event moment
+              </Link>
+            </p>
+
+            <ListingReviews
+              reviews={reviews}
+              listingType="event"
+              listingId={eventId}
+              rating={reviewRating}
+              count={reviewCount}
+              className="acc-detail__section"
+              emptyMessage="Reviews appear after attendees check in."
             />
 
-            <ListingAskSection
+            {showReviewForm && myBookingId ? (
+              <EventReviewForm bookingId={myBookingId} eventId={eventId} />
+            ) : null}
+
+            <EventAskSection
+              eventId={eventId}
               className="ev-detail__comments acc-detail__comments"
               title="Questions and local tips"
-              placeholder="Ask about parking, tickets, dress code, food, or arrival time…"
-              initialQuestions={initialQuestions}
+              questions={questions}
+              isLoading={questionsLoading}
+              canAnswer={canAnswerQuestions}
             />
           </>
         }
-        sidebar={<EventTicketCard event={event} />}
+        sidebar={
+          <EventTicketCard
+            event={event}
+            attending={attending}
+            rsvpPending={rsvpPending}
+            bookingStatus={bookingStatus}
+            bookingTotal={bookingTotal}
+            mockPaymentRef={mockPaymentRef}
+            payPending={payPending}
+            onRsvp={onRsvp}
+            onCancelRsvp={onCancelRsvp}
+            onPay={onPay}
+            ticketQr={ticketQr}
+          />
+        }
       />
 
       <ListingBookBar

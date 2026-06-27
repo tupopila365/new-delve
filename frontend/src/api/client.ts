@@ -34,6 +34,11 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH)
 }
 
+/** Coerce list API responses — mocks and misconfigured endpoints may return objects. */
+export function asArray<T>(data: unknown): T[] {
+  return Array.isArray(data) ? data : []
+}
+
 type Json = Record<string, unknown> | unknown[] | null
 
 export class ApiError extends Error {

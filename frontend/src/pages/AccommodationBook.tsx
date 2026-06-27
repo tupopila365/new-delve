@@ -126,6 +126,8 @@ export function AccommodationBook() {
       checkOut,
       guests,
       maxGuests,
+      listingId: id!,
+      roomTypeName: selectedRoom?.name,
     })
 
     if (result.available) {
@@ -136,7 +138,7 @@ export function AccommodationBook() {
       setUnavailableReason(result.reason)
       setShowDateFields(true)
     }
-  }, [checkIn, checkOut, guests, maxGuests])
+  }, [checkIn, checkOut, guests, maxGuests, id, selectedRoom?.name])
 
   const hasPrefilledDates = Boolean(searchParams.get('check_in') && searchParams.get('check_out'))
 

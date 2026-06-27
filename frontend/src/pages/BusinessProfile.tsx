@@ -20,7 +20,9 @@ import {
   type BusinessType,
 } from '../data/businessProfiles'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
-import { mockStays, mockGuides, mockVehicles, mockFood, mockEvents } from '../mocks/mockData'
+import { mockStays, mockGuides, mockVehicles, mockFood } from '../mocks/mockData'
+import type { EventListing } from '../utils/eventDisplay'
+import { eventLocationLine, eventPriceLabel } from '../utils/eventDisplay'
 import {
   BusinessProfileHero,
   BusinessProfileSection,
@@ -92,6 +94,12 @@ export function BusinessProfile() {
     enabled: Boolean(id),
   })
 
+  const { data: businessEvents = [] } = useQuery({
+    queryKey: ['business-events', business?.id],
+    queryFn: () => apiFetch<EventListing[]>(`/api/events/?business=${business!.id}`, { auth: false }),
+    enabled: Boolean(business?.id),
+  })
+
   const profileExtras = business ? findBusinessById(business.id) : undefined
 
   const listings = useMemo(() => {
@@ -158,22 +166,21 @@ export function BusinessProfile() {
         })
       })
 
-    mockEvents
-      .filter((e) => e.organizer_username === owner)
-      .forEach((e) => {
-        items.push({
-          id: e.id,
-          kind: 'events',
-          title: e.title,
-          subtitle: e.venue,
-          image: e.cover_image ? mediaUrl(e.cover_image) || e.cover_image : null,
-          href: `/events/${e.id}`,
-          Icon: KIND_ICONS.events,
-        })
+    businessEvents.forEach((e) => {
+      items.push({
+        id: e.id,
+        kind: 'events',
+        title: e.title,
+        subtitle: eventLocationLine(e),
+        image: e.cover_image ? mediaUrl(e.cover_image) || e.cover_image : null,
+        href: `/events/${e.id}`,
+        meta: eventPriceLabel(e) ?? undefined,
+        Icon: KIND_ICONS.events,
       })
+    })
 
     return items
-  }, [business])
+  }, [business, businessEvents])
 
   const allowedKinds = useMemo(() => {
     if (!business) return new Set<Exclude<ServiceTab, 'all'>>()

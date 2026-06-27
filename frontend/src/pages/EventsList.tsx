@@ -68,45 +68,20 @@ export function EventsList() {
     const p = new URLSearchParams()
     if (category) p.set('category', category)
     if (search) p.set('search', search)
+    if (whenFilter) p.set('when', whenFilter)
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [category, search])
+  }, [category, search, whenFilter])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['events', qs],
-    queryFn: () => apiFetch<EventListing[]>(`/api/events/${qs}`, { auth: false }),
+    queryKey: ['events', qs, profile?.username ?? ''],
+    queryFn: () => apiFetch<EventListing[]>(`/api/events/${qs}`, { auth: Boolean(profile) }),
   })
 
   const events = data ?? []
   const engagement = useEventEngagement(events)
 
-  const displayEvents = useMemo(() => {
-    let list = events
-    const now = new Date()
-    if (whenFilter === 'today') {
-      list = list.filter((e) => {
-        const d = new Date(e.starts_at)
-        return !Number.isNaN(d.getTime()) && d.toDateString() === now.toDateString()
-      })
-    }
-    if (whenFilter === 'weekend') {
-      const day = now.getDay()
-      const daysUntilSat = (6 - day + 7) % 7
-      const sat = new Date(now)
-      sat.setDate(now.getDate() + daysUntilSat)
-      sat.setHours(0, 0, 0, 0)
-      const sun = new Date(sat)
-      sun.setDate(sat.getDate() + 1)
-      const mon = new Date(sun)
-      mon.setDate(sun.getDate() + 1)
-      list = list.filter((e) => {
-        const d = new Date(e.starts_at)
-        return !Number.isNaN(d.getTime()) && d >= sat && d < mon
-      })
-    }
-    if (whenFilter === 'free') list = list.filter((e) => e.is_free)
-    return list
-  }, [events, whenFilter])
+  const displayEvents = events
 
   const hasFilters = !!(category || search || whenFilter)
 

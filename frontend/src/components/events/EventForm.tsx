@@ -189,22 +189,41 @@ export function EventForm({
           Tickets &amp; entry
         </h2>
 
-        <label className="ce-form__toggle">
-          <input
-            type="checkbox"
-            checked={state.isFree}
-            onChange={(e) => {
-              onChange({ isFree: e.target.checked, ...(e.target.checked ? { price: '' } : {}) })
-            }}
-          />
-          <span className="ce-form__toggle-box" aria-hidden />
-          <span className="ce-form__toggle-label">Free entry</span>
-        </label>
+        <fieldset className="ce-form__fieldset">
+          <legend className="ce-form__label">How do people get in?</legend>
+          <label className="ce-form__radio">
+            <input
+              type="radio"
+              name="ticketingMode"
+              checked={state.ticketingMode === 'free'}
+              onChange={() => onChange({ ticketingMode: 'free', price: '', ticketUrl: '' })}
+            />
+            Free entry — RSVP on DELVE
+          </label>
+          <label className="ce-form__radio">
+            <input
+              type="radio"
+              name="ticketingMode"
+              checked={state.ticketingMode === 'on_platform'}
+              onChange={() => onChange({ ticketingMode: 'on_platform', ticketUrl: '' })}
+            />
+            Sell on DELVE — mock payment (price required)
+          </label>
+          <label className="ce-form__radio">
+            <input
+              type="radio"
+              name="ticketingMode"
+              checked={state.ticketingMode === 'external'}
+              onChange={() => onChange({ ticketingMode: 'external' })}
+            />
+            External ticket link — we track clicks
+          </label>
+        </fieldset>
 
-        {!state.isFree ? (
+        {state.ticketingMode === 'on_platform' ? (
           <div className="ce-form__field">
             <label className="ce-form__label" htmlFor="ce-price">
-              Price <span className="ce-form__label-opt">N$ amount</span>
+              Price per ticket <span aria-hidden>*</span>
             </label>
             <input
               id="ce-price"
@@ -216,24 +235,46 @@ export function EventForm({
               onChange={(e) => onChange({ price: e.target.value.replace(/[^\d.]/g, '') })}
               maxLength={32}
               autoComplete="off"
+              required
             />
           </div>
         ) : null}
 
-        <div className="ce-form__field">
-          <label className="ce-form__label" htmlFor="ce-ticket-url">
-            Ticket link <span className="ce-form__label-opt">optional</span>
-          </label>
-          <input
-            id="ce-ticket-url"
-            type="url"
-            className="input ce-form__input"
-            placeholder="https://tickets.example.com/your-event"
-            value={state.ticketUrl}
-            onChange={(e) => onChange({ ticketUrl: e.target.value })}
-            autoComplete="off"
-          />
-        </div>
+        {state.ticketingMode === 'external' ? (
+          <>
+            <div className="ce-form__field">
+              <label className="ce-form__label" htmlFor="ce-ticket-url">
+                Ticket link <span aria-hidden>*</span>
+              </label>
+              <input
+                id="ce-ticket-url"
+                type="url"
+                className="input ce-form__input"
+                placeholder="https://tickets.example.com/your-event"
+                value={state.ticketUrl}
+                onChange={(e) => onChange({ ticketUrl: e.target.value })}
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div className="ce-form__field">
+              <label className="ce-form__label" htmlFor="ce-price-display">
+                Display price <span className="ce-form__label-opt">optional</span>
+              </label>
+              <input
+                id="ce-price-display"
+                type="text"
+                inputMode="decimal"
+                className="input ce-form__input"
+                placeholder="150"
+                value={state.price}
+                onChange={(e) => onChange({ price: e.target.value.replace(/[^\d.]/g, '') })}
+                maxLength={32}
+                autoComplete="off"
+              />
+            </div>
+          </>
+        ) : null}
 
         <div className="ce-form__field">
           <label className="ce-form__label" htmlFor="ce-capacity">

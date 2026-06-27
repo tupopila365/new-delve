@@ -1,29 +1,103 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
-import { useParams } from 'react-router-dom'
-import { apiFetch } from '../api/client'
+import { useNavigate, useParams } from 'react-router-dom'
+import { apiFetch, asArray } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { AccommodationDetailView } from '../components/accommodation'
 import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
+import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
+import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
+import type { ListingMomentItem } from '../components/listing/types'
+import { useToggleStaySave } from '../hooks/useStaySave'
 import type { AccommodationListing } from '../utils/accommodationListing'
+import { postsToStayMoments, type StayMomentPost } from '../utils/stayMoments'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 
-const DEFAULT_QUESTIONS = [
-  { id: 's1', author: 'Mila K.', body: 'Is early check-in possible?', ago: '2d ago' },
-  { id: 's2', author: 'Alex R.', body: 'How far is the nearest shop on foot?', ago: '5d ago' },
-]
+type StayQuestionApi = {
+  id: number
+  author: string
+  body: string
+  ago: string
+  answers?: { id: number; author: string; body: string; ago: string; is_official?: boolean }[]
+}
+
+type StayReviewsResponse = {
+  reviews: ReviewItem[]
+  rating_avg: number
+  rating_count: number
+}
 
 export function AccommodationDetail() {
   const { id } = useParams()
-  const [saved, setSaved] = useState(false)
+  const navigate = useNavigate()
+  const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
   const [shareMsg, setShareMsg] = useState('')
+  const saveMut = useToggleStaySave()
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['acc', id],
+    queryKey: ['acc', id, profile?.username ?? 'anon'],
     enabled: !!id,
-    queryFn: () => apiFetch<AccommodationListing>(`/api/accommodation/listings/${id}/`, { auth: false }),
+    queryFn: () =>
+      apiFetch<AccommodationListing>(`/api/accommodation/listings/${id}/`, {
+        auth: Boolean(profile),
+      }),
   })
+
+  const { data: momentPostsRaw } = useQuery({
+    queryKey: ['stay-moments', id],
+    queryFn: () => apiFetch<StayMomentPost[]>(`/api/accommodation/listings/${id}/moments/`, { auth: false }),
+    enabled: Boolean(id),
+  })
+  const momentPosts = asArray<StayMomentPost>(momentPostsRaw)
+
+  const { data: questionsRaw, isLoading: loadingQuestions } = useQuery({
+    queryKey: ['stay-questions', id],
+    queryFn: () => apiFetch<StayQuestionApi[]>(`/api/accommodation/listings/${id}/questions/`, { auth: false }),
+    enabled: Boolean(id),
+  })
+  const questionRows = asArray<StayQuestionApi>(questionsRaw)
+
+  const { data: reviewsData } = useQuery({
+    queryKey: ['stay-reviews', id],
+    queryFn: () => apiFetch<StayReviewsResponse>(`/api/accommodation/listings/${id}/reviews/`, { auth: false }),
+    enabled: Boolean(id),
+  })
+
+  const questions = useMemo((): ListingQuestionItem[] => {
+    return questionRows.map((q) => ({
+      id: q.id,
+      author: q.author,
+      body: q.body,
+      ago: q.ago,
+      answers: (q.answers ?? []).map((a) => ({
+        id: a.id,
+        author: a.author,
+        body: a.body,
+        ago: a.ago,
+        isOfficial: a.is_official,
+      })),
+    }))
+  }, [questionRows])
+
+  const moments = useMemo(
+    () => (data ? postsToStayMoments(momentPosts, data.title) : []),
+    [momentPosts, data],
+  )
+
+  const reviews = useMemo(
+    () => normalizeReviews(reviewsData?.reviews ?? []),
+    [reviewsData?.reviews],
+  )
+
+  const canAnswer =
+    Boolean(profile) &&
+    Boolean(data) &&
+    (profile?.username === data?.owner_username ||
+      (canManageListings && activeBusiness?.owner_username === data?.owner_username))
 
   const onShare = async (title: string) => {
     try {
@@ -34,6 +108,15 @@ export function AccommodationDetail() {
       setShareMsg('Copy failed')
       window.setTimeout(() => setShareMsg(''), 1600)
     }
+  }
+
+  const onSave = () => {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    if (!id) return
+    saveMut.mutate(Number(id))
   }
 
   if (isLoading) {
@@ -72,16 +155,25 @@ export function AccommodationDetail() {
     )
   }
 
+  const ratingAvg = reviewsData?.rating_avg ?? data.rating_avg
+  const ratingCount = reviewsData?.rating_count ?? data.rating_count
+
   return (
     <DetailPage prefix="acc-detail-page" className="td" toast={shareMsg || null}>
       <PromotionOpenTracker />
       <AccommodationDetailView
         data={data}
         listingId={id}
-        saved={saved}
-        onSave={() => setSaved((v) => !v)}
+        saved={Boolean(data.saved_by_me)}
+        onSave={onSave}
         onShare={() => onShare(data.title)}
-        initialQuestions={DEFAULT_QUESTIONS}
+        questions={questions}
+        loadingQuestions={loadingQuestions}
+        canAnswerQuestions={canAnswer}
+        moments={moments}
+        reviews={reviews}
+        ratingAvg={ratingAvg != null ? String(ratingAvg) : undefined}
+        ratingCount={ratingCount}
       />
     </DetailPage>
   )

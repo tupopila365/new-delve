@@ -5,8 +5,10 @@ import {
   getProviderBookings,
   getProviderListings,
   type ListingCategory,
+  type ProviderBooking,
   type ProviderListing,
 } from './providerData'
+import type { EventMonetizationApi } from '../hooks/useProviderEventData'
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d'
 
@@ -224,7 +226,7 @@ export function getProviderAnalytics(
       category: l.category,
       views: Math.round(l.views * scale),
       bookings: Math.round(l.bookings * scale) || l.bookings,
-      likes: demoLikes(l.id),
+      likes: Math.max(0, Math.round(l.views / 3)),
       rating: l.rating,
       publicPath: l.publicPath,
     }))
@@ -271,5 +273,238 @@ export function getProviderAnalytics(
     funnel,
     topListings,
     topPosts,
+  }
+}
+
+export function enrichAnalyticsWithEventApi(
+  snapshot: ProviderAnalyticsSnapshot,
+  eventApi: EventMonetizationApi | undefined,
+  eventListings: ProviderListing[],
+  eventBookings: ProviderBooking[],
+): ProviderAnalyticsSnapshot {
+  if (!eventApi && eventBookings.length === 0 && eventListings.length === 0) {
+    return snapshot
+  }
+
+  const eventRevenue =
+    eventApi?.on_platform_revenue ??
+    eventBookings
+      .filter((b) => !['cancelled', 'refunded'].includes(b.status))
+      .reduce((s, b) => s + b.total, 0)
+
+  const eventBookingRequests = eventApi?.total_bookings ?? eventBookings.length
+  const eventConfirmed =
+    eventApi?.confirmed_bookings ??
+    eventBookings.filter((b) => ['confirmed', 'checked_in'].includes(b.status)).length
+
+  const externalClicks = eventApi?.external_ticket_clicks ?? 0
+  const eventListingViews = eventListings.reduce((s, l) => s + l.views, 0)
+
+  const nonEventBookingsByCategory = snapshot.bookingsByCategory.filter((r) => r.label !== 'Event')
+  const nonEventTopListings = snapshot.topListings.filter((l) => l.category !== 'Event')
+  const nonEventEngagement = snapshot.engagementByType.filter((r) => r.label !== 'Event')
+
+  const eventTopFromApi: TopListingMetric[] = (eventApi?.events ?? []).map((ev) => ({
+    id: `event-${ev.id}`,
+    title: ev.title,
+    category: 'Event',
+    views: ev.external_clicks + ev.bookings * 3,
+    bookings: ev.confirmed_bookings || ev.bookings,
+    likes: ev.external_clicks,
+    rating: '—',
+    publicPath: `/events/${ev.id}`,
+  }))
+
+  const eventTopFromListings: TopListingMetric[] = eventListings.map((l) => ({
+    id: l.id,
+    title: l.title,
+    category: l.category,
+    views: l.views,
+    bookings: l.bookings,
+    likes: Math.max(0, Math.round(l.views / 3)),
+    rating: l.rating,
+    publicPath: l.publicPath,
+  }))
+
+  const eventTopSorted = [...(eventTopFromApi.length > 0 ? eventTopFromApi : eventTopFromListings)]
+    .sort((a, b) => b.views + b.bookings * 20 - (a.views + a.bookings * 20))
+    .slice(0, 5)
+
+  const mockEventCategory = snapshot.bookingsByCategory.find((r) => r.label === 'Event')
+  const eventCategoryValue = eventBookingRequests || mockEventCategory?.value || 0
+  const bookingsByCategory = [
+    ...nonEventBookingsByCategory,
+    ...(eventCategoryValue > 0 ? [{ label: 'Event', value: eventCategoryValue, pct: 100 }] : []),
+  ]
+  const maxCategory = Math.max(1, ...bookingsByCategory.map((r) => r.value))
+  for (const row of bookingsByCategory) {
+    row.pct = Math.round((row.value / maxCategory) * 100)
+  }
+
+  const engagementByType = [
+    ...nonEventEngagement,
+    ...(eventListingViews + externalClicks > 0
+      ? [{ label: 'Event', value: eventListingViews + externalClicks, pct: 100 }]
+      : []),
+  ]
+  const maxEngagement = Math.max(1, ...engagementByType.map((r) => r.value))
+  for (const row of engagementByType) {
+    row.pct = Math.round((row.value / maxEngagement) * 100)
+  }
+
+  const listingViews =
+    snapshot.summary.listingViews -
+    (snapshot.topListings.filter((l) => l.category === 'Event').reduce((s, l) => s + l.views, 0)) +
+    eventListingViews +
+    externalClicks
+  const bookingRequests =
+    snapshot.summary.bookingRequests - (mockEventCategory?.value ?? 0) + eventBookingRequests
+  const confirmedBookings =
+    snapshot.summary.confirmedBookings -
+    Math.min(mockEventCategory?.value ?? 0, snapshot.summary.confirmedBookings) +
+    eventConfirmed
+  const adjustedRevenue = snapshot.summary.revenue + eventRevenue
+
+  const funnel = snapshot.funnel.map((step) => {
+    if (step.id === 'listings') return { ...step, value: Math.max(listingViews, step.value) }
+    if (step.id === 'requests') return { ...step, value: bookingRequests }
+    if (step.id === 'confirmed') return { ...step, value: confirmedBookings }
+    return step
+  })
+
+  return {
+    ...snapshot,
+    summary: {
+      ...snapshot.summary,
+      listingViews: Math.max(listingViews, eventListingViews),
+      bookingRequests,
+      confirmedBookings,
+      revenue: adjustedRevenue,
+      conversionRate:
+        listingViews > 0
+          ? Math.round((bookingRequests / listingViews) * 1000) / 10
+          : snapshot.summary.conversionRate,
+    },
+    bookingsByCategory,
+    engagementByType,
+    funnel,
+    topListings: [...eventTopSorted, ...nonEventTopListings].slice(0, 5),
+  }
+}
+
+function filterBookingsByPeriod(bookings: ProviderBooking[], period: AnalyticsPeriod): ProviderBooking[] {
+  const days = PERIOD_DAYS[period] ?? 30
+  const cutoff = Date.now() - days * 86400000
+  return bookings.filter((b) => {
+    if (!b.requestedAt) return true
+    const t = new Date(b.requestedAt).getTime()
+    return Number.isNaN(t) || t >= cutoff
+  })
+}
+
+export function enrichAnalyticsWithStayApi(
+  snapshot: ProviderAnalyticsSnapshot,
+  stayListings: ProviderListing[],
+  stayBookings: ProviderBooking[],
+  period: AnalyticsPeriod = '30d',
+): ProviderAnalyticsSnapshot {
+  if (stayBookings.length === 0 && stayListings.length === 0) {
+    return snapshot
+  }
+
+  const scopedBookings = filterBookingsByPeriod(stayBookings, period)
+  const stayRevenue = scopedBookings
+    .filter((b) => ['confirmed', 'checked_in', 'checked_out'].includes(b.status))
+    .reduce((s, b) => s + b.total, 0)
+  const stayBookingRequests = scopedBookings.length
+  const stayConfirmed = scopedBookings.filter((b) =>
+    ['confirmed', 'checked_in', 'checked_out'].includes(b.status),
+  ).length
+  const stayListingViews = stayListings.reduce((s, l) => s + l.views, 0)
+  const stayEngagement = stayListings.reduce((s, l) => s + l.views, 0)
+
+  const nonStayBookingsByCategory = snapshot.bookingsByCategory.filter((r) => r.label !== 'Stay')
+  const nonStayTopListings = snapshot.topListings.filter((l) => l.category !== 'Stay')
+  const nonStayEngagement = snapshot.engagementByType.filter((r) => r.label !== 'Stay')
+
+  const bookingsByListing = new Map<string, number>()
+  for (const b of scopedBookings) {
+    bookingsByListing.set(b.service, (bookingsByListing.get(b.service) ?? 0) + 1)
+  }
+
+  const stayTopFromListings: TopListingMetric[] = stayListings.map((l) => ({
+    id: l.id,
+    title: l.title,
+    category: l.category,
+    views: l.views,
+    bookings: bookingsByListing.get(l.title) ?? l.bookings,
+    likes: Math.max(0, Math.round(l.views / 3)),
+    rating: l.rating,
+    publicPath: l.publicPath,
+  }))
+
+  const stayTopSorted = [...stayTopFromListings]
+    .sort((a, b) => b.views + b.bookings * 20 - (a.views + a.bookings * 20))
+    .slice(0, 5)
+
+  const mockStayCategory = snapshot.bookingsByCategory.find((r) => r.label === 'Stay')
+  const stayCategoryValue = stayBookingRequests || mockStayCategory?.value || 0
+  const bookingsByCategory = [
+    ...nonStayBookingsByCategory,
+    ...(stayCategoryValue > 0 ? [{ label: 'Stay', value: stayCategoryValue, pct: 100 }] : []),
+  ]
+  const maxCategory = Math.max(1, ...bookingsByCategory.map((r) => r.value))
+  for (const row of bookingsByCategory) {
+    row.pct = Math.round((row.value / maxCategory) * 100)
+  }
+
+  const engagementByType = [
+    ...nonStayEngagement,
+    ...(stayEngagement > 0
+      ? [{ label: 'Stay', value: stayEngagement, pct: 100 }]
+      : []),
+  ]
+  const maxEngagement = Math.max(1, ...engagementByType.map((r) => r.value))
+  for (const row of engagementByType) {
+    row.pct = Math.round((row.value / maxEngagement) * 100)
+  }
+
+  const mockStayViews = snapshot.topListings
+    .filter((l) => l.category === 'Stay')
+    .reduce((s, l) => s + l.views, 0)
+  const listingViews =
+    snapshot.summary.listingViews - mockStayViews + stayListingViews
+  const bookingRequests =
+    snapshot.summary.bookingRequests - (mockStayCategory?.value ?? 0) + stayBookingRequests
+  const confirmedBookings =
+    snapshot.summary.confirmedBookings -
+    Math.min(mockStayCategory?.value ?? 0, snapshot.summary.confirmedBookings) +
+    stayConfirmed
+  const adjustedRevenue = snapshot.summary.revenue + stayRevenue
+
+  const funnel = snapshot.funnel.map((step) => {
+    if (step.id === 'listings') return { ...step, value: Math.max(listingViews, step.value) }
+    if (step.id === 'requests') return { ...step, value: bookingRequests }
+    if (step.id === 'confirmed') return { ...step, value: confirmedBookings }
+    return step
+  })
+
+  return {
+    ...snapshot,
+    summary: {
+      ...snapshot.summary,
+      listingViews: Math.max(listingViews, stayListingViews),
+      bookingRequests,
+      confirmedBookings,
+      revenue: adjustedRevenue,
+      conversionRate:
+        listingViews > 0
+          ? Math.round((bookingRequests / listingViews) * 1000) / 10
+          : snapshot.summary.conversionRate,
+    },
+    bookingsByCategory,
+    engagementByType,
+    funnel,
+    topListings: [...stayTopSorted, ...nonStayTopListings].slice(0, 5),
   }
 }

@@ -71,6 +71,7 @@ export function categoryModuleLinks(types: string[]): { label: string; to: strin
     { type: 'guide', label: 'Guides', to: '/provider/guides', emoji: '🧭' },
     { type: 'transport', label: 'Transport', to: '/provider/transport', emoji: '🚗' },
     { type: 'food_drink', label: 'Food & drink', to: '/provider/food', emoji: '🍽' },
+    { type: 'event_organiser', label: 'Events', to: '/provider/events', emoji: '🎟' },
   ]
   return modules.filter((m) => types.includes(m.type) || types.includes('multi_provider'))
 }

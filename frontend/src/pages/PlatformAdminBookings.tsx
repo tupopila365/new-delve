@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { ClipboardList } from 'lucide-react'
 import {
   AdminFilterBar,
@@ -10,11 +11,27 @@ import {
 } from '../components/admin'
 import { BookingStatusBadge } from '../components/booking'
 import { EmptyState } from '../components/ui'
-import { DEMO_ADMIN_BOOKINGS, getBookingStats, type AdminBooking } from '../data/adminData'
+import { apiFetch, asArray } from '../api/client'
+import { getBookingStats, type AdminBooking } from '../data/adminData'
 
 const STATUS_FILTERS = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled', 'Refunded', 'Disputed'] as const
 const CATEGORY_FILTERS = ['All categories', 'Stay', 'Guide', 'Transport', 'Food', 'Event'] as const
 const PAYMENT_FILTERS = ['All payments', 'Paid', 'Unpaid', 'Refunded', 'Failed'] as const
+
+type ApiAdminBooking = {
+  id: string
+  booking_type: string
+  booking_id: number
+  customer_username: string
+  provider_username: string
+  listing_title: string
+  status: string
+  total_price: string
+  start_date: string
+  end_date: string
+  created_at: string
+  has_dispute_notes: boolean
+}
 
 function paymentVariant(status: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
   if (status === 'paid') return 'success'
@@ -24,8 +41,42 @@ function paymentVariant(status: string): 'success' | 'warning' | 'danger' | 'neu
   return 'neutral'
 }
 
+function mapApiBooking(row: ApiAdminBooking): AdminBooking {
+  const categoryMap: Record<string, AdminBooking['category']> = {
+    accommodation: 'Stay',
+    guide: 'Guide',
+    vehicle: 'Transport',
+    bus_seat: 'Transport',
+    event: 'Event',
+  }
+  const status = row.status.toLowerCase()
+  let paymentStatus = 'paid'
+  if (status === 'pending') paymentStatus = 'unpaid'
+  else if (status === 'refunded') paymentStatus = 'refunded'
+  else if (status === 'cancelled') paymentStatus = 'refunded'
+
+  return {
+    id: row.id,
+    customer: `@${row.customer_username}`,
+    provider: `@${row.provider_username}`,
+    category: categoryMap[row.booking_type] ?? 'Stay',
+    service: row.listing_title,
+    date: row.start_date,
+    status,
+    paymentStatus,
+    amount: parseFloat(row.total_price) || 0,
+    issue: row.has_dispute_notes ? 'Has support notes' : undefined,
+  }
+}
+
 export function PlatformAdminBookings() {
-  const allBookings = DEMO_ADMIN_BOOKINGS
+  const { data: apiRows = [], isLoading, isError } = useQuery({
+    queryKey: ['platform-admin-bookings'],
+    queryFn: async () =>
+      asArray<ApiAdminBooking>(await apiFetch('/api/accounts/admin/bookings/')),
+  })
+
+  const allBookings = useMemo(() => apiRows.map(mapApiBooking), [apiRows])
   const stats = getBookingStats(allBookings)
 
   const [search, setSearch] = useState('')
@@ -61,6 +112,24 @@ export function PlatformAdminBookings() {
     return rows
   }, [allBookings, statusFilter, categoryFilter, paymentFilter, issuesOnly, search])
 
+  if (isLoading) {
+    return (
+      <div className="adm-page">
+        <AdminPageHeader title="Bookings" subtitle="Loading platform bookings…" />
+        <p className="adm-page__hint">Fetching reservations from the API…</p>
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="adm-page">
+        <AdminPageHeader title="Bookings" subtitle="Could not load bookings." />
+        <p className="adm-page__hint">Sign in as staff to view cross-vertical reservations.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="adm-page">
       <AdminPageHeader
@@ -82,7 +151,7 @@ export function PlatformAdminBookings() {
           { value: stats.cancelled, label: 'Cancelled' },
           { value: stats.disputed, label: 'Disputed', warn: stats.disputed > 0 },
           { value: stats.failedPayments, label: 'Failed payments', warn: stats.failedPayments > 0 },
-          { value: `N$${stats.revenue.toLocaleString()}`, label: 'Paid volume (demo)' },
+          { value: `N$${stats.revenue.toLocaleString()}`, label: 'Paid volume' },
         ]}
       />
 
@@ -156,7 +225,7 @@ export function PlatformAdminBookings() {
       )}
 
       <p className="adm-page__hint">
-        Demo booking data for platform oversight. Payment and refund actions are placeholders until backend wiring is complete.
+        Live data from platform admin bookings API. Payment actions remain placeholders until refund workflows ship.
       </p>
     </div>
   )

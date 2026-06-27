@@ -19,14 +19,20 @@ export type EventListing = {
   region: string
   city?: string | null
   cover_image: string | null
+  business?: number | null
+  business_name?: string | null
+  business_slug?: string | null
   organizer_username?: string
   organizer_display_name?: string | null
   is_free?: boolean | null
   price?: string | null
   likes_count?: number
   saves_count?: number
+  attending_by_me?: boolean
+  rsvp_count?: number
   liked_by_me?: boolean
   saved_by_me?: boolean
+  external_ticket_clicks?: number
   is_featured_partner?: boolean
   partner_label?: string
 }

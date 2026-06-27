@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowLeft, Car, Compass, Hotel, Menu, Utensils, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Car, Compass, Hotel, Menu, Ticket, Utensils, type LucideIcon } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess, type MyBusiness } from '../hooks/useBusinessAccess'
 import { useNavBadges } from '../hooks/useNavBadges'
@@ -25,6 +25,7 @@ const MODULE_LINKS: { to: string; label: string; Icon: LucideIcon; serviceType: 
   { to: '/provider/guides', label: 'Guides', Icon: Compass, serviceType: 'guide' },
   { to: '/provider/transport', label: 'Transport', Icon: Car, serviceType: 'transport' },
   { to: '/provider/food', label: 'Food & drink', Icon: Utensils, serviceType: 'food_drink' },
+  { to: '/provider/events', label: 'Events', Icon: Ticket, serviceType: 'event_organiser' },
 ]
 
 function verificationLabel(status?: string) {

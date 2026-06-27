@@ -10938,6 +10938,39 @@ a.chip.chip--accent:hover {
   color: #be123c;
 }
 
+.acc-media-card__bookmark {
+  position: absolute;
+  top: 10px;
+  right: 50px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+
+.acc-media-card__bookmark:hover {
+  background: #fff;
+  color: var(--accent-hover);
+  transform: scale(1.08);
+}
+
+.acc-media-card__bookmark--saved {
+  color: #e11d48;
+}
+
+.acc-media-card__bookmark--saved:hover {
+  color: #be123c;
+}
+
 .acc-media-card__pet-badge {
   position: absolute;
   bottom: 8px;

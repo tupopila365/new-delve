@@ -3,13 +3,26 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import AccommodationBooking, AccommodationListing, AccommodationListingLike, BookingStatus
+from .booking_services import (
+    find_overlapping_booking,
+    normalize_room_type_name,
+)
+from .models import (
+    AccommodationBooking,
+    AccommodationListing,
+    AccommodationListingLike,
+    AccommodationListingSave,
+    AccommodationReview,
+    BookingStatus,
+)
 
 
 class AccommodationListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     likes_count = serializers.SerializerMethodField()
     liked_by_me = serializers.SerializerMethodField()
+    saves_count = serializers.SerializerMethodField()
+    saved_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = AccommodationListing
@@ -47,8 +60,17 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "created_at",
             "likes_count",
             "liked_by_me",
+            "saves_count",
+            "saved_by_me",
         )
-        read_only_fields = ("owner", "created_at", "likes_count", "liked_by_me")
+        read_only_fields = (
+            "owner",
+            "created_at",
+            "likes_count",
+            "liked_by_me",
+            "saves_count",
+            "saved_by_me",
+        )
 
     def get_likes_count(self, obj):
         v = getattr(obj, "likes_count", None)
@@ -65,6 +87,21 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             return False
         return AccommodationListingLike.objects.filter(listing_id=obj.pk, user=request.user).exists()
 
+    def get_saves_count(self, obj):
+        v = getattr(obj, "saves_count", None)
+        if v is not None:
+            return int(v)
+        return AccommodationListingSave.objects.filter(listing_id=obj.pk).count()
+
+    def get_saved_by_me(self, obj):
+        v = getattr(obj, "saved_by_me", None)
+        if v is not None:
+            return bool(v)
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return AccommodationListingSave.objects.filter(listing_id=obj.pk, user=request.user).exists()
+
     def create(self, validated_data):
         user = self.context["request"].user
         if not hasattr(user, "profile") or user.profile.user_type != "service_provider":
@@ -75,6 +112,8 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
 
 class AccommodationBookingSerializer(serializers.ModelSerializer):
     listing_title = serializers.CharField(source="listing.title", read_only=True)
+    listing_owner_username = serializers.CharField(source="listing.owner.username", read_only=True)
+    has_review = serializers.SerializerMethodField()
 
     class Meta:
         model = AccommodationBooking
@@ -82,6 +121,7 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "id",
             "listing",
             "listing_title",
+            "listing_owner_username",
             "guest",
             "check_in",
             "check_out",
@@ -91,9 +131,18 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "room_type_name",
             "status",
             "mock_payment_ref",
+            "has_review",
             "created_at",
         )
-        read_only_fields = ("guest", "total_price", "status", "mock_payment_ref", "created_at")
+        read_only_fields = ("guest", "total_price", "status", "mock_payment_ref", "has_review", "created_at")
+
+    def get_has_review(self, obj):
+        if hasattr(obj, "review"):
+            try:
+                return obj.review is not None
+            except AccommodationReview.DoesNotExist:
+                pass
+        return AccommodationReview.objects.filter(booking_id=obj.pk).exists()
 
     def validate(self, attrs):
         listing = attrs["listing"]
@@ -126,6 +175,12 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
                 )
         if guests > max_guests_allowed:
             raise serializers.ValidationError("Too many guests for this listing.")
+        room_key = normalize_room_type_name(room_type_name)
+        conflict = find_overlapping_booking(listing, check_in, check_out, room_type_name=room_key)
+        if conflict:
+            raise serializers.ValidationError(
+                "Those dates are no longer available. Please choose different dates."
+            )
         return attrs
 
     def create(self, validated_data):

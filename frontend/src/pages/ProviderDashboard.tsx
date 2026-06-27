@@ -10,14 +10,20 @@ import {
   ProviderDashboardStats,
 } from '../components/provider/dashboard'
 import { ProviderUiPage } from '../components/provider/ui'
-import { getProviderAnalytics } from '../data/providerAnalytics'
+import {
+  enrichAnalyticsWithEventApi,
+  enrichAnalyticsWithStayApi,
+  getProviderAnalytics,
+} from '../data/providerAnalytics'
 import {
   getAttentionItems,
   getBookingStats,
   getListingStats,
   getProviderBookings,
 } from '../data/providerData'
+import { mergeProviderBookings, useProviderEventBookings } from '../hooks/useProviderEventData'
 import { useProviderListings } from '../hooks/useProviderListings'
+import { useProviderStayBookings } from '../hooks/useProviderStayData'
 import { categoriesForBusinessTypes } from '../utils/providerCategories'
 
 export function ProviderDashboard() {
@@ -25,21 +31,43 @@ export function ProviderDashboard() {
   const owner = activeBusiness?.owner_username
   const businessTypes = activeBusiness?.business_types ?? []
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
+  const includeEvents = allowedCategories.length === 0 || allowedCategories.includes('Event')
+  const includeStays = allowedCategories.length === 0 || allowedCategories.includes('Stay')
 
   const listings = useProviderListings(owner)
-  const allBookings = getProviderBookings()
-  const bookings = useMemo(() => {
-    if (allowedCategories.length === 0) return allBookings
-    return allBookings.filter((b) => allowedCategories.includes(b.category))
-  }, [allBookings, allowedCategories])
+  const eventListings = useMemo(() => listings.filter((l) => l.category === 'Event'), [listings])
+  const stayListings = useMemo(() => listings.filter((l) => l.category === 'Stay'), [listings])
+  const { data: eventBookings = [] } = useProviderEventBookings(includeEvents)
+  const { data: stayBookings = [] } = useProviderStayBookings(includeStays)
+
+  const bookings = useMemo(
+    () => mergeProviderBookings(getProviderBookings(), eventBookings, allowedCategories, stayBookings),
+    [eventBookings, stayBookings, allowedCategories],
+  )
 
   const listingStats = getListingStats(listings)
   const bookingStats = getBookingStats(bookings)
   const attention = getAttentionItems(listings, bookings)
-  const analytics = useMemo(
-    () => getProviderAnalytics(owner, businessTypes, '30d', listings),
-    [owner, businessTypes, listings],
-  )
+  const analytics = useMemo(() => {
+    let base = getProviderAnalytics(owner, businessTypes, '30d', listings)
+    if (includeEvents) {
+      base = enrichAnalyticsWithEventApi(base, undefined, eventListings, eventBookings)
+    }
+    if (includeStays) {
+      base = enrichAnalyticsWithStayApi(base, stayListings, stayBookings, '30d')
+    }
+    return base
+  }, [
+    owner,
+    businessTypes,
+    listings,
+    includeEvents,
+    includeStays,
+    eventListings,
+    eventBookings,
+    stayListings,
+    stayBookings,
+  ])
 
   return (
     <ProviderUiPage>

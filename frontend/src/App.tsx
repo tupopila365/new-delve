@@ -23,6 +23,7 @@ import { GuideDetail } from './pages/GuideDetail'
 import { TourPackageDetail } from './pages/TourPackageDetail'
 import { GuidePackageBook } from './pages/GuidePackageBook'
 import { CreateEvent } from './pages/CreateEvent'
+import { EventMomentNew } from './pages/EventMomentNew'
 import { EditEvent } from './pages/EditEvent'
 import { GuidesList } from './pages/GuidesList'
 import { Home } from './pages/Home'
@@ -56,6 +57,7 @@ import { StaysAdmin } from './pages/StaysAdmin'
 import { GuidesAdmin } from './pages/GuidesAdmin'
 import { TransportAdmin } from './pages/TransportAdmin'
 import { FoodAdmin } from './pages/FoodAdmin'
+import { EventsAdmin } from './pages/EventsAdmin'
 import { UserDashboard } from './pages/UserDashboard'
 import { BusinessProfile } from './pages/BusinessProfile'
 import { AdminLayout } from './components/AdminLayout'
@@ -108,6 +110,7 @@ export default function App() {
           <Route path="/transport/bus/:id" element={<BusTripDetail />} />
           <Route path="/events" element={<EventsList />} />
           <Route path="/events/new" element={<CreateEvent />} />
+          <Route path="/events/:id/moment/new" element={<EventMomentNew />} />
           <Route path="/events/:id/edit" element={<EditEvent />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/food" element={<FoodList />} />
@@ -149,6 +152,7 @@ export default function App() {
             <Route path="guides" element={<GuidesAdmin />} />
             <Route path="transport" element={<TransportAdmin />} />
             <Route path="food" element={<FoodAdmin />} />
+            <Route path="events" element={<EventsAdmin />} />
           </Route>
         </Route>
         <Route path="/login" element={<Login />} />

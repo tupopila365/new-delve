@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
+import { apiFetch, asArray } from '../api/client'
 import type { ModerationItem } from '../api/types'
 import {
   DelveAdminDataRow,
@@ -19,7 +19,7 @@ export function ContentModerationPage() {
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['moderation'],
-    queryFn: () => apiFetch<ModerationItem[]>('/api/accounts/admin/moderation/'),
+    queryFn: async () => asArray<ModerationItem>(await apiFetch('/api/accounts/admin/moderation/')),
   })
 
   const modMut = useMutation({

@@ -6,12 +6,10 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
-import { mediaUrl } from '../../api/client'
-import { buildGalleryItems } from '../AccommodationGallery'
+import { StayAskSection } from './StayAskSection'
 import { DetailLayout } from '../detail'
 import {
   ListingAmenities,
-  ListingAskSection,
   ListingBookBar,
   ListingDelversMoments,
   ListingDetails,
@@ -26,6 +24,8 @@ import {
   ListingRules,
 } from '../listing'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
+import type { ListingMomentItem } from '../listing/types'
+import type { ReviewItem } from '../GuestReviewCard'
 import {
   amenityChipIcon,
   buildListingImages,
@@ -34,7 +34,6 @@ import {
   buildTrustHighlights,
   loveItemIcon,
   normalizeFaqs,
-  normalizeReviews,
   normalizeRoomTypes,
   openStreetMapSearchUrl,
   parseHouseRules,
@@ -50,7 +49,13 @@ type Props = {
   saved: boolean
   onSave: () => void
   onShare: () => void
-  initialQuestions?: ListingQuestionItem[]
+  questions?: ListingQuestionItem[]
+  loadingQuestions?: boolean
+  canAnswerQuestions?: boolean
+  moments?: ListingMomentItem[]
+  reviews?: ReviewItem[]
+  ratingAvg?: string
+  ratingCount?: number
 }
 
 export function AccommodationDetailView({
@@ -59,10 +64,15 @@ export function AccommodationDetailView({
   saved,
   onSave,
   onShare,
-  initialQuestions,
+  questions = [],
+  loadingQuestions = false,
+  canAnswerQuestions = false,
+  moments = [],
+  reviews = [],
+  ratingAvg,
+  ratingCount,
 }: Props) {
   const faqs = normalizeFaqs(data.faqs)
-  const reviews = normalizeReviews(data.guest_reviews)
   const roomTypes = normalizeRoomTypes(data.room_types)
   const rules = data.house_rules ? parseHouseRules(data.house_rules) : []
 
@@ -75,17 +85,8 @@ export function AccommodationDetailView({
   const bookHref = `/accommodation/${listingId}/book`
   const mapHref = openStreetMapSearchUrl(data.city || '', data.region || '')
 
-  const galleryItems = buildGalleryItems(data.media_gallery, data.cover_image)
-  const delversMoments = [
-    ...galleryItems.slice(0, 2).map((item, index) => ({
-      id: `g-${index}`,
-      image: mediaUrl(item.src) || item.src,
-      author: `guest${index + 1}`,
-      body: 'Saved this stay for a quiet weekend.',
-      taggedListing: data.title,
-    })),
-    { id: 'placeholder', author: 'traveller', body: 'Morning view from the room.', taggedListing: data.title },
-  ]
+  const displayRating = ratingAvg ?? data.rating_avg
+  const displayReviewCount = ratingCount ?? data.rating_count
 
   const policyRows = buildPolicyRows(data, {
     clock: <Clock size={14} strokeWidth={2.25} aria-hidden />,
@@ -130,8 +131,8 @@ export function AccommodationDetailView({
         name={data.title}
         tagline={`Hosted by @${data.owner_username}`}
         categoryLabel={data.property_type ? propertyTypeLabel(data.property_type) : null}
-        rating={data.rating_avg}
-        reviewCount={data.rating_count}
+        rating={displayRating}
+        reviewCount={displayReviewCount}
         locationLabel={locationLine || null}
         saved={saved}
         onSave={onSave}
@@ -218,25 +219,26 @@ export function AccommodationDetailView({
               listingType="accommodation"
               listingId={listingId}
               title="From Delvers"
-              moments={delversMoments.filter((m) => m.id !== 'placeholder')}
+              moments={moments}
               className="acc-detail__moments"
               showWhenEmpty
               emptyMessage="No guest moments yet."
             />
 
-            <ListingAskSection
+            <StayAskSection
+              listingId={listingId}
               className="acc-detail__comments"
-              title="Ask a question"
-              placeholder="Ask about check-in, parking, Wi-Fi…"
-              initialQuestions={initialQuestions}
+              questions={questions}
+              isLoading={loadingQuestions}
+              canAnswer={canAnswerQuestions}
             />
 
             <ListingReviews
               listingType="accommodation"
               listingId={listingId}
               reviews={reviews}
-              rating={data.rating_avg}
-              count={data.rating_count}
+              rating={displayRating}
+              count={displayReviewCount}
               emptyMessage="Ratings and written reviews will appear here after guests complete their stay."
               className="acc-detail__reviews"
             />

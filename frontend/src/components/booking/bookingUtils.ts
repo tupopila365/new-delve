@@ -1,3 +1,5 @@
+import { apiFetch } from '../../api/client'
+
 export type AvailabilityStatus = 'idle' | 'checking' | 'available' | 'unavailable'
 
 export type AvailabilityCheckInput = {
@@ -7,8 +9,13 @@ export type AvailabilityCheckInput = {
   maxGuests: number
 }
 
+export type StayAvailabilityCheckInput = AvailabilityCheckInput & {
+  listingId: string | number
+  roomTypeName?: string
+}
+
 export type AvailabilityCheckResult =
-  | { available: true }
+  | { available: true; nights?: number; estimatedTotal?: string }
   | { available: false; reason: string }
 
 export function validateStayDates(input: AvailabilityCheckInput): string | null {
@@ -24,15 +31,43 @@ export function validateStayDates(input: AvailabilityCheckInput): string | null 
   return null
 }
 
-/** Simulates an availability lookup — valid dates are treated as available. */
+/** Check stay availability against the listing calendar API. */
 export async function checkStayAvailability(
-  input: AvailabilityCheckInput,
+  input: StayAvailabilityCheckInput,
 ): Promise<AvailabilityCheckResult> {
   const err = validateStayDates(input)
   if (err) return { available: false, reason: err }
 
-  await new Promise((r) => setTimeout(r, 700))
-  return { available: true }
+  const params = new URLSearchParams({
+    check_in: input.checkIn,
+    check_out: input.checkOut,
+    guests: String(input.guests),
+  })
+  if (input.roomTypeName?.trim()) params.set('room', input.roomTypeName.trim())
+
+  try {
+    const data = await apiFetch<{
+      available: boolean
+      reason?: string
+      nights?: number
+      estimated_total?: string
+    }>(`/api/accommodation/listings/${input.listingId}/availability/?${params.toString()}`, {
+      auth: false,
+    })
+    if (data.available) {
+      return {
+        available: true,
+        nights: data.nights,
+        estimatedTotal: data.estimated_total,
+      }
+    }
+    return {
+      available: false,
+      reason: data.reason?.trim() || 'Not available for those dates. Try different dates.',
+    }
+  } catch {
+    return { available: false, reason: 'Could not check availability. Please try again.' }
+  }
 }
 
 export function nightsBetween(checkIn: string, checkOut: string): number | null {

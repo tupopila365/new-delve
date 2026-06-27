@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { EventForm } from '../components/events/EventForm'
 import { EmptyState } from '../components/ui'
 import {
@@ -18,6 +19,7 @@ export function CreateEvent() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { activeBusiness } = useBusinessAccess()
 
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
@@ -31,7 +33,7 @@ export function CreateEvent() {
       if (!canSubmit) throw new Error('Title and start date are required.')
       return apiFetch<CreatedEvent>('/api/events/', {
         method: 'POST',
-        body: buildEventFormData(state, coverFile),
+        body: buildEventFormData(state, coverFile, activeBusiness?.id),
       })
     },
     onSuccess: async (data) => {

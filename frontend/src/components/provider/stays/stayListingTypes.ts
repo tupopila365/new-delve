@@ -116,6 +116,8 @@ export type ProviderStayListing = {
   breakfast?: boolean
   rating_avg: string
   rating_count: number
+  likes_count?: number
+  saves_count?: number
   is_active: boolean
   guest_reviews?: { name: string; body: string; rating: number }[]
 }

@@ -36,6 +36,7 @@ export type ProviderBooking = {
   total: number
   paymentStatus?: string
   requestedAt?: string
+  source?: string
 }
 
 export type AttentionItem = {
@@ -71,7 +72,54 @@ function demoBookings(seed: number | string) {
   return n % 8
 }
 
-export function eventToProviderListing(e: EventListing & { is_published?: boolean }): ProviderListing {
+export type StayListingApi = {
+  id: number
+  title: string
+  city?: string
+  region: string
+  price_per_night: string
+  cover_image: string | null
+  rating_avg?: string
+  rating_count?: number
+  is_active?: boolean
+  likes_count?: number
+  saves_count?: number
+  description?: string
+}
+
+export function stayToProviderListing(s: StayListingApi, bookingCount = 0): ProviderListing {
+  const likes = s.likes_count ?? 0
+  const saves = s.saves_count ?? 0
+  const engagement = bookingCount + likes + saves
+  return {
+    id: `stay-${s.id}`,
+    title: s.title,
+    category: 'Stay',
+    status: s.is_active === false ? 'draft' : s.cover_image ? 'published' : 'needs_update',
+    city: s.city ?? '',
+    region: s.region,
+    price: `N$${s.price_per_night}/night`,
+    rating: s.rating_avg ?? '—',
+    ratingCount: s.rating_count ?? 0,
+    bookings: bookingCount,
+    views: engagement > 0 ? engagement * 3 : demoViews(s.id),
+    updated: 'Recently',
+    healthIssue: !s.cover_image
+      ? 'Missing cover photo'
+      : (s.description?.length ?? 0) < 40
+        ? 'Description too short'
+        : undefined,
+    image: s.cover_image,
+    publicPath: `/accommodation/${s.id}`,
+    editPath: '/provider/stays',
+  }
+}
+
+export function eventToProviderListing(
+  e: EventListing & { is_published?: boolean; external_ticket_clicks?: number },
+): ProviderListing {
+  const engagement =
+    (e.rsvp_count ?? 0) + (e.likes_count ?? 0) + (e.saves_count ?? 0) + (e.external_ticket_clicks ?? 0)
   return {
     id: `event-${e.id}`,
     title: e.title,
@@ -82,8 +130,8 @@ export function eventToProviderListing(e: EventListing & { is_published?: boolea
     price: e.is_free ? 'Free' : e.price ? `N$${e.price}` : 'Paid',
     rating: '—',
     ratingCount: 0,
-    bookings: demoBookings(e.id),
-    views: demoViews(e.id),
+    bookings: e.rsvp_count ?? 0,
+    views: engagement > 0 ? engagement : demoViews(e.id),
     updated: 'Recently',
     healthIssue: !e.cover_image ? 'Add event poster' : undefined,
     image: e.cover_image,
@@ -188,10 +236,24 @@ export function getProviderMockListings(owner?: string): ProviderListing[] {
   return [...stays, ...guides, ...vehicles, ...food]
 }
 
-export function getProviderListings(owner?: string, apiEvents: EventListing[] = []): ProviderListing[] {
-  const mock = getProviderMockListings(owner)
+export function getProviderListings(
+  owner?: string,
+  apiEvents: EventListing[] = [],
+  apiStays: StayListingApi[] = [],
+  stayBookingCounts?: Map<string, number>,
+): ProviderListing[] {
+  let mock = getProviderMockListings(owner)
+  if (apiEvents.length > 0) {
+    mock = mock.filter((l) => l.category !== 'Event')
+  }
+  if (apiStays.length > 0) {
+    mock = mock.filter((l) => l.category !== 'Stay')
+  }
   if (!owner) return mock
-  return [...mock, ...apiEvents.map((e) => eventToProviderListing(e))]
+  const stayRows = apiStays.map((s) =>
+    stayToProviderListing(s, stayBookingCounts?.get(s.title) ?? 0),
+  )
+  return [...mock, ...stayRows, ...apiEvents.map((e) => eventToProviderListing(e))]
 }
 
 const DEMO_BOOKINGS: ProviderBooking[] = [

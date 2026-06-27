@@ -70,6 +70,10 @@ export type AccommodationListing = {
   breakfast?: boolean
   rating_avg?: string
   rating_count?: number
+  likes_count?: number
+  liked_by_me?: boolean
+  saves_count?: number
+  saved_by_me?: boolean
 }
 
 export type RoomTypeItem = {

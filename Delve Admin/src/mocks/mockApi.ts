@@ -806,6 +806,13 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       ...row,
       dispute_notes: mockBookingNotes[key] ?? [],
       mock_payment_ref: `MOCK-${bookingId}`,
+      ...(bookingType === 'accommodation'
+        ? {
+            guests: 2,
+            room_type_name: 'Standard king room',
+            special_requests: 'Late check-in requested after 20:00.',
+          }
+        : {}),
     }
     if (method === 'GET') return detail
     if (method === 'PATCH') {
@@ -835,6 +842,13 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
         ...mockBookings.find((b) => b.booking_type === bookingType && b.booking_id === bookingId)!,
         dispute_notes: mockBookingNotes[key] ?? [],
         mock_payment_ref: `MOCK-${bookingId}`,
+        ...(bookingType === 'accommodation'
+          ? {
+              guests: 2,
+              room_type_name: 'Standard king room',
+              special_requests: 'Late check-in requested after 20:00.',
+            }
+          : {}),
       } as AdminBookingDetail
     }
   }

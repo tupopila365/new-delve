@@ -1,40 +1,24 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import type { EventListing } from '../utils/eventDisplay'
 
-const STORAGE_KEY = 'delve:saved-events'
-
-function loadSavedIds(events: EventListing[]) {
-  const ids = new Set<number>()
-  events.forEach((event) => {
-    if (event.saved_by_me) ids.add(event.id)
-  })
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return ids
-    const parsed = JSON.parse(raw) as number[]
-    if (Array.isArray(parsed)) parsed.forEach((id) => ids.add(id))
-  } catch {
-    // ignore invalid storage
-  }
-  return ids
-}
-
-function persistSavedIds(ids: Set<number>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]))
+type EngagementOverride = {
+  liked?: boolean
+  likesCount?: number
+  saved?: boolean
+  savesCount?: number
 }
 
 export function useEventEngagement(events: EventListing[]) {
-  const initialLiked = useMemo(
-    () => new Set(events.filter((event) => event.liked_by_me).map((event) => event.id)),
-    [events],
-  )
-  const [likedIds, setLikedIds] = useState<Set<number>>(() => new Set(initialLiked))
-  const [savedIds, setSavedIds] = useState<Set<number>>(() => loadSavedIds(events))
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const [overrides, setOverrides] = useState<Map<number, EngagementOverride>>(new Map())
   const [shareMsg, setShareMsg] = useState('')
 
   useEffect(() => {
-    setLikedIds(new Set(events.filter((event) => event.liked_by_me).map((event) => event.id)))
-    setSavedIds(loadSavedIds(events))
+    setOverrides(new Map())
   }, [events])
 
   useEffect(() => {
@@ -43,44 +27,66 @@ export function useEventEngagement(events: EventListing[]) {
     return () => window.clearTimeout(timer)
   }, [shareMsg])
 
-  const isSaved = useCallback((event: EventListing) => savedIds.has(event.id), [savedIds])
-
-  const isLiked = useCallback((event: EventListing) => likedIds.has(event.id), [likedIds])
-
-  const likeCount = useCallback(
-    (event: EventListing) => {
-      const initiallyLiked = !!event.liked_by_me
-      const nowLiked = likedIds.has(event.id)
-      let count = event.likes_count ?? 0
-      if (initiallyLiked && !nowLiked) count -= 1
-      if (!initiallyLiked && nowLiked) count += 1
-      return Math.max(0, count)
+  const likeMut = useMutation({
+    mutationFn: (eventId: number) =>
+      apiFetch<{ liked: boolean; likes_count: number }>(`/api/events/${eventId}/like/`, { method: 'POST' }),
+    onSuccess: (data, eventId) => {
+      setOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(eventId, { ...next.get(eventId), liked: data.liked, likesCount: data.likes_count })
+        return next
+      })
+      void qc.invalidateQueries({ queryKey: ['events'] })
     },
-    [likedIds],
+  })
+
+  const saveMut = useMutation({
+    mutationFn: (eventId: number) =>
+      apiFetch<{ saved: boolean; saves_count: number }>(`/api/events/${eventId}/save/`, { method: 'POST' }),
+    onSuccess: (data, eventId) => {
+      setOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(eventId, { ...next.get(eventId), saved: data.saved, savesCount: data.saves_count })
+        return next
+      })
+      void qc.invalidateQueries({ queryKey: ['events'] })
+    },
+  })
+
+  const isSaved = useCallback(
+    (event: EventListing) => overrides.get(event.id)?.saved ?? Boolean(event.saved_by_me),
+    [overrides],
   )
 
-  const toggleLike = useCallback((event: EventListing, clickEvent: MouseEvent) => {
-    clickEvent.preventDefault()
-    clickEvent.stopPropagation()
-    setLikedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(event.id)) next.delete(event.id)
-      else next.add(event.id)
-      return next
-    })
-  }, [])
+  const isLiked = useCallback(
+    (event: EventListing) => overrides.get(event.id)?.liked ?? Boolean(event.liked_by_me),
+    [overrides],
+  )
 
-  const toggleSave = useCallback((event: EventListing, clickEvent: MouseEvent) => {
-    clickEvent.preventDefault()
-    clickEvent.stopPropagation()
-    setSavedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(event.id)) next.delete(event.id)
-      else next.add(event.id)
-      persistSavedIds(next)
-      return next
-    })
-  }, [])
+  const likeCount = useCallback(
+    (event: EventListing) => overrides.get(event.id)?.likesCount ?? event.likes_count ?? 0,
+    [overrides],
+  )
+
+  const toggleLike = useCallback(
+    (event: EventListing, clickEvent: MouseEvent) => {
+      clickEvent.preventDefault()
+      clickEvent.stopPropagation()
+      if (!profile) return
+      likeMut.mutate(event.id)
+    },
+    [likeMut, profile],
+  )
+
+  const toggleSave = useCallback(
+    (event: EventListing, clickEvent: MouseEvent) => {
+      clickEvent.preventDefault()
+      clickEvent.stopPropagation()
+      if (!profile) return
+      saveMut.mutate(event.id)
+    },
+    [profile, saveMut],
+  )
 
   const shareEvent = useCallback(async (event: EventListing, clickEvent: MouseEvent) => {
     clickEvent.preventDefault()
@@ -100,6 +106,11 @@ export function useEventEngagement(events: EventListing[]) {
     }
   }, [])
 
+  const pendingIds = useMemo(
+    () => new Set([...(likeMut.isPending && likeMut.variables ? [likeMut.variables] : []), ...(saveMut.isPending && saveMut.variables ? [saveMut.variables] : [])]),
+    [likeMut.isPending, likeMut.variables, saveMut.isPending, saveMut.variables],
+  )
+
   return {
     shareMsg,
     isSaved,
@@ -108,5 +119,7 @@ export function useEventEngagement(events: EventListing[]) {
     toggleLike,
     toggleSave,
     shareEvent,
+    pendingIds,
+    requiresAuth: !profile,
   }
 }

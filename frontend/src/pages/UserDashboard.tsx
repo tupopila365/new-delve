@@ -12,9 +12,10 @@ import {
   Plus,
   Settings,
   Sparkles,
+  Ticket,
   User,
 } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../api/client'
+import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { UserBookingCard, bookingNextStep } from '../components/booking'
@@ -45,6 +46,22 @@ type GuideBooking = {
   created_at?: string
 }
 
+type EventBooking = {
+  id: number
+  event: number
+  event_title: string
+  event_starts_at: string
+  event_venue: string
+  event_city?: string
+  event_region?: string
+  organizer_username?: string
+  organizer_display_name?: string | null
+  tickets: number
+  total_price?: string | null
+  status: string
+  booking_ref: string
+}
+
 type DashboardBooking =
   | {
       key: string
@@ -73,6 +90,21 @@ type DashboardBooking =
       viewLabel: string
       messageLabel: string
     }
+  | {
+      key: string
+      sortDate: string
+      serviceType: 'event'
+      title: string
+      provider: string
+      dateLabel: string
+      peopleLabel: string
+      status: string
+      price?: string
+      href: string
+      viewLabel: string
+      messageLabel: string
+      messageUsername?: string
+    }
 
 function humanizePackageId(packageId: string): string {
   const trimmed = packageId.trim()
@@ -91,13 +123,47 @@ export function UserDashboard() {
 
   const { data: stayBookings, isLoading: loadingStays } = useQuery({
     queryKey: ['my-bookings', 'stays'],
-    queryFn: () => apiFetch<StayBooking[]>('/api/accommodation/bookings/').catch(() => [] as StayBooking[]),
+    queryFn: async () => {
+      try {
+        return asArray<StayBooking>(await apiFetch('/api/accommodation/bookings/'))
+      } catch {
+        return []
+      }
+    },
+    enabled: Boolean(profile),
+  })
+
+  type SavedStay = {
+    id: number
+    title: string
+    region: string
+    city?: string
+    price_per_night: string
+    cover_image: string | null
+    property_type?: string | null
+  }
+
+  const { data: savedStays = [], isLoading: loadingSavedStays } = useQuery({
+    queryKey: ['saved-stays'],
+    queryFn: async () => {
+      try {
+        return asArray<SavedStay>(await apiFetch('/api/accommodation/listings/saved/'))
+      } catch {
+        return []
+      }
+    },
     enabled: Boolean(profile),
   })
 
   const { data: guideBookings, isLoading: loadingGuides } = useQuery({
     queryKey: ['my-bookings', 'guides'],
     queryFn: () => apiFetch<GuideBooking[]>('/api/guides/bookings/').catch(() => [] as GuideBooking[]),
+    enabled: Boolean(profile),
+  })
+
+  const { data: eventBookings, isLoading: loadingEvents } = useQuery({
+    queryKey: ['my-bookings', 'events'],
+    queryFn: () => apiFetch<EventBooking[]>('/api/events/bookings/').catch(() => [] as EventBooking[]),
     enabled: Boolean(profile),
   })
 
@@ -145,19 +211,47 @@ export function UserDashboard() {
         }
       })
 
-    return [...stays, ...guides]
+    const events: DashboardBooking[] = (eventBookings ?? [])
+      .filter((b) => !['cancelled', 'declined'].includes(b.status))
+      .map((b) => {
+        const d = new Date(b.event_starts_at)
+        const dateLabel = Number.isNaN(d.getTime())
+          ? 'Date TBA'
+          : d.toLocaleDateString('en-NA', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        return {
+          key: `event-${b.id}`,
+          sortDate: b.event_starts_at,
+          serviceType: 'event' as const,
+          title: b.event_title,
+          provider: b.organizer_display_name?.trim() || b.organizer_username || 'Organizer',
+          dateLabel,
+          peopleLabel: `${b.tickets} ${b.tickets === 1 ? 'ticket' : 'tickets'}`,
+          status: b.status,
+          price: b.total_price ? `N$${b.total_price}` : undefined,
+          href: `/events/${b.event}`,
+          viewLabel: 'View event',
+          messageLabel: 'Message organizer',
+          messageUsername: b.organizer_username,
+        }
+      })
+
+    return [...stays, ...guides, ...events]
       .sort((a, b) => b.sortDate.localeCompare(a.sortDate))
-      .slice(0, 6)
-  }, [stayBookings, guideBookings])
+      .slice(0, 8)
+  }, [stayBookings, guideBookings, eventBookings])
 
   if (!profile) return <Navigate to="/login" replace />
 
   const isProvider = profile.user_type === 'service_provider' || businesses.length > 0
-  const loadingBookings = loadingStays || loadingGuides
+  const loadingBookings = loadingStays || loadingGuides || loadingEvents
   const activeBookings = dashboardBookings.length
+  const upcomingEvents = (eventBookings ?? []).filter(
+    (b) => !['cancelled', 'declined'].includes(b.status) && new Date(b.event_starts_at).getTime() >= Date.now(),
+  ).length
   const pendingBookings =
     (stayBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length +
-    (guideBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length
+    (guideBookings ?? []).filter((b) => ['pending', 'requested'].includes(b.status)).length +
+    (eventBookings ?? []).filter((b) => b.status === 'pending').length
 
   const displayName = profile.display_name?.trim() || profile.username
   const avatar = mediaUrl(profile.avatar) || profile.avatar
@@ -265,9 +359,9 @@ export function UserDashboard() {
               <CalendarDays size={22} strokeWidth={2.25} />
             </span>
             <h3>No bookings yet</h3>
-            <p>Explore stays, guides, or transport to plan your next trip.</p>
-            <Link to="/accommodation" className="t-dash__empty-btn">
-              Explore stays
+            <p>Explore stays, guides, events, or transport to plan your next trip.</p>
+            <Link to="/events" className="t-dash__empty-btn">
+              Browse events
             </Link>
           </div>
         ) : (
@@ -284,7 +378,7 @@ export function UserDashboard() {
                 price={b.price}
                 nextStep={bookingNextStep(b.status, b.serviceType)}
                 href={b.href}
-                messageTo="/messages"
+                messageUsername={'messageUsername' in b ? b.messageUsername : undefined}
                 viewLabel={b.viewLabel}
                 messageLabel={b.messageLabel}
                 onCancel={() => {}}
@@ -303,6 +397,10 @@ export function UserDashboard() {
             <Compass size={12} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />
             Guides
           </Link>
+          <Link to="/events">
+            <Ticket size={12} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />
+            Events
+          </Link>
           <Link to="/transport">
             <Car size={12} style={{ marginRight: 4, verticalAlign: -2 }} aria-hidden />
             Transport
@@ -311,19 +409,110 @@ export function UserDashboard() {
         </div>
       </section>
 
+      <section className="t-dash__section" id="my-events">
+        <div className="t-dash__section-head">
+          <h2 className="t-dash__section-title">My events</h2>
+          {upcomingEvents > 0 ? (
+            <span className="t-dash__section-meta">{upcomingEvents} upcoming</span>
+          ) : null}
+        </div>
+        {loadingEvents ? (
+          <div className="t-dash__bookings">
+            <div className="t-dash__sk" />
+          </div>
+        ) : (eventBookings ?? []).filter((b) => !['cancelled', 'declined'].includes(b.status)).length === 0 ? (
+          <div className="t-dash__empty t-dash__empty--compact">
+            <span className="t-dash__empty-icon" aria-hidden>
+              <Ticket size={22} strokeWidth={2.25} />
+            </span>
+            <h3>No event RSVPs yet</h3>
+            <p>Discover markets, gigs, and gatherings near you.</p>
+            <Link to="/events" className="t-dash__empty-btn">
+              Browse events
+            </Link>
+          </div>
+        ) : (
+          <div className="t-dash__bookings">
+            {(eventBookings ?? [])
+              .filter((b) => !['cancelled', 'declined'].includes(b.status))
+              .slice(0, 4)
+              .map((b) => {
+                const d = new Date(b.event_starts_at)
+                const dateLabel = Number.isNaN(d.getTime())
+                  ? 'Date TBA'
+                  : d.toLocaleDateString('en-NA', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                return (
+                  <UserBookingCard
+                    key={`event-only-${b.id}`}
+                    serviceType="event"
+                    title={b.event_title}
+                    provider={b.organizer_display_name?.trim() || b.organizer_username || 'Organizer'}
+                    dateLabel={dateLabel}
+                    peopleLabel={`${b.tickets} ${b.tickets === 1 ? 'ticket' : 'tickets'} · ${b.booking_ref}`}
+                    status={b.status}
+                    price={b.total_price ? `N$${b.total_price}` : undefined}
+                    nextStep={bookingNextStep(b.status, 'event')}
+                    href={`/events/${b.event}`}
+                    messageUsername={b.organizer_username}
+                    viewLabel="View event"
+                    messageLabel="Message organizer"
+                    onCancel={() => {}}
+                    cancelDisabled
+                  />
+                )
+              })}
+          </div>
+        )}
+
+      </section>
+
       <div className="t-dash__split">
         <section className="t-dash__section" id="saved">
           <h2 className="t-dash__section-title">Saved</h2>
-          <div className="t-dash__empty">
-            <span className="t-dash__empty-icon" aria-hidden>
-              <Bookmark size={22} strokeWidth={2.25} />
-            </span>
-            <h3>Nothing saved yet</h3>
-            <p>Bookmark stays, guides, and places from your profile.</p>
-            <Link to={`/u/${profile.username}`} className="t-dash__empty-btn">
-              View profile
-            </Link>
-          </div>
+          {loadingSavedStays ? (
+            <p className="t-dash__hint">Loading saved stays…</p>
+          ) : savedStays.length === 0 ? (
+            <div className="t-dash__empty">
+              <span className="t-dash__empty-icon" aria-hidden>
+                <Bookmark size={22} strokeWidth={2.25} />
+              </span>
+              <h3>Nothing saved yet</h3>
+              <p>Bookmark stays from the list or detail page to find them here.</p>
+              <Link to="/accommodation" className="t-dash__empty-btn">
+                Browse stays
+              </Link>
+            </div>
+          ) : (
+            <div className="t-dash__saved-grid">
+              {savedStays.map((stay) => {
+                const location = stay.city ? `${stay.city}, ${stay.region}` : stay.region
+                return (
+                  <Link key={stay.id} to={`/accommodation/${stay.id}`} className="t-dash__saved-card">
+                    <div className="t-dash__saved-thumb">
+                      {stay.cover_image ? (
+                        <img src={mediaUrl(stay.cover_image) || ''} alt="" loading="lazy" />
+                      ) : (
+                        <span className="t-dash__saved-thumb-fallback" aria-hidden>
+                          <Hotel size={20} strokeWidth={2} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="t-dash__saved-copy">
+                      <strong>{stay.title}</strong>
+                      <span>{location}</span>
+                      <span>From N${stay.price_per_night} / night</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </section>
 
         <section className="t-dash__section">

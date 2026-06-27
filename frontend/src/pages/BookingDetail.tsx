@@ -1,8 +1,8 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Building2, CalendarDays, Compass, MessageCircle } from 'lucide-react'
-import { apiFetch } from '../api/client'
+import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
   BookingStatusBadge,
@@ -10,17 +10,24 @@ import {
   bookingStatusLabel,
   normalizeBookingStatus,
 } from '../components/booking'
+import { StayReviewForm } from '../components/accommodation/StayReviewForm'
+import { MessageProviderLink } from '../components/messages'
 import '../components/booking/booking-detail.css'
 
 type StayBooking = {
   id: number
   listing: number
   listing_title: string
+  listing_owner_username?: string
   check_in: string
   check_out: string
   guests: number
   total_price?: string
+  special_requests?: string
+  room_type_name?: string
   status: string
+  mock_payment_ref?: string
+  has_review?: boolean
 }
 
 type GuideBooking = {
@@ -48,8 +55,8 @@ function stageIndexForStatus(status: string): number {
   if (key === 'draft') return 0
   if (key === 'requested' || key === 'reserved') return 0
   if (key === 'pending') return 1
-  if (key === 'confirmed' || key === 'checked_in' || key === 'checked_out' || key === 'accepted' || key === 'paid') return 2
-  if (key === 'completed' || key === 'seated') return 3
+  if (key === 'confirmed' || key === 'checked_in' || key === 'accepted' || key === 'paid') return 2
+  if (key === 'completed' || key === 'checked_out' || key === 'seated') return 3
   if (key === 'cancelled' || key === 'declined' || key === 'disputed' || key === 'no_show') return 1
   return 0
 }
@@ -76,13 +83,20 @@ function goBack(navigate: ReturnType<typeof useNavigate>) {
 
 export function BookingDetail() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { profile } = useAuth()
   const { service, id } = useParams<{ service: string; id: string }>()
   const bookingId = Number(id)
 
   const { data: stayBookings = [], isLoading: loadingStay } = useQuery({
     queryKey: ['my-bookings', 'stays'],
-    queryFn: () => apiFetch<StayBooking[]>('/api/accommodation/bookings/').catch(() => [] as StayBooking[]),
+    queryFn: async () => {
+      try {
+        return asArray<StayBooking>(await apiFetch('/api/accommodation/bookings/'))
+      } catch {
+        return []
+      }
+    },
     enabled: Boolean(profile) && service === 'stay',
   })
 
@@ -90,6 +104,20 @@ export function BookingDetail() {
     queryKey: ['my-bookings', 'guides'],
     queryFn: () => apiFetch<GuideBooking[]>('/api/guides/bookings/').catch(() => [] as GuideBooking[]),
     enabled: Boolean(profile) && service === 'guide',
+  })
+
+  const cancelStayMut = useMutation({
+    mutationFn: () =>
+      apiFetch<StayBooking>(`/api/accommodation/bookings/${bookingId}/cancel/`, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-bookings', 'stays'] }),
+  })
+
+  const payStayMut = useMutation({
+    mutationFn: () =>
+      apiFetch<{ mock_payment_ref: string }>(`/api/accommodation/bookings/${bookingId}/mock_pay/`, {
+        method: 'POST',
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-bookings', 'stays'] }),
   })
 
   if (!profile) return <Navigate to="/login" replace />
@@ -125,8 +153,15 @@ export function BookingDetail() {
         { label: 'Check in', value: stay.check_in },
         { label: 'Check out', value: stay.check_out },
         { label: 'Guests', value: `${stay.guests}` },
+        ...(stay.room_type_name?.trim() ? [{ label: 'Room', value: stay.room_type_name.trim() }] : []),
         { label: 'Total', value: stay.total_price ? `N$${stay.total_price}` : 'TBD' },
+        ...(stay.mock_payment_ref?.trim()
+          ? [{ label: 'Payment ref', value: stay.mock_payment_ref.trim() }]
+          : []),
         { label: 'Reference', value: `STAY-${stay.id}` },
+        ...(stay.special_requests?.trim()
+          ? [{ label: 'Special requests', value: stay.special_requests.trim() }]
+          : []),
       ]
     }
 
@@ -145,6 +180,23 @@ export function BookingDetail() {
 
     return []
   }, [stay, guide])
+
+  const canReviewStay =
+    Boolean(stay) &&
+    ['confirmed', 'checked_in', 'checked_out'].includes(normalizeBookingStatus(stay!.status)) &&
+    !stay!.has_review
+
+  const canCancelStay =
+    Boolean(stay) &&
+    ['pending', 'confirmed'].includes(normalizeBookingStatus(stay!.status)) &&
+    !cancelStayMut.isPending
+
+  const canPayStay =
+    Boolean(stay) &&
+    normalizeBookingStatus(stay!.status) === 'confirmed' &&
+    !stay!.mock_payment_ref?.trim() &&
+    Boolean(stay!.total_price) &&
+    !payStayMut.isPending
 
   const ServiceIcon = stay ? Building2 : Compass
 
@@ -220,11 +272,56 @@ export function BookingDetail() {
               </dl>
             </section>
 
+            {canReviewStay && stay ? (
+              <section className="bk-detail-card" aria-label="Leave a review">
+                <StayReviewForm bookingId={stay.id} listingId={stay.listing} />
+              </section>
+            ) : null}
+
             <div className="bk-detail-page__actions">
-              <Link to="/messages" className="btn btn-primary btn-block bk-detail-page__cta">
-                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-                Contact provider
-              </Link>
+              {canPayStay && stay ? (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block bk-detail-page__cta"
+                  disabled={payStayMut.isPending}
+                  onClick={() => payStayMut.mutate()}
+                >
+                  {payStayMut.isPending ? 'Processing…' : `Pay N$${stay.total_price} (mock)`}
+                </button>
+              ) : null}
+
+              {stay?.listing_owner_username ? (
+                <MessageProviderLink
+                  username={stay.listing_owner_username}
+                  label="Message host"
+                  role="host"
+                  variant={canPayStay ? 'ghost' : 'primary'}
+                  size="block"
+                />
+              ) : (
+                <Link to="/messages" className="btn btn-primary btn-block bk-detail-page__cta">
+                  <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+                  Contact provider
+                </Link>
+              )}
+
+              {stay ? (
+                <Link to={`/accommodation/${stay.listing}`} className="btn btn-ghost btn-block">
+                  View stay listing
+                </Link>
+              ) : null}
+
+              {canCancelStay ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-block"
+                  disabled={cancelStayMut.isPending}
+                  onClick={() => cancelStayMut.mutate()}
+                >
+                  {cancelStayMut.isPending ? 'Cancelling…' : 'Cancel booking'}
+                </button>
+              ) : null}
+
               <Link to="/dashboard#bookings" className="btn btn-ghost btn-block">
                 <CalendarDays size={16} strokeWidth={2.25} aria-hidden />
                 All bookings

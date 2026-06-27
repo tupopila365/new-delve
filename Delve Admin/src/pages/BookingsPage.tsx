@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
+import { apiFetch, asArray } from '../api/client'
 import type { AdminBooking, AdminBookingDetail } from '../api/types'
 import {
   DelveAdminDataRow,
@@ -16,16 +16,25 @@ import {
 } from '../components'
 import { statusVariant } from '../data/demoData'
 
-const TYPE_FILTERS = ['All', 'Stays', 'Guides', 'Transport', 'Bus'] as const
+const TYPE_FILTERS = ['All', 'Stays', 'Guides', 'Transport', 'Bus', 'Events'] as const
 
 const TYPE_MAP: Record<string, string> = {
   Stays: 'accommodation',
   Guides: 'guide',
   Transport: 'vehicle',
   Bus: 'bus_seat',
+  Events: 'event',
 }
 
-const STATUS_FILTERS = ['All', 'pending', 'confirmed', 'cancelled'] as const
+const STATUS_FILTERS = [
+  'All',
+  'pending',
+  'confirmed',
+  'checked_in',
+  'checked_out',
+  'cancelled',
+  'refunded',
+] as const
 
 function bookingTypeLabel(type: string): string {
   const map: Record<string, string> = {
@@ -33,6 +42,7 @@ function bookingTypeLabel(type: string): string {
     guide: 'Guide',
     vehicle: 'Vehicle',
     bus_seat: 'Bus seat',
+    event: 'Event',
   }
   return map[type] || type
 }
@@ -47,7 +57,7 @@ export function BookingsPage() {
 
   const { data: bookings = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['bookings'],
-    queryFn: () => apiFetch<AdminBooking[]>('/api/accounts/admin/bookings/'),
+    queryFn: async () => asArray<AdminBooking>(await apiFetch('/api/accounts/admin/bookings/')),
   })
 
   const { data: detail, isLoading: loadingDetail } = useQuery({
@@ -188,6 +198,40 @@ export function BookingsPage() {
                 <dt>Type</dt>
                 <dd>{bookingTypeLabel(detail.booking_type)}</dd>
               </div>
+              <div>
+                <dt>Listing</dt>
+                <dd>{detail.listing_title}</dd>
+              </div>
+              {detail.booking_type === 'event' && detail.booking_ref ? (
+                <div>
+                  <dt>Booking ref</dt>
+                  <dd>{detail.booking_ref}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'event' && detail.tickets != null ? (
+                <div>
+                  <dt>Tickets</dt>
+                  <dd>{detail.tickets}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'accommodation' && detail.guests != null ? (
+                <div>
+                  <dt>Guests</dt>
+                  <dd>{detail.guests}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'accommodation' && detail.room_type_name ? (
+                <div>
+                  <dt>Room type</dt>
+                  <dd>{detail.room_type_name}</dd>
+                </div>
+              ) : null}
+              {detail.special_requests ? (
+                <div>
+                  <dt>{detail.booking_type === 'accommodation' ? 'Special requests' : 'Notes'}</dt>
+                  <dd>{detail.special_requests}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Customer</dt>
                 <dd>@{detail.customer_username}</dd>

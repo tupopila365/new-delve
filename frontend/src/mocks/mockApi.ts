@@ -46,11 +46,56 @@ type MockAccBookingRow = {
   total_price: string
   special_requests: string
   room_type_name: string
-  status: 'pending' | 'confirmed'
+  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'refunded'
   mock_payment_ref: string
 }
 const mockAccBookings = new Map<number, MockAccBookingRow>()
 let mockAccNextBookingId = 1
+
+type MockAccQuestionRow = {
+  id: number
+  listing: number
+  listing_title: string
+  author: string
+  body: string
+  ago: string
+  answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[]
+}
+const mockAccQuestions: MockAccQuestionRow[] = []
+let mockAccNextQuestionId = 1
+let mockAccNextAnswerId = 1
+
+type MockAccReviewRow = {
+  listing: number
+  booking: number
+  name: string
+  rating: number
+  body: string
+  created_at: string
+}
+const mockAccReviews: MockAccReviewRow[] = []
+const mockAccReviewedBookings = new Set<number>()
+
+const MOCK_ACC_BLOCKING = new Set(['pending', 'confirmed', 'checked_in'])
+
+function mockAccDatesOverlap(aIn: string, aOut: string, bIn: string, bOut: string) {
+  return aIn < bOut && aOut > bIn
+}
+
+function mockAccBlockedRanges(listingId: number, roomType = '') {
+  return [...mockAccBookings.values()].filter(
+    (b) =>
+      b.listing === listingId &&
+      MOCK_ACC_BLOCKING.has(b.status) &&
+      (b.room_type_name || '').trim() === roomType.trim(),
+  )
+}
+
+function mockAccHasOverlap(listingId: number, checkIn: string, checkOut: string, roomType = '') {
+  return mockAccBlockedRanges(listingId, roomType.trim()).some((b) =>
+    mockAccDatesOverlap(checkIn, checkOut, b.check_in, b.check_out),
+  )
+}
 
 /** Mock guide bookings (session only). */
 type MockGuideBookingRow = {
@@ -217,6 +262,7 @@ function nowIso() {
 
 /** Session-local likes on accommodation listings (listing id → usernames). */
 const mockListingLikes = new Map<number, Set<string>>()
+const mockListingSaves = new Map<number, Set<string>>()
 
 type MockFeaturedCampaign = {
   id: number
@@ -629,10 +675,13 @@ function injectMockFeedPromotions(
 
 function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[number]) {
   const likers = mockListingLikes.get(row.id)
+  const savers = mockListingSaves.get(row.id)
   return {
     ...row,
     likes_count: likers?.size ?? 0,
     liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
+    saves_count: savers?.size ?? 0,
+    saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
   }
 }
 
@@ -1191,7 +1240,49 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         rating_count: st.rating_count,
         is_active: true,
         guest_reviews: st.guest_reviews ?? [],
+        likes_count: mockListingLikes.get(st.id)?.size ?? 0,
+        saves_count: mockListingSaves.get(st.id)?.size ?? 0,
       }))
+  }
+
+  if (pathname === '/api/accommodation/provider-analytics/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const owned = mockStays.filter((st) => st.owner_username === me)
+    const ownedIds = new Set(owned.map((st) => st.id))
+    const rows = [...mockAccBookings.values()].filter((b) => ownedIds.has(b.listing))
+    const paid = rows.filter((b) => ['confirmed', 'checked_in', 'checked_out'].includes(b.status))
+    const revenue = paid.reduce((s, b) => s + Number(b.total_price || 0), 0)
+    const listingRows = owned.map((st) => {
+      const listingBookings = rows.filter((b) => b.listing === st.id)
+      const confirmed = listingBookings.filter((b) =>
+        ['confirmed', 'checked_in', 'checked_out'].includes(b.status),
+      )
+      const listingRevenue = confirmed.reduce((s, b) => s + Number(b.total_price || 0), 0)
+      return {
+        id: st.id,
+        title: st.title,
+        bookings: listingBookings.length,
+        confirmed_bookings: confirmed.length,
+        revenue: listingRevenue,
+        likes_count: mockListingLikes.get(st.id)?.size ?? 0,
+        saves_count: mockListingSaves.get(st.id)?.size ?? 0,
+      }
+    })
+    listingRows.sort((a, b) => b.revenue - a.revenue || b.bookings - a.bookings)
+    return {
+      days: 30,
+      on_platform_revenue: revenue,
+      total_bookings: rows.length,
+      confirmed_bookings: paid.length,
+      pending_requests: rows.filter((b) => b.status === 'pending').length,
+      total_likes: owned.reduce((s, st) => s + (mockListingLikes.get(st.id)?.size ?? 0), 0),
+      total_saves: owned.reduce((s, st) => s + (mockListingSaves.get(st.id)?.size ?? 0), 0),
+      promotion_impressions: 0,
+      promotion_clicks: 0,
+      promotion_listing_opens: 0,
+      listings: listingRows.slice(0, 12),
+    }
   }
 
   if (pathname === '/api/accommodation/provider-listings/' && method === 'POST') {
@@ -1233,9 +1324,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const me = s.currentUser as string
     const myTitles = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.title))
     const all = [
-      { id: 1, listing_title: 'Coastal guesthouse', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-10', check_out: '2026-05-13', guests: 2, total_price: '2850', status: 'confirmed' },
-      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending' },
-      { id: 3, listing_title: 'Freesia Hotel', guest_display_name: 'Anna K.', guest_username: 'anna', check_in: '2026-05-14', check_out: '2026-05-16', guests: 2, total_price: '700', status: 'confirmed' },
+      { id: 1, listing_title: 'Coastal guesthouse', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-10', check_out: '2026-05-13', guests: 2, total_price: '2850', status: 'confirmed', created_at: '2026-04-28T10:00:00Z' },
+      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending', created_at: '2026-05-01T14:30:00Z' },
+      { id: 3, listing_title: 'Freesia Hotel', guest_display_name: 'Anna K.', guest_username: 'anna', check_in: '2026-05-14', check_out: '2026-05-16', guests: 2, total_price: '700', status: 'confirmed', created_at: '2026-04-30T09:15:00Z' },
     ]
     const status = (q.get('status') || '').trim()
     return all.filter((b) => myTitles.has(b.listing_title) && (!status || b.status === status))
@@ -1893,6 +1984,35 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { liked: true, likes_count: likers.size }
   }
 
+  const staySaveMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/save\/$/)
+  if (staySaveMatch && method === 'POST') {
+    requireAuth(s)
+    const lid = Number(staySaveMatch[1])
+    if (!mockStays.some((x) => x.id === lid)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const me = s.currentUser as string
+    let savers = mockListingSaves.get(lid)
+    if (!savers) {
+      savers = new Set<string>()
+      mockListingSaves.set(lid, savers)
+    }
+    if (savers.has(me)) {
+      savers.delete(me)
+      return { saved: false, saves_count: savers.size }
+    }
+    savers.add(me)
+    return { saved: true, saves_count: savers.size }
+  }
+
+  if (pathname === '/api/accommodation/listings/saved/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockStays
+      .filter((row) => mockListingSaves.get(row.id)?.has(me))
+      .map((row) => enrichAccommodationListingRow(s, row))
+  }
+
   if (pathname === '/api/accommodation/listings/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const cityQ = (q.get('city') || '').trim()
@@ -1949,6 +2069,182 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
     return list.map((row) => enrichAccommodationListingRow(s, row))
   }
+
+  const staySubMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/([^/]+)\/?$/)
+  if (staySubMatch) {
+    const id = Number(staySubMatch[1])
+    const action = staySubMatch[2]
+    const stay = mockStays.find((x) => x.id === id)
+    if (!stay && action !== 'questions' && action !== 'moments' && action !== 'reviews' && action !== 'availability') {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (action === 'availability' && method === 'GET') {
+      const checkIn = (q.get('check_in') || '').trim()
+      const checkOut = (q.get('check_out') || '').trim()
+      const roomType = (q.get('room') || q.get('room_type_name') || '').trim()
+      const guests = Math.max(1, Number(q.get('guests') || 1) || 1)
+      const blocked_ranges = mockAccBlockedRanges(id, roomType).map((b) => ({
+        check_in: b.check_in,
+        check_out: b.check_out,
+        status: b.status,
+        room_type_name: b.room_type_name || '',
+      }))
+      if (!checkIn || !checkOut) {
+        return { available: false, reason: 'Select check-in and check-out dates.', blocked_ranges }
+      }
+      if (checkOut <= checkIn) {
+        return { available: false, reason: 'Check-out must be after check-in.', blocked_ranges }
+      }
+      if (guests > (stay?.max_guests ?? 1)) {
+        return {
+          available: false,
+          reason: `This room fits up to ${stay?.max_guests ?? 1} guests.`,
+          blocked_ranges,
+        }
+      }
+      if (mockAccHasOverlap(id, checkIn, checkOut, roomType)) {
+        return {
+          available: false,
+          reason: 'This stay is already booked for part of those dates. Try different dates.',
+          blocked_ranges,
+        }
+      }
+      const t0 = new Date(`${checkIn}T12:00:00`).getTime()
+      const t1 = new Date(`${checkOut}T12:00:00`).getTime()
+      const nights = Math.max(1, Math.round((t1 - t0) / (1000 * 60 * 60 * 24)))
+      let nightly = Number(stay?.price_per_night ?? 0)
+      if (roomType && Array.isArray(stay?.room_types)) {
+        const match = (stay!.room_types as { name?: string; price_per_night?: string | number }[]).find(
+          (r) => r && typeof r.name === 'string' && r.name.trim() === roomType,
+        )
+        if (match?.price_per_night != null && String(match.price_per_night).trim() !== '') {
+          nightly = Number(match.price_per_night)
+        }
+      }
+      return {
+        available: true,
+        nights,
+        estimated_total: (nightly * nights).toFixed(2),
+        blocked_ranges,
+      }
+    }
+    if (action === 'questions' && method === 'GET') {
+      return mockAccQuestions
+        .filter((q) => q.listing === id)
+        .map(({ listing_title: _lt, ...q }) => q)
+    }
+    if (action === 'questions' && method === 'POST') {
+      requireAuth(s)
+      if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+      const body = JSON.parse(init.body) as { body?: string }
+      const prof = s.profiles[s.currentUser as string]
+      const row: MockAccQuestionRow = {
+        id: mockAccNextQuestionId++,
+        listing: id,
+        listing_title: stay?.title || '',
+        author: prof?.display_name || (s.currentUser as string),
+        body: (body.body || '').trim(),
+        ago: 'Just now',
+        answers: [],
+      }
+      mockAccQuestions.unshift(row)
+      const { listing_title: _lt, ...out } = row
+      return out
+    }
+    if (action === 'moments' && method === 'GET') {
+      return visiblePosts(s.posts)
+        .filter(
+          (p) =>
+            p.is_delvers &&
+            !p.is_accommodation_story &&
+            p.listing?.id === id,
+        )
+        .slice(0, 24)
+        .map((p) => ({
+          id: p.id,
+          body: p.body,
+          image: p.image,
+          video: p.video,
+          author: { username: p.author.username, display_name: p.author.display_name },
+          listing: p.listing,
+        }))
+    }
+    if (action === 'reviews' && method === 'GET') {
+      const traveler = mockAccReviews
+        .filter((r) => r.listing === id)
+        .map((r, i) => ({
+          id: `traveler-${i}`,
+          name: r.name,
+          place: [stay?.city, stay?.region].filter(Boolean).join(', '),
+          rating: r.rating,
+          body: r.body,
+          avatar: null,
+          source: 'traveler',
+        }))
+      const seeded = (stay?.guest_reviews ?? []).map((r, i) => ({
+        id: `seed-${i}`,
+        name: r.name,
+        place: r.place || stay?.region || '',
+        rating: r.rating,
+        body: r.body,
+        avatar: r.avatar ?? null,
+        source: 'host',
+      }))
+      const reviews = [...traveler, ...seeded]
+      const rated = reviews.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n))
+      const rating_avg = rated.length ? Math.round((rated.reduce((a, b) => a + b, 0) / rated.length) * 100) / 100 : 0
+      return { reviews, rating_avg, rating_count: rated.length || stay?.rating_count || 0 }
+    }
+    if (action === 'like' && method === 'POST') {
+      requireAuth(s)
+      return { liked: true, likes_count: 1 }
+    }
+    if (action === 'save' && method === 'POST') {
+      requireAuth(s)
+      return { saved: true, saves_count: 1 }
+    }
+  }
+
+  if (pathname === '/api/accommodation/provider-questions/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const ownedIds = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.id))
+    return mockAccQuestions
+      .filter((q) => ownedIds.has(q.listing))
+      .map((q) => ({
+        id: q.id,
+        listing: q.listing,
+        listing_title: q.listing_title,
+        author: q.author,
+        body: q.body,
+        ago: q.ago,
+        answers: q.answers,
+      }))
+  }
+
+  const stayQuestionAnswerMatch = pathname.match(/^\/api\/accommodation\/questions\/(\d+)\/answers\/?$/)
+  if (stayQuestionAnswerMatch && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const qid = Number(stayQuestionAnswerMatch[1])
+    const question = mockAccQuestions.find((q) => q.id === qid)
+    if (!question) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(init.body) as { body?: string }
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    const stay = mockStays.find((st) => st.id === question.listing)
+    const isOfficial = stay?.owner_username === me
+    const answer = {
+      id: mockAccNextAnswerId++,
+      author: prof?.display_name || me,
+      body: (body.body || '').trim(),
+      ago: 'Just now',
+      is_official: isOfficial,
+    }
+    question.answers.push(answer)
+    return answer
+  }
+
   const stayMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/$/)
   if (stayMatch && method === 'GET') {
     const id = Number(stayMatch[1])
@@ -1958,19 +2254,24 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accommodation/bookings/' && method === 'GET') {
     requireAuth(s)
-    const sessionRows = [...mockAccBookings.values()].map((row) => ({
-      id: row.id,
-      listing: row.listing,
-      listing_title: row.listing_title,
-      check_in: row.check_in,
-      check_out: row.check_out,
-      guests: row.guests,
-      total_price: row.total_price,
-      special_requests: row.special_requests,
-      room_type_name: row.room_type_name,
-      status: row.status,
-      mock_payment_ref: row.mock_payment_ref,
-    }))
+    const sessionRows = [...mockAccBookings.values()].map((row) => {
+      const listing = mockStays.find((st) => st.id === row.listing)
+      return {
+        id: row.id,
+        listing: row.listing,
+        listing_title: row.listing_title,
+        listing_owner_username: listing?.owner_username ?? '',
+        check_in: row.check_in,
+        check_out: row.check_out,
+        guests: row.guests,
+        total_price: row.total_price,
+        special_requests: row.special_requests,
+        room_type_name: row.room_type_name,
+        status: row.status,
+        mock_payment_ref: row.mock_payment_ref,
+        has_review: mockAccReviewedBookings.has(row.id),
+      }
+    })
     if (sessionRows.length > 0) return sessionRows
     // Seed demo bookings so dashboard / badges work out of the box
     return [
@@ -1984,8 +2285,41 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: '1400',
         status: 'pending',
         mock_payment_ref: '',
+        has_review: false,
       },
     ]
+  }
+
+  const stayBookingReviewMatch = pathname.match(/^\/api\/accommodation\/bookings\/(\d+)\/review\/?$/)
+  if (stayBookingReviewMatch && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const bookingId = Number(stayBookingReviewMatch[1])
+    if (mockAccReviewedBookings.has(bookingId)) {
+      throw new ApiError('Already reviewed', 400, { detail: 'You already reviewed this stay.' })
+    }
+    const body = JSON.parse(init.body) as { rating?: number; body?: string }
+    const prof = s.profiles[s.currentUser as string]
+    const name = prof?.display_name || (s.currentUser as string)
+    const rating = Math.min(5, Math.max(1, Number(body.rating ?? 5) || 5))
+    const reviewBody = (body.body || '').trim()
+    let listingId = 101
+    const sessionRow = mockAccBookings.get(bookingId)
+    if (sessionRow) {
+      listingId = sessionRow.listing
+    } else if (bookingId === 9001) {
+      listingId = 101
+    }
+    mockAccReviews.unshift({
+      listing: listingId,
+      booking: bookingId,
+      name,
+      rating,
+      body: reviewBody || 'Great stay.',
+      created_at: new Date().toISOString(),
+    })
+    mockAccReviewedBookings.add(bookingId)
+    return { id: Date.now(), name, rating, body: reviewBody, created_at: new Date().toISOString() }
   }
 
   if (pathname === '/api/accommodation/bookings/' && method === 'POST') {
@@ -2041,6 +2375,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (guests > maxGuests) {
       throw new ApiError('Too many guests', 400, { detail: 'Too many guests for this listing.' })
     }
+    if (mockAccHasOverlap(listingId, checkIn, checkOut, roomTypeName)) {
+      throw new ApiError('Unavailable', 400, {
+        detail: 'Those dates are no longer available. Please choose different dates.',
+      })
+    }
     const nights = Math.max(1, Math.round((t1 - t0) / (1000 * 60 * 60 * 24)))
     const total = (nightly * nights).toFixed(2)
     const special_requests = typeof body.special_requests === 'string' ? body.special_requests.trim() : ''
@@ -2063,6 +2402,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       id: row.id,
       listing: row.listing,
       listing_title: row.listing_title,
+      listing_owner_username: listing.owner_username,
       guest: s.currentUser,
       check_in: row.check_in,
       check_out: row.check_out,
@@ -2076,6 +2416,29 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  const accCancelMatch = pathname.match(/^\/api\/accommodation\/bookings\/(\d+)\/cancel\/?$/)
+  if (accCancelMatch && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(accCancelMatch[1])
+    const b = mockAccBookings.get(bid)
+    if (!b) {
+      throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
+    }
+    if (b.status === 'cancelled' || b.status === 'refunded' || b.status === 'checked_out') {
+      throw new ApiError('Bad request', 400, { detail: 'Booking cannot be cancelled.' })
+    }
+    b.status = 'cancelled'
+    mockAccBookings.set(bid, b)
+    const listing = mockStays.find((st) => st.id === b.listing)
+    return {
+      id: b.id,
+      listing: b.listing,
+      listing_title: b.listing_title,
+      listing_owner_username: listing?.owner_username ?? '',
+      status: b.status,
+    }
+  }
+
   const accMockPay = pathname.match(/^\/api\/accommodation\/bookings\/(\d+)\/mock_pay\/$/)
   if (accMockPay && method === 'POST') {
     requireAuth(s)
@@ -2084,16 +2447,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!b) {
       throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
     }
-    if (b.status !== 'pending') {
-      throw new ApiError('Bad request', 400, { detail: 'Booking not payable.' })
+    if (b.status !== 'confirmed') {
+      throw new ApiError('Bad request', 400, { detail: 'Payment is available after the host confirms your stay.' })
     }
-    b.status = 'confirmed'
+    if (b.mock_payment_ref) {
+      throw new ApiError('Bad request', 400, { detail: 'Payment already recorded.' })
+    }
     b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
     mockAccBookings.set(bid, b)
+    const listing = mockStays.find((st) => st.id === b.listing)
     return {
       detail: 'Payment successful (mock).',
       status: b.status,
       mock_payment_ref: b.mock_payment_ref,
+      booking: {
+        id: b.id,
+        listing: b.listing,
+        listing_title: b.listing_title,
+        listing_owner_username: listing?.owner_username ?? '',
+        status: b.status,
+        mock_payment_ref: b.mock_payment_ref,
+      },
     }
   }
 
@@ -2608,6 +2982,100 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       ev.capacity = Number.isFinite(capNum) && capNum > 0 ? capNum : undefined
     }
     return { ...ev }
+  }
+
+  const eventSubMatch = pathname.match(/^\/api\/events\/(\d+)\/([^/]+)\/?$/)
+  if (eventSubMatch) {
+    const id = Number(eventSubMatch[1])
+    const action = eventSubMatch[2]
+    const ev = mockEvents.find((e) => e.id === id)
+    if (!ev && action !== 'questions' && action !== 'moments' && action !== 'reviews') {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (action === 'questions' && method === 'GET') return []
+    if (action === 'questions' && method === 'POST') {
+      requireAuth(s)
+      if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+      const body = JSON.parse(init.body) as { body?: string }
+      return {
+        id: Date.now(),
+        author: s.profiles[s.currentUser as string]?.display_name || s.currentUser,
+        body: body.body || '',
+        ago: 'Just now',
+        answers: [],
+      }
+    }
+    if (action === 'moments' && method === 'GET') return []
+    if (action === 'reviews' && method === 'GET') {
+      return { reviews: [], rating_avg: 0, rating_count: 0 }
+    }
+    if (action === 'like' && method === 'POST') {
+      requireAuth(s)
+      return { liked: true, likes_count: 1 }
+    }
+    if (action === 'save' && method === 'POST') {
+      requireAuth(s)
+      return { saved: true, saves_count: 1 }
+    }
+    if (action === 'rsvp' && method === 'POST') {
+      requireAuth(s)
+      return {
+        id: Date.now(),
+        event: id,
+        tickets: 1,
+        status: ev?.is_free ? 'confirmed' : 'pending',
+        total_price: ev?.is_free ? null : ev?.price ? String(Number(ev.price) * 1) : null,
+        booking_ref: `EVT-MOCK${id}`,
+      }
+    }
+    if (action === 'track_ticket_click' && method === 'POST') {
+      return { clicks: 1 }
+    }
+    if (action === 'ticket_redirect' && method === 'GET') {
+      return { detail: 'Redirect handled by real API in production.' }
+    }
+  }
+
+  if (pathname === '/api/events/provider-bookings/' && method === 'GET') {
+    requireAuth(s)
+    return []
+  }
+
+  const providerBookingAction = pathname.match(/^\/api\/events\/provider-bookings\/(\d+)\/(confirm|check_in|cancel|refund)\/?$/)
+  if (providerBookingAction && method === 'POST') {
+    requireAuth(s)
+    const action = providerBookingAction[2]
+    return { id: Number(providerBookingAction[1]), status: action === 'check_in' ? 'checked_in' : action === 'confirm' ? 'confirmed' : action }
+  }
+
+  if (pathname === '/api/events/bookings/' && method === 'GET') {
+    requireAuth(s)
+    return []
+  }
+
+  if (pathname === '/api/events/templates/' && method === 'GET') {
+    requireAuth(s)
+    return []
+  }
+
+  if (pathname === '/api/events/templates/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as { title?: string }
+    return { id: Date.now(), title: body.title || 'Template', spawned_count: 0, is_active: true }
+  }
+
+  if (pathname === '/api/events/provider_analytics/' && method === 'GET') {
+    requireAuth(s)
+    return {
+      days: 30,
+      on_platform_revenue: 0,
+      external_ticket_clicks: 0,
+      total_bookings: 0,
+      confirmed_bookings: 0,
+      pending_payment: 0,
+      events: [],
+    }
   }
 
   // ---- Food ----

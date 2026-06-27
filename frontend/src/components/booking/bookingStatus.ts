@@ -78,9 +78,13 @@ export function bookingNextStep(status: string, serviceType?: BookingServiceType
   const key = normalizeBookingStatus(status)
   const isGuide = serviceType === 'guide' || serviceType === 'experience'
   if (key === 'pending' || key === 'requested' || key === 'reserved') {
+    if (serviceType === 'event') return 'Complete payment or wait for organizer confirmation'
+    if (serviceType === 'stay') return 'Waiting for the host to confirm your dates'
     return isGuide ? 'Waiting for guide review' : 'Waiting for provider review'
   }
   if (key === 'confirmed') {
+    if (serviceType === 'event') return 'Your spot is confirmed — see you there'
+    if (serviceType === 'stay') return 'Your stay is confirmed — message the host with any questions'
     return isGuide ? 'Check messages for details from the guide' : 'Check messages for details from the provider'
   }
   if (key === 'completed' || key === 'checked_in' || key === 'checked_out') return 'Your booking is complete'

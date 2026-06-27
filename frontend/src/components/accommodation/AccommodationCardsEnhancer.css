@@ -70,6 +70,19 @@
   background: rgba(232, 98, 10, 0.9) !important;
 }
 
+.acc-media-card__bookmark {
+  width: 34px !important;
+  height: 34px !important;
+  border: 0 !important;
+  background: rgba(5, 5, 5, 0.72) !important;
+  color: #fffaf2 !important;
+  backdrop-filter: blur(12px);
+}
+
+.acc-media-card__bookmark--saved {
+  background: rgba(232, 98, 10, 0.9) !important;
+}
+
 .acc-media-card__like-count,
 .acc-media-card__type {
   position: absolute;
@@ -201,6 +214,7 @@
 }
 
 .stay-card-image-actions .acc-media-card__save,
+.stay-card-image-actions .acc-media-card__bookmark,
 .stay-card-image-actions__btn {
   position: static !important;
   inset: auto !important;
@@ -227,7 +241,8 @@
 }
 
 .stay-card-image-actions__btn.is-active,
-.stay-card-image-actions .acc-media-card__save--saved {
+.stay-card-image-actions .acc-media-card__save--saved,
+.stay-card-image-actions .acc-media-card__bookmark--saved {
   background: rgba(232, 98, 10, 0.92) !important;
   color: #fffaf2 !important;
 }
@@ -259,6 +274,7 @@
   }
 
   .stay-card-image-actions .acc-media-card__save,
+  .stay-card-image-actions .acc-media-card__bookmark,
   .stay-card-image-actions__btn {
     width: 34px !important;
     height: 34px !important;

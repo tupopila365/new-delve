@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
   BedDouble,
+  Bookmark,
   Building,
   Building2,
   Car,
@@ -23,8 +24,12 @@ import {
   Wifi,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../api/client'
+import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { CategorySpotlightHero } from '../components/CategorySpotlightHero'
+import { useToggleStaySave } from '../hooks/useStaySave'
+import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
+import { promotionHref, trackPromotion } from '../utils/promotionTrack'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 import { MarketplaceBadge, MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
 import { EmptyState, ListSkeleton } from '../components/ui'
@@ -49,6 +54,11 @@ type AccListing = {
   rating_count?: number | null
   likes_count?: number
   liked_by_me?: boolean
+  saves_count?: number
+  saved_by_me?: boolean
+  is_featured_partner?: boolean
+  partner_label?: string
+  promotion_id?: number
 }
 
 const PROPERTY_TYPES: { value: string; label: string; Icon: LucideIcon }[] = [
@@ -168,9 +178,27 @@ export function AccommodationList() {
   }, [propType, minPrice, maxPrice, search])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['accommodation', qs],
-    queryFn: () => apiFetch<AccListing[]>(`/api/accommodation/listings/${qs}`, { auth: false }),
+    queryKey: ['accommodation', qs, profile?.username ?? 'anon'],
+    queryFn: async () =>
+      asArray<AccListing>(
+        await apiFetch(`/api/accommodation/listings/${qs}`, { auth: Boolean(profile) }),
+      ),
   })
+
+  const { data: spotlight = [] } = useFeaturedPlacement<AccListing>(
+    'stays-spotlight',
+    FEATURED_API.spotlight('accommodation'),
+  )
+  const { data: featuredStays = [] } = useFeaturedPlacement<AccListing>('stays-featured-rail', FEATURED_API.stays)
+
+  const spotlightStay = spotlight[0]
+  const featured = useMemo(() => featuredStays.slice(0, 5), [featuredStays])
+
+  useEffect(() => {
+    if (spotlightStay?.promotion_id) {
+      trackPromotion(spotlightStay.promotion_id, 'impression')
+    }
+  }, [spotlightStay?.promotion_id])
 
   const likeMut = useMutation({
     mutationFn: (listingId: number) =>
@@ -182,6 +210,8 @@ export function AccommodationList() {
     },
   })
 
+  const saveMut = useToggleStaySave()
+
   const onToggleLike = (listingId: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -190,6 +220,16 @@ export function AccommodationList() {
       return
     }
     likeMut.mutate(listingId)
+  }
+
+  const onToggleSave = (listingId: number, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    saveMut.mutate(listingId)
   }
 
   const listings = data ?? []
@@ -213,8 +253,6 @@ export function AccommodationList() {
       return true
     })
   }, [listings, minGuests, amenityWifi, amenityPool, amenityParking, amenityKitchen, amenityBreakfast, petFriendlyOnly, budgetOnly, familyOnly, coastOnly])
-
-  const featured = useMemo(() => filteredListings.slice(0, 5), [filteredListings])
 
   const hasApiFilters = !!(propType || minPrice || maxPrice || search)
   const hasClientFilters =
@@ -487,6 +525,22 @@ export function AccommodationList() {
 
       <div className="disc-page__layout">
         <main className="disc-page__main">
+          {spotlightStay?.is_featured_partner ? (
+            <CategorySpotlightHero
+              title={spotlightStay.title}
+              subtitle={propLabel(spotlightStay.property_type) ?? undefined}
+              href={promotionHref(`/accommodation/${spotlightStay.id}`, spotlightStay.promotion_id)}
+              image={spotlightStay.cover_image ? mediaUrl(spotlightStay.cover_image) : null}
+              fallbackImage="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80"
+              partnerLabel={spotlightStay.partner_label || 'Featured Partner'}
+              location={spotlightStay.city ? `${spotlightStay.city}, ${spotlightStay.region}` : spotlightStay.region}
+              meta={`From N$${spotlightStay.price_per_night} / night`}
+              rating={
+                spotlightStay.rating_avg ? Number.parseFloat(spotlightStay.rating_avg).toFixed(1) : null
+              }
+            />
+          ) : null}
+
           {!isLoading && featured.length > 0 && (
             <section className="acc-featured" aria-labelledby="acc-featured-title">
               <div className="acc-featured__head">
@@ -494,7 +548,7 @@ export function AccommodationList() {
                   <h2 id="acc-featured-title" className="acc-featured__title">
                     Featured stays
                   </h2>
-                  <p className="acc-featured__sub">Hand-picked places travellers are looking at.</p>
+                  <p className="acc-featured__sub">Promoted places travellers are booking on DELVE.</p>
                 </div>
               </div>
               <div className="acc-featured__rail">
@@ -502,8 +556,16 @@ export function AccommodationList() {
                   const loc = a.city ? `${a.city}, ${a.region}` : a.region
                   const pt = propLabel(a.property_type)
                   const PlaceIcon = propertyTypeIcon(a.property_type)
+                  const href = promotionHref(`/accommodation/${a.id}`, a.promotion_id)
                   return (
-                    <Link key={`acc-featured-${a.id}`} to={`/accommodation/${a.id}`} className="acc-featured-card">
+                    <Link
+                      key={`acc-featured-${a.id}`}
+                      to={href}
+                      className="acc-featured-card"
+                      onClick={() => {
+                        if (a.promotion_id) trackPromotion(a.promotion_id, 'click')
+                      }}
+                    >
                       <div className="acc-featured-card__media">
                         {a.cover_image ? (
                           <img
@@ -517,6 +579,11 @@ export function AccommodationList() {
                             <PlaceIcon size={28} strokeWidth={1.75} aria-hidden />
                           </div>
                         )}
+                        {a.is_featured_partner ? (
+                          <span className="featured-card__partner acc-featured-card__partner">
+                            {a.partner_label || 'Featured Partner'}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="acc-featured-card__body">
                         {pt ? <span className="acc-featured-card__type">{pt}</span> : null}
@@ -526,7 +593,7 @@ export function AccommodationList() {
                           {loc}
                         </p>
                         <p className="acc-featured-card__price">
-                          From ${a.price_per_night}
+                          From N${a.price_per_night}
                           <span> / night</span>
                         </p>
                       </div>
@@ -587,10 +654,12 @@ export function AccommodationList() {
           <div className="acc-page__grid ev-page__grid">
             {filteredListings.map((a) => {
               const liked = Boolean(a.liked_by_me)
+              const saved = Boolean(a.saved_by_me)
               const likeCount = a.likes_count ?? 0
               const location = a.city ? `${a.city}, ${a.region}` : a.region
               const typeLabel = propLabel(a.property_type)
               const likePending = likeMut.isPending && likeMut.variables === a.id
+              const savePending = saveMut.isPending && saveMut.variables === a.id
               const badges = trustBadges(a)
 
               return (
@@ -620,6 +689,15 @@ export function AccommodationList() {
                       onClick={(e) => onToggleLike(a.id, e)}
                     >
                       <Heart size={18} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      className={`acc-media-card__bookmark${saved ? ' acc-media-card__bookmark--saved' : ''}`}
+                      aria-label={saved ? 'Remove saved stay' : 'Save stay'}
+                      disabled={savePending}
+                      onClick={(e) => onToggleSave(a.id, e)}
+                    >
+                      <Bookmark size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
                     </button>
                   </div>
                   <div className="media-card__body">

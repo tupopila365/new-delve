@@ -57,6 +57,14 @@ export function StayListingCard({ stay, canEdit, onEdit }: Props) {
 
         <p className="stay-card__rating">
           {stay.rating_avg} rating · {stay.rating_count} review{stay.rating_count === 1 ? '' : 's'}
+          {(stay.likes_count ?? 0) > 0 || (stay.saves_count ?? 0) > 0 ? (
+            <>
+              {' · '}
+              {(stay.likes_count ?? 0) > 0 ? `${stay.likes_count} like${stay.likes_count === 1 ? '' : 's'}` : null}
+              {(stay.likes_count ?? 0) > 0 && (stay.saves_count ?? 0) > 0 ? ' · ' : null}
+              {(stay.saves_count ?? 0) > 0 ? `${stay.saves_count} save${stay.saves_count === 1 ? '' : 's'}` : null}
+            </>
+          ) : null}
         </p>
 
         {missing.length > 0 ? (

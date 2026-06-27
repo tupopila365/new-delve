@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { EventForm } from '../components/events/EventForm'
 import { EmptyState } from '../components/ui'
 import type { EventDetail } from '../utils/eventListing'
@@ -19,6 +20,7 @@ export function EditEvent() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
 
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
   const [hydrated, setHydrated] = useState(false)
@@ -32,8 +34,11 @@ export function EditEvent() {
     queryFn: () => apiFetch<EventDetail>(`/api/events/${id}/`),
   })
 
-  const isOwner = Boolean(
-    profile && data?.organizer_username && data.organizer_username === profile.username,
+  const canEdit = Boolean(
+    profile &&
+      data &&
+      (data.organizer_username === profile.username ||
+        (canManageListings && data.business && activeBusiness?.id === data.business)),
   )
 
   useEffect(() => {
@@ -50,7 +55,7 @@ export function EditEvent() {
       if (!id || !canSubmit) throw new Error('Title and start date are required.')
       return apiFetch<EventDetail>(`/api/events/${id}/`, {
         method: 'PATCH',
-        body: buildEventFormData(state, coverFile),
+        body: buildEventFormData(state, coverFile, data?.business ?? activeBusiness?.id),
       })
     },
     onSuccess: async () => {
@@ -114,7 +119,7 @@ export function EditEvent() {
     )
   }
 
-  if (!isOwner) {
+  if (!canEdit) {
     return (
       <div className="ce-page">
         <EmptyState

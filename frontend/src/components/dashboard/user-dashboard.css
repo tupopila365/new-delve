@@ -452,3 +452,64 @@
   text-decoration: none;
   cursor: pointer;
 }
+
+.t-dash__saved-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.t-dash__saved-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  color: inherit;
+}
+
+.t-dash__saved-card:hover {
+  border-color: rgba(255, 154, 82, 0.35);
+}
+
+.t-dash__saved-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.t-dash__saved-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.t-dash__saved-thumb-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.t-dash__saved-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.t-dash__saved-copy strong {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #fffaf2;
+}
+
+.t-dash__saved-copy span {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.62);
+}

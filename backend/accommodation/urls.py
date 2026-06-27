@@ -4,8 +4,11 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AccommodationBookingViewSet,
     AccommodationListingViewSet,
+    AccommodationProviderAnalyticsView,
     AccommodationProviderBookingViewSet,
     AccommodationProviderListingViewSet,
+    AccommodationProviderQuestionsView,
+    AccommodationQuestionAnswerView,
 )
 
 router = DefaultRouter()
@@ -22,4 +25,9 @@ router.register(
     basename="accommodation-provider-booking",
 )
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    path("provider-analytics/", AccommodationProviderAnalyticsView.as_view(), name="accommodation-provider-analytics"),
+    path("questions/<int:pk>/answers/", AccommodationQuestionAnswerView.as_view(), name="accommodation-question-answer"),
+    path("provider-questions/", AccommodationProviderQuestionsView.as_view(), name="accommodation-provider-questions"),
+    path("", include(router.urls)),
+]

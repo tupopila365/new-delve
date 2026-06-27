@@ -133,6 +133,30 @@ class AccommodationListingLike(models.Model):
         ]
 
 
+class AccommodationListingSave(models.Model):
+    """A user's bookmark on a stay listing."""
+
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="user_saves",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accommodation_listing_saves",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("listing", "user"),
+                name="accommodation_listing_save_listing_user_uniq",
+            ),
+        ]
+
+
 class BookingStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     CONFIRMED = "confirmed", "Confirmed"
@@ -173,3 +197,75 @@ class AccommodationBooking(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class AccommodationQuestion(models.Model):
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accommodation_questions",
+    )
+    body = models.TextField()
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class AccommodationAnswer(models.Model):
+    question = models.ForeignKey(
+        AccommodationQuestion,
+        on_delete=models.CASCADE,
+        related_name="answers",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accommodation_answers",
+    )
+    body = models.TextField()
+    is_official = models.BooleanField(
+        default=False,
+        help_text="Reply from the listing host or business team.",
+    )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+
+class AccommodationReview(models.Model):
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="traveler_reviews",
+    )
+    booking = models.OneToOneField(
+        AccommodationBooking,
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="accommodation_reviews",
+    )
+    rating = models.PositiveSmallIntegerField()
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="accommodation_review_rating_1_5",
+            ),
+        ]

@@ -27,6 +27,7 @@ import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
 import type { ServiceProviderFilterGroup } from './ServiceProviderFilterButton'
 import { TopNav } from './TopNav'
+import { useMigrateStaySaves } from '../hooks/useStaySave'
 
 const stayFilterGroups: ServiceProviderFilterGroup[] = [
   {
@@ -245,6 +246,7 @@ const transportFilterGroups: ServiceProviderFilterGroup[] = [
 ]
 
 export function AppLayout() {
+  useMigrateStaySaves()
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
   const createStudio =

@@ -146,6 +146,7 @@ def _update_booking_status(booking_type: str, booking_id: int, new_status: str) 
     from accommodation.models import AccommodationBooking
     from guides.models import GuideBooking
     from transport.models import SeatReservation, VehicleRentalBooking
+    from events_app.models import EventBooking
 
     if booking_type == "accommodation":
         obj = AccommodationBooking.objects.filter(pk=booking_id).first()
@@ -155,6 +156,8 @@ def _update_booking_status(booking_type: str, booking_id: int, new_status: str) 
         obj = VehicleRentalBooking.objects.filter(pk=booking_id).first()
     elif booking_type == "bus_seat":
         obj = SeatReservation.objects.filter(pk=booking_id).first()
+    elif booking_type == "event":
+        obj = EventBooking.objects.filter(pk=booking_id).first()
     else:
         return False
 

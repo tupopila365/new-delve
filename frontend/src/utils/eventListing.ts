@@ -14,6 +14,7 @@ export type EventDetail = EventListing & {
   address?: string | null
   ticket_url?: string | null
   capacity?: number | null
+  business?: number | null
 }
 
 export type EventListItem = Pick<

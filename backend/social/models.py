@@ -39,6 +39,14 @@ class Post(models.Model):
         related_name="story_posts",
         help_text="Optional link to a listing shown from the story CTA.",
     )
+    event = models.ForeignKey(
+        "events_app.Event",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delvers_posts",
+        help_text="Optional link to an event for Delvers moments.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_hidden = models.BooleanField(default=False, db_index=True)

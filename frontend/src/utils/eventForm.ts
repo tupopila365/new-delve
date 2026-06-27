@@ -7,7 +7,7 @@ export type EventFormState = {
   venue: string
   city: string
   region: string
-  isFree: boolean
+  ticketingMode: 'free' | 'on_platform' | 'external'
   price: string
   ticketUrl: string
   capacity: string
@@ -22,7 +22,7 @@ export const emptyEventFormState = (region = ''): EventFormState => ({
   venue: '',
   city: '',
   region,
-  isFree: false,
+  ticketingMode: 'free',
   price: '',
   ticketUrl: '',
   capacity: '',
@@ -35,6 +35,9 @@ export function isoToDatetimeLocal(iso: string | null | undefined): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
+
+import type { EventTicketingMode } from './eventTicketing'
+import { resolveTicketingMode } from './eventTicketing'
 
 export function eventToFormState(
   event: {
@@ -49,10 +52,12 @@ export function eventToFormState(
     is_free?: boolean | null
     price?: string | null
     ticket_url?: string | null
+    ticketing_mode?: EventTicketingMode | null
     capacity?: number | null
   },
   fallbackRegion = '',
 ): EventFormState {
+  const ticketingMode = resolveTicketingMode(event)
   return {
     title: event.title ?? '',
     description: event.description ?? '',
@@ -62,14 +67,14 @@ export function eventToFormState(
     venue: event.venue ?? '',
     city: event.city ?? '',
     region: event.region ?? fallbackRegion,
-    isFree: Boolean(event.is_free),
+    ticketingMode,
     price: event.price ?? '',
     ticketUrl: event.ticket_url ?? '',
     capacity: event.capacity ? String(event.capacity) : '',
   }
 }
 
-export function buildEventFormData(state: EventFormState, coverFile: File | null): FormData {
+export function buildEventFormData(state: EventFormState, coverFile: File | null, businessId?: number | null): FormData {
   const fd = new FormData()
   fd.append('title', state.title.trim())
   fd.append('description', state.description.trim())
@@ -80,15 +85,22 @@ export function buildEventFormData(state: EventFormState, coverFile: File | null
   fd.append('city', state.city.trim())
   fd.append('region', state.region.trim())
   fd.append('is_published', 'true')
-  fd.append('is_free', state.isFree ? 'true' : 'false')
-  if (!state.isFree && state.price.trim()) fd.append('price', state.price.trim())
-  if (state.ticketUrl.trim()) fd.append('ticket_url', state.ticketUrl.trim())
+  fd.append('is_free', state.ticketingMode === 'free' ? 'true' : 'false')
+  if (state.ticketingMode === 'on_platform' && state.price.trim()) fd.append('price', state.price.trim())
+  if (state.ticketingMode === 'external') {
+    if (state.price.trim()) fd.append('price', state.price.trim())
+    if (state.ticketUrl.trim()) fd.append('ticket_url', state.ticketUrl.trim())
+  }
   const cap = Number.parseInt(state.capacity.trim(), 10)
   if (state.capacity.trim() && Number.isFinite(cap) && cap > 0) fd.append('capacity', String(cap))
   if (coverFile) fd.append('cover_image', coverFile)
+  if (businessId) fd.append('business', String(businessId))
   return fd
 }
 
 export function canSubmitEventForm(state: EventFormState): boolean {
-  return state.title.trim().length > 0 && state.startsAt.length > 0
+  if (!state.title.trim() || !state.startsAt) return false
+  if (state.ticketingMode === 'on_platform' && !state.price.trim()) return false
+  if (state.ticketingMode === 'external' && !state.ticketUrl.trim()) return false
+  return true
 }

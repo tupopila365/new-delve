@@ -35,6 +35,11 @@ export class ApiError extends Error {
   }
 }
 
+/** Coerce list API responses — mocks and misconfigured endpoints may return objects. */
+export function asArray<T>(data: unknown): T[] {
+  return Array.isArray(data) ? data : []
+}
+
 async function parseBody(res: Response): Promise<unknown> {
   const text = await res.text()
   if (!text) return null

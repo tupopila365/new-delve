@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from accommodation.models import AccommodationBooking, AccommodationListing
-from events_app.models import Event
+from events_app.models import Event, EventBooking
 from food.models import FoodVenue
 from guides.models import GuideBooking, TourGuideProfile
 from social.models import Post
@@ -514,6 +514,26 @@ def list_platform_bookings(
             if include(row):
                 rows.append(row)
 
+    if not type_filter or type_filter == "event":
+        for b in EventBooking.objects.select_related(
+            "attendee", "event", "event__organizer"
+        ).order_by("-created_at")[:120]:
+            row = _booking_row(
+                booking_type="event",
+                booking_id=b.pk,
+                customer_username=b.attendee.username,
+                listing_title=b.event.title,
+                provider_username=b.event.organizer.username,
+                status=b.status,
+                total_price=str(b.total_price) if b.total_price is not None else "0",
+                start_label=b.event.starts_at.isoformat(),
+                end_label=b.event.ends_at.isoformat() if b.event.ends_at else "",
+                created_at=b.created_at,
+                has_notes=_booking_has_notes("event", b.pk),
+            )
+            if include(row):
+                rows.append(row)
+
     rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
     return rows[:limit]
 
@@ -612,6 +632,28 @@ def get_platform_booking_detail(booking_type: str, booking_id: int) -> dict | No
                     created_at=b.created_at,
                 ),
                 "seat_number": b.seat_number,
+                "mock_payment_ref": b.mock_payment_ref,
+            }
+
+    elif bt == "event":
+        b = EventBooking.objects.select_related("attendee", "event", "event__organizer").filter(pk=pk).first()
+        if b:
+            base = {
+                **_booking_row(
+                    booking_type=bt,
+                    booking_id=pk,
+                    customer_username=b.attendee.username,
+                    listing_title=b.event.title,
+                    provider_username=b.event.organizer.username,
+                    status=b.status,
+                    total_price=str(b.total_price) if b.total_price is not None else "0",
+                    start_label=b.event.starts_at.isoformat(),
+                    end_label=b.event.ends_at.isoformat() if b.event.ends_at else "",
+                    created_at=b.created_at,
+                ),
+                "tickets": b.tickets,
+                "booking_ref": b.booking_ref,
+                "special_requests": b.special_requests,
                 "mock_payment_ref": b.mock_payment_ref,
             }
 

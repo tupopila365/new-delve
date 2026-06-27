@@ -818,6 +818,12 @@ class Command(BaseCommand):
                 status=BookingStatus.PENDING,
             )
 
+        for event in Event.objects.filter(business__isnull=True).select_related("organizer"):
+            biz = BusinessProfile.objects.filter(owner=event.organizer).order_by("id").first()
+            if biz:
+                event.business = biz
+                event.save(update_fields=["business"])
+
         self.stdout.write(
             self.style.SUCCESS(
                 "Seed complete. Users: demo_user, demo_provider, stays_host, demo_admin — password demo12345."

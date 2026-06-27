@@ -6,10 +6,21 @@ import { BookingStatusBadge } from '../../booking'
 
 type Props = {
   booking: ProviderBooking
+  onConfirm?: () => void
+  onCheckIn?: () => void
+  confirmPending?: boolean
+  checkInPending?: boolean
 }
 
-export function ProviderBookingCard({ booking }: Props) {
-  const canConfirm = ['requested', 'pending', 'reserved'].includes(booking.status)
+export function ProviderBookingCard({
+  booking,
+  onConfirm,
+  onCheckIn,
+  confirmPending,
+  checkInPending,
+}: Props) {
+  const canConfirm = onConfirm && ['requested', 'pending', 'reserved'].includes(booking.status)
+  const canCheckIn = onCheckIn && booking.status === 'confirmed'
 
   return (
     <article className="prov-ui__booking">
@@ -30,8 +41,23 @@ export function ProviderBookingCard({ booking }: Props) {
       </div>
       <div className="prov-ui__booking-actions">
         {canConfirm ? (
-          <button type="button" className="prov-ui__btn prov-ui__btn--primary">
-            Confirm
+          <button
+            type="button"
+            className="prov-ui__btn prov-ui__btn--primary"
+            onClick={onConfirm}
+            disabled={confirmPending}
+          >
+            {confirmPending ? 'Confirming…' : 'Confirm'}
+          </button>
+        ) : null}
+        {canCheckIn ? (
+          <button
+            type="button"
+            className="prov-ui__btn prov-ui__btn--primary"
+            onClick={onCheckIn}
+            disabled={checkInPending}
+          >
+            {checkInPending ? 'Checking in…' : 'Check in'}
           </button>
         ) : null}
         <Link

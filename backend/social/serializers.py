@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from accommodation.models import AccommodationListing
 from accounts.models import UserType
+from events_app.models import Event
 
 from .models import Comment, Follow, Like, Post, Save
 
@@ -40,6 +41,11 @@ class PostSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    event = serializers.PrimaryKeyRelatedField(
+        queryset=Event.objects.none(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Post
@@ -54,6 +60,7 @@ class PostSerializer(serializers.ModelSerializer):
             "is_delvers",
             "is_accommodation_story",
             "listing",
+            "event",
             "created_at",
             "likes_count",
             "saves_count",
@@ -68,11 +75,17 @@ class PostSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
         listing_field = self.fields.get("listing")
+        event_field = self.fields.get("event")
         if listing_field is not None:
             if request and request.user.is_authenticated:
                 listing_field.queryset = AccommodationListing.objects.filter(owner=request.user)
             else:
                 listing_field.queryset = AccommodationListing.objects.none()
+        if event_field is not None:
+            if request and request.user.is_authenticated:
+                event_field.queryset = Event.objects.filter(is_published=True)
+            else:
+                event_field.queryset = Event.objects.none()
 
     def validate(self, attrs):
         instance = self.instance
@@ -98,6 +111,16 @@ class PostSerializer(serializers.ModelSerializer):
 
         if is_delvers and is_acc:
             raise serializers.ValidationError("Accommodation stories cannot be published as Delvers pins.")
+
+        event = attrs.get("event")
+        if event is None and instance is not None:
+            event = instance.event
+
+        if event and is_acc:
+            raise serializers.ValidationError("Accommodation stories cannot link to an event.")
+        if event and not is_delvers:
+            attrs["is_delvers"] = True
+
         if is_acc:
             attrs["is_delvers"] = False
         if is_delvers:
@@ -118,15 +141,23 @@ class PostSerializer(serializers.ModelSerializer):
             if listing.owner_id != request.user.id:
                 raise serializers.ValidationError("You can only link stories to your own listings.")
 
+        if event is not None and not event.is_published:
+            raise serializers.ValidationError("That event is not available for moments.")
+
         return attrs
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         ret.pop("listing", None)
+        ret.pop("event", None)
         if instance.listing_id:
             ret["listing"] = {"id": instance.listing_id, "title": instance.listing.title}
         else:
             ret["listing"] = None
+        if instance.event_id:
+            ret["event"] = {"id": instance.event_id, "title": instance.event.title}
+        else:
+            ret["event"] = None
         return ret
 
     def get_liked_by_me(self, obj):

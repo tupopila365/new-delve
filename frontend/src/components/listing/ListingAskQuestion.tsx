@@ -6,6 +6,7 @@ type Props = {
   title?: string
   placeholder?: string
   onSubmit?: (question: string) => void
+  pending?: boolean
   className?: string
 }
 
@@ -13,6 +14,7 @@ export function ListingAskQuestion({
   title = 'Ask a question',
   placeholder = 'Ask anything…',
   onSubmit,
+  pending = false,
   className = '',
 }: Props) {
   const [draft, setDraft] = useState('')
@@ -44,8 +46,8 @@ export function ListingAskQuestion({
             }
           }}
         />
-        <button type="button" className="listing-ask__post" onClick={submit} disabled={!draft.trim()}>
-          Post
+        <button type="button" className="listing-ask__post" onClick={submit} disabled={!draft.trim() || pending}>
+          {pending ? 'Posting…' : 'Post'}
         </button>
       </div>
     </ListingSection>

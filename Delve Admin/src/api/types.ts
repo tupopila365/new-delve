@@ -185,6 +185,8 @@ export type AdminBookingDetail = AdminBooking & {
   notes?: string
   pickup_area?: string
   seat_number?: number
+  tickets?: number
+  booking_ref?: string
 }
 
 export type UnverifiedEmailUser = {

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, Camera, MessageCircle, Plus } from 'lucide-react'
-import { apiFetch } from '../api/client'
+import { apiFetch, asArray } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
@@ -12,6 +12,8 @@ import {
   StayBookingCard,
   StayListingCard,
   StayListingForm,
+  StayMonetizationSection,
+  StayQuestionsPanel,
   StayStoriesPanel,
   formToApiPayload,
   stayListingToForm,
@@ -25,7 +27,14 @@ import {
   ProviderUiStats,
 } from '../components/provider/ui'
 import '../components/provider/stays/stay-listing.css'
+import { normalizeReviews } from '../components/GuestReviewCard'
 import { ListSkeleton } from '../components/ui'
+
+type StayReviewsResponse = {
+  reviews: unknown[]
+  rating_avg: number
+  rating_count: number
+}
 
 type ProviderBooking = {
   id: number
@@ -43,6 +52,7 @@ const TABS = [
   { id: 'listings', label: 'Listings' },
   { id: 'stories', label: 'Stories' },
   { id: 'bookings', label: 'Bookings' },
+  { id: 'qa', label: 'Q&A' },
   { id: 'reviews', label: 'Reviews' },
 ] as const
 
@@ -87,7 +97,8 @@ export function StaysAdmin() {
 
   const { data: listings = [], isLoading: loadingListings } = useQuery({
     queryKey: ['provider-stays'],
-    queryFn: () => apiFetch<ProviderStayListing[]>('/api/accommodation/provider-listings/'),
+    queryFn: async () =>
+      asArray<ProviderStayListing>(await apiFetch('/api/accommodation/provider-listings/')),
     enabled: Boolean(profile && canAccessProvider),
   })
 
@@ -98,23 +109,60 @@ export function StaysAdmin() {
 
   const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ['provider-stay-bookings', statusFilter],
-    queryFn: () => apiFetch<ProviderBooking[]>(bookingsUrl),
+    queryFn: async () => asArray<ProviderBooking>(await apiFetch(bookingsUrl)),
     enabled: Boolean(profile && canAccessProvider),
   })
 
-  const reviews = useMemo(
-    () =>
-      listings.flatMap((l) =>
-        (l.guest_reviews ?? []).map((r, i) => ({
-          id: `${l.id}-${i}`,
-          listing: l.title,
-          guest: r.name,
-          rating: r.rating,
-          body: r.body,
-        })),
-      ),
-    [listings],
-  )
+  const { data: analytics } = useQuery({
+    queryKey: ['stay-provider-analytics'],
+    queryFn: () => apiFetch<{
+      on_platform_revenue: number
+      confirmed_bookings: number
+      pending_requests: number
+      total_bookings: number
+    }>('/api/accommodation/provider-analytics/?days=30'),
+    enabled: Boolean(profile && canAccessProvider),
+  })
+
+  const reviewQueries = useQueries({
+    queries: listings.map((l) => ({
+      queryKey: ['stay-reviews', l.id],
+      queryFn: () => apiFetch<StayReviewsResponse>(`/api/accommodation/listings/${l.id}/reviews/`),
+      enabled: Boolean(profile && canAccessProvider && tab === 'reviews'),
+    })),
+  })
+
+  const reviews = useMemo(() => {
+    const apiRows = reviewQueries.flatMap((q, i) => {
+      const listing = listings[i]
+      if (!listing || !q.data?.reviews) return []
+      return normalizeReviews(q.data.reviews).map((r, j) => ({
+        id: `api-${listing.id}-${j}`,
+        listing: listing.title,
+        guest: r.name,
+        rating: r.rating,
+        body: r.body,
+        source: 'traveler' as const,
+      }))
+    })
+    const seeded = listings.flatMap((l) =>
+      (l.guest_reviews ?? []).map((r, i) => ({
+        id: `seed-${l.id}-${i}`,
+        listing: l.title,
+        guest: r.name,
+        rating: r.rating,
+        body: r.body,
+        source: 'host' as const,
+      })),
+    )
+    const seen = new Set<string>()
+    return [...apiRows, ...seeded].filter((r) => {
+      const key = `${r.listing}:${r.guest}:${r.body.slice(0, 40)}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [listings, reviewQueries])
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -146,7 +194,11 @@ export function StaysAdmin() {
         method: 'POST',
         body: JSON.stringify({}),
       }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-stay-bookings'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-stay-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-stays'] })
+      void qc.invalidateQueries({ queryKey: ['stay-provider-analytics'] })
+    },
   })
 
   if (!profile) return <Navigate to="/login" replace />
@@ -161,11 +213,14 @@ export function StaysAdmin() {
   const avgRating = listings.length
     ? (listings.reduce((s, x) => s + parseFloat(x.rating_avg), 0) / listings.length).toFixed(1)
     : '—'
-  const revenue = bookings
-    .filter((b) => ['confirmed', 'checked_in', 'checked_out'].includes(b.status))
-    .reduce((s, b) => s + parseFloat(b.total_price), 0)
+  const revenue =
+    analytics?.on_platform_revenue ??
+    bookings
+      .filter((b) => ['confirmed', 'checked_in', 'checked_out'].includes(b.status))
+      .reduce((s, b) => s + parseFloat(b.total_price), 0)
 
-  const pendingBookings = bookings.filter((b) => b.status === 'pending').length
+  const bookingCount = analytics?.total_bookings ?? bookings.length
+  const pendingBookings = analytics?.pending_requests ?? bookings.filter((b) => b.status === 'pending').length
   const missingPhotos = listings.filter((l) => !l.cover_image).length
 
   const openCreate = () => {
@@ -261,10 +316,12 @@ export function StaysAdmin() {
         stats={[
           { value: listings.length, label: 'Listings' },
           { value: avgRating, label: 'Avg rating' },
-          { value: bookings.length || '—', label: 'Bookings', accent: pendingBookings > 0 },
+          { value: bookingCount || '—', label: 'Bookings', accent: pendingBookings > 0 },
           { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
         ]}
       />
+
+      <StayMonetizationSection enabled={canAccessProvider} canManage={canManageListings} />
 
       <ProviderUiChips chips={[...TABS]} active={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Stays sections" />
 
@@ -338,6 +395,12 @@ export function StaysAdmin() {
         </section>
       )}
 
+      {tab === 'qa' && (
+        <section id="qa">
+          <StayQuestionsPanel canAnswer={canManageListings} />
+        </section>
+      )}
+
       {tab === 'reviews' && (
         <section>
           {reviews.length === 0 ? (
@@ -352,7 +415,10 @@ export function StaysAdmin() {
                     </span>
                     <div>
                       <strong>{r.guest}</strong>
-                      <span>{r.listing}</span>
+                      <span>
+                        {r.listing}
+                        {r.source === 'traveler' ? ' · Traveller review' : ''}
+                      </span>
                     </div>
                     <span className="prov-ui-review__rating">{r.rating}</span>
                   </div>

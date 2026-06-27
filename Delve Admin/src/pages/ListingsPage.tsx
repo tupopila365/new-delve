@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
+import { apiFetch, asArray } from '../api/client'
 import type { AdminListing } from '../api/types'
 import {
   DelveAdminDataRow,
@@ -47,7 +47,7 @@ export function ListingsPage() {
 
   const { data: listings = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['listings'],
-    queryFn: () => apiFetch<AdminListing[]>('/api/accounts/admin/listings/'),
+    queryFn: async () => asArray<AdminListing>(await apiFetch('/api/accounts/admin/listings/')),
   })
 
   const updateMut = useMutation({
@@ -139,7 +139,7 @@ export function ListingsPage() {
             <DelveAdminDataRow
               key={item.id}
               primary={item.title}
-              secondary={`@${item.owner_username} · ${item.category_label}${item.region ? ` · ${item.region}` : ''}${item.price_label ? ` · ${item.price_label}` : ''}`}
+              secondary={`@${item.owner_username}${item.city ? ` · ${item.city}` : ''}${item.region ? ` · ${item.region}` : ''}${item.price_label ? ` · ${item.price_label}` : ''}`}
               badge={
                 <>
                   <DelveAdminStatusBadge status={item.category_label} variant="info" />
