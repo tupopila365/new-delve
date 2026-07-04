@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
-import { EventForm } from '../components/events/EventForm'
+import { CreateWizardShell } from '../components/create'
+import { EventForm, EVENT_WIZARD_STEPS } from '../components/events/EventForm'
 import { EmptyState } from '../components/ui'
 import {
   buildEventFormData,
@@ -12,6 +13,9 @@ import {
   emptyEventFormState,
   type EventFormState,
 } from '../utils/eventForm'
+import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
+import '../components/events/CreateEventPageEnhancer.css'
+import '../components/journeys/CreateJourneyPageEnhancer.css'
 
 type CreatedEvent = { id: number }
 
@@ -21,10 +25,12 @@ export function CreateEvent() {
   const { profile } = useAuth()
   const { activeBusiness } = useBusinessAccess()
 
+  const [step, setStep] = useState(1)
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const startedAt = useRef(startCreateSession())
 
   const canSubmit = canSubmitEventForm(state)
 
@@ -37,6 +43,11 @@ export function CreateEvent() {
       })
     },
     onSuccess: async (data) => {
+      trackCreatePublish({
+        format: 'event',
+        has_place: Boolean(state.venue.trim() || state.city.trim() || state.region.trim()),
+        startedAt: startedAt.current,
+      })
       await qc.invalidateQueries({ queryKey: ['events'] })
       await qc.invalidateQueries({ queryKey: ['provider-events'] })
       if (profile?.username) {
@@ -48,6 +59,47 @@ export function CreateEvent() {
       setErr(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to create event.')
     },
   })
+
+  function validateStep(): string | null {
+    if (step === 1) {
+      if (!state.title.trim()) return 'Give your event a title.'
+    }
+    if (step === 2) {
+      if (!state.startsAt) return 'Add a start date and time.'
+      if (state.endsAt && new Date(state.endsAt) < new Date(state.startsAt)) {
+        return 'End must be after start.'
+      }
+    }
+    if (step === 3) {
+      if (state.ticketingMode === 'on_platform' && !state.price.trim()) {
+        return 'Add a ticket price for on-platform sales.'
+      }
+      if (state.ticketingMode === 'external' && !state.ticketUrl.trim()) {
+        return 'Add an external ticket link.'
+      }
+    }
+    return null
+  }
+
+  function next() {
+    const message = validateStep()
+    if (message) {
+      setErr(message)
+      return
+    }
+    setErr(null)
+    setStep((s) => Math.min(EVENT_WIZARD_STEPS.length, s + 1))
+  }
+
+  function back() {
+    setErr(null)
+    setStep((s) => Math.max(1, s - 1))
+  }
+
+  function requestLeave() {
+    if (!window.confirm('Discard this event draft?')) return
+    navigate('/events')
+  }
 
   if (!profile) {
     return (
@@ -63,24 +115,32 @@ export function CreateEvent() {
   }
 
   return (
-    <div className="ce-page">
+    <CreateWizardShell
+      title="New event"
+      subtitle={`Step ${step} of ${EVENT_WIZARD_STEPS.length}`}
+      steps={EVENT_WIZARD_STEPS}
+      step={step}
+      onLeave={requestLeave}
+      onStepBack={back}
+      onStepNext={next}
+      onPrimary={() => {
+        setErr(null)
+        mut.mutate()
+      }}
+      primaryLabel="Publish event"
+      primaryPendingLabel="Publishing…"
+      primaryPending={mut.isPending}
+      primaryDisabled={!canSubmit}
+      error={err}
+    >
       <EventForm
+        step={step}
         state={state}
         onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
         coverPreview={coverPreview}
         onCoverPreviewChange={setCoverPreview}
         onCoverFileReady={setCoverFile}
-        onSubmit={() => {
-          setErr(null)
-          mut.mutate()
-        }}
-        submitLabel="Publish event"
-        pendingLabel="Publishing…"
-        cancelTo="/events"
-        err={err}
-        pending={mut.isPending}
-        canSubmit={canSubmit}
       />
-    </div>
+    </CreateWizardShell>
   )
 }

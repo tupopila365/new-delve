@@ -113,10 +113,7 @@ export function propertyTypeLabel(v: string) {
   return PROPERTY_LABELS[v] ?? v
 }
 
-export function openStreetMapSearchUrl(city: string, region: string) {
-  const q = [city, region].filter(Boolean).join(', ')
-  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`
-}
+export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords } from './placeMap'
 
 export function parseHouseRules(text: string): string[] {
   return text.split('\n').map((l) => l.trim()).filter(Boolean)

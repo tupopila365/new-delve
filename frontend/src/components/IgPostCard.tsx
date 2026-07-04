@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { invalidatePostEngagementCaches } from '../utils/socialCache'
 import { PostMedia } from './PostMedia'
 
 export type PostMediaVariant = 'feed' | 'pin' | 'detail'
@@ -21,6 +22,20 @@ export type FeedPost = {
   comments_count?: number
   delvers_board?: string
   is_delvers?: boolean
+  is_accommodation_story?: boolean
+  post_kind?: 'tip' | 'question'
+  place_label?: string
+  listing?: { id: number; title: string } | null
+  event?: { id: number; title: string } | null
+  vehicle_listing?: { id: number; title: string } | null
+  bus_trip?: { id: number; title: string } | null
+  food_venue?: { id: number; title: string } | null
+  accepted_answer?: {
+    id: number
+    body: string
+    author?: { username: string; display_name?: string | null }
+    helpful_count?: number
+  } | null
 }
 
 function avatarLetter(name: string) {
@@ -41,19 +56,30 @@ export function IgPostCard({
 
   const likeMut = useMutation({
     mutationFn: () => apiFetch(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      void invalidatePostEngagementCaches(qc, {
+        queryKey,
+        authorUsername: post.author.username,
+      })
+    },
   })
 
   const saveMut = useMutation({
     mutationFn: () => apiFetch(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      void invalidatePostEngagementCaches(qc, {
+        queryKey,
+        authorUsername: post.author.username,
+      })
+    },
   })
 
   const name = post.author.display_name || post.author.username
   const hasMedia = Boolean(post.video || post.image)
+  const isQuestion = post.post_kind === 'question'
 
   return (
-    <article className="ig-post">
+    <article className={`ig-post${isQuestion ? ' ig-post--question' : ''}`}>
       <header className="ig-post__header">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ig-post__header-profile">
           <div className="ig-post__avatar" aria-hidden>
@@ -71,7 +97,7 @@ export function IgPostCard({
             <div className="ig-post__name">{name}</div>
             <div className="ig-post__meta">
               @{post.author.username}
-              {post.region ? ` · ${post.region}` : ''}
+              {post.place_label ? ` · ${post.place_label}` : post.region ? ` · ${post.region}` : ''}
             </div>
           </div>
         </Link>
@@ -82,6 +108,25 @@ export function IgPostCard({
 
       {hasMedia ? (
         <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
+      ) : isQuestion ? (
+        <div className="ig-post__question-body">
+          <p>{post.body}</p>
+          {post.accepted_answer ? (
+            <div className="ig-post__accepted-answer">
+              <span className="ig-post__accepted-label">Accepted answer</span>
+              <p>{post.accepted_answer.body}</p>
+              <span className="ig-post__accepted-by">
+                @{post.accepted_answer.author?.username ?? 'local'}
+              </span>
+            </div>
+          ) : (post.comments_count ?? 0) > 0 ? (
+            <span className="ig-post__question-answers">
+              {post.comments_count} {post.comments_count === 1 ? 'answer' : 'answers'}
+            </span>
+          ) : (
+            <span className="ig-post__question-answers ig-post__question-answers--open">Needs answer</span>
+          )}
+        </div>
       ) : (
         <div className="post-media-placeholder">No photo or video</div>
       )}
@@ -119,7 +164,7 @@ export function IgPostCard({
       )}
 
       <div className="ig-post__body">
-        {post.body && (
+        {post.body && (hasMedia || !isQuestion) && (
           <p className="ig-post__caption">
             <strong>{post.author.username}</strong>
             {post.body}

@@ -91,6 +91,21 @@ class EmailVerificationToken(models.Model):
         return cls.objects.create(user=user)
 
 
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_reset_tokens")
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+
+    def is_expired(self, hours: int = 1) -> bool:
+        return self.created_at < timezone.now() - timezone.timedelta(hours=hours)
+
+    @classmethod
+    def create_for_user(cls, user: User) -> "PasswordResetToken":
+        cls.objects.filter(user=user, used=False).update(used=True)
+        return cls.objects.create(user=user)
+
+
 class BusinessType(models.TextChoices):
     ACCOMMODATION = "accommodation", "Accommodation"
     TRANSPORT = "transport", "Transport"

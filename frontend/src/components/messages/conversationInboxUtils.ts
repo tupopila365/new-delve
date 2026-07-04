@@ -1,11 +1,34 @@
-export type InboxParticipant = { id: number; username: string; display_name: string }
+export type InboxParticipant = {
+  id: number
+  username: string
+  display_name: string
+  avatar?: string | null
+}
+
+export type InboxContext = {
+  type: string
+  id: number | null
+  label: string
+  href: string | null
+}
 
 export type InboxConversation = {
   id: number
+  pair_key?: string | null
+  other?: InboxParticipant | null
+  context?: InboxContext | null
   participants_detail: InboxParticipant[]
   last_message: { body: string; sender_username: string } | null
   updated_at: string
   unread_count?: number
+}
+
+export function conversationOther(
+  conversation: InboxConversation,
+  myUsername: string,
+): InboxParticipant | undefined {
+  if (conversation.other) return conversation.other
+  return conversation.participants_detail.find((p) => p.username !== myUsername)
 }
 
 export function formatConversationTime(value: string): string {

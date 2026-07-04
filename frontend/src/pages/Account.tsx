@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
-import { apiFetch, mediaUrl } from '../api/client'
-import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { mediaUrl } from '../api/client'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { adminConsoleUrl } from '../utils/adminAppUrl'
 import { EmptyState } from '../components/ui'
 
 function AccountRow({ to, label, accent = false }: { to: string; label: string; accent?: boolean }) {
@@ -18,11 +18,7 @@ function AccountRow({ to, label, accent = false }: { to: string; label: string; 
 export function Account() {
   const { profile, logout } = useAuth()
 
-  const { data: businesses = [] } = useQuery({
-    queryKey: ['my-businesses-account'],
-    queryFn: () => apiFetch<MyBusiness[]>('/api/accounts/me/businesses/'),
-    enabled: Boolean(profile),
-  })
+  const { businesses, canAccessProvider } = useBusinessAccess()
 
   if (!profile) {
     return (
@@ -38,7 +34,7 @@ export function Account() {
   }
 
   const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
-  const isProvider = profile.user_type === 'service_provider' || businesses.length > 0
+  const showTeamBadge = canAccessProvider && profile.user_type !== 'service_provider'
 
   return (
     <div className="account-page">
@@ -55,7 +51,11 @@ export function Account() {
           <p className="account-page__handle">@{profile.username}</p>
           <div className="account-page__badges">
             <span className="pill">
-              {profile.user_type === 'service_provider' ? 'Service provider' : 'Traveller'}
+              {profile.user_type === 'service_provider'
+                ? 'Service provider'
+                : showTeamBadge
+                  ? 'Business team'
+                  : 'Traveller'}
             </span>
             {profile.is_staff ? <span className="pill pill--staff">Platform admin</span> : null}
             {profile.email_verified ? (
@@ -66,7 +66,7 @@ export function Account() {
           </div>
           {!profile.email_verified ? (
             <p className="account-page__hint">
-              <Link to="/verify-email">Verify your email</Link> to unlock full account features.
+              <Link to="/verify-email">Verify your email</Link> to unlock bookings and reservations.
             </p>
           ) : null}
         </div>
@@ -80,22 +80,52 @@ export function Account() {
         <AccountRow to="/messages" label="Messages" />
       </nav>
 
-      {isProvider ? (
+      {canAccessProvider ? (
         <nav className="account-page__group" aria-label="Provider tools">
           <h2 className="account-page__group-title">Provider</h2>
-          <p className="account-page__group-sub">Manage your business separately from your traveller account.</p>
+          <p className="account-page__group-sub">
+            {showTeamBadge
+              ? 'You access provider tools as a business team member — your personal profile stays separate.'
+              : 'Manage your business separately from your traveller account.'}
+          </p>
           <AccountRow to="/provider" label="Provider dashboard" accent />
           <AccountRow to="/provider/listings" label="Listings" />
           {businesses.map((b) => (
             <AccountRow key={b.id} to={`/business/${b.id}`} label={`${b.business_name} (public)`} />
           ))}
         </nav>
+      ) : profile.user_type === 'normal' ? (
+        <nav className="account-page__group" aria-label="Become a provider">
+          <h2 className="account-page__group-title">List on Delve</h2>
+          <p className="account-page__group-sub">
+            Offer stays, transport, food, events, or guides — your traveller profile stays separate from your business.
+          </p>
+          <AccountRow to="/provider/start" label="Become a service provider" accent />
+        </nav>
       ) : null}
 
       {profile.is_staff ? (
         <nav className="account-page__group" aria-label="Admin tools">
           <h2 className="account-page__group-title">Admin</h2>
-          <AccountRow to="/admin" label="Platform admin" accent />
+          <p className="account-page__group-sub">
+            Platform operations run in the Delve Admin console (separate app). Sign in there with the same staff email.
+          </p>
+          <a href={adminConsoleUrl()} className="account-page__row account-page__row--accent">
+            <span>Delve Admin console</span>
+            <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
+          </a>
+          <a href={adminConsoleUrl('/users')} className="account-page__row">
+            <span>Users</span>
+            <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
+          </a>
+          <a href={adminConsoleUrl('/verifications')} className="account-page__row">
+            <span>Business verifications</span>
+            <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
+          </a>
+          <a href={adminConsoleUrl('/email-verification')} className="account-page__row">
+            <span>Email verification queue</span>
+            <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
+          </a>
         </nav>
       ) : null}
 

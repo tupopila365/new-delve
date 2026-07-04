@@ -80,15 +80,28 @@ export function bookingNextStep(status: string, serviceType?: BookingServiceType
   if (key === 'pending' || key === 'requested' || key === 'reserved') {
     if (serviceType === 'event') return 'Complete payment or wait for organizer confirmation'
     if (serviceType === 'stay') return 'Waiting for the host to confirm your dates'
-    return isGuide ? 'Waiting for guide review' : 'Waiting for provider review'
+    if (serviceType === 'vehicle') return 'Waiting for the provider to confirm your rental'
+    if (serviceType === 'bus') return 'Complete the demo payment step or wait for operator confirmation'
+    if (serviceType === 'food') return 'Waiting for the venue to confirm your table'
+    return isGuide
+      ? 'Waiting for the guide to confirm — you can also complete the demo payment'
+      : 'Waiting for provider review'
   }
   if (key === 'confirmed') {
     if (serviceType === 'event') return 'Your spot is confirmed — see you there'
     if (serviceType === 'stay') return 'Your stay is confirmed — message the host with any questions'
-    return isGuide ? 'Check messages for details from the guide' : 'Check messages for details from the provider'
+    if (serviceType === 'vehicle') return 'Your vehicle is confirmed — coordinate pickup with the provider'
+    if (serviceType === 'bus') return 'Your seats are confirmed — arrive early for boarding'
+    if (serviceType === 'food') return 'Your table is confirmed — see you at the venue'
+    return isGuide
+      ? 'Your tour is confirmed — message the guide with any questions'
+      : 'Check messages for details from the provider'
   }
-  if (key === 'completed' || key === 'checked_in' || key === 'checked_out') return 'Your booking is complete'
+  if (key === 'completed' || key === 'checked_in' || key === 'checked_out') {
+    return isGuide ? 'Tour complete — thanks for exploring with DELVE' : 'Your booking is complete'
+  }
   if (key === 'cancelled' || key === 'declined') return 'This request was cancelled'
+  if (key === 'refunded') return 'This booking was refunded'
   if (key === 'disputed') return 'This booking has an open issue'
   return undefined
 }

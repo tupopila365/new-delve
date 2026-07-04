@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -22,10 +22,13 @@ import {
   X,
 } from 'lucide-react'
 import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { useToggleFoodSave } from '../hooks/useFoodSave'
 import { CategorySpotlightHero } from '../components/CategorySpotlightHero'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { partnerBadgeFields } from '../utils/featuredPartner'
+import { promotionHref, trackPromotion } from '../utils/promotionTrack'
 import { MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
 import { FoodListingCard, VenueSpotlightStories } from '../components/food'
 import '../components/Featured.css'
@@ -47,6 +50,7 @@ type Venue = {
   cover_image: string | null
   rating_avg?: string | null
   rating_count?: number | null
+  saved_by_me?: boolean
   is_open?: boolean | null
   tagline?: string | null
   popular_dish?: string | null
@@ -54,6 +58,7 @@ type Venue = {
   venue_stories?: VenueStoryChannelInput[]
   is_featured_partner?: boolean
   partner_label?: string
+  promotion_id?: number
 }
 
 const CUISINE_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
@@ -66,6 +71,8 @@ const CUISINE_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
   { value: 'asian', label: 'Asian', Icon: Soup },
   { value: 'fast_food', label: 'Fast food', Icon: Sandwich },
   { value: 'bar', label: 'Bar', Icon: Wine },
+  { value: 'vegan', label: 'Vegan', Icon: Utensils },
+  { value: 'international', label: 'International', Icon: Utensils },
   { value: 'other', label: 'Other', Icon: Utensils },
 ]
 
@@ -112,12 +119,14 @@ function resultsSummary(count: number, hasFilters: boolean, search: string) {
 }
 
 export function FoodList() {
+  const navigate = useNavigate()
+  const { profile } = useAuth()
+  const saveMut = useToggleFoodSave()
   const [cuisine, setCuisine] = useState('')
   const [mood, setMood] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -133,14 +142,20 @@ export function FoodList() {
   }, [cuisine, search])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['food', qs],
-    queryFn: () => apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: false }),
+    queryKey: ['food', qs, profile?.username ?? 'anon'],
+    queryFn: () => apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: Boolean(profile) }),
   })
 
   const { data: spotlight = [] } = useFeaturedPlacement<Venue>('food-spotlight', FEATURED_API.spotlight('food'))
   const { data: featuredFood = [] } = useFeaturedPlacement<Venue>('food-featured-rail', FEATURED_API.food)
 
   const spotlightVenue = spotlight[0]
+
+  useEffect(() => {
+    if (spotlightVenue?.promotion_id) {
+      trackPromotion(spotlightVenue.promotion_id, 'impression')
+    }
+  }, [spotlightVenue?.promotion_id])
 
   const venues = useMemo(() => {
     let list = data ?? []
@@ -173,12 +188,11 @@ export function FoodList() {
   const toggleSaved = (id: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setSavedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    saveMut.mutate(id)
   }
 
   const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
@@ -305,7 +319,7 @@ export function FoodList() {
             <CategorySpotlightHero
               title={spotlightVenue.name}
               subtitle={spotlightVenue.tagline || spotlightVenue.popular_dish || cuisineLabel(spotlightVenue.cuisine)}
-              href={`/food/${spotlightVenue.id}`}
+              href={promotionHref(`/food/${spotlightVenue.id}`, spotlightVenue.promotion_id)}
               image={foodCoverSrc(spotlightVenue.cover_image, spotlightVenue.cuisine)}
               fallbackImage={foodCoverSrc(null, spotlightVenue.cuisine)}
               partnerLabel={spotlightVenue.partner_label || 'Featured Partner'}
@@ -336,8 +350,16 @@ export function FoodList() {
                   const location = f.city ? `${f.city}, ${f.region}` : f.region
                   const openLabel = foodOpenBadge(f.is_open, f.closes_at)
                   const partner = partnerBadgeFields(f, cuisineLabel(f.cuisine))
+                  const href = promotionHref(`/food/${f.id}`, f.promotion_id)
                   return (
-                    <Link key={`fd-featured-${f.id}`} to={`/food/${f.id}`} className="acc-featured-card">
+                    <Link
+                      key={`fd-featured-${f.id}`}
+                      to={href}
+                      className="acc-featured-card"
+                      onClick={() => {
+                        if (f.promotion_id) trackPromotion(f.promotion_id, 'click')
+                      }}
+                    >
                       <div className="acc-featured-card__media">
                         <img
                           className="acc-featured-card__img"
@@ -416,7 +438,7 @@ export function FoodList() {
 
           <div className="acc-page__grid ev-page__grid fd-page__grid">
             {venues.map((f) => (
-              <FoodListingCard key={f.id} venue={f} saved={savedIds.has(f.id)} onToggleSave={toggleSaved} />
+              <FoodListingCard key={f.id} venue={f} saved={Boolean(f.saved_by_me)} onToggleSave={toggleSaved} />
             ))}
           </div>
 

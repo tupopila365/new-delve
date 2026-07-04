@@ -1,7 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import type { FC } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { openDelversSearch } from '../utils/delversSearchBridge'
 
 const navItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: boolean }> }[] = [
   { to: '/', label: 'Explore', end: true, Icon: IconHome },
@@ -13,32 +12,19 @@ const navItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: b
 export function BottomNav() {
   const { profile } = useAuth()
   const location = useLocation()
-  const onDelvers = location.pathname === '/delvers'
+  const onDelvers = location.pathname === '/delvers' || location.pathname.startsWith('/delvers/')
   const profileTo = profile ? `/u/${profile.username}` : '/account'
 
   return (
     <nav className="bottom-nav" aria-label="Primary">
       {navItems.map((i) => {
-        if (i.to === '/search' && onDelvers) {
-          return (
-            <button
-              key={i.to}
-              type="button"
-              className="bottom-nav__action"
-              onClick={openDelversSearch}
-              aria-label="Search Delvers pins"
-            >
-              <i.Icon active={false} />
-              <span className="bottom-nav__label">Search</span>
-            </button>
-          )
-        }
+        const to = i.to === '/search' && onDelvers ? '/search?types=delvers' : i.to
 
         return (
-          <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink key={i.to} to={to} end={i.end} className={({ isActive }) => (isActive ? 'active' : '')}>
             {({ isActive }) => (
               <>
-                <i.Icon active={isActive} />
+                <i.Icon active={isActive || (i.to === '/search' && location.pathname === '/search')} />
                 <span className="bottom-nav__label">{i.label}</span>
               </>
             )}

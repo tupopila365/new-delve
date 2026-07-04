@@ -20,6 +20,7 @@ class PromotionTargetType(models.TextChoices):
     FOOD = "food", "Food venue"
     EVENT = "event", "Event"
     VEHICLE = "vehicle", "Vehicle rental"
+    BUS_TRIP = "bus_trip", "Bus trip"
     BUSINESS = "business", "Business profile"
     POST = "post", "Delvers post"
 
@@ -180,3 +181,127 @@ class PromotionCampaign(models.Model):
         if self.status not in skip_refresh:
             self.refresh_status()
         super().save(*args, **kwargs)
+
+
+HOMEPAGE_PIN_PLACEMENTS = frozenset(
+    {
+        PromotionPlacement.HOMEPAGE_STAYS,
+        PromotionPlacement.HOMEPAGE_GUIDES,
+        PromotionPlacement.HOMEPAGE_FOOD,
+        PromotionPlacement.HOMEPAGE_EVENTS,
+        PromotionPlacement.HOMEPAGE_TRANSPORT,
+    }
+)
+
+
+class HomePin(models.Model):
+    """Editorial homepage pin — free Admin override, ordered above paid promos."""
+
+    placement = models.CharField(max_length=40, choices=PromotionPlacement.choices, db_index=True)
+    target_type = models.CharField(max_length=32, choices=PromotionTargetType.choices)
+    target_id = models.CharField(max_length=64)
+    target_label = models.CharField(max_length=255, blank=True)
+    partner_label = models.CharField(max_length=80, blank=True, default="Featured")
+    region = models.CharField(max_length=120, blank=True, help_text="Blank = national.")
+    sort_order = models.PositiveSmallIntegerField(default=0, db_index=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="home_pins_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["placement", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["placement", "is_active", "sort_order"]),
+        ]
+
+    def __str__(self):
+        return f"Pin {self.placement} — {self.target_type}:{self.target_id}"
+
+
+HOME_STORY_CHANNEL_IDS = ("stays", "go", "live", "eat", "tours", "pins")
+
+
+class HomeStorySourceType(models.TextChoices):
+    POST = "post", "Social post"
+    ACCOMMODATION = "accommodation", "Stay listing"
+    GUIDE = "guide", "Guide profile"
+    FOOD = "food", "Food venue"
+    EVENT = "event", "Event"
+    VEHICLE = "vehicle", "Vehicle rental"
+    BUS_TRIP = "bus_trip", "Bus trip"
+    CUSTOM = "custom", "Custom media URL"
+
+
+class HomeStoryChannelConfig(models.Model):
+    """Per-channel settings for home highlights (auto-fill vs editorial-only)."""
+
+    channel_id = models.CharField(max_length=20, unique=True, db_index=True)
+    auto_fill = models.BooleanField(
+        default=True,
+        help_text="When on, live content fills after editorial slides.",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="home_story_channels_updated",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["channel_id"]
+
+    def __str__(self):
+        return f"Story channel {self.channel_id} (auto_fill={self.auto_fill})"
+
+
+class HomeStorySlide(models.Model):
+    """Admin-curated slide for a home highlights channel."""
+
+    channel_id = models.CharField(max_length=20, db_index=True)
+    source_type = models.CharField(max_length=32, choices=HomeStorySourceType.choices)
+    target_id = models.CharField(max_length=64, blank=True)
+    target_label = models.CharField(max_length=255, blank=True)
+    headline = models.CharField(max_length=200, blank=True)
+    sub = models.CharField(max_length=255, blank=True)
+    cta_path = models.CharField(max_length=255, blank=True)
+    cta_label = models.CharField(max_length=80, blank=True)
+    media_url = models.URLField(max_length=500, blank=True, help_text="Required for custom slides; optional override.")
+    media_kind = models.CharField(
+        max_length=10,
+        default="image",
+        choices=[("image", "Image"), ("video", "Video")],
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0, db_index=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="home_story_slides_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["channel_id", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["channel_id", "is_active", "sort_order"]),
+        ]
+
+    def __str__(self):
+        return f"Story slide {self.channel_id} — {self.source_type}:{self.target_id or 'custom'}"
+

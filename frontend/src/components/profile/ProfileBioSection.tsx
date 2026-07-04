@@ -15,6 +15,10 @@ type Props = {
   userType: string
   isMe: boolean
   messagesDisabled: boolean
+  isFollowing?: boolean
+  followLoading?: boolean
+  onFollowToggle?: () => void
+  followHref?: string
   onShare: () => void
   actions?: ReactNode
 }
@@ -33,12 +37,17 @@ export function ProfileBioSection({
   userType,
   isMe,
   messagesDisabled,
+  isFollowing = false,
+  followLoading = false,
+  onFollowToggle,
+  followHref,
   onShare,
   actions,
 }: Props) {
   const place = locationLabel(city, region)
   const avatarSrc = mediaUrl(avatar)
   const isProvider = userType === 'service_provider'
+  const messagePath = `/messages/u/${encodeURIComponent(username)}`
 
   return (
     <section className="profile-bio" aria-label="Profile">
@@ -68,23 +77,39 @@ export function ProfileBioSection({
                 </>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="profile-bio__btn"
-                    disabled
-                    title="Follow coming soon"
-                    aria-label="Follow (coming soon)"
-                  >
-                    <Users size={14} strokeWidth={2.25} aria-hidden />
-                    Follow
-                  </button>
+                  {followHref ? (
+                    <Link to={followHref} className="profile-bio__btn">
+                      <Users size={14} strokeWidth={2.25} aria-hidden />
+                      Follow
+                    </Link>
+                  ) : onFollowToggle ? (
+                    <button
+                      type="button"
+                      className={
+                        isFollowing
+                          ? 'profile-bio__btn profile-bio__btn--following'
+                          : 'profile-bio__btn'
+                      }
+                      onClick={onFollowToggle}
+                      disabled={followLoading}
+                      aria-pressed={isFollowing}
+                      aria-label={isFollowing ? 'Unfollow' : 'Follow'}
+                    >
+                      <Users size={14} strokeWidth={2.25} aria-hidden />
+                      {isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                  ) : null}
                   {messagesDisabled ? (
-                    <span className="profile-bio__btn profile-bio__btn--disabled" aria-disabled="true">
+                    <span
+                      className="profile-bio__btn profile-bio__btn--disabled"
+                      aria-disabled="true"
+                      title="This person is not accepting messages"
+                    >
                       <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
                       Message
                     </span>
                   ) : (
-                    <Link to="/messages" className="profile-bio__btn profile-bio__btn--accent">
+                    <Link to={messagePath} className="profile-bio__btn profile-bio__btn--accent">
                       <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
                       Message
                     </Link>
@@ -131,9 +156,9 @@ export function ProfileBioSection({
           <p className="profile-bio__text profile-bio__text--empty">No bio yet.</p>
         )}
         {isProvider ? (
-          <span className="profile-bio__badge">
+          <span className="profile-bio__badge profile-bio__badge--provider">
             <Compass size={11} strokeWidth={2.25} aria-hidden />
-            Community contributor
+            Service provider
           </span>
         ) : null}
       </div>

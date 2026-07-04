@@ -7,11 +7,15 @@ export function apiUrl(path: string): string {
   return `${API_PREFIX}${p}`
 }
 
-const ACCESS = 'delve_access'
-const REFRESH = 'delve_refresh'
+const ACCESS = 'delve_admin_access'
+const REFRESH = 'delve_admin_refresh'
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS)
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH)
 }
 
 export function setTokens(access: string, refresh: string) {
@@ -69,7 +73,22 @@ export async function apiFetch<T = unknown>(
     if (t) headers.set('Authorization', `Bearer ${t}`)
   }
 
-  const res = await fetch(apiUrl(path), { ...rest, headers })
+  let res = await fetch(apiUrl(path), { ...rest, headers })
+
+  if (res.status === 401 && getRefreshToken() && auth) {
+    const r = await fetch(apiUrl('/api/accounts/token/refresh/'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: getRefreshToken() }),
+    })
+    if (r.ok) {
+      const data = (await r.json()) as { access: string }
+      localStorage.setItem(ACCESS, data.access)
+      headers.set('Authorization', `Bearer ${data.access}`)
+      res = await fetch(apiUrl(path), { ...rest, headers })
+    }
+  }
+
   const body = await parseBody(res)
   if (!res.ok) {
     const msg =
@@ -81,10 +100,10 @@ export async function apiFetch<T = unknown>(
   return body as T
 }
 
-export async function login(username: string, password: string) {
+export async function login(email: string, password: string) {
   const data = await apiFetch<{ access: string; refresh: string }>('/api/accounts/token/', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email: email.trim(), password }),
     auth: false,
   })
   setTokens(data.access, data.refresh)

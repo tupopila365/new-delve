@@ -16,7 +16,7 @@ import {
 } from '../components'
 import { statusVariant } from '../data/demoData'
 
-const TYPE_FILTERS = ['All', 'Stays', 'Guides', 'Transport', 'Bus', 'Events'] as const
+const TYPE_FILTERS = ['All', 'Stays', 'Guides', 'Transport', 'Bus', 'Events', 'Food'] as const
 
 const TYPE_MAP: Record<string, string> = {
   Stays: 'accommodation',
@@ -24,12 +24,14 @@ const TYPE_MAP: Record<string, string> = {
   Transport: 'vehicle',
   Bus: 'bus_seat',
   Events: 'event',
+  Food: 'food',
 }
 
 const STATUS_FILTERS = [
   'All',
   'pending',
   'confirmed',
+  'completed',
   'checked_in',
   'checked_out',
   'cancelled',
@@ -43,6 +45,7 @@ function bookingTypeLabel(type: string): string {
     vehicle: 'Vehicle',
     bus_seat: 'Bus seat',
     event: 'Event',
+    food: 'Food reservation',
   }
   return map[type] || type
 }
@@ -226,10 +229,58 @@ export function BookingsPage() {
                   <dd>{detail.room_type_name}</dd>
                 </div>
               ) : null}
+              {detail.booking_type === 'food' && detail.party_size != null ? (
+                <div>
+                  <dt>Party size</dt>
+                  <dd>{detail.party_size}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.package_title ? (
+                <div>
+                  <dt>Package</dt>
+                  <dd>{detail.package_title}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.guide_headline ? (
+                <div>
+                  <dt>Guide</dt>
+                  <dd>{detail.guide_headline}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.group_size != null ? (
+                <div>
+                  <dt>Travellers</dt>
+                  <dd>{detail.group_size}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.duration_hours != null ? (
+                <div>
+                  <dt>Duration</dt>
+                  <dd>{detail.duration_hours}h</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.start_time ? (
+                <div>
+                  <dt>Start time</dt>
+                  <dd>{detail.start_time}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.meeting_point ? (
+                <div>
+                  <dt>Meeting point</dt>
+                  <dd>{detail.meeting_point}</dd>
+                </div>
+              ) : null}
               {detail.special_requests ? (
                 <div>
                   <dt>{detail.booking_type === 'accommodation' ? 'Special requests' : 'Notes'}</dt>
                   <dd>{detail.special_requests}</dd>
+                </div>
+              ) : null}
+              {detail.booking_type === 'guide' && detail.notes ? (
+                <div>
+                  <dt>Traveller notes</dt>
+                  <dd>{detail.notes}</dd>
                 </div>
               ) : null}
               <div>
@@ -319,7 +370,24 @@ export function BookingsPage() {
                   Mark confirmed
                 </button>
               ) : null}
-              {detail.status !== 'cancelled' ? (
+              {detail.booking_type === 'guide' && detail.status === 'confirmed' ? (
+                <button
+                  type="button"
+                  className="da-btn da-btn--ghost"
+                  disabled={updateMut.isPending}
+                  onClick={() =>
+                    selected &&
+                    updateMut.mutate({
+                      booking_type: selected.booking_type,
+                      booking_id: selected.booking_id,
+                      status: 'completed',
+                    })
+                  }
+                >
+                  Mark completed
+                </button>
+              ) : null}
+              {!['cancelled', 'refunded', 'completed'].includes(detail.status) ? (
                 <button
                   type="button"
                   className="da-btn da-btn--danger"

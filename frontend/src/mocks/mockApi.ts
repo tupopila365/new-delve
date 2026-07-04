@@ -1,4 +1,5 @@
 import { ApiError } from '../api/client'
+import { mockTrips, type MockTrip } from '../data/mockTrips'
 import { mockBusinessProfiles } from '../data/businessProfiles'
 import { enrichFoodVenueDetail } from '../data/foodVenueSocial'
 import {
@@ -14,6 +15,18 @@ import {
   type MockProfile,
 } from './mockData'
 
+type MockJourney = MockTrip & { starts_at: string; visibility?: string; is_hidden?: boolean; is_featured?: boolean }
+
+type MockJourneyQuestionRow = {
+  id: number
+  journey_id: number
+  author: string
+  body: string
+  is_hidden?: boolean
+  created_at: string
+  answers: { id: number; author: string; body: string; is_official?: boolean; created_at: string }[]
+}
+
 type MockState = {
   currentUser: string | null
   profiles: Record<string, MockProfile>
@@ -23,6 +36,15 @@ type MockState = {
   saves: Record<string, number[]>
   comments: Record<string, MockComment[]>
   nextCommentId: number
+  commentHelpful: Record<string, number[]>
+  follows: Record<string, string[]>
+  journeys: MockJourney[]
+  nextJourneyId: number
+  journeyLikes: Record<string, number[]>
+  journeySaves: Record<string, number[]>
+  journeyQuestions: MockJourneyQuestionRow[]
+  nextJourneyQuestionId: number
+  nextJourneyAnswerId: number
 }
 
 type MockComment = {
@@ -31,9 +53,12 @@ type MockComment = {
   body: string
   created_at: string
   is_hidden?: boolean
+  is_accepted_answer?: boolean
+  helpful_count?: number
+  marked_helpful_by_me?: boolean
 }
 
-const KEY = 'delve_mock_state_v7'
+const KEY = 'delve_mock_state_v8'
 
 /** In-memory accommodation bookings for mock API (session only). */
 type MockAccBookingRow = {
@@ -52,6 +77,19 @@ type MockAccBookingRow = {
 const mockAccBookings = new Map<number, MockAccBookingRow>()
 let mockAccNextBookingId = 1
 
+/** token -> username for email verification flow in mock mode */
+const mockVerificationTokens = new Map<string, string>()
+
+function issueMockTokens(username: string) {
+  return { access: `mock_access_${username}`, refresh: `mock_refresh_${username}` }
+}
+
+function createMockVerificationToken(username: string) {
+  const token = crypto.randomUUID()
+  mockVerificationTokens.set(token, username)
+  return token
+}
+
 type MockAccQuestionRow = {
   id: number
   listing: number
@@ -65,6 +103,19 @@ const mockAccQuestions: MockAccQuestionRow[] = []
 let mockAccNextQuestionId = 1
 let mockAccNextAnswerId = 1
 
+type MockFoodQuestionRow = {
+  id: number
+  listing: number
+  listing_title: string
+  author: string
+  body: string
+  ago: string
+  answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[]
+}
+const mockFoodQuestions: MockFoodQuestionRow[] = []
+let mockFoodNextQuestionId = 1
+let mockFoodNextAnswerId = 1
+
 type MockAccReviewRow = {
   listing: number
   booking: number
@@ -75,6 +126,28 @@ type MockAccReviewRow = {
 }
 const mockAccReviews: MockAccReviewRow[] = []
 const mockAccReviewedBookings = new Set<number>()
+
+type MockTransportReviewRow = {
+  listing: number
+  name: string
+  rating: number
+  body: string
+  created_at: string
+}
+const mockVehSessionReviews: MockTransportReviewRow[] = []
+const mockBusTripSessionReviews: MockTransportReviewRow[] = []
+const mockVehReviewedBookings = new Set<number>()
+const mockBusReviewedReservations = new Set<number>()
+
+type MockFoodReviewRow = {
+  listing: number
+  name: string
+  rating: number
+  body: string
+  created_at: string
+}
+const mockFoodSessionReviews: MockFoodReviewRow[] = []
+const mockFoodReviewedVenues = new Set<string>()
 
 const MOCK_ACC_BLOCKING = new Set(['pending', 'confirmed', 'checked_in'])
 
@@ -118,10 +191,23 @@ const mockBusReservationRows = new Map<
     id: number
     trip: number
     seat_number: number
-    status: 'pending' | 'confirmed'
+    status: 'pending' | 'confirmed' | 'cancelled'
     mock_payment_ref: string
+    client?: string
   }
 >()
+
+type MockFoodReservationRow = {
+  id: number
+  venue: number
+  client: string
+  reserved_for: string
+  party_size: number
+  special_requests: string
+  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'refunded'
+}
+let nextFoodReservationId = 8000
+const mockFoodReservationRows = new Map<number, MockFoodReservationRow>()
 
 type MockVehicleBookingRow = {
   id: number
@@ -153,6 +239,7 @@ type MockUserBusiness = {
   region: string
   city: string
   onboarding_completed: boolean
+  verification_notes?: string
 }
 
 const mockUserBusinesses = new Map<string, MockUserBusiness[]>()
@@ -177,6 +264,7 @@ function serializeMyBusiness(b: MockUserBusiness) {
 type PublicBusinessSource = (typeof mockBusinessProfiles)[number] | MockUserBusiness
 
 function serializePublicBusiness(b: PublicBusinessSource) {
+  const extras = mockBusinessProfiles.find((row) => row.id === b.id)
   return {
     id: b.id,
     slug: b.slug,
@@ -190,7 +278,136 @@ function serializePublicBusiness(b: PublicBusinessSource) {
     cover_image: b.cover_image,
     region: b.region,
     city: b.city,
+    stats: {
+      listings_count: extras?.listings_count ?? 0,
+      rating_avg: extras?.rating_avg ?? null,
+      rating_count: extras?.rating_count ?? 0,
+      response_hours: extras?.response_hours ?? null,
+    },
   }
+}
+
+function mockBusinessListingsFor(b: PublicBusinessSource) {
+  const owner = b.owner_username
+  const transportModes: ('rental' | 'shared')[] = b.transport_modes?.length
+    ? b.transport_modes
+    : b.business_types.includes('transport')
+      ? ['rental', 'shared']
+      : []
+  const items: Array<{
+    kind: 'stays' | 'food' | 'guides' | 'transport' | 'events'
+    transport_mode?: 'rental' | 'shared'
+    id: number
+    title: string
+    subtitle: string
+    image: string | null
+    href: string
+    meta: string | null
+  }> = []
+
+  mockStays
+    .filter((s) => s.owner_username === owner)
+    .forEach((s) => {
+      items.push({
+        kind: 'stays',
+        id: s.id,
+        title: s.title,
+        subtitle: s.property_type ? `${s.property_type} · ${s.city}` : s.city,
+        image: s.cover_image ?? null,
+        href: `/accommodation/${s.id}`,
+        meta: `N$${s.price_per_night}/night`,
+      })
+    })
+
+  mockFood
+    .filter((f) => f.owner_username === owner)
+    .forEach((f) => {
+      items.push({
+        kind: 'food',
+        id: f.id,
+        title: f.name,
+        subtitle: f.cuisine,
+        image: f.cover_image ?? null,
+        href: `/food/${f.id}`,
+        meta: null,
+      })
+    })
+
+  mockGuides
+    .filter((g) => g.username === owner)
+    .forEach((g) => {
+      items.push({
+        kind: 'guides',
+        id: g.id,
+        title: g.display_name || g.username,
+        subtitle: g.headline,
+        image: g.photo ?? null,
+        href: `/guides/${g.id}`,
+        meta: g.hourly_rate ? `N$${g.hourly_rate}/hr` : null,
+      })
+    })
+
+  if (transportModes.includes('rental')) {
+    mockVehicles
+      .filter((v) => v.owner_username === owner)
+      .forEach((v) => {
+        items.push({
+          kind: 'transport',
+          transport_mode: 'rental',
+          id: v.id,
+          title: v.title,
+          subtitle: [v.city, v.vehicle_type].filter(Boolean).join(' · '),
+          image: v.cover_image ?? v.gallery_images?.[0] ?? null,
+          href: `/transport/vehicle/${v.id}`,
+          meta: `N$${v.price_per_day}/day`,
+        })
+      })
+  }
+
+  if (transportModes.includes('shared')) {
+    const now = Date.now()
+    mockBusTrips
+      .filter((t) => (t as { owner_username?: string }).owner_username === owner)
+      .filter((t) => t.is_active !== false && new Date(t.departs_at).getTime() >= now)
+      .forEach((t) => {
+        const dep = new Date(t.departs_at)
+        const depLabel = Number.isNaN(dep.getTime())
+          ? t.departs_at
+          : dep.toLocaleDateString('en-NA', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+        items.push({
+          kind: 'transport',
+          transport_mode: 'shared',
+          id: t.id,
+          title: `${t.route_detail.origin} → ${t.route_detail.destination}`,
+          subtitle: `${t.route_detail.operator_name} · ${depLabel}`,
+          image: t.route_detail.cover_image ?? t.route_detail.gallery_images?.[0] ?? null,
+          href: `/transport/bus/${t.id}`,
+          meta: `N$${t.price}/seat`,
+        })
+      })
+  }
+
+  mockEvents
+    .filter((e) => e.organizer_username === owner)
+    .forEach((e) => {
+      items.push({
+        kind: 'events',
+        id: e.id,
+        title: e.title,
+        subtitle: e.venue || [e.city, e.region].filter(Boolean).join(', '),
+        image: e.cover_image ?? null,
+        href: `/events/${e.id}`,
+        meta: e.is_free ? 'Free' : e.price ? `N$${e.price}` : null,
+      })
+    })
+
+  return items
 }
 
 function allPublicBusinesses(): PublicBusinessSource[] {
@@ -263,6 +480,12 @@ function nowIso() {
 /** Session-local likes on accommodation listings (listing id → usernames). */
 const mockListingLikes = new Map<number, Set<string>>()
 const mockListingSaves = new Map<number, Set<string>>()
+const mockFoodVenueSaves = new Map<number, Set<string>>()
+const mockGuideSaves = new Map<number, Set<string>>()
+const mockGuideQuestions = new Map<number, { id: number; author: string; body: string; ago: string; answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[] }[]>()
+const mockGuideReviews = new Map<number, { id: number; name: string; place: string; rating: number; body: string; source: string }[]>()
+let mockGuideQuestionNextId = 1
+let mockGuideReviewNextId = 1
 
 type MockFeaturedCampaign = {
   id: number
@@ -313,6 +536,18 @@ let mockFeaturedCampaigns: MockFeaturedCampaign[] = [
     label: 'Featured Partner',
   },
   {
+    id: 6,
+    placement: 'homepage_guides',
+    target_type: 'guide',
+    target_id: 601,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 10,
+    label: 'Featured Partner',
+  },
+  {
     id: 3,
     placement: 'category_spotlight',
     target_type: 'food',
@@ -322,6 +557,18 @@ let mockFeaturedCampaigns: MockFeaturedCampaign[] = [
     ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     status: 'active',
     priority: 10,
+    label: 'Featured Partner',
+  },
+  {
+    id: 7,
+    placement: 'category_spotlight',
+    target_type: 'guide',
+    target_id: 601,
+    region: '',
+    starts_at: new Date(Date.now() - 86400000).toISOString(),
+    ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: 'active',
+    priority: 9,
     label: 'Featured Partner',
   },
   {
@@ -548,6 +795,78 @@ function mergeFeaturedRail<T extends { id: number }>(
   return [...promoted, ...organicRows]
 }
 
+function mergeFeaturedTransport(region: string, limit = 8) {
+  const placement = 'homepage_transport'
+  const max = PLACEMENT_MAX_SLOTS[placement] ?? 2
+  const campaigns = activeFeaturedCampaigns(placement, region).slice(0, max)
+  const promotedVehicleIds = new Set<number>()
+  const promotedTripIds = new Set<number>()
+  const promoted: Record<string, unknown>[] = []
+
+  for (const campaign of campaigns) {
+    if (campaign.target_type === 'bus_trip') {
+      if (promotedTripIds.has(campaign.target_id)) continue
+      const row = mockBusTrips.find((x) => x.id === campaign.target_id && x.is_active)
+      if (!row) continue
+      promotedTripIds.add(campaign.target_id)
+      promoted.push({
+        ...busTripDetailForApi(row),
+        is_featured_partner: true,
+        partner_label: campaign.label,
+        promotion_id: campaign.id,
+      })
+      continue
+    }
+    if (campaign.target_type === 'vehicle') {
+      if (promotedVehicleIds.has(campaign.target_id)) continue
+      const row = mockVehicles.find((x) => x.id === campaign.target_id)
+      if (!row) continue
+      promotedVehicleIds.add(campaign.target_id)
+      promoted.push({
+        ...row,
+        is_featured_partner: true,
+        partner_label: campaign.label,
+        promotion_id: campaign.id,
+      })
+    }
+  }
+
+  const remaining = Math.max(0, limit - promoted.length)
+  const r = region.trim().toLowerCase()
+
+  let organicVehicles = mockVehicles.filter((row) => !promotedVehicleIds.has(row.id))
+  if (r) {
+    organicVehicles = organicVehicles.filter(
+      (row) => row.region.toLowerCase().includes(r) || (row.city || '').toLowerCase().includes(r),
+    )
+  }
+  const vehicleRows = organicVehicles.slice(0, remaining).map((row) => ({
+    ...row,
+    is_featured_partner: false,
+    partner_label: '',
+  }))
+
+  const tripRemaining = Math.max(0, remaining - vehicleRows.length)
+  const now = Date.now()
+  let organicTrips = mockBusTrips.filter(
+    (row) => row.is_active && !promotedTripIds.has(row.id) && new Date(row.departs_at).getTime() >= now,
+  )
+  if (r) {
+    organicTrips = organicTrips.filter((row) => {
+      const origin = row.route_detail.origin.toLowerCase()
+      const dest = row.route_detail.destination.toLowerCase()
+      return origin.includes(r) || dest.includes(r)
+    })
+  }
+  const tripRows = organicTrips.slice(0, tripRemaining).map((row) => ({
+    ...busTripDetailForApi(row),
+    is_featured_partner: false,
+    partner_label: '',
+  }))
+
+  return [...promoted, ...vehicleRows, ...tripRows].slice(0, limit)
+}
+
 function categorySpotlightMock(s: MockState, region: string, category: string) {
   const targetMap: Record<string, string> = {
     stays: 'accommodation',
@@ -559,6 +878,9 @@ function categorySpotlightMock(s: MockState, region: string, category: string) {
     event: 'event',
     transport: 'vehicle',
     vehicle: 'vehicle',
+    bus_trip: 'bus_trip',
+    bus: 'bus_trip',
+    shared: 'bus_trip',
   }
   const targetType = targetMap[category.toLowerCase()]
   if (!targetType) return []
@@ -568,11 +890,26 @@ function categorySpotlightMock(s: MockState, region: string, category: string) {
       const row = mockFood.find((x) => x.id === campaign.target_id)
       if (row) return [{ ...row, is_featured_partner: true, partner_label: campaign.label, promotion_id: campaign.id }]
     }
+    if (targetType === 'guide') {
+      const row = mockGuides.find((x) => x.id === campaign.target_id)
+      if (row) return [{ ...row, is_featured_partner: true, partner_label: campaign.label, promotion_id: campaign.id }]
+    }
     if (targetType === 'accommodation') {
       const row = mockStays.find((x) => x.id === campaign.target_id)
       if (row) {
         return [{
           ...enrichAccommodationListingRow(s, row),
+          is_featured_partner: true,
+          partner_label: campaign.label,
+          promotion_id: campaign.id,
+        }]
+      }
+    }
+    if (targetType === 'bus_trip') {
+      const row = mockBusTrips.find((x) => x.id === campaign.target_id)
+      if (row) {
+        return [{
+          ...busTripDetailForApi(row),
           is_featured_partner: true,
           partner_label: campaign.label,
           promotion_id: campaign.id,
@@ -685,11 +1022,33 @@ function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[num
   }
 }
 
+function enrichFoodVenueRow(s: MockState, row: (typeof mockFood)[number]) {
+  const savers = mockFoodVenueSaves.get(row.id)
+  return {
+    ...row,
+    saves_count: savers?.size ?? 0,
+    saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
+  }
+}
+
+function enrichGuideRow(s: MockState, row: (typeof mockGuides)[number]) {
+  const savers = mockGuideSaves.get(row.id)
+  return {
+    ...row,
+    saves_count: savers?.size ?? 0,
+    saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
+  }
+}
+
 // ---- Mock messaging (session; mirrors backend ConversationSerializer / MessageSerializer) ----
 
 type MockMessagingConv = {
   id: number
   participantIds: number[]
+  pair_key: string
+  context_type?: string
+  context_id?: number | null
+  context_label?: string
   created_at: string
   updated_at: string
 }
@@ -699,12 +1058,23 @@ type MockMessagingMsg = {
   senderId: number
   body: string
   created_at: string
+  read: boolean
 }
 
 const mockMessagingConversations = new Map<number, MockMessagingConv>()
 const mockMessagingMessages = new Map<number, MockMessagingMsg[]>()
+const mockMessagingBlocks = new Set<string>()
+const mockMessagingTyping = new Map<string, { username: string; until: number }>()
 let mockMessagingConvSeq = 1
 let mockMessagingMsgSeq = 1
+
+function messagingBlockKey(a: number, b: number): string {
+  return `${a}->${b}`
+}
+
+function messagingIsBlockedEitherWay(a: number, b: number): boolean {
+  return mockMessagingBlocks.has(messagingBlockKey(a, b)) || mockMessagingBlocks.has(messagingBlockKey(b, a))
+}
 
 function messagingNumericIdForUsername(username: string): number {
   if (username === 'demo_user') return 1
@@ -735,6 +1105,12 @@ function messagingUserExists(s: MockState, userId: number): boolean {
   return Object.keys(s.profiles).some((u) => messagingNumericIdForUsername(u) === userId)
 }
 
+function messagingPairKey(a: number, b: number): string {
+  const x = Math.min(a, b)
+  const y = Math.max(a, b)
+  return `${x}:${y}`
+}
+
 function messagingEnsureSeed() {
   if (mockMessagingConversations.size > 0) return
   const id = mockMessagingConvSeq++
@@ -742,6 +1118,7 @@ function messagingEnsureSeed() {
   mockMessagingConversations.set(id, {
     id,
     participantIds: [1, 2].sort((a, b) => a - b),
+    pair_key: messagingPairKey(1, 2),
     created_at: t,
     updated_at: t,
   })
@@ -751,19 +1128,25 @@ function messagingEnsureSeed() {
       senderId: 2,
       body: 'Hi! Thanks for your interest in a desert tour — let me know your dates.',
       created_at: t,
+      read: false,
     },
   ])
 }
 
 function messagingFindConvBetween(a: number, b: number): MockMessagingConv | undefined {
-  const x = Math.min(a, b)
-  const y = Math.max(a, b)
+  const key = messagingPairKey(a, b)
   for (const c of mockMessagingConversations.values()) {
-    if (c.participantIds.length === 2 && c.participantIds[0] === x && c.participantIds[1] === y) {
-      return c
-    }
+    if (c.pair_key === key) return c
   }
   return undefined
+}
+
+function messagingFindUserIdByUsername(s: MockState, username: string): number | null {
+  const needle = username.trim().toLowerCase()
+  for (const u of Object.keys(s.profiles)) {
+    if (u.toLowerCase() === needle) return messagingNumericIdForUsername(u)
+  }
+  return null
 }
 
 function messagingLastMessage(convId: number): MockMessagingMsg | null {
@@ -772,20 +1155,81 @@ function messagingLastMessage(convId: number): MockMessagingMsg | null {
   return [...arr].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
 }
 
-function messagingSerializeConversation(s: MockState, conv: MockMessagingConv) {
+function messagingUnreadCount(convId: number, viewerId: number): number {
+  const arr = mockMessagingMessages.get(convId) ?? []
+  return arr.filter((m) => !m.read && m.senderId !== viewerId).length
+}
+
+const MESSAGING_CONTEXT_HREFS: Record<string, string> = {
+  accommodation: '/accommodation/{id}',
+  food: '/food/{id}',
+  guide: '/guides/{id}',
+  event: '/events/{id}',
+  transport: '/transport/vehicle/{id}',
+  bus_trip: '/transport/bus/{id}',
+  booking_stay: '/dashboard/bookings/stay/{id}',
+  booking_guide: '/dashboard/bookings/guide/{id}',
+  booking_vehicle: '/dashboard/bookings/vehicle/{id}',
+  booking_bus: '/dashboard/bookings/bus/{id}',
+  booking_food: '/dashboard/bookings/food/{id}',
+}
+
+function messagingContextPayload(conv: MockMessagingConv) {
+  const type = (conv.context_type || '').trim()
+  if (!type) return null
+  const id = conv.context_id ?? null
+  const template = MESSAGING_CONTEXT_HREFS[type]
+  const href = template && id != null ? template.replace('{id}', String(id)) : null
+  const label = (conv.context_label || '').trim() || type.replace(/_/g, ' ')
+  return { type, id, label, href }
+}
+
+function messagingApplyContext(
+  conv: MockMessagingConv,
+  payload: { context_type?: unknown; context_id?: unknown; context_label?: unknown },
+) {
+  const type = typeof payload.context_type === 'string' ? payload.context_type.trim().toLowerCase() : ''
+  if (!type || !(type in MESSAGING_CONTEXT_HREFS)) return
+  let contextId: number | null = null
+  if (payload.context_id != null && payload.context_id !== '') {
+    const n = Number(payload.context_id)
+    contextId = Number.isFinite(n) ? n : null
+  }
+  const label =
+    typeof payload.context_label === 'string' ? payload.context_label.trim().slice(0, 200) : ''
+  conv.context_type = type
+  conv.context_id = contextId
+  conv.context_label = label || type.replace(/_/g, ' ')
+}
+
+function messagingSerializeConversation(s: MockState, conv: MockMessagingConv, viewerId?: number) {
   const last = messagingLastMessage(conv.id)
+  const me = viewerId ?? messagingNumericIdForUsername(s.currentUser as string)
+  const participants_detail = conv.participantIds.map((pid) => {
+    const detail = messagingParticipantDetail(s, pid)
+    const profile = s.profiles[detail.username]
+    return {
+      ...detail,
+      avatar: profile?.avatar ?? null,
+    }
+  })
+  const other = participants_detail.find((p) => p.id !== me) ?? null
   return {
     id: conv.id,
-    participants_detail: conv.participantIds.map((pid) => messagingParticipantDetail(s, pid)),
+    pair_key: conv.pair_key,
+    participants_detail,
+    other,
+    context: messagingContextPayload(conv),
     created_at: conv.created_at,
     updated_at: conv.updated_at,
+    unread_count: messagingUnreadCount(conv.id, me),
     last_message: last
       ? {
           id: last.id,
           sender: last.senderId,
           sender_username: messagingUsernameForId(s, last.senderId),
           body: last.body,
-          read: false,
+          read: last.read,
           created_at: last.created_at,
         }
       : null,
@@ -798,9 +1242,103 @@ function messagingSerializeMessage(s: MockState, m: MockMessagingMsg) {
     sender: m.senderId,
     sender_username: messagingUsernameForId(s, m.senderId),
     body: m.body,
-    read: false,
+    read: m.read,
     created_at: m.created_at,
   }
+}
+
+function mockTripToJourney(t: MockTrip, index = 0): MockJourney {
+  return { ...t, starts_at: t.starts_on, visibility: 'public', is_featured: index < 3 }
+}
+
+function ensureJourneyState(s: MockState): MockState {
+  if (!Array.isArray(s.journeys) || s.journeys.length === 0) {
+    s.journeys = mockTrips.map((t, i) => mockTripToJourney(t, i))
+  }
+  if (!s.nextJourneyId) {
+    s.nextJourneyId = Math.max(2000, ...s.journeys.map((j) => j.id)) + 1
+  }
+  s.journeyLikes = s.journeyLikes ?? {}
+  s.journeySaves = s.journeySaves ?? {}
+  s.journeyQuestions = s.journeyQuestions ?? []
+  if (!s.nextJourneyQuestionId) s.nextJourneyQuestionId = 1
+  if (!s.nextJourneyAnswerId) s.nextJourneyAnswerId = 1
+  return s
+}
+
+function mockResolveStopLinkedListing(stop: MockTrip['stops'][number]) {
+  const lt = (stop.linked_listing_type || '').trim()
+  const id = stop.linked_listing_id
+  if (!lt || !id) return null
+  if (lt === 'accommodation') {
+    const row = mockStays.find((item) => item.id === id)
+    if (!row) return null
+    return { kind: 'accommodation' as const, id, title: row.title, href: `/accommodation/${id}` }
+  }
+  if (lt === 'food') {
+    const row = mockFood.find((item) => item.id === id)
+    if (!row) return null
+    return { kind: 'food' as const, id, title: row.name, href: `/food/${id}` }
+  }
+  if (lt === 'event') {
+    const row = mockEvents.find((item) => item.id === id)
+    if (!row) return null
+    return { kind: 'event' as const, id, title: row.title, href: `/events/${id}` }
+  }
+  return null
+}
+
+function mockSerializeJourneyStop(stop: MockTrip['stops'][number]) {
+  return {
+    ...stop,
+    linked_listing: mockResolveStopLinkedListing(stop),
+  }
+}
+
+function mockSerializeJourney(s: MockState, j: MockJourney) {
+  const me = s.currentUser
+  const liked = me ? (s.journeyLikes[j.id] ?? []).includes(me) : false
+  const saved = me ? (s.journeySaves[j.id] ?? []).includes(me) : false
+  return {
+    ...j,
+    starts_at: j.starts_at || j.starts_on,
+    is_featured: Boolean(j.is_featured),
+    stops: (j.stops || []).map(mockSerializeJourneyStop),
+    likes_count: j.likes_count ?? (s.journeyLikes[j.id]?.length || 0),
+    saves_count: j.saves_count ?? (s.journeySaves[j.id]?.length || 0),
+    liked_by_me: liked,
+    saved_by_me: saved,
+  }
+}
+
+function mockVisibleJourneys(s: MockState) {
+  return s.journeys.filter(
+    (j) => (j.visibility ?? 'public') === 'public' && !j.is_hidden,
+  )
+}
+
+function mockJourneyQuestionsFor(s: MockState, journeyId: number) {
+  const journey = s.journeys.find((row) => row.id === journeyId)
+  if (!journey) return []
+  return s.journeyQuestions
+    .filter((q) => q.journey_id === journeyId && !q.is_hidden)
+    .map((q) => ({
+      id: q.id,
+      listing: journeyId,
+      listing_title: journey.title,
+      journey_title: journey.title,
+      author: q.author,
+      body: q.body,
+      ago: 'Just now',
+      answers: q.answers.map((a) => ({
+        id: a.id,
+        author: a.author,
+        body: a.body,
+        ago: 'Just now',
+        is_official: a.is_official,
+      })),
+      created_at: q.created_at,
+    }))
 }
 
 function loadState(): MockState {
@@ -812,7 +1350,9 @@ function loadState(): MockState {
       stored.profiles = { ...mockProfiles, ...stored.profiles }
       stored.comments = stored.comments ?? {}
       stored.nextCommentId = stored.nextCommentId ?? 1
-      return stored
+      stored.commentHelpful = stored.commentHelpful ?? {}
+      stored.follows = stored.follows ?? {}
+      return ensureJourneyState(stored)
     } catch {
       // fallthrough
     }
@@ -826,6 +1366,15 @@ function loadState(): MockState {
     saves: {},
     comments: {},
     nextCommentId: 1,
+    commentHelpful: {},
+    follows: {},
+    journeys: mockTrips.map((t, i) => mockTripToJourney(t, i)),
+    nextJourneyId: 2000,
+    journeyLikes: {},
+    journeySaves: {},
+    journeyQuestions: [],
+    nextJourneyQuestionId: 1,
+    nextJourneyAnswerId: 1,
   }
   localStorage.setItem(KEY, JSON.stringify(seed))
   return seed
@@ -859,15 +1408,118 @@ function withMeFlags(s: MockState, posts: MockPost[]) {
   const me = s.currentUser
   const liked = me ? new Set(s.likes[me] || []) : new Set<number>()
   const saved = me ? new Set(s.saves[me] || []) : new Set<number>()
-  return posts.map((p) => ({
-    ...p,
-    liked_by_me: liked.has(p.id),
-    saved_by_me: saved.has(p.id),
-  }))
+  return posts.map((p) => {
+    const row = {
+      ...p,
+      liked_by_me: liked.has(p.id),
+      saved_by_me: saved.has(p.id),
+    }
+    if (p.post_kind === 'question') {
+      const accepted = mockAcceptedAnswer(s, p.id)
+      if (accepted) row.accepted_answer = accepted
+    }
+    return row
+  })
+}
+
+function mockFindComment(s: MockState, commentId: number): { postId: number; comment: MockComment } | null {
+  for (const [postKey, rows] of Object.entries(s.comments)) {
+    const comment = rows.find((c) => c.id === commentId && !c.is_hidden)
+    if (comment) return { postId: Number(postKey), comment }
+  }
+  return null
+}
+
+function mockSerializeComments(s: MockState, postId: number): MockComment[] {
+  const me = s.currentUser
+  const rows = (s.comments[String(postId)] || []).filter((c) => !c.is_hidden)
+  return rows
+    .map((c) => {
+      const voters = s.commentHelpful[String(c.id)] || []
+      return {
+        ...c,
+        helpful_count: voters.length,
+        marked_helpful_by_me: me ? voters.includes(me) : false,
+      }
+    })
+    .sort((a, b) => {
+      if (Boolean(a.is_accepted_answer) !== Boolean(b.is_accepted_answer)) {
+        return a.is_accepted_answer ? -1 : 1
+      }
+      return (b.helpful_count || 0) - (a.helpful_count || 0)
+    })
+}
+
+function mockAcceptedAnswer(s: MockState, postId: number) {
+  const accepted = (s.comments[String(postId)] || []).find((c) => c.is_accepted_answer && !c.is_hidden)
+  if (!accepted) return null
+  const voters = s.commentHelpful[String(accepted.id)] || []
+  return {
+    id: accepted.id,
+    body: accepted.body,
+    author: accepted.author,
+    helpful_count: voters.length,
+  }
 }
 
 function visiblePosts(posts: MockPost[]) {
   return posts.filter((p) => !p.is_hidden)
+}
+
+function profileKey(s: MockState, username: string): string | undefined {
+  return Object.keys(s.profiles).find((k) => k.toLowerCase() === username.toLowerCase())
+}
+
+function mockIsFollowing(s: MockState, follower: string | null, targetUsername: string): boolean {
+  if (!follower) return false
+  const target = profileKey(s, targetUsername)
+  if (!target || follower.toLowerCase() === target.toLowerCase()) return false
+  return (s.follows[follower] || []).some((u) => u.toLowerCase() === target.toLowerCase())
+}
+
+function mockCanViewPosts(s: MockState, viewer: string | null, targetUsername: string): boolean {
+  const key = profileKey(s, targetUsername)
+  if (!key) return false
+  const profile = s.profiles[key]
+  if (viewer && viewer.toLowerCase() === key.toLowerCase()) return true
+  if (profile.posts_visibility === 'only_me') return false
+  if (profile.is_private) return mockIsFollowing(s, viewer, key)
+  return true
+}
+
+function mockProfileStats(s: MockState, targetUsername: string) {
+  const key = profileKey(s, targetUsername)
+  const unLower = (key || targetUsername).toLowerCase()
+  const posts = s.posts.filter(
+    (p) => p.author.username.toLowerCase() === unLower && !p.is_hidden,
+  )
+  const followersCount = Object.values(s.follows).filter((following) =>
+    following.some((u) => u.toLowerCase() === unLower),
+  ).length
+  return {
+    posts_count: posts.length,
+    photos_count: posts.filter((p) => Boolean(p.image || p.video)).length,
+    followers_count: followersCount,
+    following_count: key ? (s.follows[key] || []).length : 0,
+  }
+}
+
+function mockProfileRelationship(s: MockState, viewer: string | null, targetUsername: string) {
+  const key = profileKey(s, targetUsername)
+  const profile = key ? s.profiles[key] : null
+  const canMessage =
+    Boolean(viewer && key && viewer.toLowerCase() !== key.toLowerCase() && (profile?.allow_messages ?? true))
+  return {
+    is_following: mockIsFollowing(s, viewer, targetUsername),
+    is_followed_by: key && viewer ? mockIsFollowing(s, key, viewer) : false,
+    can_view_posts: mockCanViewPosts(s, viewer, targetUsername),
+    can_message: canMessage,
+  }
+}
+
+function postsForViewer(s: MockState, posts: MockPost[]) {
+  const viewer = s.currentUser
+  return visiblePosts(posts).filter((p) => mockCanViewPosts(s, viewer, p.author.username))
 }
 
 function textMatch(hay: string, needle: string) {
@@ -931,6 +1583,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { ...p, is_staff: p.is_staff ?? false }
   }
 
+  if (pathname === '/api/accounts/me/become-provider/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const p = s.profiles[me]
+    if (p.user_type === 'service_provider') {
+      throw new ApiError('Already a service provider', 400, { detail: 'Already a service provider.' })
+    }
+    p.user_type = 'service_provider'
+    saveState(s)
+    return { ...p, is_staff: p.is_staff ?? false }
+  }
+
   if (pathname === '/api/accounts/me/update/' && method === 'PATCH') {
     requireAuth(s)
     const me = s.currentUser as string
@@ -967,6 +1631,57 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return s.profiles[me]
   }
 
+  if (pathname === '/api/accounts/me/change-password/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as { current_password?: string; new_password?: string }
+    if (!body.current_password?.trim() || !body.new_password) {
+      throw new ApiError('Bad request', 400, { detail: 'current_password and new_password are required.' })
+    }
+    if (body.new_password.length < 8) {
+      throw new ApiError('Bad request', 400, { detail: ['This password is too short.'] })
+    }
+    return { detail: 'Password updated.' }
+  }
+
+  if (pathname === '/api/accounts/me/delete/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const me = s.currentUser as string
+    const body = JSON.parse(init.body) as { confirm_username?: string; current_password?: string }
+    if ((body.confirm_username || '').trim() !== me) {
+      throw new ApiError('Bad request', 400, { detail: 'confirm_username must match your username exactly.' })
+    }
+    if (!body.current_password?.trim()) {
+      throw new ApiError('Bad request', 400, { detail: 'current_password is required.' })
+    }
+    const old = s.profiles[me]
+    const tombstone = `deleted_${me}`
+    delete s.profiles[me]
+    s.profiles[tombstone] = {
+      ...old,
+      username: tombstone,
+      email: `${tombstone}@deleted.delve`,
+      display_name: 'Deleted user',
+      bio: '',
+      show_in_search: false,
+      is_private: true,
+    }
+    s.posts = s.posts.map((p) =>
+      p.author.username === me ? { ...p, is_hidden: true, body: '[deleted]' } : p,
+    )
+    s.currentUser = null
+    saveState(s)
+    return {
+      detail: 'Account deleted. Personal data anonymized; booking records retained without PII.',
+      username: tombstone,
+    }
+  }
+
   if (pathname === '/api/accounts/register/' && method === 'POST') {
     const data = isJsonBody(init.body)
       ? (JSON.parse(init.body) as { username: string; email: string; user_type?: 'normal' | 'service_provider' })
@@ -986,18 +1701,77 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       country_code: '',
       preferred_currency: '',
       avatar: null,
-      email_verified: true,
+      email_verified: false,
       is_private: false,
       posts_visibility: 'public',
       allow_messages: true,
       show_in_search: true,
     }
+    createMockVerificationToken(u)
     saveState(s)
-    return { detail: 'Account created (mock).' }
+    return { detail: 'Account created (mock). Check console for verification token in dev.' }
   }
 
   if (pathname === '/api/accounts/verify-email/' && method === 'POST') {
-    return { detail: 'Email verified (mock).' }
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'token required' })
+    }
+    const body = JSON.parse(init.body) as { token?: string }
+    const raw = (body.token || '').trim()
+    const username = raw ? mockVerificationTokens.get(raw) : undefined
+    if (!username || !s.profiles[username]) {
+      throw new ApiError('invalid or expired token', 400, { detail: 'invalid or expired token' })
+    }
+    s.profiles[username].email_verified = true
+    mockVerificationTokens.delete(raw)
+    s.currentUser = username
+    saveState(s)
+    return { detail: 'Email verified (mock).', ...issueMockTokens(username) }
+  }
+
+  if (pathname === '/api/accounts/resend-verification/' && method === 'POST') {
+    let username = s.currentUser
+    if (isJsonBody(init.body)) {
+      const body = JSON.parse(init.body) as { email?: string }
+      const email = (body.email || '').trim().toLowerCase()
+      if (email) {
+        username =
+          Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || null
+      }
+    }
+    if (username && s.profiles[username] && !s.profiles[username].email_verified) {
+      createMockVerificationToken(username)
+    }
+    return {
+      detail: username
+        ? 'Verification email sent.'
+        : 'If an account exists and is unverified, we sent a verification email.',
+    }
+  }
+
+  if (pathname === '/api/accounts/password-reset/request/' && method === 'POST') {
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'email is required.' })
+    }
+    const body = JSON.parse(init.body) as { email?: string }
+    if (!body.email?.trim()) {
+      throw new ApiError('Bad request', 400, { detail: 'email is required.' })
+    }
+    return { detail: 'If an account exists, we sent reset instructions.' }
+  }
+
+  if (pathname === '/api/accounts/password-reset/confirm/' && method === 'POST') {
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'token and new_password are required.' })
+    }
+    const body = JSON.parse(init.body) as { token?: string; new_password?: string }
+    if (!body.token?.trim() || !body.new_password) {
+      throw new ApiError('Bad request', 400, { detail: 'token and new_password are required.' })
+    }
+    if (body.new_password.length < 8) {
+      throw new ApiError('Bad request', 400, { detail: ['This password is too short.'] })
+    }
+    return { detail: 'Password updated.' }
   }
 
   if (pathname === '/api/accounts/businesses/' && method === 'GET') {
@@ -1013,6 +1787,67 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const b = findPublicBusinessById(Number(businessDetailMatch[1]))
     if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     return serializePublicBusiness(b)
+  }
+
+  const businessListingsMatch = pathname.match(/^\/api\/accounts\/businesses\/(\d+)\/listings\/?$/)
+  if (businessListingsMatch && method === 'GET') {
+    const b = findPublicBusinessById(Number(businessListingsMatch[1]))
+    if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return mockBusinessListingsFor(b)
+  }
+
+  const myBusinessUpdateMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/?$/)
+  if (myBusinessUpdateMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser!
+    const id = Number(myBusinessUpdateMatch[1])
+    const seeded = mockBusinessProfiles.find((b) => b.id === id && b.owner_username === me)
+    const userRows = mockUserBusinesses.get(me) ?? []
+    const created = userRows.find((b) => b.id === id)
+    const target = created ?? (seeded ? ({
+      id: seeded.id,
+      slug: seeded.slug,
+      owner_username: seeded.owner_username,
+      business_name: seeded.business_name,
+      business_types: seeded.business_types,
+      verification_status: seeded.verification_status,
+      description: seeded.description,
+      tagline: seeded.tagline ?? '',
+      logo: seeded.logo,
+      cover_image: seeded.cover_image,
+      region: seeded.region,
+      city: seeded.city,
+      onboarding_completed: true,
+    } satisfies MockUserBusiness) : undefined)
+    if (!target) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+
+    if (init.body instanceof FormData) {
+      const name = init.body.get('business_name')
+      if (typeof name === 'string' && name.trim()) target.business_name = name.trim()
+      const tagline = init.body.get('tagline')
+      if (typeof tagline === 'string') target.tagline = tagline
+      const description = init.body.get('description')
+      if (typeof description === 'string') target.description = description
+      const region = init.body.get('region')
+      if (typeof region === 'string') target.region = region
+      const city = init.body.get('city')
+      if (typeof city === 'string') target.city = city
+      const logo = init.body.get('logo')
+      if (logo instanceof File) target.logo = URL.createObjectURL(logo)
+      const cover = init.body.get('cover_image')
+      if (cover instanceof File) target.cover_image = URL.createObjectURL(cover)
+    } else if (isJsonBody(init.body)) {
+      const data = JSON.parse(init.body) as Partial<MockUserBusiness>
+      Object.assign(target, data)
+    }
+
+    if (created) {
+      mockUserBusinesses.set(
+        me,
+        userRows.map((row) => (row.id === id ? { ...target } : row)),
+      )
+    }
+    return serializeMyBusiness(target)
   }
 
   if (pathname === '/api/accounts/me/businesses/' && method === 'GET') {
@@ -1365,6 +2200,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
     const mp = s.profiles[key]
+    const viewer = s.currentUser
     return {
       id: messagingNumericIdForUsername(key),
       username: mp.username,
@@ -1377,22 +2213,109 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       is_private: mp.is_private ?? false,
       posts_visibility: mp.posts_visibility ?? 'public',
       allow_messages: mp.allow_messages ?? true,
+      stats: mockProfileStats(s, key),
+      relationship: mockProfileRelationship(s, viewer, key),
+      owned_businesses: allPublicBusinesses()
+        .filter((b) => b.owner_username.toLowerCase() === key.toLowerCase())
+        .map((b) => ({
+          id: b.id,
+          business_name: b.business_name,
+          verification_status: b.verification_status,
+          slug: b.slug,
+        })),
     }
+  }
+
+  const userFollowMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/follow\/?$/)
+  if (userFollowMatch && method === 'POST') {
+    const slug = decodeURIComponent(userFollowMatch[1])
+    const targetKey = profileKey(s, slug)
+    if (!targetKey) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    requireAuth(s)
+    const me = s.currentUser!
+    if (me.toLowerCase() === targetKey.toLowerCase()) {
+      throw new ApiError('Bad request', 400, { detail: 'Cannot follow yourself.' })
+    }
+    const list = s.follows[me] || []
+    const idx = list.findIndex((u) => u.toLowerCase() === targetKey.toLowerCase())
+    let following: boolean
+    if (idx >= 0) {
+      list.splice(idx, 1)
+      following = false
+    } else {
+      list.push(targetKey)
+      following = true
+    }
+    s.follows[me] = list
+    saveState(s)
+    const followersCount = Object.values(s.follows).filter((rows) =>
+      rows.some((u) => u.toLowerCase() === targetKey.toLowerCase()),
+    ).length
+    return { following, followers_count: followersCount }
+  }
+
+  const userFollowersMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/followers\/?$/)
+  if (userFollowersMatch && method === 'GET') {
+    const slug = decodeURIComponent(userFollowersMatch[1])
+    const targetKey = profileKey(s, slug)
+    if (!targetKey) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const followers = Object.entries(s.follows)
+      .filter(([, following]) => following.some((u) => u.toLowerCase() === targetKey.toLowerCase()))
+      .map(([username]) => {
+        const p = s.profiles[username]
+        return {
+          id: messagingNumericIdForUsername(username),
+          username: p.username,
+          display_name: p.display_name,
+          avatar: p.avatar,
+        }
+      })
+    return followers
+  }
+
+  const userFollowingMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/following\/?$/)
+  if (userFollowingMatch && method === 'GET') {
+    const slug = decodeURIComponent(userFollowingMatch[1])
+    const targetKey = profileKey(s, slug)
+    if (!targetKey) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const following = (s.follows[targetKey] || []).map((username) => {
+      const p = s.profiles[username]
+      return {
+        id: messagingNumericIdForUsername(username),
+        username: p.username,
+        display_name: p.display_name,
+        avatar: p.avatar,
+      }
+    })
+    return following
   }
 
   // ---- Social feeds ----
   if (pathname === '/api/social/feed/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
-    const posts = visiblePosts(s.posts)
+    const kind = (q.get('kind') || '').trim().toLowerCase()
+    const limitRaw = Number(q.get('limit') || '50')
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 50
+    let posts = postsForViewer(s, s.posts)
       .filter((p) => !p.is_delvers && !p.is_accommodation_story)
       .filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
+    if (kind === 'question' || kind === 'tip') {
+      posts = posts.filter((p) => (p.post_kind || 'tip') === kind)
+    }
     const ranked = [...posts].sort((a, b) => b.likes_count + b.saves_count - (a.likes_count + a.saves_count))
-    const organic = withMeFlags(s, ranked).slice(0, 50) as Record<string, unknown>[]
+    const organic = withMeFlags(s, ranked).slice(0, limit) as Record<string, unknown>[]
+    if (kind === 'question') return organic
     return injectMockFeedPromotions(s, organic, 'community_feed', region, false)
   }
 
   if (pathname === '/api/social/accommodation-stories/' && method === 'GET') {
-    const list = visiblePosts(s.posts)
+    const list = postsForViewer(s, s.posts)
       .filter((p) => Boolean(p.is_accommodation_story) && (p.image || p.video))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, list).slice(0, 120)
@@ -1400,7 +2323,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/social/delvers/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
-    const posts = visiblePosts(s.posts).filter((p) => p.is_delvers && !p.is_accommodation_story).filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
+    const posts = postsForViewer(s, s.posts).filter((p) => p.is_delvers && !p.is_accommodation_story).filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
     const ranked = [...posts].sort((a, b) => b.saves_count - a.saves_count)
     const organic = withMeFlags(s, ranked).slice(0, 80) as Record<string, unknown>[]
     return injectMockFeedPromotions(s, organic, 'delvers_feed', region, true)
@@ -1409,8 +2332,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   const userPostsMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/posts\/$/)
   if (userPostsMatch && method === 'GET') {
     const slug = decodeURIComponent(userPostsMatch[1])
+    if (!mockCanViewPosts(s, s.currentUser, slug)) {
+      return []
+    }
     const unLower = slug.toLowerCase()
-    const list = visiblePosts(s.posts).filter((p) => p.author.username.toLowerCase() === unLower)
+    const list = postsForViewer(s, s.posts).filter((p) => p.author.username.toLowerCase() === unLower)
     const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, sorted).slice(0, 60)
   }
@@ -1465,6 +2391,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!post || post.is_hidden) {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
+    if (!mockCanViewPosts(s, s.currentUser, post.author.username)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
     return withMeFlags(s, [post])[0]
   }
 
@@ -1479,7 +2408,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!s.comments[key]) s.comments[key] = []
 
     if (method === 'GET') {
-      return s.comments[key].filter((c) => !c.is_hidden)
+      return mockSerializeComments(s, id)
     }
 
     if (method === 'POST') {
@@ -1511,10 +2440,116 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  const commentAcceptMatch = pathname.match(/^\/api\/social\/comments\/(\d+)\/accept\/?$/)
+  if (commentAcceptMatch && method === 'POST') {
+    requireAuth(s)
+    const commentId = Number(commentAcceptMatch[1])
+    const found = mockFindComment(s, commentId)
+    if (!found) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const post = s.posts.find((p) => p.id === found.postId)
+    if (!post || post.post_kind !== 'question') {
+      throw new ApiError('Bad request', 400, { detail: 'Only ask-locals questions support accepted answers.' })
+    }
+    const me = s.currentUser as string
+    if (post.author.username.toLowerCase() !== me.toLowerCase()) {
+      throw new ApiError('Forbidden', 403, { detail: 'Only the question author can accept an answer.' })
+    }
+    const rows = s.comments[String(found.postId)] || []
+    const accepted = !found.comment.is_accepted_answer
+    rows.forEach((c) => {
+      c.is_accepted_answer = accepted && c.id === commentId
+    })
+    saveState(s)
+    const comment = mockSerializeComments(s, found.postId).find((c) => c.id === commentId)
+    return { accepted, comment }
+  }
+
+  const commentHelpfulMatch = pathname.match(/^\/api\/social\/comments\/(\d+)\/helpful\/?$/)
+  if (commentHelpfulMatch && method === 'POST') {
+    requireAuth(s)
+    const commentId = Number(commentHelpfulMatch[1])
+    const found = mockFindComment(s, commentId)
+    if (!found) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string
+    const key = String(commentId)
+    const voters = s.commentHelpful[key] || []
+    const idx = voters.indexOf(me)
+    let marked = false
+    if (idx >= 0) {
+      voters.splice(idx, 1)
+    } else {
+      voters.push(me)
+      marked = true
+    }
+    s.commentHelpful[key] = voters
+    saveState(s)
+    return { marked_helpful: marked, helpful_count: voters.length }
+  }
+
+  const shareAnswerMatch = pathname.match(/^\/api\/social\/posts\/(\d+)\/share-answer-to-delvers\/?$/)
+  if (shareAnswerMatch && method === 'POST') {
+    requireAuth(s)
+    const postId = Number(shareAnswerMatch[1])
+    const post = s.posts.find((p) => p.id === postId)
+    if (!post || post.post_kind !== 'question') {
+      throw new ApiError('Bad request', 400, { detail: 'Only ask-locals questions can be shared.' })
+    }
+    const me = s.currentUser as string
+    if (post.author.username.toLowerCase() !== me.toLowerCase()) {
+      throw new ApiError('Forbidden', 403, { detail: 'Only the question author can share the accepted answer.' })
+    }
+    const accepted = mockAcceptedAnswer(s, postId)
+    if (!accepted) {
+      throw new ApiError('Bad request', 400, { detail: 'Mark an accepted answer before sharing to Delvers.' })
+    }
+    const profile = s.profiles[me]
+    const delversPost: MockPost = {
+      id: s.nextPostId++,
+      author: { username: me, display_name: profile.display_name || me, avatar: profile.avatar },
+      body: `Local answer: ${accepted.body}\n\n— thanks to @${accepted.author?.username ?? 'local'}`,
+      region: post.region,
+      place_label: post.place_label,
+      image: null,
+      video: null,
+      is_delvers: true,
+      post_kind: 'tip',
+      likes_count: 0,
+      saves_count: 0,
+      comments_count: 0,
+      liked_by_me: false,
+      saved_by_me: false,
+    }
+    s.posts.unshift(delversPost)
+    saveState(s)
+    return withMeFlags(s, [delversPost])[0]
+  }
+
+  if (pathname === '/api/social/posts/' && method === 'GET') {
+    const savedBy = (q.get('saved_by') || '').trim()
+    if (savedBy) {
+      requireAuth(s)
+      const me = s.currentUser!
+      if (me.toLowerCase() !== savedBy.toLowerCase()) {
+        throw new ApiError('Forbidden', 403, { detail: 'You can only view your own saved posts.' })
+      }
+      const savedIds = new Set(s.saves[me] || [])
+      const list = postsForViewer(s, s.posts).filter((p) => savedIds.has(p.id))
+      return withMeFlags(s, list)
+    }
+    return withMeFlags(s, postsForViewer(s, s.posts))
+  }
+
   if (pathname === '/api/social/posts/' && method === 'POST') {
     requireAuth(s)
     const me = s.currentUser as string
     const profile = s.profiles[me]
+    if (init.body instanceof FormData) {
+      for (const key of ['audio', 'music', 'soundtrack', 'sound']) {
+        if (init.body.get(key)) {
+          throw new ApiError('Bad request', 400, { detail: 'Audio uploads are not allowed on posts.' })
+        }
+      }
+    }
     const base: MockPost = {
       id: s.nextPostId++,
       author: { username: me, display_name: profile.display_name || me, avatar: profile.avatar },
@@ -1525,7 +2560,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       delvers_board: '',
       is_delvers: false,
       is_accommodation_story: false,
+      post_kind: 'tip',
+      place_label: '',
       listing: null,
+      event: null,
+      vehicle_listing: null,
+      bus_trip: null,
+      food_venue: null,
       created_at: nowIso(),
       likes_count: 0,
       saves_count: 0,
@@ -1539,14 +2580,26 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const is_delvers = String(init.body.get('is_delvers') || 'false') === 'true'
       const is_accommodation_story = String(init.body.get('is_accommodation_story') || 'false') === 'true'
       const board = String(init.body.get('delvers_board') || '')
+      const postKind = String(init.body.get('post_kind') || 'tip')
+      const placeLabel = String(init.body.get('place_label') || '')
       const hasVideo = Boolean(init.body.get('video'))
       const hasImage = Boolean(init.body.get('image'))
       const listingRaw = String(init.body.get('listing') || '').trim()
+      const eventRaw = String(init.body.get('event') || '').trim()
+      const vehicleRaw = String(init.body.get('vehicle_listing') || '').trim()
+      const busTripRaw = String(init.body.get('bus_trip') || '').trim()
+      const foodVenueRaw = String(init.body.get('food_venue') || '').trim()
       base.body = body
       base.region = region
       base.is_delvers = is_delvers
       base.is_accommodation_story = is_accommodation_story
       base.delvers_board = board
+      base.post_kind = postKind === 'question' ? 'question' : 'tip'
+      base.place_label = placeLabel
+      if (base.post_kind === 'question') {
+        base.is_delvers = false
+        base.is_accommodation_story = false
+      }
       if (hasVideo) base.video = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
       if (hasImage) base.image = 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70'
       if (is_accommodation_story) {
@@ -1555,18 +2608,65 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (listingRaw) {
         const lid = Number(listingRaw)
         const stay = mockStays.find((st) => st.id === lid)
+        if (is_accommodation_story && stay && stay.owner_username !== me) {
+          throw new ApiError('Forbidden', 403, { detail: 'You can only link stories to your own listings.' })
+        }
         base.listing = stay ? { id: stay.id, title: stay.title } : { id: lid, title: 'Listing' }
+      }
+      if (eventRaw) {
+        const eid = Number(eventRaw)
+        const ev = mockEvents.find((row) => row.id === eid)
+        base.event = ev ? { id: ev.id, title: ev.title } : { id: eid, title: 'Event' }
+        base.is_delvers = true
+      }
+      if (vehicleRaw) {
+        const vid = Number(vehicleRaw)
+        const vehicle = mockVehicles.find((row) => row.id === vid)
+        base.vehicle_listing = vehicle
+          ? { id: vehicle.id, title: vehicle.title || `${vehicle.make} ${vehicle.model}` }
+          : { id: vid, title: 'Vehicle' }
+        base.is_delvers = true
+      }
+      if (busTripRaw) {
+        const tid = Number(busTripRaw)
+        const trip = mockBusTrips.find((row) => row.id === tid)
+        base.bus_trip = trip
+          ? {
+              id: trip.id,
+              title: `${trip.route_detail.origin} → ${trip.route_detail.destination}`,
+            }
+          : { id: tid, title: 'Bus trip' }
+        base.is_delvers = true
+      }
+      if (foodVenueRaw) {
+        const fid = Number(foodVenueRaw)
+        const venue = mockFood.find((row) => row.id === fid)
+        base.food_venue = venue
+          ? { id: venue.id, title: venue.name }
+          : { id: fid, title: 'Food venue' }
+        base.is_delvers = true
       }
       if (is_accommodation_story && profile.user_type !== 'service_provider') {
         throw new ApiError('Forbidden', 403, { detail: 'Only hosts can post accommodation stories.' })
       }
     } else if (isJsonBody(init.body)) {
-      const data = JSON.parse(init.body) as Partial<MockPost> & { is_delvers?: boolean; is_accommodation_story?: boolean }
+      const data = JSON.parse(init.body) as Partial<MockPost> & {
+        is_delvers?: boolean
+        is_accommodation_story?: boolean
+        post_kind?: 'tip' | 'question'
+        place_label?: string
+      }
       base.body = data.body || ''
       base.region = data.region || base.region
       base.is_delvers = Boolean(data.is_delvers)
       base.is_accommodation_story = Boolean(data.is_accommodation_story)
       base.delvers_board = data.delvers_board || ''
+      base.post_kind = data.post_kind === 'question' ? 'question' : 'tip'
+      base.place_label = data.place_label || ''
+      if (base.post_kind === 'question') {
+        base.is_delvers = false
+        base.is_accommodation_story = false
+      }
       if (data.listing) base.listing = data.listing
       if (base.is_accommodation_story) base.is_delvers = false
     }
@@ -1633,7 +2733,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return mergeFeaturedRail(s, 'homepage_events', (q.get('region') || '').trim(), mockEvents, (row) => ({ ...row }))
   }
   if (featuredPromotionPath(pathname, 'transport') && method === 'GET') {
-    return mergeFeaturedRail(s, 'homepage_transport', (q.get('region') || '').trim(), mockVehicles, (row) => ({ ...row }))
+    return mergeFeaturedTransport((q.get('region') || '').trim())
   }
   const spotlightMatch = pathname.match(/^\/api\/promotions\/spotlight\/([^/]+)\/?$/)
   if (spotlightMatch && method === 'GET') {
@@ -1898,6 +2998,19 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     mockVehicles.filter((v) => v.owner_username === me).forEach((v) => {
       rows.push({ target_type: 'vehicle', target_id: String(v.id), label: v.title || `${v.make} ${v.model}`, region: v.region, city: v.city, category_label: 'Vehicle' })
     })
+    const now = Date.now()
+    mockBusTrips
+      .filter((t) => t.owner_username === me && t.is_active && new Date(t.departs_at).getTime() >= now)
+      .forEach((t) => {
+        rows.push({
+          target_type: 'bus_trip',
+          target_id: String(t.id),
+          label: `${t.route_detail.origin} → ${t.route_detail.destination}`,
+          region: t.route_detail.origin,
+          city: t.route_detail.origin,
+          category_label: 'Bus trip',
+        })
+      })
     s.posts.filter((p) => p.author.username === me && p.is_delvers && !p.is_hidden).forEach((p) => {
       rows.push({
         target_type: 'post',
@@ -1906,6 +3019,16 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         region: p.region,
         city: '',
         category_label: 'Delvers post',
+      })
+    })
+    s.posts.filter((p) => p.author.username === me && !p.is_delvers && p.post_kind === 'question' && !p.is_hidden).forEach((p) => {
+      rows.push({
+        target_type: 'post',
+        target_id: String(p.id),
+        label: (p.body || `Question #${p.id}`).slice(0, 80),
+        region: p.region,
+        city: p.place_label || '',
+        category_label: 'Ask locals question',
       })
     })
     return rows
@@ -2203,6 +3326,26 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       requireAuth(s)
       return { saved: true, saves_count: 1 }
     }
+  }
+
+  if (pathname === '/api/accounts/provider/listing-questions/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const ownedIds = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.id))
+    return mockAccQuestions
+      .filter((q) => ownedIds.has(q.listing))
+      .map((q) => ({
+        id: q.id,
+        category: 'stay',
+        listing_id: q.listing,
+        listing: q.listing,
+        listing_title: q.listing_title,
+        author: q.author,
+        body: q.body,
+        ago: q.ago,
+        answers: q.answers,
+        created_at: new Date().toISOString(),
+      }))
   }
 
   if (pathname === '/api/accommodation/provider-questions/' && method === 'GET') {
@@ -2656,6 +3799,61 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return rows.filter((r) => myRoutes.has(r.route_label))
   }
 
+  const transportRentalBookingAction = pathname.match(
+    /^\/api\/transport\/provider-rental-bookings\/(\d+)\/(confirm|cancel|check_in|check_out|refund)\/?$/,
+  )
+  if (transportRentalBookingAction && method === 'POST') {
+    requireAuth(s)
+    const statusMap: Record<string, string> = {
+      confirm: 'confirmed',
+      cancel: 'cancelled',
+      check_in: 'checked_in',
+      check_out: 'checked_out',
+      refund: 'refunded',
+    }
+    const id = Number(transportRentalBookingAction[1])
+    const session = [...mockVehicleBookings.values()].find((r) => r.id === id)
+    if (session) {
+      session.status = statusMap[transportRentalBookingAction[2]] ?? session.status
+    }
+    return {
+      id,
+      vehicle_title: 'Toyota Hilux 4x4',
+      guest_display_name: 'Chris D.',
+      guest_username: 'demo_user',
+      check_in: session?.start_date ?? '2026-05-10',
+      check_out: session?.end_date ?? '2026-05-14',
+      days: 4,
+      total_price: session?.total_price ?? '3120',
+      status: statusMap[transportRentalBookingAction[2]] ?? 'confirmed',
+      renter_document_count: session?.renter_documents?.length ?? 0,
+    }
+  }
+
+  const transportSeatBookingAction = pathname.match(
+    /^\/api\/transport\/provider-seat-bookings\/(\d+)\/(confirm|cancel|check_in|check_out|refund)\/?$/,
+  )
+  if (transportSeatBookingAction && method === 'POST') {
+    requireAuth(s)
+    const statusMap: Record<string, string> = {
+      confirm: 'confirmed',
+      cancel: 'cancelled',
+      check_in: 'checked_in',
+      check_out: 'checked_out',
+      refund: 'refunded',
+    }
+    return {
+      id: Number(transportSeatBookingAction[1]),
+      route_label: 'Windhoek → Swakopmund',
+      passenger_display_name: 'Anna F.',
+      passenger_username: 'demo_user',
+      seat: 18,
+      date: '2026-05-21',
+      total_price: '180',
+      status: statusMap[transportSeatBookingAction[2]] ?? 'confirmed',
+    }
+  }
+
   if (pathname === '/api/transport/vehicles/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const min = Number(q.get('min_price') || '0')
@@ -2672,6 +3870,41 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (vehMatch && method === 'GET') {
     const id = Number(vehMatch[1])
     return mockVehicles.find((v) => v.id === id) || { detail: 'Not found' }
+  }
+  const vehMomentsMatch = pathname.match(/^\/api\/transport\/vehicles\/(\d+)\/moments\/$/)
+  if (vehMomentsMatch && method === 'GET') {
+    const id = Number(vehMomentsMatch[1])
+    return s.posts.filter(
+      (p) => p.is_delvers && !p.is_hidden && p.vehicle_listing?.id === id,
+    )
+  }
+  const vehReviewsMatch = pathname.match(/^\/api\/transport\/vehicles\/(\d+)\/reviews\/$/)
+  if (vehReviewsMatch && method === 'GET') {
+    const id = Number(vehReviewsMatch[1])
+    const vehicle = mockVehicles.find((v) => v.id === id)
+    const staticReviews =
+      (vehicle as { mock_reviews?: { name: string; place: string; rating: number; body: string; source?: string }[] } | undefined)
+        ?.mock_reviews ?? []
+    const sessionReviews = mockVehSessionReviews.filter((r) => r.listing === id)
+    const reviews = [
+      ...staticReviews.map((r) => ({
+        name: r.name,
+        place: r.place,
+        rating: r.rating,
+        body: r.body,
+        source: r.source,
+      })),
+      ...sessionReviews.map((r) => ({
+        name: r.name,
+        place: vehicle?.title ?? 'Vehicle rental',
+        rating: r.rating,
+        body: r.body,
+        source: 'delve',
+      })),
+    ]
+    const count = reviews.length
+    const avg = count ? (reviews.reduce((sum, r) => sum + r.rating, 0) / count).toFixed(2) : null
+    return { reviews, rating_avg: avg, rating_count: count }
   }
   if (pathname === '/api/transport/bus/trips/' && method === 'GET') {
     const o = (q.get('route_origin') || '').trim()
@@ -2695,6 +3928,31 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const id = Number(tripMatch[1])
     const t = mockBusTrips.find((tr) => tr.id === id)
     return t ? busTripDetailForApi(t) : { detail: 'Not found' }
+  }
+  const tripMomentsMatch = pathname.match(/^\/api\/transport\/bus\/trips\/(\d+)\/moments\/$/)
+  if (tripMomentsMatch && method === 'GET') {
+    const id = Number(tripMomentsMatch[1])
+    return s.posts.filter((p) => p.is_delvers && !p.is_hidden && p.bus_trip?.id === id)
+  }
+  const tripReviewsMatch = pathname.match(/^\/api\/transport\/bus\/trips\/(\d+)\/reviews\/$/)
+  if (tripReviewsMatch && method === 'GET') {
+    const id = Number(tripReviewsMatch[1])
+    const trip = mockBusTrips.find((t) => t.id === id)
+    const place = trip
+      ? `${trip.route_detail.origin} → ${trip.route_detail.destination}`
+      : 'Bus trip'
+    const reviews = mockBusTripSessionReviews
+      .filter((r) => r.listing === id)
+      .map((r) => ({
+        name: r.name,
+        place,
+        rating: r.rating,
+        body: r.body,
+        source: 'delve',
+      }))
+    const count = reviews.length
+    const avg = count ? (reviews.reduce((sum, r) => sum + r.rating, 0) / count).toFixed(2) : null
+    return { reviews, rating_avg: avg, rating_count: count }
   }
 
   if (pathname === '/api/transport/bus/reservations/' && method === 'POST') {
@@ -2761,6 +4019,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         seat_number,
         status: 'pending' as const,
         mock_payment_ref: '',
+        client: s.currentUser as string,
       }
       mockBusReservationRows.set(rid, row)
       return formatBusReservationRow(row)
@@ -2805,6 +4064,29 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  const busResCancel = pathname.match(/^\/api\/transport\/bus\/reservations\/(\d+)\/cancel\/$/)
+  if (busResCancel && method === 'POST') {
+    requireAuth(s)
+    const rid = Number(busResCancel[1])
+    const row = mockBusReservationRows.get(rid)
+    if (!row || row.client !== s.currentUser) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    row.status = 'cancelled'
+    const trip = mockBusTrips.find((t) => t.id === row.trip)
+    const route = trip?.route_detail
+    return {
+      id: row.id,
+      trip: row.trip,
+      trip_departs_at: trip?.departs_at ?? nowIso(),
+      route_label: route ? `${route.origin} → ${route.destination}` : 'Bus trip',
+      seat_number: row.seat_number,
+      seat_price: trip?.price ?? '0',
+      status: row.status,
+      mock_payment_ref: row.mock_payment_ref,
+    }
+  }
+
   const busResMockPay = pathname.match(/^\/api\/transport\/bus\/reservations\/(\d+)\/mock_pay\/$/)
   if (busResMockPay && method === 'POST') {
     requireAuth(s)
@@ -2821,6 +4103,58 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       status: 'confirmed',
       mock_payment_ref: ref,
     }
+  }
+
+  if (pathname === '/api/transport/vehicle-bookings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const rows = [...mockVehicleBookings.values()].filter((row) => row.client === me)
+    return rows.map((row) => {
+      const vehicle = mockVehicles.find((v) => v.id === row.listing)
+      return {
+        id: row.id,
+        listing: row.listing,
+        listing_title: vehicle?.title ?? 'Vehicle rental',
+        listing_owner_username: vehicle?.owner_username ?? '',
+        owner_display_name: vehicle?.owner_username ?? '',
+        listing_region: vehicle?.region ?? '',
+        listing_city: vehicle?.city ?? '',
+        renter: 1,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        total_price: row.total_price,
+        status: row.status,
+        mock_payment_ref: row.mock_payment_ref,
+        created_at: nowIso(),
+        has_review: mockVehReviewedBookings.has(row.id),
+      }
+    })
+  }
+
+  if (pathname === '/api/transport/bus/reservations/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return [...mockBusReservationRows.values()]
+      .filter((row) => row.client === me)
+      .map((row) => {
+        const trip = mockBusTrips.find((t) => t.id === row.trip)
+        const route = trip?.route_detail
+        return {
+          id: row.id,
+          trip: row.trip,
+          trip_departs_at: trip?.departs_at ?? nowIso(),
+          route_label: route ? `${route.origin} → ${route.destination}` : 'Bus trip',
+          operator_name: route?.operator_name ?? 'Operator',
+          operator_owner_username: (trip as { owner_username?: string })?.owner_username ?? '',
+          passenger: 1,
+          seat_number: row.seat_number,
+          seat_price: trip?.price ?? '0',
+          status: row.status,
+          mock_payment_ref: row.mock_payment_ref,
+          created_at: nowIso(),
+          has_review: mockBusReviewedReservations.has(row.id),
+        }
+      })
   }
 
   if (pathname === '/api/transport/vehicle-bookings/' && method === 'POST') {
@@ -2882,6 +4216,29 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  const vehBookCancel = pathname.match(/^\/api\/transport\/vehicle-bookings\/(\d+)\/cancel\/$/)
+  if (vehBookCancel && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(vehBookCancel[1])
+    const row = mockVehicleBookings.get(bid)
+    if (!row || row.client !== s.currentUser) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    row.status = 'cancelled' as const
+    const vehicle = mockVehicles.find((v) => v.id === row.listing)
+    return {
+      id: row.id,
+      listing: row.listing,
+      listing_title: vehicle?.title ?? 'Vehicle rental',
+      listing_owner_username: vehicle?.owner_username ?? '',
+      start_date: row.start_date,
+      end_date: row.end_date,
+      total_price: row.total_price,
+      status: row.status,
+      mock_payment_ref: row.mock_payment_ref,
+    }
+  }
+
   const vehBookMockPay = pathname.match(/^\/api\/transport\/vehicle-bookings\/(\d+)\/mock_pay\/$/)
   if (vehBookMockPay && method === 'POST') {
     requireAuth(s)
@@ -2898,6 +4255,478 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       status: 'confirmed',
       mock_payment_ref: ref,
     }
+  }
+
+  const vehBookReview = pathname.match(/^\/api\/transport\/vehicle-bookings\/(\d+)\/review\/?$/)
+  if (vehBookReview && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const bookingId = Number(vehBookReview[1])
+    const row = mockVehicleBookings.get(bookingId)
+    if (!row || row.client !== s.currentUser) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (row.status !== 'confirmed') {
+      throw new ApiError('Booking not eligible for review.', 400, { detail: 'Confirm your booking first.' })
+    }
+    if (mockVehReviewedBookings.has(bookingId)) {
+      throw new ApiError('Already reviewed', 400, { detail: 'You already reviewed this rental.' })
+    }
+    const body = JSON.parse(init.body) as { rating?: number; body?: string }
+    const prof = s.profiles[s.currentUser as string]
+    const name = prof?.display_name || (s.currentUser as string)
+    const rating = Math.min(5, Math.max(1, Number(body.rating ?? 5) || 5))
+    const reviewBody = (body.body || '').trim()
+    mockVehSessionReviews.unshift({
+      listing: row.listing,
+      name,
+      rating,
+      body: reviewBody || 'Great rental.',
+      created_at: new Date().toISOString(),
+    })
+    mockVehReviewedBookings.add(bookingId)
+    return { id: Date.now(), name, rating, body: reviewBody, created_at: new Date().toISOString() }
+  }
+
+  const busResReview = pathname.match(/^\/api\/transport\/bus\/reservations\/(\d+)\/review\/?$/)
+  if (busResReview && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const reservationId = Number(busResReview[1])
+    const row = mockBusReservationRows.get(reservationId)
+    if (!row || row.client !== s.currentUser) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (row.status !== 'confirmed') {
+      throw new ApiError('Reservation not eligible for review.', 400, { detail: 'Confirm your trip first.' })
+    }
+    if (mockBusReviewedReservations.has(reservationId)) {
+      throw new ApiError('Already reviewed', 400, { detail: 'You already reviewed this trip.' })
+    }
+    const body = JSON.parse(init.body) as { rating?: number; body?: string }
+    const prof = s.profiles[s.currentUser as string]
+    const name = prof?.display_name || (s.currentUser as string)
+    const rating = Math.min(5, Math.max(1, Number(body.rating ?? 5) || 5))
+    const reviewBody = (body.body || '').trim()
+    mockBusTripSessionReviews.unshift({
+      listing: row.trip,
+      name,
+      rating,
+      body: reviewBody || 'Smooth ride.',
+      created_at: new Date().toISOString(),
+    })
+    mockBusReviewedReservations.add(reservationId)
+    return { id: Date.now(), name, rating, body: reviewBody, created_at: new Date().toISOString() }
+  }
+
+  // ---- Public announcement (home banner) ----
+  if (pathname === '/api/accounts/announcement/' && method === 'GET') {
+    return { active: false, title: '', body: '' }
+  }
+
+  // ---- Home stories (highlights row) ----
+  if (pathname === '/api/home/stories/' && method === 'GET') {
+    const { buildSlidesForChannel, STORY_CHANNELS } = await import('../data/homeStories')
+    const region = (q.get('region') || '').trim().toLowerCase()
+    const hostStories = postsForViewer(s, s.posts)
+      .filter((p) => p.is_accommodation_story && (p.image || p.video))
+      .filter((p) => (region ? p.region.toLowerCase().includes(region) : true))
+      .slice(0, 6)
+    const delversPins = postsForViewer(s, s.posts)
+      .filter((p) => p.is_delvers && !p.is_accommodation_story && (p.image || p.video))
+      .filter((p) => (region ? p.region.toLowerCase().includes(region) : true))
+      .slice(0, 6)
+
+    const staysSlides =
+      hostStories.length > 0
+        ? hostStories.map((p) => ({
+            id: `host-story-${p.id}`,
+            kind: p.video ? 'video' : 'image',
+            src: p.video || p.image || '',
+            headline: (p.body || 'Host story').slice(0, 100),
+            sub: p.region || 'Host update',
+            duration_ms: p.video ? 15000 : 5200,
+            cta_path: p.listing?.id ? `/accommodation/${p.listing.id}` : `/u/${p.author.username}`,
+            cta_label: p.listing?.id ? 'View stay' : 'View host',
+            source: 'host_story',
+          }))
+        : buildSlidesForChannel('stays', {}).map((slide) => ({
+            id: slide.id,
+            kind: slide.kind,
+            src: slide.src,
+            headline: slide.headline,
+            sub: slide.sub ?? '',
+            duration_ms: slide.durationMs ?? 5200,
+            cta_path: slide.ctaPath ?? '/accommodation',
+            cta_label: slide.ctaLabel ?? 'Explore',
+            source: 'fallback',
+          }))
+
+    const pinsSlides =
+      delversPins.length > 0
+        ? delversPins.map((p) => ({
+            id: `post-${p.id}`,
+            kind: p.video ? 'video' : 'image',
+            src: p.video || p.image || '',
+            headline: (p.body || 'Delvers pin').slice(0, 100),
+            sub: p.region || '',
+            duration_ms: p.video ? 15000 : 5200,
+            cta_path: `/delvers/posts/${p.id}`,
+            cta_label: 'View pin',
+            source: 'post',
+          }))
+        : buildSlidesForChannel('pins', {}).map((slide) => ({
+            id: slide.id,
+            kind: slide.kind,
+            src: slide.src,
+            headline: slide.headline,
+            sub: slide.sub ?? '',
+            duration_ms: slide.durationMs ?? 5200,
+            cta_path: slide.ctaPath ?? '/delvers',
+            cta_label: slide.ctaLabel ?? 'Explore',
+            source: 'fallback',
+          }))
+
+    const channelSlides: Record<string, typeof staysSlides> = {
+      stays: staysSlides,
+      pins: pinsSlides,
+    }
+
+    return {
+      channels: STORY_CHANNELS.map((c) => {
+        const slides =
+          channelSlides[c.id] ??
+          buildSlidesForChannel(c.id, {}).map((slide) => ({
+            id: slide.id,
+            kind: slide.kind,
+            src: slide.src,
+            headline: slide.headline,
+            sub: slide.sub ?? '',
+            duration_ms: slide.durationMs ?? 5200,
+            cta_path: slide.ctaPath ?? c.explorePath,
+            cta_label: slide.ctaLabel ?? 'Explore',
+            source: 'fallback',
+          }))
+        return {
+          id: c.id,
+          label: c.label,
+          explore_path: c.explorePath,
+          ring_initial: c.label.slice(0, 1).toUpperCase(),
+          ring_image: slides[0]?.src ?? null,
+          slides,
+        }
+      }),
+    }
+  }
+
+  // ---- Journeys ----
+  if (pathname === '/api/journeys/' && method === 'GET') {
+    const author = (q.get('author') || '').trim()
+    const featuredRaw = (q.get('featured') || '').trim().toLowerCase()
+    const featuredFirstRaw = (q.get('featured_first') || '').trim().toLowerCase()
+    const limitRaw = Number(q.get('limit') || '0')
+    let rows = mockVisibleJourneys(s)
+    if (author) {
+      rows = rows.filter((j) => textMatch(j.author.username, author))
+    }
+    if (featuredRaw === '1' || featuredRaw === 'true' || featuredRaw === 'yes') {
+      rows = rows.filter((j) => j.is_featured)
+      rows = [...rows].sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0) || b.id - a.id)
+    } else if (featuredFirstRaw === '1' || featuredFirstRaw === 'true' || featuredFirstRaw === 'yes') {
+      rows = [...rows].sort(
+        (a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)) || b.id - a.id,
+      )
+    } else {
+      rows = [...rows].sort((a, b) => b.id - a.id)
+    }
+    if (limitRaw > 0) rows = rows.slice(0, limitRaw)
+    return rows.map((j) => mockSerializeJourney(s, j))
+  }
+
+  const journeyDetailMatch = pathname.match(/^\/api\/journeys\/(\d+)\/?$/)
+  if (journeyDetailMatch && method === 'GET') {
+    const id = Number(journeyDetailMatch[1])
+    const j = s.journeys.find((row) => row.id === id)
+    if (!j || j.is_hidden || (j.visibility ?? 'public') !== 'public') {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    return mockSerializeJourney(s, j)
+  }
+
+  if (journeyDetailMatch && method === 'PATCH') {
+    requireAuth(s)
+    const id = Number(journeyDetailMatch[1])
+    const idx = s.journeys.findIndex((row) => row.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const j = s.journeys[idx]
+    const me = s.currentUser as string
+    if (j.author.username.toLowerCase() !== me.toLowerCase()) {
+      throw new ApiError('Forbidden', 403, { detail: 'Only the author can edit this journey.' })
+    }
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as Partial<MockJourney>
+    const updated: MockJourney = {
+      ...j,
+      ...body,
+      id: j.id,
+      author: j.author,
+      starts_at: body.starts_on || body.starts_at || j.starts_at || j.starts_on,
+    }
+    s.journeys[idx] = updated
+    saveState(s)
+    return mockSerializeJourney(s, updated)
+  }
+
+  if (journeyDetailMatch && method === 'DELETE') {
+    requireAuth(s)
+    const id = Number(journeyDetailMatch[1])
+    const idx = s.journeys.findIndex((row) => row.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const j = s.journeys[idx]
+    const me = s.currentUser as string
+    if (j.author.username.toLowerCase() !== me.toLowerCase()) {
+      throw new ApiError('Forbidden', 403, { detail: 'Only the author can delete this journey.' })
+    }
+    s.journeys.splice(idx, 1)
+    saveState(s)
+    return { ok: true }
+  }
+
+  const journeyEntryShareMatch = pathname.match(/^\/api\/journeys\/entries\/(\d+)\/share\/?$/)
+  if (journeyEntryShareMatch && method === 'POST') {
+    requireAuth(s)
+    const entryId = Number(journeyEntryShareMatch[1])
+    const me = s.currentUser as string
+    let foundEntry: { body?: string; image?: string | null; video?: string | null } | null = null
+    let journey: MockJourney | null = null
+    let placeName = ''
+    let region = ''
+    for (const j of s.journeys) {
+      if (j.is_hidden) continue
+      for (const stop of j.stops || []) {
+        const entry = (stop.entries || []).find((e) => e.id === entryId)
+        if (entry) {
+          foundEntry = entry
+          journey = j
+          placeName = stop.place_name
+          region = stop.region || ''
+          break
+        }
+      }
+      if (foundEntry) break
+    }
+    if (!foundEntry || !journey) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (journey.author.username.toLowerCase() !== me.toLowerCase()) {
+      throw new ApiError('Forbidden', 403, { detail: 'Only the journey author can share this moment.' })
+    }
+    const note = (foundEntry.body || '').trim()
+    const hasMedia = Boolean((foundEntry.image || '').trim() || (foundEntry.video || '').trim())
+    if (!note && !hasMedia) {
+      throw new ApiError('Bad request', 400, { detail: 'This moment has nothing to share yet.' })
+    }
+    const profile = s.profiles[me]
+    const lines = note ? [note] : []
+    lines.push(`From my journey: ${journey.title} · ${placeName}`)
+    lines.push(`/journeys/${journey.id}`)
+    const delversPost: MockPost = {
+      id: s.nextPostId++,
+      author: { username: me, display_name: profile?.display_name?.trim() || me, avatar: profile?.avatar ?? null },
+      body: lines.join('\n\n'),
+      region,
+      place_label: placeName,
+      image: null,
+      video: null,
+      is_delvers: true,
+      delvers_board: 'Journeys',
+      post_kind: 'tip',
+      likes_count: 0,
+      saves_count: 0,
+      comments_count: 0,
+      liked_by_me: false,
+      saved_by_me: false,
+    }
+    s.posts.unshift(delversPost)
+    saveState(s)
+    return withMeFlags(s, [delversPost])[0]
+  }
+
+  if (pathname === '/api/journeys/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const profile = s.profiles[me]
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as Partial<MockJourney>
+    const id = s.nextJourneyId++
+    const startsOn = body.starts_on || ''
+    const j: MockJourney = {
+      id,
+      author: {
+        username: me,
+        display_name: profile?.display_name?.trim() || me,
+        avatar: profile?.avatar ?? null,
+      },
+      title: (body.title || '').trim() || 'Untitled journey',
+      summary: (body.summary || '').trim(),
+      cover_image: body.cover_image?.trim() || null,
+      starts_on: startsOn,
+      starts_at: startsOn,
+      ends_on: body.ends_on || '',
+      countries: body.countries || [],
+      transport_modes: body.transport_modes || [],
+      party: body.party || 'solo',
+      tags: body.tags || [],
+      total_cost: Number(body.total_cost) || 0,
+      currency: body.currency || 'NAD',
+      days: Number(body.days) || 0,
+      stops: body.stops || [],
+      costs: body.costs || [],
+      likes_count: 0,
+      saves_count: 0,
+      comments_count: 0,
+      liked_by_me: false,
+      saved_by_me: false,
+      visibility: 'public',
+    }
+    s.journeys.push(j)
+    saveState(s)
+    return mockSerializeJourney(s, j)
+  }
+
+  const journeyLikeMatch = pathname.match(/^\/api\/journeys\/(\d+)\/like\/?$/)
+  if (journeyLikeMatch && method === 'POST') {
+    requireAuth(s)
+    const id = Number(journeyLikeMatch[1])
+    const j = s.journeys.find((row) => row.id === id)
+    if (!j) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string
+    const likedBy = s.journeyLikes[id] ?? []
+    const idx = likedBy.indexOf(me)
+    if (idx >= 0) {
+      likedBy.splice(idx, 1)
+      s.journeyLikes[id] = likedBy
+    } else {
+      s.journeyLikes[id] = [...likedBy, me]
+    }
+    saveState(s)
+    return { liked: idx < 0, likes_count: (s.journeyLikes[id] ?? []).length }
+  }
+
+  const journeySaveMatch = pathname.match(/^\/api\/journeys\/(\d+)\/save\/?$/)
+  if (journeySaveMatch && method === 'POST') {
+    requireAuth(s)
+    const id = Number(journeySaveMatch[1])
+    const j = s.journeys.find((row) => row.id === id)
+    if (!j) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string
+    const savedBy = s.journeySaves[id] ?? []
+    const idx = savedBy.indexOf(me)
+    if (idx >= 0) {
+      savedBy.splice(idx, 1)
+      s.journeySaves[id] = savedBy
+    } else {
+      s.journeySaves[id] = [...savedBy, me]
+    }
+    saveState(s)
+    return { saved: idx < 0, saves_count: (s.journeySaves[id] ?? []).length }
+  }
+
+  const journeySimilarMatch = pathname.match(/^\/api\/journeys\/(\d+)\/similar\/?$/)
+  if (journeySimilarMatch && method === 'GET') {
+    const id = Number(journeySimilarMatch[1])
+    const j = s.journeys.find((row) => row.id === id)
+    if (!j) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const countries = new Set(j.countries || [])
+    const tags = new Set(j.tags || [])
+    const rows = mockVisibleJourneys(s)
+      .filter((row) => row.id !== id)
+      .filter(
+        (row) =>
+          (row.countries || []).some((c) => countries.has(c)) ||
+          (row.tags || []).some((t) => tags.has(t)),
+      )
+      .slice(0, 3)
+    return rows.map((row) => mockSerializeJourney(s, row))
+  }
+
+  const journeyQuestionsMatch = pathname.match(/^\/api\/journeys\/(\d+)\/questions\/?$/)
+  if (journeyQuestionsMatch) {
+    const journeyId = Number(journeyQuestionsMatch[1])
+    const journey = s.journeys.find((row) => row.id === journeyId)
+    if (!journey || journey.is_hidden) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (method === 'GET') {
+      return mockJourneyQuestionsFor(s, journeyId)
+    }
+    if (method === 'POST') {
+      requireAuth(s)
+      const me = s.currentUser as string
+      const profile = s.profiles[me]
+      if (!isJsonBody(init.body)) {
+        throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+      }
+      const body = JSON.parse(init.body) as { body?: string }
+      const row: MockJourneyQuestionRow = {
+        id: s.nextJourneyQuestionId++,
+        journey_id: journeyId,
+        author: profile?.display_name?.trim() || me,
+        body: (body.body || '').trim(),
+        created_at: new Date().toISOString(),
+        answers: [],
+      }
+      s.journeyQuestions.push(row)
+      saveState(s)
+      return mockJourneyQuestionsFor(s, journeyId).find((q) => q.id === row.id)
+    }
+  }
+
+  const journeyAnswerMatch = pathname.match(/^\/api\/journeys\/questions\/(\d+)\/answers\/?$/)
+  if (journeyAnswerMatch && method === 'POST') {
+    requireAuth(s)
+    const questionId = Number(journeyAnswerMatch[1])
+    const question = s.journeyQuestions.find((q) => q.id === questionId && !q.is_hidden)
+    if (!question) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const journey = s.journeys.find((row) => row.id === question.journey_id)
+    if (!journey || journey.is_hidden) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string
+    const profile = s.profiles[me]
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as { body?: string }
+    const answer = {
+      id: s.nextJourneyAnswerId++,
+      author: profile?.display_name?.trim() || me,
+      body: (body.body || '').trim(),
+      is_official: me === journey.author.username,
+      created_at: new Date().toISOString(),
+    }
+    question.answers.push(answer)
+    saveState(s)
+    return {
+      id: answer.id,
+      author: answer.author,
+      body: answer.body,
+      is_official: answer.is_official,
+      ago: 'Just now',
+      created_at: answer.created_at,
+    }
+  }
+
+  if (pathname === '/api/accounts/me/journey-questions/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const rows: ReturnType<typeof mockJourneyQuestionsFor> = []
+    for (const journey of s.journeys.filter((j) => j.author.username === me)) {
+      rows.push(...mockJourneyQuestionsFor(s, journey.id))
+    }
+    return rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
   }
 
   // ---- Events ----
@@ -3005,7 +4834,19 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         answers: [],
       }
     }
-    if (action === 'moments' && method === 'GET') return []
+    if (action === 'moments' && method === 'GET') {
+      return visiblePosts(s.posts)
+        .filter((p) => p.is_delvers && !p.is_accommodation_story && p.event?.id === id)
+        .slice(0, 24)
+        .map((p) => ({
+          id: p.id,
+          body: p.body,
+          image: p.image,
+          video: p.video,
+          author: { username: p.author.username, display_name: p.author.display_name },
+          event: p.event,
+        }))
+    }
     if (action === 'reviews' && method === 'GET') {
       return { reviews: [], rating_avg: 0, rating_count: 0 }
     }
@@ -3079,6 +4920,76 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   // ---- Food ----
+  const foodSaveMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/save\/$/)
+  if (foodSaveMatch && method === 'POST') {
+    requireAuth(s)
+    const vid = Number(foodSaveMatch[1])
+    if (!mockFood.some((x) => x.id === vid)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const me = s.currentUser as string
+    let savers = mockFoodVenueSaves.get(vid)
+    if (!savers) {
+      savers = new Set<string>()
+      mockFoodVenueSaves.set(vid, savers)
+    }
+    if (savers.has(me)) {
+      savers.delete(me)
+      return { saved: false, saves_count: savers.size }
+    }
+    savers.add(me)
+    return { saved: true, saves_count: savers.size }
+  }
+
+  if (pathname === '/api/food/venues/saved/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockFood
+      .filter((row) => mockFoodVenueSaves.get(row.id)?.has(me))
+      .map((row) => enrichFoodVenueRow(s, row))
+  }
+
+  if (pathname === '/api/food/provider-analytics/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const owned = mockFood.filter((f) => f.owner_username === me)
+    const ownedIds = new Set(owned.map((f) => f.id))
+    const rows = [...mockFoodReservationRows.values()].filter((r) => ownedIds.has(r.venue))
+    const listingRows = owned.map((f) => {
+      const venueReservations = rows.filter((r) => r.venue === f.id)
+      const confirmed = venueReservations.filter((r) =>
+        ['confirmed', 'checked_in', 'checked_out'].includes(r.status),
+      )
+      const seated = venueReservations.filter((r) => ['checked_in', 'checked_out'].includes(r.status))
+      return {
+        id: f.id,
+        name: f.name,
+        reservations: venueReservations.length,
+        confirmed_reservations: confirmed.length,
+        seated_visits: seated.length,
+        saves_count: mockFoodVenueSaves.get(f.id)?.size ?? 0,
+        reviews_count: f.rating_count ?? 0,
+        rating_avg: Number(f.rating_avg ?? 0),
+      }
+    })
+    listingRows.sort((a, b) => b.reservations - a.reservations || b.saves_count - a.saves_count)
+    return {
+      days: 30,
+      total_reservations: rows.length,
+      confirmed_reservations: rows.filter((r) =>
+        ['confirmed', 'checked_in', 'checked_out'].includes(r.status),
+      ).length,
+      pending_requests: rows.filter((r) => r.status === 'pending').length,
+      seated_visits: rows.filter((r) => ['checked_in', 'checked_out'].includes(r.status)).length,
+      total_saves: owned.reduce((sum, f) => sum + (mockFoodVenueSaves.get(f.id)?.size ?? 0), 0),
+      total_reviews: owned.reduce((sum, f) => sum + (f.rating_count ?? 0), 0),
+      promotion_impressions: 0,
+      promotion_clicks: 0,
+      promotion_listing_opens: 0,
+      venues: listingRows.slice(0, 12),
+    }
+  }
+
   if (pathname === '/api/food/venues/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
     const cuisine = (q.get('cuisine') || '').trim()
@@ -3097,13 +5008,500 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
             textMatch(f.description, searchQ)
           : true,
       )
+      .map((row) => enrichFoodVenueRow(s, row))
   }
   const foodMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/$/)
   if (foodMatch && method === 'GET') {
     const id = Number(foodMatch[1])
     const venue = mockFood.find((f) => f.id === id)
     if (!venue) return { detail: 'Not found' }
-    return enrichFoodVenueDetail(venue)
+    const detail = enrichFoodVenueDetail(venue)
+    const me = s.currentUser as string | undefined
+    const reviewedKey = me ? `${me}:${id}` : ''
+    const hasReviewed = reviewedKey ? mockFoodReviewedVenues.has(reviewedKey) : false
+    const reservationsEnabled = Boolean((venue as { reservations?: boolean }).reservations)
+    const seatedVisit =
+      me &&
+      [...mockFoodReservationRows.values()].some(
+        (r) =>
+          r.client === me &&
+          r.venue === id &&
+          (r.status === 'checked_in' || r.status === 'checked_out'),
+      )
+    const canReview = Boolean(
+      me &&
+        !hasReviewed &&
+        venue.owner_username !== me &&
+        (!reservationsEnabled || seatedVisit),
+    )
+    const savers = mockFoodVenueSaves.get(id)
+    return {
+      ...detail,
+      has_reviewed: hasReviewed,
+      can_review: canReview,
+      saves_count: savers?.size ?? 0,
+      saved_by_me: Boolean(me && savers?.has(me)),
+    }
+  }
+
+  const foodReviewsMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/reviews\/$/)
+  if (foodReviewsMatch && method === 'GET') {
+    const id = Number(foodReviewsMatch[1])
+    const venue = mockFood.find((f) => f.id === id)
+    if (!venue) return { detail: 'Not found' }
+    const seeded = (
+      (venue as { guest_reviews?: { name: string; place?: string; rating: number; body: string }[] }).guest_reviews ?? []
+    ).map((r, i) => ({
+      id: `seed-${i}`,
+      source: 'host',
+      name: r.name,
+      place: r.place || venue.name,
+      rating: r.rating,
+      body: r.body,
+    }))
+    const session = mockFoodSessionReviews
+      .filter((r) => r.listing === id)
+      .map((r, i) => ({
+        id: `traveler-${i}`,
+        source: 'traveler',
+        name: r.name,
+        place: [venue.city, venue.region].filter(Boolean).join(', ') || venue.name,
+        rating: r.rating,
+        body: r.body,
+      }))
+    const reviews = [...session, ...seeded]
+    const rated = reviews.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n))
+    const count = rated.length || venue.rating_count || 0
+    const avg = rated.length
+      ? (rated.reduce((sum, n) => sum + n, 0) / rated.length).toFixed(2)
+      : venue.rating_avg ?? null
+    return { reviews, rating_avg: avg, rating_count: count }
+  }
+
+  const foodReviewPostMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/review\/?$/)
+  if (foodReviewPostMatch && method === 'POST') {
+    requireAuth(s)
+    const prof = s.profiles[s.currentUser as string]
+    if (!prof?.email_verified) throw new ApiError('Forbidden', 403, { detail: 'Verify your email to complete this action.' })
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const id = Number(foodReviewPostMatch[1])
+    const venue = mockFood.find((f) => f.id === id)
+    if (!venue) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string
+    const reviewedKey = `${me}:${id}`
+    if (mockFoodReviewedVenues.has(reviewedKey)) {
+      throw new ApiError('Already reviewed', 400, { detail: 'You already reviewed this venue.' })
+    }
+    const reservationsEnabled = Boolean((venue as { reservations?: boolean }).reservations)
+    if (reservationsEnabled) {
+      const seated = [...mockFoodReservationRows.values()].some(
+        (r) =>
+          r.client === me &&
+          r.venue === id &&
+          (r.status === 'checked_in' || r.status === 'checked_out'),
+      )
+      if (!seated) {
+        throw new ApiError('Bad request', 400, {
+          detail: 'You can review after your table reservation is marked seated or completed.',
+        })
+      }
+    }
+    const body = JSON.parse(init.body) as { rating?: number; body?: string }
+    const name = prof?.display_name || me
+    const rating = Math.min(5, Math.max(1, Number(body.rating ?? 5) || 5))
+    const reviewBody = (body.body || '').trim()
+    mockFoodSessionReviews.unshift({
+      listing: id,
+      name,
+      rating,
+      body: reviewBody || 'Great visit.',
+      created_at: new Date().toISOString(),
+    })
+    mockFoodReviewedVenues.add(reviewedKey)
+    return { id: Date.now(), name, rating, body: reviewBody, source: 'traveler', created_at: new Date().toISOString() }
+  }
+
+  const foodMomentsMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/moments\/$/)
+  if (foodMomentsMatch && method === 'GET') {
+    const id = Number(foodMomentsMatch[1])
+    return s.posts.filter(
+      (p) => p.is_delvers && !p.is_hidden && p.food_venue?.id === id,
+    )
+  }
+
+  const foodQuestionsMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/questions\/$/)
+  if (foodQuestionsMatch && method === 'GET') {
+    const id = Number(foodQuestionsMatch[1])
+    return mockFoodQuestions
+      .filter((q) => q.listing === id)
+      .map(({ listing_title: _lt, ...q }) => q)
+  }
+  if (foodQuestionsMatch && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const id = Number(foodQuestionsMatch[1])
+    const venue = mockFood.find((f) => f.id === id)
+    if (!venue) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(init.body) as { body?: string }
+    const prof = s.profiles[s.currentUser as string]
+    const row: MockFoodQuestionRow = {
+      id: mockFoodNextQuestionId++,
+      listing: id,
+      listing_title: venue.name,
+      author: prof?.display_name || (s.currentUser as string),
+      body: (body.body || '').trim(),
+      ago: 'Just now',
+      answers: [],
+    }
+    mockFoodQuestions.unshift(row)
+    const { listing_title: _lt, ...out } = row
+    return out
+  }
+
+  const foodAnswerMatch = pathname.match(/^\/api\/food\/questions\/(\d+)\/answers\/$/)
+  if (foodAnswerMatch && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const qid = Number(foodAnswerMatch[1])
+    const question = mockFoodQuestions.find((q) => q.id === qid)
+    if (!question) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const venue = mockFood.find((f) => f.id === question.listing)
+    const body = JSON.parse(init.body) as { body?: string }
+    const prof = s.profiles[s.currentUser as string]
+    const me = s.currentUser as string
+    const answer = {
+      id: mockFoodNextAnswerId++,
+      author: prof?.display_name || me,
+      body: (body.body || '').trim(),
+      ago: 'Just now',
+      is_official: Boolean(venue && venue.owner_username === me),
+    }
+    question.answers.push(answer)
+    return answer
+  }
+
+  function serializeProviderFoodVenue(row: (typeof mockFood)[number]) {
+    return {
+      id: row.id,
+      owner_username: row.owner_username,
+      name: row.name,
+      description: row.description ?? '',
+      tagline: row.tagline ?? '',
+      popular_dish: row.popular_dish ?? '',
+      cuisine: row.cuisine,
+      region: row.region,
+      city: row.city ?? '',
+      address: (row as { address?: string }).address ?? '',
+      phone: (row as { phone?: string }).phone ?? '',
+      website: (row as { website?: string }).website ?? '',
+      opening_hours: (row as { opening_hours?: string }).opening_hours ?? '',
+      closes_at: row.closes_at ?? '',
+      price_level: row.price_level,
+      dine_in: (row as { dine_in?: boolean }).dine_in !== false,
+      takeaway: Boolean((row as { takeaway?: boolean }).takeaway),
+      delivery: Boolean((row as { delivery?: boolean }).delivery),
+      reservations: Boolean((row as { reservations?: boolean }).reservations),
+      is_open: row.is_open ?? null,
+      amenities: (row as { amenities?: string[] }).amenities ?? [],
+      photos: (row as { photos?: unknown[] }).photos ?? [],
+      venue_stories: row.venue_stories ?? [],
+      cover_image: row.cover_image,
+      rating_avg: row.rating_avg,
+      rating_count: row.rating_count,
+      is_active: (row as { is_active?: boolean }).is_active !== false,
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  if (pathname === '/api/food/provider-venues/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockFood.filter((f) => f.owner_username === me).map(serializeProviderFoodVenue)
+  }
+
+  async function parseProviderFoodVenueBody(body: BodyInit | null | undefined) {
+    if (body instanceof FormData) {
+      const get = (key: string) => String(body.get(key) ?? '').trim()
+      const parseJsonField = (key: string) => {
+        const raw = get(key)
+        if (!raw) return undefined
+        try {
+          return JSON.parse(raw) as unknown
+        } catch {
+          return undefined
+        }
+      }
+      let coverUrl = get('cover_image_url')
+      const coverFile = body.get('cover_image')
+      if (coverFile instanceof File) {
+        const buf = await coverFile.arrayBuffer()
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+        coverUrl = `data:${coverFile.type || 'image/jpeg'};base64,${b64}`
+      }
+      const photosRaw = parseJsonField('photos')
+      const photos = Array.isArray(photosRaw) ? [...photosRaw] : []
+      const galleryFiles = body.getAll('gallery_images').filter((v): v is File => v instanceof File)
+      for (const file of galleryFiles) {
+        const buf = await file.arrayBuffer()
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+        photos.push({
+          id: Date.now() + photos.length,
+          image: `data:${file.type || 'image/jpeg'};base64,${b64}`,
+          caption: '',
+          category: 'food',
+          is_cover: false,
+        })
+      }
+      const isOpenRaw = get('is_open')
+      const is_open =
+        isOpenRaw === '' ? null : isOpenRaw === 'true' ? true : isOpenRaw === 'false' ? false : null
+      return {
+        name: get('name'),
+        description: get('description'),
+        tagline: get('tagline'),
+        popular_dish: get('popular_dish'),
+        cuisine: get('cuisine'),
+        region: get('region'),
+        city: get('city'),
+        address: get('address'),
+        phone: get('phone'),
+        website: get('website'),
+        opening_hours: get('opening_hours'),
+        closes_at: get('closes_at'),
+        price_level: Number.parseInt(get('price_level') || '2', 10) || 2,
+        dine_in: get('dine_in') !== 'false',
+        takeaway: get('takeaway') === 'true',
+        delivery: get('delivery') === 'true',
+        reservations: get('reservations') === 'true',
+        is_open,
+        is_active: get('is_active') !== 'false',
+        amenities: parseJsonField('amenities') ?? [],
+        photos,
+        venue_stories: parseJsonField('venue_stories') ?? [],
+        cover_image_url: coverUrl,
+      }
+    }
+    if (isJsonBody(body)) return JSON.parse(body) as Record<string, unknown>
+    return {}
+  }
+
+  if (pathname === '/api/food/provider-venues/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const data = await parseProviderFoodVenueBody(init.body)
+    const id = Math.max(0, ...mockFood.map((f) => f.id)) + 1
+    const coverUrl = String(data.cover_image_url || data.cover_image || '').trim()
+    const photos = Array.isArray(data.photos) ? data.photos : []
+    if (coverUrl) {
+      photos.unshift({
+        id: id * 100 + 1,
+        image: coverUrl,
+        caption: `${data.name || 'Venue'} cover`,
+        category: 'food',
+        is_cover: true,
+      })
+    }
+    const row = {
+      id,
+      owner_username: me,
+      name: data.name || 'New venue',
+      description: data.description ?? '',
+      tagline: data.tagline ?? '',
+      popular_dish: data.popular_dish ?? '',
+      cuisine: data.cuisine ?? 'other',
+      region: data.region ?? '',
+      city: data.city ?? '',
+      address: data.address ?? '',
+      phone: data.phone ?? '',
+      website: data.website ?? '',
+      opening_hours: data.opening_hours ?? '',
+      closes_at: data.closes_at ?? '',
+      price_level: data.price_level ?? 2,
+      dine_in: data.dine_in !== false,
+      takeaway: Boolean(data.takeaway),
+      delivery: Boolean(data.delivery),
+      reservations: Boolean(data.reservations),
+      is_open: data.is_open ?? null,
+      amenities: data.amenities ?? [],
+      photos,
+      venue_stories: data.venue_stories ?? [],
+      cover_image: coverUrl || null,
+      rating_avg: '0',
+      rating_count: 0,
+      is_active: data.is_active !== false,
+    }
+    mockFood.push(row as (typeof mockFood)[0])
+    return serializeProviderFoodVenue(row as (typeof mockFood)[0])
+  }
+
+  const providerFoodMatch = pathname.match(/^\/api\/food\/provider-venues\/(\d+)\/?$/)
+  if (providerFoodMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const data = await parseProviderFoodVenueBody(init.body)
+    const venue = mockFood.find((f) => f.id === Number(providerFoodMatch[1]) && f.owner_username === me)
+    if (!venue) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const coverUrl = data.cover_image_url ?? data.cover_image
+    if (coverUrl !== undefined) {
+      const url = String(coverUrl || '').trim()
+      ;(venue as { cover_image?: string | null }).cover_image = url || null
+      if (url) {
+        const photos = Array.isArray((venue as { photos?: unknown[] }).photos)
+          ? [...((venue as { photos?: unknown[] }).photos as unknown[])]
+          : []
+        const rest = photos.filter((p) => !(p as { is_cover?: boolean }).is_cover)
+        ;(venue as { photos?: unknown[] }).photos = [
+          { id: venue.id * 100 + 1, image: url, caption: `${venue.name} cover`, category: 'food', is_cover: true },
+          ...rest,
+        ]
+      }
+      delete data.cover_image_url
+      delete data.cover_image
+    }
+    Object.assign(venue, data)
+    return serializeProviderFoodVenue(venue)
+  }
+
+  function serializeFoodReservation(row: MockFoodReservationRow, s: MockSession) {
+    const venue = mockFood.find((f) => f.id === row.venue)
+    const ownerProf = venue ? s.profiles[venue.owner_username] : undefined
+    return {
+      id: row.id,
+      venue: row.venue,
+      venue_name: venue?.name ?? 'Venue',
+      venue_city: venue?.city ?? '',
+      venue_region: venue?.region ?? '',
+      owner_username: venue?.owner_username ?? '',
+      owner_display_name: ownerProf?.display_name ?? venue?.owner_username ?? '',
+      reserved_for: row.reserved_for,
+      party_size: row.party_size,
+      special_requests: row.special_requests,
+      status: row.status,
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  function serializeProviderFoodReservation(row: MockFoodReservationRow, s: MockSession) {
+    const venue = mockFood.find((f) => f.id === row.venue)
+    const guestProf = s.profiles[row.client]
+    return {
+      id: row.id,
+      venue: row.venue,
+      venue_name: venue?.name ?? 'Venue',
+      guest: 0,
+      guest_username: row.client,
+      guest_display_name: guestProf?.display_name ?? row.client,
+      reserved_for: row.reserved_for,
+      party_size: row.party_size,
+      special_requests: row.special_requests,
+      status: row.status,
+      created_at: new Date().toISOString(),
+    }
+  }
+
+  if (pathname === '/api/food/reservations/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return [...mockFoodReservationRows.values()]
+      .filter((r) => r.client === me)
+      .map((r) => serializeFoodReservation(r, s))
+  }
+
+  if (pathname === '/api/food/reservations/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const prof = s.profiles[s.currentUser as string]
+    if (!prof?.email_verified) {
+      throw new ApiError('Verify your email before booking.', 403, { detail: 'Email not verified.' })
+    }
+    const body = JSON.parse(init.body) as {
+      venue?: number
+      reserved_for?: string
+      party_size?: number
+      special_requests?: string
+    }
+    const venue = mockFood.find((f) => f.id === Number(body.venue))
+    if (!venue) throw new ApiError('Not found', 404, { detail: 'Venue not found.' })
+    if (!(venue as { reservations?: boolean }).reservations) {
+      throw new ApiError('Bad request', 400, { detail: 'This venue does not take table reservations on DELVE.' })
+    }
+    const reservedFor = new Date(String(body.reserved_for || ''))
+    if (Number.isNaN(reservedFor.getTime()) || reservedFor <= new Date()) {
+      throw new ApiError('Bad request', 400, { detail: 'Choose a date and time in the future.' })
+    }
+    const me = s.currentUser as string
+    const active = [...mockFoodReservationRows.values()].some(
+      (r) =>
+        r.client === me &&
+        r.venue === venue.id &&
+        !['cancelled', 'refunded', 'checked_out'].includes(r.status),
+    )
+    if (active) {
+      throw new ApiError('Bad request', 400, { detail: 'You already have an active reservation for this venue.' })
+    }
+    const row: MockFoodReservationRow = {
+      id: nextFoodReservationId++,
+      venue: venue.id,
+      client: me,
+      reserved_for: reservedFor.toISOString(),
+      party_size: Math.max(1, Math.min(20, Number(body.party_size) || 2)),
+      special_requests: String(body.special_requests || '').trim(),
+      status: 'pending',
+    }
+    mockFoodReservationRows.set(row.id, row)
+    return serializeFoodReservation(row, s)
+  }
+
+  const foodReservationCancelMatch = pathname.match(/^\/api\/food\/reservations\/(\d+)\/cancel\/?$/)
+  if (foodReservationCancelMatch && method === 'POST') {
+    requireAuth(s)
+    const id = Number(foodReservationCancelMatch[1])
+    const row = mockFoodReservationRows.get(id)
+    if (!row || row.client !== (s.currentUser as string)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (['cancelled', 'refunded', 'checked_in', 'checked_out'].includes(row.status)) {
+      throw new ApiError('Bad request', 400, { detail: 'Reservation cannot be cancelled.' })
+    }
+    row.status = 'cancelled'
+    return serializeFoodReservation(row, s)
+  }
+
+  if (pathname === '/api/food/provider-reservations/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const statusQ = (q.get('status') || '').trim()
+    const ownedVenueIds = new Set(mockFood.filter((f) => f.owner_username === me).map((f) => f.id))
+    return [...mockFoodReservationRows.values()]
+      .filter((r) => ownedVenueIds.has(r.venue) && (!statusQ || r.status === statusQ))
+      .map((r) => serializeProviderFoodReservation(r, s))
+  }
+
+  const providerFoodReservationAction = pathname.match(
+    /^\/api\/food\/provider-reservations\/(\d+)\/(confirm|cancel|check_in|check_out|refund)\/?$/,
+  )
+  if (providerFoodReservationAction && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const id = Number(providerFoodReservationAction[1])
+    const action = providerFoodReservationAction[2]
+    const row = mockFoodReservationRows.get(id)
+    const venue = row ? mockFood.find((f) => f.id === row.venue) : undefined
+    if (!row || !venue || venue.owner_username !== me) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const transitions: Record<string, Record<string, string>> = {
+      pending: { confirm: 'confirmed', cancel: 'cancelled' },
+      confirmed: { check_in: 'checked_in', cancel: 'cancelled', refund: 'refunded' },
+      checked_in: { check_out: 'checked_out' },
+      cancelled: { refund: 'refunded' },
+    }
+    const next = transitions[row.status]?.[action]
+    if (!next) throw new ApiError('Bad request', 400, { detail: 'Invalid status transition.' })
+    row.status = next as MockFoodReservationRow['status']
+    return serializeProviderFoodReservation(row, s)
   }
 
   // ---- Guides ----
@@ -3133,6 +5531,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       licensed_guide: g.licensed_guide ?? false,
       languages_detail: g.languages_detail ?? [],
       portfolio_gallery: g.portfolio_gallery ?? [],
+      guide_stories: (g as { guide_stories?: unknown[] }).guide_stories ?? [],
       default_meeting_point: g.default_meeting_point ?? '',
       specialities: g.specialities ?? [],
       is_active: (g as { is_active?: boolean }).is_active !== false,
@@ -3147,6 +5546,80 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return serializeProviderGuide(guide)
   }
 
+  async function fileToDataUrl(file: File) {
+    const buf = await file.arrayBuffer()
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+    return `data:${file.type || 'image/jpeg'};base64,${b64}`
+  }
+
+  async function parseProviderGuideBody(body: BodyInit | null | undefined) {
+    if (body instanceof FormData) {
+      const get = (key: string) => String(body.get(key) ?? '').trim()
+      const parseJsonField = (key: string) => {
+        const raw = get(key)
+        if (!raw) return undefined
+        try {
+          return JSON.parse(raw) as unknown
+        } catch {
+          return undefined
+        }
+      }
+      let photoUrl = get('photo_url')
+      const photoFile = body.get('photo')
+      if (photoFile instanceof File) {
+        photoUrl = await fileToDataUrl(photoFile)
+      }
+      const portfolio = Array.isArray(parseJsonField('portfolio_gallery'))
+        ? [...(parseJsonField('portfolio_gallery') as { src: string; caption?: string }[])]
+        : []
+      for (const file of body.getAll('portfolio_images').filter((v): v is File => v instanceof File)) {
+        portfolio.push({ src: await fileToDataUrl(file), caption: '' })
+      }
+      let tourPackages = Array.isArray(parseJsonField('tour_packages'))
+        ? [...(parseJsonField('tour_packages') as Record<string, unknown>[])]
+        : []
+      const packageId = get('package_id')
+      const packagePhoto = body.get('package_photo')
+      const packageGallery = body.getAll('package_gallery_images').filter((v): v is File => v instanceof File)
+      if (packageId && (packagePhoto instanceof File || packageGallery.length)) {
+        for (let i = 0; i < tourPackages.length; i++) {
+          if (String(tourPackages[i].id) !== packageId) continue
+          const next = { ...tourPackages[i] }
+          if (packagePhoto instanceof File) {
+            next.photo = await fileToDataUrl(packagePhoto)
+          }
+          const photos = Array.isArray(next.photos) ? [...(next.photos as string[])] : []
+          for (const file of packageGallery) {
+            photos.push(await fileToDataUrl(file))
+          }
+          next.photos = photos
+          tourPackages[i] = next
+        }
+      }
+      return {
+        headline: get('headline'),
+        bio: get('bio'),
+        hourly_rate: get('hourly_rate') || null,
+        default_meeting_point: get('default_meeting_point'),
+        years_guiding: Number.parseInt(get('years_guiding') || '0', 10) || 0,
+        response_hours_typical: Number.parseInt(get('response_hours_typical') || '4', 10) || 4,
+        licensed_guide: get('licensed_guide') === 'true',
+        is_active: get('is_active') !== 'false',
+        specialities: parseJsonField('specialities') ?? [],
+        regions: parseJsonField('regions') ?? [],
+        languages: parseJsonField('languages') ?? [],
+        certifications: parseJsonField('certifications') ?? [],
+        languages_detail: parseJsonField('languages_detail') ?? [],
+        portfolio_gallery: portfolio,
+        guide_stories: parseJsonField('guide_stories') ?? [],
+        tour_packages: tourPackages,
+        photo_url: photoUrl,
+      }
+    }
+    if (isJsonBody(body)) return JSON.parse(body) as Record<string, unknown>
+    return {}
+  }
+
   if (pathname === '/api/guides/provider-profile/' && method === 'POST') {
     requireAuth(s)
     const me = s.currentUser as string
@@ -3155,7 +5628,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (providerGuideForUser(me)) {
       throw new ApiError('Bad request', 400, { detail: 'Guide profile already exists.' })
     }
-    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const data = await parseProviderGuideBody(init.body)
+    const photoUrl = String(data.photo_url ?? data.photo ?? '').trim()
     const id = Math.max(0, ...mockGuides.map((g) => g.id)) + 1
     const row = {
       id,
@@ -3166,9 +5640,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       rating_count: 0,
       guest_reviews: [],
       ...data,
+      photo: photoUrl || null,
       tour_packages: data.tour_packages ?? [],
       is_active: data.is_active !== false,
     }
+    delete (row as { photo_url?: string }).photo_url
     mockGuides.push(row as (typeof mockGuides)[0])
     return serializeProviderGuide(row as (typeof mockGuides)[0])
   }
@@ -3178,7 +5654,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const me = s.currentUser as string
     const guide = providerGuideForUser(me)
     if (!guide) throw new ApiError('Not found', 404, { detail: 'Guide profile not found.' })
-    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const data = await parseProviderGuideBody(init.body)
+    if (data.photo_url !== undefined || data.photo !== undefined) {
+      const photoUrl = String(data.photo_url ?? data.photo ?? '').trim()
+      ;(guide as { photo?: string | null }).photo = photoUrl || null
+      delete data.photo_url
+      delete data.photo
+    }
     Object.assign(guide, data)
     return serializeProviderGuide(guide)
   }
@@ -3277,6 +5759,71 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  if (pathname === '/api/guides/provider-analytics/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const guide = providerGuideForUser(me)
+    if (!guide) {
+      return {
+        days: 30,
+        total_bookings: 0,
+        confirmed_bookings: 0,
+        completed_tours: 0,
+        pending_requests: 0,
+        revenue: '0',
+        total_saves: 0,
+        rating_avg: 0,
+        rating_count: 0,
+        promotion_impressions: 0,
+        promotion_clicks: 0,
+        promotion_listing_opens: 0,
+        profiles: [],
+      }
+    }
+    const sessionRows = [...mockGuideBookings.values()].filter((row) => row.guide === guide.id)
+    const active = sessionRows.filter((r) => !['cancelled', 'refunded'].includes(String(r.status)))
+    const revenueRows = active.filter((r) => ['confirmed', 'completed'].includes(String(r.status)))
+    const revenue = revenueRows.reduce((sum, r) => sum + Number(r.total_price || 0), 0)
+    const saves = mockGuideSaves.get(guide.id)?.size ?? 0
+    return {
+      days: 30,
+      total_bookings: active.length,
+      confirmed_bookings: revenueRows.length,
+      completed_tours: active.filter((r) => r.status === 'completed').length,
+      pending_requests: active.filter((r) => r.status === 'pending').length,
+      revenue: revenue.toFixed(2),
+      total_saves: saves,
+      rating_avg: Number(guide.rating_avg ?? 0),
+      rating_count: Number(guide.rating_count ?? 0),
+      promotion_impressions: 0,
+      promotion_clicks: 0,
+      promotion_listing_opens: 0,
+      profiles: [
+        {
+          id: guide.id,
+          headline: guide.headline,
+          bookings: active.length,
+          confirmed_bookings: revenueRows.length,
+          completed_tours: active.filter((r) => r.status === 'completed').length,
+          saves_count: saves,
+          revenue: revenue.toFixed(2),
+          rating_avg: Number(guide.rating_avg ?? 0),
+          rating_count: Number(guide.rating_count ?? 0),
+          packages_count: (guide.tour_packages ?? []).length,
+          is_active: (guide as { is_active?: boolean }).is_active !== false,
+        },
+      ],
+    }
+  }
+
+  if (pathname === '/api/guides/profiles/saved/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockGuides
+      .filter((row) => mockGuideSaves.get(row.id)?.has(me))
+      .map((row) => enrichGuideRow(s, row))
+  }
+
   if (pathname === '/api/guides/profiles/' && method === 'GET') {
     const langQ = (q.get('language') || '').trim()
     const regionQ = (q.get('region') || '').trim()
@@ -3298,12 +5845,146 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           (g.regions || []).some((r) => textMatch(r, searchQ)),
       )
     }
-    return list
+    return list.map((row) => enrichGuideRow(s, row))
   }
   const guideMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/$/)
   if (guideMatch && method === 'GET') {
     const id = Number(guideMatch[1])
-    return mockGuides.find((g) => g.id === id) || { detail: 'Not found' }
+    const guide = mockGuides.find((g) => g.id === id)
+    if (!guide) return { detail: 'Not found' }
+    return enrichGuideRow(s, guide)
+  }
+
+  const guideSaveMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/save\/$/)
+  if (guideSaveMatch && method === 'POST') {
+    requireAuth(s)
+    const gid = Number(guideSaveMatch[1])
+    if (!mockGuides.some((x) => x.id === gid)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const me = s.currentUser as string
+    let savers = mockGuideSaves.get(gid)
+    if (!savers) {
+      savers = new Set<string>()
+      mockGuideSaves.set(gid, savers)
+    }
+    if (savers.has(me)) {
+      savers.delete(me)
+      return { saved: false, saves_count: savers.size }
+    }
+    savers.add(me)
+    return { saved: true, saves_count: savers.size }
+  }
+
+  const guideQuestionsMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/questions\/?$/)
+  if (guideQuestionsMatch && method === 'GET') {
+    const gid = Number(guideQuestionsMatch[1])
+    return mockGuideQuestions.get(gid) ?? []
+  }
+  if (guideQuestionsMatch && method === 'POST') {
+    requireAuth(s)
+    const gid = Number(guideQuestionsMatch[1])
+    const guide = mockGuides.find((g) => g.id === gid)
+    if (!guide) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as { body?: string }
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    const row = {
+      id: mockGuideQuestionNextId++,
+      author: prof?.display_name || me,
+      body: (body.body || '').trim(),
+      ago: 'Just now',
+      answers: [] as { id: number; author: string; body: string; ago: string; is_official?: boolean }[],
+      listing: gid,
+      listing_title: guide.headline,
+    }
+    const rows = mockGuideQuestions.get(gid) ?? []
+    rows.unshift(row)
+    mockGuideQuestions.set(gid, rows)
+    return row
+  }
+
+  const guideReviewsMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/reviews\/?$/)
+  if (guideReviewsMatch && method === 'GET') {
+    const gid = Number(guideReviewsMatch[1])
+    const guide = mockGuides.find((g) => g.id === gid)
+    const traveler = mockGuideReviews.get(gid) ?? []
+    const seeded = (guide?.guest_reviews ?? []).map((r, i) => ({
+      id: `seed-${i}`,
+      source: 'host',
+      name: r.name,
+      place: r.place,
+      rating: r.rating,
+      body: r.body,
+    }))
+    const reviews = [...traveler, ...seeded]
+    const rated = reviews.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n))
+    return {
+      reviews,
+      rating_avg: rated.length ? rated.reduce((a, b) => a + b, 0) / rated.length : Number(guide?.rating_avg ?? 0),
+      rating_count: rated.length || Number(guide?.rating_count ?? 0),
+    }
+  }
+
+  const guideReviewPostMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/review\/?$/)
+  if (guideReviewPostMatch && method === 'POST') {
+    requireAuth(s)
+    const gid = Number(guideReviewPostMatch[1])
+    const guide = mockGuides.find((g) => g.id === gid)
+    if (!guide) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as { rating?: number; body?: string }
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    const completed = [...mockGuideBookings.values()].some(
+      (b) => b.guide === gid && b.client === me && b.status === 'completed',
+    )
+    if (!completed) {
+      throw new ApiError('Bad request', 400, {
+        detail: 'You can review after a completed tour booking with this guide.',
+      })
+    }
+    const rows = mockGuideReviews.get(gid) ?? []
+    if (rows.some((r) => r.name === (prof?.display_name || me))) {
+      throw new ApiError('Bad request', 400, { detail: 'You already reviewed this guide.' })
+    }
+    const review = {
+      id: mockGuideReviewNextId++,
+      name: prof?.display_name || me,
+      place: (guide.regions ?? []).slice(0, 2).join(', ') || guide.headline,
+      rating: Number(body.rating ?? 5),
+      body: (body.body || '').trim(),
+      source: 'traveler',
+    }
+    rows.unshift(review)
+    mockGuideReviews.set(gid, rows)
+    return review
+  }
+
+  const guideAnswerMatch = pathname.match(/^\/api\/guides\/questions\/(\d+)\/answers\/?$/)
+  if (guideAnswerMatch && method === 'POST') {
+    requireAuth(s)
+    const qid = Number(guideAnswerMatch[1])
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as { body?: string }
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    for (const [gid, rows] of mockGuideQuestions.entries()) {
+      const question = rows.find((q) => q.id === qid)
+      if (!question) continue
+      const guide = mockGuides.find((g) => g.id === gid)
+      const answer = {
+        id: Date.now(),
+        author: prof?.display_name || me,
+        body: (body.body || '').trim(),
+        ago: 'Just now',
+        is_official: guide?.username === me,
+      }
+      question.answers.push(answer)
+      return answer
+    }
+    throw new ApiError('Not found', 404, { detail: 'Not found.' })
   }
 
   if (pathname === '/api/guides/bookings/' && method === 'POST') {
@@ -3365,7 +6046,45 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       created_at: nowIso(),
     }
     mockGuideBookings.set(id, row)
-    return row
+    return serializeTravellerGuideBooking(row)
+  }
+
+  function serializeTravellerGuideBooking(row: {
+    id: number
+    guide: number
+    guide_headline?: string
+    date: string
+    start_time?: string | null
+    duration_hours?: number
+    group_size: number
+    meeting_point?: string
+    package_id?: string
+    notes?: string
+    total_price?: string
+    mock_payment_ref?: string
+    status: string
+    created_at?: string
+  }) {
+    const guide = mockGuides.find((g) => g.id === row.guide)
+    const pkg = (guide?.tour_packages ?? []).find((p) => String(p.id) === String(row.package_id))
+    return {
+      id: row.id,
+      guide: row.guide,
+      guide_headline: row.guide_headline || guide?.headline || 'Guide',
+      guide_username: guide?.username || '',
+      date: row.date,
+      start_time: row.start_time ?? null,
+      duration_hours: row.duration_hours,
+      group_size: row.group_size,
+      meeting_point: row.meeting_point || '',
+      package_id: row.package_id,
+      package_title: pkg?.title || (row.package_id ? String(row.package_id) : 'Custom tour'),
+      notes: row.notes,
+      total_price: row.total_price,
+      mock_payment_ref: row.mock_payment_ref || '',
+      status: row.status,
+      created_at: row.created_at,
+    }
   }
 
   if (pathname === '/api/guides/bookings/' && method === 'GET') {
@@ -3373,18 +6092,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const sessionRows = [...mockGuideBookings.values()].filter(
       (row) => !s.currentUser || row.client === s.currentUser,
     )
-    return sessionRows.map((row) => ({
-      id: row.id,
-      guide: row.guide,
-      guide_headline: row.guide_headline,
-      date: row.date,
-      group_size: row.group_size,
-      package_id: row.package_id,
-      notes: row.notes,
-      total_price: row.total_price,
-      status: row.status,
-      created_at: row.created_at,
-    }))
+    return sessionRows.map((row) => serializeTravellerGuideBooking(row))
   }
 
   const guideMockPay = pathname.match(/^\/api\/guides\/bookings\/(\d+)\/mock_pay\/$/)
@@ -3401,11 +6109,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     b.status = 'confirmed'
     b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
     mockGuideBookings.set(bid, b)
-    return {
-      detail: 'Payment successful (mock).',
-      status: b.status,
-      mock_payment_ref: b.mock_payment_ref,
+    return serializeTravellerGuideBooking(b)
+  }
+
+  const guideCancel = pathname.match(/^\/api\/guides\/bookings\/(\d+)\/cancel\/$/)
+  if (guideCancel && method === 'POST') {
+    requireAuth(s)
+    const bid = Number(guideCancel[1])
+    const b = mockGuideBookings.get(bid)
+    if (!b || b.client !== s.currentUser) {
+      throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
     }
+    if (!['pending', 'confirmed'].includes(String(b.status))) {
+      throw new ApiError('Bad request', 400, { detail: 'This booking cannot be cancelled.' })
+    }
+    b.status = 'cancelled'
+    mockGuideBookings.set(bid, b)
+    return serializeTravellerGuideBooking(b)
   }
 
   // ---- Messaging ----
@@ -3440,13 +6160,80 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { results }
   }
 
+  if (pathname === '/api/messaging/unread-count/' && method === 'GET') {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    let unread = 0
+    for (const conv of mockMessagingConversations.values()) {
+      if (!conv.participantIds.includes(me)) continue
+      unread += messagingUnreadCount(conv.id, me)
+    }
+    return { unread }
+  }
+
+  if (pathname === '/api/messaging/blocks/' && method === 'GET') {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const rows = []
+    for (const key of mockMessagingBlocks) {
+      const [blocker, blocked] = key.split('->').map(Number)
+      if (blocker !== me) continue
+      const detail = messagingParticipantDetail(s, blocked)
+      rows.push({
+        id: blocked,
+        username: detail.username,
+        display_name: detail.display_name,
+        created_at: nowIso(),
+      })
+    }
+    return rows
+  }
+
+  if (pathname === '/api/messaging/blocks/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Invalid body', 400, null)
+    const payload = JSON.parse(init.body) as { user_id?: unknown; username?: unknown }
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    let otherId: number | null = null
+    const username = typeof payload.username === 'string' ? payload.username.trim() : ''
+    if (username) otherId = messagingFindUserIdByUsername(s, username)
+    else otherId = Number(payload.user_id)
+    if (otherId == null || !Number.isFinite(otherId) || otherId === me) {
+      throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
+    }
+    const key = messagingBlockKey(me, otherId)
+    const created = !mockMessagingBlocks.has(key)
+    mockMessagingBlocks.add(key)
+    const detail = messagingParticipantDetail(s, otherId)
+    return {
+      id: otherId,
+      username: detail.username,
+      display_name: detail.display_name,
+      created_at: nowIso(),
+      created,
+    }
+  }
+
+  const blockDetail = pathname.match(/^\/api\/messaging\/blocks\/(\d+)\/$/)
+  if (blockDetail && method === 'DELETE') {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const otherId = Number(blockDetail[1])
+    const key = messagingBlockKey(me, otherId)
+    if (!mockMessagingBlocks.has(key)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found' })
+    }
+    mockMessagingBlocks.delete(key)
+    return null
+  }
+
   if (pathname === '/api/messaging/conversations/' && method === 'GET') {
     requireAuth(s)
     const me = messagingNumericIdForUsername(s.currentUser as string)
     const list = [...mockMessagingConversations.values()]
       .filter((c) => c.participantIds.includes(me))
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-      .map((c) => messagingSerializeConversation(s, c))
+      .map((c) => messagingSerializeConversation(s, c, me))
     return list
   }
 
@@ -3459,7 +6246,56 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!conv || !conv.participantIds.includes(me)) {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
-    return messagingSerializeConversation(s, conv)
+    return messagingSerializeConversation(s, conv, me)
+  }
+
+  const convTyping = pathname.match(/^\/api\/messaging\/conversations\/(\d+)\/typing\/$/)
+  if (convTyping) {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const cid = Number(convTyping[1])
+    const conv = mockMessagingConversations.get(cid)
+    if (!conv || !conv.participantIds.includes(me)) {
+      throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    }
+    if (method === 'POST') {
+      mockMessagingTyping.set(`${cid}:${me}`, {
+        username: s.currentUser as string,
+        until: Date.now() + 4000,
+      })
+      return { ok: true }
+    }
+    if (method === 'GET') {
+      const now = Date.now()
+      const typing = []
+      for (const pid of conv.participantIds) {
+        if (pid === me) continue
+        const row = mockMessagingTyping.get(`${cid}:${pid}`)
+        if (row && row.until > now) typing.push({ id: pid, username: row.username })
+      }
+      return { typing }
+    }
+  }
+
+  const convRead = pathname.match(/^\/api\/messaging\/conversations\/(\d+)\/read\/$/)
+  if (convRead && method === 'POST') {
+    requireAuth(s)
+    const me = messagingNumericIdForUsername(s.currentUser as string)
+    const cid = Number(convRead[1])
+    const conv = mockMessagingConversations.get(cid)
+    if (!conv || !conv.participantIds.includes(me)) {
+      throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    }
+    const list = mockMessagingMessages.get(cid) ?? []
+    let marked = 0
+    for (const m of list) {
+      if (!m.read && m.senderId !== me) {
+        m.read = true
+        marked += 1
+      }
+    }
+    mockMessagingMessages.set(cid, list)
+    return { marked_read: marked }
   }
 
   if (pathname === '/api/messaging/start/' && method === 'POST') {
@@ -3467,26 +6303,41 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!isJsonBody(init.body)) {
       throw new ApiError('Invalid body', 400, null)
     }
-    const payload = JSON.parse(init.body) as { user_id?: unknown }
-    let otherId: number
-    try {
-      otherId = Number(payload.user_id)
-    } catch {
-      throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
-    }
-    if (!Number.isFinite(otherId)) {
-      throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
+    const payload = JSON.parse(init.body) as {
+      user_id?: unknown
+      username?: unknown
+      context_type?: unknown
+      context_id?: unknown
+      context_label?: unknown
     }
     const me = messagingNumericIdForUsername(s.currentUser as string)
+    let otherId: number | null = null
+    const username = typeof payload.username === 'string' ? payload.username.trim() : ''
+    if (username) {
+      otherId = messagingFindUserIdByUsername(s, username)
+      if (otherId == null) {
+        throw new ApiError('Not found', 404, { detail: 'user not found' })
+      }
+    } else {
+      otherId = Number(payload.user_id)
+      if (!Number.isFinite(otherId)) {
+        throw new ApiError('Bad request', 400, { detail: 'user_id or username required' })
+      }
+    }
     if (otherId === me) {
       throw new ApiError('Bad request', 400, { detail: 'invalid user_id' })
     }
     if (!messagingUserExists(s, otherId)) {
       throw new ApiError('Not found', 404, { detail: 'user not found' })
     }
+    if (messagingIsBlockedEitherWay(me, otherId)) {
+      throw new ApiError('Forbidden', 403, { detail: 'You cannot message this user.' })
+    }
     const existing = messagingFindConvBetween(me, otherId)
     if (existing) {
-      return messagingSerializeConversation(s, existing)
+      messagingApplyContext(existing, payload)
+      mockMessagingConversations.set(existing.id, existing)
+      return messagingSerializeConversation(s, existing, me)
     }
     const t = nowIso()
     const id = mockMessagingConvSeq++
@@ -3495,12 +6346,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const conv: MockMessagingConv = {
       id,
       participantIds: [a, b],
+      pair_key: messagingPairKey(me, otherId),
       created_at: t,
       updated_at: t,
     }
+    messagingApplyContext(conv, payload)
     mockMessagingConversations.set(id, conv)
     mockMessagingMessages.set(id, [])
-    return messagingSerializeConversation(s, conv)
+    return messagingSerializeConversation(s, conv, me)
   }
 
   const convMsgs = pathname.match(/^\/api\/messaging\/conversations\/(\d+)\/messages\/$/)
@@ -3513,14 +6366,30 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
     }
     if (method === 'GET') {
-      const arr = [...(mockMessagingMessages.get(cid) ?? [])].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      )
-      return arr.map((m) => messagingSerializeMessage(s, m))
+      let limit = Number(q.get('limit') || 50)
+      if (!Number.isFinite(limit) || limit < 1) limit = 50
+      limit = Math.min(100, limit)
+      const beforeRaw = q.get('before_id')
+      const beforeId = beforeRaw ? Number(beforeRaw) : null
+      let arr = [...(mockMessagingMessages.get(cid) ?? [])].sort((a, b) => b.id - a.id)
+      if (beforeId != null && Number.isFinite(beforeId)) {
+        arr = arr.filter((m) => m.id < beforeId)
+      }
+      const hasMore = arr.length > limit
+      const page = arr.slice(0, limit).reverse()
+      return {
+        results: page.map((m) => messagingSerializeMessage(s, m)),
+        has_more: hasMore,
+        next_before_id: hasMore && page.length ? page[0].id : null,
+      }
     }
     if (method === 'POST') {
       if (!isJsonBody(init.body)) {
         throw new ApiError('Invalid body', 400, null)
+      }
+      const otherId = conv.participantIds.find((pid) => pid !== me)
+      if (otherId != null && messagingIsBlockedEitherWay(me, otherId)) {
+        throw new ApiError('Forbidden', 403, { detail: 'You cannot message this user.' })
       }
       const payload = JSON.parse(init.body) as { body?: string }
       const text = (payload.body ?? '').trim()
@@ -3532,6 +6401,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         senderId: me,
         body: text,
         created_at: nowIso(),
+        read: false,
       }
       const list = mockMessagingMessages.get(cid) ?? []
       list.push(msg)
@@ -3541,27 +6411,129 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         c.updated_at = msg.created_at
         mockMessagingConversations.set(cid, c)
       }
-      return { detail: 'sent' }
+      return messagingSerializeMessage(s, msg)
     }
   }
 
   // ---- Search ----
   if (pathname === '/api/search/' && method === 'GET') {
     const qq = (q.get('q') || '').trim()
-    if (qq.length < 2) {
-      return { accommodation: [], vehicles: [], bus_trips: [], events: [], food: [], guides: [], posts: [] }
+    const emptySearch = {
+      users: [],
+      accommodation: [],
+      vehicles: [],
+      bus_trips: [],
+      events: [],
+      food: [],
+      guides: [],
+      posts: [],
+      questions: [],
+      journeys: [],
     }
+    if (qq.length < 2) return emptySearch
+
+    const typeTokens = (q.get('types') || '')
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean)
+    const typeToBuckets: Record<string, string[]> = {
+      profile: ['users'],
+      stay: ['accommodation'],
+      food: ['food'],
+      events: ['events'],
+      guides: ['guides'],
+      transport: ['vehicles', 'bus_trips'],
+      delvers: ['posts'],
+      ask_locals: ['questions'],
+      journeys: ['journeys'],
+    }
+    let buckets: Set<string> | null = null
+    if (typeTokens.length > 0) {
+      buckets = new Set<string>()
+      for (const token of typeTokens) {
+        for (const b of typeToBuckets[token] ?? []) buckets.add(b)
+      }
+      if (buckets.size === 0) buckets = null
+    }
+    const wants = (name: string) => buckets == null || buckets.has(name)
+    const limit = buckets != null && buckets.size <= 2 ? 20 : 8
+    const delversOnly = buckets != null && buckets.size === 1 && buckets.has('posts')
+
+    const users = wants('users')
+      ? Object.entries(s.profiles)
+          .filter(([, p]) => p.show_in_search !== false)
+          .filter(
+            ([username, p]) =>
+              textMatch(username, qq) ||
+              textMatch(p.display_name ?? '', qq) ||
+              textMatch(p.bio ?? '', qq) ||
+              textMatch(p.region ?? '', qq) ||
+              textMatch(p.city ?? '', qq),
+          )
+          .slice(0, limit)
+          .map(([username, p], i) => ({
+            id: i + 1,
+            username,
+            display_name: p.display_name ?? username,
+            avatar: p.avatar ?? null,
+            user_type: p.user_type,
+            city: p.city ?? '',
+            region: p.region ?? '',
+            bio: (p.bio ?? '').slice(0, 160),
+          }))
+      : []
+
     return {
-      accommodation: mockStays.filter((s2) => textMatch(s2.title, qq) || textMatch(s2.region, qq)).slice(0, 8),
-      vehicles: mockVehicles.filter((v) => textMatch(v.title, qq) || textMatch(v.region, qq)).slice(0, 8),
-      bus_trips: mockBusTrips
-        .filter((t) => textMatch(t.route_detail.origin, qq) || textMatch(t.route_detail.destination, qq))
-        .slice(0, 8)
-        .map((t) => busTripDetailForApi(t)),
-      events: mockEvents.filter((e) => textMatch(e.title, qq) || textMatch(e.region, qq)).slice(0, 8),
-      food: mockFood.filter((f) => textMatch(f.name, qq) || textMatch(f.region, qq)).slice(0, 8),
-      guides: mockGuides.filter((g) => textMatch(g.headline, qq)).slice(0, 8),
-      posts: withMeFlags(s, visiblePosts(s.posts)).filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq)).slice(0, 8),
+      users,
+      accommodation: wants('accommodation')
+        ? mockStays.filter((s2) => textMatch(s2.title, qq) || textMatch(s2.region, qq)).slice(0, limit)
+        : [],
+      vehicles: wants('vehicles')
+        ? mockVehicles.filter((v) => textMatch(v.title, qq) || textMatch(v.region, qq)).slice(0, limit)
+        : [],
+      bus_trips: wants('bus_trips')
+        ? mockBusTrips
+            .filter((t) => textMatch(t.route_detail.origin, qq) || textMatch(t.route_detail.destination, qq))
+            .slice(0, limit)
+            .map((t) => busTripDetailForApi(t))
+        : [],
+      events: wants('events')
+        ? mockEvents.filter((e) => textMatch(e.title, qq) || textMatch(e.region, qq)).slice(0, limit)
+        : [],
+      food: wants('food')
+        ? mockFood.filter((f) => textMatch(f.name, qq) || textMatch(f.region, qq)).slice(0, limit)
+        : [],
+      guides: wants('guides')
+        ? mockGuides.filter((g) => textMatch(g.headline, qq) || textMatch(g.username, qq)).slice(0, limit)
+        : [],
+      posts: wants('posts')
+        ? withMeFlags(s, visiblePosts(s.posts))
+            .filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq))
+            .filter((p) => (delversOnly ? p.is_delvers : true))
+            .slice(0, limit)
+        : [],
+      questions: wants('questions')
+        ? withMeFlags(
+            s,
+            visiblePosts(s.posts).filter((p) => p.post_kind === 'question' && !p.is_delvers),
+          )
+            .filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq) || textMatch(p.place_label ?? '', qq))
+            .slice(0, limit)
+        : [],
+      journeys: wants('journeys')
+        ? mockVisibleJourneys(s)
+            .filter(
+              (j) =>
+                textMatch(j.title, qq) ||
+                textMatch(j.summary, qq) ||
+                (j.tags || []).some((tag) => textMatch(tag, qq)) ||
+                (j.stops || []).some(
+                  (stop) => textMatch(stop.place_name, qq) || textMatch(stop.region ?? '', qq),
+                ),
+            )
+            .slice(0, limit)
+            .map((j) => mockSerializeJourney(s, j))
+        : [],
     }
   }
 

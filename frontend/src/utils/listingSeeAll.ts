@@ -1,5 +1,6 @@
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { buildGalleryItems } from '../components/AccommodationGallery'
+import { normalizeReviews } from '../components/GuestReviewCard'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import type { TourPackage } from '../components/guide/types'
 import type { ListingGalleryItem, ListingMomentItem } from '../components/listing/types'
@@ -11,7 +12,6 @@ import {
 } from './accommodationListing'
 import {
   buildEventGalleryImages,
-  buildEventMoments,
   type EventDetail,
 } from './eventListing'
 import {
@@ -27,15 +27,13 @@ import {
 } from './guideListing'
 import {
   buildJourneyGallery,
-  buildJourneyMoments,
   collectJourneyPhotos,
 } from './journeyListing'
+import { fetchListingMoments } from './listingMoments'
 import { normalizeTourPackages } from './tourPackages'
 import {
   buildBusGalleryImages,
-  buildBusMoments,
   buildVehicleGalleryImages,
-  buildVehicleMoments,
   type BusTripListing,
   type VehicleListing,
 } from './transportListing'
@@ -105,29 +103,11 @@ function packageReviewMeta(pkg: TourPackage, guide: GuideProfile) {
   }
 }
 
-function buildAccommodationMoments(data: AccommodationListing): ListingMomentItem[] {
-  const galleryItems = buildGalleryItems(data.media_gallery, data.cover_image)
-  return galleryItems.slice(0, 6).map((item, index) => ({
-    id: `g-${index}`,
-    image: mediaUrl(item.src) || item.src,
-    author: `guest${index + 1}`,
-    body: 'Saved this stay for a quiet weekend.',
-    taggedListing: data.title,
-  }))
-}
-
-function buildGuideMoments(guide: GuideProfile, portfolio: ReturnType<typeof normalizePortfolio>): ListingMomentItem[] {
-  return portfolio.slice(0, 6).map((item, index) => ({
-    id: `p-${index}`,
-    image: mediaUrl(item.src) || item.src,
-    author: guide.username,
-    body: item.caption?.trim() || 'A moment from the trail.',
-    taggedListing: guide.headline,
-  }))
-}
+const EMPTY_MOMENTS: ListingMomentItem[] = []
 
 async function fetchAccommodationSeeAll(id: string): Promise<ListingSeeAllData> {
   const data = await apiFetch<AccommodationListing>(`/api/accommodation/listings/${id}/`, { auth: false })
+  const moments = await fetchListingMoments('accommodation', id, data.title)
   return {
     listingTitle: data.title,
     backTo: `/accommodation/${id}`,
@@ -140,20 +120,20 @@ async function fetchAccommodationSeeAll(id: string): Promise<ListingSeeAllData> 
     },
     moments: {
       title: 'From Delvers',
-      moments: buildAccommodationMoments(data),
+      moments,
     },
   }
 }
 
 async function fetchFoodSeeAll(id: string): Promise<ListingSeeAllData> {
   const data = await apiFetch<FoodVenueListing>(`/api/food/venues/${id}/`, { auth: false })
-  const delversMoments = (data.delvers_moments ?? []).map((m) => ({
-    id: m.id,
-    image: m.image ? mediaUrl(m.image) || m.image : null,
-    author: m.author_username,
-    body: m.body,
-    taggedListing: data.name,
-  }))
+  const [moments, reviewPayload] = await Promise.all([
+    fetchListingMoments('food', id, data.name),
+    apiFetch<{ reviews: unknown[]; rating_avg: number | string | null; rating_count: number }>(
+      `/api/food/venues/${id}/reviews/`,
+      { auth: false },
+    ),
+  ])
 
   return {
     listingTitle: data.name,
@@ -161,14 +141,11 @@ async function fetchFoodSeeAll(id: string): Promise<ListingSeeAllData> {
     gallery: { title: 'Photos', images: buildFoodGalleryImages(data) },
     reviews: {
       title: 'Reviews',
-      reviews: normalizeFoodReviews(data.reviews, data.name),
-      rating: data.rating_avg ?? null,
-      count: data.rating_count ?? null,
+      reviews: normalizeReviews(reviewPayload.reviews),
+      rating: reviewPayload.rating_avg ?? data.rating_avg ?? null,
+      count: reviewPayload.rating_count ?? data.rating_count ?? null,
     },
-    moments: {
-      title: 'From Delvers',
-      moments: delversMoments,
-    },
+    moments: { title: 'From Delvers', moments },
   }
 }
 
@@ -192,7 +169,7 @@ async function fetchGuideSeeAll(id: string): Promise<ListingSeeAllData> {
     },
     moments: {
       title: 'From Delvers',
-      moments: buildGuideMoments(guide, portfolio),
+      moments: EMPTY_MOMENTS,
     },
   }
 }
@@ -224,13 +201,7 @@ async function fetchGuidePackageSeeAll(compositeId: string): Promise<ListingSeeA
     },
     moments: {
       title: 'From Delvers',
-      moments: buildPackageGallery(pkg, guide).slice(0, 4).map((item, index) => ({
-        id: `pkg-${index}`,
-        image: item.src,
-        author: guide.username,
-        body: item.caption?.trim() || 'Shared from this experience.',
-        taggedListing: pkg.title,
-      })),
+      moments: EMPTY_MOMENTS,
     },
   }
 }
@@ -256,13 +227,14 @@ function fetchJourneySeeAll(id: string): ListingSeeAllData {
     },
     moments: {
       title: 'From Delvers',
-      moments: buildJourneyMoments(trip, photoItems),
+      moments: EMPTY_MOMENTS,
     },
   }
 }
 
 async function fetchEventSeeAll(id: string): Promise<ListingSeeAllData> {
   const event = await apiFetch<EventDetail>(`/api/events/${id}/`, { auth: false })
+  const moments = await fetchListingMoments('event', id, event.title)
 
   return {
     listingTitle: event.title,
@@ -279,7 +251,7 @@ async function fetchEventSeeAll(id: string): Promise<ListingSeeAllData> {
     },
     moments: {
       title: 'From Delvers',
-      moments: buildEventMoments(event),
+      moments,
     },
   }
 }
@@ -288,12 +260,24 @@ async function fetchTransportSeeAll(id: string): Promise<ListingSeeAllData> {
   try {
     const vehicle = await apiFetch<VehicleListing>(`/api/transport/vehicles/${id}/`, { auth: false })
     const gallery = buildVehicleGalleryImages(vehicle)
+    const [moments, reviewPayload] = await Promise.all([
+      fetchListingMoments('vehicle', id, vehicle.title),
+      apiFetch<{ reviews: unknown[]; rating_avg: string | null; rating_count: number }>(
+        `/api/transport/vehicles/${id}/reviews/`,
+        { auth: false },
+      ),
+    ])
     return {
       listingTitle: vehicle.title,
       backTo: `/transport/vehicle/${id}`,
       gallery: { title: 'Photos', images: gallery },
-      reviews: { title: 'Reviews', reviews: [], rating: null, count: null },
-      moments: { title: 'From Delvers', moments: buildVehicleMoments(vehicle, gallery).filter((m) => m.id !== 'placeholder') },
+      reviews: {
+        title: 'Reviews',
+        reviews: normalizeReviews(reviewPayload.reviews),
+        rating: reviewPayload.rating_avg ?? vehicle.rating_avg ?? null,
+        count: reviewPayload.rating_count ?? vehicle.rating_count ?? null,
+      },
+      moments: { title: 'From Delvers', moments },
     }
   } catch (err) {
     if (!(err instanceof ApiError) || err.status !== 404) throw err
@@ -302,13 +286,25 @@ async function fetchTransportSeeAll(id: string): Promise<ListingSeeAllData> {
   const trip = await apiFetch<BusTripListing>(`/api/transport/bus/trips/${id}/`, { auth: false })
   const gallery = buildBusGalleryImages(trip)
   const title = `${trip.route_detail.origin} → ${trip.route_detail.destination}`
+  const [moments, reviewPayload] = await Promise.all([
+    fetchListingMoments('bus_trip', id, title),
+    apiFetch<{ reviews: unknown[]; rating_avg: string | null; rating_count: number }>(
+      `/api/transport/bus/trips/${id}/reviews/`,
+      { auth: false },
+    ),
+  ])
 
   return {
     listingTitle: title,
     backTo: `/transport/bus/${id}`,
     gallery: { title: 'Photos', images: gallery },
-    reviews: { title: 'Reviews', reviews: [], rating: null, count: null },
-    moments: { title: 'From Delvers', moments: buildBusMoments(trip, gallery).filter((m) => m.id !== 'placeholder') },
+    reviews: {
+      title: 'Reviews',
+      reviews: normalizeReviews(reviewPayload.reviews),
+      rating: reviewPayload.rating_avg,
+      count: reviewPayload.rating_count,
+    },
+    moments: { title: 'From Delvers', moments },
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -16,13 +16,19 @@ import {
   Users,
   Utensils,
 } from 'lucide-react'
-import { apiFetch } from '../api/client'
+import { apiFetch, asArray } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import type { FeedPost } from '../components/IgPostCard'
+import { communityPostPermalinkPath } from '../utils/postPermalink'
 import { HomeStoriesRow } from '../components/HomeStoriesRow'
 import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { MiniRating } from '../components/MiniRating'
 import { ListSkeleton } from '../components/ui'
 import { HOME_HERO_BG, homeCoverSrc } from '../data/homeDefaults'
 import { mockTrips } from '../data/mockTrips'
+import { mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
+import type { FeaturedPartnerFields } from '../hooks/useFeaturedPlacement'
 
 const moodChips = [
   { label: 'Weekend away', q: 'weekend' },
@@ -45,28 +51,18 @@ const categoryShortcuts = [
   { to: '/delvers', label: 'Delvers', Icon: Camera },
 ] as const
 
-const communityPreview = [
-  {
-    id: '1',
-    author: 'Mila K.',
-    initial: 'M',
-    time: '2h ago',
-    region: 'Khomas',
-    question: 'Where can I pick up a SIM card in Windhoek on a Sunday afternoon?',
-    answers: 2,
-  },
-  {
-    id: '2',
-    author: 'Alex R.',
-    initial: 'A',
-    time: 'Yesterday',
-    region: 'Erongo',
-    question: 'Is the D1913 gravel stretch to Walvis safe for a small hatchback after rain?',
-    answers: 1,
-  },
-]
+function formatQuestionTime(iso?: string) {
+  if (!iso) return 'Recently'
+  const diff = Date.now() - new Date(iso).getTime()
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  if (hours < 1) return 'Just now'
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'Yesterday'
+  return `${days}d ago`
+}
 
-type StayHomeItem = {
+type StayHomeItem = FeaturedPartnerFields & {
   id: number
   title: string
   region: string
@@ -77,7 +73,7 @@ type StayHomeItem = {
   rating_count: number
 }
 
-type EventHomeItem = {
+type EventHomeItem = FeaturedPartnerFields & {
   id: number
   title: string
   venue: string
@@ -86,7 +82,7 @@ type EventHomeItem = {
   region: string
 }
 
-type FoodHomeItem = {
+type FoodHomeItem = FeaturedPartnerFields & {
   id: number
   name: string
   cuisine: string
@@ -96,7 +92,7 @@ type FoodHomeItem = {
   rating_count: number
 }
 
-type GuideHomeItem = {
+type GuideHomeItem = FeaturedPartnerFields & {
   id: number
   headline: string
   username: string
@@ -104,6 +100,12 @@ type GuideHomeItem = {
   hourly_rate: string | null
   rating_avg: string | number
   rating_count: number
+}
+
+type HomeAnnouncement = {
+  active: boolean
+  title: string
+  body: string
 }
 
 function journeyRouteLabel(stops: { place_name: string }[]) {
@@ -171,13 +173,18 @@ type HomeCardProps = {
   title: string
   meta: string
   rating?: { avg: string | number; count: number }
+  featured?: boolean
+  partnerLabel?: string
 }
 
-function HomeCard({ to, imageSrc, imageAlt, title, meta, rating }: HomeCardProps) {
+function HomeCard({ to, imageSrc, imageAlt, title, meta, rating, featured, partnerLabel }: HomeCardProps) {
   return (
     <Link to={to} className="home-card mini-card ta-mini-card ta-mini-card--calm">
       <div className="home-card__media ta-mini-card__media">
         <img className="home-card__img ta-mini-card__img" src={imageSrc} alt={imageAlt} loading="lazy" />
+        {featured ? (
+          <span className="home-card__partner">{partnerLabel?.trim() || 'Featured'}</span>
+        ) : null}
       </div>
       <div className="mini-card__body home-card__body">
         <p className="mini-card__title home-card__title">{title}</p>
@@ -196,13 +203,24 @@ type JourneyHomeCardProps = {
   author: string
   days: number
   route: string
+  featured?: boolean
 }
 
-function JourneyHomeCard({ to, imageSrc, imageAlt, title, author, days, route }: JourneyHomeCardProps) {
+function JourneyHomeCard({
+  to,
+  imageSrc,
+  imageAlt,
+  title,
+  author,
+  days,
+  route,
+  featured,
+}: JourneyHomeCardProps) {
   return (
     <Link to={to} className="home-card home-card--journey mini-card ta-mini-card ta-mini-card--calm journey-card">
       <div className="home-card__media ta-mini-card__media">
         <img className="home-card__img ta-mini-card__img" src={imageSrc} alt={imageAlt} loading="lazy" />
+        {featured ? <span className="home-card__partner">Featured</span> : null}
       </div>
       <div className="journey-card__body mini-card__body home-card__body">
         <p className="journey-card__title mini-card__title home-card__title">{title}</p>
@@ -225,45 +243,68 @@ function JourneyHomeCard({ to, imageSrc, imageAlt, title, author, days, route }:
   )
 }
 
+function featuredUrl(path: string, region?: string, limit = 10) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (region?.trim()) params.set('region', region.trim())
+  return `${path}?${params.toString()}`
+}
+
 export function Home() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [heroSearch, setHeroSearch] = useState('')
+  const [announcementDismissed, setAnnouncementDismissed] = useState(false)
+  const region = profile?.region?.trim() ?? ''
 
-  const { data: stays, isLoading: staysLoading } = useQuery({
-    queryKey: ['home-stays'],
-    queryFn: () => apiFetch<StayHomeItem[]>('/api/accommodation/listings/?ordering=-created_at', { auth: false }),
+  const { data: stays = [], isLoading: staysLoading } = useFeaturedPlacement<StayHomeItem>(
+    `home-stays-${region}`,
+    featuredUrl(FEATURED_API.stays, region),
+  )
+  const { data: events = [], isLoading: eventsLoading } = useFeaturedPlacement<EventHomeItem>(
+    `home-events-${region}`,
+    featuredUrl(FEATURED_API.events, region),
+  )
+  const { data: food = [], isLoading: foodLoading } = useFeaturedPlacement<FoodHomeItem>(
+    `home-food-${region}`,
+    featuredUrl(FEATURED_API.food, region),
+  )
+  const { data: guides = [], isLoading: guidesLoading } = useFeaturedPlacement<GuideHomeItem>(
+    `home-guides-${region}`,
+    featuredUrl(FEATURED_API.guides, region),
+  )
+
+  const { data: announcement } = useQuery({
+    queryKey: ['home-announcement'],
+    queryFn: () => apiFetch<HomeAnnouncement>('/api/accounts/announcement/', { auth: false }),
+    staleTime: 60_000,
   })
 
-  const { data: events, isLoading: eventsLoading } = useQuery({
-    queryKey: ['home-events'],
-    queryFn: () => apiFetch<EventHomeItem[]>('/api/events/?ordering=starts_at', { auth: false }),
+  const { data: communityQuestions = [] } = useQuery({
+    queryKey: ['home-community-questions', profile?.region ?? ''],
+    queryFn: async () => {
+      const params = new URLSearchParams({ kind: 'question', limit: '4' })
+      if (profile?.region?.trim()) params.set('region', profile.region.trim())
+      const rows = await apiFetch<FeedPost[]>(`/api/social/feed/?${params}`, { auth: Boolean(profile) })
+      return asArray<FeedPost>(rows)
+    },
   })
 
-  const { data: food, isLoading: foodLoading } = useQuery({
-    queryKey: ['home-food'],
-    queryFn: () => apiFetch<FoodHomeItem[]>('/api/food/venues/?ordering=name', { auth: false }),
+  const { data: apiJourneys = [], isLoading: loadingJourneys } = useQuery({
+    queryKey: ['journeys', 'home', 'featured-first'],
+    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/?featured_first=1&limit=8', { auth: false }),
   })
 
-  const { data: guides, isLoading: guidesLoading } = useQuery({
-    queryKey: ['home-guides'],
-    queryFn: () => apiFetch<GuideHomeItem[]>('/api/guides/profiles/?ordering=-created_at', { auth: false }),
-  })
-
-  const stayItems = stays?.slice(0, 10) ?? []
-  const eventItems = events?.slice(0, 10) ?? []
-  const foodItems = food?.slice(0, 10) ?? []
-  const guideItems = guides?.slice(0, 10) ?? []
-  const journeyItems = mockTrips.slice(0, 8)
-
-  const storyPreview = {
-    stayImage: stayItems[0]?.cover_image ?? null,
-    eventImage: eventItems[0]?.cover_image ?? null,
-    foodImage: foodItems[0]?.cover_image ?? null,
-    guideImage: guideItems[0]?.photo ?? null,
-    vehicleImage: null,
-    pinImage: journeyItems[0]?.cover_image ?? null,
-    pinVideo: null,
-  }
+  const stayItems = stays.slice(0, 10)
+  const eventItems = events.slice(0, 10)
+  const foodItems = food.slice(0, 10)
+  const guideItems = guides.slice(0, 10)
+  const journeyItems = useMemo(
+    () => mergeJourneyFeeds(apiJourneys, mockTrips).slice(0, 8),
+    [apiJourneys],
+  )
+  const showAnnouncement =
+    Boolean(announcement?.active && (announcement.title.trim() || announcement.body.trim())) &&
+    !announcementDismissed
 
   function onHeroSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -310,7 +351,7 @@ export function Home() {
               <Link to="/search" className="btn btn-primary">
                 Start exploring
               </Link>
-              <Link to="/community" className="ta-hero__ghost">
+              <Link to="/create/ask" className="ta-hero__ghost">
                 Ask locals
               </Link>
             </div>
@@ -319,6 +360,27 @@ export function Home() {
       </section>
 
       <div className="home-content">
+        {showAnnouncement && announcement ? (
+          <aside className="home-announcement" role="status">
+            <div className="home-announcement__copy">
+              {announcement.title.trim() ? (
+                <strong className="home-announcement__title">{announcement.title}</strong>
+              ) : null}
+              {announcement.body.trim() ? (
+                <p className="home-announcement__body">{announcement.body}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="home-announcement__dismiss"
+              onClick={() => setAnnouncementDismissed(true)}
+              aria-label="Dismiss announcement"
+            >
+              ×
+            </button>
+          </aside>
+        ) : null}
+
         <section className="home-section ta-rail home-preview-section" aria-labelledby="home-highlights">
           <div className="ta-rail__head">
             <div>
@@ -328,7 +390,7 @@ export function Home() {
               <p className="ta-rail__sub">Quick travel paths across stays, transport, events, food, guides, and Delvers.</p>
             </div>
           </div>
-          <HomeStoriesRow preview={storyPreview} />
+          <HomeStoriesRow />
         </section>
 
         <HomeCategoryGrid items={categoryShortcuts} />
@@ -367,6 +429,8 @@ export function Home() {
                 title={s.title}
                 rating={{ avg: s.rating_avg, count: s.rating_count }}
                 meta={`${s.city ? `${s.city}, ` : ''}${s.region} · from $${s.price_per_night}/night`}
+                featured={Boolean(s.is_featured_partner)}
+                partnerLabel={s.partner_label}
               />
             ))}
           </div>
@@ -394,6 +458,8 @@ export function Home() {
                   month: 'short',
                   day: 'numeric',
                 })} · ${e.venue || e.region}`}
+                featured={Boolean(e.is_featured_partner)}
+                partnerLabel={e.partner_label}
               />
             ))}
           </div>
@@ -418,6 +484,8 @@ export function Home() {
                 title={f.name}
                 rating={{ avg: f.rating_avg, count: f.rating_count }}
                 meta={`${f.cuisine} · ${f.region}`}
+                featured={Boolean(f.is_featured_partner)}
+                partnerLabel={f.partner_label}
               />
             ))}
           </div>
@@ -442,6 +510,8 @@ export function Home() {
                 title={g.headline}
                 rating={{ avg: g.rating_avg, count: g.rating_count }}
                 meta={`@${g.username}${g.hourly_rate ? ` · from ${g.hourly_rate}/hr` : ''}`}
+                featured={Boolean(g.is_featured_partner)}
+                partnerLabel={g.partner_label}
               />
             ))}
           </div>
@@ -456,7 +526,7 @@ export function Home() {
               <p className="ta-rail__sub">Get practical answers about safety, prices, routes, stays, food, and events.</p>
             </div>
             <div className="home-section__head-actions">
-              <Link to="/community" className="home-section-cta">
+              <Link to="/create/ask" className="home-section-cta">
                 Ask locals
               </Link>
               <Link to="/community" className="section-see-all">
@@ -465,27 +535,38 @@ export function Home() {
             </div>
           </div>
           <div className="cm-qa-list home-preview-qa">
-            {communityPreview.map((q) => (
-              <Link key={q.id} to="/community" className="cm-qa-card home-qa-card">
-                <div className="cm-qa-card__header">
-                  <span className="cm-qa-card__avatar" aria-hidden>
-                    {q.initial}
-                  </span>
-                  <div className="cm-qa-card__meta">
-                    <span className="cm-qa-card__name">{q.author}</span>
-                    <span className="cm-qa-card__time">{q.time}</span>
-                  </div>
-                  <span className="cm-qa-card__region-tag">{q.region}</span>
-                </div>
-                <p className="cm-qa-card__question">{q.question}</p>
-                <div className="cm-qa-card__footer">
-                  <span className="cm-qa-card__answers-btn">
-                    <MessageSquare size={14} strokeWidth={2.25} aria-hidden />
-                    {q.answers} {q.answers === 1 ? 'answer' : 'answers'}
-                  </span>
-                </div>
+            {communityQuestions.length === 0 ? (
+              <Link to="/create/ask" className="cm-qa-card home-qa-card home-qa-card--empty">
+                <p className="cm-qa-card__question">Be the first to ask locals about routes, safety, or prices.</p>
               </Link>
-            ))}
+            ) : (
+              communityQuestions.map((q) => {
+                const name = q.author.display_name || q.author.username
+                return (
+                  <Link key={q.id} to={communityPostPermalinkPath(q.id)} className="cm-qa-card home-qa-card">
+                    <div className="cm-qa-card__header">
+                      <span className="cm-qa-card__avatar" aria-hidden>
+                        {name.charAt(0).toUpperCase()}
+                      </span>
+                      <div className="cm-qa-card__meta">
+                        <span className="cm-qa-card__name">{name}</span>
+                        <span className="cm-qa-card__time">{formatQuestionTime(q.created_at)}</span>
+                      </div>
+                      <span className="cm-qa-card__region-tag">{q.place_label || q.region || 'Ask locals'}</span>
+                    </div>
+                    <p className="cm-qa-card__question">{q.body}</p>
+                    <div className="cm-qa-card__footer">
+                      <span className="cm-qa-card__answers-btn">
+                        <MessageSquare size={14} strokeWidth={2.25} aria-hidden />
+                        {q.accepted_answer
+                          ? 'Accepted answer'
+                          : `${q.comments_count ?? 0} ${(q.comments_count ?? 0) === 1 ? 'answer' : 'answers'}`}
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })
+            )}
           </div>
         </section>
 
@@ -494,7 +575,7 @@ export function Home() {
           title="Real journeys"
           sub="Routes, costs, photos, and tips from travellers who went there."
           seeAllTo="/journeys"
-          loading={false}
+          loading={loadingJourneys}
           count={journeyItems.length}
           emptyMessage="No journeys yet."
           className="home-preview-section"
@@ -510,6 +591,7 @@ export function Home() {
                 author={t.author.display_name}
                 days={t.days}
                 route={journeyRouteLabel(t.stops)}
+                featured={Boolean(t.is_featured)}
               />
             ))}
           </div>

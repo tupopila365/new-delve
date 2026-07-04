@@ -1,15 +1,16 @@
 import { Link } from 'react-router-dom'
 import { Camera } from 'lucide-react'
+import { useListingMoments } from '../../hooks/useListingMoments'
+import { isRealPostId } from '../../utils/postPermalink'
 import { listingSeeAllPath } from '../../utils/listingSeeAll'
 import { ListingSection } from './ListingSection'
-import type { ListingMomentItem } from './types'
 import { useListingMomentsViewer } from './useListingMomentsViewer'
 import './listing-detail.css'
 
 type Props = {
-  moments: ListingMomentItem[]
   listingType: string
   listingId: string | number
+  listingTitle: string
   title?: string
   maxVisible?: number
   emptyMessage?: string
@@ -18,16 +19,26 @@ type Props = {
 }
 
 export function ListingDelversMoments({
-  moments,
   listingType,
   listingId,
+  listingTitle,
   title = 'From Delvers',
   maxVisible = 8,
   emptyMessage = 'No moments yet.',
   showWhenEmpty = false,
   className = '',
 }: Props) {
+  const { data: moments = [], isLoading } = useListingMoments(listingType, listingId, listingTitle)
   const { openMoment, overlay } = useListingMomentsViewer(['listing-moments', listingType, listingId])
+
+  if (isLoading) {
+    if (!showWhenEmpty) return null
+    return (
+      <ListingSection title={title} className={`listing-moments ${className}`.trim()}>
+        <p className="listing-moments__empty" role="status">Loading moments…</p>
+      </ListingSection>
+    )
+  }
 
   if (moments.length === 0 && !showWhenEmpty) return null
 
@@ -49,32 +60,41 @@ export function ListingDelversMoments({
       >
         {visible.length > 0 ? (
           <div className="listing-moments__strip">
-            {visible.map((moment) => (
-              <article key={moment.id} className="listing-moments__card">
-                {moment.image ? (
-                  <button
-                    type="button"
-                    className="listing-moments__thumb listing-moments__thumb--btn"
-                    onClick={() => openMoment(moments, moment.id)}
-                    aria-label={`View photo by @${moment.author}`}
-                  >
-                    <img src={moment.image} alt="" loading="lazy" decoding="async" />
-                  </button>
-                ) : (
-                  <div className="listing-moments__thumb">
-                    <div className="listing-moments__placeholder" aria-hidden>
-                      <Camera size={22} strokeWidth={1.75} />
+            {visible.map((moment) => {
+              const canOpen = Boolean(moment.image) || isRealPostId(moment.id)
+              return (
+                <article key={moment.id} className="listing-moments__card">
+                  {canOpen ? (
+                    <button
+                      type="button"
+                      className="listing-moments__thumb listing-moments__thumb--btn"
+                      onClick={() => openMoment(moments, moment.id)}
+                      aria-label={`View moment by @${moment.author}`}
+                    >
+                      {moment.image ? (
+                        <img src={moment.image} alt="" loading="lazy" decoding="async" />
+                      ) : (
+                        <div className="listing-moments__placeholder" aria-hidden>
+                          <Camera size={22} strokeWidth={1.75} />
+                        </div>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="listing-moments__thumb">
+                      <div className="listing-moments__placeholder" aria-hidden>
+                        <Camera size={22} strokeWidth={1.75} />
+                      </div>
                     </div>
-                  </div>
-                )}
-                <p className="listing-moments__body">
-                  <strong>@{moment.author}</strong> {moment.body}
-                  {moment.taggedListing ? (
-                    <span className="listing-moments__tag">@{moment.taggedListing}</span>
-                  ) : null}
-                </p>
-              </article>
-            ))}
+                  )}
+                  <p className="listing-moments__body">
+                    <strong>@{moment.author}</strong> {moment.body}
+                    {moment.taggedListing ? (
+                      <span className="listing-moments__tag">@{moment.taggedListing}</span>
+                    ) : null}
+                  </p>
+                </article>
+              )
+            })}
           </div>
         ) : (
           <p className="listing-moments__empty" role="status">

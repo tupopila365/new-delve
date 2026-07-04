@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_booking_for_listing
-from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember
+from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember, IsServiceProvider
 
 from .access import manageable_organizer_ids, user_can_manage_event, user_can_manage_event_template
 from .booking_serializers import (
@@ -87,7 +87,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
-            return [permissions.IsAuthenticated()]
+            return [permissions.IsAuthenticated(), IsServiceProvider()]
         if self.action in ("like", "save", "rsvp"):
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]

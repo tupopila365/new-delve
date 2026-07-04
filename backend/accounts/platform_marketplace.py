@@ -7,9 +7,10 @@ from django.db.models import Q
 
 from accommodation.models import AccommodationBooking, AccommodationListing
 from events_app.models import Event, EventBooking
-from food.models import FoodVenue
+from food.models import FoodReservation, FoodVenue
 from guides.models import GuideBooking, TourGuideProfile
-from social.models import Post
+from journeys.models import Journey
+from social.models import Post, PostKind
 from transport.models import BusTrip, SeatReservation, VehicleRentalBooking, VehicleRentalListing
 
 User = get_user_model()
@@ -23,9 +24,10 @@ LISTING_TYPES = (
     "event",
     "post",
     "community",
+    "journey",
 )
 
-BOOKING_TYPES = ("accommodation", "guide", "vehicle", "bus_seat")
+BOOKING_TYPES = ("accommodation", "guide", "vehicle", "bus_seat", "event", "food")
 
 
 def _matches_search(*values: str, query: str) -> bool:
@@ -45,6 +47,7 @@ def _listing_row(
     price_label: str = "",
     category_label: str = "",
     created_at=None,
+    is_featured: bool = False,
 ) -> dict:
     return {
         "id": f"{listing_type}:{listing_id}",
@@ -58,6 +61,7 @@ def _listing_row(
         "price_label": price_label,
         "category_label": category_label,
         "created_at": created_at.isoformat() if created_at else "",
+        "is_featured": is_featured,
     }
 
 
@@ -163,7 +167,11 @@ def list_platform_listings(
                 rows.append(row)
 
     if not type_filter or type_filter == "food":
+        from food.models import CuisineType
+
+        cuisine_labels = dict(CuisineType.choices)
         for item in FoodVenue.objects.select_related("owner").order_by("-created_at")[:120]:
+            cuisine = cuisine_labels.get(item.cuisine, item.cuisine)
             row = _listing_row(
                 listing_type="food",
                 listing_id=item.pk,
@@ -173,7 +181,7 @@ def list_platform_listings(
                 city=item.city,
                 published=item.is_active,
                 price_label=f"{'$' * item.price_level}" if item.price_level else "",
-                category_label="Food & drink",
+                category_label=f"Food · {cuisine}" if cuisine else "Food & drink",
                 created_at=item.created_at,
             )
             if include(row):
@@ -210,7 +218,12 @@ def list_platform_listings(
             lt = "post" if item.is_delvers else "community"
             if lt not in post_types:
                 continue
-            label = "Delvers post" if item.is_delvers else "Community post"
+            if item.post_kind == PostKind.QUESTION:
+                label = "Ask locals question"
+            elif item.is_delvers:
+                label = "Delvers post"
+            else:
+                label = "Community tip"
             body = (item.body or item.delvers_board or label)[:80]
             row = _listing_row(
                 listing_type=lt,
@@ -223,6 +236,28 @@ def list_platform_listings(
                 price_label="",
                 category_label=label,
                 created_at=item.created_at,
+            )
+            if include(row):
+                rows.append(row)
+
+    if not type_filter or type_filter == "journey":
+        for item in Journey.objects.select_related("author", "author__profile").order_by("-created_at")[:120]:
+            region = ""
+            first_stop = item.stops.order_by("order", "id").first()
+            if first_stop:
+                region = first_stop.region or ""
+            row = _listing_row(
+                listing_type="journey",
+                listing_id=item.pk,
+                title=item.title,
+                owner_username=item.author.username,
+                region=region,
+                city="",
+                published=not item.is_hidden and item.visibility == "public",
+                price_label=f"N${item.total_cost}" if item.total_cost else "",
+                category_label="Journey",
+                created_at=item.created_at,
+                is_featured=item.is_featured,
             )
             if include(row):
                 rows.append(row)
@@ -368,7 +403,58 @@ def set_listing_published(
             created_at=obj.created_at,
         )
 
+    if lt == "journey":
+        obj = Journey.objects.select_related("author").filter(pk=pk).first()
+        if not obj:
+            raise ValueError("Listing not found.")
+        obj.is_hidden = not published
+        if reason:
+            obj.moderation_reason = reason if not published else ""
+        region = ""
+        first_stop = obj.stops.order_by("order", "id").first()
+        if first_stop:
+            region = first_stop.region or ""
+        obj.save(update_fields=["is_hidden", "moderation_reason", "updated_at"])
+        return _listing_row(
+            listing_type=lt,
+            listing_id=pk,
+            title=obj.title,
+            owner_username=obj.author.username,
+            region=region,
+            published=not obj.is_hidden and obj.visibility == "public",
+            price_label=f"N${obj.total_cost}" if obj.total_cost else "",
+            category_label="Journey",
+            created_at=obj.created_at,
+            is_featured=obj.is_featured,
+        )
+
     raise ValueError(f"Unsupported listing_type: {listing_type}")
+
+
+def set_journey_featured(listing_id: int, *, featured: bool) -> dict:
+    from journeys.models import Journey
+
+    obj = Journey.objects.select_related("author").filter(pk=listing_id).first()
+    if not obj:
+        raise ValueError("Listing not found.")
+    obj.is_featured = featured
+    obj.save(update_fields=["is_featured", "updated_at"])
+    region = ""
+    first_stop = obj.stops.order_by("order", "id").first()
+    if first_stop:
+        region = first_stop.region or ""
+    return _listing_row(
+        listing_type="journey",
+        listing_id=listing_id,
+        title=obj.title,
+        owner_username=obj.author.username,
+        region=region,
+        published=not obj.is_hidden and obj.visibility == "public",
+        price_label=f"N${obj.total_cost}" if obj.total_cost else "",
+        category_label="Journey",
+        created_at=obj.created_at,
+        is_featured=obj.is_featured,
+    )
 
 
 def _booking_row(
@@ -455,12 +541,20 @@ def list_platform_bookings(
                 rows.append(row)
 
     if not type_filter or type_filter == "guide":
+        from guides.provider_serializers import _package_title
+
         for b in GuideBooking.objects.select_related("client", "guide", "guide__user").order_by("-created_at")[:120]:
+            pkg_title = _package_title(b.guide, b.package_id)
+            listing_title = (
+                f"{pkg_title} · {b.guide.headline}"
+                if (b.package_id or "").strip() and pkg_title != "Custom tour"
+                else b.guide.headline
+            )
             row = _booking_row(
                 booking_type="guide",
                 booking_id=b.pk,
                 customer_username=b.client.username,
-                listing_title=b.guide.headline,
+                listing_title=listing_title,
                 provider_username=b.guide.user.username,
                 status=b.status,
                 total_price=str(b.total_price),
@@ -534,6 +628,26 @@ def list_platform_bookings(
             if include(row):
                 rows.append(row)
 
+    if not type_filter or type_filter == "food":
+        for b in FoodReservation.objects.select_related("guest", "venue", "venue__owner").order_by(
+            "-created_at"
+        )[:120]:
+            row = _booking_row(
+                booking_type="food",
+                booking_id=b.pk,
+                customer_username=b.guest.username,
+                listing_title=b.venue.name,
+                provider_username=b.venue.owner.username,
+                status=b.status,
+                total_price="",
+                start_label=b.reserved_for.isoformat(),
+                end_label="",
+                created_at=b.created_at,
+                has_notes=_booking_has_notes("food", b.pk),
+            )
+            if include(row):
+                rows.append(row)
+
     rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
     return rows[:limit]
 
@@ -568,14 +682,23 @@ def get_platform_booking_detail(booking_type: str, booking_id: int) -> dict | No
             }
 
     elif bt == "guide":
+        from guides.provider_serializers import _package_title
+
         b = GuideBooking.objects.select_related("client", "guide", "guide__user").filter(pk=pk).first()
         if b:
+            pkg_title = _package_title(b.guide, b.package_id)
+            listing_title = (
+                f"{pkg_title} · {b.guide.headline}"
+                if (b.package_id or "").strip() and pkg_title != "Custom tour"
+                else b.guide.headline
+            )
+            start_time = b.start_time.strftime("%H:%M") if b.start_time else ""
             base = {
                 **_booking_row(
                     booking_type=bt,
                     booking_id=pk,
                     customer_username=b.client.username,
-                    listing_title=b.guide.headline,
+                    listing_title=listing_title,
                     provider_username=b.guide.user.username,
                     status=b.status,
                     total_price=str(b.total_price),
@@ -584,11 +707,15 @@ def get_platform_booking_detail(booking_type: str, booking_id: int) -> dict | No
                     created_at=b.created_at,
                 ),
                 "group_size": b.group_size,
-                "duration_hours": str(b.duration_hours),
+                "duration_hours": b.duration_hours,
                 "meeting_point": b.meeting_point,
                 "package_id": b.package_id,
+                "package_title": pkg_title,
+                "start_time": start_time,
                 "notes": b.notes,
                 "mock_payment_ref": b.mock_payment_ref,
+                "guide_id": b.guide_id,
+                "guide_headline": b.guide.headline,
             }
 
     elif bt == "vehicle":
@@ -655,6 +782,26 @@ def get_platform_booking_detail(booking_type: str, booking_id: int) -> dict | No
                 "booking_ref": b.booking_ref,
                 "special_requests": b.special_requests,
                 "mock_payment_ref": b.mock_payment_ref,
+            }
+
+    elif bt == "food":
+        b = FoodReservation.objects.select_related("guest", "venue", "venue__owner").filter(pk=pk).first()
+        if b:
+            base = {
+                **_booking_row(
+                    booking_type=bt,
+                    booking_id=pk,
+                    customer_username=b.guest.username,
+                    listing_title=b.venue.name,
+                    provider_username=b.venue.owner.username,
+                    status=b.status,
+                    total_price="",
+                    start_label=b.reserved_for.isoformat(),
+                    end_label="",
+                    created_at=b.created_at,
+                ),
+                "party_size": b.party_size,
+                "special_requests": b.special_requests,
             }
 
     if not base:

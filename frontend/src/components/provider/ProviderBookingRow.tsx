@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import type { ProviderBooking } from '../../data/providerData'
-import { messageUserPath } from '../messages/messageProviderUtils'
+import {
+  messageUserPath,
+  type MessagePlaceContext,
+} from '../messages/messageProviderUtils'
 import { BookingStatusBadge } from '../booking'
 
 type Props = {
@@ -9,10 +12,20 @@ type Props = {
   showActions?: boolean
 }
 
-export function ProviderBookingRow({ booking, showActions = true }: Props) {
-  const canConfirm = ['requested', 'pending', 'reserved'].includes(booking.status)
-  const canComplete = ['confirmed', 'checked_in', 'accepted', 'paid'].includes(booking.status)
+function bookingPlace(booking: ProviderBooking): MessagePlaceContext | null {
+  const typeByCategory: Record<string, MessagePlaceContext['type']> = {
+    Stay: 'booking_stay',
+    Guide: 'booking_guide',
+    Transport: 'booking_vehicle',
+    Food: 'booking_food',
+    Event: 'event',
+  }
+  const type = typeByCategory[booking.category]
+  if (!type) return null
+  return { type, id: booking.id, label: booking.service }
+}
 
+export function ProviderBookingRow({ booking, showActions = true }: Props) {
   return (
     <div className="prov-booking-row">
       <div className="prov-booking-row__guest">
@@ -44,18 +57,8 @@ export function ProviderBookingRow({ booking, showActions = true }: Props) {
       ) : null}
       {showActions ? (
         <div className="prov-booking-row__actions">
-          {canConfirm ? (
-            <button type="button" className="btn btn-primary btn--sm" title="Confirm action coming soon">
-              Confirm
-            </button>
-          ) : null}
-          {canComplete ? (
-            <button type="button" className="btn btn-ghost btn--sm" disabled title="Mark completed coming soon">
-              Complete
-            </button>
-          ) : null}
           <Link
-            to={messageUserPath(booking.guestUsername, 'provider')}
+            to={messageUserPath(booking.guestUsername, 'provider', bookingPlace(booking))}
             state={{ from: '/provider/bookings', guestName: booking.guest }}
             className="btn btn-ghost btn--sm"
           >

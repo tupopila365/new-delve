@@ -113,6 +113,18 @@
   grid-template-columns: 1fr;
 }
 
+.up__businesses-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(255, 250, 242, 0.68);
+}
+
+.up__businesses-empty a {
+  color: #ff9a52;
+  font-weight: 700;
+}
+
 .up__business-card,
 .up__card,
 .up__post-card,
@@ -281,6 +293,32 @@
 .up__panel-actions {
   margin-bottom: 8px;
   padding: 0 2px;
+}
+
+.up__post-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0 2px;
+}
+
+.up__post-filter {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.up__post-filter--active {
+  border-color: rgba(232, 98, 10, 0.45);
+  background: rgba(232, 98, 10, 0.14);
+  color: #ff9a52;
 }
 
 .up__panel-actions .btn {
@@ -463,6 +501,13 @@ button.up__post-card--btn {
   color: rgba(255, 255, 255, 0.45);
   font-size: 0.8rem;
   font-weight: 650;
+}
+
+.up__private-follow {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .up__sk-head {

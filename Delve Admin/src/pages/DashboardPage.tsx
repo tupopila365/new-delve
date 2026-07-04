@@ -106,6 +106,7 @@ export function DashboardPage() {
       { value: overview.bookings_stays, label: 'Stay bookings' },
       { value: overview.bookings_guides, label: 'Guide bookings' },
       { value: overview.bookings_transport, label: 'Transport bookings' },
+      { value: overview.bookings_food ?? 0, label: 'Food bookings' },
     ]
   }, [overview])
 

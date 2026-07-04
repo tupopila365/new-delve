@@ -18,6 +18,8 @@ export type DelversFeedPost = {
   is_sponsored?: boolean
   sponsor_label?: string
   promotion_id?: number
+  listing?: { id: number; title: string } | null
+  event?: { id: number; title: string } | null
 }
 
 export type DelversFeedItem = DelversFeedPost | SponsoredListingFeedItem

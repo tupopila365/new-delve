@@ -7,9 +7,10 @@ type Props = {
   postId: number
   onClose: () => void
   onCommented: () => void
+  placeholder?: string
 }
 
-export function DelversCommentComposer({ postId, onClose, onCommented }: Props) {
+export function DelversCommentComposer({ postId, onClose, onCommented, placeholder = 'Write a comment...' }: Props) {
   const [body, setBody] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
@@ -49,7 +50,7 @@ export function DelversCommentComposer({ postId, onClose, onCommented }: Props) 
         <textarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          placeholder="Write a comment..."
+          placeholder={placeholder}
           rows={2}
           maxLength={500}
           autoFocus

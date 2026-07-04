@@ -1,6 +1,6 @@
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Bot, Loader2, Send, UserRound } from 'lucide-react'
+import { ArrowLeft, Ban, Bot, Loader2, Send, UserRound } from 'lucide-react'
 import { ReportButton } from '../../report/ReportButton'
 import { DM_QUICK_REPLIES, formatMessageTime, PROVIDER_DM_QUICK_REPLIES, type AutomatedMessage } from './messagingUtils'
 import type { MessagingContext } from '../messageProviderUtils'
@@ -11,6 +11,8 @@ export type DmMessage = {
   sender_username: string
   body: string
   created_at?: string
+  pending?: boolean
+  failed?: boolean
 }
 
 type Person = {
@@ -42,6 +44,12 @@ type Props = {
   context?: MessagingContext
   quickReplies?: readonly string[]
   reportTarget?: { target_type: string; target_id: string; target_label?: string }
+  hasMore?: boolean
+  loadingOlder?: boolean
+  onLoadOlder?: () => void
+  typingUsernames?: string[]
+  onBlock?: () => void
+  blocking?: boolean
 }
 
 export function DmChatView({
@@ -65,6 +73,12 @@ export function DmChatView({
   context = 'user',
   quickReplies,
   reportTarget,
+  hasMore = false,
+  loadingOlder = false,
+  onLoadOlder,
+  typingUsernames = [],
+  onBlock,
+  blocking = false,
 }: Props) {
   const location = [person.city, person.region].filter(Boolean).join(', ')
   const showAutomated = automatedMessages.length > 0 && messages.length === 0 && !loading
@@ -101,6 +115,22 @@ export function DmChatView({
             </small>
           </span>
         </Link>
+        {onBlock ? (
+          <button
+            type="button"
+            className="dm-chat__block"
+            onClick={onBlock}
+            disabled={blocking}
+            aria-label={`Block ${personName}`}
+            title={`Block ${personName}`}
+          >
+            {blocking ? (
+              <Loader2 size={16} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+            ) : (
+              <Ban size={16} strokeWidth={2.25} aria-hidden />
+            )}
+          </button>
+        ) : null}
         {reportTarget ? (
           <ReportButton
             className="dm-chat__report"
@@ -114,7 +144,7 @@ export function DmChatView({
         </Link>
       </header>
 
-      {statusSlot}
+      {statusSlot ? <div className="dm-chat__status">{statusSlot}</div> : null}
 
       <div className="dm-chat__thread" aria-label="Messages" aria-live="polite">
         {opening ? (
@@ -133,6 +163,26 @@ export function DmChatView({
 
         {!opening && !loading ? (
           <>
+            {hasMore && onLoadOlder ? (
+              <div className="dm-chat__load-older">
+                <button
+                  type="button"
+                  className="dm-chat__load-older-btn"
+                  onClick={onLoadOlder}
+                  disabled={loadingOlder}
+                >
+                  {loadingOlder ? (
+                    <>
+                      <Loader2 size={14} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+                      Loading…
+                    </>
+                  ) : (
+                    'Load earlier messages'
+                  )}
+                </button>
+              </div>
+            ) : null}
+
             {showAutomated
               ? automatedMessages.map((msg) => (
                   <article key={msg.id} className="dm-chat__bubble dm-chat__bubble--auto">
@@ -152,13 +202,32 @@ export function DmChatView({
               return (
                 <article
                   key={message.id}
-                  className={`dm-chat__bubble ${mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs'}`.trim()}
+                  className={[
+                    'dm-chat__bubble',
+                    mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs',
+                    message.pending ? 'dm-chat__bubble--pending' : '',
+                    message.failed ? 'dm-chat__bubble--failed' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 >
                   <p>{message.body}</p>
-                  {message.created_at ? <small>{formatMessageTime(message.created_at)}</small> : null}
+                  {message.pending ? (
+                    <small>Sending…</small>
+                  ) : message.created_at ? (
+                    <small>{formatMessageTime(message.created_at)}</small>
+                  ) : null}
                 </article>
               )
             })}
+
+            {typingUsernames.length > 0 ? (
+              <p className="dm-chat__typing" aria-live="polite">
+                {typingUsernames.length === 1
+                  ? `${personName} is typing…`
+                  : 'They are typing…'}
+              </p>
+            ) : null}
           </>
         ) : null}
       </div>

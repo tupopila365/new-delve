@@ -8,20 +8,17 @@ import { VehicleDetailView, type VehicleBooking } from '../components/transport'
 import { renterUploadFromFile } from '../components/booking/transport/RenterDocumentUploads'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { missingRenterDocuments, type RenterDocumentUpload } from '../data/renterDocuments'
 import type { VehicleListing } from '../utils/transportListing'
-
-const DEFAULT_QUESTIONS = [
-  { id: 'v1', author: 'Jonas T.', body: 'Ask about gravel-road insurance before heading north.', ago: '1d ago' },
-  { id: 'v2', author: 'Priya M.', body: 'Airport pickup was smooth — allow 20 min at Hosea Kutako.', ago: '4d ago' },
-]
 
 export function VehicleDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { canManageListingForOwner } = useBusinessAccess()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [start, setStart] = useState('')
@@ -54,6 +51,7 @@ export function VehicleDetail() {
     onSuccess: (b) => {
       setBooking(b)
       void qc.invalidateQueries({ queryKey: ['veh-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'vehicles'] })
     },
     onError: (e) => setErr(friendlyApiMessage(e, "We couldn't save that request. Try again.")),
   })
@@ -163,6 +161,11 @@ export function VehicleDetail() {
     )
   }
 
+  const canAnswer =
+    Boolean(profile) &&
+    Boolean(vehicle) &&
+    canManageListingForOwner(vehicle.owner_username)
+
   return (
     <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page" toast={shareMsg || null}>
       <VehicleDetailView
@@ -171,7 +174,7 @@ export function VehicleDetail() {
         saved={saved}
         onSave={() => setSaved((s) => !s)}
         onShare={() => onShare(vehicle.title)}
-        initialQuestions={DEFAULT_QUESTIONS}
+        canAnswer={canAnswer}
         booking={{
           start,
           end,

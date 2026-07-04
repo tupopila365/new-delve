@@ -23,6 +23,7 @@ npx tsc --noEmit     # typecheck without emit
 |----------|---------|---------|
 | `VITE_API_URL` | `''` (same origin) | Django API base URL, e.g. `http://127.0.0.1:8000` |
 | `VITE_USE_MOCKS` | `true` in `.env.development` | When `true`, some paths use mock API responses |
+| `VITE_ADMIN_APP_URL` | `http://localhost:5174` | Delve Admin console URL for staff handoff from `/admin` |
 
 Create `frontend/.env.local` for local overrides (do not commit secrets):
 
@@ -40,7 +41,7 @@ Tokens are stored in `localStorage` (`delve_access`, `delve_refresh`). No API ke
 | **Logged-out visitor** | Use incognito | Public browse, search, detail pages; sign-in prompts on protected actions |
 | **Traveller** | Register as “Explorer” | Dashboard, profile, create flows, messages, bookings |
 | **Provider** | Register as “Service provider” + seed business | `/provider`, category admin, listings/bookings (API or demo) |
-| **Admin** | Django `is_staff` on user | `/admin` routes; non-staff see “Admin access required” |
+| **Admin** | Django `is_staff` on user | Traveller `/admin` redirects to Delve Admin (`:5174`); non-staff see access gate |
 
 Frontend role checks are **UI only** — real authorization is enforced by the Django API.
 
@@ -53,7 +54,7 @@ Frontend role checks are **UI only** — real authorization is enforced by the D
 
 ### Detail
 - `/accommodation/:id`, `/food/:id`, `/guides/:id`, `/events/:id`
-- `/transport/vehicle/:id`, `/transport/bus/:id`, `/journeys/:id`, `/posts/:id`
+- `/transport/vehicle/:id`, `/transport/bus/:id`, `/journeys/:id`, `/delvers/posts/:id`
 - `/u/:username`, `/business/:id`
 
 ### Traveller (sign in required for most)
@@ -65,10 +66,12 @@ Frontend role checks are **UI only** — real authorization is enforced by the D
 - `/provider/stays`, `/provider/guides`, `/provider/transport`, `/provider/food`
 
 ### Admin (`is_staff`)
-- `/admin`, `/admin/users`, `/admin/businesses`, `/admin/bookings`
+- Traveller app `/admin/*` → redirects to **Delve Admin** console (`http://localhost:5174/admin/...`)
+- Delve Admin: dashboard, users, verifications, email queue, moderation, bookings, analytics
 
 ### Auth
 - `/login`, `/register`, `/verify-email`
+- `/forgot-password`, `/reset-password` (logged-out password reset)
 
 ## Demo / mock features (safe for beta)
 
@@ -78,10 +81,8 @@ These use **demo or local data** — clearly not production payments or destruct
 |------|-----------|
 | Provider dashboard bookings table | Demo rows from `providerData.ts` when no API owner match |
 | Guides / Transport / Food category admin | Mock listings & reservations for UI testing |
-| Community Q&A | Local/demo questions; “Post question” is preview-only |
+| Community Q&A | Live feed from `/api/social/feed/`; posts also appear on `/community` |
 | Journeys created via `/journeys/new` | Saved to `localStorage` (`delve_user_trips_v1`) |
-| Platform admin bookings page | Demo table (not live API) |
-| Admin “Verifications / Reports / Analytics” nav | Links to overview anchors — preview only |
 | Stay provider **Refund** button | Disabled during beta; label shows “(beta)” |
 | Guide / vehicle / bus **practice payment** | Simulated request flow, not real charges |
 
@@ -89,11 +90,21 @@ These use **demo or local data** — clearly not production payments or destruct
 
 - **Payments**: No real card processing; booking flows submit practice requests.
 - **Refunds / suspend / bulk admin actions**: Placeholders or disabled where backend is incomplete.
-- **Community**: Not fully wired to moderation API.
+- **Community**: Wired to social feed API; moderation uses admin content tools.
 - **Saved places** on dashboard: Placeholder until saved-items API is unified.
 - **Search “Journeys” chip**: Removed until search API returns journey results.
 - **PWA / bundle size**: Main JS chunk ~870 KB — acceptable for beta; code-splitting is a post-beta improvement.
 - **Frontend permissions**: Hiding nav items ≠ security; always validate on the server.
+- **Music on posts**: Not supported — users upload **image or video only** (video may include its own captured audio track). No user-uploaded audio files.
+- **Licensed music library**: Out of scope for beta.
+
+## Account lifecycle (Phases 10–11)
+
+| Flow | Where | Notes |
+|------|--------|--------|
+| Change password (signed in) | Settings → Account | Requires current password |
+| Forgot password | `/forgot-password` | Email link → `/reset-password?token=…` |
+| Delete account | Settings → Account → Danger zone | Type username + password; anonymizes PII, hides posts |
 
 ## Beta testing checklist
 
@@ -104,10 +115,10 @@ These use **demo or local data** — clearly not production payments or destruct
 3. Open a stay, food venue, guide, event, and transport listing.
 4. Try save/share on a detail page (logged in).
 5. Browse `/journeys` and open a journey detail.
-6. Ask a question on `/community` (preview form).
-7. Create a Delvers post (`/delvers/new` or `/create`).
+6. Ask a question on `/community` or post to the feed from `/create`.
+7. Create a Delvers post (`/create/post`, `/stories/new` for highlights, or `/delvers`).
 8. Create a journey (`/journeys/new`) — should appear on your profile.
-9. Open `/dashboard`, `/account`, `/settings`.
+9. Open `/dashboard`, `/account`, `/settings` (try password change; account delete is under Danger zone).
 10. Note: anything confusing, broken, or that looks like a dead end.
 
 ### Provider tester
@@ -122,11 +133,12 @@ These use **demo or local data** — clearly not production payments or destruct
 
 ### Admin tester
 
-1. Sign in as `is_staff` user.
-2. Open `/admin` overview.
-3. Browse Users, Businesses, Bookings.
-4. Confirm non-admin account does **not** see Platform admin in profile menu.
-5. Note pending verifications/reports as preview-only.
+1. Sign in as `is_staff` user (e.g. `admin@delve.local` after `seed_delve`).
+2. From the traveller app, open **Delve Admin console** in Account or profile menu — should land on `http://localhost:5174`.
+3. Or visit `/admin` on the traveller app — should redirect to Delve Admin (deep link e.g. `/admin/users` → `/admin/users`).
+4. In Delve Admin: Dashboard, Users, Verifications, Email verification, Reports, Moderation.
+5. Confirm non-admin account does **not** see admin links in profile menu.
+6. Confirm staff promote/suspend actions appear in Activity feed (audit log).
 
 ### What to record
 
@@ -135,10 +147,18 @@ These use **demo or local data** — clearly not production payments or destruct
 - What you expected vs what happened.
 - Flows you would not trust with real money or data.
 
-## Build status (Stage 9)
+## Build status (Stage 9 + Phases 8–18)
 
 - `npm run build` — **passes** (TypeScript + Vite production build)
 - `npm run lint` — warnings only on hook deps in list pages; no blocking errors in core paths
+- Backend `manage.py test` — **100+ tests** including Delvers cohesion smoke (feed, profile, moments, moderation hide)
+- Mock API (`VITE_USE_MOCKS=true`) — password reset, account delete, and audio rejection on post create
+
+### Delvers terminology (Phase 18)
+
+- **Highlights** — short photo/video collections on `/delvers` (creator rings at top)
+- **Stay stories** — host-only reels on the Stays page (`/provider/stays` → host story flow)
+- Post permalinks: `/delvers/posts/:id`
 
 ## Recommended next steps (post–Stage 9)
 
@@ -147,3 +167,4 @@ These use **demo or local data** — clearly not production payments or destruct
 3. Unified saved-items and community APIs.
 4. Real payment provider integration behind feature flags.
 5. Split large CSS bundle / lazy-load admin and provider shells.
+6. Licensed music library (server-hosted tracks only — still no user uploads).

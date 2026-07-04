@@ -61,3 +61,21 @@
 .create-studio-header__spacer {
   width: 40px;
 }
+
+.create-studio-header--light {
+  border-bottom-color: var(--hairline, rgba(28, 20, 16, 0.12));
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.create-studio-header--light .create-studio-header__icon {
+  background: rgba(28, 20, 16, 0.06);
+  color: var(--text, #1c1410);
+}
+
+.create-studio-header--light .create-studio-header__copy strong {
+  color: var(--text, #1c1410);
+}
+
+.create-studio-header--light .create-studio-header__copy span {
+  color: var(--text-secondary, #6b5d52);
+}

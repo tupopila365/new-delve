@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Bus } from 'lucide-react'
@@ -8,19 +8,17 @@ import { BusTripDetailView } from '../components/transport'
 import type { GroupReserveResponse, Reservation } from '../components/booking/transport/BusTripReserveCard'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
+import { isSeatBlockValid, seatBlockForStart } from '../utils/transportSeatBlock'
 import type { BusTripListing } from '../utils/transportListing'
-
-const DEFAULT_QUESTIONS = [
-  { id: 'b1', author: 'Sam N.', body: 'Is there a stop in Rehoboth on this run?', ago: '3d ago' },
-  { id: 'b2', author: 'Leah P.', body: 'Does this route stop for food in Rehoboth?', ago: '1w ago' },
-]
 
 export function BusTripDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { canManageListingForOwner } = useBusinessAccess()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [passengers, setPassengers] = useState(1)
@@ -39,20 +37,19 @@ export function BusTripDetail() {
 
   const blockSeats = useMemo(() => {
     if (firstSeat == null || !trip) return []
-    const out: number[] = []
-    for (let i = 0; i < passengers; i += 1) {
-      const n = firstSeat + i
-      if (n > trip.total_seats) return []
-      out.push(n)
-    }
-    return out
+    return seatBlockForStart(firstSeat, passengers)
   }, [firstSeat, passengers, trip])
 
   const blockValid = useMemo(() => {
     if (!trip || !blockSeats.length) return false
-    if (blockSeats.length !== passengers) return false
-    return blockSeats.every((n) => !taken.has(n))
+    return isSeatBlockValid(blockSeats, trip.total_seats, passengers, taken)
   }, [blockSeats, passengers, taken, trip])
+
+  useEffect(() => {
+    if (firstSeat != null && !blockValid) {
+      setFirstSeat(null)
+    }
+  }, [firstSeat, blockValid])
 
   const totalPrice = useMemo(() => {
     if (!trip) return null
@@ -71,8 +68,13 @@ export function BusTripDetail() {
     onSuccess: (data) => {
       setGroup(data)
       void qc.invalidateQueries({ queryKey: ['trip', id] })
+      void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'seats'] })
     },
-    onError: (e) => setErr(friendlyApiMessage(e, "That block couldn't be reserved. Try other seats.")),
+    onError: (e) => {
+      setErr(friendlyApiMessage(e, "That block couldn't be reserved. Try other seats."))
+      void qc.invalidateQueries({ queryKey: ['trip', id] })
+      setFirstSeat(null)
+    },
   })
 
   const payMut = useMutation({
@@ -178,6 +180,12 @@ export function BusTripDetail() {
     )
   }
 
+  const operatorOwner = trip.route_detail.operator_owner_username
+  const canAnswer =
+    Boolean(profile) &&
+    Boolean(operatorOwner) &&
+    canManageListingForOwner(operatorOwner)
+
   return (
     <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page" toast={shareMsg || null}>
       <BusTripDetailView
@@ -186,7 +194,7 @@ export function BusTripDetail() {
         saved={saved}
         onSave={() => setSaved((s) => !s)}
         onShare={() => onShare(`${trip.route_detail.origin} to ${trip.route_detail.destination}`)}
-        initialQuestions={DEFAULT_QUESTIONS}
+        canAnswer={canAnswer}
         booking={{
           passengers,
           seatPref,

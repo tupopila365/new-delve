@@ -20,6 +20,7 @@ import type { ListingDetailRow, ListingGalleryItem, ListingLabelItem } from '../
 import { mediaUrl } from '../api/client'
 import type { TourPackage } from '../components/guide/types'
 import type { SimilarGuide } from '../components/guide/GuideSimilarGuides'
+import type { VenueStoryChannelInput } from '../components/food/stories/types'
 
 export type GuideProfile = {
   id: number
@@ -44,6 +45,11 @@ export type GuideProfile = {
   languages_detail?: unknown
   portfolio_gallery?: unknown
   default_meeting_point?: string
+  guide_stories?: VenueStoryChannelInput[]
+  saved_by_me?: boolean
+  saves_count?: number
+  has_reviewed?: boolean
+  can_review?: boolean
 }
 
 export type PortfolioItem = { src: string; caption?: string }

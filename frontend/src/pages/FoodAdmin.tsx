@@ -1,32 +1,180 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import { apiFetch } from '../api/client'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
-import { mockFood } from '../mocks/mockData'
 import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
+import {
+  EMPTY_FOOD_VENUE_FORM,
+  FoodMonetizationSection,
+  FoodVenueCard,
+  FoodVenueForm,
+  buildFoodVenueFormData,
+  formToVenuePayload,
+  venueToForm,
+  type ProviderFoodVenue,
+} from '../components/provider/food'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { ListSkeleton } from '../components/ui'
+import { bookingStatusLabel } from '../components/booking'
+import '../components/provider/transport/transport-admin.css'
+import '../components/provider/transport/transport-listing.css'
 
-const MOCK_REVIEWS = [
-  { id: 1, guest: 'Amara D.', venue: 'Oryx Grill House', rating: 5, body: 'Best oryx steak in Windhoek. Smoky, juicy, and perfectly seasoned. The service was warm and attentive.' },
-  { id: 2, guest: 'Lukas B.', venue: 'Coastal Café', rating: 4.8, body: 'Morning coffee and a fresh croissant with the sea breeze — perfect way to start the day in Swakopmund.' },
-  { id: 3, guest: 'Priya N.', venue: 'Oryx Grill House', rating: 4.7, body: 'Amazing local flavours. The warthog ribs were incredible. Will definitely be back.' },
-]
+type ProviderFoodReservation = {
+  id: number
+  venue: number
+  venue_name: string
+  guest_username: string
+  guest_display_name?: string | null
+  reserved_for: string
+  party_size: number
+  special_requests?: string
+  status: string
+}
 
-const MOCK_RESERVATIONS = [
-  { id: 1, guest: 'Anna K.', venue: 'Oryx Grill House', date: '2026-05-10 19:00', guests: 4, status: 'confirmed' },
-  { id: 2, guest: 'Sam W.', venue: 'Coastal Café', date: '2026-05-12 09:00', guests: 2, status: 'confirmed' },
-  { id: 3, guest: 'James O.', venue: 'Oryx Grill House', date: '2026-05-14 20:00', guests: 6, status: 'pending' },
-]
+const RESERVATION_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'confirmed', label: 'Confirmed' },
+  { id: 'checked_in', label: 'Seated' },
+  { id: 'cancelled', label: 'Cancelled' },
+] as const
 
-const PRICE_LABEL = ['', '$', '$$', '$$$', '$$$$']
+const RESERVATION_ACTIONS: Record<string, { label: string; action: string }[]> = {
+  pending: [
+    { label: 'Confirm', action: 'confirm' },
+    { label: 'Cancel', action: 'cancel' },
+  ],
+  confirmed: [
+    { label: 'Mark seated', action: 'check_in' },
+    { label: 'Cancel', action: 'cancel' },
+  ],
+  checked_in: [{ label: 'Complete', action: 'check_out' }],
+}
 
-function stars(n: number) {
-  return '★'.repeat(Math.round(n)) + '☆'.repeat(5 - Math.round(n))
+function formatReservationWhen(iso: string) {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString('en-NA', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
 }
 
 export function FoodAdmin() {
   const { profile } = useAuth()
-  const { canAccessProvider } = useBusinessAccess()
+  const qc = useQueryClient()
+  const { canAccessProvider, canManageListings, canManageBookings, isViewerOnly } = useBusinessAccess()
   const [tab, setTab] = useState<'venues' | 'reservations' | 'reviews'>('venues')
+  const [reservationFilter, setReservationFilter] = useState('all')
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<number | null>(null)
+  const [form, setForm] = useState(EMPTY_FOOD_VENUE_FORM)
+  const [formError, setFormError] = useState('')
+
+  const { data: venues = [], isLoading } = useQuery({
+    queryKey: ['provider-food-venues'],
+    enabled: Boolean(profile && canAccessProvider),
+    queryFn: () => apiFetch<ProviderFoodVenue[]>('/api/food/provider-venues/'),
+  })
+
+  const reservationsUrl =
+    reservationFilter === 'all'
+      ? '/api/food/provider-reservations/'
+      : `/api/food/provider-reservations/?status=${reservationFilter}`
+
+  const { data: reservations = [], isLoading: loadingReservations } = useQuery({
+    queryKey: ['provider-food-reservations', reservationFilter],
+    enabled: Boolean(profile && canAccessProvider),
+    queryFn: () => apiFetch<ProviderFoodReservation[]>(reservationsUrl),
+  })
+
+  const reservationActionMut = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: string }) =>
+      apiFetch<ProviderFoodReservation>(`/api/food/provider-reservations/${id}/${action}/`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-food-reservations'] })
+      void qc.invalidateQueries({ queryKey: ['my-bookings', 'food'] })
+    },
+    onError: (err) => setFormError(friendlyApiMessage(err, 'Could not update reservation.')),
+  })
+
+  const reviewQueries = useQueries({
+    queries: venues.map((venue) => ({
+      queryKey: ['food-reviews', venue.id],
+      enabled: tab === 'reviews' && venues.length > 0,
+      queryFn: () =>
+        apiFetch<{ reviews: { name: string; rating: number; body: string; source?: string }[] }>(
+          `/api/food/venues/${venue.id}/reviews/`,
+          { auth: false },
+        ),
+    })),
+  })
+
+  const providerReviews = useMemo(() => {
+    const rows: { id: string; guest: string; venue: string; rating: number; body: string }[] = []
+    venues.forEach((venue, index) => {
+      const payload = reviewQueries[index]?.data
+      for (const review of payload?.reviews ?? []) {
+        if (review.source === 'traveler') {
+          rows.push({
+            id: `${venue.id}-${review.name}`,
+            guest: review.name,
+            venue: venue.name,
+            rating: review.rating,
+            body: review.body,
+          })
+        }
+      }
+    })
+    return rows
+  }, [venues, reviewQueries])
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const hasUploads = Boolean(form.cover_image_file) || form.gallery_files.length > 0
+      const body = hasUploads ? buildFoodVenueFormData(form) : JSON.stringify(formToVenuePayload(form))
+      if (editId) {
+        return apiFetch<ProviderFoodVenue>(`/api/food/provider-venues/${editId}/`, {
+          method: 'PATCH',
+          body,
+        })
+      }
+      return apiFetch<ProviderFoodVenue>('/api/food/provider-venues/', {
+        method: 'POST',
+        body,
+      })
+    },
+    onSuccess: () => {
+      setShowForm(false)
+      setEditId(null)
+      setForm(EMPTY_FOOD_VENUE_FORM)
+      setFormError('')
+      void qc.invalidateQueries({ queryKey: ['provider-food-venues'] })
+      void qc.invalidateQueries({ queryKey: ['food'] })
+    },
+    onError: (err) => setFormError(friendlyApiMessage(err, 'Could not save venue.')),
+  })
+
+  const stats = useMemo(() => {
+    const avgRating = venues.length
+      ? (
+          venues.reduce((sum, v) => sum + (parseFloat(v.rating_avg ?? '0') || 0), 0) / venues.length
+        ).toFixed(2)
+      : '—'
+    const totalReviews = venues.reduce((sum, v) => sum + (v.rating_count ?? 0), 0)
+    const missingPhotos = venues.filter((v) => !v.cover_image && !v.photos?.length).length
+    return { avgRating, totalReviews, missingPhotos }
+  }, [venues])
 
   if (!profile) return <Navigate to="/login" replace />
   if (!canAccessProvider) {
@@ -37,37 +185,38 @@ export function FoodAdmin() {
     )
   }
 
-  const myVenues = mockFood.filter((f) => f.owner_username === profile.username)
-  const myReviews = MOCK_REVIEWS.filter((r) => myVenues.some((v) => v.name === r.venue))
-  const myReservations = MOCK_RESERVATIONS.filter((r) => myVenues.some((v) => v.name === r.venue))
+  function openCreate() {
+    setEditId(null)
+    setForm(EMPTY_FOOD_VENUE_FORM)
+    setFormError('')
+    setShowForm(true)
+  }
 
-  const avgRating = myVenues.length
-    ? (myVenues.reduce((s, v) => s + parseFloat(v.rating_avg), 0) / myVenues.length).toFixed(2)
-    : '—'
-  const totalReviews = myVenues.reduce((s, v) => s + v.rating_count, 0)
-
-  const pendingReservations = myReservations.filter((r) => r.status === 'pending').length
-  const missingPhotos = myVenues.filter((v) => !v.cover_image).length
+  function openEdit(venue: ProviderFoodVenue) {
+    setEditId(venue.id)
+    setForm(venueToForm(venue))
+    setFormError('')
+    setShowForm(true)
+  }
 
   return (
     <div className="prov-cat-page">
       <ProviderCategoryStrip
         title="Food & drink"
-        subtitle="Manage your venue, menu, hours, photos, reservations, and reviews."
+        subtitle={
+          isViewerOnly
+            ? 'View your venues and guest feedback.'
+            : 'Manage venues, hours, photos, and what travellers see on DELVE.'
+        }
         publicTo="/food"
         attention={[
-          ...(missingPhotos > 0
-            ? [{ label: 'Venue missing photos', actionLabel: 'Add photos', actionTo: '#venues', priority: 'high' as const }]
-            : []),
-          { label: 'Menu incomplete', actionLabel: 'Manage menu', actionTo: '#venues', priority: 'medium' as const },
-          ...(pendingReservations > 0
-            ? [{ label: `${pendingReservations} reservation${pendingReservations === 1 ? '' : 's'} pending`, actionLabel: 'Review', actionTo: '#reservations', priority: 'high' as const }]
+          ...(canManageListings && stats.missingPhotos > 0
+            ? [{ label: `${stats.missingPhotos} venue${stats.missingPhotos === 1 ? '' : 's'} missing photos`, actionLabel: 'Add photos', actionTo: '#venues', priority: 'high' as const }]
             : []),
         ]}
         quickActions={[
-          { label: 'Add venue', to: '#venues', emoji: '＋' },
-          { label: 'Update hours', to: '#venues', emoji: '🕐' },
-          { label: 'Manage reservations', to: '#reservations', emoji: '📅' },
+          ...(canManageListings ? [{ label: 'Add venue', to: '#venues', emoji: '＋' }] : []),
+          { label: 'Answer questions', to: '/provider/questions', emoji: '💬' },
         ]}
       />
 
@@ -78,35 +227,40 @@ export function FoodAdmin() {
           </svg>
         </Link>
         <div>
-          <h2 className="adm-bar__title">Venues &amp; reservations</h2>
+          <h2 className="adm-bar__title">Food venues</h2>
           <p className="adm-bar__sub">Restaurant, café, and bar listings</p>
         </div>
+        {canManageListings ? (
+          <button type="button" className="btn btn-primary btn-sm transport-admin__add" onClick={openCreate}>
+            <Plus size={16} aria-hidden /> Add venue
+          </button>
+        ) : null}
       </div>
 
-      {/* Stats */}
       <div className="adm-stats">
         <div className="adm-stat">
-          <span className="adm-stat__n">{myVenues.length}</span>
+          <span className="adm-stat__n">{venues.length}</span>
           <span className="adm-stat__l">Venues</span>
         </div>
         <div className="adm-stat">
-          <span className="adm-stat__n">⭐ {avgRating}</span>
+          <span className="adm-stat__n">⭐ {stats.avgRating}</span>
           <span className="adm-stat__l">Avg rating</span>
         </div>
         <div className="adm-stat">
-          <span className="adm-stat__n">{totalReviews}</span>
+          <span className="adm-stat__n">{stats.totalReviews}</span>
           <span className="adm-stat__l">Reviews</span>
-        </div>
-        <div className="adm-stat adm-stat--accent">
-          <span className="adm-stat__n">{myReservations.filter((r) => r.status === 'confirmed').length}</span>
-          <span className="adm-stat__l">Reservations</span>
         </div>
       </div>
 
-      {/* Tabs */}
+      <FoodMonetizationSection enabled={canAccessProvider} canManage={canManageListings} />
+
       <div className="adm-tabs" role="tablist">
         {(['venues', 'reservations', 'reviews'] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t}
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
             className={`adm-tab${tab === t ? ' adm-tab--active' : ''}`}
             onClick={() => setTab(t)}
           >
@@ -115,94 +269,113 @@ export function FoodAdmin() {
         ))}
       </div>
 
-      {/* Venues tab */}
       {tab === 'venues' && (
         <div className="adm-section" id="venues">
-          {myVenues.length === 0 ? (
+          {isLoading ? <ListSkeleton count={3} /> : null}
+          {!isLoading && venues.length === 0 ? (
             <div className="adm-empty">
               <p className="adm-empty__title">No food venues yet</p>
               <p className="adm-empty__sub">Add your restaurant, café, bar, or food spot so travellers can discover it.</p>
+              {canManageListings ? (
+                <button type="button" className="btn btn-primary" onClick={openCreate}>Add your first venue</button>
+              ) : null}
             </div>
-          ) : (
+          ) : null}
+          {!isLoading && venues.length > 0 ? (
             <div className="adm-list">
-              {myVenues.map((venue) => (
-                <div key={venue.id} className="adm-listing-card">
-                  <div className="adm-listing-card__img">
-                    {venue.cover_image
-                      ? <img src={venue.cover_image} alt="" />
-                      : <span aria-hidden>🍽</span>
-                    }
-                  </div>
-                  <div className="adm-listing-card__body">
-                    <div className="adm-listing-card__title-row">
-                      <p className="adm-listing-card__title">{venue.name}</p>
-                      <span className="adm-badge adm-badge--green">Open</span>
-                    </div>
-                    <p className="adm-listing-card__meta">
-                      {venue.cuisine} · {venue.city}, {venue.region} · {PRICE_LABEL[venue.price_level] ?? '$$'}
-                    </p>
-                    <p className="adm-listing-card__rating">
-                      ⭐ {venue.rating_avg} ({venue.rating_count} reviews)
-                    </p>
-                    <p className="adm-listing-card__desc">{venue.description}</p>
-                  </div>
-                  <div className="adm-listing-card__actions">
-                    <Link to={`/food/${venue.id}`} className="btn btn-ghost adm-action-btn">View</Link>
-                  </div>
-                </div>
+              {venues.map((venue) => (
+                <FoodVenueCard
+                  key={venue.id}
+                  venue={venue}
+                  onEdit={() => openEdit(venue)}
+                  canManage={canManageListings}
+                />
               ))}
             </div>
-          )}
-          <button type="button" className="adm-add-btn" disabled title="Full editing coming soon">
-            + Add venue
-          </button>
+          ) : null}
         </div>
       )}
 
-      {/* Reservations tab */}
       {tab === 'reservations' && (
         <div className="adm-section" id="reservations">
-          {myReservations.length === 0 ? (
+          {!canManageBookings ? (
+            <p className="adm-empty__sub">Your role can view reservations but not manage them.</p>
+          ) : null}
+          <div className="adm-tabs adm-tabs--sub" role="tablist" aria-label="Filter reservations">
+            {RESERVATION_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`adm-tab adm-tab--sm${reservationFilter === f.id ? ' adm-tab--active' : ''}`}
+                onClick={() => setReservationFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {loadingReservations ? <ListSkeleton count={2} /> : null}
+          {!loadingReservations && reservations.length === 0 ? (
             <div className="adm-empty">
-              <p className="adm-empty__title">No reservations found</p>
-              <p className="adm-empty__sub">Log in as <strong>food_owner</strong> to see reservations.</p>
+              <p className="adm-empty__title">No reservations yet</p>
+              <p className="adm-empty__sub">
+                Table requests from travellers appear here when your venues accept reservations on DELVE.
+              </p>
             </div>
-          ) : (
+          ) : null}
+          {!loadingReservations && reservations.length > 0 ? (
             <div className="adm-list">
-              {myReservations.map((r) => (
-                <div key={r.id} className="adm-booking-row">
-                  <div className="adm-booking-row__info">
-                    <p className="adm-booking-row__guest">{r.guest}</p>
-                    <p className="adm-booking-row__listing">{r.venue}</p>
-                    <p className="adm-booking-row__dates">{r.date} · {r.guests} {r.guests === 1 ? 'guest' : 'guests'}</p>
+              {reservations.map((r) => (
+                <div key={r.id} className="adm-review-card">
+                  <div className="adm-review-card__header">
+                    <p className="adm-review-card__guest">
+                      {r.guest_display_name?.trim() || r.guest_username} · {r.party_size}{' '}
+                      {r.party_size === 1 ? 'guest' : 'guests'}
+                    </p>
+                    <p className="adm-review-card__listing">
+                      {r.venue_name} · {formatReservationWhen(r.reserved_for)}
+                    </p>
                   </div>
-                  <div className="adm-booking-row__right">
-                    <span className={`adm-badge ${r.status === 'confirmed' ? 'adm-badge--green' : 'adm-badge--yellow'}`}>
-                      {r.status}
-                    </span>
-                  </div>
+                  {r.special_requests?.trim() ? (
+                    <p className="adm-review-card__body">{r.special_requests.trim()}</p>
+                  ) : null}
+                  <p className="adm-review-card__meta">
+                    Status: <strong>{bookingStatusLabel(r.status)}</strong>
+                  </p>
+                  {canManageBookings ? (
+                    <div className="adm-review-card__actions">
+                      {(RESERVATION_ACTIONS[r.status] ?? []).map((a) => (
+                        <button
+                          key={a.action}
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          disabled={reservationActionMut.isPending}
+                          onClick={() => reservationActionMut.mutate({ id: r.id, action: a.action })}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
-      {/* Reviews tab */}
       {tab === 'reviews' && (
         <div className="adm-section">
-          {myReviews.length === 0 ? (
+          {providerReviews.length === 0 ? (
             <div className="adm-empty">
-              <p className="adm-empty__title">No reviews yet</p>
-              <p className="adm-empty__sub">Log in as <strong>food_owner</strong> to see your reviews.</p>
+              <p className="adm-empty__title">No traveller reviews yet</p>
+              <p className="adm-empty__sub">Guest ratings appear here after verified travellers review your venues.</p>
             </div>
           ) : (
             <div className="adm-list">
-              {myReviews.map((r) => (
+              {providerReviews.map((r) => (
                 <div key={r.id} className="adm-review-card">
                   <div className="adm-review-card__header">
                     <p className="adm-review-card__guest">{r.guest}</p>
-                    <span className="adm-review-card__stars">{stars(r.rating)}</span>
                     <p className="adm-review-card__listing">{r.venue}</p>
                   </div>
                   <p className="adm-review-card__body">{r.body}</p>
@@ -212,6 +385,22 @@ export function FoodAdmin() {
           )}
         </div>
       )}
+
+      {showForm && canManageListings ? (
+        <FoodVenueForm
+          values={form}
+          onChange={setForm}
+          error={formError}
+          saving={saveMut.isPending}
+          isEdit={editId != null}
+          onCancel={() => {
+            setShowForm(false)
+            setEditId(null)
+            setFormError('')
+          }}
+          onSubmit={() => saveMut.mutate()}
+        />
+      ) : null}
     </div>
   )
 }

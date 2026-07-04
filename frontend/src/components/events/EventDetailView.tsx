@@ -25,7 +25,6 @@ import {
   ListingQuickInfo,
   ListingReviews,
 } from '../listing'
-import type { ListingMomentItem } from '../listing/types'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
 import type { ReviewItem } from '../GuestReviewCard'
 import { ProviderStoriesRow } from '../ProviderStoriesRow'
@@ -46,6 +45,7 @@ import {
   type EventDetail,
   type EventListItem,
 } from '../../utils/eventListing'
+import { messageProviderPath } from '../messages/messageProviderUtils'
 import { externalTicketHref, resolveTicketingMode } from '../../utils/eventTicketing'
 import { buildEventProviderStoryItems } from './eventStoriesUtils'
 import { EventAskSection } from './EventAskSection'
@@ -64,7 +64,6 @@ type Props = {
   onSave: () => void
   onShare: () => void
   relatedEvents: EventListItem[]
-  moments?: ListingMomentItem[]
   questions?: ListingQuestionItem[]
   questionsLoading?: boolean
   canAnswerQuestions?: boolean
@@ -93,7 +92,6 @@ export function EventDetailView({
   onSave,
   onShare,
   relatedEvents,
-  moments = [],
   questions = [],
   questionsLoading = false,
   canAnswerQuestions = false,
@@ -285,12 +283,20 @@ export function EventDetailView({
                 },
               ]
             : []),
-          {
-            id: 'organizer',
-            label: 'Message organizer',
-            icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: '/messages',
-          },
+          ...(event.organizer_username
+            ? [
+                {
+                  id: 'organizer',
+                  label: 'Message organizer',
+                  icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
+                  href: messageProviderPath(event.organizer_username, {
+                    type: 'event' as const,
+                    id: eventId,
+                    label: event.title,
+                  }),
+                },
+              ]
+            : []),
         ]}
         className="ev-detail__identity acc-detail__identity"
       />
@@ -330,9 +336,16 @@ export function EventDetailView({
 
             <ListingLocationCard
               title="Venue and location"
-              address={locationAddress || 'Location details will be shared by the organizer.'}
-              mapUrl={mapHref}
-              viewMapLabel="Get directions"
+              address={locationAddress || null}
+              mapUrl={mapHref || null}
+              approximateHint={
+                event.address?.trim()
+                  ? null
+                  : locationAddress
+                    ? 'Venue / area only — confirm the street address with the organizer.'
+                    : 'Exact venue details will be shared by the organizer.'
+              }
+              viewMapLabel="Open in maps"
               className="ev-detail__map-card acc-detail__map-card"
             />
 
@@ -343,14 +356,14 @@ export function EventDetailView({
             <ListingDelversMoments
               listingType="event"
               listingId={eventId}
+              listingTitle={event.title}
               title="Delvers moments from this event"
-              moments={moments}
               className="ev-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="Be the first to share a moment from this event."
             />
             <p className="ev-detail__moment-cta">
-              <Link to={`/events/${eventId}/moment/new`} className="text-link">
+              <Link to={`/create/post?event=${eventId}`} className="text-link">
                 Share your event moment
               </Link>
             </p>

@@ -3,14 +3,20 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
+from accommodation.models import BookingStatus
+
 
 class CuisineType(models.TextChoices):
     LOCAL = "local", "Local / Namibian"
     GRILL = "grill", "Grill & steak"
     SEAFOOD = "seafood", "Seafood"
-    VEGAN = "vegan", "Vegan / vegetarian"
-    CAFE = "cafe", "Café & bakery"
+    CAFE = "cafe", "Café"
+    BAKERY = "bakery", "Bakery"
+    PIZZA = "pizza", "Pizza"
+    ASIAN = "asian", "Asian"
+    FAST_FOOD = "fast_food", "Fast food"
     BAR = "bar", "Bar & nightlife"
+    VEGAN = "vegan", "Vegan / vegetarian"
     INTERNATIONAL = "international", "International"
     OTHER = "other", "Other"
 
@@ -23,6 +29,8 @@ class FoodVenue(models.Model):
     )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    tagline = models.CharField(max_length=240, blank=True)
+    popular_dish = models.CharField(max_length=160, blank=True)
     cuisine = models.CharField(
         max_length=32,
         choices=CuisineType.choices,
@@ -30,9 +38,41 @@ class FoodVenue(models.Model):
     )
     region = models.CharField(max_length=120)
     city = models.CharField(max_length=120, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    website = models.URLField(blank=True)
+    opening_hours = models.TextField(
+        blank=True,
+        help_text="One line per day or range, e.g. Mon–Fri 08:00–17:00",
+    )
+    closes_at = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Short label for list cards, e.g. 9 PM",
+    )
     price_level = models.PositiveSmallIntegerField(
         default=2,
         help_text="1=budget, 4=fine dining",
+    )
+    dine_in = models.BooleanField(default=True)
+    takeaway = models.BooleanField(default=False)
+    delivery = models.BooleanField(default=False)
+    reservations = models.BooleanField(default=False)
+    is_open = models.BooleanField(null=True, blank=True)
+    amenities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Extra amenity labels, e.g. ["Outdoor seating", "Card accepted"]',
+    )
+    photos = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='[{"id":1,"image":"url","caption":"","category":"food","is_cover":true}]',
+    )
+    venue_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Provider highlight channels for story rings",
     )
     cover_image = models.ImageField(upload_to="food/", blank=True, null=True)
     rating_avg = models.DecimalField(
@@ -42,6 +82,11 @@ class FoodVenue(models.Model):
         help_text="Average visitor rating 0–5",
     )
     rating_count = models.PositiveIntegerField(default=0)
+    guest_reviews = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Host-seeded reviews: [{"name": "...", "place": "...", "rating": 4.5, "body": "..."}]',
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -50,3 +95,135 @@ class FoodVenue(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class FoodQuestion(models.Model):
+    venue = models.ForeignKey(
+        FoodVenue,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_questions",
+    )
+    body = models.TextField()
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class FoodAnswer(models.Model):
+    question = models.ForeignKey(
+        FoodQuestion,
+        on_delete=models.CASCADE,
+        related_name="answers",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_answers",
+    )
+    body = models.TextField()
+    is_official = models.BooleanField(
+        default=False,
+        help_text="Reply from the venue owner or business team.",
+    )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+
+class FoodReservation(models.Model):
+    venue = models.ForeignKey(
+        FoodVenue,
+        on_delete=models.CASCADE,
+        related_name="table_reservations",
+    )
+    guest = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_reservations",
+    )
+    reserved_for = models.DateTimeField()
+    party_size = models.PositiveSmallIntegerField(default=2)
+    special_requests = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=BookingStatus.choices,
+        default=BookingStatus.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-reserved_for", "-created_at"]
+
+    def __str__(self):
+        return f"{self.venue.name} — {self.guest_id} @ {self.reserved_for}"
+
+
+class FoodVenueSave(models.Model):
+    """Traveller bookmark on a food venue."""
+
+    venue = models.ForeignKey(
+        FoodVenue,
+        on_delete=models.CASCADE,
+        related_name="user_saves",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_venue_saves",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("venue", "user"),
+                name="food_venue_save_venue_user_uniq",
+            ),
+        ]
+
+
+class FoodVenueReview(models.Model):
+    venue = models.ForeignKey(
+        FoodVenue,
+        on_delete=models.CASCADE,
+        related_name="traveler_reviews",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_venue_reviews",
+    )
+    reservation = models.ForeignKey(
+        FoodReservation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="review",
+    )
+    rating = models.PositiveSmallIntegerField()
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="food_venue_review_rating_1_5",
+            ),
+            models.UniqueConstraint(
+                fields=["venue", "reviewer"],
+                name="food_venue_review_one_per_user",
+            ),
+        ]

@@ -13,7 +13,6 @@ import { guidePackageBookPath } from '../booking/bookingUtils'
 import '../booking/guide/guide-booking.css'
 import { DetailLayout } from '../detail'
 import {
-  ListingAskSection,
   ListingBookBar,
   ListingDetails,
   ListingHeroGallery,
@@ -29,8 +28,10 @@ import { loginHrefWithReturn } from '../../utils/authRedirect'
 import { openStreetMapSearchUrl } from '../../utils/foodListing'
 import type { ReviewItem } from '../GuestReviewCard'
 import type { TourPackage } from './types'
+import { GuideAskSection } from './GuideAskSection'
 import { GuideCredentialsCard } from './GuideCredentialsCard'
 import { GuideExperiencePicker } from './GuideExperiencePicker'
+import { GuideReviewForm } from './GuideReviewForm'
 import { buildGuideStoryChannels } from './guideStoriesUtils'
 import { GuideSimilarGuides, type SimilarGuide } from './GuideSimilarGuides'
 import { VenueStoriesSection } from '../food/stories'
@@ -69,7 +70,10 @@ type Props = {
   selectedPackage: TourPackage | null
   onSelectPackage: (pkg: TourPackage | null) => void
   profile: RequestProfile
-  initialQuestions?: ListingQuestionItem[]
+  questions?: ListingQuestionItem[]
+  questionsLoading?: boolean
+  canAnswerQuestions?: boolean
+  canReview?: boolean
   onScrollToExperiences: () => void
 }
 
@@ -88,7 +92,10 @@ export function GuideDetailView({
   selectedPackage,
   onSelectPackage,
   profile,
-  initialQuestions,
+  questions = [],
+  questionsLoading = false,
+  canAnswerQuestions = false,
+  canReview = false,
   onScrollToExperiences,
 }: Props) {
   const displayName = guideDisplayName(guide)
@@ -175,7 +182,11 @@ export function GuideDetailView({
                 Message the guide to discuss custom routes and hourly bookings.
               </p>
               <Link
-                to={messageProviderPath(guide.username)}
+                to={messageProviderPath(guide.username, {
+                  type: 'guide',
+                  id: guideId,
+                  label: guide.headline,
+                })}
                 className="btn btn-primary btn-block"
                 style={{ marginTop: 12 }}
               >
@@ -222,7 +233,11 @@ export function GuideDetailView({
             id: 'message-guide',
             label: 'Message guide',
             icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: messageProviderPath(guide.username),
+            href: messageProviderPath(guide.username, {
+              type: 'guide',
+              id: guideId,
+              label: guide.headline,
+            }),
             accent: true,
           },
         ]}
@@ -286,6 +301,12 @@ export function GuideDetailView({
               />
             ) : null}
 
+            {canReview ? (
+              <section className="detail-section gd-detail__review-form acc-detail__section">
+                <GuideReviewForm guideId={guideId} />
+              </section>
+            ) : null}
+
             <ListingReviews
               title="Guest reviews"
               reviews={reviews}
@@ -297,20 +318,26 @@ export function GuideDetailView({
               className="gd-detail__reviews acc-detail__comments"
             />
 
-            {mapHref ? (
-              <ListingLocationCard
-                title="Meeting area"
-                address={meetingPoint || regionLine || null}
-                mapUrl={mapHref}
-                mapHint="Opens in OpenStreetMap"
-                className="gd-detail__location acc-detail__section"
-              />
-            ) : null}
+            <ListingLocationCard
+              title="Meeting area"
+              address={meetingPoint || regionLine || null}
+              mapUrl={mapHref || null}
+              approximateHint={
+                meetingPoint?.trim()
+                  ? null
+                  : 'Meeting area only — exact point is confirmed with your guide.'
+              }
+              viewMapLabel="Open in maps"
+              className="gd-detail__location acc-detail__section"
+            />
 
-            <ListingAskSection
+            <GuideAskSection
+              guideId={guideId}
               title="Ask this guide"
               placeholder="Routes, availability, languages, pickup, group size, or what to bring…"
-              initialQuestions={initialQuestions}
+              questions={questions}
+              isLoading={questionsLoading}
+              canAnswer={canAnswerQuestions}
               className="gd-detail__questions acc-detail__comments"
             />
 

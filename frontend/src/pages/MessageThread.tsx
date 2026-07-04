@@ -1,19 +1,30 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
+import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { buildProviderAutomatedMessages, DmChatView } from '../components/messages/dm'
-import type { MessagingContext } from '../components/messages/messageProviderUtils'
+import { ConversationContextChip } from '../components/messages/ConversationContextChip'
+import { buildProviderAutomatedMessages, DmChatView, useConversationThread } from '../components/messages/dm'
+import type {
+  ConversationContextPayload,
+  MessagingContext,
+} from '../components/messages/messageProviderUtils'
 import { messageInboxPath } from '../components/messages/messageProviderUtils'
 import '../components/messages/dm/dm-chat.css'
 import '../components/provider/messages/provider-messages.css'
 
-type Msg = { id: number; sender_username: string; body: string; created_at: string }
+type ConversationOther = {
+  id: number
+  username: string
+  display_name: string
+  avatar?: string | null
+}
 
 type Conversation = {
   id: number
-  participants_detail: { id: number; username: string; display_name: string }[]
+  other?: ConversationOther | null
+  context?: ConversationContextPayload | null
+  participants_detail: ConversationOther[]
 }
 
 type PublicProfile = {
@@ -23,6 +34,7 @@ type PublicProfile = {
   city?: string
   region?: string
   user_type?: string
+  avatar?: string | null
 }
 
 type Props = {
@@ -33,8 +45,9 @@ export function MessageThread({ context = 'user' }: Props) {
   const { id } = useParams()
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const qc = useQueryClient()
-  const [body, setBody] = useState('')
+  const backTo = (location.state as { from?: string } | null)?.from
   const isProvider = context === 'provider'
   const inboxPath = messageInboxPath(context)
 
@@ -44,10 +57,10 @@ export function MessageThread({ context = 'user' }: Props) {
     queryFn: () => apiFetch<Conversation>(`/api/messaging/conversations/${id}/`),
   })
 
-  const other = useMemo(
-    () => conversation?.participants_detail.find((p) => p.username !== profile?.username),
-    [conversation?.participants_detail, profile?.username],
-  )
+  const other = useMemo(() => {
+    if (conversation?.other) return conversation.other
+    return conversation?.participants_detail.find((p) => p.username !== profile?.username)
+  }, [conversation?.other, conversation?.participants_detail, profile?.username])
 
   const { data: otherProfile } = useQuery({
     queryKey: ['message-profile', other?.username],
@@ -56,27 +69,38 @@ export function MessageThread({ context = 'user' }: Props) {
       apiFetch<PublicProfile>(`/api/accounts/users/${encodeURIComponent(other!.username)}/`, { auth: false }),
   })
 
-  const { data: messages, isLoading } = useQuery({
-    queryKey: ['msgs', id],
-    enabled: !!profile && !!id,
-    queryFn: () => apiFetch<Msg[]>(`/api/messaging/conversations/${id}/messages/`),
-    refetchInterval: 8000,
+  const {
+    messages,
+    isLoading,
+    body,
+    setBody,
+    send,
+    sending,
+    hasMore,
+    loadOlder,
+    loadingOlder,
+    typingUsernames,
+  } = useConversationThread({
+    conversationId: id,
+    myUsername: profile?.username,
+    enabled: Boolean(profile && id && other),
   })
 
-  const sendMut = useMutation({
+  const blockMut = useMutation({
     mutationFn: () =>
-      apiFetch(`/api/messaging/conversations/${id}/messages/`, {
+      apiFetch('/api/messaging/blocks/', {
         method: 'POST',
-        body: JSON.stringify({ body: body.trim() }),
+        body: JSON.stringify({ username: other!.username }),
       }),
     onSuccess: () => {
-      setBody('')
-      void qc.invalidateQueries({ queryKey: ['msgs', id] })
       void qc.invalidateQueries({ queryKey: ['conversations'] })
+      void qc.invalidateQueries({ queryKey: ['messaging-unread-count'] })
+      navigate(inboxPath, { replace: true })
     },
   })
 
   const personName = other?.display_name?.trim() || other?.username || 'Conversation'
+  const personAvatar = mediaUrl(other?.avatar ?? otherProfile?.avatar ?? null)
   const automatedMessages = useMemo(() => {
     if (isProvider || !otherProfile) return []
     return buildProviderAutomatedMessages(otherProfile)
@@ -109,22 +133,45 @@ export function MessageThread({ context = 'user' }: Props) {
         person={{
           username: other.username,
           display_name: other.display_name,
+          avatar: personAvatar,
           city: otherProfile?.city,
           region: otherProfile?.region,
         }}
         personName={personName}
         myUsername={profile.username}
-        messages={Array.isArray(messages) ? messages : []}
+        messages={messages}
         automatedMessages={automatedMessages}
         body={body}
         onBodyChange={setBody}
-        onSend={() => sendMut.mutate()}
-        sending={sendMut.isPending}
+        onSend={send}
+        sending={sending}
         loading={isLoading}
-        onBack={() => navigate(inboxPath)}
+        hasMore={hasMore}
+        loadingOlder={loadingOlder}
+        onLoadOlder={loadOlder}
+        typingUsernames={typingUsernames}
+        onBlock={() => {
+          if (
+            window.confirm(
+              `Block @${other.username}? They will no longer be able to message you.`,
+            )
+          ) {
+            blockMut.mutate()
+          }
+        }}
+        blocking={blockMut.isPending}
+        onBack={() => navigate(backTo || inboxPath)}
         backLabel={isProvider ? 'Back to guest inbox' : 'Back to inbox'}
         inboxHref={inboxPath}
         inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
+        statusSlot={
+          conversation?.context ? (
+            <ConversationContextChip
+              context={conversation.context}
+              variant={isProvider ? 'provider' : 'user'}
+            />
+          ) : null
+        }
         reportTarget={
           id
             ? {

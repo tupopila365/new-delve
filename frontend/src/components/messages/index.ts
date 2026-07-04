@@ -7,8 +7,15 @@ export {
   messageInboxPath,
   messageThreadPath,
   messagingPaths,
+  readPlaceContextFromSearch,
+  placeContextStartPayload,
 } from './messageProviderUtils'
-export type { MessagingContext } from './messageProviderUtils'
+export type {
+  MessagingContext,
+  MessagePlaceContext,
+  ConversationContextPayload,
+} from './messageProviderUtils'
+export { ConversationContextChip } from './ConversationContextChip'
 export { ConversationInbox } from './ConversationInbox'
 export { NewMessageSheet } from './NewMessageSheet'
 export type { MessagePerson } from './NewMessageSheet'

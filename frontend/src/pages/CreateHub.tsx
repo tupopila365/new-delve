@@ -1,14 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   Camera,
-  Car,
   Clapperboard,
-  Compass,
-  Hotel,
   MessageCircle,
   Route,
   Ticket,
-  Utensils,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { apiFetch } from '../api/client'
@@ -25,7 +21,7 @@ export function CreateHub() {
     enabled: Boolean(profile),
   })
 
-  const showProviderTools =
+  const showProviderLink =
     profile?.user_type === 'service_provider' || businesses.length > 0
 
   if (!profile) {
@@ -34,7 +30,7 @@ export function CreateHub() {
         <EmptyState
           icon="✨"
           title="Create on DELVE"
-          sub="Sign in to post photos, stories, journeys, events, or manage your business."
+          sub="Sign in to post photos, highlights, journeys, events, or ask locals."
           cta={{ label: 'Sign in', to: '/login' }}
         />
       </div>
@@ -46,27 +42,17 @@ export function CreateHub() {
       <CreateHubGrid
         primary={{
           to: '/create/post',
-          label: 'Photo or video post',
-          hint: 'Filters, crop, captions, music — like IG & TikTok',
+          label: 'Post',
+          hint: 'Photo or video with filters, crop, and captions',
           Icon: Camera,
         }}
         items={[
-          { to: '/stories/new', label: 'Story', Icon: Clapperboard },
-          { to: '/journeys/new', label: 'Journey', Icon: Route },
-          { to: '/events/new', label: 'Event', Icon: Ticket },
-          { to: '/community', label: 'Ask a question', Icon: MessageCircle },
+          { to: '/create/highlight', label: 'Highlight', hint: 'Story-style ring', Icon: Clapperboard },
+          { to: '/create/ask', label: 'Ask locals', hint: 'Get advice', Icon: MessageCircle },
+          { to: '/journeys/new', label: 'Journey', hint: 'Trip diary', Icon: Route },
+          { to: '/events/new', label: 'Event', hint: 'Publish a happening', Icon: Ticket },
         ]}
-        providerItems={
-          showProviderTools
-            ? [
-                { to: '/provider/stays', label: 'Stay listing', Icon: Hotel },
-                { to: '/provider/food', label: 'Food & drink venue', Icon: Utensils },
-                { to: '/provider/guides', label: 'Guide experience', Icon: Compass },
-                { to: '/provider/transport', label: 'Transport listing', Icon: Car },
-                { to: '/events/new', label: 'Business event', Icon: Ticket },
-              ]
-            : undefined
-        }
+        providerHref={showProviderLink ? '/provider' : undefined}
       />
     </div>
   )

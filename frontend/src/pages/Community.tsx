@@ -1,279 +1,128 @@
-import { useMemo, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { MessageCircle, Plus } from 'lucide-react'
+import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { CommunityAskQuestion, CommunityQuestionCard } from '../components/community'
+import type { FeedPost } from '../components/IgPostCard'
+import { IgPostCard } from '../components/IgPostCard'
 import { EmptyState } from '../components/ui'
-import type { QaQuestion } from '../utils/communityDisplay'
 import './CommunityPage.css'
-
-const TOPIC_FILTERS = [
-  { label: 'Safety', query: 'safety' },
-  { label: 'Transport', query: 'transport' },
-  { label: 'Food', query: 'food' },
-  { label: 'Stay', query: 'stay' },
-  { label: 'Prices', query: 'price' },
-  { label: 'Visas', query: 'visa' },
-] as const
-
-const MOCK_QUESTIONS: QaQuestion[] = [
-  {
-    id: '1',
-    author: 'Mila K.',
-    initial: 'M',
-    time: '2h ago',
-    region: 'Windhoek, Namibia',
-    question: 'Where can I buy a SIM card on a Sunday afternoon?',
-    tags: ['SIM card', 'Windhoek'],
-    views: 34,
-    answers: [
-      {
-        author: 'Jan N.',
-        initial: 'J',
-        time: '1h ago',
-        body: 'Most malls are open until 5pm. Bring your passport or ID.',
-        helpful: 8,
-      },
-    ],
-  },
-  {
-    id: '2',
-    author: 'Alex R.',
-    initial: 'A',
-    time: 'Yesterday',
-    region: 'Walvis Bay, Namibia',
-    question: 'Is the coastal road safe for a small car after rain?',
-    tags: ['Road safety'],
-    views: 58,
-    answers: [
-      {
-        author: 'Pete D.',
-        initial: 'P',
-        time: 'Yesterday',
-        body: 'Usually fine if you drive slowly. Check tyres and avoid soft shoulders.',
-        helpful: 12,
-      },
-    ],
-  },
-  {
-    id: '3',
-    author: 'Chen W.',
-    initial: 'C',
-    time: '4d ago',
-    region: 'Tokyo, Japan',
-    question: 'Best way from the airport to the city on a Sunday with two bags?',
-    tags: ['Airport', 'Transport'],
-    views: 89,
-    answers: [
-      {
-        author: 'Yuki T.',
-        initial: 'Y',
-        time: '2d ago',
-        body: 'Train is easiest if your hotel is near a station. Buy a transit card at the airport.',
-        helpful: 21,
-      },
-    ],
-  },
-  {
-    id: '4',
-    author: 'Elena M.',
-    initial: 'E',
-    time: '1w ago',
-    region: 'Lisbon, Portugal',
-    question: 'Which taxi or ride apps work at the airport late at night?',
-    tags: ['Airport', 'Taxi'],
-    views: 44,
-    answers: [],
-  },
-]
 
 type CommunityProps = {
   embedded?: boolean
 }
 
-const INITIAL_LIKES: Record<string, number> = {
-  '1': 4,
-  '2': 9,
-  '3': 18,
-  '4': 2,
+type FeedFilter = 'all' | 'question' | 'tip'
+
+function feedQueryPath(region: string | undefined, filter: FeedFilter) {
+  const params = new URLSearchParams()
+  if (region) params.set('region', region)
+  if (filter !== 'all') params.set('kind', filter)
+  const qs = params.toString()
+  return `/api/social/feed/${qs ? `?${qs}` : ''}`
 }
 
 export function Community({ embedded = false }: CommunityProps = {}) {
   const { profile } = useAuth()
-  const [search, setSearch] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [questions, setQuestions] = useState(MOCK_QUESTIONS)
-  const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set())
-  const [likeCounts, setLikeCounts] = useState(INITIAL_LIKES)
-  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({})
+  const region = profile?.region?.trim()
+  const [filter, setFilter] = useState<FeedFilter>('all')
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return questions
-    return questions.filter((item) => {
-      const hay = [item.question, item.region, item.author, ...item.tags].join(' ').toLowerCase()
-      return hay.includes(q)
-    })
-  }, [questions, search])
+  const { data: feedRaw, isLoading } = useQuery({
+    queryKey: ['feed', region ?? '', filter],
+    queryFn: () => apiFetch<FeedPost[]>(feedQueryPath(region, filter), { auth: Boolean(profile) }),
+  })
 
-  function applyTopic(query: string) {
-    setSearch(query)
-  }
-
-  function toggleLike(questionId: string) {
-    const liked = likedIds.has(questionId)
-    setLikedIds((prev) => {
-      const next = new Set(prev)
-      if (liked) next.delete(questionId)
-      else next.add(questionId)
-      return next
-    })
-    setLikeCounts((prev) => ({
-      ...prev,
-      [questionId]: Math.max(0, (prev[questionId] ?? 0) + (liked ? -1 : 1)),
-    }))
-  }
-
-  function postAnswer(questionId: string) {
-    const body = replyDrafts[questionId]?.trim()
-    if (!body) return
-
-    const authorName = profile?.display_name?.trim() || profile?.username || 'You'
-    const initial = authorName.charAt(0).toUpperCase() || 'Y'
-
-    setQuestions((prev) =>
-      prev.map((item) =>
-        item.id === questionId
-          ? {
-              ...item,
-              answers: [
-                ...item.answers,
-                {
-                  author: authorName,
-                  initial,
-                  time: 'Just now',
-                  body,
-                  helpful: 0,
-                  isYours: true,
-                },
-              ],
-            }
-          : item,
-      ),
-    )
-    setReplyDrafts((prev) => ({ ...prev, [questionId]: '' }))
-    setExpandedId(questionId)
-  }
+  const posts = asArray<FeedPost>(feedRaw)
+  const askHref = profile ? '/create/ask' : '/login'
+  const tipHref = profile ? '/create/post' : '/login'
 
   return (
     <div className={`cm-simple${embedded ? ' cm-simple--embedded' : ''}`}>
-      {!embedded && (
-        <>
-          <div className="cm-simple__search-sync" aria-hidden>
-            <input
-              id="cm-search"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              tabIndex={-1}
-            />
-          </div>
-
-          <div className="cm-simple__topic-sync" aria-hidden>
-            {TOPIC_FILTERS.map((topic) => (
-              <button key={topic.label} type="button" onClick={() => applyTopic(topic.query)}>
-                {topic.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
       <div className="cm-simple__panel">
-        <CommunityAskQuestion signedIn={Boolean(profile)} />
+        <div className="cm-feed-cta">
+          <div>
+            <h2 className="cm-feed-cta__title">Ask locals</h2>
+            <p className="cm-feed-cta__sub">
+              Travel tips, questions, and local advice from people near you.
+            </p>
+          </div>
+          <div className="cm-feed-cta__actions">
+            <Link to={askHref} className="btn btn-primary cm-feed-cta__btn">
+              <Plus size={16} strokeWidth={2.5} aria-hidden />
+              Ask a question
+            </Link>
+            <Link to={tipHref} className="btn btn-ghost cm-feed-cta__btn cm-feed-cta__btn--secondary">
+              Share a tip
+            </Link>
+          </div>
+        </div>
+
+        <section className="cm-ask-cta" aria-label="Ask a question">
+          <p className="cm-ask-cta__copy">
+            Ask anything about a place. Locals and travellers answer in plain language.
+          </p>
+          <Link to={askHref} className="cm-ask-cta__link">
+            {profile ? 'Write your question' : 'Sign in to ask'}
+          </Link>
+        </section>
+
+        <div className="cm-feed-filters" role="tablist" aria-label="Community feed filters">
+          {(
+            [
+              { id: 'all', label: 'All' },
+              { id: 'question', label: 'Questions' },
+              { id: 'tip', label: 'Tips' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={filter === tab.id}
+              className={filter === tab.id ? 'is-active' : ''}
+              onClick={() => setFilter(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         <p className="cm-simple__count" role="status">
-          {filtered.length} {filtered.length === 1 ? 'question' : 'questions'}
-          {search.trim() ? ` for “${search.trim()}”` : ''}
+          {isLoading ? 'Loading feed…' : `${posts.length} ${posts.length === 1 ? 'post' : 'posts'}`}
         </p>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="cm-feed-skeleton" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skeleton cm-feed-skeleton__card" />
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
           <EmptyState
             iconElement={<MessageCircle size={28} strokeWidth={2} aria-hidden />}
-            title="No questions found"
-            sub="Try different words, or be the first to ask."
-            cta={profile ? { label: 'Ask a question', onClick: () => document.getElementById('community-ask-trigger')?.click() } : { label: 'Sign in', to: '/login' }}
+            title={filter === 'question' ? 'No questions yet' : 'No community posts yet'}
+            sub={
+              filter === 'question'
+                ? 'Ask about safety, routes, prices, or anything about a place.'
+                : 'Share a travel tip or ask a question — posts here stay on the community feed.'
+            }
+            cta={
+              profile
+                ? {
+                    label: filter === 'question' ? 'Ask a question' : 'Share a tip',
+                    to: filter === 'question' ? '/create/ask' : '/create/post',
+                  }
+                : { label: 'Sign in', to: '/login' }
+            }
           />
         ) : (
-          <ul className="cm-simple__list">
-            {filtered.map((item) => {
-              const open = expandedId === item.id
-              const liked = likedIds.has(item.id)
-              const likeCount = likeCounts[item.id] ?? 0
-              const replyDraft = replyDrafts[item.id] ?? ''
-
-              return (
-                <li key={item.id}>
-                  <CommunityQuestionCard
-                    author={item.author}
-                    initial={item.initial}
-                    question={item.question}
-                    answerCount={item.answers.length}
-                    likeCount={likeCount}
-                    liked={liked}
-                    open={open}
-                    onLike={(event) => {
-                      event.stopPropagation()
-                      toggleLike(item.id)
-                    }}
-                    onComment={(event) => {
-                      event.stopPropagation()
-                      setExpandedId(open ? null : item.id)
-                    }}
-                  >
-                    {item.answers.length === 0 ? (
-                      <p className="cm-q-card__empty">No answers yet. Know this place? Leave a comment below.</p>
-                    ) : (
-                      <ul>
-                        {item.answers.map((answer, index) => (
-                          <li key={`${item.id}-${index}`} className="cm-q-card__answer">
-                            <div className="cm-q-card__answer-head">
-                              <span className="cm-q-card__avatar" aria-hidden>
-                                {answer.initial}
-                              </span>
-                              <strong>{answer.author}</strong>
-                              <span>{answer.time}</span>
-                            </div>
-                            <p>{answer.body}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="cm-q-card__reply">
-                      <textarea
-                        rows={3}
-                        placeholder="Share a helpful tip…"
-                        value={replyDraft}
-                        onChange={(e) =>
-                          setReplyDrafts((prev) => ({
-                            ...prev,
-                            [item.id]: e.target.value,
-                          }))
-                        }
-                        aria-label="Your comment"
-                      />
-                      <button
-                        type="button"
-                        className="cm-q-card__reply-btn"
-                        disabled={!replyDraft.trim()}
-                        onClick={() => postAnswer(item.id)}
-                      >
-                        Post comment
-                      </button>
-                    </div>
-                  </CommunityQuestionCard>
-                </li>
-              )
-            })}
+          <ul className="cm-feed-list">
+            {posts.map((post) => (
+              <li key={post.id}>
+                <IgPostCard post={post} queryKey={['feed', region ?? '', filter]} mediaVariant="feed" />
+              </li>
+            ))}
           </ul>
         )}
       </div>

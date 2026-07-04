@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "messaging",
     "reports",
     "promotions",
+    "journeys",
 ]
 
 MIDDLEWARE = [
@@ -117,6 +118,13 @@ REST_FRAMEWORK = {
         "user": "1000/hour",
         "register": "10/hour",
         "login": "30/hour",
+        "follow": "120/hour",
+        "post_create": "60/hour",
+        "message_start": "30/hour",
+        "password_reset": "5/hour",
+        "password_reset_confirm": "10/hour",
+        "resend_verification": "5/hour",
+        "account_delete": "3/day",
     },
 }
 
@@ -126,7 +134,10 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
 }
 
-_cors = os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+_cors = os.environ.get(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+)
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 

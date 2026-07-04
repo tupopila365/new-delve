@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertCircle,
@@ -14,15 +14,8 @@ import {
   Utensils,
 } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
-import {
-  BUSINESS_TYPE_LABELS,
-  findBusinessById,
-  type BusinessType,
-} from '../data/businessProfiles'
-import type { MyBusiness } from '../hooks/useBusinessAccess'
-import { mockStays, mockGuides, mockVehicles, mockFood } from '../mocks/mockData'
-import type { EventListing } from '../utils/eventDisplay'
-import { eventLocationLine, eventPriceLabel } from '../utils/eventDisplay'
+import { BUSINESS_TYPE_LABELS, type BusinessType } from '../data/businessProfiles'
+import type { BusinessListingItem, PublicBusiness } from '../hooks/useBusinessAccess'
 import {
   BusinessProfileHero,
   BusinessProfileSection,
@@ -30,21 +23,14 @@ import {
   BusinessProfileShell,
   BusinessProfileState,
   BusinessProfileEmptyServices,
+  BusinessTeamPosts,
 } from '../components/business'
 import { MiniRating } from '../components/MiniRating'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 
 type ServiceTab = 'all' | 'stays' | 'food' | 'guides' | 'transport' | 'events'
 
-type ListingItem = {
-  id: number
-  kind: Exclude<ServiceTab, 'all'>
-  title: string
-  subtitle: string
-  image: string | null
-  href: string
-  meta?: string
-  Icon: LucideIcon
-}
+type ListingItem = BusinessListingItem & { Icon: LucideIcon; displayIcon: LucideIcon }
 
 const SERVICE_TABS: { id: ServiceTab; label: string; Icon: LucideIcon }[] = [
   { id: 'all', label: 'All', Icon: Building2 },
@@ -83,104 +69,35 @@ function primaryServiceLabel(types: string[]) {
   return filtered.map((t) => BUSINESS_TYPE_LABELS[t as BusinessType] ?? t).slice(0, 2).join(' · ')
 }
 
+function toListingItems(rows: BusinessListingItem[]): ListingItem[] {
+  return rows.map((row) => ({
+    ...row,
+    image: row.image ? mediaUrl(row.image) || row.image : null,
+    Icon: KIND_ICONS[row.kind],
+    displayIcon:
+      row.kind === 'transport' && row.transport_mode === 'shared' ? Bus : KIND_ICONS[row.kind],
+  }))
+}
+
 export function BusinessProfile() {
   const { id } = useParams()
+  const { businesses: myBusinesses } = useBusinessAccess()
   const [serviceTab, setServiceTab] = useState<ServiceTab>('all')
   const [shareMsg, setShareMsg] = useState('')
 
   const { data: business, isLoading, isError, refetch } = useQuery({
     queryKey: ['business-profile', id],
-    queryFn: () => apiFetch<MyBusiness>(`/api/accounts/businesses/${id}/`, { auth: false }),
+    queryFn: () => apiFetch<PublicBusiness>(`/api/accounts/businesses/${id}/`, { auth: false }),
     enabled: Boolean(id),
   })
 
-  const { data: businessEvents = [] } = useQuery({
-    queryKey: ['business-events', business?.id],
-    queryFn: () => apiFetch<EventListing[]>(`/api/events/?business=${business!.id}`, { auth: false }),
-    enabled: Boolean(business?.id),
+  const { data: listingRows = [], isLoading: loadingListings } = useQuery({
+    queryKey: ['business-listings', id],
+    queryFn: () => apiFetch<BusinessListingItem[]>(`/api/accounts/businesses/${id}/listings/`, { auth: false }),
+    enabled: Boolean(id),
   })
 
-  const profileExtras = business ? findBusinessById(business.id) : undefined
-
-  const listings = useMemo(() => {
-    if (!business) return [] as ListingItem[]
-    const owner = business.owner_username
-    const items: ListingItem[] = []
-
-    mockStays
-      .filter((s) => s.owner_username === owner)
-      .forEach((s) => {
-        items.push({
-          id: s.id,
-          kind: 'stays',
-          title: s.title,
-          subtitle: s.property_type ? `${s.property_type} · ${s.city}` : s.city,
-          image: s.cover_image ? mediaUrl(s.cover_image) || s.cover_image : null,
-          href: `/accommodation/${s.id}`,
-          meta: `N$${s.price_per_night}/night`,
-          Icon: KIND_ICONS.stays,
-        })
-      })
-
-    mockFood
-      .filter((f) => f.owner_username === owner)
-      .forEach((f) => {
-        items.push({
-          id: f.id,
-          kind: 'food',
-          title: f.name,
-          subtitle: f.cuisine,
-          image: f.cover_image ? mediaUrl(f.cover_image) || f.cover_image : null,
-          href: `/food/${f.id}`,
-          Icon: KIND_ICONS.food,
-        })
-      })
-
-    mockGuides
-      .filter((g) => g.username === owner)
-      .forEach((g) => {
-        items.push({
-          id: g.id,
-          kind: 'guides',
-          title: g.display_name || g.username,
-          subtitle: g.headline,
-          image: g.photo ? mediaUrl(g.photo) || g.photo : null,
-          href: `/guides/${g.id}`,
-          meta: g.hourly_rate ? `N$${g.hourly_rate}/hr` : undefined,
-          Icon: KIND_ICONS.guides,
-        })
-      })
-
-    mockVehicles
-      .filter((v) => v.owner_username === owner)
-      .forEach((v) => {
-        items.push({
-          id: v.id,
-          kind: 'transport',
-          title: v.title,
-          subtitle: [v.city, v.vehicle_type].filter(Boolean).join(' · '),
-          image: v.cover_image ? mediaUrl(v.cover_image) || v.cover_image : null,
-          href: `/transport/vehicle/${v.id}`,
-          meta: `N$${v.price_per_day}/day`,
-          Icon: KIND_ICONS.transport,
-        })
-      })
-
-    businessEvents.forEach((e) => {
-      items.push({
-        id: e.id,
-        kind: 'events',
-        title: e.title,
-        subtitle: eventLocationLine(e),
-        image: e.cover_image ? mediaUrl(e.cover_image) || e.cover_image : null,
-        href: `/events/${e.id}`,
-        meta: eventPriceLabel(e) ?? undefined,
-        Icon: KIND_ICONS.events,
-      })
-    })
-
-    return items
-  }, [business, businessEvents])
+  const listings = useMemo(() => toListingItems(listingRows), [listingRows])
 
   const allowedKinds = useMemo(() => {
     if (!business) return new Set<Exclude<ServiceTab, 'all'>>()
@@ -275,20 +192,35 @@ export function BusinessProfile() {
 
   const types = business.business_types.filter((t) => t !== 'multi_provider')
   const verified = business.verification_status === 'verified'
-  const ratingAvg = profileExtras?.rating_avg
-  const ratingCount = profileExtras?.rating_count
-  const responseHours = profileExtras?.response_hours
-  const listingsCount = profileExtras?.listings_count ?? scopedListings.length
+  const stats = business.stats
+  const ratingAvg = stats?.rating_avg ?? undefined
+  const ratingCount = stats?.rating_count
+  const responseHours = stats?.response_hours ?? undefined
+  const listingsCount = stats?.listings_count ?? scopedListings.length
   const locationLabel = [business.city, business.region].filter(Boolean).join(', ')
   const directionsUrl = locationLabel ? mapsDirectionsUrl(business.city, business.region) : null
   const logoSrc = business.logo ? mediaUrl(business.logo) || business.logo : null
   const coverSrc = business.cover_image ? mediaUrl(business.cover_image) || business.cover_image : null
+  const businessId = Number(id)
+  const canManageBusiness = myBusinesses.some((b) => b.id === businessId)
 
   return (
     <BusinessProfileShell onShare={onShareProfile}>
       {shareMsg ? (
         <p className="biz-profile__toast" role="status">
           {shareMsg}
+        </p>
+      ) : null}
+
+      {canManageBusiness ? (
+        <p className="biz-profile__manage-bar">
+          <Link to="/provider" className="biz-profile__manage-link">
+            Open provider dashboard
+          </Link>
+          <span aria-hidden>·</span>
+          <Link to={`/u/${business.owner_username}`} className="biz-profile__manage-link">
+            Your personal profile
+          </Link>
         </p>
       ) : null}
 
@@ -315,8 +247,15 @@ export function BusinessProfile() {
         </BusinessProfileSection>
       ) : null}
 
+      <BusinessTeamPosts
+        ownerUsername={business.owner_username}
+        businessName={business.business_name}
+      />
+
       <BusinessProfileSection title="Services">
-        {scopedListings.length > 0 ? (
+        {loadingListings ? (
+          <div className="skeleton biz-profile__sk" />
+        ) : scopedListings.length > 0 ? (
           <>
             {visibleTabs.length > 1 ? (
               <div className="biz-profile__tabs" role="tablist" aria-label="Service categories">
@@ -345,8 +284,8 @@ export function BusinessProfile() {
                   subtitle={item.subtitle}
                   href={item.href}
                   image={item.image}
-                  Icon={item.Icon}
-                  meta={item.meta}
+                  Icon={item.displayIcon}
+                  meta={item.meta ?? undefined}
                 />
               ))}
             </div>
@@ -359,7 +298,7 @@ export function BusinessProfile() {
       {ratingAvg ? (
         <BusinessProfileSection title="Reviews">
           <div className="biz-profile__reviews">
-            <MiniRating rating={ratingAvg} count={ratingCount} />
+            <MiniRating rating={Number(ratingAvg)} count={ratingCount} />
             <p className="biz-profile__reviews-note">
               Overall rating from traveller feedback on DELVE.
             </p>

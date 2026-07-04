@@ -1,9 +1,9 @@
-import { Crop, Music, Scissors, SlidersHorizontal, Type } from 'lucide-react'
+import { Crop, Scissors, SlidersHorizontal, Type } from 'lucide-react'
 
-export type CreateTool = 'filters' | 'crop' | 'caption' | 'music' | 'trim'
+export type CreateTool = 'filters' | 'crop' | 'caption' | 'trim'
 
 type Props = {
-  active: CreateTool
+  active: CreateTool | null
   onChange: (tool: CreateTool) => void
   showTrim: boolean
   include?: CreateTool[]
@@ -13,7 +13,6 @@ const TOOLS: { id: CreateTool; label: string; Icon: typeof SlidersHorizontal }[]
   { id: 'filters', label: 'Filters', Icon: SlidersHorizontal },
   { id: 'crop', label: 'Crop', Icon: Crop },
   { id: 'caption', label: 'Caption', Icon: Type },
-  { id: 'music', label: 'Music', Icon: Music },
   { id: 'trim', label: 'Trim', Icon: Scissors },
 ]
 

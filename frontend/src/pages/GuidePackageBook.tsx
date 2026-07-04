@@ -465,6 +465,11 @@ export function GuidePackageBook() {
                 role="guide"
                 variant="primary"
                 size="block"
+                place={{
+                  type: 'booking_guide',
+                  id: booking.id,
+                  label: booking.guide_headline || pkg?.title || guide.headline,
+                }}
               />
               <Link to={packageHref} className="btn btn-ghost btn-block">
                 View experience

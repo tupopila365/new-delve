@@ -82,6 +82,15 @@
   flex: 1;
 }
 
+.ds-story-viewer__meta-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ds-story-viewer__meta-link:hover strong {
+  text-decoration: underline;
+}
+
 .ds-story-viewer__meta strong,
 .ds-story-viewer__meta small {
   overflow: hidden;

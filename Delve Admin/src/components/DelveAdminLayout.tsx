@@ -11,6 +11,8 @@ import {
   Menu,
   Megaphone,
   Package,
+  Pin,
+  Sparkles,
   Settings,
   ShieldCheck,
   ShieldAlert,
@@ -30,6 +32,8 @@ const NAV = [
   { to: '/admin/businesses', label: 'Businesses', icon: Building2 },
   { to: '/admin/listings', label: 'Listings', icon: Package },
   { to: '/admin/promotions', label: 'Featured partners', icon: Megaphone },
+  { to: '/admin/home-pins', label: 'Home pins', icon: Pin },
+  { to: '/admin/home-stories', label: 'Home stories', icon: Sparkles },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },
   { to: '/admin/reports', label: 'Reports', icon: Flag },
   { to: '/admin/moderation', label: 'Content', icon: ShieldAlert },
@@ -71,6 +75,14 @@ export function DelveAdminLayout() {
           ))}
         </nav>
         <div className="da-sidebar__foot">
+          <a
+            href={import.meta.env.VITE_PUBLIC_APP_URL || 'http://localhost:5173'}
+            className="da-sidebar__public"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open DELVE app
+          </a>
           {profile ? (
             <p className="da-sidebar__user">
               {profile.display_name || profile.username}

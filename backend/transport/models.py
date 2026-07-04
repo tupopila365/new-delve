@@ -43,6 +43,8 @@ class VehicleRentalListing(models.Model):
     )
     cover_image = models.ImageField(upload_to="vehicles/", blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    rating_avg = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    rating_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -73,6 +75,50 @@ class VehicleRentalBooking(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class VehicleQuestion(models.Model):
+    listing = models.ForeignKey(
+        VehicleRentalListing,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="vehicle_questions",
+    )
+    body = models.TextField()
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class VehicleAnswer(models.Model):
+    question = models.ForeignKey(
+        VehicleQuestion,
+        on_delete=models.CASCADE,
+        related_name="answers",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="vehicle_answers",
+    )
+    body = models.TextField()
+    is_official = models.BooleanField(
+        default=False,
+        help_text="Reply from the listing owner or business team.",
+    )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
 
 
 class BusOperator(models.Model):
@@ -135,6 +181,50 @@ class BusTrip(models.Model):
         ordering = ["departs_at"]
 
 
+class BusTripQuestion(models.Model):
+    trip = models.ForeignKey(
+        BusTrip,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bus_trip_questions",
+    )
+    body = models.TextField()
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class BusTripAnswer(models.Model):
+    question = models.ForeignKey(
+        BusTripQuestion,
+        on_delete=models.CASCADE,
+        related_name="answers",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bus_trip_answers",
+    )
+    body = models.TextField()
+    is_official = models.BooleanField(
+        default=False,
+        help_text="Reply from the operator owner or business team.",
+    )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+
 class SeatReservation(models.Model):
     trip = models.ForeignKey(
         BusTrip,
@@ -157,3 +247,63 @@ class SeatReservation(models.Model):
 
     class Meta:
         unique_together = [["trip", "seat_number"]]
+
+
+class VehicleRentalReview(models.Model):
+    listing = models.ForeignKey(
+        VehicleRentalListing,
+        on_delete=models.CASCADE,
+        related_name="traveler_reviews",
+    )
+    booking = models.OneToOneField(
+        VehicleRentalBooking,
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="vehicle_rental_reviews",
+    )
+    rating = models.PositiveSmallIntegerField()
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="vehicle_review_rating_1_5",
+            ),
+        ]
+
+
+class SeatReservationReview(models.Model):
+    trip = models.ForeignKey(
+        BusTrip,
+        on_delete=models.CASCADE,
+        related_name="traveler_reviews",
+    )
+    reservation = models.OneToOneField(
+        SeatReservation,
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="seat_reservation_reviews",
+    )
+    rating = models.PositiveSmallIntegerField()
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="seat_review_rating_1_5",
+            ),
+        ]

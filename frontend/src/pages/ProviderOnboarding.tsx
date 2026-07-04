@@ -30,7 +30,8 @@ export function ProviderOnboarding() {
   const queryClient = useQueryClient()
 
   const existing = businesses[0]
-  const alreadyDone = existing?.onboarding_completed === true
+  const needsResubmit = existing?.verification_status === 'rejected'
+  const alreadyDone = existing?.onboarding_completed === true && !needsResubmit
 
   const initialServices =
     (existing?.business_types.filter((t) => t !== 'multi_provider') as OnboardingServiceType[]) ?? []
@@ -38,6 +39,7 @@ export function ProviderOnboarding() {
   const [selectedServices, setSelectedServices] = useState<OnboardingServiceType[]>(initialServices)
   const [transportModes, setTransportModes] = useState<TransportMode[]>(existing?.transport_modes ?? [])
   const [step, setStep] = useState<OnboardingStep>(() => {
+    if (existing && needsResubmit) return 'documents'
     if (existing && !existing.onboarding_completed) {
       const types = existing.business_types.filter((t) => t !== 'multi_provider') as OnboardingServiceType[]
       if (types.includes('transport') && !(existing.transport_modes?.length)) return 'transport_mode'
@@ -57,15 +59,20 @@ export function ProviderOnboarding() {
   const [busy, setBusy] = useState(false)
   const [verificationPending, setVerificationPending] = useState(false)
 
-  const steps = useMemo(() => onboardingStepsFor(selectedServices), [selectedServices])
+  const steps = useMemo(() => {
+    const activeServices = selectedServices.length ? selectedServices : initialServices
+    return needsResubmit ? (['documents'] as OnboardingStep[]) : onboardingStepsFor(activeServices)
+  }, [selectedServices, initialServices, needsResubmit])
+
+  const activeServices = selectedServices.length ? selectedServices : initialServices
 
   const docFields = useMemo(
     () =>
-      docsForServices(selectedServices, {
+      docsForServices(activeServices, {
         includeFoodVerification: verifyFood,
-        transportModes: selectedServices.includes('transport') ? transportModes : undefined,
+        transportModes: activeServices.includes('transport') ? transportModes : undefined,
       }),
-    [selectedServices, verifyFood, transportModes],
+    [activeServices, verifyFood, transportModes],
   )
 
   if (loading || bizLoading) {
@@ -223,7 +230,9 @@ export function ProviderOnboarding() {
     }
   }
 
-  const submitForReview = step === 'documents' && needsDocumentStep(selectedServices, verifyFood)
+  const submitForReview =
+    step === 'documents' &&
+    (needsResubmit || needsDocumentStep(selectedServices, verifyFood))
   const continueLabel =
     step === 'services' || step === 'transport_mode'
       ? 'Continue'
@@ -267,7 +276,7 @@ export function ProviderOnboarding() {
 
       {step === 'documents' ? (
         <VerificationDocumentsForm
-          services={selectedServices}
+          services={activeServices}
           docFields={docFields}
           uploads={uploads}
           verifyFood={verifyFood}

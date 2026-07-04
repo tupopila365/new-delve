@@ -29,6 +29,42 @@ export type MyBusiness = {
   permissions: BusinessPermissions
   onboarding_completed?: boolean
   transport_modes?: ('rental' | 'shared')[]
+  verification_notes?: string
+  stats?: BusinessStats
+}
+
+export type BusinessStats = {
+  listings_count: number
+  rating_avg: string | null
+  rating_count: number
+  response_hours: number | null
+}
+
+export type PublicBusiness = {
+  id: number
+  slug: string
+  owner_username: string
+  business_name: string
+  business_types: string[]
+  verification_status: string
+  description: string
+  tagline?: string
+  logo: string | null
+  cover_image: string | null
+  region: string
+  city: string
+  stats?: BusinessStats
+}
+
+export type BusinessListingItem = {
+  kind: 'stays' | 'food' | 'guides' | 'transport' | 'events'
+  transport_mode?: 'rental' | 'shared'
+  id: number
+  title: string
+  subtitle: string
+  image: string | null
+  href: string
+  meta: string | null
 }
 
 export function useBusinessAccess(activeBusinessId?: number | null) {
@@ -50,11 +86,22 @@ export function useBusinessAccess(activeBusinessId?: number | null) {
 
   const permissions = activeBusiness?.permissions
 
+  const canManageListingForOwner = useMemo(() => {
+    return (ownerUsername: string | undefined | null) => {
+      if (!ownerUsername?.trim()) return false
+      if (profile?.username === ownerUsername) return true
+      return businesses.some(
+        (b) => b.owner_username === ownerUsername && Boolean(b.permissions?.manage_listings),
+      )
+    }
+  }, [businesses, profile?.username])
+
   return {
     businesses,
     activeBusiness,
     permissions,
     isLoading,
+    canManageListingForOwner,
     canManageListings: Boolean(permissions?.manage_listings),
     canManageBookings: Boolean(permissions?.manage_bookings),
     canManageSettings: Boolean(permissions?.manage_settings),

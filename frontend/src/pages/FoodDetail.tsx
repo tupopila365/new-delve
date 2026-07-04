@@ -1,27 +1,79 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Utensils } from 'lucide-react'
 import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { FoodDetailView } from '../components/food'
+import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
+import type { MyFoodReservation } from '../hooks/useMyFoodReservations'
 import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import type { FoodVenueListing } from '../utils/foodListing'
+import { useToggleFoodSave } from '../hooks/useFoodSave'
 
-const DEFAULT_QUESTIONS = [
-  { id: 'f1', author: 'Tina M.', body: 'Do you have vegetarian options?', ago: '1d ago' },
-  { id: 'f2', author: 'Jonas P.', body: 'Is outdoor seating available?', ago: '4d ago' },
-]
+function combineDateTime(date: string, time: string) {
+  if (!date || !time) return ''
+  return new Date(`${date}T${time}`).toISOString()
+}
 
 export function FoodDetail() {
   const { id } = useParams()
-  const [saved, setSaved] = useState(false)
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
+  const saveMut = useToggleFoodSave()
   const [shareMsg, setShareMsg] = useState('')
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('19:00')
+  const [partySize, setPartySize] = useState(2)
+  const [notes, setNotes] = useState('')
+  const [reservation, setReservation] = useState<MyFoodReservation | null>(null)
+  const [err, setErr] = useState<string | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['food', id],
+    queryKey: ['food', id, profile?.username ?? 'anon'],
     enabled: !!id,
-    queryFn: () => apiFetch<FoodVenueListing>(`/api/food/venues/${id}/`, { auth: false }),
+    queryFn: () => apiFetch<FoodVenueListing>(`/api/food/venues/${id}/`, { auth: Boolean(profile) }),
+  })
+
+  const { data: myReservations = [] } = useQuery({
+    queryKey: ['my-bookings', 'food'],
+    queryFn: () => apiFetch<MyFoodReservation[]>('/api/food/reservations/'),
+    enabled: Boolean(profile) && Boolean(data?.reservations),
+  })
+
+  const activeReservation = useMemo(() => {
+    if (reservation && !['cancelled', 'refunded'].includes(reservation.status)) return reservation
+    const venueId = Number(id)
+    return (
+      myReservations.find(
+        (r) =>
+          r.venue === venueId && !['cancelled', 'refunded', 'checked_out'].includes(r.status),
+      ) ?? null
+    )
+  }, [reservation, myReservations, id])
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      apiFetch<MyFoodReservation>('/api/food/reservations/', {
+        method: 'POST',
+        body: JSON.stringify({
+          venue: Number(id),
+          reserved_for: combineDateTime(date, time),
+          party_size: partySize,
+          special_requests: notes.trim(),
+        }),
+      }),
+    onSuccess: (row) => {
+      setReservation(row)
+      setErr(null)
+      void qc.invalidateQueries({ queryKey: ['my-bookings', 'food'] })
+    },
+    onError: (e) => setErr(friendlyApiMessage(e, "We couldn't send that request. Try again.")),
   })
 
   const onShare = async (venueName: string) => {
@@ -33,6 +85,32 @@ export function FoodDetail() {
       setShareMsg('Copy failed')
       window.setTimeout(() => setShareMsg(''), 1600)
     }
+  }
+
+  const handleReserve = () => {
+    setErr(null)
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    if (!profile.email_verified) {
+      navigate('/verify-email')
+      return
+    }
+    if (!date) {
+      setErr('Choose a date for your reservation.')
+      return
+    }
+    if (!time) {
+      setErr('Choose a time for your reservation.')
+      return
+    }
+    const reservedFor = new Date(combineDateTime(date, time))
+    if (Number.isNaN(reservedFor.getTime()) || reservedFor <= new Date()) {
+      setErr('Choose a date and time in the future.')
+      return
+    }
+    createMut.mutate()
   }
 
   if (isLoading) {
@@ -71,15 +149,51 @@ export function FoodDetail() {
     )
   }
 
+  const canAnswer =
+    Boolean(profile) &&
+    (profile?.username === data.owner_username ||
+      (canManageListings && activeBusiness?.owner_username === data.owner_username))
+
+  const canReserve = Boolean(data.reservations)
+
+  const onSave = () => {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    if (!id) return
+    saveMut.mutate(Number(id))
+  }
+
   return (
     <DetailPage prefix="fd-detail" className="td acc-detail-page" toast={shareMsg || null}>
+      <PromotionOpenTracker />
       <FoodDetailView
         data={data}
         venueId={id}
-        saved={saved}
-        onSave={() => setSaved((v) => !v)}
+        saved={Boolean(data.saved_by_me)}
+        onSave={onSave}
         onShare={() => onShare(data.name)}
-        initialQuestions={DEFAULT_QUESTIONS}
+        canAnswer={canAnswer}
+        hasReviewed={Boolean(data.has_reviewed)}
+        canReview={Boolean(data.can_review)}
+        canReserve={canReserve}
+        reservation={canReserve ? activeReservation : null}
+        reserve={{
+          date,
+          time,
+          partySize,
+          notes,
+          onDateChange: setDate,
+          onTimeChange: setTime,
+          onPartySizeChange: setPartySize,
+          onNotesChange: setNotes,
+          onReserve: handleReserve,
+          isPending: createMut.isPending,
+          err,
+          onDismissErr: () => setErr(null),
+          profile: profile ?? null,
+        }}
       />
     </DetailPage>
   )

@@ -1,30 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Route } from 'lucide-react'
 import { mockTrips } from '../data/mockTrips'
 import { findUserTrip } from '../data/userTrips'
+import { apiFetch } from '../api/client'
+import { mapApiJourneyToTrip, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { useJourneyEngagement } from '../hooks/useJourneyEngagement'
 import { JourneyDetailView } from '../components/journeys/JourneyDetailView'
 import { DetailPage } from '../components/detail'
 import { EmptyState } from '../components/ui'
-import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
-
-const SEED_QUESTIONS: ListingQuestionItem[] = [
-  { id: 'q1', author: 'Mila K.', body: 'Was the road safe in the wet season?', ago: '4h ago' },
-  { id: 'q2', author: 'Jonas T.', body: 'Did you need a 4x4 for every section?', ago: '1d ago' },
-]
 
 export function TripDetail() {
   const { id } = useParams<{ id: string }>()
-  const trip = findUserTrip(Number(id)) ?? mockTrips.find((t) => t.id === Number(id))
+  const fallbackTrip = useMemo(
+    () => findUserTrip(Number(id)) ?? mockTrips.find((t) => t.id === Number(id)),
+    [id],
+  )
 
-  const [liked, setLiked] = useState(trip?.liked_by_me ?? false)
-  const [likeCount, setLikeCount] = useState(trip?.likes_count ?? 0)
-  const [saved, setSaved] = useState(trip?.saved_by_me ?? false)
-  const [shareMsg, setShareMsg] = useState('')
+  const { data: apiJourney, isLoading } = useQuery({
+    queryKey: ['journey', id],
+    queryFn: () => apiFetch<ApiJourney>(`/api/journeys/${id}/`, { auth: false }),
+    enabled: Boolean(id),
+    retry: false,
+  })
+
+  const trip = useMemo(() => {
+    if (apiJourney) return mapApiJourneyToTrip(apiJourney)
+    return fallbackTrip
+  }, [apiJourney, fallbackTrip])
+
+  const engagement = useJourneyEngagement(trip ? [trip] : [])
+
+  const { data: similarApi = [] } = useQuery({
+    queryKey: ['journey-similar', id],
+    queryFn: () => apiFetch<ApiJourney[]>(`/api/journeys/${id}/similar/`, { auth: false }),
+    enabled: Boolean(id) && Boolean(trip),
+    retry: false,
+  })
 
   const similarJourneys = useMemo(() => {
     if (!trip) return []
-    return mockTrips
+    if (similarApi.length > 0) return similarApi.map(mapApiJourneyToTrip)
+    return mergeJourneyFeeds([], mockTrips)
       .filter((t) => t.id !== trip.id)
       .filter(
         (t) =>
@@ -32,24 +50,14 @@ export function TripDetail() {
           t.tags.some((tag) => trip.tags.includes(tag)),
       )
       .slice(0, 3)
-  }, [trip])
+  }, [trip, similarApi])
 
-  const handleLike = () =>
-    setLiked((v) => {
-      setLikeCount((c) => c + (v ? -1 : 1))
-      return !v
-    })
-
-  const handleSave = () => setSaved((v) => !v)
-
-  const handleShare = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      setShareMsg('Link copied')
-    } catch {
-      setShareMsg('Copy failed')
-    }
-    window.setTimeout(() => setShareMsg(''), 1800)
+  if (isLoading && !fallbackTrip) {
+    return (
+      <DetailPage prefix="td" className="td--premium acc-detail-page">
+        <div className="skeleton" style={{ height: 320, borderRadius: 12 }} aria-busy="true" />
+      </DetailPage>
+    )
   }
 
   if (!trip || !id) {
@@ -67,18 +75,17 @@ export function TripDetail() {
   }
 
   return (
-    <DetailPage prefix="td" className="td--premium acc-detail-page" toast={shareMsg || null}>
+    <DetailPage prefix="td" className="td--premium acc-detail-page" toast={engagement.shareMsg || null}>
       <JourneyDetailView
         trip={trip}
         journeyId={id}
-        saved={saved}
-        onSave={handleSave}
-        onShare={handleShare}
-        liked={liked}
-        likeCount={likeCount}
-        onLike={handleLike}
+        saved={engagement.isSaved(trip)}
+        onSave={() => engagement.saveTrip(trip)}
+        onShare={() => void engagement.shareTrip(trip)}
+        liked={engagement.isLiked(trip)}
+        likeCount={engagement.likeCount(trip)}
+        onLike={() => engagement.likeTrip(trip)}
         similarJourneys={similarJourneys}
-        initialQuestions={SEED_QUESTIONS}
       />
     </DetailPage>
   )

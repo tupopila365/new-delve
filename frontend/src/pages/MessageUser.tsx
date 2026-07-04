@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Lock, MessageCircle, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { DmChatView } from '../components/messages/dm'
+import type { ConversationContextPayload, MessagingContext } from '../components/messages/messageProviderUtils'
 import {
-  buildProviderAutomatedMessages,
-  DmChatView,
-  messagingUserIdForUsername,
-} from '../components/messages/dm'
-import type { MessagingContext } from '../components/messages/messageProviderUtils'
-import { messageInboxPath } from '../components/messages/messageProviderUtils'
+  messageInboxPath,
+  messageThreadPath,
+  placeContextStartPayload,
+  readPlaceContextFromSearch,
+} from '../components/messages/messageProviderUtils'
 import '../components/messages/dm/dm-chat.css'
 import '../components/provider/messages/provider-messages.css'
 
@@ -24,19 +25,14 @@ type PublicMessageProfile = {
   avatar?: string | null
   allow_messages?: boolean
   user_type?: string
+  relationship?: { can_message: boolean }
 }
 
 type Conversation = {
   id: number
+  context?: ConversationContextPayload | null
   participants_detail: { id: number; username: string; display_name: string }[]
   updated_at: string
-}
-
-type Message = {
-  id: number
-  sender_username: string
-  body: string
-  created_at: string
 }
 
 function displayName(profile?: PublicMessageProfile): string {
@@ -49,7 +45,9 @@ type Props = {
 
 export function MessageUser({ context = 'user' }: Props) {
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const backTo = (location.state as { from?: string; guestName?: string } | null)?.from
+  const place = useMemo(() => readPlaceContextFromSearch(searchParams), [searchParams])
   const username = useMemo(() => {
     const parts = location.pathname.split('/')
     const uIdx = parts.indexOf('u')
@@ -58,10 +56,7 @@ export function MessageUser({ context = 'user' }: Props) {
 
   const { profile: me } = useAuth()
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const startedFor = useRef('')
-  const [conversation, setConversation] = useState<Conversation | null>(null)
-  const [body, setBody] = useState('')
   const inboxPath = messageInboxPath(context)
   const isProvider = context === 'provider'
 
@@ -77,66 +72,45 @@ export function MessageUser({ context = 'user' }: Props) {
   const targetName = displayName(target)
   const targetAvatar = mediaUrl(target?.avatar ?? null)
   const isSelf = Boolean(me && target && me.username.toLowerCase() === target.username.toLowerCase())
-  const messagesAllowed = target?.allow_messages !== false
-  const otherUserId = useMemo(
-    () => (username ? target?.id ?? messagingUserIdForUsername(username) : null),
-    [target?.id, username],
+  const messagesAllowed = Boolean(
+    me &&
+      target &&
+      !isSelf &&
+      (target.relationship?.can_message ?? target.allow_messages !== false),
   )
 
   const startMut = useMutation({
-    mutationFn: (userId: number) =>
+    mutationFn: () =>
       apiFetch<Conversation>('/api/messaging/start/', {
         method: 'POST',
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify({
+          username,
+          ...placeContextStartPayload(place),
+        }),
       }),
-    onSuccess: (next) => setConversation(next),
-  })
-
-  useEffect(() => {
-    if (!me || !target || isSelf || !messagesAllowed || !otherUserId) return
-    const key = `${target.username}:${otherUserId}`
-    if (startedFor.current === key) return
-    startedFor.current = key
-    startMut.mutate(otherUserId)
-  }, [isSelf, me, messagesAllowed, otherUserId, startMut, target])
-
-  const messagesQuery = useQuery({
-    queryKey: ['msgs', conversation?.id],
-    enabled: Boolean(me && conversation?.id),
-    queryFn: () => apiFetch<Message[]>(`/api/messaging/conversations/${conversation?.id}/messages/`),
-    refetchInterval: 8000,
-  })
-
-  const sendMut = useMutation({
-    mutationFn: () =>
-      apiFetch(`/api/messaging/conversations/${conversation?.id}/messages/`, {
-        method: 'POST',
-        body: JSON.stringify({ body: body.trim() }),
-      }),
-    onSuccess: () => {
-      setBody('')
-      void qc.invalidateQueries({ queryKey: ['msgs', conversation?.id] })
-      void qc.invalidateQueries({ queryKey: ['conversations'] })
+    onSuccess: (next) => {
+      navigate(messageThreadPath(next.id, context), {
+        replace: true,
+        state: backTo ? { from: backTo } : undefined,
+      })
     },
   })
 
-  const automatedMessages = useMemo(() => {
-    if (isProvider || !target) return []
-    return buildProviderAutomatedMessages(target)
-  }, [isProvider, target])
+  useEffect(() => {
+    if (!me || !target || isSelf || !messagesAllowed || !username) return
+    const key = `${username.toLowerCase()}|${place?.type ?? ''}|${place?.id ?? ''}`
+    if (startedFor.current === key) return
+    startedFor.current = key
+    startMut.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start once per username+context
+  }, [isSelf, me, messagesAllowed, place?.id, place?.type, target, username])
 
-  const opening = Boolean(
-    target && messagesAllowed && !isSelf && !conversation?.id && !startMut.isError && !targetQuery.isError,
-  )
-
-  const chatReady = Boolean(conversation?.id && me && target)
+  const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
 
   function handleBack() {
     if (backTo) navigate(backTo)
     else navigate(inboxPath)
   }
-
-  const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
 
   if (!me) {
     return (
@@ -200,6 +174,9 @@ export function MessageUser({ context = 'user' }: Props) {
           <Lock size={26} strokeWidth={2} aria-hidden />
           <h1>Messages are disabled</h1>
           <p>This person is not accepting message requests right now.</p>
+          <Link to={`/u/${target.username}`} className="btn btn-ghost">
+            View profile
+          </Link>
         </section>
       </main>
     )
@@ -212,7 +189,14 @@ export function MessageUser({ context = 'user' }: Props) {
           <MessageCircle size={26} strokeWidth={2} aria-hidden />
           <h1>Could not open chat</h1>
           <p>Try again from the booking, or open your inbox.</p>
-          <button type="button" className="btn btn-primary" onClick={() => startMut.mutate(otherUserId!)}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              startedFor.current = ''
+              startMut.mutate()
+            }}
+          >
             Try again
           </button>
           <Link to={inboxPath} className="btn btn-ghost" style={{ marginTop: 8 }}>
@@ -225,55 +209,28 @@ export function MessageUser({ context = 'user' }: Props) {
 
   return (
     <main className={pageClass}>
-      {chatReady ? (
-        <DmChatView
-          context={context}
-          person={{
-            username: target.username,
-            display_name: target.display_name,
-            avatar: targetAvatar,
-            city: target.city,
-            region: target.region,
-          }}
-          personName={targetName}
-          myUsername={me.username}
-          messages={messagesQuery.data ?? []}
-          automatedMessages={automatedMessages}
-          body={body}
-          onBodyChange={setBody}
-          onSend={() => sendMut.mutate()}
-          sending={sendMut.isPending}
-          loading={messagesQuery.isLoading && !messagesQuery.data}
-          opening={opening}
-          onBack={handleBack}
-          inboxHref={inboxPath}
-          inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
-          backLabel={isProvider ? 'Back to guest inbox' : 'Back'}
-        />
-      ) : (
-        <DmChatView
-          context={context}
-          person={{
-            username: target.username,
-            display_name: target.display_name,
-            avatar: targetAvatar,
-            city: target.city,
-            region: target.region,
-          }}
-          personName={targetName}
-          myUsername={me.username}
-          messages={[]}
-          automatedMessages={[]}
-          body=""
-          onBodyChange={() => {}}
-          onSend={() => {}}
-          opening
-          onBack={handleBack}
-          inboxHref={inboxPath}
-          inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
-          showQuickReplies={false}
-        />
-      )}
+      <DmChatView
+        context={context}
+        person={{
+          username: target.username,
+          display_name: target.display_name,
+          avatar: targetAvatar,
+          city: target.city,
+          region: target.region,
+        }}
+        personName={targetName}
+        myUsername={me.username}
+        messages={[]}
+        automatedMessages={[]}
+        body=""
+        onBodyChange={() => {}}
+        onSend={() => {}}
+        opening
+        onBack={handleBack}
+        inboxHref={inboxPath}
+        inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
+        showQuickReplies={false}
+      />
     </main>
   )
 }

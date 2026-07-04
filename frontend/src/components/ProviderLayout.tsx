@@ -4,16 +4,19 @@ import { ArrowLeft, Car, Compass, Hotel, Menu, Ticket, Utensils, type LucideIcon
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess, type MyBusiness } from '../hooks/useBusinessAccess'
 import { useNavBadges } from '../hooks/useNavBadges'
+import { canResubmitVerification, verificationStatusHint } from '../utils/businessVerification'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import { ProviderAccessGate } from './provider'
 import { ListSkeleton } from './ui'
+import '../components/provider/settings/provider-settings.css'
 
 const NAV = [
   { to: '/provider', label: 'Overview', end: true },
   { to: '/provider/listings', label: 'Listings' },
   { to: '/provider/promotions', label: 'Promotions' },
   { to: '/provider/bookings', label: 'Bookings' },
+  { to: '/provider/questions', label: 'Questions' },
   { to: '/provider/messages', label: 'Messages' },
   { to: '/provider/reviews', label: 'Reviews' },
   { to: '/provider/analytics', label: 'Analytics' },
@@ -31,6 +34,7 @@ const MODULE_LINKS: { to: string; label: string; Icon: LucideIcon; serviceType: 
 function verificationLabel(status?: string) {
   if (status === 'verified') return 'Verified'
   if (status === 'pending') return 'Verification pending'
+  if (status === 'rejected') return 'Verification rejected'
   if (status === 'suspended') return 'Suspended'
   return 'Unverified'
 }
@@ -186,6 +190,22 @@ export function ProviderLayout() {
         </header>
 
         <div className="prov-content">
+          {resolvedBusiness &&
+          resolvedBusiness.verification_status !== 'verified' &&
+          resolvedBusiness.verification_status !== 'unverified' ? (
+            <div
+              className={`prov-layout-banner${resolvedBusiness.verification_status === 'rejected' || resolvedBusiness.verification_status === 'suspended' ? ' prov-layout-banner--bad' : ''}`}
+              role="status"
+            >
+              {verificationStatusHint(resolvedBusiness.verification_status, resolvedBusiness.verification_notes)}
+              {canResubmitVerification(resolvedBusiness.verification_status) ? (
+                <>
+                  {' '}
+                  <Link to="/provider/onboarding">Resubmit documents</Link>
+                </>
+              ) : null}
+            </div>
+          ) : null}
           <Outlet
             context={{
               activeBusiness: resolvedBusiness,

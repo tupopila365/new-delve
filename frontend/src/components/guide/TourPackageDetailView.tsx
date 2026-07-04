@@ -141,7 +141,11 @@ export function TourPackageDetailView({
             id: 'message-guide',
             label: 'Message',
             icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: messageProviderPath(guide.username),
+            href: messageProviderPath(guide.username, {
+              type: 'guide',
+              id: guideId,
+              label: pkg.title || guide.headline,
+            }),
             accent: true,
           },
         ]}
@@ -202,15 +206,18 @@ export function TourPackageDetailView({
               className="gpkg-detail__about acc-detail__about"
             />
 
-            {mapHref ? (
-              <ListingLocationCard
-                title="Meeting area"
-                address={meetingPoint || regionLine || null}
-                mapUrl={mapHref}
-                mapHint="Opens in OpenStreetMap"
-                className="gpkg-detail__location acc-detail__section"
-              />
-            ) : null}
+            <ListingLocationCard
+              title="Meeting area"
+              address={meetingPoint || regionLine || null}
+              mapUrl={mapHref || null}
+              approximateHint={
+                meetingPoint?.trim()
+                  ? null
+                  : 'Meeting area only — exact point is confirmed with your guide.'
+              }
+              viewMapLabel="Open in maps"
+              className="gpkg-detail__location acc-detail__section"
+            />
 
             <ListingReviews
               title={reviewsTitle}

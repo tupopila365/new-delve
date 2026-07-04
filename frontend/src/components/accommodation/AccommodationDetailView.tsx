@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
+import { messageProviderPath } from '../messages/messageProviderUtils'
 import { StayAskSection } from './StayAskSection'
 import { DetailLayout } from '../detail'
 import {
@@ -24,7 +25,6 @@ import {
   ListingRules,
 } from '../listing'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
-import type { ListingMomentItem } from '../listing/types'
 import type { ReviewItem } from '../GuestReviewCard'
 import {
   amenityChipIcon,
@@ -52,7 +52,6 @@ type Props = {
   questions?: ListingQuestionItem[]
   loadingQuestions?: boolean
   canAnswerQuestions?: boolean
-  moments?: ListingMomentItem[]
   reviews?: ReviewItem[]
   ratingAvg?: string
   ratingCount?: number
@@ -67,7 +66,6 @@ export function AccommodationDetailView({
   questions = [],
   loadingQuestions = false,
   canAnswerQuestions = false,
-  moments = [],
   reviews = [],
   ratingAvg,
   ratingCount,
@@ -147,7 +145,11 @@ export function AccommodationDetailView({
             id: 'message-host',
             label: 'Message host',
             icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: `/messages/u/${encodeURIComponent(data.owner_username)}`,
+            href: messageProviderPath(data.owner_username, {
+              type: 'accommodation',
+              id: listingId,
+              label: data.title,
+            }),
             accent: true,
           },
         ]}
@@ -210,20 +212,26 @@ export function AccommodationDetailView({
 
             <ListingLocationCard
               address={locationLine || null}
-              mapUrl={mapHref}
-              viewMapLabel="View map"
+              mapUrl={mapHref || null}
+              approximateHint="Area only — exact address is usually shared after booking."
+              viewMapLabel="Open in maps"
               className="acc-detail__map-card"
             />
 
             <ListingDelversMoments
               listingType="accommodation"
               listingId={listingId}
+              listingTitle={data.title}
               title="From Delvers"
-              moments={moments}
               className="acc-detail__moments"
               showWhenEmpty
               emptyMessage="No guest moments yet."
             />
+            <p className="acc-detail__moment-cta">
+              <Link to={`/create/post?listing=${listingId}`} className="text-link">
+                Share a moment from this stay
+              </Link>
+            </p>
 
             <StayAskSection
               listingId={listingId}

@@ -15,6 +15,9 @@ import {
   DelveAdminStatusBadge,
 } from '../components'
 import { statusVariant } from '../data/demoData'
+import { isFoodBusiness, foodServiceLabel } from '../utils/foodVerification'
+import { isGuideBusiness, guideServiceLabel } from '../utils/guideVerification'
+import { isTransportBusiness, transportModeLabel } from '../utils/transportVerification'
 
 const VERIFY_FILTERS = ['All', 'Pending', 'Verified', 'Rejected', 'Suspended'] as const
 
@@ -118,6 +121,11 @@ export function BusinessesPage() {
               meta={
                 <span className="da-row__types">
                   {(b.business_types ?? []).map((t) => TYPE_LABELS[t] ?? t).join(' · ')}
+                  {isTransportBusiness(b.business_types) && (b.transport_modes?.length ?? 0) > 0
+                    ? ` · ${(b.transport_modes ?? []).map(transportModeLabel).join(', ')}`
+                    : ''}
+                  {isFoodBusiness(b.business_types) ? ` · ${foodServiceLabel()}` : ''}
+                  {isGuideBusiness(b.business_types) ? ` · ${guideServiceLabel()}` : ''}
                 </span>
               }
               badge={

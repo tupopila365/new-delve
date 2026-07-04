@@ -180,10 +180,13 @@ def serialize_platform_settings(settings: PlatformSettings) -> dict:
     }
 
 
-def anonymize_user_account(user: User, *, actor: User) -> None:
+def anonymize_user_account(user: User, *, actor: User, self_initiated: bool = False) -> None:
     if user.is_staff:
         raise ValueError("Staff accounts cannot be deleted via this flow.")
-    if user.pk == actor.pk:
+    if self_initiated:
+        if actor.pk != user.pk:
+            raise ValueError("Self-delete can only be performed by the account owner.")
+    elif user.pk == actor.pk:
         raise ValueError("You cannot delete your own account.")
 
     Post.objects.filter(author=user).update(is_hidden=True, body="[deleted]", moderation_reason="Account deleted")

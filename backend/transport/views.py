@@ -1,23 +1,49 @@
 import uuid
 
 from django.db import transaction
+from django.db.models import Prefetch
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from accounts.business_access import user_can_manage_listing
 
 from accommodation.models import BookingStatus
 
-from accounts.permissions import IsEmailVerified
+from accounts.permissions import IsEmailVerified, IsServiceProvider
 
 from .filters import BusTripFilter, VehicleFilter
 from .models import (
     BusOperator,
     BusRoute,
     BusTrip,
+    BusTripAnswer,
+    BusTripQuestion,
     SeatReservation,
+    VehicleAnswer,
+    VehicleQuestion,
     VehicleRentalBooking,
     VehicleRentalListing,
 )
+from .qa_serializers import (
+    BusTripAnswerCreateSerializer,
+    BusTripAnswerSerializer,
+    BusTripQuestionCreateSerializer,
+    BusTripQuestionSerializer,
+    VehicleAnswerCreateSerializer,
+    VehicleAnswerSerializer,
+    VehicleQuestionCreateSerializer,
+    VehicleQuestionSerializer,
+)
+from .review_serializers import (
+    SeatReservationReviewCreateSerializer,
+    SeatReservationReviewSerializer,
+    VehicleRentalReviewCreateSerializer,
+    VehicleRentalReviewSerializer,
+)
+from .review_services import bus_trip_reviews_payload, vehicle_reviews_payload
 from .serializers import (
     BusOperatorSerializer,
     BusRouteSerializer,
@@ -41,7 +67,7 @@ class VehicleRentalListingViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
-            return [permissions.IsAuthenticated()]
+            return [permissions.IsAuthenticated(), IsServiceProvider()]
         return [permissions.AllowAny()]
 
     def get_queryset(self):
@@ -53,6 +79,54 @@ class VehicleRentalListingViewSet(viewsets.ModelViewSet):
             qs = qs.filter(vehicle_type__in=types)
         return qs
 
+    @action(detail=True, methods=["get", "post"])
+    def questions(self, request, pk=None):
+        listing = self.get_object()
+        if request.method == "GET":
+            visible_answers = VehicleAnswer.objects.filter(is_hidden=False).select_related(
+                "author", "author__profile"
+            )
+            qs = (
+                VehicleQuestion.objects.filter(listing=listing, is_hidden=False)
+                .select_related("author", "author__profile", "listing")
+                .prefetch_related(Prefetch("answers", queryset=visible_answers))
+                .order_by("-created_at")[:50]
+            )
+            return Response(VehicleQuestionSerializer(qs, many=True).data)
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        ser = VehicleQuestionCreateSerializer(
+            data=request.data,
+            context={"request": request, "listing": listing},
+        )
+        ser.is_valid(raise_exception=True)
+        question = ser.save()
+        return Response(VehicleQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"])
+    def moments(self, request, pk=None):
+        from social.models import Post
+        from social.serializers import PostSerializer
+
+        listing = self.get_object()
+        posts = (
+            Post.objects.filter(
+                vehicle_listing=listing,
+                is_delvers=True,
+                is_accommodation_story=False,
+                is_hidden=False,
+            )
+            .select_related("author", "author__profile")
+            .order_by("-created_at")[:24]
+        )
+        ser = PostSerializer(posts, many=True, context={"request": request})
+        return Response(ser.data)
+
+    @action(detail=True, methods=["get"])
+    def reviews(self, request, pk=None):
+        listing = self.get_object()
+        return Response(vehicle_reviews_payload(listing))
+
 
 class VehicleRentalBookingViewSet(viewsets.ModelViewSet):
     serializer_class = VehicleRentalBookingSerializer
@@ -60,8 +134,35 @@ class VehicleRentalBookingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return VehicleRentalBooking.objects.filter(renter=self.request.user).select_related(
-            "listing"
+            "listing",
+            "listing__owner",
+            "listing__owner__profile",
+        ).prefetch_related("review")
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        booking = self.get_object()
+        ser = VehicleRentalReviewCreateSerializer(
+            data=request.data,
+            context={"request": request, "booking": booking},
         )
+        ser.is_valid(raise_exception=True)
+        review = ser.save()
+        return Response(VehicleRentalReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        booking = self.get_object()
+        if booking.status in (
+            BookingStatus.CANCELLED,
+            BookingStatus.REFUNDED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.CHECKED_OUT,
+        ):
+            return Response({"detail": "Booking cannot be cancelled."}, status=status.HTTP_400_BAD_REQUEST)
+        booking.status = BookingStatus.CANCELLED
+        booking.save(update_fields=["status"])
+        return Response(VehicleRentalBookingSerializer(booking).data)
 
     @action(detail=True, methods=["post"])
     def mock_pay(self, request, pk=None):
@@ -110,7 +211,7 @@ class BusTripViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.action in ("list", "retrieve"):
+        if self.action in ("list", "retrieve", "moments", "reviews", "questions"):
             return qs.filter(is_active=True)
         return qs.filter(route__operator__owner=self.request.user)
 
@@ -136,13 +237,91 @@ class BusTripViewSet(viewsets.ModelViewSet):
             raise PermissionDenied()
         super().perform_destroy(instance)
 
+    @action(detail=True, methods=["get", "post"])
+    def questions(self, request, pk=None):
+        trip = self.get_object()
+        if request.method == "GET":
+            visible_answers = BusTripAnswer.objects.filter(is_hidden=False).select_related(
+                "author", "author__profile"
+            )
+            qs = (
+                BusTripQuestion.objects.filter(trip=trip, is_hidden=False)
+                .select_related("author", "author__profile", "trip", "trip__route")
+                .prefetch_related(Prefetch("answers", queryset=visible_answers))
+                .order_by("-created_at")[:50]
+            )
+            return Response(BusTripQuestionSerializer(qs, many=True).data)
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        ser = BusTripQuestionCreateSerializer(
+            data=request.data,
+            context={"request": request, "trip": trip},
+        )
+        ser.is_valid(raise_exception=True)
+        question = ser.save()
+        return Response(BusTripQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"])
+    def moments(self, request, pk=None):
+        from social.models import Post
+        from social.serializers import PostSerializer
+
+        trip = self.get_object()
+        posts = (
+            Post.objects.filter(
+                bus_trip=trip,
+                is_delvers=True,
+                is_accommodation_story=False,
+                is_hidden=False,
+            )
+            .select_related("author", "author__profile")
+            .order_by("-created_at")[:24]
+        )
+        ser = PostSerializer(posts, many=True, context={"request": request})
+        return Response(ser.data)
+
+    @action(detail=True, methods=["get"])
+    def reviews(self, request, pk=None):
+        trip = self.get_object()
+        return Response(bus_trip_reviews_payload(trip))
+
 
 class SeatReservationViewSet(viewsets.ModelViewSet):
     serializer_class = SeatReservationSerializer
     permission_classes = [permissions.IsAuthenticated, IsEmailVerified]
 
     def get_queryset(self):
-        return SeatReservation.objects.filter(passenger=self.request.user).select_related("trip")
+        return SeatReservation.objects.filter(passenger=self.request.user).select_related(
+            "trip",
+            "trip__route",
+            "trip__route__operator",
+            "trip__route__operator__owner",
+        ).prefetch_related("review")
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        reservation = self.get_object()
+        ser = SeatReservationReviewCreateSerializer(
+            data=request.data,
+            context={"request": request, "reservation": reservation},
+        )
+        ser.is_valid(raise_exception=True)
+        review = ser.save()
+        return Response(SeatReservationReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        reservation = self.get_object()
+        if reservation.status in (
+            BookingStatus.CANCELLED,
+            BookingStatus.REFUNDED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.CHECKED_OUT,
+        ):
+            return Response({"detail": "Reservation cannot be cancelled."}, status=status.HTTP_400_BAD_REQUEST)
+        reservation.status = BookingStatus.CANCELLED
+        reservation.save(update_fields=["status"])
+        return Response(SeatReservationSerializer(reservation).data)
 
     def create(self, request, *args, **kwargs):
         if request.data.get("seat_numbers") is not None:
@@ -270,3 +449,48 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
                 "mock_payment_ref": res.mock_payment_ref,
             }
         )
+
+
+class VehicleQuestionAnswerView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        question = (
+            VehicleQuestion.objects.select_related("listing")
+            .filter(pk=pk, is_hidden=False)
+            .first()
+        )
+        if not question:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not user_can_manage_listing(request.user, question.listing.owner_id):
+            raise PermissionDenied("You cannot answer questions for this listing.")
+        ser = VehicleAnswerCreateSerializer(
+            data=request.data,
+            context={"request": request, "question": question},
+        )
+        ser.is_valid(raise_exception=True)
+        answer = ser.save()
+        return Response(VehicleAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)
+
+
+class BusTripQuestionAnswerView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        question = (
+            BusTripQuestion.objects.select_related("trip", "trip__route", "trip__route__operator")
+            .filter(pk=pk, is_hidden=False)
+            .first()
+        )
+        if not question:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        owner_id = question.trip.route.operator.owner_id
+        if not user_can_manage_listing(request.user, owner_id):
+            raise PermissionDenied("You cannot answer questions for this trip.")
+        ser = BusTripAnswerCreateSerializer(
+            data=request.data,
+            context={"request": request, "question": question},
+        )
+        ser.is_valid(raise_exception=True)
+        answer = ser.save()
+        return Response(BusTripAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)

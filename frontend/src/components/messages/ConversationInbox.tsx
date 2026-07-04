@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Inbox, MessageCircle, PenLine, Search, UserRound } from 'lucide-react'
-import { apiFetch } from '../../api/client'
+import { apiFetch, mediaUrl } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { SearchPanel } from '../marketplace'
 import { MessagesEmptyState } from './MessagesEmptyState'
 import { NewMessageSheet, type MessagePerson } from './NewMessageSheet'
+import { ConversationContextChip } from './ConversationContextChip'
 import {
+  conversationOther,
   formatConversationTime,
   participantInitial,
   participantLabel,
@@ -78,6 +80,7 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
     queryKey: ['conversations'],
     enabled: !!profile,
     queryFn: () => apiFetch<InboxConversation[]>('/api/messaging/conversations/'),
+    refetchInterval: 20_000,
   })
 
   const conversations = useMemo(() => (Array.isArray(data) ? data : []), [data])
@@ -87,7 +90,7 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
     const seen = new Set<string>()
     const people: MessagePerson[] = []
     for (const conversation of conversations) {
-      const other = conversation.participants_detail.find((p) => p.username !== profile.username)
+      const other = conversationOther(conversation, profile.username)
       if (!other || seen.has(other.username)) continue
       seen.add(other.username)
       people.push({
@@ -111,7 +114,7 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
     const search = query.trim().toLowerCase()
     if (!search || !profile) return list
     return list.filter((conversation) => {
-      const other = conversation.participants_detail.find((p) => p.username !== profile.username)
+      const other = conversationOther(conversation, profile.username)
       const haystack = [
         participantLabel(other),
         other?.username,
@@ -239,15 +242,22 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
       {!isLoading && !isError && filteredConversations.length > 0 ? (
         <ul className={listClass} aria-label="Conversations">
           {filteredConversations.map((conversation) => {
-            const other = conversation.participants_detail.find((p) => p.username !== profile.username)
+            const other = conversationOther(conversation, profile.username)
             const label = participantLabel(other)
             const preview = previewText(conversation, profile.username)
             const unread = (conversation.unread_count ?? 0) > 0
+            const avatarSrc = mediaUrl(other?.avatar ?? null)
             return (
               <li key={conversation.id}>
                 <Link to={messageThreadPath(conversation.id, context)} className={rowClass}>
                   <span className={context === 'provider' ? 'prov-msg-inbox__avatar' : 'msg-row__avatar'} aria-hidden>
-                    {other ? participantInitial(other) : <UserRound size={18} strokeWidth={2} />}
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt="" />
+                    ) : other ? (
+                      participantInitial(other)
+                    ) : (
+                      <UserRound size={18} strokeWidth={2} />
+                    )}
                   </span>
                   <span className={context === 'provider' ? 'prov-msg-inbox__main' : 'msg-row__main'}>
                     <span className={context === 'provider' ? 'prov-msg-inbox__top' : 'msg-row__top'}>
@@ -272,9 +282,19 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
                     >
                       {preview.text}
                     </span>
+                    {conversation.context?.label ? (
+                      <ConversationContextChip
+                        context={conversation.context}
+                        className="msg-context-chip--inbox"
+                        variant={context === 'provider' ? 'provider' : 'user'}
+                      />
+                    ) : null}
                   </span>
-                  {unread && context === 'provider' ? (
-                    <span className="prov-msg-inbox__unread" aria-label="Unread messages" />
+                  {unread ? (
+                    <span
+                      className={context === 'provider' ? 'prov-msg-inbox__unread' : 'msg-row__unread'}
+                      aria-label="Unread messages"
+                    />
                   ) : null}
                 </Link>
               </li>

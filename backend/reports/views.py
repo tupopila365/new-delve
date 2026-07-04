@@ -117,11 +117,25 @@ class PlatformModerationContentView(APIView):
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        detail = reason
+        if target_type == "post":
+            from social.models import Post
+
+            post = Post.objects.filter(pk=target_id).select_related("author").first()
+            if post:
+                detail = f"@{post.author.username} — {reason}".strip(" —")
+        elif target_type == "journey":
+            from journeys.models import Journey
+
+            journey = Journey.objects.filter(pk=target_id).select_related("author").first()
+            if journey:
+                detail = f"@{journey.author.username} — {journey.title} — {reason}".strip(" —")
+
         log_admin_action(
             actor=request.user,
             action="content_restore" if action == "restore" else "content_remove",
             target_type=target_type,
             target_id=target_id,
-            detail=reason,
+            detail=detail,
         )
         return Response({"ok": True, "action": action})

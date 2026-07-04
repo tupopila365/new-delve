@@ -12,9 +12,11 @@ import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
 import { CreateHub } from './pages/CreateHub'
 import { CreatePost } from './pages/CreatePost'
+import { CreateAsk } from './pages/CreateAsk'
 import { CreateStory } from './pages/CreateStory'
+import { StoriesNewRedirect } from './pages/StoriesNewRedirect'
 import { DelversSocial } from './pages/DelversSocial'
-import { DelversNew } from './pages/DelversNew'
+import { DelversPostDetail } from './pages/DelversPostDetail'
 import { EventDetail } from './pages/EventDetail'
 import { EventsList } from './pages/EventsList'
 import { FoodDetail } from './pages/FoodDetail'
@@ -41,10 +43,14 @@ import { CreateJourney } from './pages/CreateJourney'
 import { UserProfile } from './pages/UserProfile'
 import { VehicleDetail } from './pages/VehicleDetail'
 import { VerifyEmail } from './pages/VerifyEmail'
+import { ForgotPassword } from './pages/ForgotPassword'
+import { ResetPassword } from './pages/ResetPassword'
 import { ProviderOnboarding } from './pages/ProviderOnboarding'
+import { BecomeProvider } from './pages/BecomeProvider'
 import { ProviderLayout } from './components/ProviderLayout'
 import { ProviderDashboard } from './pages/ProviderDashboard'
 import { ProviderPromotions } from './pages/ProviderPromotions'
+import { ProviderQuestions } from './pages/ProviderQuestions'
 import { ProviderListings } from './pages/ProviderListings'
 import { ProviderBookings } from './pages/ProviderBookings'
 import { ProviderReviews } from './pages/ProviderReviews'
@@ -60,14 +66,16 @@ import { FoodAdmin } from './pages/FoodAdmin'
 import { EventsAdmin } from './pages/EventsAdmin'
 import { UserDashboard } from './pages/UserDashboard'
 import { BusinessProfile } from './pages/BusinessProfile'
-import { AdminLayout } from './components/AdminLayout'
-import { PlatformAdmin } from './pages/PlatformAdmin'
-import { PlatformAdminUsers } from './pages/PlatformAdminUsers'
-import { PlatformAdminBusinesses } from './pages/PlatformAdminBusinesses'
-import { PlatformAdminBookings } from './pages/PlatformAdminBookings'
+import { PlatformAdminHandoff } from './pages/PlatformAdminHandoff'
 import { ListingGalleryPage } from './pages/ListingGalleryPage'
 import { ListingReviewsPage } from './pages/ListingReviewsPage'
 import { ListingMomentsPage } from './pages/ListingMomentsPage'
+
+function LegacyPostRedirect() {
+  const { id } = useParams<{ id: string }>()
+  if (!id) return <Navigate to="/delvers" replace />
+  return <Navigate to={`/delvers/posts/${encodeURIComponent(id)}`} replace />
+}
 
 function LegacyGuidePackageBookRedirect() {
   const { guideId, packageSlug } = useParams<{ guideId: string; packageSlug: string }>()
@@ -86,8 +94,11 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreateHub />} />
           <Route path="/create/post" element={<CreatePost />} />
-          <Route path="/stories/new" element={<CreateStory />} />
-          <Route path="/posts/:id" element={<Navigate to="/delvers" replace />} />
+          <Route path="/create/ask" element={<CreateAsk />} />
+          <Route path="/create/highlight" element={<CreateStory />} />
+          <Route path="/stories/new" element={<StoriesNewRedirect />} />
+          <Route path="/delvers/new" element={<Navigate to="/create/highlight" replace />} />
+          <Route path="/posts/:id" element={<LegacyPostRedirect />} />
           <Route path="/u/:username" element={<UserProfile />} />
           <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/dashboard/bookings/:service/:id" element={<BookingDetail />} />
@@ -100,11 +111,13 @@ export default function App() {
           <Route path="/accommodation/:id/book" element={<AccommodationBook />} />
           <Route path="/journeys" element={<TripsList />} />
           <Route path="/journeys/new" element={<CreateJourney />} />
+          <Route path="/journeys/:id/edit" element={<CreateJourney />} />
           <Route path="/journeys/:id" element={<TripDetail />} />
           <Route path="/delvers" element={<DelversSocial />} />
-          <Route path="/delvers/new" element={<CreateStory />} />
-          <Route path="/delvers/pin/new" element={<DelversNew />} />
+          <Route path="/delvers/posts/:id" element={<DelversPostDetail />} />
+          <Route path="/delvers/pin/new" element={<Navigate to="/create/post" replace />} />
           <Route path="/community" element={<Community />} />
+          <Route path="/community/posts/:id" element={<DelversPostDetail fallbackPath="/community" />} />
           <Route path="/transport" element={<Transport />} />
           <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
           <Route path="/transport/bus/:id" element={<BusTripDetail />} />
@@ -131,16 +144,12 @@ export default function App() {
           <Route path="/messages/:id" element={<MessageThread />} />
           <Route path="/account" element={<Account />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<PlatformAdmin />} />
-            <Route path="users" element={<PlatformAdminUsers />} />
-            <Route path="businesses" element={<PlatformAdminBusinesses />} />
-            <Route path="bookings" element={<PlatformAdminBookings />} />
-          </Route>
+          <Route path="/admin/*" element={<PlatformAdminHandoff />} />
           <Route path="/provider" element={<ProviderLayout />}>
             <Route index element={<ProviderDashboard />} />
             <Route path="listings" element={<ProviderListings />} />
             <Route path="promotions" element={<ProviderPromotions />} />
+            <Route path="questions" element={<ProviderQuestions />} />
             <Route path="bookings" element={<ProviderBookings />} />
             <Route path="reviews" element={<ProviderReviews />} />
             <Route path="analytics" element={<ProviderAnalytics />} />
@@ -158,7 +167,10 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/provider/onboarding" element={<ProviderOnboarding />} />
+        <Route path="/provider/start" element={<BecomeProvider />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

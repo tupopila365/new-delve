@@ -12,6 +12,8 @@ import {
   DelveAdminPageHeader,
   DelveAdminStatusBadge,
   DelveAdminVerifyDialog,
+  FoodListingInspectorDrawer,
+  GuideListingInspectorDrawer,
 } from '../components'
 import { statusVariant } from '../data/demoData'
 
@@ -22,6 +24,7 @@ const TYPE_FILTERS = [
   'Transport',
   'Food',
   'Events',
+  'Journeys',
   'Delvers',
   'Community',
 ] as const
@@ -32,6 +35,7 @@ const TYPE_MAP: Record<string, string> = {
   Transport: 'vehicle',
   Food: 'food',
   Events: 'event',
+  Journeys: 'journey',
   Delvers: 'post',
   Community: 'community',
 }
@@ -44,6 +48,8 @@ export function ListingsPage() {
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]>('All')
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>('All')
   const [dialog, setDialog] = useState<{ item: AdminListing; publish: boolean } | null>(null)
+  const [inspectFoodId, setInspectFoodId] = useState<number | null>(null)
+  const [inspectGuideId, setInspectGuideId] = useState<number | null>(null)
 
   const { data: listings = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['listings'],
@@ -68,6 +74,27 @@ export function ListingsPage() {
       }),
     onSuccess: () => {
       setDialog(null)
+      void qc.invalidateQueries({ queryKey: ['listings'] })
+      void qc.invalidateQueries({ queryKey: ['overview'] })
+      void qc.invalidateQueries({ queryKey: ['activity'] })
+    },
+  })
+
+  const featureMut = useMutation({
+    mutationFn: ({
+      listing_type,
+      listing_id,
+      featured,
+    }: {
+      listing_type: string
+      listing_id: number
+      featured: boolean
+    }) =>
+      apiFetch<AdminListing>('/api/accounts/admin/listings/', {
+        method: 'PATCH',
+        body: JSON.stringify({ listing_type, listing_id, featured }),
+      }),
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['listings'] })
       void qc.invalidateQueries({ queryKey: ['overview'] })
       void qc.invalidateQueries({ queryKey: ['activity'] })
@@ -144,32 +171,68 @@ export function ListingsPage() {
                 <>
                   <DelveAdminStatusBadge status={item.category_label} variant="info" />
                   <DelveAdminStatusBadge status={item.status} variant={statusVariant(item.status)} />
+                  {item.is_featured ? <DelveAdminStatusBadge status="Featured" variant="success" /> : null}
                 </>
               }
               actions={
-                item.status === 'published' ? (
-                  <button
-                    type="button"
-                    className="da-link-btn da-link-btn--danger"
-                    onClick={() => setDialog({ item, publish: false })}
-                  >
-                    Unpublish
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="da-link-btn"
-                    onClick={() =>
-                      updateMut.mutate({
-                        listing_type: item.listing_type,
-                        listing_id: item.listing_id,
-                        published: true,
-                      })
-                    }
-                  >
-                    Republish
-                  </button>
-                )
+                <>
+                  {item.listing_type === 'food' ? (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() => setInspectFoodId(item.listing_id)}
+                    >
+                      Inspect
+                    </button>
+                  ) : null}
+                  {item.listing_type === 'guide' ? (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() => setInspectGuideId(item.listing_id)}
+                    >
+                      Inspect
+                    </button>
+                  ) : null}
+                  {item.listing_type === 'journey' && item.status === 'published' ? (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() =>
+                        featureMut.mutate({
+                          listing_type: item.listing_type,
+                          listing_id: item.listing_id,
+                          featured: !item.is_featured,
+                        })
+                      }
+                    >
+                      {item.is_featured ? 'Unfeature' : 'Feature'}
+                    </button>
+                  ) : null}
+                  {item.status === 'published' ? (
+                    <button
+                      type="button"
+                      className="da-link-btn da-link-btn--danger"
+                      onClick={() => setDialog({ item, publish: false })}
+                    >
+                      Unpublish
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() =>
+                        updateMut.mutate({
+                          listing_type: item.listing_type,
+                          listing_id: item.listing_id,
+                          published: true,
+                        })
+                      }
+                    >
+                      Republish
+                    </button>
+                  )}
+                </>
               }
             />
           ))}
@@ -192,6 +255,9 @@ export function ListingsPage() {
           })
         }}
       />
+
+      <FoodListingInspectorDrawer listingId={inspectFoodId} onClose={() => setInspectFoodId(null)} />
+      <GuideListingInspectorDrawer listingId={inspectGuideId} onClose={() => setInspectGuideId(null)} />
     </div>
   )
 }

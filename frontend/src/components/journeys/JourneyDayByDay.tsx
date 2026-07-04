@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, Play, Route } from 'lucide-react'
+import { CalendarDays, Camera, Play, Route } from 'lucide-react'
 import type { TripStop } from '../../data/mockTrips'
 import { ListingSection } from '../listing'
 import {
@@ -15,13 +15,15 @@ import './journey-day-by-day.css'
 type Props = {
   stops: TripStop[]
   className?: string
+  isAuthor?: boolean
+  onShareEntry?: (entryId: number) => void
 }
 
 function globalIndexForItem(routeMedia: JourneyStopMediaItem[], item: JourneyStopMediaItem) {
   return routeMedia.findIndex((m) => m.id === item.id && m.stopIndex === item.stopIndex)
 }
 
-export function JourneyDayByDay({ stops, className = '' }: Props) {
+export function JourneyDayByDay({ stops, className = '', isAuthor = false, onShareEntry }: Props) {
   const routeMedia = useMemo(() => collectRouteMedia(stops), [stops])
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
@@ -109,6 +111,16 @@ export function JourneyDayByDay({ stops, className = '' }: Props) {
                                 </button>
                               ) : null}
                               {note ? <p className="jn-diary__note">{note}</p> : null}
+                              {isAuthor && onShareEntry && (note || media) ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm jn-diary__share"
+                                  onClick={() => onShareEntry(entry.id)}
+                                >
+                                  <Camera size={14} strokeWidth={2.25} aria-hidden />
+                                  Share on Delvers
+                                </button>
+                              ) : null}
                             </div>
                           )
                         })}

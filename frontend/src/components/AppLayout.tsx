@@ -20,8 +20,6 @@ import { UserDashboardPageEnhancer } from './dashboard/UserDashboardPageEnhancer
 import { AccountPageEnhancer } from './account/AccountPageEnhancer'
 import { SettingsPageEnhancer } from './settings/SettingsPageEnhancer'
 import { CreatePageEnhancer } from './create/CreatePageEnhancer'
-import { CreateJourneyPageEnhancer } from './journeys/CreateJourneyPageEnhancer'
-import { CreateEventPageEnhancer } from './events/CreateEventPageEnhancer'
 import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
@@ -249,14 +247,20 @@ export function AppLayout() {
   useMigrateStaySaves()
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
-  const createStudio =
-    loc.pathname === '/create/post' ||
-    loc.pathname === '/stories/new' ||
-    loc.pathname === '/delvers/new'
+  const createStudioDark =
+    loc.pathname === '/create/post' || loc.pathname === '/create/highlight'
+  const createStudioLight =
+    loc.pathname === '/create/ask' ||
+    loc.pathname === '/journeys/new' ||
+    loc.pathname === '/events/new' ||
+    /^\/journeys\/\d+\/edit$/.test(loc.pathname) ||
+    /^\/events\/\d+\/edit$/.test(loc.pathname)
 
-  if (createStudio) {
+  if (createStudioDark || createStudioLight) {
     return (
-      <div className="app-shell app-shell--create">
+      <div
+        className={`app-shell app-shell--create${createStudioLight ? ' app-shell--create-light' : ''}`}
+      >
         <main className="app-main app-main--create">
           <Outlet />
         </main>
@@ -290,8 +294,6 @@ export function AppLayout() {
   const accountPage = loc.pathname === '/account'
   const settingsPage = loc.pathname === '/settings'
   const createPage = loc.pathname === '/create'
-  const createJourneyPage = loc.pathname === '/journeys/new'
-  const createEventPage = loc.pathname === '/events/new' || /^\/events\/\d+\/edit$/.test(loc.pathname)
 
   if (providerMode || adminMode) {
     return (
@@ -419,8 +421,8 @@ export function AppLayout() {
           <>
             <CommunityPageEnhancer />
             <ServiceProviderPageHeader
-              title="Ask a question"
-              subtitle="Get help from locals and travellers — anywhere in the world."
+              title="Community feed"
+              subtitle="Travel tips and local advice from Delvers — post to Feed to show up here."
               eyebrow="Community"
               searchPlaceholder="Search questions…"
               searchInputSelector="#cm-search"
@@ -467,30 +469,8 @@ export function AppLayout() {
             <CreatePageEnhancer />
             <ServiceProviderPageHeader
               title="Create"
-              subtitle="Post photos and videos, stories, journeys, and more."
+              subtitle="Post, highlight, ask locals, journeys, and events."
               eyebrow="Share"
-              showTools={false}
-            />
-          </>
-        ) : null}
-        {createJourneyPage ? (
-          <>
-            <CreateJourneyPageEnhancer />
-            <ServiceProviderPageHeader
-              title="New journey"
-              subtitle="Share your route, stops, cover media, costs, and travel tips."
-              eyebrow="Journeys"
-              showTools={false}
-            />
-          </>
-        ) : null}
-        {createEventPage ? (
-          <>
-            <CreateEventPageEnhancer />
-            <ServiceProviderPageHeader
-              title="Create event"
-              subtitle="Add a cover, date, venue, and details for your gathering."
-              eyebrow="Events"
               showTools={false}
             />
           </>

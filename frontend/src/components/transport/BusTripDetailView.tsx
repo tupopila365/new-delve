@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
   Bus,
@@ -12,9 +13,11 @@ import {
   Users,
 } from 'lucide-react'
 import { DetailLayout } from '../detail'
+import { normalizeReviews } from '../GuestReviewCard'
+import { apiFetch } from '../../api/client'
 import {
   ListingAmenities,
-  ListingAskSection,
+  ListingQuestionsSection,
   ListingBookBar,
   ListingDelversMoments,
   ListingDetails,
@@ -23,8 +26,8 @@ import {
   ListingIdentityHeader,
   ListingLocationCard,
   ListingQuickInfo,
+  ListingReviews,
 } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
 import { VenueStoriesSection } from '../food/stories'
 import {
   BusTripBookingStatus,
@@ -38,7 +41,6 @@ import { buildBusStoryChannels } from './transportStoriesUtils'
 import {
   buildBusDetailRows,
   buildBusGalleryImages,
-  buildBusMoments,
   buildBusTrustHighlights,
   busRouteTitle,
   DEFAULT_BUS_TRAVEL_TIPS,
@@ -81,7 +83,7 @@ type Props = {
   saved: boolean
   onSave: () => void
   onShare: () => void
-  initialQuestions?: ListingQuestionItem[]
+  canAnswer?: boolean
   booking: BookingProps
 }
 
@@ -91,7 +93,7 @@ export function BusTripDetailView({
   saved,
   onSave,
   onShare,
-  initialQuestions,
+  canAnswer = false,
   booking,
 }: Props) {
   const routeTitle = busRouteTitle(trip)
@@ -104,13 +106,22 @@ export function BusTripDetailView({
   const galleryImages = buildBusGalleryImages(trip)
   const trustHighlights = buildBusTrustHighlights(trip)
   const detailRows = buildBusDetailRows(trip)
-  const delversMoments = buildBusMoments(trip, galleryImages)
   const timeline = routeTimelineStops(trip, dep.time, arr?.time ?? null)
 
   const storyChannels = useMemo(
     () => buildBusStoryChannels(trip, { tripId, tripPath }),
     [trip, tripId, tripPath],
   )
+
+  const { data: reviewPayload } = useQuery({
+    queryKey: ['bus-trip-reviews', tripId],
+    queryFn: () =>
+      apiFetch<{ reviews: unknown[]; rating_avg: string | null; rating_count: number }>(
+        `/api/transport/bus/trips/${tripId}/reviews/`,
+        { auth: false },
+      ),
+  })
+  const reviews = normalizeReviews(reviewPayload?.reviews ?? [])
 
   const tipItems = DEFAULT_BUS_TRAVEL_TIPS.map((label) => ({
     id: label,
@@ -239,16 +250,18 @@ export function BusTripDetailView({
             <ListingLocationCard
               title="Boarding point"
               address={trip.route_detail.origin}
-              mapUrl={openStreetMapSearchUrl(trip.route_detail.origin)}
-              viewMapLabel="Get directions"
+              mapUrl={openStreetMapSearchUrl(trip.route_detail.origin) || null}
+              approximateHint="Route stop name — confirm the boarding point with the operator."
+              viewMapLabel="Open in maps"
               className="tp-detail__map-card acc-detail__map-card"
             />
 
             <ListingLocationCard
               title="Drop-off point"
               address={trip.route_detail.destination}
-              mapUrl={openStreetMapSearchUrl(trip.route_detail.destination)}
-              viewMapLabel="Get directions"
+              mapUrl={openStreetMapSearchUrl(trip.route_detail.destination) || null}
+              approximateHint="Route stop name — confirm the drop-off with the operator."
+              viewMapLabel="Open in maps"
               className="tp-detail__map-card acc-detail__map-card"
             />
 
@@ -269,20 +282,34 @@ export function BusTripDetailView({
             <BusOperatorCard operatorName={operatorName} className="acc-detail__section" />
 
             <ListingDelversMoments
-              listingType="transport"
+              listingType="bus_trip"
               listingId={tripId}
+              listingTitle={`${trip.route_detail.origin} → ${trip.route_detail.destination}`}
               title="Delvers moments on this route"
-              moments={delversMoments}
               className="tp-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="Photos and tips will appear after travellers complete this route."
             />
 
-            <ListingAskSection
+            <ListingReviews
+              listingType="transport"
+              listingId={tripId}
+              reviews={reviews}
+              rating={reviewPayload?.rating_avg}
+              count={reviewPayload?.rating_count}
+              emptyMessage="Reviews will appear here after passengers share feedback."
+              className="tp-detail__reviews acc-detail__reviews"
+            />
+
+            <ListingQuestionsSection
               className="tp-detail__comments acc-detail__comments"
               title="Route tips and questions"
               placeholder="Ask about boarding point, stops, pickup time, or seat availability…"
-              initialQuestions={initialQuestions}
+              questionsPath={`/api/transport/bus/trips/${tripId}/questions/`}
+              answerPath={(questionId) => `/api/transport/bus/questions/${questionId}/answers/`}
+              queryKey={['bus-trip-questions', tripId]}
+              canAnswer={canAnswer}
+              officialLabel="Operator"
             />
 
             {!firstRes && (

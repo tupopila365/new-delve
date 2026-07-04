@@ -1,5 +1,103 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
+
+
+def make_pair_key(user_a_id: int, user_b_id: int) -> str:
+    low, high = sorted((int(user_a_id), int(user_b_id)))
+    return f"{low}:{high}"
+
+
+# Marketplace / booking context attached to a 1:1 thread (latest wins).
+CONTEXT_TYPES = frozenset(
+    {
+        "accommodation",
+        "food",
+        "guide",
+        "event",
+        "transport",
+        "bus_trip",
+        "booking_stay",
+        "booking_guide",
+        "booking_vehicle",
+        "booking_bus",
+        "booking_food",
+    }
+)
+
+CONTEXT_HREF_TEMPLATES = {
+    "accommodation": "/accommodation/{id}",
+    "food": "/food/{id}",
+    "guide": "/guides/{id}",
+    "event": "/events/{id}",
+    "transport": "/transport/vehicle/{id}",
+    "bus_trip": "/transport/bus/{id}",
+    "booking_stay": "/dashboard/bookings/stay/{id}",
+    "booking_guide": "/dashboard/bookings/guide/{id}",
+    "booking_vehicle": "/dashboard/bookings/vehicle/{id}",
+    "booking_bus": "/dashboard/bookings/bus/{id}",
+    "booking_food": "/dashboard/bookings/food/{id}",
+}
+
+
+def context_href(context_type: str, context_id: int | None) -> str | None:
+    if not context_type or context_id is None:
+        return None
+    template = CONTEXT_HREF_TEMPLATES.get(context_type)
+    if not template:
+        return None
+    return template.format(id=context_id)
+
+
+def resolve_context_label(context_type: str, context_id: int | None, fallback: str = "") -> str:
+    label = (fallback or "").strip()
+    if label:
+        return label[:200]
+    if not context_type or context_id is None:
+        return ""
+    try:
+        if context_type == "accommodation":
+            from accommodation.models import AccommodationListing
+
+            return (
+                AccommodationListing.objects.filter(pk=context_id).values_list("title", flat=True).first() or ""
+            )[:200]
+        if context_type == "food":
+            from food.models import FoodVenue
+
+            return (FoodVenue.objects.filter(pk=context_id).values_list("name", flat=True).first() or "")[:200]
+        if context_type == "guide":
+            from guides.models import TourGuideProfile
+
+            row = (
+                TourGuideProfile.objects.filter(pk=context_id)
+                .values_list("headline", "user__username")
+                .first()
+            )
+            if not row:
+                return ""
+            headline, username = row
+            return (headline or username or "")[:200]
+        if context_type == "event":
+            from events_app.models import Event
+
+            return (Event.objects.filter(pk=context_id).values_list("title", flat=True).first() or "")[:200]
+        if context_type == "transport":
+            from transport.models import VehicleRentalListing
+
+            return (
+                VehicleRentalListing.objects.filter(pk=context_id).values_list("title", flat=True).first() or ""
+            )[:200]
+        if context_type == "bus_trip":
+            from transport.models import BusTrip
+
+            trip = BusTrip.objects.select_related("route").filter(pk=context_id).first()
+            if not trip or not trip.route_id:
+                return ""
+            return f"{trip.route.origin} → {trip.route.destination}"[:200]
+    except Exception:
+        return ""
+    return ""
 
 
 class Conversation(models.Model):
@@ -7,11 +105,32 @@ class Conversation(models.Model):
         settings.AUTH_USER_MODEL,
         related_name="conversations",
     )
+    # Stable 1:1 identity — "minUserId:maxUserId"
+    pair_key = models.CharField(max_length=64, unique=True, null=True, blank=True, db_index=True)
+    context_type = models.CharField(max_length=32, blank=True, default="")
+    context_id = models.PositiveIntegerField(null=True, blank=True)
+    context_label = models.CharField(max_length=200, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-updated_at"]
+
+    def context_payload(self) -> dict | None:
+        if not self.context_type:
+            return None
+        href = context_href(self.context_type, self.context_id)
+        label = (self.context_label or "").strip()
+        if not label and self.context_id is not None:
+            label = resolve_context_label(self.context_type, self.context_id)
+        if not label and not href:
+            return None
+        return {
+            "type": self.context_type,
+            "id": self.context_id,
+            "label": label or self.context_type.replace("_", " ").title(),
+            "href": href,
+        }
 
 
 class Message(models.Model):
@@ -31,3 +150,31 @@ class Message(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+
+
+class MessageBlock(models.Model):
+    """User-level block — either direction prevents messaging."""
+
+    blocker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="messaging_blocks_created",
+    )
+    blocked = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="messaging_blocks_received",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["blocker", "blocked"], name="uniq_messaging_block"),
+        ]
+        ordering = ["-created_at"]
+
+
+def messaging_blocked_either_way(user_a_id: int, user_b_id: int) -> bool:
+    return MessageBlock.objects.filter(
+        Q(blocker_id=user_a_id, blocked_id=user_b_id) | Q(blocker_id=user_b_id, blocked_id=user_a_id)
+    ).exists()

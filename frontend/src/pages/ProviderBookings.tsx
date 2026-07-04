@@ -9,6 +9,7 @@ import { ProviderUiChips, ProviderUiEmpty, ProviderUiHeader, ProviderUiPage, Pro
 import { getBookingStats, getProviderBookings } from '../data/providerData'
 import { mergeProviderBookings, useProviderEventBookings } from '../hooks/useProviderEventData'
 import { useProviderStayBookings } from '../hooks/useProviderStayData'
+import { useProviderFoodBookings } from '../hooks/useProviderFoodData'
 import { bookingsPageSubtitle, categoriesForBusinessTypes } from '../utils/providerCategories'
 
 const STATUS_FILTERS = [
@@ -22,14 +23,18 @@ const STATUS_FILTERS = [
 export function ProviderBookings() {
   const { profile } = useAuth()
   const qc = useQueryClient()
-  const { activeBusiness } = useOutletContext<ProviderOutletContext>()
+  const { activeBusiness, canManageBookings } = useOutletContext<ProviderOutletContext>()
   const businessTypes = activeBusiness?.business_types ?? []
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
   const includeEvents = allowedCategories.length === 0 || allowedCategories.includes('Event')
   const includeStays = allowedCategories.length === 0 || allowedCategories.includes('Stay')
+  const includeTransport = allowedCategories.length === 0 || allowedCategories.includes('Transport')
+  const includeFood = allowedCategories.length === 0 || allowedCategories.includes('Food')
 
   const { data: eventBookings = [] } = useProviderEventBookings(Boolean(profile && includeEvents))
   const { data: stayBookings = [] } = useProviderStayBookings(Boolean(profile && includeStays))
+  const { data: transportBookings = [] } = useProviderTransportBookings(Boolean(profile && includeTransport))
+  const { data: foodBookings = [] } = useProviderFoodBookings(Boolean(profile && includeFood))
 
   const confirmEventMut = useMutation({
     mutationFn: (id: number) =>
@@ -65,9 +70,55 @@ export function ProviderBookings() {
     },
   })
 
+  const transportBookingAction = (kind: 'rental' | 'seat', id: number, action: string) =>
+    apiFetch(`/api/transport/provider-${kind === 'rental' ? 'rental' : 'seat'}-bookings/${id}/${action}/`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+
+  const confirmTransportMut = useMutation({
+    mutationFn: ({ kind, id }: { kind: 'rental' | 'seat'; id: number }) =>
+      transportBookingAction(kind, id, 'confirm'),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-transport-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-rental-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-seat-bookings'] })
+    },
+  })
+
+  const checkInTransportMut = useMutation({
+    mutationFn: ({ kind, id }: { kind: 'rental' | 'seat'; id: number }) =>
+      transportBookingAction(kind, id, 'check_in'),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-transport-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-rental-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-seat-bookings'] })
+    },
+  })
+
+  const confirmFoodMut = useMutation({
+    mutationFn: (id: number) =>
+      apiFetch(`/api/food/provider-reservations/${id}/confirm/`, { method: 'POST', body: JSON.stringify({}) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-food-reservations'] }),
+  })
+
+  const checkInFoodMut = useMutation({
+    mutationFn: (id: number) =>
+      apiFetch(`/api/food/provider-reservations/${id}/check_in/`, { method: 'POST', body: JSON.stringify({}) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-food-reservations'] }),
+  })
+
   const scopedBookings = useMemo(
-    () => mergeProviderBookings(getProviderBookings(), eventBookings, allowedCategories, stayBookings),
-    [allowedCategories, eventBookings, stayBookings],
+    () =>
+      mergeProviderBookings(
+        getProviderBookings(),
+        eventBookings,
+        allowedCategories,
+        stayBookings,
+        transportBookings,
+        foodBookings,
+      ),
+    [allowedCategories, eventBookings, stayBookings, transportBookings, foodBookings],
   )
 
   const stats = getBookingStats(scopedBookings)
@@ -101,7 +152,11 @@ export function ProviderBookings() {
     <ProviderUiPage>
       <ProviderUiHeader
         title="Bookings"
-        subtitle={bookingsPageSubtitle(businessTypes)}
+        subtitle={
+          canManageBookings
+            ? bookingsPageSubtitle(businessTypes)
+            : 'View bookings for your business. Confirm and check-in require staff access.'
+        }
       />
 
       <ProviderUiStats
@@ -134,7 +189,7 @@ export function ProviderBookings() {
       {bookings.length === 0 ? (
         <ProviderUiEmpty
           title="No bookings match"
-          message="When travellers request stays, guides, transport, or event RSVPs, they appear here."
+          message="When travellers request stays, food tables, guides, transport, or event RSVPs, they appear here."
         />
       ) : (
         <div className="prov-bookings__list">
@@ -143,26 +198,54 @@ export function ProviderBookings() {
               key={`${b.source ?? 'mock'}-${b.id}`}
               booking={b}
               onConfirm={
-                b.source === 'event-api' && b.status === 'pending'
+                canManageBookings && b.source === 'event-api' && b.status === 'pending'
                   ? () => confirmEventMut.mutate(b.id)
-                  : b.source === 'stay-api' && b.status === 'pending'
+                  : canManageBookings && b.source === 'stay-api' && b.status === 'pending'
                     ? () => confirmStayMut.mutate(b.id)
-                    : undefined
+                    : canManageBookings &&
+                        (b.source === 'transport-rental-api' || b.source === 'transport-seat-api') &&
+                        b.status === 'pending'
+                      ? () =>
+                          confirmTransportMut.mutate({
+                            kind: b.source === 'transport-rental-api' ? 'rental' : 'seat',
+                            id: b.id,
+                          })
+                      : canManageBookings && b.source === 'food-api' && b.status === 'pending'
+                        ? () => confirmFoodMut.mutate(b.id)
+                        : undefined
               }
               onCheckIn={
-                b.source === 'event-api' && b.status === 'confirmed'
+                canManageBookings && b.source === 'event-api' && b.status === 'confirmed'
                   ? () => checkInEventMut.mutate(b.id)
-                  : b.source === 'stay-api' && b.status === 'confirmed'
+                  : canManageBookings && b.source === 'stay-api' && b.status === 'confirmed'
                     ? () => checkInStayMut.mutate(b.id)
-                    : undefined
+                    : canManageBookings &&
+                        (b.source === 'transport-rental-api' || b.source === 'transport-seat-api') &&
+                        b.status === 'confirmed'
+                      ? () =>
+                          checkInTransportMut.mutate({
+                            kind: b.source === 'transport-rental-api' ? 'rental' : 'seat',
+                            id: b.id,
+                          })
+                      : canManageBookings && b.source === 'food-api' && b.status === 'confirmed'
+                        ? () => checkInFoodMut.mutate(b.id)
+                        : undefined
               }
               confirmPending={
                 (confirmEventMut.isPending && confirmEventMut.variables === b.id) ||
-                (confirmStayMut.isPending && confirmStayMut.variables === b.id)
+                (confirmStayMut.isPending && confirmStayMut.variables === b.id) ||
+                (confirmTransportMut.isPending &&
+                  confirmTransportMut.variables?.id === b.id &&
+                  (b.source === 'transport-rental-api' || b.source === 'transport-seat-api')) ||
+                (confirmFoodMut.isPending && confirmFoodMut.variables === b.id)
               }
               checkInPending={
                 (checkInEventMut.isPending && checkInEventMut.variables === b.id) ||
-                (checkInStayMut.isPending && checkInStayMut.variables === b.id)
+                (checkInStayMut.isPending && checkInStayMut.variables === b.id) ||
+                (checkInTransportMut.isPending &&
+                  checkInTransportMut.variables?.id === b.id &&
+                  (b.source === 'transport-rental-api' || b.source === 'transport-seat-api')) ||
+                (checkInFoodMut.isPending && checkInFoodMut.variables === b.id)
               }
             />
           ))}

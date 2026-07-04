@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronRight } from 'lucide-react'
 import './CreateHubGrid.css'
 
 export type CreateHubItem = {
@@ -14,50 +13,43 @@ export type CreateHubItem = {
 type Props = {
   primary: CreateHubItem
   items: readonly CreateHubItem[]
-  providerItems?: readonly CreateHubItem[]
+  providerHref?: string
 }
 
-export function CreateHubGrid({ primary, items, providerItems }: Props) {
+export function CreateHubGrid({ primary, items, providerHref }: Props) {
   return (
     <div className="create-hub-grid">
+      <header className="create-hub-grid__head">
+        <h1>Create</h1>
+        <p>Share a moment, ask locals, or plan a trip.</p>
+      </header>
+
       <Link to={primary.to} className="create-hub-grid__primary">
         <span className="create-hub-grid__primary-icon" aria-hidden>
-          <primary.Icon size={22} strokeWidth={2.25} />
+          <primary.Icon size={26} strokeWidth={2.25} />
         </span>
         <span>
           <strong>{primary.label}</strong>
           {primary.hint ? <small>{primary.hint}</small> : null}
         </span>
-        <ChevronRight size={18} strokeWidth={2.25} aria-hidden />
       </Link>
 
-      <nav className="create-hub-grid__list" aria-label="More create options">
+      <div className="create-hub-grid__tiles" role="navigation" aria-label="Create formats">
         {items.map((item) => (
-          <Link key={item.to} to={item.to} className="create-hub-grid__row">
-            <span className="create-hub-grid__icon" aria-hidden>
-              <item.Icon size={18} strokeWidth={2.25} />
+          <Link key={item.to} to={item.to} className="create-hub-grid__tile">
+            <span className="create-hub-grid__tile-icon" aria-hidden>
+              <item.Icon size={20} strokeWidth={2.25} />
             </span>
-            <span className="create-hub-grid__label">{item.label}</span>
-            <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
+            <strong>{item.label}</strong>
+            {item.hint ? <small>{item.hint}</small> : null}
           </Link>
         ))}
-      </nav>
+      </div>
 
-      {providerItems && providerItems.length > 0 ? (
-        <>
-          <p className="create-hub-grid__section">Provider</p>
-          <nav className="create-hub-grid__list" aria-label="Provider create options">
-            {providerItems.map((item) => (
-              <Link key={`${item.to}-${item.label}`} to={item.to} className="create-hub-grid__row create-hub-grid__row--accent">
-                <span className="create-hub-grid__icon" aria-hidden>
-                  <item.Icon size={18} strokeWidth={2.25} />
-                </span>
-                <span className="create-hub-grid__label">{item.label}</span>
-                <ChevronRight size={16} strokeWidth={2.25} aria-hidden />
-              </Link>
-            ))}
-          </nav>
-        </>
+      {providerHref ? (
+        <Link to={providerHref} className="create-hub-grid__provider">
+          Provider? Manage listings
+        </Link>
       ) : null}
     </div>
   )

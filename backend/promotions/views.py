@@ -11,7 +11,8 @@ from rest_framework.views import APIView
 
 
 
-from accounts.permissions import IsPlatformAdmin, IsProviderOrBusinessMember
+from accounts.permissions import IsListingManager, IsPlatformAdmin, IsProviderOrBusinessMember
+from accounts.business_access import user_has_listing_manager_access
 
 from accounts.platform_audit import log_admin_action
 from promotions.constants import PLACEMENT_TARGET_TYPES, PROMOTION_PRICING
@@ -763,20 +764,19 @@ class FeaturedPlacementView(APIView):
 
 
     def get(self, request):
+        limit_raw = (request.query_params.get("limit") or "").strip()
+        try:
+            limit = min(max(int(limit_raw), 1), 20) if limit_raw else None
+        except ValueError:
+            limit = None
+        kwargs = {
+            "region": _request_region(request),
+            "user": request.user,
+        }
+        if limit is not None:
+            kwargs["limit"] = limit
+        return Response(featured_for_placement(self.placement, **kwargs))
 
-        return Response(
-
-            featured_for_placement(
-
-                self.placement,
-
-                region=_request_region(request),
-
-                user=request.user,
-
-            )
-
-        )
 
 
 
@@ -896,7 +896,7 @@ class ProviderPromotionsView(APIView):
 
 class ProviderPromotionRequestView(APIView):
 
-    permission_classes = [permissions.IsAuthenticated, IsProviderOrBusinessMember]
+    permission_classes = [permissions.IsAuthenticated, IsListingManager]
 
 
 
@@ -1083,7 +1083,7 @@ class PromotionPurchaseSerializer(serializers.Serializer):
 
 class PromotionPurchaseView(APIView):
 
-    permission_classes = [permissions.IsAuthenticated, IsProviderOrBusinessMember]
+    permission_classes = [permissions.IsAuthenticated, IsListingManager]
 
 
 
@@ -1166,6 +1166,10 @@ class ProviderPromotionCampaignView(APIView):
 
 
     def post(self, request, pk):
+
+        if not user_has_listing_manager_access(request.user):
+
+            return Response({"detail": "Listing management access required."}, status=403)
 
         campaign = self._owned(request, pk)
 

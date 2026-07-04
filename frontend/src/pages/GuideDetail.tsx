@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useQuery } from '@tanstack/react-query'
 
@@ -9,6 +9,10 @@ import { Compass } from 'lucide-react'
 import { apiFetch } from '../api/client'
 
 import { useAuth } from '../auth/AuthContext'
+
+import { useToggleGuideSave } from '../hooks/useGuideSave'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 
 import { normalizeReviews } from '../components/GuestReviewCard'
 
@@ -42,27 +46,18 @@ import {
 
 
 
-const SEED_QUESTIONS: ListingQuestionItem[] = [
-
-  { id: 'q1', author: 'Mila K.', body: 'Can you pick us up at the hotel?', ago: '3h ago' },
-
-  { id: 'q2', author: 'Jonas T.', body: 'Is this suitable for families with kids?', ago: '1d ago' },
-
-]
-
-
-
 export function GuideDetail() {
 
   const { id } = useParams()
 
+  const navigate = useNavigate()
+
   const [searchParams] = useSearchParams()
 
   const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
 
-
-
-  const [saved, setSaved] = useState(false)
+  const saveMut = useToggleGuideSave()
 
   const [shareMsg, setShareMsg] = useState('')
 
@@ -72,11 +67,11 @@ export function GuideDetail() {
 
   const { data: g, isLoading, isError, refetch } = useQuery({
 
-    queryKey: ['guide', id],
+    queryKey: ['guide', id, profile?.username ?? 'anon'],
 
     enabled: !!id,
 
-    queryFn: () => apiFetch<GuideProfile>(`/api/guides/profiles/${id}/`, { auth: false }),
+    queryFn: () => apiFetch<GuideProfile>(`/api/guides/profiles/${id}/`, { auth: Boolean(profile) }),
 
   })
 
@@ -92,11 +87,30 @@ export function GuideDetail() {
 
   })
 
+  const { data: questions = [], isLoading: questionsLoading } = useQuery({
+    queryKey: ['guide-questions', id],
+    enabled: !!id,
+    queryFn: () => apiFetch<ListingQuestionItem[]>(`/api/guides/profiles/${id}/questions/`, { auth: false }),
+  })
+
+  const { data: reviewsPayload } = useQuery({
+    queryKey: ['guide-reviews', id],
+    enabled: !!id,
+    queryFn: () =>
+      apiFetch<{ reviews: unknown[]; rating_avg: number; rating_count: number }>(
+        `/api/guides/profiles/${id}/reviews/`,
+        { auth: false },
+      ),
+  })
+
 
 
   const packages = useMemo(() => normalizeTourPackages(g?.tour_packages), [g?.tour_packages])
 
-  const reviews = useMemo(() => normalizeReviews(g?.guest_reviews), [g?.guest_reviews])
+  const reviews = useMemo(
+    () => normalizeReviews(reviewsPayload?.reviews ?? g?.guest_reviews),
+    [reviewsPayload?.reviews, g?.guest_reviews],
+  )
 
   const langsDetail = useMemo(() => normalizeLanguagesDetail(g?.languages_detail), [g?.languages_detail])
 
@@ -236,15 +250,23 @@ export function GuideDetail() {
 
     <DetailPage prefix="gd-detail" className="gd-detail--premium acc-detail-page" toast={shareMsg || null}>
 
+      <PromotionOpenTracker />
+
       <GuideDetailView
 
         guide={g}
 
         guideId={id}
 
-        saved={saved}
+        saved={Boolean(g.saved_by_me)}
 
-        onSave={() => setSaved((v) => !v)}
+        onSave={() => {
+          if (!profile) {
+            navigate('/login')
+            return
+          }
+          saveMut.mutate(Number(id))
+        }}
 
         onShare={() => void onShare()}
 
@@ -266,7 +288,17 @@ export function GuideDetail() {
 
         profile={profile}
 
-        initialQuestions={SEED_QUESTIONS}
+        questions={questions}
+
+        questionsLoading={questionsLoading}
+
+        canAnswerQuestions={
+          Boolean(profile) &&
+          (profile?.username === g.username ||
+            (canManageListings && activeBusiness?.owner_username === g.username))
+        }
+
+        canReview={Boolean(g.can_review)}
 
         onScrollToExperiences={scrollToExperiences}
 

@@ -422,6 +422,11 @@ export function AccommodationBook() {
                 role="host"
                 variant="primary"
                 size="block"
+                place={{
+                  type: 'booking_stay',
+                  id: booking.id,
+                  label: displayTitle,
+                }}
               />
               {listing.owner_username ? (
                 <Link

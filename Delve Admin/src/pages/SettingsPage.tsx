@@ -123,6 +123,21 @@ export function SettingsPage() {
           </button>
         </form>
       </DelveAdminPanel>
+
+      <DelveAdminPanel title="Admin consoles">
+        <p className="da-settings-note">
+          <strong>Delve Admin</strong> (this app) is the canonical platform console for staff — users, verifications,
+          moderation, email queue, bookings, and analytics. Sensitive actions are written to the admin audit log.
+        </p>
+        <p className="da-settings-note">
+          <strong>Traveller app</strong> links here from <code>/admin</code> on port 5173; it no longer hosts a partial
+          admin UI.
+        </p>
+        <p className="da-settings-note">
+          <strong>Django admin</strong> at <code>/admin/</code> on the API server is for database/superuser tasks only —
+          not day-to-day operations.
+        </p>
+      </DelveAdminPanel>
     </div>
   )
 }

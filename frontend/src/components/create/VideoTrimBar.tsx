@@ -1,4 +1,5 @@
 import type { VideoTrim } from './types'
+import { MAX_TRIM_DURATION_SEC } from './videoTrimUtils'
 
 type Props = {
   value: VideoTrim
@@ -18,12 +19,15 @@ export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
   }
 
   const safeEnd = Math.max(value.start + 0.5, value.end)
+  const selectionSec = safeEnd - value.start
+  const overMax = selectionSec > MAX_TRIM_DURATION_SEC
 
   return (
     <div className="create-panel">
       <p className="create-panel__title">Trim video</p>
       <p className="create-panel__hint">
         {value.start.toFixed(1)}s – {safeEnd.toFixed(1)}s of {duration.toFixed(1)}s
+        {overMax ? ` · Max ${MAX_TRIM_DURATION_SEC}s per clip` : ''}
       </p>
       <label className="create-slider">
         <span>Start</span>
@@ -35,7 +39,9 @@ export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
           value={value.start}
           onChange={(event) => {
             const start = Number(event.target.value)
-            onChange({ start, end: Math.max(start + 0.5, value.end) })
+            const end = Math.max(start + 0.5, value.end)
+            const cappedEnd = Math.min(end, start + MAX_TRIM_DURATION_SEC)
+            onChange({ start, end: cappedEnd })
           }}
         />
       </label>
@@ -49,7 +55,9 @@ export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
           value={safeEnd}
           onChange={(event) => {
             const end = Number(event.target.value)
-            onChange({ start: Math.min(value.start, end - 0.5), end })
+            const start = Math.min(value.start, end - 0.5)
+            const cappedEnd = Math.min(end, start + MAX_TRIM_DURATION_SEC)
+            onChange({ start, end: cappedEnd })
           }}
         />
       </label>

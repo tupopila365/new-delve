@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
-import { EventForm } from '../components/events/EventForm'
+import { CreateWizardShell } from '../components/create'
+import { EventForm, EVENT_WIZARD_STEPS } from '../components/events/EventForm'
 import { EmptyState } from '../components/ui'
 import type { EventDetail } from '../utils/eventListing'
 import {
@@ -14,6 +15,8 @@ import {
   eventToFormState,
   type EventFormState,
 } from '../utils/eventForm'
+import '../components/events/CreateEventPageEnhancer.css'
+import '../components/journeys/CreateJourneyPageEnhancer.css'
 
 export function EditEvent() {
   const { id } = useParams()
@@ -22,6 +25,7 @@ export function EditEvent() {
   const { profile } = useAuth()
   const { canManageListings, activeBusiness } = useBusinessAccess()
 
+  const [step, setStep] = useState(1)
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
   const [hydrated, setHydrated] = useState(false)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
@@ -71,6 +75,45 @@ export function EditEvent() {
       setErr(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to update event.')
     },
   })
+
+  function validateStep(): string | null {
+    if (step === 1 && !state.title.trim()) return 'Give your event a title.'
+    if (step === 2) {
+      if (!state.startsAt) return 'Add a start date and time.'
+      if (state.endsAt && new Date(state.endsAt) < new Date(state.startsAt)) {
+        return 'End must be after start.'
+      }
+    }
+    if (step === 3) {
+      if (state.ticketingMode === 'on_platform' && !state.price.trim()) {
+        return 'Add a ticket price for on-platform sales.'
+      }
+      if (state.ticketingMode === 'external' && !state.ticketUrl.trim()) {
+        return 'Add an external ticket link.'
+      }
+    }
+    return null
+  }
+
+  function next() {
+    const message = validateStep()
+    if (message) {
+      setErr(message)
+      return
+    }
+    setErr(null)
+    setStep((s) => Math.min(EVENT_WIZARD_STEPS.length, s + 1))
+  }
+
+  function back() {
+    setErr(null)
+    setStep((s) => Math.max(1, s - 1))
+  }
+
+  function requestLeave() {
+    if (!window.confirm('Discard unsaved changes?')) return
+    navigate(`/events/${id}`)
+  }
 
   if (!profile) {
     return (
@@ -133,29 +176,32 @@ export function EditEvent() {
   }
 
   return (
-    <div className="ce-page">
-      <p className="ce-form__section-title" style={{ marginBottom: 4 }}>
-        <Link to={`/events/${id}`} className="btn btn-ghost" style={{ padding: 0, minHeight: 0 }}>
-          ← Back to event
-        </Link>
-      </p>
+    <CreateWizardShell
+      title="Edit event"
+      subtitle={`Step ${step} of ${EVENT_WIZARD_STEPS.length}`}
+      steps={EVENT_WIZARD_STEPS}
+      step={step}
+      onLeave={requestLeave}
+      onStepBack={back}
+      onStepNext={next}
+      onPrimary={() => {
+        setErr(null)
+        mut.mutate()
+      }}
+      primaryLabel="Save changes"
+      primaryPendingLabel="Saving…"
+      primaryPending={mut.isPending}
+      primaryDisabled={!canSubmit}
+      error={err}
+    >
       <EventForm
+        step={step}
         state={state}
         onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
         coverPreview={coverPreview}
         onCoverPreviewChange={setCoverPreview}
         onCoverFileReady={setCoverFile}
-        onSubmit={() => {
-          setErr(null)
-          mut.mutate()
-        }}
-        submitLabel="Save changes"
-        pendingLabel="Saving…"
-        cancelTo={`/events/${id}`}
-        err={err}
-        pending={mut.isPending}
-        canSubmit={canSubmit}
       />
-    </div>
+    </CreateWizardShell>
   )
 }

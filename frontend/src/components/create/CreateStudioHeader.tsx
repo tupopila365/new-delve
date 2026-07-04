@@ -9,7 +9,9 @@ type Props = {
   actionLabel?: string
   actionDisabled?: boolean
   actionPending?: boolean
+  actionPendingLabel?: string
   onAction?: () => void
+  variant?: 'dark' | 'light'
 }
 
 export function CreateStudioHeader({
@@ -20,10 +22,12 @@ export function CreateStudioHeader({
   actionLabel = 'Share',
   actionDisabled,
   actionPending,
+  actionPendingLabel,
   onAction,
+  variant = 'dark',
 }: Props) {
   return (
-    <header className="create-studio-header">
+    <header className={`create-studio-header${variant === 'light' ? ' create-studio-header--light' : ''}`}>
       <button type="button" className="create-studio-header__icon" onClick={onBack} aria-label="Go back">
         <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
       </button>
@@ -38,7 +42,7 @@ export function CreateStudioHeader({
           disabled={actionDisabled || actionPending}
           onClick={onAction}
         >
-          {actionPending ? '…' : actionLabel}
+          {actionPending ? (actionPendingLabel ?? '…') : actionLabel}
         </button>
       ) : onClose ? (
         <button type="button" className="create-studio-header__icon" onClick={onClose} aria-label="Close">

@@ -24,7 +24,7 @@ const STATUS_FILTERS = [
 ]
 
 export function ProviderListings() {
-  const { activeBusiness } = useOutletContext<ProviderOutletContext>()
+  const { activeBusiness, canManageListings } = useOutletContext<ProviderOutletContext>()
   const owner = activeBusiness?.owner_username
   const businessTypes = activeBusiness?.business_types ?? []
   const typeChips = useMemo(() => listingTypeChips(businessTypes), [businessTypes])
@@ -66,9 +66,11 @@ export function ProviderListings() {
         subtitle={listingsPageSubtitle(activeBusiness?.business_name ?? 'your business', businessTypes)}
         actions={
           <>
-            <Link to={addListingTo} className="prov-ui__btn prov-ui__btn--primary">
-              Add listing
-            </Link>
+            {canManageListings ? (
+              <Link to={addListingTo} className="prov-ui__btn prov-ui__btn--primary">
+                Add listing
+              </Link>
+            ) : null}
             {activeBusiness ? (
               <Link to={`/business/${activeBusiness.id}`} className="prov-ui__btn prov-ui__btn--ghost">
                 Public profile
@@ -112,7 +114,7 @@ export function ProviderListings() {
         <ProviderUiEmpty
           title="No listings yet"
           message="Create your first listing so travellers can discover and book you."
-          action={{ label: 'Add listing', to: addListingTo }}
+          action={canManageListings ? { label: 'Add listing', to: addListingTo } : undefined}
         />
       ) : listings.length === 0 ? (
         <ProviderUiEmpty title="No listings match your filters" message="Try a different category, status, or search term." />

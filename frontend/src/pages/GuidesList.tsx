@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -25,10 +25,16 @@ import {
 } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useToggleGuideSave } from '../hooks/useGuideSave'
+import { CategorySpotlightHero } from '../components/CategorySpotlightHero'
 import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { MarketplaceBadge, MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
 import { MiniRating } from '../components/MiniRating'
 import { EmptyState, ListSkeleton } from '../components/ui'
+import { partnerBadgeFields } from '../utils/featuredPartner'
+import { promotionHref, trackPromotion } from '../utils/promotionTrack'
+import '../components/Featured.css'
 
 type Guide = {
   id: number
@@ -46,6 +52,11 @@ type Guide = {
   licensed_guide?: boolean
   response_hours_typical?: number | null
   tour_packages?: unknown[]
+  saved_by_me?: boolean
+  saves_count?: number
+  is_featured_partner?: boolean
+  partner_label?: string
+  promotion_id?: number
 }
 
 const LANGUAGE_OPTIONS = [
@@ -190,13 +201,14 @@ function resultsSummary(count: number, hasFilters: boolean, search: string) {
 }
 
 export function GuidesList() {
+  const navigate = useNavigate()
   const { profile } = useAuth()
+  const saveMut = useToggleGuideSave()
   const [language, setLanguage] = useState('')
   const [region, setRegion] = useState('')
   const [quickFilter, setQuickFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
 
   const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null)
@@ -224,9 +236,26 @@ export function GuidesList() {
   }, [language, region, search])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['guides', qs],
-    queryFn: () => apiFetch<Guide[]>(`/api/guides/profiles/${qs}`, { auth: false }),
+    queryKey: ['guides', qs, profile?.username ?? 'anon'],
+    queryFn: () => apiFetch<Guide[]>(`/api/guides/profiles/${qs}`, { auth: Boolean(profile) }),
   })
+
+  const { data: spotlight = [] } = useFeaturedPlacement<Guide>(
+    'guides-spotlight',
+    FEATURED_API.spotlight('guides'),
+  )
+  const { data: featuredGuides = [] } = useFeaturedPlacement<Guide>(
+    'guides-featured-rail',
+    FEATURED_API.guides,
+  )
+
+  const spotlightGuide = spotlight[0]
+
+  useEffect(() => {
+    if (spotlightGuide?.promotion_id) {
+      trackPromotion(spotlightGuide.promotion_id, 'impression')
+    }
+  }, [spotlightGuide?.promotion_id])
 
   const guides = useMemo(() => {
     let list = data ?? []
@@ -234,7 +263,11 @@ export function GuidesList() {
     return list
   }, [data, quickFilter])
 
-  const featured = useMemo(() => guides.slice(0, 6), [guides])
+  const featured = useMemo(() => {
+    const fromPromo = featuredGuides.slice(0, 6)
+    if (fromPromo.length > 0) return fromPromo
+    return guides.slice(0, 6)
+  }, [featuredGuides, guides])
   const showRichSections = featured.length >= 4
   const topPick = useMemo(() => pickTopGuide(guides), [guides])
   const gridGuides = useMemo(() => {
@@ -341,12 +374,11 @@ export function GuidesList() {
   const toggleSaved = (id: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setSavedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    saveMut.mutate(id)
   }
 
   const clearAll = () => {
@@ -502,6 +534,31 @@ export function GuidesList() {
 
       <div className="gd-page__layout disc-page__layout">
         <main className="gd-page__main disc-page__main">
+          {spotlightGuide?.is_featured_partner ? (
+            <CategorySpotlightHero
+              title={spotlightGuide.headline}
+              subtitle={
+                (spotlightGuide.specialities || []).slice(0, 2).join(' · ') ||
+                guideDisplayName(spotlightGuide)
+              }
+              href={promotionHref(`/guides/${spotlightGuide.id}`, spotlightGuide.promotion_id)}
+              image={mediaUrl(spotlightGuide.photo) ?? null}
+              fallbackImage={FALLBACK_GUIDE_PHOTO}
+              partnerLabel={spotlightGuide.partner_label || 'Featured Partner'}
+              location={(spotlightGuide.regions || []).slice(0, 2).join(' · ')}
+              meta={
+                spotlightGuide.hourly_rate
+                  ? `From $${spotlightGuide.hourly_rate} / hr`
+                  : 'Rates on profile'
+              }
+              rating={
+                spotlightGuide.rating_avg
+                  ? Number.parseFloat(spotlightGuide.rating_avg).toFixed(1)
+                  : null
+              }
+            />
+          ) : null}
+
           {!isLoading && !isError && (
             <p className="gd-page__results-summary" role="status">
               {guides.length > 0
@@ -594,12 +651,21 @@ export function GuidesList() {
           )}
 
           {!isLoading && topPick && (
-            <GuideFeaturedCard guide={topPick} saved={savedIds.has(topPick.id)} onToggleSave={toggleSaved} />
+            <GuideFeaturedCard
+              guide={topPick}
+              saved={Boolean(topPick.saved_by_me)}
+              onToggleSave={toggleSaved}
+            />
           )}
 
           <div className="gd-page__grid">
             {gridGuides.map((g) => (
-              <GuideCard key={g.id} guide={g} saved={savedIds.has(g.id)} onToggleSave={toggleSaved} />
+              <GuideCard
+                key={g.id}
+                guide={g}
+                saved={Boolean(g.saved_by_me)}
+                onToggleSave={toggleSaved}
+              />
             ))}
           </div>
 
@@ -824,14 +890,29 @@ function GuideFeaturedRailCard({ guide: g }: { guide: Guide }) {
   const regionSnippet = (g.regions || []).slice(0, 2).join(' · ')
   const specialitySnippet = (g.specialities || []).slice(0, 2).join(' · ')
   const badges = guideTrustBadges(g)
+  const partner = partnerBadgeFields(g, badges[0]?.label)
+  const href = promotionHref(`/guides/${g.id}`, g.promotion_id)
 
   return (
-    <Link to={`/guides/${g.id}`} className="gd-featured-card">
+    <Link
+      to={href}
+      className="gd-featured-card"
+      onClick={() => {
+        if (g.promotion_id) trackPromotion(g.promotion_id, 'click')
+      }}
+    >
       <div className="gd-featured-card__media">
         <GuidePhoto guide={g} className="gd-featured-card__img" alt={name} />
+        {partner.isFeaturedPartner && partner.partnerLabel ? (
+          <span className="featured-card__partner" style={{ position: 'absolute', left: 10, top: 10, zIndex: 2 }}>
+            {partner.partnerLabel}
+          </span>
+        ) : null}
       </div>
       <div className="gd-featured-card__body">
-        {badges[0] ? (
+        {partner.isFeaturedPartner ? (
+          <span className="acc-featured-card__type">{partner.partnerLabel}</span>
+        ) : badges[0] ? (
           <MarketplaceBadge variant={badges[0].variant}>{badges[0].label}</MarketplaceBadge>
         ) : null}
         <p className="gd-featured-card__name">{g.headline}</p>

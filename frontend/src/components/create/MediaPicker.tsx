@@ -39,7 +39,7 @@ export function MediaPicker({ mediaKind, onMediaKindChange, onPick }: Props) {
         />
         {mediaKind === 'video' ? <Video size={34} strokeWidth={1.75} aria-hidden /> : <ImagePlus size={34} strokeWidth={1.75} aria-hidden />}
         <strong>Tap to add {mediaKind === 'video' ? 'video' : 'photo'}</strong>
-        <span>Filters, crop, captions, and music after you pick media</span>
+        <span>Then edit with filters, crop, caption, and trim</span>
       </label>
     </div>
   )

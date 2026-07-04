@@ -94,17 +94,25 @@ export function mergeProviderBookings(
   eventBookings: ProviderBooking[],
   allowedCategories: string[],
   stayBookings: ProviderBooking[] = [],
+  transportBookings: ProviderBooking[] = [],
+  foodBookings: ProviderBooking[] = [],
 ): ProviderBooking[] {
   const includeEvents = allowedCategories.length === 0 || allowedCategories.includes('Event')
   const includeStays = allowedCategories.length === 0 || allowedCategories.includes('Stay')
+  const includeTransport = allowedCategories.length === 0 || allowedCategories.includes('Transport')
+  const includeFood = allowedCategories.length === 0 || allowedCategories.includes('Food')
   const mockRows = mockBookings.filter((b) => {
     if (b.category === 'Event' && includeEvents) return false
     if (b.category === 'Stay' && includeStays) return false
+    if (b.category === 'Transport' && includeTransport) return false
+    if (b.category === 'Food' && includeFood) return false
     return true
   })
   const apiRows = [
     ...(includeEvents ? eventBookings : []),
     ...(includeStays ? stayBookings : []),
+    ...(includeTransport ? transportBookings : []),
+    ...(includeFood ? foodBookings : []),
   ]
   const all = [...mockRows, ...apiRows]
   if (allowedCategories.length === 0) return all

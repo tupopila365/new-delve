@@ -8,7 +8,10 @@ import { useAuth } from '../auth/AuthContext'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { ProviderUiChips, ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
+import { BusinessVerificationCard } from '../components/provider'
 import '../components/provider/settings/provider-settings.css'
+import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
+import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 
 type SettingsTab = 'business' | 'profile' | 'account'
 
@@ -43,7 +46,7 @@ export function ProviderSettings() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { activeBusiness } = useOutletContext<ProviderOutletContext>()
-  const { canManageSettings } = useBusinessAccess(activeBusiness?.id)
+  const { canManageSettings, businesses } = useBusinessAccess(activeBusiness?.id)
 
   const [tab, setTab] = useState<SettingsTab>('business')
   const [saving, setSaving] = useState(false)
@@ -63,6 +66,12 @@ export function ProviderSettings() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const avatarRef = useRef<HTMLInputElement>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const logoRef = useRef<HTMLInputElement>(null)
+  const coverRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!activeBusiness) return
@@ -82,8 +91,23 @@ export function ProviderSettings() {
   }, [profile])
 
   const saveBusinessMut = useMutation({
-    mutationFn: () =>
-      apiFetch(`/api/accounts/me/businesses/${activeBusiness!.id}/`, {
+    mutationFn: async () => {
+      const hasFiles = Boolean(logoFile || coverFile)
+      if (hasFiles) {
+        const fd = new FormData()
+        fd.append('business_name', businessName.trim())
+        fd.append('tagline', tagline.trim())
+        fd.append('description', description.trim())
+        fd.append('region', bizRegion.trim())
+        fd.append('city', bizCity.trim())
+        if (logoFile) fd.append('logo', logoFile)
+        if (coverFile) fd.append('cover_image', coverFile)
+        return apiFetch(`/api/accounts/me/businesses/${activeBusiness!.id}/`, {
+          method: 'PATCH',
+          body: fd,
+        })
+      }
+      return apiFetch(`/api/accounts/me/businesses/${activeBusiness!.id}/`, {
         method: 'PATCH',
         body: JSON.stringify({
           business_name: businessName.trim(),
@@ -92,14 +116,33 @@ export function ProviderSettings() {
           region: bizRegion.trim(),
           city: bizCity.trim(),
         }),
-      }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-businesses'] }),
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-businesses'] })
+      if (activeBusiness) {
+        void qc.invalidateQueries({ queryKey: ['business-profile', String(activeBusiness.id)] })
+        void qc.invalidateQueries({ queryKey: ['user-businesses', profile?.username] })
+      }
+    },
   })
 
   function onAvatarChange(file: File | null) {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview)
     setAvatarFile(file)
     setAvatarPreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  function onLogoChange(file: File | null) {
+    if (logoPreview) URL.revokeObjectURL(logoPreview)
+    setLogoFile(file)
+    setLogoPreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  function onCoverChange(file: File | null) {
+    if (coverPreview) URL.revokeObjectURL(coverPreview)
+    setCoverFile(file)
+    setCoverPreview(file ? URL.createObjectURL(file) : null)
   }
 
   function flashSaved() {
@@ -114,6 +157,16 @@ export function ProviderSettings() {
     try {
       if (tab === 'business') {
         await saveBusinessMut.mutateAsync()
+        if (logoFile) {
+          setLogoFile(null)
+          if (logoPreview) URL.revokeObjectURL(logoPreview)
+          setLogoPreview(null)
+        }
+        if (coverFile) {
+          setCoverFile(null)
+          if (coverPreview) URL.revokeObjectURL(coverPreview)
+          setCoverPreview(null)
+        }
       } else if (tab === 'profile') {
         const fd = new FormData()
         fd.append('display_name', displayName)
@@ -143,6 +196,10 @@ export function ProviderSettings() {
   const avatarSrc = avatarPreview || (profile.avatar ? mediaUrl(profile.avatar) : null)
   const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
   const serviceTypes = (activeBusiness?.business_types ?? []).filter((t) => t !== 'multi_provider')
+  const logoSrc =
+    logoPreview || (activeBusiness?.logo ? mediaUrl(activeBusiness.logo) : null)
+  const coverSrc =
+    coverPreview || (activeBusiness?.cover_image ? mediaUrl(activeBusiness.cover_image) : null)
 
   return (
     <ProviderUiPage>
@@ -176,18 +233,29 @@ export function ProviderSettings() {
         <section className="prov-settings__panel">
           <h2 className="prov-settings__panel-title">Business profile</h2>
           <p className="prov-settings__panel-sub">
-            These details appear on your public business page and listings.
+            These details appear on your public business page and listings. Personal traveller settings live under{' '}
+            <Link to="/settings" className="prov-ui__link">Settings</Link>.
           </p>
+
+          {profile ? (
+            <ProfileIdentityLinks
+              username={profile.username}
+              businesses={businesses.map((b) => ({ id: b.id, business_name: b.business_name }))}
+              showDashboard
+            />
+          ) : null}
 
           {!canManageSettings ? (
             <p className="prov-settings__hint">Your role can view business settings but not edit them.</p>
           ) : null}
 
+          <BusinessVerificationCard
+            status={activeBusiness.verification_status}
+            notes={activeBusiness.verification_notes}
+            canManage={canManageSettings}
+          />
+
           <div className="prov-settings__info-card">
-            <div className="prov-settings__info-row">
-              <span>Verification</span>
-              <span>{activeBusiness.verification_status.replace(/_/g, ' ')}</span>
-            </div>
             <div className="prov-settings__info-row">
               <span>Services</span>
               <div className="prov-settings__service-chips">
@@ -195,6 +263,55 @@ export function ProviderSettings() {
                   ? serviceTypes.map((t) => <span key={t}>{SERVICE_LABELS[t] ?? t.replace(/_/g, ' ')}</span>)
                   : <span>None</span>}
               </div>
+            </div>
+          </div>
+
+          <div className="prov-settings__media-row">
+            <div className="prov-settings__media-block">
+              <p className="prov-settings__media-label">Logo</p>
+              <div className="prov-settings__logo-preview">
+                {logoSrc ? <img src={logoSrc} alt="" /> : <span>{businessName.charAt(0) || 'B'}</span>}
+              </div>
+              <button
+                type="button"
+                className="prov-ui__btn prov-ui__btn--ghost"
+                disabled={!canManageSettings}
+                onClick={() => logoRef.current?.click()}
+              >
+                {logoSrc ? 'Change logo' : 'Upload logo'}
+              </button>
+              <input
+                ref={logoRef}
+                type="file"
+                accept="image/*"
+                className="visually-hidden"
+                aria-label="Business logo"
+                disabled={!canManageSettings}
+                onChange={(e) => onLogoChange(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <div className="prov-settings__media-block">
+              <p className="prov-settings__media-label">Cover image</p>
+              <div className="prov-settings__cover-preview">
+                {coverSrc ? <img src={coverSrc} alt="" /> : <span>No cover yet</span>}
+              </div>
+              <button
+                type="button"
+                className="prov-ui__btn prov-ui__btn--ghost"
+                disabled={!canManageSettings}
+                onClick={() => coverRef.current?.click()}
+              >
+                {coverSrc ? 'Change cover' : 'Upload cover'}
+              </button>
+              <input
+                ref={coverRef}
+                type="file"
+                accept="image/*"
+                className="visually-hidden"
+                aria-label="Business cover image"
+                disabled={!canManageSettings}
+                onChange={(e) => onCoverChange(e.target.files?.[0] ?? null)}
+              />
             </div>
           </div>
 
@@ -272,6 +389,13 @@ export function ProviderSettings() {
       {tab === 'profile' && (
         <section className="prov-settings__panel">
           <h2 className="prov-settings__panel-title">Personal profile</h2>
+          <p className="prov-settings__panel-sub">
+            This is your public traveller identity at{' '}
+            <Link to={`/u/${profile?.username ?? ''}`} className="prov-ui__link">
+              /u/{profile?.username}
+            </Link>
+            . Business branding is edited on the Business tab.
+          </p>
           <p className="prov-settings__panel-sub">
             Your name and photo shown to guests when you message or reply to reviews.
           </p>
@@ -388,19 +512,28 @@ export function ProviderSettings() {
             </div>
             {!profile.email_verified ? (
               <div className="prov-settings__verify-banner">
-                <span>Email not verified — some features are restricted.</span>
-                <Link to="/verify-email" className="prov-ui__link">Verify now</Link>
+                <span>
+                  Email not verified — bookings and provider listings need verification. You can still browse and sign
+                  in.
+                </span>
+                <Link to="/verify-email" className="prov-ui__link">Enter token</Link>
+                <ResendVerificationButton
+                  authenticated
+                  className="prov-ui__link prov-settings__resend-btn"
+                  messageClassName="prov-settings__resend-msg"
+                  errorClassName="prov-settings__resend-msg prov-settings__resend-msg--err"
+                />
               </div>
             ) : null}
           </div>
 
-          <div className="prov-settings__action-card prov-settings__action-card--disabled">
+          <Link to="/settings?tab=account" className="prov-settings__action-card">
             <div>
               <strong>Change password</strong>
               <span>Update your login password.</span>
             </div>
-            <span className="prov-settings__pill">Coming soon</span>
-          </div>
+            <span className="prov-ui__link">Open</span>
+          </Link>
 
           <Link to="/settings" className="prov-settings__action-card">
             <div>
@@ -424,13 +557,13 @@ export function ProviderSettings() {
           </button>
 
           <p className="prov-settings__danger-title">Danger zone</p>
-          <div className="prov-settings__action-card prov-settings__action-card--disabled">
+          <Link to="/settings?tab=account#delete-account" className="prov-settings__action-card">
             <div>
               <strong>Delete account</strong>
-              <span>Permanently remove your profile and all data.</span>
+              <span>Permanently anonymize your profile and hide your content.</span>
             </div>
-            <span className="prov-settings__pill">Coming soon</span>
-          </div>
+            <span className="prov-ui__link" style={{ color: '#dc2626' }}>Open</span>
+          </Link>
         </section>
       )}
     </ProviderUiPage>

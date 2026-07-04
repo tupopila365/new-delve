@@ -181,7 +181,23 @@ export function BusTripReserveCard({
         Contact operator
       </Link>
 
-      {authHint ? <p className="shared-reserve__hint">{authHint}</p> : null}
+      {authHint ? (
+        <p className="shared-reserve__hint">
+          {!profile ? (
+            <>
+              {authHint}{' '}
+              <Link to="/login">Sign in</Link>
+            </>
+          ) : !profile.email_verified ? (
+            <>
+              Verify your email to request a seat.{' '}
+              <Link to="/verify-email">Verify now</Link>
+            </>
+          ) : (
+            authHint
+          )}
+        </p>
+      ) : null}
     </div>
   )
 }

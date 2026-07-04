@@ -13,6 +13,21 @@ import {
   DelveAdminVerifyDialog,
 } from '../components'
 import { statusVariant } from '../data/demoData'
+import {
+  expectedFoodDocHints,
+  foodServiceLabel,
+  isFoodBusiness,
+} from '../utils/foodVerification'
+import {
+  expectedGuideDocHints,
+  guideServiceLabel,
+  isGuideBusiness,
+} from '../utils/guideVerification'
+import {
+  expectedTransportDocHints,
+  isTransportBusiness,
+  transportModeLabel,
+} from '../utils/transportVerification'
 
 export function VerificationsPage() {
   const qc = useQueryClient()
@@ -99,6 +114,11 @@ export function VerificationsPage() {
                   <strong>{b.business_name}</strong>
                   <span>
                     @{b.owner_username} · {b.city}
+                    {isTransportBusiness(b.business_types) && (b.transport_modes?.length ?? 0) > 0
+                      ? ` · ${(b.transport_modes ?? []).map(transportModeLabel).join(', ')}`
+                      : ''}
+                    {isFoodBusiness(b.business_types) ? ` · ${foodServiceLabel()}` : ''}
+                    {isGuideBusiness(b.business_types) ? ` · ${guideServiceLabel()}` : ''}
                   </span>
                   <span className="da-queue-item__meta">
                     {b.document_count ?? 0} document{(b.document_count ?? 0) === 1 ? '' : 's'}
@@ -124,6 +144,51 @@ export function VerificationsPage() {
                     @{detail.business.owner_username} · {detail.business.city}, {detail.business.region}
                   </span>
                 </div>
+                {(detail.business.business_types?.length ?? 0) > 0 ? (
+                  <p className="da-panel__hint">
+                    Services: {(detail.business.business_types ?? []).join(', ')}
+                    {isTransportBusiness(detail.business.business_types) &&
+                    (detail.business.transport_modes?.length ?? 0) > 0
+                      ? ` · Transport modes: ${(detail.business.transport_modes ?? []).map(transportModeLabel).join(', ')}`
+                      : ''}
+                    {isFoodBusiness(detail.business.business_types)
+                      ? ` · ${foodServiceLabel()}`
+                      : ''}
+                    {isGuideBusiness(detail.business.business_types)
+                      ? ` · ${guideServiceLabel()}`
+                      : ''}
+                  </p>
+                ) : null}
+                {isTransportBusiness(detail.business.business_types) ? (
+                  <>
+                    <h3 className="da-subhead">Expected transport documents</h3>
+                    <ul className="da-doc-hints">
+                      {expectedTransportDocHints(detail.business.transport_modes).map((hint) => (
+                        <li key={hint}>{hint}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {isFoodBusiness(detail.business.business_types) ? (
+                  <>
+                    <h3 className="da-subhead">Expected food & drink documents</h3>
+                    <ul className="da-doc-hints">
+                      {expectedFoodDocHints().map((hint) => (
+                        <li key={hint}>{hint}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {isGuideBusiness(detail.business.business_types) ? (
+                  <>
+                    <h3 className="da-subhead">Expected guide documents</h3>
+                    <ul className="da-doc-hints">
+                      {expectedGuideDocHints().map((hint) => (
+                        <li key={hint}>{hint}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
                 {detail.business.tagline ? (
                   <p className="da-panel__hint">{detail.business.tagline}</p>
                 ) : null}

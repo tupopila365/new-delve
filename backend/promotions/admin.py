@@ -25,3 +25,4 @@ class PromotionCampaignAdmin(admin.ModelAdmin):
     )
     list_filter = ("placement", "status", "payment_status", "target_type")
     search_fields = ("target_label", "target_id", "region", "payment_ref", "receipt_number")
+

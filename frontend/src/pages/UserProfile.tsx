@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -31,11 +31,33 @@ import type { FeedPost } from '../components/IgPostCard'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/ui'
 import { ProfileBioSection } from '../components/profile/ProfileBioSection'
+import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 import { ProfileStatsRow } from '../components/profile/ProfileStatsRow'
-import { ProfilePostViewer, filterProfileMediaPosts } from '../components/profile'
+import { filterProfileMediaPosts } from '../components/profile'
 import { loadUserTrips } from '../data/userTrips'
+import { postPermalinkPath } from '../utils/postPermalink'
+import {
+  filterProfilePosts,
+  isCommunityTipPost,
+  type ProfilePostFilter,
+} from '../utils/postFilters'
 import type { MockTrip } from '../data/mockTrips'
-import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { useOwnerBusinesses } from '../hooks/useOwnerBusinesses'
+
+export type ProfileRelationship = {
+  is_following: boolean
+  is_followed_by: boolean
+  can_view_posts: boolean
+  can_message: boolean
+}
+
+export type ProfileStats = {
+  posts_count: number
+  photos_count: number
+  followers_count: number
+  following_count: number
+}
 
 export type PublicProfile = {
   username: string
@@ -48,9 +70,11 @@ export type PublicProfile = {
   is_private: boolean
   posts_visibility: 'public' | 'only_me'
   allow_messages: boolean
+  stats?: ProfileStats
+  relationship?: ProfileRelationship
+  owned_businesses?: { id: number; business_name: string; verification_status?: string; slug?: string }[]
 }
 
-type Journey = { id: number; title: string; cover_image: string | null; starts_at: string }
 type Booking = { id: number; listing_title: string; check_in: string; check_out: string; status: string }
 type UserEvent = { id: number; title: string; cover_image: string | null; starts_at: string; venue: string }
 
@@ -88,12 +112,12 @@ export function UserProfile() {
   const { username: rawUsername } = useParams()
   const username = rawUsername?.trim() ?? ''
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { profile: me } = useAuth()
   const isMe = Boolean(me && username && me.username.toLowerCase() === username.toLowerCase())
 
   const [tab, setTab] = useState<Tab>('posts')
   const [shareMsg, setShareMsg] = useState('')
-  const [mediaViewer, setMediaViewer] = useState<{ posts: FeedPost[]; index: number } | null>(null)
 
   const {
     data: pub,
@@ -103,22 +127,51 @@ export function UserProfile() {
   } = useQuery({
     queryKey: ['public-profile', username],
     queryFn: () =>
-      apiFetch<PublicProfile>(`/api/accounts/users/${encodeURIComponent(username)}/`, { auth: false }),
+      apiFetch<PublicProfile>(`/api/accounts/users/${encodeURIComponent(username)}/`),
     enabled: Boolean(username),
     retry: false,
   })
 
   const profileNotFound = profileError instanceof ApiError && profileError.status === 404
   const profileFailed = profileError && !profileNotFound
-  const isBlocked = Boolean(pub?.is_private && !isMe)
-  const postsHidden = !isBlocked && !isMe && pub?.posts_visibility === 'only_me'
-  const messagesDisabled = pub != null && !isMe && pub.allow_messages === false
+
+  const canViewPosts =
+    isMe ||
+    pub?.relationship?.can_view_posts === true ||
+    (pub?.relationship == null && !pub?.is_private && pub?.posts_visibility !== 'only_me')
+  const isPrivateGated = Boolean(pub?.is_private && !isMe && !canViewPosts)
+  const postsHidden = !canViewPosts && !isPrivateGated && !isMe
+  const messagesDisabled =
+    pub != null &&
+    !isMe &&
+    (pub.relationship?.can_message === false ||
+      (pub.relationship == null && pub.allow_messages === false))
+
+  const followMut = useMutation({
+    mutationFn: () =>
+      apiFetch<{ following: boolean; followers_count: number }>(
+        `/api/social/users/${encodeURIComponent(username)}/follow/`,
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['public-profile', username] })
+      void qc.invalidateQueries({ queryKey: ['user-posts', username] })
+    },
+  })
+
+  const handleFollowToggle = () => {
+    if (!me) {
+      navigate('/login')
+      return
+    }
+    followMut.mutate()
+  }
 
   const { data: posts, isLoading: loadingPosts } = useQuery({
     queryKey: ['user-posts', username],
     queryFn: () =>
-      apiFetch<FeedPost[]>(`/api/social/users/${encodeURIComponent(username)}/posts/`, { auth: false }),
-    enabled: Boolean(username) && Boolean(pub) && !profileNotFound && !isBlocked && !postsHidden,
+      apiFetch<FeedPost[]>(`/api/social/users/${encodeURIComponent(username)}/posts/`),
+    enabled: Boolean(username) && Boolean(pub) && !profileNotFound && canViewPosts,
   })
 
   const photoPosts = useMemo(
@@ -126,30 +179,23 @@ export function UserProfile() {
     [posts],
   )
 
-  const openMediaViewer = (sourcePosts: FeedPost[], postId: number) => {
-    const list = filterProfileMediaPosts(sourcePosts)
-    const idx = list.findIndex((p) => p.id === postId)
-    if (idx >= 0) setMediaViewer({ posts: list, index: idx })
+  const openMediaViewer = (_sourcePosts: FeedPost[], postId: number) => {
+    navigate(postPermalinkPath(postId))
   }
-
-  const closeMediaViewer = () => setMediaViewer(null)
-
-  const totalLikes = useMemo(
-    () => (posts ?? []).reduce((n, p) => n + (p.likes_count ?? 0), 0),
-    [posts],
-  )
-
-  const totalComments = useMemo(
-    () => (posts ?? []).reduce((n, p) => n + (p.comments_count ?? 0), 0),
-    [posts],
-  )
 
   const { data: journeys, isLoading: loadingJourneys } = useQuery({
     queryKey: ['user-journeys', username],
     queryFn: () =>
-      apiFetch<Journey[]>(`/api/journeys/?author=${encodeURIComponent(username)}`).catch(() => [] as Journey[]),
-    enabled: Boolean(pub) && !profileNotFound && !isBlocked,
+      apiFetch<ApiJourney[]>(`/api/journeys/?author=${encodeURIComponent(username)}`).catch(
+        () => [] as ApiJourney[],
+      ),
+    enabled: Boolean(pub) && !profileNotFound && !isPrivateGated,
   })
+
+  const profileJourneys = useMemo(() => {
+    const local = isMe ? loadUserTrips() : []
+    return mergeJourneyFeeds(journeys ?? [], local)
+  }, [journeys, isMe, tab])
 
   const { data: events, isLoading: loadingEvents } = useQuery({
     queryKey: ['user-events', username, isMe],
@@ -159,15 +205,8 @@ export function UserProfile() {
           ? '/api/events/?mine=1'
           : `/api/events/?organizer=${encodeURIComponent(username)}`,
       ).catch(() => [] as UserEvent[]),
-    enabled: Boolean(pub) && !profileNotFound && !isBlocked,
+    enabled: Boolean(pub) && !profileNotFound && !isPrivateGated,
   })
-
-  const localTrips = useMemo(() => {
-    if (!isMe) return []
-    return loadUserTrips()
-  }, [isMe, tab])
-
-  const journeyCount = (journeys?.length ?? 0) + (isMe ? localTrips.length : 0)
 
   const { data: bookings, isLoading: loadingBookings } = useQuery({
     queryKey: ['my-bookings'],
@@ -186,14 +225,18 @@ export function UserProfile() {
 
   const displayName = pub?.display_name || username
 
-  const { data: businesses = [] } = useQuery({
-    queryKey: ['user-businesses', username],
-    queryFn: () =>
-      apiFetch<MyBusiness[]>(`/api/accounts/businesses/?owner=${encodeURIComponent(username)}`, {
-        auth: false,
-      }),
-    enabled: Boolean(username) && Boolean(pub) && !profileNotFound,
-  })
+  const { data: businessesFromApi = [] } = useOwnerBusinesses(
+    pub?.owned_businesses ? undefined : username,
+  )
+  const businesses = pub?.owned_businesses?.length
+    ? pub.owned_businesses.map((b) => ({
+        id: b.id,
+        business_name: b.business_name,
+        verification_status: b.verification_status ?? 'unverified',
+        logo: null as string | null,
+        city: '',
+      }))
+    : businessesFromApi
 
   const onShareProfile = async () => {
     try {
@@ -262,10 +305,24 @@ export function UserProfile() {
             userType={pub.user_type}
             isMe={isMe}
             messagesDisabled={messagesDisabled}
+            isFollowing={pub.relationship?.is_following ?? false}
+            followLoading={followMut.isPending}
+            onFollowToggle={!isMe && me ? handleFollowToggle : undefined}
+            followHref={!isMe && !me ? '/login' : undefined}
             onShare={() => void onShareProfile()}
           />
 
-          {businesses.length > 0 && !isBlocked && (
+          {isMe && (pub.user_type === 'service_provider' || businesses.length > 0) ? (
+            <ProfileIdentityLinks
+              className="up__identity"
+              username={pub.username}
+              businesses={businesses.map((b) => ({ id: b.id, business_name: b.business_name }))}
+              showDashboard
+              showPersonal={false}
+            />
+          ) : null}
+
+          {businesses.length > 0 && !isPrivateGated && (
             <section className="up__businesses detail-section">
               <div className="up__businesses-head">
                 <h2 className="up__businesses-title">Businesses</h2>
@@ -279,7 +336,7 @@ export function UserProfile() {
                 {businesses.map((b) => (
                   <Link key={b.id} to={`/business/${b.id}`} className="up__business-card">
                     {b.logo ? (
-                      <img src={b.logo} alt="" />
+                      <img src={mediaUrl(b.logo) || ''} alt="" />
                     ) : (
                       <span aria-hidden>
                         <Building2 size={18} strokeWidth={2} />
@@ -305,27 +362,55 @@ export function UserProfile() {
             </section>
           )}
 
-          {isBlocked && (
+          {pub.user_type === 'service_provider' && businesses.length === 0 && !isPrivateGated && isMe ? (
+            <section className="up__businesses detail-section">
+              <div className="up__businesses-head">
+                <h2 className="up__businesses-title">Business profile</h2>
+              </div>
+              <p className="up__businesses-empty">
+                You have not published a business profile yet.{' '}
+                <Link to="/provider/onboarding">Complete provider setup</Link> to list stays, transport, and more.
+              </p>
+            </section>
+          ) : null}
+
+          {isPrivateGated && (
             <div className="up__private-gate">
               <div className="up__private-icon" aria-hidden>
                 <Lock size={40} strokeWidth={1.75} />
               </div>
               <p className="up__private-title">This account is private</p>
               <p className="up__private-sub">Follow to see their photos, journeys, and events.</p>
+              {me ? (
+                <button
+                  type="button"
+                  className="btn btn-primary up__private-follow"
+                  onClick={handleFollowToggle}
+                  disabled={followMut.isPending}
+                >
+                  <Users size={15} strokeWidth={2.25} aria-hidden />
+                  {pub.relationship?.is_following ? 'Following' : 'Follow'}
+                </button>
+              ) : (
+                <Link to="/login" className="btn btn-primary up__private-follow">
+                  <Users size={15} strokeWidth={2.25} aria-hidden />
+                  Sign in to follow
+                </Link>
+              )}
             </div>
           )}
 
           <ProfileStatsRow
-            blocked={isBlocked}
+            blocked={isPrivateGated}
             stats={[
-              { value: posts?.length ?? 0, label: 'posts' },
-              { value: journeyCount, label: 'journeys' },
-              { value: formatCount(totalLikes), label: 'likes' },
-              { value: formatCount(totalComments), label: 'comments' },
+              { value: pub.stats?.posts_count ?? posts?.length ?? 0, label: 'posts' },
+              { value: formatCount(pub.stats?.followers_count ?? 0), label: 'followers' },
+              { value: formatCount(pub.stats?.following_count ?? 0), label: 'following' },
+              { value: pub.stats?.photos_count ?? photoPosts.length, label: 'photos' },
             ]}
           />
 
-          {!isBlocked && (
+          {!isPrivateGated && (
             <div className="up__tabs" role="tablist" aria-label="Profile sections">
               {TABS.filter((t) => !t.ownerOnly || isMe).map((t) => (
                 <button
@@ -344,7 +429,7 @@ export function UserProfile() {
             </div>
           )}
 
-          {!isBlocked && (
+          {!isPrivateGated && (
             <div className="up__panel" id="up-panel" role="tabpanel" aria-labelledby={`up-tab-${tab}`}>
               {tab === 'posts' && (
                 <PostsTab
@@ -370,21 +455,17 @@ export function UserProfile() {
                 <JourneysTab
                   isMe={isMe}
                   loading={loadingJourneys}
-                  journeys={journeys}
-                  localTrips={localTrips}
+                  trips={profileJourneys}
                 />
               )}
 
               {tab === 'community' && (
-                <EmptyState
-                  iconElement={<MessageCircle size={28} strokeWidth={2} aria-hidden />}
-                  title="No tips shared yet"
-                  sub={
-                    isMe
-                      ? 'Questions, answers, and travel tips you share in Community will appear here.'
-                      : 'Travel tips and community contributions will appear here once shared.'
-                  }
-                  cta={{ label: 'Browse community', to: '/community' }}
+                <TipsTab
+                  isMe={isMe}
+                  loading={loadingPosts}
+                  posts={posts}
+                  postsHidden={postsHidden}
+                  onOpenPost={(id) => navigate(postPermalinkPath(id))}
                 />
               )}
 
@@ -406,7 +487,7 @@ export function UserProfile() {
             </div>
           )}
 
-          {!isBlocked && (
+          {!isPrivateGated && (
             <section className="up__explore detail-section">
               <Link to="/delvers" className="up__explore-link">
                 <Users size={16} strokeWidth={2.25} aria-hidden />
@@ -417,16 +498,6 @@ export function UserProfile() {
           )}
         </>
       )}
-
-      {mediaViewer ? (
-        <ProfilePostViewer
-          posts={mediaViewer.posts}
-          index={mediaViewer.index}
-          onClose={closeMediaViewer}
-          onChange={(index) => setMediaViewer((v) => (v ? { ...v, index } : null))}
-          queryKey={['user-posts', username]}
-        />
-      ) : null}
     </div>
   )
 }
@@ -444,6 +515,12 @@ function PostsTab({
   posts: FeedPost[] | undefined
   onOpenMedia: (postId: number) => void
 }) {
+  const [filter, setFilter] = useState<ProfilePostFilter>('all')
+  const filtered = useMemo(
+    () => filterProfilePosts(posts ?? [], filter),
+    [posts, filter],
+  )
+
   if (postsHidden) {
     return (
       <EmptyState
@@ -464,25 +541,48 @@ function PostsTab({
           </Link>
         </div>
       )}
+      <div className="up__post-filters" role="tablist" aria-label="Post types">
+        {(
+          [
+            { id: 'all', label: 'All' },
+            { id: 'delvers', label: 'Delvers' },
+            { id: 'community', label: 'Feed' },
+            { id: 'host', label: 'Host stories' },
+          ] as const
+        ).map((chip) => (
+          <button
+            key={chip.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === chip.id}
+            className={filter === chip.id ? 'up__post-filter up__post-filter--active' : 'up__post-filter'}
+            onClick={() => setFilter(chip.id)}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
       {loading ? (
         <div className="up__grid">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="skeleton up__grid-cell" />
           ))}
         </div>
-      ) : posts && posts.length > 0 ? (
+      ) : filtered.length > 0 ? (
         <div className="up__post-cards">
-          {posts.map((p) => (
+          {filtered.map((p) => (
             <PostCard key={p.id} post={p} onOpenMedia={onOpenMedia} />
           ))}
         </div>
       ) : (
         <EmptyState
           iconElement={<Camera size={28} strokeWidth={2} aria-hidden />}
-          title="No posts yet"
+          title={filter === 'all' ? 'No posts yet' : 'No posts in this category'}
           sub={
             isMe
-              ? 'Your travel posts will appear here once shared.'
+              ? filter === 'all'
+                ? 'Your travel posts will appear here once shared.'
+                : 'Try another filter or share something new.'
               : "This Delver's travel posts will appear here once shared."
           }
           cta={isMe ? { label: 'Share a moment', to: '/create' } : undefined}
@@ -552,6 +652,83 @@ function PhotosTab({
               <Compass size={11} strokeWidth={2.5} aria-hidden />
             </span>
           ) : null}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function TipsTab({
+  isMe,
+  loading,
+  posts,
+  postsHidden,
+  onOpenPost,
+}: {
+  isMe: boolean
+  loading: boolean
+  posts: FeedPost[] | undefined
+  postsHidden: boolean
+  onOpenPost: (postId: number) => void
+}) {
+  const tips = useMemo(() => (posts ?? []).filter(isCommunityTipPost), [posts])
+
+  if (postsHidden) {
+    return (
+      <EmptyState
+        iconElement={<Lock size={28} strokeWidth={2} aria-hidden />}
+        title="Tips are hidden"
+        sub="This user has set their posts to private."
+      />
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="up__post-cards">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="skeleton up__post-card" />
+        ))}
+      </div>
+    )
+  }
+
+  if (tips.length === 0) {
+    return (
+      <EmptyState
+        iconElement={<MessageCircle size={28} strokeWidth={2} aria-hidden />}
+        title="No tips shared yet"
+        sub={
+          isMe
+            ? 'Text tips and feed posts you share appear here and on Community.'
+            : 'Travel tips and feed posts will appear here once shared.'
+        }
+        cta={{ label: isMe ? 'Share a tip' : 'Browse community', to: isMe ? '/create/post' : '/community' }}
+      />
+    )
+  }
+
+  return (
+    <div className="up__post-cards">
+      {tips.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className="up__post-card card up__post-card--btn"
+          onClick={() => onOpenPost(p.id)}
+        >
+          <div className="up__post-card__media up__post-card__media--text">
+            <MessageCircle size={24} strokeWidth={1.75} aria-hidden />
+          </div>
+          <div className="up__post-card__body">
+            {p.region ? (
+              <p className="up__post-card__region">
+                <MapPin size={12} strokeWidth={2.25} aria-hidden />
+                {p.region}
+              </p>
+            ) : null}
+            <p className="up__post-card__caption">{postPreview(p.body)}</p>
+          </div>
         </button>
       ))}
     </div>
@@ -630,15 +807,13 @@ function PostCard({ post, onOpenMedia }: { post: FeedPost; onOpenMedia: (postId:
 function JourneysTab({
   isMe,
   loading,
-  journeys,
-  localTrips,
+  trips,
 }: {
   isMe: boolean
   loading: boolean
-  journeys: Journey[] | undefined
-  localTrips: MockTrip[]
+  trips: MockTrip[]
 }) {
-  const hasJourneys = (journeys?.length ?? 0) > 0 || localTrips.length > 0
+  const hasJourneys = trips.length > 0
 
   return (
     <>
@@ -654,56 +829,26 @@ function JourneysTab({
         </div>
       )}
 
-      {localTrips.length > 0 && (
-        <div className="up__cards">
-          {localTrips.map((j) => (
-            <JourneyCard key={`local-${j.id}`} trip={j} />
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <div className="up__list">
           {[1, 2, 3].map((i) => (
             <div key={i} className="skeleton up__list-sk" />
           ))}
         </div>
-      ) : journeys && journeys.length > 0 ? (
+      ) : hasJourneys ? (
         <div className="up__cards">
-          {journeys.map((j) => (
-            <Link key={j.id} to={`/journeys/${j.id}`} className="up__card up__card--journey">
-              <div className="up__card-img">
-                {j.cover_image ? (
-                  <img src={mediaUrl(j.cover_image) || ''} alt={j.title} />
-                ) : (
-                  <div className="up__card-img-ph" aria-hidden>
-                    <Route size={24} strokeWidth={1.75} />
-                  </div>
-                )}
-              </div>
-              <div className="up__card-body">
-                <p className="up__card-title">{j.title}</p>
-                <p className="up__card-sub">
-                  <CalendarDays size={12} strokeWidth={2.25} aria-hidden />
-                  {new Date(j.starts_at).toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </p>
-              </div>
-              <ArrowRight size={16} strokeWidth={2.5} className="up__card-arrow" aria-hidden />
-            </Link>
+          {trips.map((j) => (
+            <JourneyCard key={j.id} trip={j} />
           ))}
         </div>
-      ) : !hasJourneys ? (
+      ) : (
         <EmptyState
           iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
           title="No journeys shared yet"
           sub="Routes and travel stories will appear here once added."
           cta={undefined}
         />
-      ) : null}
+      )}
     </>
   )
 }

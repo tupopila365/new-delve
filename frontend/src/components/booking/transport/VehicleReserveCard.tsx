@@ -201,7 +201,23 @@ export function VehicleReserveCard({
         <MessageProviderLink variant="ghost" className="rental-reserve__secondary" fallbackToInbox />
       )}
 
-      {authHint ? <p className="rental-reserve__hint">{authHint}</p> : null}
+      {authHint ? (
+        <p className="rental-reserve__hint">
+          {!profile ? (
+            <>
+              {authHint}{' '}
+              <Link to="/login">Sign in</Link>
+            </>
+          ) : !profile.email_verified ? (
+            <>
+              Verify your email to request this vehicle.{' '}
+              <Link to="/verify-email">Verify now</Link>
+            </>
+          ) : (
+            authHint
+          )}
+        </p>
+      ) : null}
 
       <p className="rental-reserve__trust">
         The provider confirms availability, pickup, deposit, and rental terms before anything is final. No charge

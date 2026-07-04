@@ -1,4 +1,4 @@
-import type { ListingGalleryItem, ListingMomentItem } from '../components/listing/types'
+import type { ListingGalleryItem } from '../components/listing/types'
 import type { MockTrip } from '../data/mockTrips'
 import {
   buildJourneyGalleryImages,
@@ -21,19 +21,6 @@ export function collectJourneyPhotos(trip: MockTrip) {
         place: stop.place_name,
       })),
   )
-}
-
-export function buildJourneyMoments(
-  trip: MockTrip,
-  photoItems: ReturnType<typeof collectJourneyPhotos>,
-): ListingMomentItem[] {
-  return photoItems.slice(0, 4).map((p, i) => ({
-    id: i,
-    image: p.src,
-    author: trip.author.username,
-    body: p.caption?.trim() || `Moment at ${p.place} on this route.`,
-    taggedListing: trip.title,
-  }))
 }
 
 export function buildJourneyTrustHighlights(trip: MockTrip): string[] {

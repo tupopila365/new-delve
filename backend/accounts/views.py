@@ -1,22 +1,38 @@
 import os
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
+from config.throttles import (
+    AccountDeleteThrottle,
+    PasswordResetConfirmThrottle,
+    PasswordResetThrottle,
+    ResendVerificationThrottle,
+)
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from .verification_email import VERIFICATION_SENT_MESSAGE, can_resend_verification, send_verification_email
+
 from .business_access import business_permissions
+from .platform_audit import log_admin_action
+from .platform_intelligence import anonymize_user_account
 from .models import (
     BusinessMembership,
     BusinessProfile,
     BusinessTeamRole,
     BusinessVerificationDocument,
     EmailVerificationToken,
+    PasswordResetToken,
+    Profile,
     User,
+    UserType,
     VerificationStatus,
 )
 from .serializers import (
@@ -33,21 +49,31 @@ from .serializers import (
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
-    email = serializers.EmailField(write_only=True)
+    email = serializers.EmailField(write_only=True, required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields.pop(self.username_field, None)
+        self.fields["username"] = serializers.CharField(write_only=True, required=False)
 
     def validate(self, attrs):
         email = (attrs.get("email") or "").strip().lower()
+        username = (attrs.get("username") or "").strip()
         password = attrs.get("password")
-        if not email:
-            raise serializers.ValidationError({"email": "Email is required."})
-        try:
-            user = User.objects.get(email__iexact=email)
-        except User.DoesNotExist as exc:
-            raise serializers.ValidationError({"email": "No account found with this email."}) from exc
+        if email and username:
+            raise serializers.ValidationError({"detail": "Provide email or username, not both."})
+        if not email and not username:
+            raise serializers.ValidationError({"detail": "Email or username is required."})
+        if email:
+            try:
+                user = User.objects.get(email__iexact=email)
+            except User.DoesNotExist as exc:
+                raise serializers.ValidationError({"email": "No account found with this email."}) from exc
+        else:
+            try:
+                user = User.objects.get(username__iexact=username)
+            except User.DoesNotExist as exc:
+                raise serializers.ValidationError({"username": "No account found with this username."}) from exc
         attrs[self.username_field] = user.get_username()
         attrs["password"] = password
         return super().validate(attrs)
@@ -89,16 +115,7 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        token = EmailVerificationToken.create_for_user(user)
-        frontend = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-        link = f"{frontend}/verify-email?token={token.token}"
-        send_mail(
-            subject="Verify your DELVE account",
-            message=f"Hi {user.username},\n\nVerify your email: {link}\n\nToken: {token.token}",
-            from_email=None,
-            recipient_list=[user.email],
-            fail_silently=True,
-        )
+        send_verification_email(user)
         return Response(
             {
                 "detail": "Account created. Check your email (or console in dev) to verify.",
@@ -130,7 +147,114 @@ class VerifyEmailView(APIView):
         profile = t.user.profile
         profile.email_verified = True
         profile.save(update_fields=["email_verified"])
-        return Response({"detail": "Email verified."})
+        refresh = RefreshToken.for_user(t.user)
+        return Response(
+            {
+                "detail": "Email verified.",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            }
+        )
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ResendVerificationThrottle]
+
+    def post(self, request):
+        if request.user.is_authenticated:
+            profile = request.user.profile
+            profile.refresh_from_db()
+            if profile.email_verified:
+                return Response({"detail": "Email is already verified."})
+            if not can_resend_verification(request.user):
+                return Response({"detail": VERIFICATION_SENT_MESSAGE})
+            send_verification_email(request.user)
+            return Response({"detail": "Verification email sent."})
+
+        email = (request.data.get("email") or "").strip().lower()
+        if not email:
+            return Response({"detail": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email__iexact=email).first()
+        if user and can_resend_verification(user):
+            send_verification_email(user)
+        return Response({"detail": VERIFICATION_SENT_MESSAGE})
+
+
+PASSWORD_RESET_SENT_MESSAGE = "If an account exists, we sent reset instructions."
+
+
+def _can_request_password_reset(user: User) -> bool:
+    if not user.is_active:
+        return False
+    if user.is_staff:
+        return False
+    if user.username.startswith("deleted_"):
+        return False
+    return True
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request):
+        email = (request.data.get("email") or "").strip().lower()
+        if not email:
+            return Response({"detail": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email__iexact=email).first()
+        if user and _can_request_password_reset(user):
+            token = PasswordResetToken.create_for_user(user)
+            frontend = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+            link = f"{frontend}/reset-password?token={token.token}"
+            send_mail(
+                subject="Reset your DELVE password",
+                message=(
+                    f"Hi {user.username},\n\n"
+                    f"Reset your password: {link}\n\n"
+                    f"This link expires in 1 hour.\n\n"
+                    f"Token: {token.token}"
+                ),
+                from_email=None,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+        return Response({"detail": PASSWORD_RESET_SENT_MESSAGE})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetConfirmThrottle]
+
+    def post(self, request):
+        from uuid import UUID
+
+        raw = request.data.get("token")
+        new_password = request.data.get("new_password") or ""
+        if not raw or not new_password:
+            return Response(
+                {"detail": "token and new_password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            UUID(str(raw))
+        except ValueError:
+            return Response({"detail": "invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+        t = PasswordResetToken.objects.filter(token=raw, used=False).select_related("user").first()
+        if not t or t.is_expired():
+            return Response({"detail": "invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+        user = t.user
+        if not _can_request_password_reset(user):
+            return Response({"detail": "invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new_password, user)
+        except ValidationError as exc:
+            return Response({"detail": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        t.used = True
+        t.save(update_fields=["used"])
+        return Response({"detail": "Password updated."})
 
 
 class MeView(generics.RetrieveAPIView):
@@ -140,12 +264,103 @@ class MeView(generics.RetrieveAPIView):
         return self.request.user.profile
 
 
+class BecomeProviderView(APIView):
+    """Upgrade a traveller account to service provider and start business onboarding."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        profile = Profile.objects.get(user_id=request.user.id)
+        if profile.user_type == UserType.SERVICE_PROVIDER:
+            return Response(
+                {"detail": "Already a service provider."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        profile.user_type = UserType.SERVICE_PROVIDER
+        profile.save(update_fields=["user_type", "updated_at"])
+        return Response(ProfileSerializer(profile).data)
+
+
 class ProfileUpdateView(generics.UpdateAPIView):
     serializer_class = ProfileUpdateSerializer
     http_method_names = ["patch"]
 
     def get_object(self):
         return self.request.user.profile
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        current = (request.data.get("current_password") or "").strip()
+        new_password = request.data.get("new_password") or ""
+        if not current or not new_password:
+            return Response(
+                {"detail": "current_password and new_password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = request.user
+        if not user.check_password(current):
+            return Response(
+                {"detail": "Current password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            validate_password(new_password, user)
+        except ValidationError as exc:
+            return Response({"detail": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+        return Response({"detail": "Password updated."})
+
+
+class SelfDeleteAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [AccountDeleteThrottle]
+
+    def post(self, request):
+        user = request.user
+        confirm = (request.data.get("confirm_username") or "").strip()
+        current_password = (request.data.get("current_password") or "").strip()
+
+        if user.username.startswith("deleted_"):
+            return Response({"detail": "Account is already deleted."}, status=status.HTTP_400_BAD_REQUEST)
+        if confirm != user.username:
+            return Response(
+                {"detail": "confirm_username must match your username exactly."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not current_password:
+            return Response(
+                {"detail": "current_password is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not user.check_password(current_password):
+            return Response(
+                {"detail": "Current password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            original_username = user.username
+            anonymize_user_account(user, actor=request.user, self_initiated=True)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_admin_action(
+            actor=request.user,
+            action="user_self_delete",
+            target_type="user",
+            target_id=user.pk,
+            detail=f"Self-deleted @{original_username} — PII anonymized",
+        )
+        return Response(
+            {
+                "detail": "Account deleted. Personal data anonymized; booking records retained without PII.",
+                "username": user.username,
+            }
+        )
 
 
 class PublicProfileView(APIView):
@@ -177,6 +392,16 @@ class BusinessProfileDetailView(APIView):
     def get(self, request, pk):
         business = get_object_or_404(BusinessProfile.objects.select_related("owner"), pk=pk)
         return Response(BusinessProfileSerializer(business, context={"request": request}).data)
+
+
+class BusinessListingsView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        business = get_object_or_404(BusinessProfile.objects.select_related("owner"), pk=pk)
+        from accounts.business_listings import business_listings
+
+        return Response(business_listings(business, request=request))
 
 
 class MyBusinessesView(APIView):
@@ -218,8 +443,8 @@ class CreateMyBusinessView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        profile = request.user.profile
-        if profile.user_type != "service_provider":
+        profile = Profile.objects.get(user_id=request.user.id)
+        if profile.user_type != UserType.SERVICE_PROVIDER:
             return Response(
                 {"detail": "Only service providers can create a business profile."},
                 status=status.HTTP_403_FORBIDDEN,

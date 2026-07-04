@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
   Car,
@@ -11,9 +12,11 @@ import {
   Users,
 } from 'lucide-react'
 import { DetailLayout } from '../detail'
+import { normalizeReviews } from '../GuestReviewCard'
+import { apiFetch } from '../../api/client'
 import {
   ListingAmenities,
-  ListingAskSection,
+  ListingQuestionsSection,
   ListingBookBar,
   ListingDelversMoments,
   ListingDetails,
@@ -22,9 +25,9 @@ import {
   ListingIdentityHeader,
   ListingLocationCard,
   ListingQuickInfo,
+  ListingReviews,
   ListingRules,
 } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
 import { VenueStoriesSection } from '../food/stories'
 import { VehicleBookingStatus, VehicleReserveCard } from '../booking/transport/VehicleReserveCard'
 import { VehicleProviderCard } from './TransportProviderCard'
@@ -35,7 +38,6 @@ import {
   buildVehicleDetailRows,
   buildVehicleGalleryImages,
   buildVehicleHighlights,
-  buildVehicleMoments,
   buildVehicleTrustHighlights,
   DEFAULT_RENTAL_RULES,
   openStreetMapSearchUrl,
@@ -79,7 +81,7 @@ type Props = {
   saved: boolean
   onSave: () => void
   onShare: () => void
-  initialQuestions?: ListingQuestionItem[]
+  canAnswer?: boolean
   booking: BookingProps
 }
 
@@ -89,7 +91,7 @@ export function VehicleDetailView({
   saved,
   onSave,
   onShare,
-  initialQuestions,
+  canAnswer = false,
   booking,
 }: Props) {
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
@@ -103,7 +105,6 @@ export function VehicleDetailView({
   const highlightLabels = buildVehicleHighlights(vehicle)
   const trustHighlights = buildVehicleTrustHighlights(vehicle)
   const detailRows = buildVehicleDetailRows(vehicle)
-  const delversMoments = buildVehicleMoments(vehicle, galleryImages)
   const mapHref = openStreetMapSearchUrl(
     vehicle.pickup_location || vehicle.city || '',
     vehicle.region,
@@ -113,6 +114,16 @@ export function VehicleDetailView({
     () => buildVehicleStoryChannels(vehicle, { vehicleId, vehiclePath }),
     [vehicle, vehicleId, vehiclePath],
   )
+
+  const { data: reviewPayload } = useQuery({
+    queryKey: ['vehicle-reviews', vehicleId],
+    queryFn: () =>
+      apiFetch<{ reviews: unknown[]; rating_avg: string | null; rating_count: number }>(
+        `/api/transport/vehicles/${vehicleId}/reviews/`,
+        { auth: false },
+      ),
+  })
+  const reviews = normalizeReviews(reviewPayload?.reviews ?? [])
 
   const highlightItems = highlightLabels.map((label) => ({
     id: label,
@@ -265,13 +276,14 @@ export function VehicleDetailView({
 
             <ListingLocationCard
               title="Pickup location"
-              address={
-                vehicle.pickup_location ||
-                (vehicle.city ? `Pickup in ${vehicle.city} — exact address shared after your request.` : locationLine) ||
-                'Pickup details shared by the provider after your request.'
+              address={vehicle.pickup_location?.trim() || locationLine || null}
+              mapUrl={mapHref || null}
+              approximateHint={
+                vehicle.pickup_location?.trim()
+                  ? null
+                  : 'Exact pickup address is shared by the provider after your request.'
               }
-              mapUrl={mapHref}
-              viewMapLabel="Get directions"
+              viewMapLabel="Open in maps"
               className="tp-detail__map-card acc-detail__map-card"
             />
 
@@ -302,20 +314,34 @@ export function VehicleDetailView({
             )}
 
             <ListingDelversMoments
-              listingType="transport"
+              listingType="vehicle"
               listingId={vehicleId}
+              listingTitle={vehicle.title}
               title="Delvers moments with this ride"
-              moments={delversMoments}
               className="tp-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="Photos and tips will appear after travellers rent this vehicle."
             />
 
-            <ListingAskSection
+            <ListingReviews
+              listingType="transport"
+              listingId={vehicleId}
+              reviews={reviews}
+              rating={reviewPayload?.rating_avg ?? vehicle.rating_avg}
+              count={reviewPayload?.rating_count ?? vehicle.rating_count}
+              emptyMessage="Reviews will appear here after renters share feedback."
+              className="tp-detail__reviews acc-detail__reviews"
+            />
+
+            <ListingQuestionsSection
               className="tp-detail__comments acc-detail__comments"
               title="Rental tips and questions"
               placeholder="Ask about pickup location, insurance, fuel policy, or gravel roads…"
-              initialQuestions={initialQuestions}
+              questionsPath={`/api/transport/vehicles/${vehicleId}/questions/`}
+              answerPath={(questionId) => `/api/transport/questions/${questionId}/answers/`}
+              queryKey={['vehicle-questions', vehicleId]}
+              canAnswer={canAnswer}
+              officialLabel="Provider"
             />
 
             {booking.booking ? (

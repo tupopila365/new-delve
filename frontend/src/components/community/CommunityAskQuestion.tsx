@@ -10,11 +10,13 @@ export type CommunityAskPayload = {
 
 type Props = {
   signedIn: boolean
+  pending?: boolean
+  error?: string
   onSubmit?: (payload: CommunityAskPayload) => void
   className?: string
 }
 
-export function CommunityAskQuestion({ signedIn, onSubmit, className = '' }: Props) {
+export function CommunityAskQuestion({ signedIn, pending = false, error = '', onSubmit, className = '' }: Props) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState('')
   const [question, setQuestion] = useState('')
@@ -85,12 +87,13 @@ export function CommunityAskQuestion({ signedIn, onSubmit, className = '' }: Pro
             <button type="button" className="cm-ask__btn cm-ask__btn--ghost" onClick={close}>
               Cancel
             </button>
-            <button type="submit" className="cm-ask__btn cm-ask__btn--primary" disabled={!canPost}>
-              Post
+            <button type="submit" className="cm-ask__btn cm-ask__btn--primary" disabled={!canPost || pending}>
+              {pending ? 'Posting…' : 'Post'}
             </button>
           </div>
 
-          <p className="cm-ask__note">Preview only — questions are reviewed before they go live.</p>
+          {error ? <p className="cm-ask__error">{error}</p> : null}
+          <p className="cm-ask__note">Locals and travellers can reply in the thread below.</p>
         </form>
       ) : null}
     </section>

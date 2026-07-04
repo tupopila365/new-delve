@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Car, Truck, Bus } from 'lucide-react'
 import { mediaUrl } from '../api/client'
-import type { ListingDetailRow, ListingGalleryItem, ListingMomentItem } from '../components/listing/types'
+import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
 import { toListingGalleryImages } from '../components/listing/listingUtils'
 import {
   DEFAULT_PASSENGER_BUS_TIPS,
@@ -24,6 +24,8 @@ export type VehicleListing = {
   transmission?: string | null
   fuel_type?: string | null
   air_conditioning?: boolean | null
+  rating_avg?: string | null
+  rating_count?: number | null
   owner_username?: string
   pickup_location?: string | null
   included_features?: string[] | null
@@ -40,6 +42,7 @@ export type BusRouteDetail = {
   origin: string
   destination: string
   operator_name: string
+  operator_owner_username?: string
   cover_image?: string | null
   gallery_images?: string[] | null
   distance_km?: number | null
@@ -94,10 +97,7 @@ export function busRouteTitle(trip: BusTripListing): string {
   return `${trip.route_detail.origin} to ${trip.route_detail.destination}`
 }
 
-export function openStreetMapSearchUrl(place: string, region?: string) {
-  const q = [place, region].filter(Boolean).join(', ')
-  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`
-}
+export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords } from './placeMap'
 
 export function rentalDaysInclusive(start: string, end: string): number | null {
   if (!start || !end) return null
@@ -259,41 +259,4 @@ export function buildBusDetailRows(trip: BusTripListing): ListingDetailRow[] {
     rows.push({ id: 'distance', label: 'Distance', value: `${trip.route_detail.distance_km} km` })
   }
   return rows
-}
-
-export function buildVehicleMoments(v: VehicleListing, gallery: ListingGalleryItem[]): ListingMomentItem[] {
-  return [
-    ...gallery.slice(0, 2).map((item, i) => ({
-      id: i,
-      image: mediaUrl(item.src) || item.src,
-      author: `driver${i + 1}`,
-      body: 'Packed for a gravel-road weekend.',
-      taggedListing: v.title,
-    })),
-    {
-      id: 'placeholder',
-      author: 'traveller',
-      body: 'Fuel stop tip before heading north.',
-      taggedListing: v.title,
-    },
-  ]
-}
-
-export function buildBusMoments(trip: BusTripListing, gallery: ListingGalleryItem[]): ListingMomentItem[] {
-  const title = busRouteTitle(trip)
-  return [
-    ...gallery.slice(0, 2).map((item, i) => ({
-      id: i,
-      image: mediaUrl(item.src) || item.src,
-      author: `rider${i + 1}`,
-      body: 'Coastal run — grab a window seat early.',
-      taggedListing: title,
-    })),
-    {
-      id: 'placeholder',
-      author: 'commuter',
-      body: 'Sunrise leaving Windhoek.',
-      taggedListing: title,
-    },
-  ]
 }

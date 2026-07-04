@@ -115,6 +115,21 @@
   color: var(--listing-text-muted, var(--text-secondary));
 }
 
+.jn-route__listing-link {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.jn-route__listing-link a {
+  color: var(--accent, #ff9a52);
+  text-decoration: none;
+}
+
+.jn-route__listing-link a:hover {
+  text-decoration: underline;
+}
+
 .jn-route__thumbs {
   display: flex;
   flex-wrap: wrap;

@@ -41,7 +41,7 @@ export function UserBookingCard({
   onMessage,
   onCancel,
   cancelDisabled,
-  cancelTitle = 'Cancel request coming soon',
+  cancelTitle,
   nextStep,
   viewLabel = 'View details',
   messageLabel = 'Message provider',

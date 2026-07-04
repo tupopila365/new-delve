@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useOutletContext } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
+import type { ProviderOutletContext } from '../components/ProviderLayout'
 import { ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
 
 type ProviderListingOption = {
@@ -100,6 +102,7 @@ const FEED_TARGET_TYPES = [
   { value: 'food', label: 'Food venue' },
   { value: 'event', label: 'Event' },
   { value: 'vehicle', label: 'Vehicle rental' },
+  { value: 'bus_trip', label: 'Bus trip' },
 ] as const
 
 const PLACEMENT_TARGET: Record<string, string> = {
@@ -109,6 +112,10 @@ const PLACEMENT_TARGET: Record<string, string> = {
   homepage_events: 'event',
   homepage_transport: 'vehicle',
   delvers_feed: 'post',
+}
+
+const PLACEMENT_TARGET_TYPES: Record<string, string[]> = {
+  homepage_transport: ['vehicle', 'bus_trip'],
 }
 
 function toLocalDatetimeValue(iso: string) {
@@ -134,6 +141,7 @@ function statusPillClass(status: string) {
 }
 
 export function ProviderPromotions() {
+  const { canManageListings } = useOutletContext<ProviderOutletContext>()
   const qc = useQueryClient()
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
@@ -183,8 +191,9 @@ export function ProviderPromotions() {
     if (isFeedProduct) {
       return listings.filter((l) => l.target_type === formTargetType)
     }
-    const targetType = PLACEMENT_TARGET[selectedProduct.placement]
-    return listings.filter((l) => l.target_type === targetType)
+    const types =
+      PLACEMENT_TARGET_TYPES[selectedProduct.placement] ?? [PLACEMENT_TARGET[selectedProduct.placement]]
+    return listings.filter((l) => types.includes(l.target_type))
   }, [listings, selectedProduct, formTargetType, isFeedProduct])
 
   useEffect(() => {
@@ -194,7 +203,9 @@ export function ProviderPromotions() {
   }, [products, productId])
 
   useEffect(() => {
-    if (selectedProduct && !isFeedProduct) {
+    if (selectedProduct && isFeedProduct) {
+      setFormTargetType('post')
+    } else if (selectedProduct && !isFeedProduct) {
       setFormTargetType(PLACEMENT_TARGET[selectedProduct.placement] ?? 'accommodation')
     }
   }, [selectedProduct, isFeedProduct])
@@ -316,9 +327,11 @@ export function ProviderPromotions() {
       <section className="prov-ui__panel">
         <h2 className="prov-ui__panel-title">Buy a package</h2>
         <p className="prov-ui__panel-hint">
-          Pick a product (placement, region, duration), choose your listing, and set a start date. Payment uses mock
-          checkout in dev — Stripe / Paystack can replace this later.
+          {canManageListings
+            ? 'Pick a product (placement, region, duration), choose your listing, and set a start date. Payment uses mock checkout in dev — Stripe / Paystack can replace this later.'
+            : 'View campaign performance here. Purchasing and managing promotions requires manager access on your business team.'}
         </p>
+        {canManageListings ? (
         <form
           className="prov-settings__form"
           onSubmit={(e) => {
@@ -374,11 +387,14 @@ export function ProviderPromotions() {
                   </option>
                 ))}
               </select>
+              {formTargetType === 'post' ? (
+                <small className="prov-ui__muted">Pick one of your Delvers posts to sponsor in the feed.</small>
+              ) : null}
             </label>
           ) : null}
 
           <label className="prov-settings__field">
-            <span>Listing</span>
+            <span>{isFeedProduct ? 'Target' : 'Listing'}</span>
             <select
               value={formListingKey}
               onChange={(e) => setFormListingKey(e.target.value)}
@@ -386,7 +402,15 @@ export function ProviderPromotions() {
               disabled={listingsLoading || !listingOptions.length || !selectedProduct}
             >
               <option value="" disabled>
-                {listingsLoading ? 'Loading listings…' : listingOptions.length ? 'Select a listing…' : 'No eligible listings'}
+                {listingsLoading
+                  ? 'Loading…'
+                  : listingOptions.length
+                    ? isFeedProduct && formTargetType === 'post'
+                      ? 'Select a post…'
+                      : 'Select a listing…'
+                    : isFeedProduct && formTargetType === 'post'
+                      ? 'No Delvers posts yet'
+                      : 'No eligible listings'}
               </option>
               {listingOptions.map((l) => (
                 <option key={`${l.target_type}:${l.target_id}`} value={`${l.target_type}:${l.target_id}`}>
@@ -434,6 +458,7 @@ export function ProviderPromotions() {
             {purchaseMut.isPending ? 'Creating…' : 'Continue to payment'}
           </button>
         </form>
+        ) : null}
       </section>
 
       {receipt ? (
@@ -514,7 +539,7 @@ export function ProviderPromotions() {
                 </div>
                 <div className="prov-ui__list-actions">
                   <span className={statusPillClass(item.status)}>{item.status_label}</span>
-                  {item.can_pay ? (
+                  {canManageListings && item.can_pay ? (
                     <button
                       type="button"
                       className="prov-ui__btn prov-ui__btn--primary prov-ui__btn--sm"
@@ -533,7 +558,7 @@ export function ProviderPromotions() {
                       Receipt
                     </button>
                   ) : null}
-                  {item.can_cancel && item.status !== 'refunded' && item.status !== 'cancelled' ? (
+                  {canManageListings && item.can_cancel && item.status !== 'refunded' && item.status !== 'cancelled' ? (
                     <button
                       type="button"
                       className="prov-ui__btn prov-ui__btn--ghost prov-ui__btn--sm"

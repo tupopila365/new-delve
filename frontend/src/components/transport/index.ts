@@ -1,6 +1,7 @@
 export { VehicleDetailView } from './VehicleDetailView'
 export type { VehicleBooking } from './VehicleDetailView'
 export { BusTripDetailView } from './BusTripDetailView'
+export { TransportReviewForm } from './TransportReviewForm'
 export { BusRouteTimeline } from './BusRouteTimeline'
 export { BusSeatMap } from './BusSeatMap'
 export { VehicleProviderCard, BusOperatorCard } from './TransportProviderCard'

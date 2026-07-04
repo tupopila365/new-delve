@@ -1,8 +1,24 @@
 import { Link } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
 import type { ProviderBooking } from '../../../data/providerData'
-import { messageUserPath } from '../../messages/messageProviderUtils'
+import {
+  messageUserPath,
+  type MessagePlaceContext,
+} from '../../messages/messageProviderUtils'
 import { BookingStatusBadge } from '../../booking'
+
+function bookingPlace(booking: ProviderBooking): MessagePlaceContext | null {
+  const typeByCategory: Record<string, MessagePlaceContext['type']> = {
+    Stay: 'booking_stay',
+    Guide: 'booking_guide',
+    Transport: 'booking_vehicle',
+    Food: 'booking_food',
+    Event: 'event',
+  }
+  const type = typeByCategory[booking.category]
+  if (!type) return null
+  return { type, id: booking.id, label: booking.service }
+}
 
 type Props = {
   booking: ProviderBooking
@@ -61,7 +77,7 @@ export function ProviderBookingCard({
           </button>
         ) : null}
         <Link
-          to={messageUserPath(booking.guestUsername, 'provider')}
+          to={messageUserPath(booking.guestUsername, 'provider', bookingPlace(booking))}
           state={{ from: '/provider/bookings', guestName: booking.guest }}
           className="prov-ui__btn prov-ui__btn--ghost"
         >

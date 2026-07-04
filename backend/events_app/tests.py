@@ -101,6 +101,22 @@ class EventApiTests(TestCase):
         self.assertEqual(res.status_code, 201)
         self.assertEqual(res.data["business"], self.business.id)
 
+    def test_traveler_cannot_create_event(self):
+        self.client.force_authenticate(self.traveler)
+        res = self.client.post(
+            "/api/events/",
+            {
+                "title": "Unauthorized",
+                "category": "music",
+                "starts_at": (timezone.now() + timezone.timedelta(days=3)).isoformat(),
+                "region": "Khomas",
+                "is_published": True,
+                "is_free": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 403)
+
     def test_rsvp_free_event(self):
         self.client.force_authenticate(self.traveler)
         res = self.client.post(f"/api/events/{self.event.id}/rsvp/", {"tickets": 2}, format="json")

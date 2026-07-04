@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Building2, MapPin, MessageCircle, UserRound } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { usePrimaryBusiness } from '../../hooks/useOwnerBusinesses'
 import { ListingSection } from '../listing'
 import { MessageProviderLink } from '../messages'
 
@@ -23,7 +24,9 @@ export function VehicleProviderCard({
   avatar,
   className = '',
 }: VehicleProviderProps) {
+  const { primary: business } = usePrimaryBusiness(username)
   const profileHref = username ? `/u/${encodeURIComponent(username)}` : null
+  const businessHref = business ? `/business/${business.id}` : null
 
   return (
     <ListingSection title="Provider" className={`tp-provider-section ${className}`.trim()}>
@@ -51,10 +54,16 @@ export function VehicleProviderCard({
             {bio?.trim() || 'Passenger transport on DELVE. Message for pickup times, rental terms, and seat confirmation.'}
           </p>
           <div className="tp-detail__provider-actions">
+            {businessHref ? (
+              <Link to={businessHref} className="btn btn-ghost btn-sm">
+                <Building2 size={14} strokeWidth={2.25} aria-hidden />
+                View business
+              </Link>
+            ) : null}
             {profileHref ? (
               <Link to={profileHref} className="btn btn-ghost btn-sm">
                 <UserRound size={14} strokeWidth={2.25} aria-hidden />
-                View provider profile
+                View profile
               </Link>
             ) : null}
             <MessageProviderLink username={username} size="sm" variant="ghost" />

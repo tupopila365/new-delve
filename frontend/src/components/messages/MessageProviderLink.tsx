@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { MessageCircle } from 'lucide-react'
-import { messageProviderLabel, messageProviderPath } from './messageProviderUtils'
+import {
+  messageProviderLabel,
+  messageProviderPath,
+  type MessagePlaceContext,
+} from './messageProviderUtils'
 import './MessageProviderLink.css'
 
 type Props = {
@@ -13,6 +17,7 @@ type Props = {
   variant?: 'primary' | 'ghost' | 'inline'
   size?: 'sm' | 'md' | 'block'
   fallbackToInbox?: boolean
+  place?: MessagePlaceContext | null
   children?: ReactNode
 }
 
@@ -38,11 +43,15 @@ export function MessageProviderLink({
   variant = 'ghost',
   size = 'md',
   fallbackToInbox = true,
+  place,
   children,
 }: Props) {
   const text = label ?? messageProviderLabel(role)
-  const href =
-    username?.trim() ? messageProviderPath(username) : fallbackToInbox ? '/messages' : null
+  const href = username?.trim()
+    ? messageProviderPath(username, place)
+    : fallbackToInbox
+      ? '/messages'
+      : null
 
   if (!href) return null
 

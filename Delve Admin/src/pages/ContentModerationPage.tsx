@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, asArray } from '../api/client'
 import type { ModerationItem } from '../api/types'
@@ -10,12 +11,14 @@ import {
   DelveAdminPageHeader,
   DelveAdminStatusBadge,
   DelveAdminVerifyDialog,
+  UserInspectorDrawer,
 } from '../components'
 import { statusVariant } from '../data/demoData'
 
 export function ContentModerationPage() {
   const qc = useQueryClient()
   const [dialog, setDialog] = useState<{ item: ModerationItem; action: 'remove' | 'restore' } | null>(null)
+  const [inspectUserId, setInspectUserId] = useState<number | null>(null)
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['moderation'],
@@ -77,23 +80,39 @@ export function ContentModerationPage() {
               secondary={`@${item.author} · ${item.reason || 'No reason recorded'}`}
               badge={<DelveAdminStatusBadge status={item.status} variant={statusVariant(item.status)} />}
               actions={
-                item.status === 'hidden' ? (
-                  <button
-                    type="button"
-                    className="da-link-btn"
-                    onClick={() => setDialog({ item, action: 'restore' })}
-                  >
-                    Restore
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="da-link-btn"
-                    onClick={() => setDialog({ item, action: 'remove' })}
-                  >
-                    Remove
-                  </button>
-                )
+                <>
+                  {item.author_id ? (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() => setInspectUserId(item.author_id!)}
+                    >
+                      Inspect author
+                    </button>
+                  ) : null}
+                  {item.status === 'hidden' ? (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() => setDialog({ item, action: 'restore' })}
+                    >
+                      Restore
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="da-link-btn"
+                      onClick={() => setDialog({ item, action: 'remove' })}
+                    >
+                      Remove
+                    </button>
+                  )}
+                  {item.author_id ? (
+                    <Link to={`/admin/users?inspect=${item.author_id}`} className="da-link-btn">
+                      Open in Users
+                    </Link>
+                  ) : null}
+                </>
               }
             />
           ))}
@@ -111,6 +130,8 @@ export function ContentModerationPage() {
           modMut.mutate({ item: dialog.item, action: dialog.action, reason })
         }}
       />
+
+      <UserInspectorDrawer userId={inspectUserId} onClose={() => setInspectUserId(null)} />
     </div>
   )
 }

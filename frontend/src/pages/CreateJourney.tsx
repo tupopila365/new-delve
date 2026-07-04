@@ -1,11 +1,23 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
-import { saveUserTrip } from '../data/userTrips'
+import { apiFetch } from '../api/client'
 import type { TripCost, TripStop } from '../data/mockTrips'
-import { MediaCoverEditor, JourneyStopMoment, type StopMoment } from '../components/create'
+import {
+  CreateWizardShell,
+  MediaCoverEditor,
+  JourneyStopMoment,
+  type StopMoment,
+} from '../components/create'
+import { JourneyStopLinkPicker, type JourneyStopLink } from '../components/journeys/JourneyStopLinkPicker'
 import { PartyPicker, normalizePartyValue } from '../components/journeys/PartyPicker'
-import { EmptyState } from '../components/ui'
+import { EmptyState, ListSkeleton } from '../components/ui'
+import { friendlyApiMessage } from '../utils/friendlyError'
+import { buildJourneyPayload, mapApiJourneyToTrip, type ApiJourney } from '../utils/journeyApi'
+import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
+import '../components/journeys/CreateJourneyPageEnhancer.css'
+import '../components/events/CreateEventPageEnhancer.css'
 
 /* ── constants ─────────────────────────────────────────────── */
 
@@ -65,6 +77,7 @@ type FormStop = {
   notes: string
   cost: string
   moment: StopMoment
+  linked: JourneyStopLink
 }
 
 type FormCost = {
@@ -89,6 +102,7 @@ function emptyStop(): FormStop {
     notes: '',
     cost: '',
     moment: { preview: null, mediaKind: null },
+    linked: { kind: 'none' },
   }
 }
 
@@ -102,9 +116,83 @@ function daysBetween(a: string, b: string): number {
   return Math.max(1, Math.round(diff / 86400000))
 }
 
+function stopLinkFromTripStop(stop: TripStop): JourneyStopLink {
+  if (stop.linked_listing) {
+    return {
+      kind: stop.linked_listing.kind,
+      id: stop.linked_listing.id,
+      title: stop.linked_listing.title,
+    }
+  }
+  const kind = (stop.linked_listing_type || '').trim()
+  if (kind === 'accommodation' || kind === 'food' || kind === 'event') {
+    return {
+      kind,
+      id: stop.linked_listing_id ?? 0,
+      title: stop.place_name,
+    }
+  }
+  return { kind: 'none' }
+}
+
+function stopToFormStop(stop: TripStop): FormStop {
+  const firstMedia = stop.entries.find((e) => e.image || e.video)
+  return {
+    key: uid(),
+    place_name: stop.place_name,
+    country_code: stop.country_code,
+    arrived_on: stop.arrived_on,
+    left_on: stop.left_on,
+    notes: stop.notes,
+    cost: stop.cost != null ? String(stop.cost) : '',
+    moment: {
+      preview: firstMedia?.image || firstMedia?.video || null,
+      mediaKind: firstMedia?.video ? 'video' : firstMedia?.image ? 'image' : null,
+    },
+    linked: stopLinkFromTripStop(stop),
+  }
+}
+
+function stopLinkPayload(link: JourneyStopLink) {
+  if (link.kind === 'none') {
+    return { linked_listing_type: '', linked_listing_id: null as number | null }
+  }
+  return { linked_listing_type: link.kind, linked_listing_id: link.id }
+}
+
+function buildStopsPayload(stops: FormStop[]): TripStop[] {
+  return stops.map((s, i) => ({
+    id: i + 1,
+    order: i,
+    place_name: s.place_name.trim(),
+    country_code: s.country_code,
+    arrived_on: s.arrived_on,
+    left_on: s.left_on,
+    notes: s.notes.trim(),
+    cost: Number(s.cost) || undefined,
+    ...stopLinkPayload(s.linked),
+    entries: s.moment.preview
+      ? [
+          {
+            id: i + 1,
+            body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
+            image: s.moment.mediaKind === 'image' ? s.moment.preview : null,
+            video: s.moment.mediaKind === 'video' ? s.moment.preview : null,
+            happened_at: s.arrived_on,
+          },
+        ]
+      : [],
+  }))
+}
+
 /* ── component ─────────────────────────────────────────────── */
 export function CreateJourney() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams<{ id?: string }>()
+  const editId = location.pathname.endsWith('/edit') ? routeId : undefined
+  const isEdit = Boolean(editId)
+  const qc = useQueryClient()
   const { profile } = useAuth()
   const [step, setStep] = useState(1)
 
@@ -129,6 +217,45 @@ export function CreateJourney() {
 
   // UI
   const [err, setErr] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  const [hydrated, setHydrated] = useState(!isEdit)
+  const startedAt = useRef(startCreateSession())
+
+  const { data: existing, isLoading: loadingExisting, isError: loadFailed } = useQuery({
+    queryKey: ['journey', editId],
+    queryFn: () => apiFetch<ApiJourney>(`/api/journeys/${editId}/`),
+    enabled: Boolean(editId) && Boolean(profile),
+  })
+
+  useEffect(() => {
+    if (!isEdit || !existing || hydrated) return
+    const trip = mapApiJourneyToTrip(existing)
+    if (profile && trip.author.username !== profile.username) {
+      navigate(`/journeys/${existing.id}`, { replace: true })
+      return
+    }
+    setTitle(trip.title)
+    setSummary(trip.summary)
+    setCoverImage(trip.cover_image || '')
+    setStartsOn(trip.starts_on)
+    setEndsOn(trip.ends_on)
+    setParty(trip.party)
+    setSelectedTransport(trip.transport_modes.length ? trip.transport_modes : ['car'])
+    setSelectedTags(trip.tags)
+    setSelectedCountries(trip.countries.length ? trip.countries : ['NA'])
+    setStops(trip.stops.length ? trip.stops.map(stopToFormStop) : [emptyStop()])
+    setCosts(
+      trip.costs.length
+        ? trip.costs.map((c) => ({
+            key: uid(),
+            category: c.category,
+            amount: String(c.amount),
+            note: c.note,
+          }))
+        : [emptyCost()],
+    )
+    setHydrated(true)
+  }, [existing, hydrated, isEdit, navigate, profile])
 
   if (!profile) {
     return (
@@ -138,6 +265,27 @@ export function CreateJourney() {
           title="Sign in to create a journey"
           sub="Log your route, stops, photos, and costs to share with other travellers."
           cta={{ label: 'Sign in', to: '/login' }}
+        />
+      </div>
+    )
+  }
+
+  if (isEdit && (loadingExisting || !hydrated)) {
+    return (
+      <div className="cj-page">
+        <ListSkeleton count={4} />
+      </div>
+    )
+  }
+
+  if (isEdit && (loadFailed || !existing)) {
+    return (
+      <div className="cj-page">
+        <EmptyState
+          icon="🗺️"
+          title="Journey not found"
+          sub="This journey may have been removed or you do not have permission to edit it."
+          cta={{ label: 'Browse journeys', to: '/journeys' }}
         />
       </div>
     )
@@ -209,7 +357,7 @@ export function CreateJourney() {
   }
 
   /* ── publish ─────────────────────────────────────────────── */
-  function publish() {
+  async function publish() {
     if (!profile) {
       setErr('You need to sign in to publish a journey.')
       navigate('/login')
@@ -221,83 +369,87 @@ export function CreateJourney() {
 
     const totalCost = costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
     const days = daysBetween(startsOn, endsOn)
-
-    const builtStops: TripStop[] = stops.map((s, i) => ({
-      id: i + 1,
-      order: i + 1,
-      place_name: s.place_name.trim(),
-      country_code: s.country_code,
-      arrived_on: s.arrived_on,
-      left_on: s.left_on,
-      notes: s.notes.trim(),
-      cost: Number(s.cost) || undefined,
-      entries: s.moment.preview
-        ? [
-            {
-              id: 1,
-              body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
-              image: s.moment.preview,
-              video: null,
-              happened_at: s.arrived_on,
-            },
-          ]
-        : [],
-    }))
-
+    const builtStops = buildStopsPayload(stops)
     const builtCosts: TripCost[] = costs
       .filter((c) => c.amount && c.note)
       .map((c) => ({ category: c.category, amount: Number(c.amount), note: c.note.trim() }))
-
-    const trip = saveUserTrip({
-      author: {
-        username: profile.username,
-        display_name: profile.display_name || profile.username,
-        avatar: profile.avatar,
-      },
-      title: title.trim(),
-      summary: summary.trim(),
-      cover_image: coverImage.trim() || null,
-      starts_on: startsOn,
-      ends_on: endsOn,
-      countries: selectedCountries,
-      transport_modes: selectedTransport,
+    const payload = buildJourneyPayload({
+      title,
+      summary,
+      coverImage,
+      startsOn,
+      endsOn,
       party: normalizePartyValue(party),
-      tags: selectedTags,
-      total_cost: totalCost,
-      currency: 'NAD',
-      days,
+      selectedCountries,
+      selectedTransport,
+      selectedTags,
       stops: builtStops,
       costs: builtCosts,
-      likes_count: 0,
-      saves_count: 0,
-      comments_count: 0,
-      liked_by_me: false,
-      saved_by_me: false,
+      days,
+      totalCost,
     })
 
-    navigate(`/journeys/${trip.id}`)
+    setPublishing(true)
+    try {
+      if (isEdit && editId) {
+        const updated = await apiFetch<ApiJourney>(`/api/journeys/${editId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        void qc.invalidateQueries({ queryKey: ['journeys'] })
+        void qc.invalidateQueries({ queryKey: ['journey', editId] })
+        void qc.invalidateQueries({ queryKey: ['user-journeys', profile.username] })
+        navigate(`/journeys/${updated.id}`)
+        return
+      }
+      const created = await apiFetch<ApiJourney>('/api/journeys/', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      trackCreatePublish({
+        format: 'journey',
+        has_place: builtStops.some((s) => Boolean(s.place_name?.trim() || s.linked_listing_id)),
+        startedAt: startedAt.current,
+      })
+      void qc.invalidateQueries({ queryKey: ['journeys'] })
+      navigate(`/journeys/${created.id}`)
+    } catch (error) {
+      setErr(
+        friendlyApiMessage(
+          error,
+          isEdit ? 'Could not save your journey. Try again.' : 'Could not publish your journey. Try again.',
+        ),
+      )
+    } finally {
+      setPublishing(false)
+    }
   }
 
   /* ── derived ─────────────────────────────────────────────── */
   const totalCostPreview = costs.reduce((s, c) => s + (Number(c.amount) || 0), 0)
   const daysPreview = daysBetween(startsOn, endsOn)
 
+  const leaveTo = isEdit && editId ? `/journeys/${editId}` : '/journeys'
+  const requestLeave = () => {
+    if (!window.confirm(isEdit ? 'Discard unsaved changes?' : 'Discard this journey draft?')) return
+    navigate(leaveTo)
+  }
+
   return (
-    <div className="cj-page">
-      <div className="cj-steps" aria-label="Form progress">
-        {STEPS.map((s) => (
-          <div key={s.id} className={`cj-step${step === s.id ? ' cj-step--active' : step > s.id ? ' cj-step--done' : ''}`}>
-            <div className="cj-step__dot" aria-hidden>
-              {step > s.id ? '✓' : s.id}
-            </div>
-            <span className="cj-step__label">{s.label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Error */}
-      {err && <p className="ce-form__err" role="alert">{err}</p>}
-
+    <CreateWizardShell
+      title={isEdit ? 'Edit journey' : 'New journey'}
+      subtitle={`Step ${step} of ${STEPS.length}`}
+      steps={STEPS}
+      step={step}
+      onLeave={requestLeave}
+      onStepBack={back}
+      onStepNext={next}
+      onPrimary={() => void publish()}
+      primaryLabel={isEdit ? 'Save changes' : 'Publish journey'}
+      primaryPendingLabel={isEdit ? 'Saving…' : 'Publishing…'}
+      primaryPending={publishing}
+      error={err}
+    >
       {/* ── STEP 1: BASICS ── */}
       {step === 1 && (
         <div className="cj-form">
@@ -397,6 +549,11 @@ export function CreateJourney() {
                 <JourneyStopMoment
                   value={stop.moment}
                   onChange={(moment) => updateStop(stop.key, { moment })}
+                />
+
+                <JourneyStopLinkPicker
+                  value={stop.linked}
+                  onChange={(linked) => updateStop(stop.key, { linked })}
                 />
               </div>
             </div>
@@ -536,24 +693,6 @@ export function CreateJourney() {
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="cj-nav">
-        {step > 1 ? (
-          <button type="button" className="btn btn-ghost cj-nav__back" onClick={back}>← Back</button>
-        ) : (
-          <Link to="/journeys" className="btn btn-ghost cj-nav__back">Cancel</Link>
-        )}
-
-        {step < 4 ? (
-          <button type="button" className="btn btn-primary cj-nav__next" onClick={next}>
-            Continue →
-          </button>
-        ) : (
-          <button type="button" className="btn btn-primary cj-nav__next" onClick={publish}>
-            Publish journey
-          </button>
-        )}
-      </div>
-    </div>
+    </CreateWizardShell>
   )
 }

@@ -62,6 +62,18 @@ type BaseVenue = {
   popular_dish?: string | null
   tagline?: string | null
   venue_stories?: VenueStoryChannelInput[]
+  photos?: VenuePhoto[]
+  reviews?: VenueReview[]
+  address?: string | null
+  phone?: string | null
+  website?: string | null
+  opening_hours?: string | null
+  dine_in?: boolean | null
+  takeaway?: boolean | null
+  delivery?: boolean | null
+  reservations?: boolean | null
+  is_open?: boolean | null
+  amenities?: string[]
 }
 
 const GALLERY_POOL = {
@@ -195,32 +207,13 @@ function buildComments(venue: BaseVenue): VenueComment[] {
   ]
 }
 
-function buildDelversMoments(venue: BaseVenue, photos: VenuePhoto[]): DelversMoment[] {
-  const userFood = photos.find((p) => p.category === 'food' && !p.is_cover)?.image ?? photos[0]?.image
-  return [
-    {
-      id: 1,
-      author_username: 'kako_explorer',
-      body: venue.tagline || 'Lunch stop worth saving on the road.',
-      image: userFood ?? null,
-    },
-    {
-      id: 2,
-      author_username: 'localfoodie',
-      body: 'Ask for today\'s special — staff were super helpful.',
-      image: null,
-    },
-    {
-      id: 3,
-      author_username: 'sara_t',
-      body: `Sunset seats if you get here early. ${venue.popular_dish ? `Loved the ${venue.popular_dish.toLowerCase()}.` : ''}`,
-      image: photos.find((p) => p.category === 'interior')?.image ?? null,
-    },
-  ]
+function buildDelversMoments(_venue: BaseVenue, _photos: VenuePhoto[]): DelversMoment[] {
+  return []
 }
 
 export function enrichFoodVenueDetail<T extends BaseVenue>(venue: T): T & FoodVenueSocial {
-  const photos = buildPhotos(venue)
+  const photos = venue.photos?.length ? venue.photos : buildPhotos(venue)
+  const reviews = venue.reviews?.length ? venue.reviews : buildReviews(venue)
   const comments = buildComments(venue)
   const delvers_moments = buildDelversMoments(venue, photos)
 
@@ -228,11 +221,11 @@ export function enrichFoodVenueDetail<T extends BaseVenue>(venue: T): T & FoodVe
     ...venue,
     photos,
     review_breakdown: buildBreakdown(venue),
-    reviews: buildReviews(venue),
+    reviews,
     comments,
     delvers_moments,
     comment_count: comments.length + 31,
-    delvers_post_count: delvers_moments.length + 15,
+    delvers_post_count: delvers_moments.length,
   }
 }
 

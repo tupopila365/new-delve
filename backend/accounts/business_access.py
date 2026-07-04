@@ -76,3 +76,55 @@ def provider_listing_owner_ids(user: User) -> set[int]:
     ).values_list("owner_id", flat=True)
     ids.update(member_owner_ids)
     return ids
+
+
+def user_has_listing_manager_access(user: User) -> bool:
+    """May create/edit listings or purchase promotions (manager+ or business owner)."""
+    if not user.is_authenticated:
+        return False
+    if BusinessProfile.objects.filter(owner=user).exists():
+        return True
+    profile = getattr(user, "profile", None)
+    if profile and profile.user_type == "service_provider":
+        return True
+    return BusinessMembership.objects.filter(
+        user=user,
+        role__in=[BusinessTeamRole.OWNER, BusinessTeamRole.MANAGER],
+    ).exists()
+
+
+def user_has_booking_manager_access(user: User) -> bool:
+    """May confirm/check-in bookings (staff+ or business owner)."""
+    if not user.is_authenticated:
+        return False
+    if BusinessProfile.objects.filter(owner=user).exists():
+        return True
+    profile = getattr(user, "profile", None)
+    if profile and profile.user_type == "service_provider":
+        return True
+    return BusinessMembership.objects.filter(
+        user=user,
+        role__in=[
+            BusinessTeamRole.OWNER,
+            BusinessTeamRole.MANAGER,
+            BusinessTeamRole.STAFF,
+        ],
+    ).exists()
+
+
+def resolve_provider_listing_owner(user: User) -> int:
+    """User id new provider listings/trips should belong to (business owner for team managers)."""
+    if BusinessProfile.objects.filter(owner=user).exists():
+        return user.id
+    membership = (
+        BusinessMembership.objects.filter(
+            user=user,
+            role__in=[BusinessTeamRole.OWNER, BusinessTeamRole.MANAGER],
+        )
+        .select_related("business")
+        .order_by("id")
+        .first()
+    )
+    if membership:
+        return membership.business.owner_id
+    return user.id

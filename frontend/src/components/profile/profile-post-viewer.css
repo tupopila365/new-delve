@@ -328,6 +328,65 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+.ppv__comment--accepted .ppv__comment-bubble {
+  border-color: rgba(76, 175, 80, 0.45);
+  background: rgba(76, 175, 80, 0.12);
+}
+
+.ppv__accepted-badge {
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7dcea0;
+}
+
+.ppv__comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ppv__helpful-btn,
+.ppv__accept-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ppv__helpful-btn--active,
+.ppv__accept-btn--active {
+  border-color: rgba(76, 175, 80, 0.5);
+  color: #7dcea0;
+}
+
+.ppv__accepted-snippet {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(76, 175, 80, 0.14);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.ppv__share-answer {
+  padding: 0 16px 10px;
+}
+
 .ppv__comments-composer {
   padding: 0 16px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);

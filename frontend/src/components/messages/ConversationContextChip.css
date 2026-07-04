@@ -1,0 +1,49 @@
+.msg-context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 98, 10, 0.28);
+  background: rgba(232, 98, 10, 0.1);
+  color: rgba(255, 250, 242, 0.88);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.msg-context-chip strong {
+  font-weight: 800;
+  color: #ffb07a;
+}
+
+.msg-context-chip svg {
+  flex: 0 0 auto;
+  color: #ff9a52;
+}
+
+.msg-context-chip--static {
+  cursor: default;
+}
+
+.msg-context-chip--inbox {
+  margin-top: 2px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+}
+
+.msg-context-chip--inbox strong {
+  color: rgba(255, 154, 82, 0.9);
+  font-weight: 750;
+}
+
+.msg-context-chip--inbox svg {
+  width: 11px;
+  height: 11px;
+}

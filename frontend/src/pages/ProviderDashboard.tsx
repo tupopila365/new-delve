@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import {
   ProviderDashboardAnalytics,
+  ProviderDashboardDelvers,
   ProviderDashboardAttention,
   ProviderDashboardHeader,
   ProviderDashboardRecentBookings,
@@ -24,6 +25,7 @@ import {
 import { mergeProviderBookings, useProviderEventBookings } from '../hooks/useProviderEventData'
 import { useProviderListings } from '../hooks/useProviderListings'
 import { useProviderStayBookings } from '../hooks/useProviderStayData'
+import { useProviderFoodBookings } from '../hooks/useProviderFoodData'
 import { categoriesForBusinessTypes } from '../utils/providerCategories'
 
 export function ProviderDashboard() {
@@ -33,16 +35,28 @@ export function ProviderDashboard() {
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
   const includeEvents = allowedCategories.length === 0 || allowedCategories.includes('Event')
   const includeStays = allowedCategories.length === 0 || allowedCategories.includes('Stay')
+  const includeTransport = allowedCategories.length === 0 || allowedCategories.includes('Transport')
+  const includeFood = allowedCategories.length === 0 || allowedCategories.includes('Food')
 
   const listings = useProviderListings(owner)
   const eventListings = useMemo(() => listings.filter((l) => l.category === 'Event'), [listings])
   const stayListings = useMemo(() => listings.filter((l) => l.category === 'Stay'), [listings])
   const { data: eventBookings = [] } = useProviderEventBookings(includeEvents)
   const { data: stayBookings = [] } = useProviderStayBookings(includeStays)
+  const { data: transportBookings = [] } = useProviderTransportBookings(includeTransport)
+  const { data: foodBookings = [] } = useProviderFoodBookings(includeFood)
 
   const bookings = useMemo(
-    () => mergeProviderBookings(getProviderBookings(), eventBookings, allowedCategories, stayBookings),
-    [eventBookings, stayBookings, allowedCategories],
+    () =>
+      mergeProviderBookings(
+        getProviderBookings(),
+        eventBookings,
+        allowedCategories,
+        stayBookings,
+        transportBookings,
+        foodBookings,
+      ),
+    [eventBookings, stayBookings, transportBookings, foodBookings, allowedCategories],
   )
 
   const listingStats = getListingStats(listings)
@@ -88,6 +102,8 @@ export function ProviderDashboard() {
       />
 
       <ProviderDashboardAnalytics data={analytics} />
+
+      <ProviderDashboardDelvers />
 
       <ProviderDashboardShortcuts businessTypes={businessTypes} businessId={activeBusiness?.id} />
 

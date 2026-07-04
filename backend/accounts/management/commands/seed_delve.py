@@ -8,14 +8,17 @@ from accounts.models import (
     BusinessMembership,
     BusinessProfile,
     BusinessTeamRole,
+    BusinessVerificationDocument,
     Profile,
     User,
     UserType,
+    VerificationDocumentStatus,
+    VerificationDocumentType,
     VerificationStatus,
 )
 from events_app.models import Event, EventCategory
-from food.models import CuisineType, FoodVenue
-from guides.models import TourGuideProfile
+from food.models import CuisineType, FoodReservation, FoodVenue
+from guides.models import GuideBooking, TourGuideProfile
 from social.models import Post
 from transport.models import (
     BusOperator,
@@ -557,10 +560,45 @@ class Command(BaseCommand):
                 owner=u2,
                 name="Oryx Grill House",
                 description="Wood-fired grill and local brews.",
+                tagline="Fresh local plates, lunch specials, and dinner favourites.",
+                popular_dish="Flame-grilled oryx steak",
                 cuisine=CuisineType.GRILL,
                 region="Khomas",
                 city="Windhoek",
+                address="123 Independence Ave, Windhoek",
+                phone="+264 61 123 4567",
+                opening_hours="Mon–Sat 11:00–21:00\nSun 12:00–20:00",
+                closes_at="9 PM",
                 price_level=2,
+                dine_in=True,
+                takeaway=True,
+                reservations=True,
+                is_open=True,
+                amenities=["Outdoor seating", "Card accepted", "Local brews"],
+                venue_stories=[
+                    {
+                        "id": "grill-night",
+                        "label": "Grill night",
+                        "coverSrc": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1080&q=80",
+                        "slides": [
+                            {
+                                "headline": "Fire up Friday",
+                                "sub": "Live flame grill from 6pm.",
+                                "src": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1080&q=80",
+                            }
+                        ],
+                    }
+                ],
+                rating_avg=4.55,
+                rating_count=210,
+                guest_reviews=[
+                    {
+                        "name": "Amara D.",
+                        "place": "Windhoek",
+                        "rating": 5,
+                        "body": "Best oryx steak in Windhoek. Smoky, juicy, and perfectly seasoned.",
+                    }
+                ],
             )
 
         if not TourGuideProfile.objects.filter(user=u2).exists():
@@ -789,6 +827,327 @@ class Command(BaseCommand):
                 defaults={"role": BusinessTeamRole.OWNER},
             )
 
+        # Transport provider awaiting admin verification (Delve Admin Phase 7)
+        transport_u, _ = User.objects.get_or_create(
+            username="transport_mgr",
+            defaults={"email": "transport@delve.local"},
+        )
+        if not transport_u.has_usable_password():
+            transport_u.set_password("demo12345")
+            transport_u.save()
+        transport_p = transport_u.profile
+        transport_p.user_type = UserType.SERVICE_PROVIDER
+        transport_p.display_name = "Namibia Wheels"
+        transport_p.region = "Khomas"
+        transport_p.city = "Windhoek"
+        transport_p.country_code = "NA"
+        transport_p.email_verified = True
+        transport_p.save()
+
+        transport_biz, _ = BusinessProfile.objects.get_or_create(
+            slug="namibia-wheels",
+            defaults={
+                "owner": transport_u,
+                "business_name": "Namibia Wheels",
+                "business_types": ["transport"],
+                "transport_modes": ["rental", "shared"],
+                "verification_status": VerificationStatus.PENDING,
+                "description": "4x4 rentals and scheduled coach trips across Namibia.",
+                "tagline": "Rentals & shared routes",
+                "region": "Khomas",
+                "city": "Windhoek",
+            },
+        )
+        if not _:
+            transport_biz.owner = transport_u
+            transport_biz.business_types = ["transport"]
+            transport_biz.transport_modes = ["rental", "shared"]
+            transport_biz.verification_status = VerificationStatus.PENDING
+            transport_biz.save(
+                update_fields=[
+                    "owner",
+                    "business_types",
+                    "transport_modes",
+                    "verification_status",
+                    "updated_at",
+                ]
+            )
+        BusinessMembership.objects.get_or_create(
+            business=transport_biz,
+            user=transport_u,
+            defaults={"role": BusinessTeamRole.OWNER},
+        )
+
+        _transport_doc_specs = [
+            (VerificationDocumentType.BUSINESS_REGISTRATION, "https://example.com/docs/nw-registration.pdf"),
+            (VerificationDocumentType.OPERATING_PERMIT, "https://example.com/docs/nw-operating-permit.pdf"),
+            (VerificationDocumentType.TRANSPORT_INSURANCE, "https://example.com/docs/nw-insurance.pdf"),
+            (VerificationDocumentType.VEHICLE_REGISTRATION, "https://example.com/docs/nw-fleet-registration.pdf"),
+            (VerificationDocumentType.DRIVER_LICENSE, "https://example.com/docs/nw-fleet-manager-license.pdf"),
+        ]
+        for doc_type, file_url in _transport_doc_specs:
+            BusinessVerificationDocument.objects.get_or_create(
+                business=transport_biz,
+                doc_type=doc_type,
+                defaults={
+                    "file": file_url,
+                    "status": VerificationDocumentStatus.PENDING,
+                },
+            )
+
+        if not VehicleRentalListing.objects.filter(owner=transport_u, title="Land Cruiser 4x4").exists():
+            VehicleRentalListing.objects.create(
+                owner=transport_u,
+                title="Land Cruiser 4x4",
+                make="Toyota",
+                model="Land Cruiser",
+                year=2020,
+                transmission="automatic",
+                seats=7,
+                vehicle_type="4x4",
+                price_per_day=1200,
+                region="Khomas",
+                city="Windhoek",
+                is_active=True,
+            )
+
+        transport_op, _ = BusOperator.objects.get_or_create(
+            owner=transport_u,
+            name="Namibia Wheels Coaches",
+            defaults={"region": "Khomas"},
+        )
+        transport_route, _ = BusRoute.objects.get_or_create(
+            operator=transport_op,
+            origin="Windhoek",
+            destination="Oshakati",
+            defaults={
+                "description": "Northern express route.",
+                "cover_image": (
+                    "https://images.unsplash.com/photo-1570125909232-eb263c188f7e"
+                    "?auto=format&fit=crop&w=900&q=72"
+                ),
+            },
+        )
+        if not BusTrip.objects.filter(route=transport_route).exists():
+            dep = timezone.now() + timedelta(days=2)
+            BusTrip.objects.create(
+                route=transport_route,
+                departs_at=dep,
+                arrives_at=dep + timedelta(hours=6),
+                price=240,
+                total_seats=40,
+                amenities=["Air conditioning", "Luggage hold"],
+                is_active=True,
+            )
+
+        # Food provider awaiting admin verification (Delve Admin Phase 7)
+        food_u, _ = User.objects.get_or_create(
+            username="food_mgr",
+            defaults={"email": "food@delve.local"},
+        )
+        if not food_u.has_usable_password():
+            food_u.set_password("demo12345")
+            food_u.save()
+        food_p = food_u.profile
+        food_p.user_type = UserType.SERVICE_PROVIDER
+        food_p.display_name = "Windhoek Kitchen Co"
+        food_p.region = "Khomas"
+        food_p.city = "Windhoek"
+        food_p.country_code = "NA"
+        food_p.email_verified = True
+        food_p.save()
+
+        food_biz, _ = BusinessProfile.objects.get_or_create(
+            slug="windhoek-kitchen-co",
+            defaults={
+                "owner": food_u,
+                "business_name": "Windhoek Kitchen Co",
+                "business_types": ["food_drink"],
+                "verification_status": VerificationStatus.PENDING,
+                "description": "Modern Namibian kitchen with table reservations on DELVE.",
+                "tagline": "Seasonal plates & local brews",
+                "region": "Khomas",
+                "city": "Windhoek",
+            },
+        )
+        if not _:
+            food_biz.owner = food_u
+            food_biz.business_types = ["food_drink"]
+            food_biz.verification_status = VerificationStatus.PENDING
+            food_biz.save(
+                update_fields=["owner", "business_types", "verification_status", "updated_at"]
+            )
+        BusinessMembership.objects.get_or_create(
+            business=food_biz,
+            user=food_u,
+            defaults={"role": BusinessTeamRole.OWNER},
+        )
+
+        _food_doc_specs = [
+            (
+                VerificationDocumentType.BUSINESS_REGISTRATION,
+                "https://example.com/docs/wkc-registration.pdf",
+            ),
+            (
+                VerificationDocumentType.FOOD_HANDLING_CERT,
+                "https://example.com/docs/wkc-food-handling.pdf",
+            ),
+        ]
+        for doc_type, file_url in _food_doc_specs:
+            BusinessVerificationDocument.objects.get_or_create(
+                business=food_biz,
+                doc_type=doc_type,
+                defaults={
+                    "file": file_url,
+                    "status": VerificationDocumentStatus.PENDING,
+                },
+            )
+
+        savanna_table = FoodVenue.objects.filter(owner=food_u, name="Savanna Table").first()
+        if not savanna_table:
+            savanna_table = FoodVenue.objects.create(
+                owner=food_u,
+                name="Savanna Table",
+                description="Seasonal Namibian plates in a relaxed downtown setting.",
+                tagline="Reserve a table for lunch or dinner",
+                cuisine=CuisineType.LOCAL,
+                region="Khomas",
+                city="Windhoek",
+                address="45 Independence Ave, Windhoek",
+                phone="+264 61 555 0199",
+                price_level=2,
+                dine_in=True,
+                takeaway=True,
+                reservations=True,
+                is_open=True,
+                is_active=True,
+            )
+
+        if not FoodReservation.objects.filter(venue=savanna_table, guest=u1).exists():
+            FoodReservation.objects.create(
+                venue=savanna_table,
+                guest=u1,
+                party_size=4,
+                reserved_for=timezone.now() + timedelta(days=3),
+                status=BookingStatus.PENDING,
+                special_requests="Window seat if possible.",
+            )
+
+        # Guide provider awaiting admin verification (Delve Admin Phase 6)
+        guide_u, _ = User.objects.get_or_create(
+            username="guide_mgr",
+            defaults={"email": "guide@delve.local"},
+        )
+        if not guide_u.has_usable_password():
+            guide_u.set_password("demo12345")
+            guide_u.save()
+        guide_p = guide_u.profile
+        guide_p.user_type = UserType.SERVICE_PROVIDER
+        guide_p.display_name = "Namib Trail Guides"
+        guide_p.region = "Erongo"
+        guide_p.city = "Swakopmund"
+        guide_p.country_code = "NA"
+        guide_p.email_verified = True
+        guide_p.save()
+
+        guide_biz, _ = BusinessProfile.objects.get_or_create(
+            slug="namib-trail-guides",
+            defaults={
+                "owner": guide_u,
+                "business_name": "Namib Trail Guides",
+                "business_types": ["guide"],
+                "verification_status": VerificationStatus.PENDING,
+                "description": "Licensed local guides for dunes, wildlife, and coastal trails.",
+                "tagline": "Desert trails with local experts",
+                "region": "Erongo",
+                "city": "Swakopmund",
+            },
+        )
+        if not _:
+            guide_biz.owner = guide_u
+            guide_biz.business_types = ["guide"]
+            guide_biz.verification_status = VerificationStatus.PENDING
+            guide_biz.save(
+                update_fields=["owner", "business_types", "verification_status", "updated_at"]
+            )
+        BusinessMembership.objects.get_or_create(
+            business=guide_biz,
+            user=guide_u,
+            defaults={"role": BusinessTeamRole.OWNER},
+        )
+
+        _guide_doc_specs = [
+            (
+                VerificationDocumentType.BUSINESS_REGISTRATION,
+                "https://example.com/docs/ntg-registration.pdf",
+            ),
+            (
+                VerificationDocumentType.TOUR_GUIDE_LICENSE,
+                "https://example.com/docs/ntg-guide-license.pdf",
+            ),
+            (
+                VerificationDocumentType.FIRST_AID_CERT,
+                "https://example.com/docs/ntg-first-aid.pdf",
+            ),
+        ]
+        for doc_type, file_url in _guide_doc_specs:
+            BusinessVerificationDocument.objects.get_or_create(
+                business=guide_biz,
+                doc_type=doc_type,
+                defaults={
+                    "file": file_url,
+                    "status": VerificationDocumentStatus.PENDING,
+                },
+            )
+
+        desert_footprints = TourGuideProfile.objects.filter(user=guide_u).first()
+        if not desert_footprints:
+            desert_footprints = TourGuideProfile.objects.create(
+                user=guide_u,
+                headline="Desert Footprints Tours",
+                bio="Coastal dunes and lagoon walks with a licensed Swakopmund guide.",
+                languages=["English", "German"],
+                regions=["Erongo"],
+                hourly_rate=420,
+                response_hours_typical=3,
+                years_guiding=6,
+                licensed_guide=True,
+                certifications=["First aid certified"],
+                languages_detail=[
+                    {"language": "English", "level": "Fluent"},
+                    {"language": "German", "level": "Conversational"},
+                ],
+                specialities=["Wildlife", "Photography", "City walks"],
+                default_meeting_point="Swakopmund Jetty",
+                tour_packages=[
+                    {
+                        "id": "dune-half-day",
+                        "title": "Dune half-day",
+                        "hours": 4,
+                        "price": "2800",
+                        "description": "Morning dunes and lagoon viewpoints.",
+                    }
+                ],
+                is_active=True,
+            )
+
+        if not GuideBooking.objects.filter(guide=desert_footprints, client=u1).exists():
+            from datetime import time as dt_time
+
+            GuideBooking.objects.create(
+                guide=desert_footprints,
+                client=u1,
+                date=(timezone.now() + timedelta(days=4)).date(),
+                start_time=dt_time(9, 0),
+                duration_hours=4,
+                group_size=2,
+                package_id="dune-half-day",
+                meeting_point="Swakopmund Jetty",
+                notes="Prefer sunrise start if possible.",
+                total_price="2800.00",
+                status="pending",
+            )
+
         # Sample stay bookings for provider inbox
         coastal_listing = AccommodationListing.objects.filter(title="Coastal guesthouse").first()
         if coastal_listing and not AccommodationBooking.objects.filter(
@@ -826,6 +1185,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Seed complete. Users: demo_user, demo_provider, stays_host, demo_admin — password demo12345."
+                "Seed complete. Users: demo_user, demo_provider, stays_host, transport_mgr, food_mgr, guide_mgr, demo_admin — password demo12345."
             )
         )

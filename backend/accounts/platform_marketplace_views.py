@@ -1,12 +1,9 @@
-import os
-
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import EmailVerificationToken, PlatformBookingNote
+from accounts.models import PlatformBookingNote
 from accounts.permissions import IsPlatformAdmin
 from accounts.platform_audit import log_admin_action
 from accounts.platform_marketplace import (
@@ -15,6 +12,7 @@ from accounts.platform_marketplace import (
     list_platform_listings,
     list_unverified_email_users,
     set_listing_published,
+    set_journey_featured,
 )
 
 User = get_user_model()
@@ -41,11 +39,37 @@ class PlatformListingsView(APIView):
         listing_type = (request.data.get("listing_type") or "").strip()
         listing_id = request.data.get("listing_id")
         published = request.data.get("published")
+        featured = request.data.get("featured")
         reason = (request.data.get("reason") or "").strip()
 
-        if not listing_type or listing_id is None or published is None:
+        if not listing_type or listing_id is None:
             return Response(
-                {"detail": "listing_type, listing_id, and published are required."},
+                {"detail": "listing_type and listing_id are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if featured is not None:
+            if listing_type.strip().lower() != "journey":
+                return Response(
+                    {"detail": "featured is only supported for journey listings."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                row = set_journey_featured(int(listing_id), featured=bool(featured))
+            except ValueError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            log_admin_action(
+                actor=request.user,
+                action="listing_feature" if featured else "listing_unfeature",
+                target_type="listing",
+                target_id=f"{listing_type}:{listing_id}",
+                detail=row["title"],
+            )
+            return Response(row)
+
+        if published is None:
+            return Response(
+                {"detail": "published or featured is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -68,6 +92,30 @@ class PlatformListingsView(APIView):
             detail=reason or row["title"],
         )
         return Response(row)
+
+
+class PlatformFoodListingInspectorView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request, listing_id):
+        from food.inspector_services import food_venue_inspector_payload
+
+        payload = food_venue_inspector_payload(int(listing_id))
+        if not payload:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(payload)
+
+
+class PlatformGuideListingInspectorView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request, listing_id):
+        from guides.inspector_services import guide_profile_inspector_payload
+
+        payload = guide_profile_inspector_payload(int(listing_id), request=request)
+        if not payload:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(payload)
 
 
 class PlatformBookingsView(APIView):
@@ -147,6 +195,7 @@ def _update_booking_status(booking_type: str, booking_id: int, new_status: str) 
     from guides.models import GuideBooking
     from transport.models import SeatReservation, VehicleRentalBooking
     from events_app.models import EventBooking
+    from food.models import FoodReservation
 
     if booking_type == "accommodation":
         obj = AccommodationBooking.objects.filter(pk=booking_id).first()
@@ -158,6 +207,8 @@ def _update_booking_status(booking_type: str, booking_id: int, new_status: str) 
         obj = SeatReservation.objects.filter(pk=booking_id).first()
     elif booking_type == "event":
         obj = EventBooking.objects.filter(pk=booking_id).first()
+    elif booking_type == "food":
+        obj = FoodReservation.objects.filter(pk=booking_id).first()
     else:
         return False
 
@@ -209,16 +260,9 @@ class PlatformEmailVerificationView(APIView):
                 }
             )
 
-        token = EmailVerificationToken.create_for_user(user)
-        frontend = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-        link = f"{frontend}/verify-email?token={token.token}"
-        send_mail(
-            subject="Verify your DELVE account",
-            message=f"Hi {user.username},\n\nVerify your email: {link}\n\nToken: {token.token}",
-            from_email=None,
-            recipient_list=[user.email],
-            fail_silently=True,
-        )
+        from accounts.verification_email import send_verification_email
+
+        send_verification_email(user)
         log_admin_action(
             actor=request.user,
             action="email_verify_resend",

@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import type { PostsVisibility } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import {
   COUNTRY_ROWS,
   CURRENCY_OPTIONS,
   defaultCurrencyForCountry,
 } from '../lib/countryCurrencyPreferences'
 import { EmptyState } from '../components/ui'
+import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
+import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 
 type SettingsTab = 'profile' | 'privacy' | 'preferences' | 'account'
 
@@ -29,7 +32,9 @@ function SaveBanner({ saved, error }: { saved: boolean; error: string | null }) 
 
 export function Settings() {
   const { profile, refreshProfile, logout } = useAuth()
+  const { businesses, canAccessProvider } = useBusinessAccess()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const qc = useQueryClient()
   const [tab, setTab] = useState<SettingsTab>('profile')
 
@@ -57,6 +62,30 @@ export function Settings() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwdSaving, setPwdSaving] = useState(false)
+  const [pwdSaved, setPwdSaved] = useState(false)
+  const [pwdError, setPwdError] = useState<string | null>(null)
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteUsername, setDeleteUsername] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteSaving, setDeleteSaving] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const requested = searchParams.get('tab')
+    if (requested === 'profile' || requested === 'privacy' || requested === 'preferences' || requested === 'account') {
+      setTab(requested)
+    }
+    if (window.location.hash === '#delete-account') {
+      setTab('account')
+      setDeleteOpen(true)
+    }
+  }, [searchParams])
+
   useEffect(() => {
     if (!profile) return
     setDisplayName(profile.display_name ?? '')
@@ -80,6 +109,58 @@ export function Settings() {
   function flashSaved() {
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
+  }
+
+  async function handlePasswordChange() {
+    setPwdSaving(true)
+    setPwdSaved(false)
+    setPwdError(null)
+    if (newPassword !== confirmPassword) {
+      setPwdError('New passwords do not match.')
+      setPwdSaving(false)
+      return
+    }
+    try {
+      await apiFetch('/api/accounts/me/change-password/', {
+        method: 'POST',
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPwdSaved(true)
+      setTimeout(() => setPwdSaved(false), 3000)
+    } catch (err) {
+      setPwdError(friendlyApiMessage(err, 'Could not update password.'))
+    } finally {
+      setPwdSaving(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!profile) return
+    setDeleteSaving(true)
+    setDeleteError(null)
+    try {
+      await apiFetch('/api/accounts/me/delete/', {
+        method: 'POST',
+        body: JSON.stringify({
+          confirm_username: deleteUsername.trim(),
+          current_password: deletePassword,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      logout()
+      navigate('/', { state: { accountDeleted: true } })
+    } catch (err) {
+      setDeleteError(friendlyApiMessage(err, 'Could not delete account. Check your username and password.'))
+    } finally {
+      setDeleteSaving(false)
+    }
   }
 
   async function handleSave() {
@@ -358,7 +439,7 @@ export function Settings() {
             <div className="sp__toggle-info">
               <p className="sp__toggle-label">Appear in search &amp; discovery</p>
               <p className="sp__toggle-sub">
-                When off, your profile won't appear in search results or the Delvers community page.
+                When off, your profile won't appear in search results or Delvers discovery.
               </p>
             </div>
             <label className="sp__sw" aria-label="Show in search">
@@ -443,6 +524,29 @@ export function Settings() {
         <section className="sp__section settings-page__panel" id="sp-panel-account" role="tabpanel" aria-labelledby="sp-tab-account">
           <h2 id="sp-acct-title" className="sp__section-title">Account</h2>
 
+          {canAccessProvider ? (
+            <div className="sp__identity-card">
+              <p className="sp__section-sub">
+                Your traveller account is separate from your business presence. Use the links below to jump between them.
+              </p>
+              <ProfileIdentityLinks
+                username={profile.username}
+                businesses={businesses.map((b) => ({ id: b.id, business_name: b.business_name }))}
+                showDashboard
+              />
+            </div>
+          ) : profile.user_type === 'normal' ? (
+            <div className="sp__identity-card">
+              <p className="sp__section-sub">
+                Want to list stays, transport, food, or events? Upgrade to a service provider account — you can still
+                travel and post from your personal profile.
+              </p>
+              <Link to="/provider/start" className="btn btn-primary">
+                Become a service provider
+              </Link>
+            </div>
+          ) : null}
+
           {/* Read-only info */}
           <div className="sp__info-card">
             <div className="sp__info-row">
@@ -467,20 +571,66 @@ export function Settings() {
             {!profile.email_verified && (
               <div className="sp__verify-banner">
                 <span aria-hidden>✉️</span>
-                <span>Email not verified — some features are restricted.</span>
-                <Link to="/verify-email" className="btn btn-ghost sp__verify-btn">Verify now</Link>
+                <span>
+                  Email not verified — you can browse and sign in, but bookings and reservations need verification.
+                </span>
+                <Link to="/verify-email" className="btn btn-ghost sp__verify-btn">Enter token</Link>
+                <ResendVerificationButton
+                  authenticated
+                  className="btn btn-ghost sp__verify-btn"
+                  messageClassName="sp__banner sp__banner--ok"
+                  errorClassName="sp__banner sp__banner--err"
+                />
               </div>
             )}
           </div>
 
-          {/* Change password – coming soon */}
-          <div className="sp__action-card sp__action-card--disabled">
+          {/* Change password */}
+          <div className="sp__action-card">
             <div>
               <p className="sp__action-title">Change password</p>
               <p className="sp__action-sub">Update your login password.</p>
             </div>
-            <span className="pill">Coming soon</span>
           </div>
+          {pwdError ? <p className="sp__banner sp__banner--err" role="alert">{pwdError}</p> : null}
+          {pwdSaved ? <p className="sp__banner sp__banner--ok" role="status">Password updated.</p> : null}
+          <div className="sp__fields">
+            <label className="sp__field">
+              <span>Current password</span>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            <label className="sp__field">
+              <span>New password</span>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="sp__field">
+              <span>Confirm new password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={pwdSaving || !currentPassword || !newPassword || !confirmPassword}
+            onClick={() => void handlePasswordChange()}
+          >
+            {pwdSaving ? 'Updating…' : 'Update password'}
+          </button>
 
           {/* Sign out */}
           <div className="sp__divider" />
@@ -493,15 +643,84 @@ export function Settings() {
           </button>
 
           {/* Danger zone */}
-          <div className="sp__danger-zone">
+          <div className="sp__danger-zone" id="delete-account">
             <p className="sp__danger-title">Danger zone</p>
-            <div className="sp__action-card sp__action-card--disabled">
+            <div className="sp__action-card">
               <div>
                 <p className="sp__action-title">Delete account</p>
-                <p className="sp__action-sub">Permanently remove your profile, posts and all data. This cannot be undone.</p>
+                <p className="sp__action-sub">
+                  Permanently anonymize your profile and hide your posts. Booking records are kept without personal
+                  details. This cannot be undone.
+                </p>
               </div>
-              <span className="pill">Coming soon</span>
             </div>
+            {deleteError ? <p className="sp__banner sp__banner--err" role="alert">{deleteError}</p> : null}
+            {!deleteOpen ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ color: '#dc2626', marginTop: 12 }}
+                onClick={() => {
+                  setDeleteOpen(true)
+                  setDeleteError(null)
+                }}
+              >
+                Delete my account…
+              </button>
+            ) : (
+              <div className="sp__fields" style={{ marginTop: 12 }}>
+                <p className="sp__action-sub" style={{ marginBottom: 8 }}>
+                  Type <strong>@{profile.username}</strong> and enter your password to confirm.
+                </p>
+                <label className="sp__field">
+                  <span>Username</span>
+                  <input
+                    type="text"
+                    value={deleteUsername}
+                    onChange={(e) => setDeleteUsername(e.target.value)}
+                    autoComplete="username"
+                    placeholder={profile.username}
+                  />
+                </label>
+                <label className="sp__field">
+                  <span>Password</span>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ background: '#dc2626', borderColor: '#dc2626' }}
+                    disabled={
+                      deleteSaving
+                      || deleteUsername.trim() !== profile.username
+                      || !deletePassword
+                    }
+                    onClick={() => void handleDeleteAccount()}
+                  >
+                    {deleteSaving ? 'Deleting…' : 'Permanently delete account'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={deleteSaving}
+                    onClick={() => {
+                      setDeleteOpen(false)
+                      setDeleteUsername('')
+                      setDeletePassword('')
+                      setDeleteError(null)
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}

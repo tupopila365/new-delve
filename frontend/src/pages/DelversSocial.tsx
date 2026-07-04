@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { DelversCommentComposer } from '../components/DelversCommentComposer'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
 import { ReportButton } from '../components/report/ReportButton'
+import { PostMedia } from '../components/PostMedia'
 import { SponsoredListingFeedCard } from '../components/social/SponsoredListingFeedCard'
 import {
   type DelversFeedPost,
@@ -15,6 +16,8 @@ import {
   isSponsoredListingItem,
 } from '../components/social/delversFeedTypes'
 import { EmptyState } from '../components/ui'
+import { invalidatePostEngagementCaches, invalidateSocialCaches } from '../utils/socialCache'
+import { copyPostPermalink, postPermalinkPath } from '../utils/postPermalink'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
 import '../delvers-post-card-polish.css'
@@ -41,6 +44,7 @@ type StoryTarget = {
   title: string
   subtitle: string
   avatar: string | null
+  username?: string
   posts: PinPost[]
 }
 
@@ -115,13 +119,23 @@ export function DelversSocial() {
   })
 
   const likeMut = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/social/posts/${id}/like/`, { method: 'POST' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: qk }),
+    mutationFn: (post: PinPost) => apiFetch(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
+    onSuccess: (_data, post) => {
+      void invalidatePostEngagementCaches(qc, {
+        queryKey: qk,
+        authorUsername: post.author.username,
+      })
+    },
   })
 
   const saveMut = useMutation({
-    mutationFn: (id: number) => apiFetch(`/api/social/posts/${id}/save/`, { method: 'POST' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: qk }),
+    mutationFn: (post: PinPost) => apiFetch(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
+    onSuccess: (_data, post) => {
+      void invalidatePostEngagementCaches(qc, {
+        queryKey: qk,
+        authorUsername: post.author.username,
+      })
+    },
   })
 
   useEffect(() => {
@@ -227,9 +241,9 @@ export function DelversSocial() {
     return list
   }, [data, profile?.region, query, tab])
 
-  const onShare = async () => {
+  const onShare = async (postId: number) => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/delvers`)
+      await copyPostPermalink(postId)
       setToast('Link copied')
       window.setTimeout(() => setToast(''), 1400)
     } catch {
@@ -254,7 +268,7 @@ export function DelversSocial() {
   }
 
   const refreshFeed = () => {
-    void qc.invalidateQueries({ queryKey: qk })
+    void invalidateSocialCaches(qc, { username: profile?.username })
   }
 
   const openCreatorStories = (creator: Creator) => {
@@ -263,8 +277,9 @@ export function DelversSocial() {
     setStoryTarget({
       kind: 'creator',
       title: creator.display_name,
-      subtitle: `@${creator.username} · ${rows.length} ${rows.length === 1 ? 'story' : 'stories'}`,
+      subtitle: `@${creator.username} · ${rows.length} ${rows.length === 1 ? 'highlight' : 'highlights'}`,
       avatar: creator.avatar,
+      username: creator.username,
       posts: rows,
     })
     setStoryIndex(0)
@@ -280,7 +295,7 @@ export function DelversSocial() {
     setStoryTarget({
       kind: 'place',
       title: place,
-      subtitle: `${rows.length} ${rows.length === 1 ? 'story' : 'stories'} from this place`,
+      subtitle: `${rows.length} ${rows.length === 1 ? 'highlight' : 'highlights'} from this place`,
       avatar: null,
       posts: rows,
     })
@@ -331,7 +346,7 @@ export function DelversSocial() {
       </header>
 
       <main className="ds-main ds-main--centered">
-        <section className="ds-stories ds-stories--polished" aria-label="Creators and places">
+        <section className="ds-stories ds-stories--polished" aria-label="Creator and place highlights">
           <CreateStoryBubble signedIn={!!profile} />
           {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} onOpen={() => openCreatorStories(creator)} />)}
           {PLACES.map((place) => (
@@ -367,11 +382,11 @@ export function DelversSocial() {
                 key={item.id}
                 post={item}
                 signedIn={!!profile}
-                likeBusy={likeMut.isPending && likeMut.variables === item.id}
-                saveBusy={saveMut.isPending && saveMut.variables === item.id}
-                onLike={() => profile && likeMut.mutate(item.id)}
-                onSave={() => profile && saveMut.mutate(item.id)}
-                onShare={onShare}
+                likeBusy={likeMut.isPending && likeMut.variables?.id === item.id}
+                saveBusy={saveMut.isPending && saveMut.variables?.id === item.id}
+                onLike={() => profile && likeMut.mutate(item)}
+                onSave={() => profile && saveMut.mutate(item)}
+                onShare={() => void onShare(item.id)}
                 onCommented={refreshFeed}
               />
             ),
@@ -417,7 +432,7 @@ export function DelversSocial() {
 function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => void }) {
   const avatar = mediaUrl(creator.avatar)
   return (
-    <button type="button" className="ds-creator-bubble" onClick={onOpen} aria-label={`Open stories by ${creator.display_name}`}>
+    <button type="button" className="ds-creator-bubble" onClick={onOpen} aria-label={`Open highlights by ${creator.display_name}`}>
       <span>{avatar ? <img src={avatar} alt="" /> : <UserRound size={22} strokeWidth={2} />}</span>
       <small>{creator.display_name}</small>
     </button>
@@ -427,12 +442,12 @@ function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => vo
 function CreateStoryBubble({ signedIn }: { signedIn: boolean }) {
   return (
     <Link
-      to={signedIn ? '/stories/new' : '/login'}
+      to={signedIn ? '/create/highlight' : '/login'}
       className="ds-create-bubble"
-      aria-label={signedIn ? 'Create a story' : 'Sign in to create a story'}
+      aria-label={signedIn ? 'Add a highlight' : 'Sign in to add a highlight'}
     >
       <span><Video size={22} strokeWidth={2.4} aria-hidden /></span>
-      <small>Story</small>
+      <small>Highlight</small>
     </Link>
   )
 }
@@ -528,11 +543,18 @@ function StoryViewer({ target, index, onIndex, onClose }: {
           <span className="ds-story-viewer__avatar">
             {target.avatar ? <img src={mediaUrl(target.avatar) || ''} alt="" /> : target.kind === 'place' ? <MapPin size={20} strokeWidth={2.25} aria-hidden /> : target.title.charAt(0).toUpperCase()}
           </span>
-          <span className="ds-story-viewer__meta">
-            <strong>{target.title}</strong>
-            <small>{target.subtitle}</small>
-          </span>
-          <button type="button" className="ds-story-viewer__close" onClick={onClose} aria-label="Close stories">
+          {target.kind === 'creator' && target.username ? (
+            <Link to={`/u/${encodeURIComponent(target.username)}`} className="ds-story-viewer__meta ds-story-viewer__meta-link">
+              <strong>{target.title}</strong>
+              <small>{target.subtitle}</small>
+            </Link>
+          ) : (
+            <span className="ds-story-viewer__meta">
+              <strong>{target.title}</strong>
+              <small>{target.subtitle}</small>
+            </span>
+          )}
+          <button type="button" className="ds-story-viewer__close" onClick={onClose} aria-label="Close highlights">
             <X size={19} strokeWidth={2.35} aria-hidden />
           </button>
         </header>
@@ -542,11 +564,12 @@ function StoryViewer({ target, index, onIndex, onClose }: {
         </div>
         <div className="ds-story-viewer__scrim" aria-hidden />
 
-        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--prev" disabled={!canPrev} onClick={() => onIndex(index - 1)} aria-label="Previous story" />
-        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--next" disabled={!canNext} onClick={() => onIndex(index + 1)} aria-label="Next story" />
+        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--prev" disabled={!canPrev} onClick={() => onIndex(index - 1)} aria-label="Previous highlight" />
+        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--next" disabled={!canNext} onClick={() => onIndex(index + 1)} aria-label="Next highlight" />
 
         <div className="ds-story-viewer__caption">
           <p>{caption}</p>
+          <Link to={postPermalinkPath(post.id)}>View post</Link>
         </div>
       </article>
     </div>
@@ -569,9 +592,8 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   const lastTapRef = useRef(0)
   const name = post.author.display_name || post.author.username
   const avatar = mediaUrl(post.author.avatar ?? null)
-  const image = mediaUrl(post.image)
-  const video = mediaUrl(post.video)
   const text = postText(post)
+  const hasMedia = Boolean(post.image || post.video)
   const date = formatDate(post.created_at)
   const commentCount = post.comments_count ?? 0
 
@@ -579,6 +601,8 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
     onCommented()
     setCommentsOpen(true)
   }
+
+  const permalink = postPermalinkPath(post.id)
 
   return (
     <article className={`ds-post${post.is_sponsored ? ' ds-post--sponsored' : ''}`}>
@@ -596,7 +620,7 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
       <div
         className="ds-post__media"
         role="img"
-        aria-label={`${image || video ? 'Photo' : 'Note'} by ${name}. Double-tap to like.`}
+        aria-label={`${hasMedia ? 'Photo' : 'Note'} by ${name}. Double-tap to like.`}
         onDoubleClick={() => {
           if (!signedIn) return
           onLike()
@@ -618,12 +642,15 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           }
         }}
       >
-        {image ? (
-          <img src={image} alt={text} loading="lazy" />
-        ) : video ? (
-          <div className="ds-post__video"><Video size={34} strokeWidth={2} aria-hidden /><span>Video clip</span></div>
+        {hasMedia ? (
+          <Link to={permalink} className="ds-post__media-link" aria-label={`Open post by ${name}`}>
+            <PostMedia image={post.image} video={post.video} variant="feed" alt={text} />
+          </Link>
         ) : (
-          <div className="ds-post__text-media"><Compass size={34} strokeWidth={2} aria-hidden /><span>Travel note</span></div>
+          <Link to={permalink} className="ds-post__text-media" aria-label={`Open post by ${name}`}>
+            <Compass size={34} strokeWidth={2} aria-hidden />
+            <span>Travel note</span>
+          </Link>
         )}
         {heartBurst ? (
           <span className="ds-post__heart-burst" aria-hidden>
@@ -672,6 +699,16 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           <span>{text}</span>
         </p>
         {post.delvers_board ? <span className="ds-post__topic">{post.delvers_board}</span> : null}
+        {post.listing ? (
+          <Link to={`/accommodation/${post.listing.id}`} className="ds-post__place-chip">
+            At {post.listing.title}
+          </Link>
+        ) : null}
+        {post.event ? (
+          <Link to={`/events/${post.event.id}`} className="ds-post__place-chip">
+            At {post.event.title}
+          </Link>
+        ) : null}
         <button type="button" className="ds-post__comments" onClick={() => setCommentsOpen((open) => !open)} aria-expanded={commentsOpen}>
           {commentsOpen ? 'Hide comments' : commentsLabel(commentCount)}
         </button>

@@ -86,6 +86,34 @@ function statusClass(status: string) {
   return 'prov-ui__status'
 }
 
+function rentalBookingActions(status: string) {
+  if (status === 'pending') {
+    return [
+      { label: 'Confirm', action: 'confirm' },
+      { label: 'Cancel', action: 'cancel' },
+    ]
+  }
+  if (status === 'confirmed') {
+    return [
+      { label: 'Pick up', action: 'check_in' },
+      { label: 'Cancel', action: 'cancel' },
+    ]
+  }
+  if (status === 'checked_in') return [{ label: 'Return vehicle', action: 'check_out' }]
+  return []
+}
+
+function seatBookingActions(status: string) {
+  if (status === 'pending') {
+    return [
+      { label: 'Confirm', action: 'confirm' },
+      { label: 'Cancel', action: 'cancel' },
+    ]
+  }
+  if (status === 'confirmed') return [{ label: 'Board passenger', action: 'check_in' }]
+  return []
+}
+
 export function TransportAdmin() {
   const { profile } = useAuth()
   const qc = useQueryClient()
@@ -135,6 +163,30 @@ export function TransportAdmin() {
     queryKey: ['provider-seat-bookings'],
     queryFn: () => apiFetch<SeatBooking[]>('/api/transport/provider-seat-bookings/'),
     enabled: Boolean(profile && canAccessProvider && showShared),
+  })
+
+  const rentalBookingMut = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: string }) =>
+      apiFetch(`/api/transport/provider-rental-bookings/${id}/${action}/`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-rental-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-transport-bookings'] })
+    },
+  })
+
+  const seatBookingMut = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: string }) =>
+      apiFetch(`/api/transport/provider-seat-bookings/${id}/${action}/`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-seat-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['provider-transport-bookings'] })
+    },
   })
 
   const saveVehicleMut = useMutation({
@@ -419,6 +471,25 @@ export function TransportAdmin() {
                     </span>
                     <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
                   </div>
+                  {canManageBookings && rentalBookingActions(r.status).length > 0 ? (
+                    <div className="prov-ui__booking-actions">
+                      {rentalBookingActions(r.status).map((a) => (
+                        <button
+                          key={a.action}
+                          type="button"
+                          className={
+                            a.action === 'confirm' || a.action === 'check_in' || a.action === 'check_out'
+                              ? 'prov-ui__btn prov-ui__btn--primary'
+                              : 'prov-ui__btn prov-ui__btn--ghost'
+                          }
+                          disabled={rentalBookingMut.isPending && rentalBookingMut.variables?.id === r.id}
+                          onClick={() => rentalBookingMut.mutate({ id: r.id, action: a.action })}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </article>
               ))}
                 </div>
@@ -428,6 +499,7 @@ export function TransportAdmin() {
 
       {tab === 'seats' && showShared && (
         <section id="seats">
+          {!canManageBookings ? <p className="stay-hint">Your role can view seat bookings but not manage them.</p> : null}
           {seatBookings.length === 0 ? (
             <ProviderUiEmpty title="No seat bookings yet" message="Passenger seat reservations will appear here." />
           ) : (
@@ -446,6 +518,25 @@ export function TransportAdmin() {
                     <span>{r.date} · Seat {r.seat}</span>
                     <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
                   </div>
+                  {canManageBookings && seatBookingActions(r.status).length > 0 ? (
+                    <div className="prov-ui__booking-actions">
+                      {seatBookingActions(r.status).map((a) => (
+                        <button
+                          key={a.action}
+                          type="button"
+                          className={
+                            a.action === 'confirm' || a.action === 'check_in'
+                              ? 'prov-ui__btn prov-ui__btn--primary'
+                              : 'prov-ui__btn prov-ui__btn--ghost'
+                          }
+                          disabled={seatBookingMut.isPending && seatBookingMut.variables?.id === r.id}
+                          onClick={() => seatBookingMut.mutate({ id: r.id, action: a.action })}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>

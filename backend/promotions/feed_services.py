@@ -62,6 +62,7 @@ def _build_listing_card(campaign, listing_type: str, listing_id: int, *, title: 
         PromotionTargetType.FOOD: f"/food/{listing_id}",
         PromotionTargetType.EVENT: f"/events/{listing_id}",
         PromotionTargetType.VEHICLE: f"/transport/vehicle/{listing_id}",
+        PromotionTargetType.BUS_TRIP: f"/transport/bus/{listing_id}",
     }
     return {
         "feed_item_type": "sponsored_listing",
@@ -110,12 +111,14 @@ def _resolve_sponsored_listing(campaign, target_type: str) -> dict | None:
     if target_type == PromotionTargetType.GUIDE:
         from guides.models import TourGuideProfile
 
+        from guides.provider_serializers import _photo_url
+
         guide = TourGuideProfile.objects.filter(pk=lid, is_active=True).select_related("user").first()
         if not guide:
             return None
         regions = ", ".join((guide.regions or [])[:2])
         rate = f"From ${guide.hourly_rate}/hr" if guide.hourly_rate else "View profile"
-        image = guide.photo.name if guide.photo else None
+        image = _photo_url(guide)
         return _build_listing_card(
             campaign,
             target_type,
@@ -179,6 +182,29 @@ def _resolve_sponsored_listing(campaign, target_type: str) -> dict | None:
             image=vehicle.cover_image.name if vehicle.cover_image else None,
             meta=vehicle.vehicle_type or "Vehicle rental",
             price=f"N${vehicle.price_per_day}/day",
+        )
+
+    if target_type == PromotionTargetType.BUS_TRIP:
+        from django.utils import timezone
+        from transport.models import BusTrip
+
+        trip = (
+            BusTrip.objects.filter(pk=lid, is_active=True, departs_at__gte=timezone.now())
+            .select_related("route", "route__operator")
+            .first()
+        )
+        if not trip:
+            return None
+        route = trip.route
+        return _build_listing_card(
+            campaign,
+            target_type,
+            lid,
+            title=f"{route.origin} → {route.destination}",
+            subtitle=route.operator.name,
+            image=route.cover_image or None,
+            meta="Shared bus trip",
+            price=f"N${trip.price}",
         )
 
     return None

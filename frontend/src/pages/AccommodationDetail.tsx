@@ -10,10 +10,8 @@ import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
-import type { ListingMomentItem } from '../components/listing/types'
 import { useToggleStaySave } from '../hooks/useStaySave'
 import type { AccommodationListing } from '../utils/accommodationListing'
-import { postsToStayMoments, type StayMomentPost } from '../utils/stayMoments'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 
 type StayQuestionApi = {
@@ -47,13 +45,6 @@ export function AccommodationDetail() {
       }),
   })
 
-  const { data: momentPostsRaw } = useQuery({
-    queryKey: ['stay-moments', id],
-    queryFn: () => apiFetch<StayMomentPost[]>(`/api/accommodation/listings/${id}/moments/`, { auth: false }),
-    enabled: Boolean(id),
-  })
-  const momentPosts = asArray<StayMomentPost>(momentPostsRaw)
-
   const { data: questionsRaw, isLoading: loadingQuestions } = useQuery({
     queryKey: ['stay-questions', id],
     queryFn: () => apiFetch<StayQuestionApi[]>(`/api/accommodation/listings/${id}/questions/`, { auth: false }),
@@ -82,11 +73,6 @@ export function AccommodationDetail() {
       })),
     }))
   }, [questionRows])
-
-  const moments = useMemo(
-    () => (data ? postsToStayMoments(momentPosts, data.title) : []),
-    [momentPosts, data],
-  )
 
   const reviews = useMemo(
     () => normalizeReviews(reviewsData?.reviews ?? []),
@@ -170,7 +156,6 @@ export function AccommodationDetail() {
         questions={questions}
         loadingQuestions={loadingQuestions}
         canAnswerQuestions={canAnswer}
-        moments={moments}
         reviews={reviews}
         ratingAvg={ratingAvg != null ? String(ratingAvg) : undefined}
         ratingCount={ratingCount}

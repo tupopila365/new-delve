@@ -22,6 +22,16 @@ export type CreateStudioMode = 'post' | 'story'
 
 export type PostDestination = 'feed' | 'delvers'
 
+export type PlaceLink =
+  | { kind: 'none' }
+  | { kind: 'accommodation'; id: number; title: string }
+  | { kind: 'event'; id: number; title: string }
+  | { kind: 'vehicle'; id: number; title: string }
+  | { kind: 'bus_trip'; id: number; title: string }
+  | { kind: 'food'; id: number; title: string }
+
+export const DEFAULT_PLACE_LINK: PlaceLink = { kind: 'none' }
+
 export const MEDIA_FILTERS: { id: MediaFilter; label: string }[] = [
   { id: 'original', label: 'Normal' },
   { id: 'warm', label: 'Warm' },
@@ -36,14 +46,6 @@ export const CROP_ASPECTS: { id: CropAspect; label: string }[] = [
   { id: '4:5', label: '4:5' },
   { id: '16:9', label: '16:9' },
 ]
-
-export const MUSIC_OPTIONS = [
-  'No music',
-  'Soft travel beat',
-  'City night drive',
-  'Coastal morning',
-  'Desert sunset',
-] as const
 
 export const CAPTION_PRESETS: { label: string; position: CaptionPosition }[] = [
   { label: 'Top', position: { x: 50, y: 18 } },

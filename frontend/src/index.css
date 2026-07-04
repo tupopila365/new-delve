@@ -32262,6 +32262,83 @@ a.chip.chip--accent:hover {
   font-size: 0.88rem;
 }
 
+.adm-handoff {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: #f3f0eb;
+}
+
+.adm-handoff--gate {
+  min-height: 60vh;
+}
+
+.adm-handoff__card {
+  width: min(100%, 440px);
+  padding: 28px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+.adm-handoff__eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e8620a;
+}
+
+.adm-handoff__title {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1a1208;
+}
+
+.adm-handoff__sub {
+  margin: 0 0 18px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(26, 18, 8, 0.72);
+}
+
+.adm-handoff__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: #e8620a;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.adm-handoff__cta:hover {
+  background: #cf5709;
+}
+
+.adm-handoff__meta {
+  margin: 16px 0 0;
+  font-size: 0.84rem;
+  color: rgba(26, 18, 8, 0.62);
+}
+
+.adm-handoff__meta a {
+  color: #e8620a;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.adm-handoff__meta a:hover {
+  text-decoration: underline;
+}
+
 .adm-shell--gate .adm-shell__content {
   min-height: 60vh;
   display: flex;

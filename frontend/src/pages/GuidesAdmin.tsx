@@ -11,15 +11,20 @@ import {
   EMPTY_GUIDE_PACKAGE_FORM,
   EMPTY_GUIDE_PROFILE_FORM,
   GuideBookingCard,
+  GuideMonetizationSection,
   GuidePackageCard,
   GuidePackageForm,
   GuideProfileForm,
   GuideProfileSummaryCard,
+  MAX_GUIDE_PACKAGES,
+  buildGuideProfileFormData,
   formToProfilePayload,
   normalizeProviderGuide,
+  packageFormHasUploads,
   packageToApiPayload,
   packageToForm,
   profileCompleteness,
+  profileFormHasUploads,
   profileToForm,
   type GuideProviderBooking,
   type ProviderGuideProfile,
@@ -123,20 +128,26 @@ export function GuidesAdmin() {
 
   const saveProfileMut = useMutation({
     mutationFn: async () => {
-      const body = formToProfilePayload(profileForm, packages)
+      const hasUploads = profileFormHasUploads(profileForm)
+      const body = hasUploads
+        ? buildGuideProfileFormData(profileForm, packages)
+        : JSON.stringify(formToProfilePayload(profileForm, packages))
       if (guide) {
         return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
           method: 'PATCH',
-          body: JSON.stringify(body),
+          body,
         })
       }
       return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
         method: 'POST',
-        body: JSON.stringify(body),
+        body,
       })
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['provider-guide-profile'] })
+      void qc.invalidateQueries({ queryKey: ['guides'] })
+      void qc.invalidateQueries({ queryKey: ['guide'] })
+      void qc.invalidateQueries({ queryKey: ['guide-provider-analytics'] })
       setShowProfileForm(false)
       setProfileErr('')
     },
@@ -153,19 +164,32 @@ export function GuidesAdmin() {
           p.id === editPackageId ? { ...p, ...nextPkg, reviews: p.reviews } : p,
         )
       } else {
+        if (packages.length >= MAX_GUIDE_PACKAGES) {
+          throw new Error(`You can add at most ${MAX_GUIDE_PACKAGES} tour packages.`)
+        }
         if (packages.some((p) => p.id === nextPkg.id)) {
           throw new Error('A package with this slug already exists.')
         }
         nextPackages = [...packages, { ...nextPkg, reviews: [] }]
       }
-      const body = formToProfilePayload(profileToForm(guide), nextPackages)
+      const profileValues = profileToForm(guide)
+      const hasUploads = packageFormHasUploads(packageForm)
+      const body = hasUploads
+        ? buildGuideProfileFormData(profileValues, nextPackages, {
+            packageId: nextPkg.id,
+            packagePhoto: packageForm.photo_file,
+            packageGallery: packageForm.gallery_files,
+          })
+        : JSON.stringify(formToProfilePayload(profileValues, nextPackages))
       return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
         method: 'PATCH',
-        body: JSON.stringify(body),
+        body,
       })
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['provider-guide-profile'] })
+      void qc.invalidateQueries({ queryKey: ['guides'] })
+      void qc.invalidateQueries({ queryKey: ['guide'] })
       setShowPackageForm(false)
       setEditPackageId(null)
       setPackageForm(EMPTY_GUIDE_PACKAGE_FORM)
@@ -180,7 +204,11 @@ export function GuidesAdmin() {
         method: 'POST',
         body: JSON.stringify({}),
       }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-guide-bookings'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-guide-bookings'] })
+      void qc.invalidateQueries({ queryKey: ['my-bookings', 'guides'] })
+      void qc.invalidateQueries({ queryKey: ['guide-provider-analytics'] })
+    },
   })
 
   if (!profile) return <Navigate to="/login" replace />
@@ -337,6 +365,8 @@ export function GuidesAdmin() {
           { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
         ]}
       />
+
+      <GuideMonetizationSection enabled={canAccessProvider && Boolean(guide)} canManage={canManageListings} />
 
       <ProviderUiChips chips={[...TABS]} active={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Guides sections" />
 

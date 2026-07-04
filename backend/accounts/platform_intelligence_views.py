@@ -32,11 +32,30 @@ class PlatformNotificationsView(APIView):
         return Response(admin_notifications())
 
 
+class PublicAnnouncementView(APIView):
+    """Public home-banner payload — no auth required."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        settings_obj = PlatformSettings.load()
+        if not settings_obj.announcement_active:
+            return Response({"active": False, "title": "", "body": ""})
+        return Response(
+            {
+                "active": True,
+                "title": settings_obj.announcement_title or "",
+                "body": settings_obj.announcement_body or "",
+            }
+        )
+
+
 class PlatformSettingsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
         return Response(serialize_platform_settings(PlatformSettings.load()))
+
 
     def patch(self, request):
         settings_obj = PlatformSettings.load()
@@ -88,7 +107,7 @@ class PlatformUserDeleteView(APIView):
 
         try:
             original_username = user.username
-            anonymize_user_account(user, actor=request.user)
+            anonymize_user_account(user, actor=request.user, self_initiated=False)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

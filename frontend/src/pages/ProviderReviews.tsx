@@ -186,9 +186,6 @@ function ReviewCard({ review, urgent }: { review: Review; urgent?: boolean }) {
         </p>
       ) : null}
       <div className="prov-ui__booking-actions" style={{ marginTop: 10 }}>
-        <button type="button" className="prov-ui__btn prov-ui__btn--primary" title="Reply coming soon">
-          {review.needsReply ? 'Reply' : 'Edit reply'}
-        </button>
         <Link to="/provider/listings" className="prov-ui__btn prov-ui__btn--ghost">
           View listing
         </Link>

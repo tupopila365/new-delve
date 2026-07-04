@@ -15,7 +15,6 @@ type Props = {
   onCaptionPointerMove: (event: PointerEvent<HTMLDivElement>) => void
   onCaptionPointerUp: (event: PointerEvent<HTMLDivElement>) => void
   onCaptionKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void
-  musicLabel?: string
   mode: 'post' | 'story'
   showCaptionOverlay?: boolean
 }
@@ -33,7 +32,6 @@ export function MediaPreview({
   onCaptionPointerMove,
   onCaptionPointerUp,
   onCaptionKeyDown,
-  musicLabel,
   mode,
   showCaptionOverlay = true,
 }: Props) {
@@ -88,8 +86,6 @@ export function MediaPreview({
             {captionText}
           </div>
         ) : null}
-
-        {musicLabel ? <div className="create-media__music">{musicLabel}</div> : null}
       </div>
     </div>
   )

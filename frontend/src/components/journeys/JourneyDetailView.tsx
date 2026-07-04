@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ComponentType } from 'react'
 import type { LucideProps } from 'lucide-react'
 import {
@@ -15,16 +16,21 @@ import {
   Map,
   MapPin,
   MessageCircle,
+  Pencil,
   Plane,
   Route,
   Ship,
+  Trash2,
   UserRound,
   Users,
 } from 'lucide-react'
 import type { MockTrip } from '../../data/mockTrips'
+import { apiFetch } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
+import { postPermalinkPath } from '../../utils/postPermalink'
+import { friendlyApiMessage } from '../../utils/friendlyError'
 import { DetailLayout } from '../detail'
 import {
-  ListingAskSection,
   ListingBookBar,
   ListingDetails,
   ListingHeroGallery,
@@ -32,7 +38,7 @@ import {
   ListingIdentityHeader,
   ListingQuickInfo,
 } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
+import { ListingQuestionsSection } from '../listing/ListingQuestionsSection'
 import {
   buildJourneyDetailRows,
   buildJourneyGallery,
@@ -84,7 +90,6 @@ type Props = {
   likeCount: number
   onLike: () => void
   similarJourneys: MockTrip[]
-  initialQuestions?: ListingQuestionItem[]
 }
 
 export function JourneyDetailView({
@@ -97,8 +102,12 @@ export function JourneyDetailView({
   likeCount,
   onLike,
   similarJourneys,
-  initialQuestions,
 }: Props) {
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const { profile } = useAuth()
+  const isAuthor = profile?.username === trip.author.username
+  const [authorErr, setAuthorErr] = useState<string | null>(null)
   const photoItems = collectJourneyPhotos(trip)
   const route = routeLabel(trip)
   const accent = journeyAccentBadge(trip)
@@ -131,6 +140,69 @@ export function JourneyDetailView({
     }
   })
 
+  async function deleteJourney() {
+    if (!window.confirm('Delete this journey permanently? This cannot be undone.')) return
+    setAuthorErr(null)
+    try {
+      await apiFetch(`/api/journeys/${journeyId}/`, { method: 'DELETE' })
+      void qc.invalidateQueries({ queryKey: ['journeys'] })
+      void qc.invalidateQueries({ queryKey: ['user-journeys'] })
+      void qc.invalidateQueries({ queryKey: ['journey', journeyId] })
+      navigate(`/u/${trip.author.username}`)
+    } catch (error) {
+      setAuthorErr(friendlyApiMessage(error, 'Could not delete this journey.'))
+    }
+  }
+
+  async function shareEntryOnDelvers(entryId: number) {
+    setAuthorErr(null)
+    try {
+      const post = await apiFetch<{ id: number }>(`/api/journeys/entries/${entryId}/share/`, {
+        method: 'POST',
+      })
+      navigate(postPermalinkPath(post.id))
+    } catch (error) {
+      setAuthorErr(friendlyApiMessage(error, 'Could not share this moment on Delvers.'))
+    }
+  }
+
+  const headerActions = [
+    ...(isAuthor
+      ? [
+          {
+            id: 'edit',
+            label: 'Edit journey',
+            icon: <Pencil size={14} strokeWidth={2.25} aria-hidden />,
+            href: `/journeys/${journeyId}/edit`,
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            icon: <Trash2 size={14} strokeWidth={2.25} aria-hidden />,
+            onClick: () => void deleteJourney(),
+          },
+        ]
+      : []),
+    {
+      id: 'like',
+      label: liked ? `Liked · ${likeCount}` : `Like · ${likeCount}`,
+      icon: <Heart size={14} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />,
+      onClick: onLike,
+      accent: liked,
+    },
+    ...(isAuthor
+      ? []
+      : [
+          {
+            id: 'message-creator',
+            label: 'Message creator',
+            icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
+            href: messageProviderPath(trip.author.username),
+            accent: true,
+          },
+        ]),
+  ]
+
   return (
     <>
       <ListingHeroGallery
@@ -154,28 +226,19 @@ export function JourneyDetailView({
         onSave={onSave}
         onShare={onShare}
         reportTarget={{
-          target_type: 'listing',
-          target_id: `journey:${journeyId}`,
+          target_type: 'journey',
+          target_id: journeyId,
           target_label: trip.title,
         }}
-        actions={[
-          {
-            id: 'like',
-            label: liked ? `Liked · ${likeCount}` : `Like · ${likeCount}`,
-            icon: <Heart size={14} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />,
-            onClick: onLike,
-            accent: liked,
-          },
-          {
-            id: 'message-creator',
-            label: 'Message creator',
-            icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: messageProviderPath(trip.author.username),
-            accent: true,
-          },
-        ]}
+        actions={headerActions}
         className="jn-detail__identity acc-detail__identity"
       />
+
+      {authorErr ? (
+        <p className="ce-form__err" role="alert">
+          {authorErr}
+        </p>
+      ) : null}
 
       <div className="jn-detail__intro">
         <VenueStoriesSection
@@ -241,7 +304,12 @@ export function JourneyDetailView({
 
             <JourneyRouteStops stops={trip.stops} tags={trip.tags} className="jn-detail__route acc-detail__section" />
 
-            <JourneyDayByDay stops={trip.stops} className="jn-detail__diary acc-detail__section" />
+            <JourneyDayByDay
+              stops={trip.stops}
+              className="jn-detail__diary acc-detail__section"
+              isAuthor={isAuthor}
+              onShareEntry={isAuthor ? shareEntryOnDelvers : undefined}
+            />
 
             {tipHighlights.length > 0 ? (
               <ListingHighlights
@@ -259,11 +327,16 @@ export function JourneyDetailView({
               className="jn-detail__budget acc-detail__section"
             />
 
-            <ListingAskSection
+            <ListingQuestionsSection
               className="jn-detail__questions acc-detail__comments"
+              questionsPath={`/api/journeys/${journeyId}/questions/`}
+              answerPath={(questionId) => `/api/journeys/questions/${questionId}/answers/`}
+              queryKey={['journey-questions', journeyId]}
               title="Questions and travel tips"
               placeholder="How much was fuel? Where did you stay? Was a 4x4 required?"
-              initialQuestions={initialQuestions}
+              canAnswer={isAuthor}
+              officialLabel="Creator"
+              invalidateKeys={[['me-journey-questions']]}
             />
 
             {similarJourneys.length > 0 ? (

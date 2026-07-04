@@ -14,11 +14,16 @@ import {
   Sparkles,
   Ticket,
   User,
+  Utensils,
 } from 'lucide-react'
+import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
+import { foodCoverSrc } from '../utils/foodDisplay'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { UserBookingCard, bookingNextStep } from '../components/booking'
+import { useMySeatBookingGroups, useMyVehicleBookings } from '../hooks/useMyTransportBookings'
+import { useMyFoodReservations } from '../hooks/useMyFoodReservations'
 import type { BookingServiceType } from '../components/booking'
 import '../components/dashboard/user-dashboard.css'
 
@@ -37,11 +42,16 @@ type GuideBooking = {
   id: number
   guide: number
   guide_headline: string
+  guide_username?: string
   date: string
+  start_time?: string | null
+  duration_hours?: number
   group_size: number
   package_id?: string
+  package_title?: string
   notes?: string
   total_price?: string
+  mock_payment_ref?: string
   status: string
   created_at?: string
 }
@@ -105,6 +115,50 @@ type DashboardBooking =
       messageLabel: string
       messageUsername?: string
     }
+  | {
+      key: string
+      sortDate: string
+      serviceType: 'vehicle'
+      title: string
+      provider: string
+      dateLabel: string
+      peopleLabel: string
+      status: string
+      price?: string
+      href: string
+      viewLabel: string
+      messageLabel: string
+      messageUsername?: string
+    }
+  | {
+      key: string
+      sortDate: string
+      serviceType: 'bus'
+      title: string
+      provider: string
+      dateLabel: string
+      peopleLabel: string
+      status: string
+      price?: string
+      href: string
+      viewLabel: string
+      messageLabel: string
+      messageUsername?: string
+    }
+  | {
+      key: string
+      sortDate: string
+      serviceType: 'food'
+      title: string
+      provider: string
+      dateLabel: string
+      peopleLabel: string
+      status: string
+      href: string
+      viewLabel: string
+      messageLabel: string
+      messageUsername?: string
+    }
 
 function humanizePackageId(packageId: string): string {
   const trimmed = packageId.trim()
@@ -155,6 +209,50 @@ export function UserDashboard() {
     enabled: Boolean(profile),
   })
 
+  type SavedFoodVenue = {
+    id: number
+    name: string
+    region: string
+    city?: string | null
+    cuisine: string
+    price_level: number
+    cover_image: string | null
+  }
+
+  const { data: savedFood = [], isLoading: loadingSavedFood } = useQuery({
+    queryKey: ['saved-food'],
+    queryFn: async () => {
+      try {
+        return asArray<SavedFoodVenue>(await apiFetch('/api/food/venues/saved/'))
+      } catch {
+        return []
+      }
+    },
+    enabled: Boolean(profile),
+  })
+
+  type SavedGuide = {
+    id: number
+    headline: string
+    photo: string | null
+    username: string
+    display_name?: string | null
+    regions?: string[]
+    hourly_rate?: string | null
+  }
+
+  const { data: savedGuides = [], isLoading: loadingSavedGuides } = useQuery({
+    queryKey: ['saved-guides'],
+    queryFn: async () => {
+      try {
+        return asArray<SavedGuide>(await apiFetch('/api/guides/profiles/saved/'))
+      } catch {
+        return []
+      }
+    },
+    enabled: Boolean(profile),
+  })
+
   const { data: guideBookings, isLoading: loadingGuides } = useQuery({
     queryKey: ['my-bookings', 'guides'],
     queryFn: () => apiFetch<GuideBooking[]>('/api/guides/bookings/').catch(() => [] as GuideBooking[]),
@@ -166,6 +264,10 @@ export function UserDashboard() {
     queryFn: () => apiFetch<EventBooking[]>('/api/events/bookings/').catch(() => [] as EventBooking[]),
     enabled: Boolean(profile),
   })
+
+  const { data: vehicleBookings = [], isLoading: loadingVehicles } = useMyVehicleBookings(Boolean(profile))
+  const { groups: seatBookingGroups = [], isLoading: loadingSeats } = useMySeatBookingGroups(Boolean(profile))
+  const { data: foodReservations = [], isLoading: loadingFood } = useMyFoodReservations(Boolean(profile))
 
   const { data: businesses = [] } = useQuery({
     queryKey: ['my-businesses'],
@@ -191,23 +293,34 @@ export function UserDashboard() {
       }))
 
     const guides: DashboardBooking[] = (guideBookings ?? [])
-      .filter((b) => !['cancelled', 'declined'].includes(b.status))
+      .filter((b) => !['cancelled', 'declined', 'refunded'].includes(b.status))
       .map((b) => {
-        const isExperience = Boolean(b.package_id?.trim())
+        const isExperience = Boolean(b.package_id?.trim() || b.package_title?.trim())
         const serviceType: BookingServiceType = isExperience ? 'experience' : 'guide'
+        const title =
+          b.package_title?.trim() ||
+          (b.package_id?.trim() ? humanizePackageId(b.package_id) : b.guide_headline)
+        const dateLabel = [
+          b.date,
+          b.start_time ? String(b.start_time).slice(0, 5) : null,
+          b.duration_hours ? `${b.duration_hours}h` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
         return {
           key: `guide-${b.id}`,
           sortDate: b.date,
           serviceType,
-          title: isExperience ? humanizePackageId(b.package_id!) : b.guide_headline,
+          title,
           provider: b.guide_headline,
-          dateLabel: b.date,
+          dateLabel,
           peopleLabel: `${b.group_size} ${b.group_size === 1 ? 'traveller' : 'travellers'}`,
           status: b.status,
           price: b.total_price ? `N$${b.total_price}` : undefined,
           href: `/dashboard/bookings/guide/${b.id}`,
           viewLabel: isExperience ? 'View experience' : 'View guide',
           messageLabel: 'Message guide',
+          messageUsername: b.guide_username,
         }
       })
 
@@ -235,15 +348,92 @@ export function UserDashboard() {
         }
       })
 
-    return [...stays, ...guides, ...events]
+    const vehicles: DashboardBooking[] = vehicleBookings
+      .filter((b) => !['cancelled', 'declined'].includes(b.status))
+      .map((b) => ({
+        key: `vehicle-${b.id}`,
+        sortDate: b.start_date,
+        serviceType: 'vehicle' as const,
+        title: b.listing_title,
+        provider: b.owner_display_name?.trim() || b.listing_owner_username,
+        dateLabel: `${b.start_date} – ${b.end_date}`,
+        peopleLabel: 'Vehicle rental',
+        status: b.status,
+        price: b.total_price ? `N$${b.total_price}` : undefined,
+        href: `/dashboard/bookings/vehicle/${b.id}`,
+        viewLabel: 'View rental',
+        messageLabel: 'Message provider',
+        messageUsername: b.listing_owner_username,
+      }))
+
+    const buses: DashboardBooking[] = seatBookingGroups
+      .filter((b) => !['cancelled', 'declined'].includes(b.status))
+      .map((b) => {
+        const d = new Date(b.trip_departs_at)
+        const dateLabel = Number.isNaN(d.getTime())
+          ? b.trip_departs_at
+          : d.toLocaleDateString('en-NA', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+        return {
+          key: b.key,
+          sortDate: b.trip_departs_at,
+          serviceType: 'bus' as const,
+          title: b.route_label,
+          provider: b.operator_name || 'Bus operator',
+          dateLabel,
+          peopleLabel: `${b.seat_numbers.length} seat${b.seat_numbers.length === 1 ? '' : 's'} · ${b.seat_numbers.join(', ')}`,
+          status: b.status,
+          price: b.total_price,
+          href: `/dashboard/bookings/bus/${b.reservation_ids[0]}`,
+          viewLabel: 'View trip',
+          messageLabel: 'Message operator',
+          messageUsername: b.operator_owner_username,
+        }
+      })
+
+    const food: DashboardBooking[] = foodReservations
+      .filter((b) => !['cancelled', 'declined', 'checked_out'].includes(b.status))
+      .map((b) => {
+        const d = new Date(b.reserved_for)
+        const dateLabel = Number.isNaN(d.getTime())
+          ? b.reserved_for
+          : d.toLocaleString('en-NA', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+        return {
+          key: `food-${b.id}`,
+          sortDate: b.reserved_for,
+          serviceType: 'food' as const,
+          title: b.venue_name,
+          provider: b.owner_display_name?.trim() || b.owner_username,
+          dateLabel,
+          peopleLabel: `${b.party_size} ${b.party_size === 1 ? 'guest' : 'guests'}`,
+          status: b.status,
+          href: `/dashboard/bookings/food/${b.id}`,
+          viewLabel: 'View reservation',
+          messageLabel: 'Message venue',
+          messageUsername: b.owner_username,
+        }
+      })
+
+    return [...stays, ...guides, ...events, ...vehicles, ...buses, ...food]
       .sort((a, b) => b.sortDate.localeCompare(a.sortDate))
       .slice(0, 8)
-  }, [stayBookings, guideBookings, eventBookings])
+  }, [stayBookings, guideBookings, eventBookings, vehicleBookings, seatBookingGroups, foodReservations])
 
   if (!profile) return <Navigate to="/login" replace />
 
   const isProvider = profile.user_type === 'service_provider' || businesses.length > 0
-  const loadingBookings = loadingStays || loadingGuides || loadingEvents
+  const loadingBookings = loadingStays || loadingGuides || loadingEvents || loadingVehicles || loadingSeats || loadingFood
   const activeBookings = dashboardBookings.length
   const upcomingEvents = (eventBookings ?? []).filter(
     (b) => !['cancelled', 'declined'].includes(b.status) && new Date(b.event_starts_at).getTime() >= Date.now(),
@@ -381,8 +571,6 @@ export function UserDashboard() {
                 messageUsername={'messageUsername' in b ? b.messageUsername : undefined}
                 viewLabel={b.viewLabel}
                 messageLabel={b.messageLabel}
-                onCancel={() => {}}
-                cancelDisabled
               />
             ))}
           </div>
@@ -462,8 +650,6 @@ export function UserDashboard() {
                     messageUsername={b.organizer_username}
                     viewLabel="View event"
                     messageLabel="Message organizer"
-                    onCancel={() => {}}
-                    cancelDisabled
                   />
                 )
               })}
@@ -475,43 +661,102 @@ export function UserDashboard() {
       <div className="t-dash__split">
         <section className="t-dash__section" id="saved">
           <h2 className="t-dash__section-title">Saved</h2>
-          {loadingSavedStays ? (
-            <p className="t-dash__hint">Loading saved stays…</p>
-          ) : savedStays.length === 0 ? (
+          {loadingSavedStays || loadingSavedFood || loadingSavedGuides ? (
+            <p className="t-dash__hint">Loading saved places…</p>
+          ) : savedStays.length === 0 && savedFood.length === 0 && savedGuides.length === 0 ? (
             <div className="t-dash__empty">
               <span className="t-dash__empty-icon" aria-hidden>
                 <Bookmark size={22} strokeWidth={2.25} />
               </span>
               <h3>Nothing saved yet</h3>
-              <p>Bookmark stays from the list or detail page to find them here.</p>
+              <p>Bookmark stays, food spots, and guides from list or detail pages to find them here.</p>
               <Link to="/accommodation" className="t-dash__empty-btn">
                 Browse stays
               </Link>
             </div>
           ) : (
-            <div className="t-dash__saved-grid">
-              {savedStays.map((stay) => {
-                const location = stay.city ? `${stay.city}, ${stay.region}` : stay.region
-                return (
-                  <Link key={stay.id} to={`/accommodation/${stay.id}`} className="t-dash__saved-card">
-                    <div className="t-dash__saved-thumb">
-                      {stay.cover_image ? (
-                        <img src={mediaUrl(stay.cover_image) || ''} alt="" loading="lazy" />
-                      ) : (
-                        <span className="t-dash__saved-thumb-fallback" aria-hidden>
-                          <Hotel size={20} strokeWidth={2} />
-                        </span>
-                      )}
-                    </div>
-                    <div className="t-dash__saved-copy">
-                      <strong>{stay.title}</strong>
-                      <span>{location}</span>
-                      <span>From N${stay.price_per_night} / night</span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+            <>
+              {savedStays.length > 0 ? (
+                <div className="t-dash__saved-grid">
+                  {savedStays.map((stay) => {
+                    const location = stay.city ? `${stay.city}, ${stay.region}` : stay.region
+                    return (
+                      <Link key={`stay-${stay.id}`} to={`/accommodation/${stay.id}`} className="t-dash__saved-card">
+                        <div className="t-dash__saved-thumb">
+                          {stay.cover_image ? (
+                            <img src={mediaUrl(stay.cover_image) || ''} alt="" loading="lazy" />
+                          ) : (
+                            <span className="t-dash__saved-thumb-fallback" aria-hidden>
+                              <Hotel size={20} strokeWidth={2} />
+                            </span>
+                          )}
+                        </div>
+                        <div className="t-dash__saved-copy">
+                          <strong>{stay.title}</strong>
+                          <span>{location}</span>
+                          <span>From N${stay.price_per_night} / night</span>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : null}
+              {savedFood.length > 0 ? (
+                <div className={`t-dash__saved-grid${savedStays.length > 0 ? ' t-dash__saved-grid--food' : ''}`}>
+                  {savedFood.map((venue) => {
+                    const location = venue.city ? `${venue.city}, ${venue.region}` : venue.region
+                    const cover = foodCoverSrc(venue.cover_image, venue.cuisine)
+                    return (
+                      <Link key={`food-${venue.id}`} to={`/food/${venue.id}`} className="t-dash__saved-card">
+                        <div className="t-dash__saved-thumb">
+                          <img src={cover} alt="" loading="lazy" />
+                        </div>
+                        <div className="t-dash__saved-copy">
+                          <strong>{venue.name}</strong>
+                          <span>{location}</span>
+                          <span>
+                            {cuisineLabel(venue.cuisine)} · {priceLevelLabel(venue.price_level)}
+                          </span>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : null}
+              {savedGuides.length > 0 ? (
+                <div
+                  className={`t-dash__saved-grid${
+                    savedStays.length > 0 || savedFood.length > 0 ? ' t-dash__saved-grid--food' : ''
+                  }`}
+                >
+                  {savedGuides.map((guide) => {
+                    const location = (guide.regions ?? []).slice(0, 2).join(' · ')
+                    const name = guide.display_name?.trim() || guide.username
+                    const photo = mediaUrl(guide.photo)
+                    return (
+                      <Link key={`guide-${guide.id}`} to={`/guides/${guide.id}`} className="t-dash__saved-card">
+                        <div className="t-dash__saved-thumb">
+                          {photo ? (
+                            <img src={photo} alt="" loading="lazy" />
+                          ) : (
+                            <span className="t-dash__saved-thumb-fallback" aria-hidden>
+                              <Compass size={20} strokeWidth={2} />
+                            </span>
+                          )}
+                        </div>
+                        <div className="t-dash__saved-copy">
+                          <strong>{guide.headline}</strong>
+                          <span>{location || name}</span>
+                          <span>
+                            {guide.hourly_rate ? `From N$${guide.hourly_rate} / hr` : 'Rates on profile'}
+                          </span>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </>
           )}
         </section>
 

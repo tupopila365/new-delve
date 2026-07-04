@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ImagePlus, X } from 'lucide-react'
+import { mediaUrl } from '../../../api/client'
 import {
   EMPTY_GUIDE_PACKAGE_FORM,
   slugifyPackageId,
   type GuidePackageFormValues,
 } from './guideProfileTypes'
+import '../transport/transport-listing.css'
 
 type Props = {
   values: GuidePackageFormValues
@@ -32,12 +35,51 @@ export function GuidePackageForm({ values, onChange, error, saving, onSubmit, on
     onChange(next)
   }
 
+  const coverRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const [galleryPreviews, setGalleryPreviews] = useState<
+    { key: string; src: string; kind: 'url' | 'file'; index: number }[]
+  >([])
+
+  useEffect(() => {
+    if (values.photo_file) {
+      const url = URL.createObjectURL(values.photo_file)
+      setCoverPreview(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    const remote = values.photo_url.trim()
+    setCoverPreview(remote ? mediaUrl(remote) ?? remote : null)
+  }, [values.photo_file, values.photo_url])
+
+  useEffect(() => {
+    const existing = values.gallery_urls
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((src, index) => ({
+        key: `url-${index}-${src}`,
+        src: mediaUrl(src) ?? src,
+        kind: 'url' as const,
+        index,
+      }))
+    const pending = values.gallery_files.map((file, index) => ({
+      key: `file-${file.name}-${file.size}-${index}`,
+      src: URL.createObjectURL(file),
+      kind: 'file' as const,
+      index,
+    }))
+    setGalleryPreviews([...existing, ...pending])
+    return () => pending.forEach((item) => URL.revokeObjectURL(item.src))
+  }, [values.gallery_urls, values.gallery_files])
+
   const canSave =
     values.title.trim() &&
     values.description.trim() &&
     values.hours > 0 &&
     values.price.trim() &&
-    values.id.trim()
+    values.id.trim() &&
+    (Boolean(values.photo_url.trim()) || Boolean(values.photo_file))
 
   return (
     <div className="guide-form" role="dialog" aria-modal="true" aria-labelledby="guide-package-form-title">
@@ -129,25 +171,100 @@ export function GuidePackageForm({ values, onChange, error, saving, onSubmit, on
           )}
 
           {section === 'photos' && (
-            <div className="guide-form__section">
-              <label className="guide-form__field">
-                Cover photo URL
+            <div className="guide-form__section food-photo-editor">
+              <p className="guide-form__hint">
+                A cover photo is required. Gallery photos appear on the package detail page and story rings.
+              </p>
+              <div className="food-photo-editor__cover">
+                <p className="food-photo-editor__label">Cover photo</p>
+                <div className="food-photo-editor__cover-preview">
+                  {coverPreview ? (
+                    <img src={coverPreview} alt="" className="transport-form__preview" />
+                  ) : (
+                    <div className="food-photo-editor__placeholder">No cover yet</div>
+                  )}
+                </div>
+                <div className="food-photo-editor__actions">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => coverRef.current?.click()}>
+                    <ImagePlus size={15} strokeWidth={2.25} aria-hidden />
+                    {coverPreview ? 'Change cover' : 'Upload cover'}
+                  </button>
+                  {coverPreview ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => patch({ photo_file: null, photo_url: '' })}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
                 <input
-                  value={values.photo_url}
-                  onChange={(e) => patch({ photo_url: e.target.value })}
-                  placeholder="https://…"
+                  ref={coverRef}
+                  type="file"
+                  accept="image/*"
+                  className="visually-hidden"
+                  aria-label="Upload package cover"
+                  onChange={(e) => {
+                    patch({ photo_file: e.target.files?.[0] ?? null })
+                    e.target.value = ''
+                  }}
                 />
-              </label>
-              {values.photo_url ? <img src={values.photo_url} alt="" className="guide-form__preview" /> : null}
-              <label className="guide-form__field">
-                Gallery photo URLs
-                <textarea
-                  rows={4}
-                  value={values.gallery_urls}
-                  onChange={(e) => patch({ gallery_urls: e.target.value })}
-                  placeholder="One image URL per line"
+              </div>
+              <div className="food-photo-editor__gallery">
+                <p className="food-photo-editor__label">Gallery</p>
+                <div className="food-photo-editor__grid">
+                  {galleryPreviews.map((item) => (
+                    <div key={item.key} className="food-photo-editor__thumb">
+                      <img src={item.src} alt="" />
+                      <button
+                        type="button"
+                        className="food-photo-editor__remove"
+                        aria-label="Remove photo"
+                        onClick={() => {
+                          if (item.kind === 'url') {
+                            const lines = values.gallery_urls
+                              .split('\n')
+                              .map((l) => l.trim())
+                              .filter(Boolean)
+                            lines.splice(item.index, 1)
+                            patch({ gallery_urls: lines.join('\n') })
+                          } else {
+                            patch({
+                              gallery_files: values.gallery_files.filter((_, i) => i !== item.index),
+                            })
+                          }
+                        }}
+                      >
+                        <X size={14} strokeWidth={2.5} aria-hidden />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="food-photo-editor__add"
+                    onClick={() => galleryRef.current?.click()}
+                    aria-label="Add gallery photos"
+                  >
+                    <ImagePlus size={22} strokeWidth={2} aria-hidden />
+                    <span>Add photos</span>
+                  </button>
+                </div>
+                <input
+                  ref={galleryRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="visually-hidden"
+                  aria-label="Upload package gallery"
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? [])
+                    if (!picked.length) return
+                    patch({ gallery_files: [...values.gallery_files, ...picked] })
+                    e.target.value = ''
+                  }}
                 />
-              </label>
+              </div>
             </div>
           )}
         </div>

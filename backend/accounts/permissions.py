@@ -47,3 +47,25 @@ class IsPlatformAdmin(permissions.BasePermission):
             and request.user.is_authenticated
             and request.user.is_staff
         )
+
+
+class IsListingManager(permissions.BasePermission):
+    """Business owner, service provider, or team manager+."""
+
+    message = "Listing management access required."
+
+    def has_permission(self, request, view):
+        from .business_access import user_has_listing_manager_access
+
+        return user_has_listing_manager_access(request.user)
+
+
+class IsBookingManager(permissions.BasePermission):
+    """Business owner, service provider, or team staff+."""
+
+    message = "Booking management access required."
+
+    def has_permission(self, request, view):
+        from .business_access import user_has_booking_manager_access
+
+        return user_has_booking_manager_access(request.user)

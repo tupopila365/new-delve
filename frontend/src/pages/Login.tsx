@@ -79,6 +79,9 @@ export function Login() {
           aria-label="Password"
           required
         />
+        <p className="auth-page__hint" style={{ margin: 0, textAlign: 'right' }}>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
         <button type="submit" className="auth-page__submit" disabled={busy}>
           {busy ? 'Signing in…' : 'Log in'}
         </button>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   Clock,
   MapPin,
@@ -8,11 +9,12 @@ import {
   Truck,
   Utensils,
 } from 'lucide-react'
-import { mediaUrl } from '../../api/client'
+import { apiFetch } from '../../api/client'
+import { normalizeReviews } from '../GuestReviewCard'
 import { DetailLayout } from '../detail'
 import {
   ListingAmenities,
-  ListingAskSection,
+  ListingQuestionsSection,
   ListingBookBar,
   ListingDelversMoments,
   ListingDetails,
@@ -23,8 +25,7 @@ import {
   ListingQuickInfo,
   ListingReviews,
 } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
-import { MessageProviderLink } from '../messages'
+import { messageProviderPath } from '../messages/messageProviderUtils'
 import { VenueStoriesSection } from './stories'
 import {
   buildFoodAmenities,
@@ -34,12 +35,31 @@ import {
   buildFoodTrustHighlights,
   cuisineIcon,
   cuisineLabel,
-  normalizeFoodReviews,
   openStreetMapSearchUrl,
   priceLevelLabel,
   priceLevelName,
   type FoodVenueListing,
 } from '../../utils/foodListing'
+import { FoodReviewForm } from './FoodReviewForm'
+import { FoodReserveCard } from './FoodReserveCard'
+import type { MyFoodReservation } from '../../hooks/useMyFoodReservations'
+import { useAuth } from '../../auth/AuthContext'
+
+type ReserveProps = {
+  date: string
+  time: string
+  partySize: number
+  notes: string
+  onDateChange: (v: string) => void
+  onTimeChange: (v: string) => void
+  onPartySizeChange: (v: number) => void
+  onNotesChange: (v: string) => void
+  onReserve: () => void
+  isPending: boolean
+  err: string | null
+  onDismissErr: () => void
+  profile: { email_verified: boolean } | null
+}
 
 type Props = {
   data: FoodVenueListing
@@ -47,7 +67,12 @@ type Props = {
   saved: boolean
   onSave: () => void
   onShare: () => void
-  initialQuestions?: ListingQuestionItem[]
+  canAnswer?: boolean
+  hasReviewed?: boolean
+  canReview?: boolean
+  canReserve?: boolean
+  reservation?: MyFoodReservation | null
+  reserve?: ReserveProps
 }
 
 export function FoodDetailView({
@@ -56,8 +81,14 @@ export function FoodDetailView({
   saved,
   onSave,
   onShare,
-  initialQuestions,
+  canAnswer = false,
+  hasReviewed = false,
+  canReview = false,
+  canReserve = false,
+  reservation = null,
+  reserve,
 }: Props) {
+  const { profile } = useAuth()
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
   const mapHref = openStreetMapSearchUrl(data.name, data.city ?? '', data.region)
   const detailBackTo = `/food/${venueId}`
@@ -65,7 +96,17 @@ export function FoodDetailView({
   const highlights = buildFoodHighlights(data)
   const amenities = buildFoodAmenities(data)
   const policyRows = buildFoodPolicyRows(data)
-  const reviews = normalizeFoodReviews(data.reviews, data.name)
+  const { data: reviewPayload } = useQuery({
+    queryKey: ['food-reviews', venueId],
+    queryFn: () =>
+      apiFetch<{ reviews: unknown[]; rating_avg: number | string | null; rating_count: number }>(
+        `/api/food/venues/${venueId}/reviews/`,
+        { auth: false },
+      ),
+  })
+  const reviews = normalizeReviews(reviewPayload?.reviews ?? [])
+  const rating = reviewPayload?.rating_avg ?? data.rating_avg
+  const reviewCount = reviewPayload?.rating_count ?? data.rating_count
   const trustItems = buildFoodTrustHighlights(data)
   const CuisineIcon = cuisineIcon(data.cuisine)
   const price = priceLevelLabel(data.price_level)
@@ -92,30 +133,19 @@ export function FoodDetailView({
     return row
   })
 
-  const delversMoments = (data.delvers_moments ?? []).map((m) => ({
-    id: String(m.id),
-    image: m.image ? mediaUrl(m.image) || m.image : undefined,
-    author: m.author_username,
-    body: m.body,
-    taggedListing: data.name,
-  }))
-
-  const bookAction = data.reservations ? (
-    <MessageProviderLink
-      username={data.owner_username}
-      label="Request table"
-      role="host"
-      variant="primary"
-    />
+  const bookAction = canReserve ? (
+    <a href="#food-reserve-panel" className="btn btn-primary">
+      Request table
+    </a>
   ) : data.phone ? (
     <a href={`tel:${data.phone}`} className="btn btn-primary">
       Call venue
     </a>
-  ) : (
+  ) : mapHref ? (
     <a href={mapHref} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-      Get directions
+      Open in maps
     </a>
-  )
+  ) : null
 
   return (
     <>
@@ -135,8 +165,8 @@ export function FoodDetailView({
         name={data.name}
         tagline={data.tagline?.trim() || `By @${data.owner_username}`}
         categoryLabel={cuisineLabel(data.cuisine)}
-        rating={data.rating_avg}
-        reviewCount={data.rating_count}
+        rating={rating}
+        reviewCount={reviewCount}
         locationLabel={locationLine || null}
         isOpen={data.is_open}
         hoursLabel={
@@ -155,7 +185,11 @@ export function FoodDetailView({
             id: 'message-venue',
             label: 'Message venue',
             icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: `/messages/u/${encodeURIComponent(data.owner_username)}`,
+            href: messageProviderPath(data.owner_username, {
+              type: 'food',
+              id: venueId,
+              label: data.name,
+            }),
             accent: true,
           },
         ]}
@@ -210,38 +244,76 @@ export function FoodDetailView({
 
             <ListingLocationCard
               address={data.address?.trim() || locationLine || null}
-              mapUrl={mapHref}
-              viewMapLabel="View map"
+              mapUrl={mapHref || null}
+              approximateHint={
+                data.address?.trim()
+                  ? null
+                  : 'Area only — street address may be shared by the venue.'
+              }
+              viewMapLabel="Open in maps"
               className="fd-detail__map-card acc-detail__map-card"
             />
 
             <ListingDelversMoments
               listingType="food"
               listingId={venueId}
+              listingTitle={data.name}
               title="From Delvers"
-              moments={delversMoments}
               className="fd-detail__moments acc-detail__moments"
               showWhenEmpty
               emptyMessage="No traveller photos yet — share yours on Delvers after you visit."
             />
 
-            <ListingAskSection
+            <ListingQuestionsSection
               className="fd-detail__comments acc-detail__comments"
               title="Ask a question"
               placeholder="Ask about the menu, reservations, dietary options…"
-              initialQuestions={initialQuestions}
+              questionsPath={`/api/food/venues/${venueId}/questions/`}
+              answerPath={(questionId) => `/api/food/questions/${questionId}/answers/`}
+              queryKey={['food-questions', venueId]}
+              canAnswer={canAnswer}
+              officialLabel="Venue"
             />
 
             <ListingReviews
               listingType="food"
               listingId={venueId}
               reviews={reviews}
-              rating={data.rating_avg}
-              count={data.rating_count}
+              rating={rating}
+              count={reviewCount}
               emptyMessage="Reviews will appear here once guests leave feedback."
               className="fd-detail__reviews acc-detail__reviews"
             />
+
+            {profile && canReview ? (
+              <FoodReviewForm venueId={venueId} />
+            ) : profile && !hasReviewed && data.reservations && profile.username !== data.owner_username ? (
+              <p className="stay-hint fd-detail__review-hint">
+                Reviews unlock after your table visit is marked seated or completed.
+              </p>
+            ) : null}
           </>
+        }
+        sidebar={
+          canReserve && reserve ? (
+            <FoodReserveCard
+              venue={data}
+              date={reserve.date}
+              time={reserve.time}
+              partySize={reserve.partySize}
+              notes={reserve.notes}
+              onDateChange={reserve.onDateChange}
+              onTimeChange={reserve.onTimeChange}
+              onPartySizeChange={reserve.onPartySizeChange}
+              onNotesChange={reserve.onNotesChange}
+              onReserve={reserve.onReserve}
+              isPending={reserve.isPending}
+              err={reserve.err}
+              onDismissErr={reserve.onDismissErr}
+              profile={reserve.profile}
+              reservation={reservation}
+            />
+          ) : null
         }
       />
 

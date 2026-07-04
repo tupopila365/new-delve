@@ -1,3 +1,4 @@
+import { canStartSeatAt } from '../../../utils/transportSeatBlock'
 import './transport-booking.css'
 
 type Props = {
@@ -40,16 +41,23 @@ export function BusSeatPicker({
       <div className={gridClass} role="group" aria-label="Seat map">
         {seatNumbers.map((n) => {
           const isTaken = taken.has(n)
+          const canStart = canStartSeatAt(n, totalSeats, passengers, taken)
           const inBlock = blockSeats.includes(n)
           const isSelectedStart = firstSeat === n
           return (
             <button
               key={n}
               type="button"
-              disabled={isTaken}
-              className={`tp-seat${inBlock && blockValid ? ' tp-seat--in-block' : ''}${isSelectedStart ? ' tp-seat--selected' : ''}${isTaken ? ' tp-seat--taken' : ''}`}
+              disabled={isTaken || !canStart}
+              className={`tp-seat${inBlock && blockValid ? ' tp-seat--in-block' : ''}${isSelectedStart ? ' tp-seat--selected' : ''}${isTaken || !canStart ? ' tp-seat--taken' : ''}`}
               aria-pressed={isSelectedStart}
-              aria-label={isTaken ? `Seat ${n} taken` : `Seat ${n}`}
+              aria-label={
+                isTaken
+                  ? `Seat ${n} taken`
+                  : !canStart
+                    ? `Seat ${n} unavailable for a ${passengers}-seat block`
+                    : `Seat ${n}`
+              }
               onClick={() => onSelectSeat(n === firstSeat ? null : n)}
             >
               {n}

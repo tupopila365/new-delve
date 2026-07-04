@@ -1,0 +1,73 @@
+"""Traveler reviews for transport bookings."""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+from transport.models import BusTrip, SeatReservationReview, VehicleRentalListing, VehicleRentalReview
+
+
+def _author_label(user) -> str:
+    profile = getattr(user, "profile", None)
+    if profile and getattr(profile, "display_name", "").strip():
+        return profile.display_name.strip()
+    return user.username
+
+
+def sync_vehicle_listing_rating(listing: VehicleRentalListing) -> None:
+    ratings = list(
+        VehicleRentalReview.objects.filter(listing=listing).values_list("rating", flat=True)
+    )
+    if not ratings:
+        listing.rating_avg = Decimal("0")
+        listing.rating_count = 0
+    else:
+        listing.rating_avg = round(sum(ratings) / len(ratings), 2)
+        listing.rating_count = len(ratings)
+    listing.save(update_fields=["rating_avg", "rating_count"])
+
+
+def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
+    rows = []
+    for review in (
+        VehicleRentalReview.objects.filter(listing=listing)
+        .select_related("reviewer", "reviewer__profile")
+        .order_by("-created_at")[:50]
+    ):
+        rows.append(
+            {
+                "id": f"traveler-{review.pk}",
+                "source": "traveler",
+                "name": _author_label(review.reviewer),
+                "place": listing.city or listing.region,
+                "rating": review.rating,
+                "body": review.body,
+                "created_at": review.created_at.isoformat(),
+            }
+        )
+    avg = str(listing.rating_avg) if listing.rating_count else None
+    return {"reviews": rows, "rating_avg": avg, "rating_count": listing.rating_count}
+
+
+def bus_trip_reviews_payload(trip: BusTrip) -> dict:
+    rows = []
+    for review in (
+        SeatReservationReview.objects.filter(trip=trip)
+        .select_related("reviewer", "reviewer__profile")
+        .order_by("-created_at")[:50]
+    ):
+        rows.append(
+            {
+                "id": f"traveler-{review.pk}",
+                "source": "traveler",
+                "name": _author_label(review.reviewer),
+                "place": trip.route.origin,
+                "rating": review.rating,
+                "body": review.body,
+                "created_at": review.created_at.isoformat(),
+            }
+        )
+    if not rows:
+        return {"reviews": [], "rating_avg": None, "rating_count": 0}
+    avg = round(sum(r["rating"] for r in rows) / len(rows), 2)
+    return {"reviews": rows, "rating_avg": str(avg), "rating_count": len(rows)}

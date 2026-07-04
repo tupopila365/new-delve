@@ -1,37 +1,24 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import type { MockTrip } from '../data/mockTrips'
 
-const STORAGE_KEY = 'delve:saved-journeys'
-
-function loadSavedIds(trips: MockTrip[]) {
-  const ids = new Set<number>()
-  trips.forEach((trip) => {
-    if (trip.saved_by_me) ids.add(trip.id)
-  })
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return ids
-    const parsed = JSON.parse(raw) as number[]
-    if (Array.isArray(parsed)) parsed.forEach((id) => ids.add(id))
-  } catch {
-    // ignore invalid storage
-  }
-  return ids
-}
-
-function persistSavedIds(ids: Set<number>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]))
+type EngagementOverride = {
+  liked?: boolean
+  likesCount?: number
+  saved?: boolean
+  savesCount?: number
 }
 
 export function useJourneyEngagement(trips: MockTrip[]) {
-  const initialLiked = useMemo(() => new Set(trips.filter((trip) => trip.liked_by_me).map((trip) => trip.id)), [trips])
-  const [likedIds, setLikedIds] = useState<Set<number>>(() => new Set(initialLiked))
-  const [savedIds, setSavedIds] = useState<Set<number>>(() => loadSavedIds(trips))
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const [overrides, setOverrides] = useState<Map<number, EngagementOverride>>(new Map())
   const [shareMsg, setShareMsg] = useState('')
 
   useEffect(() => {
-    setLikedIds(new Set(trips.filter((trip) => trip.liked_by_me).map((trip) => trip.id)))
-    setSavedIds(loadSavedIds(trips))
+    setOverrides(new Map())
   }, [trips])
 
   useEffect(() => {
@@ -40,60 +27,75 @@ export function useJourneyEngagement(trips: MockTrip[]) {
     return () => window.clearTimeout(timer)
   }, [shareMsg])
 
-  const isSaved = useCallback((trip: MockTrip) => savedIds.has(trip.id), [savedIds])
+  const likeMut = useMutation({
+    mutationFn: (journeyId: number) =>
+      apiFetch<{ liked: boolean; likes_count: number }>(`/api/journeys/${journeyId}/like/`, {
+        method: 'POST',
+      }),
+    onSuccess: (data, journeyId) => {
+      setOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(journeyId, { ...next.get(journeyId), liked: data.liked, likesCount: data.likes_count })
+        return next
+      })
+      void qc.invalidateQueries({ queryKey: ['journeys'] })
+      void qc.invalidateQueries({ queryKey: ['journey', String(journeyId)] })
+    },
+  })
 
-  const isLiked = useCallback((trip: MockTrip) => likedIds.has(trip.id), [likedIds])
+  const saveMut = useMutation({
+    mutationFn: (journeyId: number) =>
+      apiFetch<{ saved: boolean; saves_count: number }>(`/api/journeys/${journeyId}/save/`, {
+        method: 'POST',
+      }),
+    onSuccess: (data, journeyId) => {
+      setOverrides((prev) => {
+        const next = new Map(prev)
+        next.set(journeyId, { ...next.get(journeyId), saved: data.saved, savesCount: data.saves_count })
+        return next
+      })
+      void qc.invalidateQueries({ queryKey: ['journeys'] })
+      void qc.invalidateQueries({ queryKey: ['journey', String(journeyId)] })
+    },
+  })
+
+  const isSaved = useCallback(
+    (trip: MockTrip) => overrides.get(trip.id)?.saved ?? Boolean(trip.saved_by_me),
+    [overrides],
+  )
+
+  const isLiked = useCallback(
+    (trip: MockTrip) => overrides.get(trip.id)?.liked ?? Boolean(trip.liked_by_me),
+    [overrides],
+  )
 
   const likeCount = useCallback(
-    (trip: MockTrip) => {
-      const initiallyLiked = trip.liked_by_me
-      const nowLiked = likedIds.has(trip.id)
-      let count = trip.likes_count
-      if (initiallyLiked && !nowLiked) count -= 1
-      if (!initiallyLiked && nowLiked) count += 1
-      return Math.max(0, count)
-    },
-    [likedIds],
+    (trip: MockTrip) => overrides.get(trip.id)?.likesCount ?? trip.likes_count ?? 0,
+    [overrides],
   )
 
   const saveCount = useCallback(
-    (trip: MockTrip) => {
-      const initiallySaved = trip.saved_by_me
-      const nowSaved = savedIds.has(trip.id)
-      let count = trip.saves_count
-      if (initiallySaved && !nowSaved) count -= 1
-      if (!initiallySaved && nowSaved) count += 1
-      return Math.max(0, count)
-    },
-    [savedIds],
+    (trip: MockTrip) => overrides.get(trip.id)?.savesCount ?? trip.saves_count ?? 0,
+    [overrides],
   )
 
-  const toggleLike = useCallback((trip: MockTrip, event: MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setLikedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(trip.id)) next.delete(trip.id)
-      else next.add(trip.id)
-      return next
-    })
-  }, [])
+  const likeTrip = useCallback(
+    (trip: MockTrip) => {
+      if (!profile) return
+      likeMut.mutate(trip.id)
+    },
+    [likeMut, profile],
+  )
 
-  const toggleSave = useCallback((trip: MockTrip, event: MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setSavedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(trip.id)) next.delete(trip.id)
-      else next.add(trip.id)
-      persistSavedIds(next)
-      return next
-    })
-  }, [])
+  const saveTrip = useCallback(
+    (trip: MockTrip) => {
+      if (!profile) return
+      saveMut.mutate(trip.id)
+    },
+    [profile, saveMut],
+  )
 
-  const shareJourney = useCallback(async (trip: MockTrip, event: MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
+  const shareTrip = useCallback(async (trip: MockTrip) => {
     const url = `${window.location.origin}/journeys/${trip.id}`
     try {
       if (navigator.share) {
@@ -108,6 +110,42 @@ export function useJourneyEngagement(trips: MockTrip[]) {
     }
   }, [])
 
+  const toggleLike = useCallback(
+    (trip: MockTrip, event: MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      likeTrip(trip)
+    },
+    [likeTrip],
+  )
+
+  const toggleSave = useCallback(
+    (trip: MockTrip, event: MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      saveTrip(trip)
+    },
+    [saveTrip],
+  )
+
+  const shareJourney = useCallback(
+    async (trip: MockTrip, event: MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      await shareTrip(trip)
+    },
+    [shareTrip],
+  )
+
+  const pendingIds = useMemo(
+    () =>
+      new Set([
+        ...(likeMut.isPending && likeMut.variables ? [likeMut.variables] : []),
+        ...(saveMut.isPending && saveMut.variables ? [saveMut.variables] : []),
+      ]),
+    [likeMut.isPending, likeMut.variables, saveMut.isPending, saveMut.variables],
+  )
+
   return {
     shareMsg,
     isSaved,
@@ -117,5 +155,10 @@ export function useJourneyEngagement(trips: MockTrip[]) {
     toggleLike,
     toggleSave,
     shareJourney,
+    likeTrip,
+    saveTrip,
+    shareTrip,
+    pendingIds,
+    requiresAuth: !profile,
   }
 }

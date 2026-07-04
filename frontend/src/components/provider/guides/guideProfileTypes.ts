@@ -1,5 +1,9 @@
 import { normalizeTourPackages } from '../../../utils/tourPackages'
 import type { TourPackage } from '../../../components/guide/types'
+import type { VenueStoryChannelInput } from '../../food/stories/types'
+import { normalizeGuideStoriesForSave } from './guideStoriesFormUtils'
+
+export const MAX_GUIDE_PACKAGES = 20
 
 export const SPECIALITY_OPTIONS = [
   'Photography',
@@ -27,6 +31,7 @@ export type GuideProfileFormValues = {
   headline: string
   bio: string
   photo_url: string
+  photo_file: File | null
   specialities: string[]
   regions: string
   languages: string
@@ -38,6 +43,8 @@ export type GuideProfileFormValues = {
   certifications: string
   languages_detail: LanguageDetailForm[]
   portfolio: PortfolioItemForm[]
+  portfolio_files: File[]
+  guide_stories: VenueStoryChannelInput[]
   is_active: boolean
 }
 
@@ -48,13 +55,16 @@ export type GuidePackageFormValues = {
   hours: number
   price: string
   photo_url: string
+  photo_file: File | null
   gallery_urls: string
+  gallery_files: File[]
 }
 
 export const EMPTY_GUIDE_PROFILE_FORM: GuideProfileFormValues = {
   headline: '',
   bio: '',
   photo_url: '',
+  photo_file: null,
   specialities: [],
   regions: '',
   languages: 'English',
@@ -66,6 +76,8 @@ export const EMPTY_GUIDE_PROFILE_FORM: GuideProfileFormValues = {
   certifications: '',
   languages_detail: [{ language: 'English', level: 'Fluent' }],
   portfolio: [],
+  portfolio_files: [],
+  guide_stories: [],
   is_active: true,
 }
 
@@ -76,7 +88,9 @@ export const EMPTY_GUIDE_PACKAGE_FORM: GuidePackageFormValues = {
   hours: 4,
   price: '',
   photo_url: '',
+  photo_file: null,
   gallery_urls: '',
+  gallery_files: [],
 }
 
 export type ProviderGuideProfile = {
@@ -100,6 +114,7 @@ export type ProviderGuideProfile = {
   licensed_guide?: boolean
   languages_detail?: { language: string; level: string }[]
   portfolio_gallery?: { src: string; caption?: string }[]
+  guide_stories?: VenueStoryChannelInput[]
   default_meeting_point?: string
   specialities?: string[]
   is_active?: boolean
@@ -117,6 +132,7 @@ export function profileToForm(guide: ProviderGuideProfile): GuideProfileFormValu
     headline: guide.headline ?? '',
     bio: guide.bio ?? '',
     photo_url: guide.photo ?? '',
+    photo_file: null,
     specialities: guide.specialities ?? [],
     regions: (guide.regions ?? []).join(', '),
     languages: (guide.languages ?? []).join(', '),
@@ -134,6 +150,11 @@ export function profileToForm(guide: ProviderGuideProfile): GuideProfileFormValu
       src: p.src,
       caption: p.caption ?? '',
     })),
+    portfolio_files: [],
+    guide_stories: (guide.guide_stories ?? []).map((ch) => ({
+      ...ch,
+      slides: ch.slides.map((s) => ({ ...s })),
+    })),
     is_active: guide.is_active !== false,
   }
 }
@@ -142,7 +163,7 @@ export function formToProfilePayload(form: GuideProfileFormValues, packages: Tou
   return {
     headline: form.headline.trim(),
     bio: form.bio.trim(),
-    photo: form.photo_url.trim() || null,
+    photo_url: form.photo_url.trim(),
     specialities: form.specialities,
     regions: splitLines(form.regions),
     languages: splitLines(form.languages),
@@ -156,7 +177,8 @@ export function formToProfilePayload(form: GuideProfileFormValues, packages: Tou
     portfolio_gallery: form.portfolio
       .filter((p) => p.src.trim())
       .map((p) => ({ src: p.src.trim(), caption: p.caption.trim() || undefined })),
-    tour_packages: packages.map(tourPackageToApiPayload),
+    guide_stories: normalizeGuideStoriesForSave(form.guide_stories),
+    tour_packages: packages.slice(0, MAX_GUIDE_PACKAGES).map(tourPackageToApiPayload),
     is_active: form.is_active,
   }
 }
@@ -169,7 +191,9 @@ export function packageToForm(pkg: TourPackage): GuidePackageFormValues {
     hours: pkg.hours,
     price: pkg.price,
     photo_url: pkg.photo ?? '',
+    photo_file: null,
     gallery_urls: (pkg.photos ?? []).join('\n'),
+    gallery_files: [],
   }
 }
 
@@ -225,6 +249,7 @@ export function profileCompleteness(guide: ProviderGuideProfile): { percent: num
     [(guide.portfolio_gallery?.length ?? 0) > 0, 'Portfolio photos'],
     [packages.length > 0, 'Tour package'],
     [packages.some((p) => p.photo), 'Package cover photo'],
+    [(guide.guide_stories?.length ?? 0) > 0, 'Highlight stories'],
   ]
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)

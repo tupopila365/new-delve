@@ -11,6 +11,8 @@ import { DashboardPage } from './pages/DashboardPage'
 import { EmailVerificationPage } from './pages/EmailVerificationPage'
 import { ListingsPage } from './pages/ListingsPage'
 import { LoginPage } from './pages/LoginPage'
+import { HomePinsPage } from './pages/HomePinsPage'
+import { HomeStoriesPage } from './pages/HomeStoriesPage'
 import { PromotionsAnalyticsPage } from './pages/PromotionsAnalyticsPage'
 import { PromotionsPage } from './pages/PromotionsPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -50,6 +52,8 @@ function AppRoutes() {
         <Route path="listings" element={<ListingsPage />} />
         <Route path="promotions" element={<PromotionsPage />} />
         <Route path="promotions/analytics" element={<PromotionsAnalyticsPage />} />
+        <Route path="home-pins" element={<HomePinsPage />} />
+        <Route path="home-stories" element={<HomeStoriesPage />} />
         <Route path="bookings" element={<BookingsPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="moderation" element={<ContentModerationPage />} />

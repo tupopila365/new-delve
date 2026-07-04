@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { AdminListing, PromotionCampaign, PromotionConflictSummary } from '../api/types'
-import { FEED_TARGET_TYPES, PLACEMENT_OPTIONS } from '../api/types'
+import { FEED_TARGET_TYPES, PLACEMENT_OPTIONS, TRANSPORT_TARGET_TYPES } from '../api/types'
 import {
   DelveAdminDataRow,
   DelveAdminEmpty,
@@ -25,7 +25,8 @@ const SPOTLIGHT_TARGET_TYPES = [
   { value: 'guide', label: 'Guides' },
   { value: 'food', label: 'Food' },
   { value: 'event', label: 'Events' },
-  { value: 'vehicle', label: 'Transport' },
+  { value: 'vehicle', label: 'Vehicle rental' },
+  { value: 'bus_trip', label: 'Bus trip' },
 ] as const
 
 function promotionStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
@@ -84,7 +85,9 @@ export function PromotionsPage() {
       ends_at: new Date(formEndsAt).toISOString(),
       region: formRegion.trim(),
     })
-    if (formPlacement === 'category_spotlight') p.set('target_type', formTargetType)
+    if (formPlacement === 'category_spotlight' || formPlacement === 'homepage_transport') {
+      p.set('target_type', formTargetType)
+    }
     return p.toString()
   }, [formPlacement, formStartsAt, formEndsAt, formRegion, formTargetType])
 
@@ -96,9 +99,10 @@ export function PromotionsPage() {
 
   const isFeedPlacement = formPlacement === 'delvers_feed' || formPlacement === 'community_feed'
   const isCategorySpotlight = formPlacement === 'category_spotlight'
+  const isHomepageTransport = formPlacement === 'homepage_transport'
 
   const listingOptions = useMemo(() => {
-    if (isFeedPlacement || isCategorySpotlight) {
+    if (isFeedPlacement || isCategorySpotlight || isHomepageTransport) {
       if (formTargetType === 'post') {
         const postType = formPlacement === 'community_feed' ? 'community' : 'post'
         return listings.filter((l) => l.listing_type === postType && l.status === 'published')
@@ -106,13 +110,15 @@ export function PromotionsPage() {
       return listings.filter((l) => l.listing_type === formTargetType && l.status === 'published')
     }
     return listings.filter((l) => l.listing_type === selectedPlacement.listingType && l.status === 'published')
-  }, [listings, formPlacement, formTargetType, selectedPlacement.listingType, isFeedPlacement, isCategorySpotlight])
+  }, [listings, formPlacement, formTargetType, selectedPlacement.listingType, isFeedPlacement, isCategorySpotlight, isHomepageTransport])
 
   useEffect(() => {
-    if (!isCategorySpotlight && !isFeedPlacement) {
+    if (!isCategorySpotlight && !isFeedPlacement && !isHomepageTransport) {
       setFormTargetType(selectedPlacement.targetType)
+    } else if (isHomepageTransport) {
+      setFormTargetType('vehicle')
     }
-  }, [formPlacement, selectedPlacement.targetType, isCategorySpotlight, isFeedPlacement])
+  }, [formPlacement, selectedPlacement.targetType, isCategorySpotlight, isFeedPlacement, isHomepageTransport])
 
   const createMut = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -220,9 +226,14 @@ export function PromotionsPage() {
         title="Featured partners"
         subtitle={`${campaigns.length} campaigns · ${liveCount} live now`}
         action={
-          <Link to="/admin/promotions/analytics" className="da-btn da-btn--ghost">
-            Promotion analytics
-          </Link>
+          <>
+            <Link to="/admin/home-pins" className="da-btn da-btn--ghost">
+              Home pins
+            </Link>
+            <Link to="/admin/promotions/analytics" className="da-btn da-btn--ghost">
+              Promotion analytics
+            </Link>
+          </>
         }
       />
 
@@ -350,15 +361,22 @@ export function PromotionsPage() {
             </select>
           </label>
 
-          {isCategorySpotlight || isFeedPlacement ? (
+          {(isCategorySpotlight || isFeedPlacement || isHomepageTransport) ? (
             <label className="da-field">
-              <span>{isFeedPlacement ? 'Promote' : 'Category vertical'}</span>
+              <span>
+                {isFeedPlacement ? 'Promote' : isHomepageTransport ? 'Transport listing type' : 'Category vertical'}
+              </span>
               <select
                 value={formTargetType}
                 onChange={(e) => setFormTargetType(e.target.value)}
                 required
               >
-                {(isFeedPlacement ? FEED_TARGET_TYPES : SPOTLIGHT_TARGET_TYPES).map((t) => (
+                {(isFeedPlacement
+                  ? FEED_TARGET_TYPES
+                  : isHomepageTransport
+                    ? TRANSPORT_TARGET_TYPES
+                    : SPOTLIGHT_TARGET_TYPES
+                ).map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>

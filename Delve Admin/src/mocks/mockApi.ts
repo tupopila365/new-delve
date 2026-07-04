@@ -9,12 +9,21 @@ import type {
   AdminReport,
   AdminUser,
   BusinessDocumentsResponse,
+  HomePin,
+  HomeStoryChannel,
+  HomeStorySlide,
   ModerationItem,
   PlatformOverview,
   PlatformSettings,
   PromotionCampaign,
   PromotionConflictSummary,
   UnverifiedEmailUser,
+} from '../api/types'
+import {
+  HOME_STORY_CHANNELS,
+  HOME_STORY_SOURCE_TYPES,
+  MAX_HOME_PINS,
+  MAX_HOME_STORY_SLIDES,
 } from '../api/types'
 import { DEMO_ACTIVITY, DEMO_BOOKINGS, DEMO_LISTINGS, DEMO_REPORTS, demoAnalytics } from '../data/demoData'
 
@@ -68,7 +77,8 @@ let mockModeration: ModerationItem[] = [
     target_type: 'post',
     target_id: '12',
     title: 'Dune sunset panorama',
-    author: 'photo_nam',
+    author: 'stays_host',
+    author_id: 3,
     status: 'reported',
     reason: 'Spam / misleading location',
     severity: 'medium',
@@ -79,6 +89,7 @@ let mockModeration: ModerationItem[] = [
     target_id: '4',
     title: 'Reply on community thread',
     author: 'demo_user',
+    author_id: 2,
     status: 'reported',
     reason: 'Harassment',
     severity: 'high',
@@ -91,6 +102,21 @@ let reportIdCounter = mockReports.length + 1
 
 let mockListings: AdminListing[] = [...DEMO_LISTINGS]
 let mockBookings: AdminBooking[] = [...DEMO_BOOKINGS]
+let homePinIdCounter = 1
+let mockHomePins: HomePin[] = []
+
+let homeStorySlideIdCounter = 1
+let mockHomeStorySlides: HomeStorySlide[] = []
+let mockHomeStoryChannels: HomeStoryChannel[] = HOME_STORY_CHANNELS.map((c) => ({
+  channel_id: c.id,
+  label: c.label,
+  auto_fill: true,
+  active_slides: 0,
+  max_slides: MAX_HOME_STORY_SLIDES,
+  updated_by_username: null,
+  updated_at: new Date().toISOString(),
+}))
+
 let promotionIdCounter = 6
 let mockPromotions: PromotionCampaign[] = [
   {
@@ -327,34 +353,128 @@ const mockDocs: Record<number, BusinessDocumentsResponse['documents']> = {
     },
     {
       id: 2,
-      doc_type: 'tourism_license',
-      doc_type_label: 'Tourism / hospitality license',
-      file: 'https://via.placeholder.com/400x300?text=Tourism+License',
+      doc_type: 'tour_guide_license',
+      doc_type_label: 'Tour guide license',
+      file: 'https://via.placeholder.com/400x300?text=Tour+Guide+License',
       status: 'pending',
       notes: '',
       uploaded_at: '2026-06-01T10:05:00Z',
+    },
+    {
+      id: 10,
+      doc_type: 'first_aid_cert',
+      doc_type_label: 'First aid certificate',
+      file: 'https://via.placeholder.com/400x300?text=First+Aid+Cert',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-01T10:10:00Z',
     },
   ],
   3: [
     {
       id: 3,
+      doc_type: 'business_registration',
+      doc_type_label: 'Business registration',
+      file: 'https://via.placeholder.com/400x300?text=Business+Registration',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-02T08:00:00Z',
+    },
+    {
+      id: 4,
       doc_type: 'operating_permit',
       doc_type_label: 'Operating permit',
       file: 'https://via.placeholder.com/400x300?text=Operating+Permit',
       status: 'pending',
       notes: '',
-      uploaded_at: '2026-06-02T08:00:00Z',
+      uploaded_at: '2026-06-02T08:05:00Z',
+    },
+    {
+      id: 5,
+      doc_type: 'transport_insurance',
+      doc_type_label: 'Transport insurance',
+      file: 'https://via.placeholder.com/400x300?text=Transport+Insurance',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-02T08:10:00Z',
+    },
+    {
+      id: 6,
+      doc_type: 'vehicle_registration',
+      doc_type_label: 'Vehicle registration',
+      file: 'https://via.placeholder.com/400x300?text=Vehicle+Registration',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-02T08:15:00Z',
     },
   ],
   4: [
     {
-      id: 4,
+      id: 7,
+      doc_type: 'business_registration',
+      doc_type_label: 'Business registration',
+      file: 'https://via.placeholder.com/400x300?text=Business+Registration',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-03T12:00:00Z',
+    },
+    {
+      id: 11,
       doc_type: 'tour_guide_license',
       doc_type_label: 'Tour guide license',
       file: 'https://via.placeholder.com/400x300?text=Guide+License',
       status: 'pending',
       notes: '',
-      uploaded_at: '2026-06-03T12:00:00Z',
+      uploaded_at: '2026-06-03T12:05:00Z',
+    },
+  ],
+  6: [
+    {
+      id: 12,
+      doc_type: 'business_registration',
+      doc_type_label: 'Business registration',
+      file: 'https://via.placeholder.com/400x300?text=Business+Registration',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-05T09:00:00Z',
+    },
+    {
+      id: 13,
+      doc_type: 'tour_guide_license',
+      doc_type_label: 'Tour guide license',
+      file: 'https://via.placeholder.com/400x300?text=Tour+Guide+License',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-05T09:05:00Z',
+    },
+    {
+      id: 14,
+      doc_type: 'first_aid_cert',
+      doc_type_label: 'First aid certificate',
+      file: 'https://via.placeholder.com/400x300?text=First+Aid+Cert',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-05T09:10:00Z',
+    },
+  ],
+  5: [
+    {
+      id: 8,
+      doc_type: 'business_registration',
+      doc_type_label: 'Business registration',
+      file: 'https://via.placeholder.com/400x300?text=Business+Registration',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-04T09:00:00Z',
+    },
+    {
+      id: 9,
+      doc_type: 'food_handling_cert',
+      doc_type_label: 'Food handling certificate',
+      file: 'https://via.placeholder.com/400x300?text=Food+Handling+Cert',
+      status: 'pending',
+      notes: '',
+      uploaded_at: '2026-06-04T09:05:00Z',
     },
   ],
 }
@@ -378,7 +498,8 @@ let businesses: AdminBusiness[] = [
     city: 'Swakopmund',
     region: 'Erongo',
     business_types: ['guide'],
-    document_count: 2,
+    document_count: 3,
+    tagline: 'Coastal dunes & lagoon walks',
   },
   {
     id: 3,
@@ -388,17 +509,40 @@ let businesses: AdminBusiness[] = [
     city: 'Windhoek',
     region: 'Khomas',
     business_types: ['transport'],
-    document_count: 1,
+    transport_modes: ['rental', 'shared'],
+    document_count: 4,
   },
   {
     id: 4,
-    business_name: ';llmlm',
+    business_name: 'Khomas City Walks',
     owner_username: 'guide_pro',
     verification_status: 'pending',
     city: 'Windhoek',
     region: 'Khomas',
     business_types: ['guide'],
-    document_count: 1,
+    document_count: 2,
+  },
+  {
+    id: 5,
+    business_name: 'Windhoek Kitchen Co',
+    owner_username: 'food_mgr',
+    verification_status: 'pending',
+    city: 'Windhoek',
+    region: 'Khomas',
+    business_types: ['food_drink'],
+    document_count: 2,
+    tagline: 'Seasonal plates & local brews',
+  },
+  {
+    id: 6,
+    business_name: 'Namib Trail Guides',
+    owner_username: 'guide_mgr',
+    verification_status: 'pending',
+    city: 'Swakopmund',
+    region: 'Erongo',
+    business_types: ['guide'],
+    document_count: 3,
+    tagline: 'Desert trails with local experts',
   },
 ]
 
@@ -539,12 +683,15 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
   const params = new URLSearchParams(query ?? '')
 
   if (pathname === '/api/accounts/token' && method === 'POST') {
-    const body = JSON.parse(String(init.body)) as { username: string; password: string }
-    const p = profiles[body.username?.trim()]
+    const body = JSON.parse(String(init.body)) as { email?: string; username?: string; password: string }
+    const username =
+      body.username?.trim() ||
+      Object.keys(profiles).find((k) => profiles[k].email?.toLowerCase() === body.email?.trim().toLowerCase())
+    const p = username ? profiles[username] : undefined
     if (!p || p.password !== body.password) {
       throw new ApiError('Invalid credentials', 401, { detail: 'Invalid credentials' })
     }
-    currentUser = body.username.trim()
+    currentUser = username!
     localStorage.setItem('delve_admin_mock_user', currentUser)
     return { access: 'mock-access', refresh: 'mock-refresh' }
   }
@@ -567,7 +714,9 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       listings: 42,
       listings_stays: 12,
       listings_guides: 8,
-      listings_transport: 14,
+      listings_transport: mockListings.filter(
+        (l) => l.listing_type === 'vehicle' || l.listing_type === 'bus_trip',
+      ).length,
       listings_food: 8,
       listings_events: 6,
       listings_posts: 24,
@@ -576,6 +725,7 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       bookings_stays: 18,
       bookings_guides: 10,
       bookings_transport: 8,
+      bookings_food: mockBookings.filter((b) => b.booking_type === 'food').length + 1,
       reports_open: mockReports.filter((r) => ['new', 'under_review', 'escalated'].includes(r.status)).length,
       users_unverified_email: mockUnverifiedUsers.length,
     }
@@ -598,6 +748,55 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
     const user = mockUsers.find((u) => u.id === Number(userDetailMatch[1]))
     if (!user) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     return user
+  }
+
+  const userProfileMatch = pathname.match(/^\/api\/accounts\/admin\/users\/(\d+)\/profile$/)
+  if (userProfileMatch && method === 'GET') {
+    requireStaff()
+    const user = mockUsers.find((u) => u.id === Number(userProfileMatch[1]))
+    if (!user) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const userBusinesses = businesses.filter((b) => b.owner_username === user.username)
+    return {
+      user,
+      profile: {
+        display_name: user.display_name,
+        bio: profiles[user.username]?.bio ?? '',
+        avatar: null,
+        user_type: user.user_type,
+        region: user.region ?? '',
+        city: user.city ?? '',
+        email_verified: user.email_verified ?? true,
+        is_private: false,
+        posts_visibility: 'public',
+        allow_messages: true,
+        show_in_search: true,
+      },
+      stats: {
+        posts_count: 3,
+        posts_hidden_count: 0,
+        photos_count: 2,
+        followers_count: 12,
+        following_count: 8,
+        reports_against_open: 0,
+        businesses_count: userBusinesses.length,
+      },
+      businesses: userBusinesses,
+      guide_profile: user.user_type === 'service_provider' ? null : null,
+      recent_posts: [
+        {
+          id: 101,
+          body: 'Sunset over the dunes — what a week in Sossusvlei.',
+          is_hidden: false,
+          is_delvers: true,
+          created_at: '2026-03-10T14:00:00Z',
+          likes_count: 4,
+          comments_count: 1,
+        },
+      ],
+      reports: [],
+      moderation_actions: [],
+      bookings_summary: { as_traveler: 2, as_provider: user.user_type === 'service_provider' ? 5 : 0 },
+    }
   }
 
   const userUpdateMatch = pathname.match(/^\/api\/accounts\/admin\/users\/(\d+)\/update$/)
@@ -771,8 +970,24 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
     const body = JSON.parse(String(init.body)) as {
       listing_type: string
       listing_id: number
-      published: boolean
+      published?: boolean
+      featured?: boolean
       reason?: string
+    }
+    if (body.featured != null) {
+      mockListings = mockListings.map((item) =>
+        item.listing_type === body.listing_type && item.listing_id === body.listing_id
+          ? { ...item, is_featured: Boolean(body.featured) }
+          : item,
+      )
+      const updated = mockListings.find(
+        (item) => item.listing_type === body.listing_type && item.listing_id === body.listing_id,
+      )
+      pushAudit(
+        `${body.featured ? 'Featured' : 'Unfeatured'} ${body.listing_type}:${body.listing_id}`,
+        'listing',
+      )
+      return updated
     }
     mockListings = mockListings.map((item) =>
       item.listing_type === body.listing_type && item.listing_id === body.listing_id
@@ -787,6 +1002,111 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       'listing',
     )
     return updated
+  }
+
+  const foodInspectMatch = pathname.match(/^\/api\/accounts\/admin\/listings\/food\/(\d+)\/inspect$/)
+  if (foodInspectMatch && method === 'GET') {
+    requireStaff()
+    const listingId = Number(foodInspectMatch[1])
+    const row = mockListings.find((item) => item.listing_type === 'food' && item.listing_id === listingId)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return {
+      listing_type: 'food',
+      listing_id: listingId,
+      title: row.title,
+      owner_username: row.owner_username,
+      owner_display_name: row.owner_username,
+      status: row.status,
+      cuisine: row.category_label.replace(/^Food · /, '') || 'Restaurant',
+      region: row.region,
+      city: row.city,
+      price_level: 2,
+      reservations_enabled: true,
+      dine_in: true,
+      takeaway: true,
+      delivery: false,
+      rating_avg: '4.6',
+      rating_count: 42,
+      saves_count: 18,
+      reviews_count: 12,
+      questions_count: 3,
+      reservations_by_status: { pending: 2, confirmed: 5, checked_in: 1 },
+      recent_reservations: [
+        {
+          id: 101,
+          guest_username: 'demo_user',
+          party_size: 4,
+          reserved_for: '2026-07-05T19:00:00Z',
+          status: 'confirmed',
+        },
+      ],
+      recent_reviews: [
+        {
+          id: 1,
+          reviewer_username: 'demo_user',
+          rating: 5,
+          body: 'Great grill and friendly staff.',
+          created_at: '2026-06-20T12:00:00Z',
+        },
+      ],
+      public_url: `/food/${listingId}`,
+      created_at: row.created_at,
+    }
+  }
+
+  const guideInspectMatch = pathname.match(/^\/api\/accounts\/admin\/listings\/guide\/(\d+)\/inspect$/)
+  if (guideInspectMatch && method === 'GET') {
+    requireStaff()
+    const listingId = Number(guideInspectMatch[1])
+    const row = mockListings.find((item) => item.listing_type === 'guide' && item.listing_id === listingId)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return {
+      listing_type: 'guide',
+      listing_id: listingId,
+      title: row.title,
+      owner_username: row.owner_username,
+      owner_display_name: row.owner_username,
+      status: row.status,
+      photo: null,
+      regions: [row.region].filter(Boolean),
+      languages: ['English'],
+      specialities: ['Wildlife', 'Culture'],
+      hourly_rate: '450.00',
+      licensed_guide: true,
+      years_guiding: 8,
+      default_meeting_point: 'Lodge lobby',
+      packages_count: 1,
+      packages: [{ id: 'half-day', title: 'Half-day dunes', hours: 4, price: '3600' }],
+      rating_avg: '4.9',
+      rating_count: 12,
+      saves_count: 7,
+      bookings_by_status: { pending: 1, confirmed: 3, completed: 2 },
+      recent_bookings: [
+        {
+          id: 201,
+          guest_username: 'demo_user',
+          package_title: 'Half-day dunes',
+          date: '2026-07-08',
+          group_size: 2,
+          total_price: '3600.00',
+          status: 'confirmed',
+        },
+      ],
+      guest_reviews: [
+        {
+          id: 1,
+          name: 'Sam',
+          place: 'Windhoek',
+          rating: 5,
+          body: 'Excellent local knowledge.',
+        },
+      ],
+      business_id: 1,
+      business_name: 'Guide Co',
+      business_verification_status: 'approved',
+      public_url: `/guides/${listingId}`,
+      created_at: row.created_at,
+    }
   }
 
   if (pathname === '/api/accounts/admin/bookings' && method === 'GET') {
@@ -811,6 +1131,12 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
             guests: 2,
             room_type_name: 'Standard king room',
             special_requests: 'Late check-in requested after 20:00.',
+          }
+        : {}),
+      ...(bookingType === 'food'
+        ? {
+            party_size: 4,
+            special_requests: 'Window seat if possible.',
           }
         : {}),
     }
@@ -1010,6 +1336,305 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       })),
       campaigns: rows.sort((a, b) => b.impressions - a.impressions),
     }
+  }
+
+  if (pathname === '/api/accounts/admin/home-pins' && method === 'GET') {
+    requireStaff()
+    const placement = params.get('placement') || ''
+    let rows = [...mockHomePins]
+    if (placement) rows = rows.filter((p) => p.placement === placement)
+    return rows.sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+  }
+
+  if (pathname === '/api/accounts/admin/home-pins' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      placement: string
+      target_type: string
+      target_id: string
+      target_label?: string
+      partner_label?: string
+      region?: string
+      is_active?: boolean
+      sort_order?: number
+    }
+    const placement = body.placement
+    if (!placement.startsWith('homepage_')) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid homepage placement.' })
+    }
+    const is_active = body.is_active !== false
+    if (is_active) {
+      const activeCount = mockHomePins.filter((p) => p.placement === placement && p.is_active).length
+      if (activeCount >= MAX_HOME_PINS) {
+        throw new ApiError('Bad request', 400, {
+          detail: `At most ${MAX_HOME_PINS} active pins per homepage rail.`,
+        })
+      }
+    }
+    const listing = DEMO_LISTINGS.find(
+      (l) => String(l.listing_id) === String(body.target_id) && l.listing_type === body.target_type,
+    )
+    const maxOrder = mockHomePins
+      .filter((p) => p.placement === placement)
+      .reduce((m, p) => Math.max(m, p.sort_order), -1)
+    const now = new Date().toISOString()
+    const row: HomePin = {
+      id: homePinIdCounter++,
+      placement,
+      placement_label: PLACEMENT_LABELS[placement] ?? placement,
+      target_type: body.target_type,
+      target_id: String(body.target_id),
+      target_label: body.target_label?.trim() || listing?.title || '',
+      partner_label: body.partner_label?.trim() || 'Featured',
+      region: body.region?.trim() || '',
+      sort_order: body.sort_order ?? maxOrder + 1,
+      starts_at: null,
+      ends_at: null,
+      is_active,
+      created_by_username: currentUser,
+      created_at: now,
+      updated_at: now,
+    }
+    mockHomePins = [...mockHomePins, row]
+    pushAudit(`Home pin — ${row.target_label || row.target_id}`, 'listing')
+    return row
+  }
+
+  if (pathname === '/api/accounts/admin/home-pins/reorder' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as { placement: string; ordered_ids: number[] }
+    const placement = body.placement
+    const orderedIds = body.ordered_ids || []
+    orderedIds.forEach((id, index) => {
+      const idx = mockHomePins.findIndex((p) => p.id === id && p.placement === placement)
+      if (idx >= 0) {
+        mockHomePins[idx] = {
+          ...mockHomePins[idx],
+          sort_order: index,
+          updated_at: new Date().toISOString(),
+        }
+      }
+    })
+    pushAudit(`Home pins reordered — ${placement}`, 'system')
+    return mockHomePins
+      .filter((p) => p.placement === placement)
+      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+  }
+
+  const homePinDetailMatch = pathname.match(/^\/api\/accounts\/admin\/home-pins\/(\d+)$/)
+  if (homePinDetailMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(homePinDetailMatch[1])
+    const idx = mockHomePins.findIndex((p) => p.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as Partial<HomePin>
+    if (body.is_active === true && !mockHomePins[idx].is_active) {
+      const activeCount = mockHomePins.filter(
+        (p) => p.placement === mockHomePins[idx].placement && p.is_active && p.id !== id,
+      ).length
+      if (activeCount >= MAX_HOME_PINS) {
+        throw new ApiError('Bad request', 400, {
+          detail: `At most ${MAX_HOME_PINS} active pins per homepage rail.`,
+        })
+      }
+    }
+    mockHomePins[idx] = {
+      ...mockHomePins[idx],
+      partner_label: body.partner_label ?? mockHomePins[idx].partner_label,
+      target_label: body.target_label ?? mockHomePins[idx].target_label,
+      region: body.region ?? mockHomePins[idx].region,
+      sort_order: body.sort_order ?? mockHomePins[idx].sort_order,
+      is_active: body.is_active ?? mockHomePins[idx].is_active,
+      starts_at: body.starts_at !== undefined ? body.starts_at : mockHomePins[idx].starts_at,
+      ends_at: body.ends_at !== undefined ? body.ends_at : mockHomePins[idx].ends_at,
+      updated_at: new Date().toISOString(),
+    }
+    pushAudit(`Home pin updated — ${mockHomePins[idx].target_label}`, 'listing')
+    return mockHomePins[idx]
+  }
+
+  if (homePinDetailMatch && method === 'DELETE') {
+    requireStaff()
+    const id = Number(homePinDetailMatch[1])
+    const idx = mockHomePins.findIndex((p) => p.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const label = mockHomePins[idx].target_label
+    mockHomePins = mockHomePins.filter((p) => p.id !== id)
+    pushAudit(`Home pin removed — ${label}`, 'listing')
+    return undefined
+  }
+
+  const refreshStoryChannels = () => {
+    mockHomeStoryChannels = mockHomeStoryChannels.map((c) => ({
+      ...c,
+      active_slides: mockHomeStorySlides.filter((s) => s.channel_id === c.channel_id && s.is_active).length,
+    }))
+  }
+
+  if (pathname === '/api/accounts/admin/home-story-channels' && method === 'GET') {
+    requireStaff()
+    refreshStoryChannels()
+    return mockHomeStoryChannels
+  }
+
+  const storyChannelMatch = pathname.match(/^\/api\/accounts\/admin\/home-story-channels\/([^/]+)$/)
+  if (storyChannelMatch && method === 'PATCH') {
+    requireStaff()
+    const channelId = decodeURIComponent(storyChannelMatch[1])
+    const idx = mockHomeStoryChannels.findIndex((c) => c.channel_id === channelId)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Invalid channel.' })
+    const body = JSON.parse(String(init.body)) as { auto_fill?: boolean }
+    mockHomeStoryChannels[idx] = {
+      ...mockHomeStoryChannels[idx],
+      auto_fill: body.auto_fill ?? mockHomeStoryChannels[idx].auto_fill,
+      updated_by_username: currentUser,
+      updated_at: new Date().toISOString(),
+    }
+    pushAudit(`Home story channel — ${channelId} auto_fill=${mockHomeStoryChannels[idx].auto_fill}`, 'system')
+    refreshStoryChannels()
+    return mockHomeStoryChannels[idx]
+  }
+
+  if (pathname === '/api/accounts/admin/home-story-slides' && method === 'GET') {
+    requireStaff()
+    const channel = params.get('channel') || ''
+    let rows = [...mockHomeStorySlides]
+    if (channel) rows = rows.filter((s) => s.channel_id === channel)
+    return rows.sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+  }
+
+  if (pathname === '/api/accounts/admin/home-story-slides' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      channel_id: string
+      source_type: string
+      target_id?: string
+      target_label?: string
+      headline?: string
+      sub?: string
+      cta_path?: string
+      cta_label?: string
+      media_url?: string
+      media_kind?: 'image' | 'video'
+      is_active?: boolean
+    }
+    const channelId = body.channel_id
+    if (!HOME_STORY_CHANNELS.some((c) => c.id === channelId)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid channel.' })
+    }
+    const is_active = body.is_active !== false
+    if (is_active) {
+      const activeCount = mockHomeStorySlides.filter((s) => s.channel_id === channelId && s.is_active).length
+      if (activeCount >= MAX_HOME_STORY_SLIDES) {
+        throw new ApiError('Bad request', 400, {
+          detail: `At most ${MAX_HOME_STORY_SLIDES} active slides per channel.`,
+        })
+      }
+    }
+    if (body.source_type === 'custom' && !body.media_url?.trim()) {
+      throw new ApiError('Bad request', 400, { detail: 'media_url is required for custom slides.' })
+    }
+    const sourceLabel =
+      HOME_STORY_SOURCE_TYPES.find((s) => s.value === body.source_type)?.label ?? body.source_type
+    const maxOrder = mockHomeStorySlides
+      .filter((s) => s.channel_id === channelId)
+      .reduce((m, s) => Math.max(m, s.sort_order), -1)
+    const now = new Date().toISOString()
+    const channelLabel = HOME_STORY_CHANNELS.find((c) => c.id === channelId)?.label ?? channelId
+    const listing = DEMO_LISTINGS.find((l) => String(l.listing_id) === String(body.target_id))
+    const row: HomeStorySlide = {
+      id: homeStorySlideIdCounter++,
+      channel_id: channelId,
+      channel_label: channelLabel,
+      source_type: body.source_type,
+      source_type_label: sourceLabel,
+      target_id: body.target_id ?? '',
+      target_label: body.target_label?.trim() || listing?.title || '',
+      headline: body.headline?.trim() || '',
+      sub: body.sub?.trim() || '',
+      cta_path: body.cta_path?.trim() || '',
+      cta_label: body.cta_label?.trim() || '',
+      media_url: body.media_url?.trim() || '',
+      media_kind: body.media_kind === 'video' ? 'video' : 'image',
+      sort_order: maxOrder + 1,
+      starts_at: null,
+      ends_at: null,
+      is_active,
+      created_by_username: currentUser,
+      created_at: now,
+      updated_at: now,
+    }
+    mockHomeStorySlides = [...mockHomeStorySlides, row]
+    pushAudit(`Home story slide — ${row.headline || row.target_label || row.id}`, 'listing')
+    refreshStoryChannels()
+    return row
+  }
+
+  if (pathname === '/api/accounts/admin/home-story-slides/reorder' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as { channel_id: string; ordered_ids: number[] }
+    const channelId = body.channel_id
+    ;(body.ordered_ids || []).forEach((id, index) => {
+      const idx = mockHomeStorySlides.findIndex((s) => s.id === id && s.channel_id === channelId)
+      if (idx >= 0) {
+        mockHomeStorySlides[idx] = {
+          ...mockHomeStorySlides[idx],
+          sort_order: index,
+          updated_at: new Date().toISOString(),
+        }
+      }
+    })
+    pushAudit(`Home story slides reordered — ${channelId}`, 'system')
+    return mockHomeStorySlides
+      .filter((s) => s.channel_id === channelId)
+      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+  }
+
+  const storySlideMatch = pathname.match(/^\/api\/accounts\/admin\/home-story-slides\/(\d+)$/)
+  if (storySlideMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(storySlideMatch[1])
+    const idx = mockHomeStorySlides.findIndex((s) => s.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as Partial<HomeStorySlide>
+    if (body.is_active === true && !mockHomeStorySlides[idx].is_active) {
+      const activeCount = mockHomeStorySlides.filter(
+        (s) =>
+          s.channel_id === mockHomeStorySlides[idx].channel_id && s.is_active && s.id !== id,
+      ).length
+      if (activeCount >= MAX_HOME_STORY_SLIDES) {
+        throw new ApiError('Bad request', 400, {
+          detail: `At most ${MAX_HOME_STORY_SLIDES} active slides per channel.`,
+        })
+      }
+    }
+    mockHomeStorySlides[idx] = {
+      ...mockHomeStorySlides[idx],
+      headline: body.headline ?? mockHomeStorySlides[idx].headline,
+      sub: body.sub ?? mockHomeStorySlides[idx].sub,
+      cta_path: body.cta_path ?? mockHomeStorySlides[idx].cta_path,
+      cta_label: body.cta_label ?? mockHomeStorySlides[idx].cta_label,
+      media_url: body.media_url ?? mockHomeStorySlides[idx].media_url,
+      media_kind: body.media_kind ?? mockHomeStorySlides[idx].media_kind,
+      is_active: body.is_active ?? mockHomeStorySlides[idx].is_active,
+      sort_order: body.sort_order ?? mockHomeStorySlides[idx].sort_order,
+      updated_at: new Date().toISOString(),
+    }
+    pushAudit(`Home story slide updated — ${mockHomeStorySlides[idx].headline}`, 'listing')
+    refreshStoryChannels()
+    return mockHomeStorySlides[idx]
+  }
+
+  if (storySlideMatch && method === 'DELETE') {
+    requireStaff()
+    const id = Number(storySlideMatch[1])
+    const idx = mockHomeStorySlides.findIndex((s) => s.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const label = mockHomeStorySlides[idx].headline || mockHomeStorySlides[idx].target_label
+    mockHomeStorySlides = mockHomeStorySlides.filter((s) => s.id !== id)
+    pushAudit(`Home story slide removed — ${label}`, 'listing')
+    refreshStoryChannels()
+    return undefined
   }
 
   if (pathname === '/api/accounts/admin/promotions' && method === 'GET') {

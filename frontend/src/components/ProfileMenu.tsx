@@ -5,6 +5,7 @@ import { mediaUrl } from '../api/client'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { adminConsoleUrl } from '../utils/adminAppUrl'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { NavBadge } from './NavBadge'
 
@@ -137,18 +138,38 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
             <>
               <div className="profile-menu__divider" role="separator" />
               <p className="profile-menu__section-label">Admin tools</p>
-              <Link to="/admin" className="profile-menu__item profile-menu__item--accent" role="menuitem" onClick={() => setOpen(false)}>
-                Platform admin
-              </Link>
-              <Link to="/admin/users" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
+              <a
+                href={adminConsoleUrl()}
+                className="profile-menu__item profile-menu__item--accent"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
+                Delve Admin console
+              </a>
+              <a
+                href={adminConsoleUrl('/users')}
+                className="profile-menu__item profile-menu__item--sub"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
                 Users
-              </Link>
-              <Link to="/admin/businesses" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
-                Businesses
-              </Link>
-              <Link to="/admin/bookings" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
-                Bookings
-              </Link>
+              </a>
+              <a
+                href={adminConsoleUrl('/verifications')}
+                className="profile-menu__item profile-menu__item--sub"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
+                Verifications
+              </a>
+              <a
+                href={adminConsoleUrl('/email-verification')}
+                className="profile-menu__item profile-menu__item--sub"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
+                Email verification
+              </a>
             </>
           ) : null}
 

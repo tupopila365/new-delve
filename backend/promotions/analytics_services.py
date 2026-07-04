@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from typing import Any
+from django.db.models import Q
 from django.utils import timezone
 
 from promotions.models import PromotionCampaign, PromotionStatus, PromotionTargetType
@@ -110,6 +110,15 @@ def booking_count_for_campaign(campaign: PromotionCampaign) -> int:
 
         return VehicleRentalBooking.objects.filter(
             listing_id=target_id,
+            status__in=[BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT],
+        ).filter(window).count()
+
+    if campaign.target_type == PromotionTargetType.BUS_TRIP:
+        from transport.models import SeatReservation
+        from accommodation.models import BookingStatus
+
+        return SeatReservation.objects.filter(
+            trip_id=target_id,
             status__in=[BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT],
         ).filter(window).count()
 

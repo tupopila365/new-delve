@@ -1,10 +1,19 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import GuideBookingViewSet, TourGuideProfileViewSet
+from .analytics_views import GuideProviderAnalyticsView
+from .provider_booking_views import ProviderGuideBookingViewSet
+from .provider_views import ProviderGuideProfileView
+from .views import GuideBookingViewSet, GuideQuestionAnswerView, TourGuideProfileViewSet
 
 router = DefaultRouter()
 router.register(r"profiles", TourGuideProfileViewSet, basename="guide-profile")
 router.register(r"bookings", GuideBookingViewSet, basename="guide-booking")
+router.register(r"provider-bookings", ProviderGuideBookingViewSet, basename="provider-guide-booking")
 
-urlpatterns = [path("", include(router.urls))]
+urlpatterns = [
+    path("provider-profile/", ProviderGuideProfileView.as_view(), name="provider-guide-profile"),
+    path("provider-analytics/", GuideProviderAnalyticsView.as_view(), name="guide-provider-analytics"),
+    path("questions/<int:pk>/answers/", GuideQuestionAnswerView.as_view(), name="guide-question-answer"),
+    path("", include(router.urls)),
+]

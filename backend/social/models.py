@@ -2,6 +2,11 @@ from django.conf import settings
 from django.db import models
 
 
+class PostKind(models.TextChoices):
+    TIP = "tip", "Tip"
+    QUESTION = "question", "Question"
+
+
 class Post(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -31,6 +36,18 @@ class Post(models.Model):
         db_index=True,
         help_text="Host/provider story ring on Stays — not mixed into home or Delvers feeds.",
     )
+    post_kind = models.CharField(
+        max_length=16,
+        choices=PostKind.choices,
+        default=PostKind.TIP,
+        db_index=True,
+        help_text="Community feed: tip or ask-locals question.",
+    )
+    place_label = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Free-text place for ask-locals questions, e.g. Windhoek, Namibia.",
+    )
     listing = models.ForeignKey(
         "accommodation.AccommodationListing",
         on_delete=models.SET_NULL,
@@ -46,6 +63,30 @@ class Post(models.Model):
         blank=True,
         related_name="delvers_posts",
         help_text="Optional link to an event for Delvers moments.",
+    )
+    vehicle_listing = models.ForeignKey(
+        "transport.VehicleRentalListing",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delvers_posts",
+        help_text="Optional link to a vehicle rental for Delvers moments.",
+    )
+    bus_trip = models.ForeignKey(
+        "transport.BusTrip",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delvers_posts",
+        help_text="Optional link to a bus trip for Delvers moments.",
+    )
+    food_venue = models.ForeignKey(
+        "food.FoodVenue",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delvers_posts",
+        help_text="Optional link to a food venue for Delvers moments.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -67,12 +108,30 @@ class Comment(models.Model):
         related_name="post_comments",
     )
     body = models.TextField()
+    is_accepted_answer = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Marked by the question author as the best answer.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     is_hidden = models.BooleanField(default=False, db_index=True)
     moderation_reason = models.TextField(blank=True)
 
     class Meta:
         ordering = ["created_at"]
+
+
+class CommentHelpful(models.Model):
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="helpful_votes")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="helpful_comment_votes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["comment", "user"]]
 
 
 class Like(models.Model):

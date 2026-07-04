@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
   BadgeDollarSign,
@@ -25,6 +26,8 @@ import {
 } from 'lucide-react'
 import { mockTrips, type MockTrip } from '../data/mockTrips'
 import { loadUserTrips } from '../data/userTrips'
+import { apiFetch } from '../api/client'
+import { mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
 import {
   isBudgetTrip,
   isWeekendTrip,
@@ -139,7 +142,15 @@ function resultsHint(count: number, filters: { quick: string; search: string; bu
 export function TripsList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const allTrips = useMemo(() => [...loadUserTrips(), ...mockTrips], [])
+  const { data: apiJourneys = [] } = useQuery({
+    queryKey: ['journeys'],
+    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/', { auth: false }),
+  })
+
+  const allTrips = useMemo(() => {
+    const local = loadUserTrips()
+    return mergeJourneyFeeds(apiJourneys, [...local, ...mockTrips])
+  }, [apiJourneys])
   const engagement = useJourneyEngagement(allTrips)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')

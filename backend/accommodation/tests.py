@@ -147,6 +147,22 @@ class AccommodationPhase3SocialTests(TestCase):
         bookings = self.client.get("/api/accommodation/bookings/")
         self.assertTrue(bookings.data[0]["has_review"])
 
+    def test_listing_moments(self):
+        from social.models import Post
+
+        Post.objects.create(
+            author=self.traveler,
+            body="Sunset from the deck",
+            region="Khomas",
+            is_delvers=True,
+            listing=self.listing,
+        )
+        res = self.client.get(f"/api/accommodation/listings/{self.listing.pk}/moments/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]["body"], "Sunset from the deck")
+        self.assertEqual(res.data[0]["listing"]["id"], self.listing.pk)
+
 
 class AccommodationPhase4BookingTests(TestCase):
     def setUp(self):

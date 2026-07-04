@@ -33,6 +33,175 @@
   display: block;
 }
 
+.cm-feed-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cm-feed-cta__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.cm-feed-cta__sub {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  max-width: 36ch;
+}
+
+.cm-feed-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cm-feed-cta__btn--secondary {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cm-feed-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cm-ask-cta {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(232, 98, 10, 0.28);
+  background: rgba(232, 98, 10, 0.1);
+}
+
+.cm-ask-cta__copy {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.cm-ask-cta__link {
+  color: #ff9a52;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.cm-ask-cta__link:hover {
+  color: #ffb07a;
+}
+
+.cm-feed-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cm-feed-filters button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.cm-feed-filters button.is-active {
+  border-color: rgba(232, 98, 10, 0.55);
+  background: rgba(232, 98, 10, 0.14);
+  color: #fff;
+}
+
+.ig-post--question .ig-post__question-body {
+  padding: 16px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ig-post--question .ig-post__question-body p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 650;
+}
+
+.ig-post__question-answers {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.ig-post__question-answers--open {
+  color: #f5a623;
+}
+
+.ig-post__accepted-answer {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(76, 175, 80, 0.12);
+  border: 1px solid rgba(76, 175, 80, 0.28);
+}
+
+.ig-post__accepted-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7dcea0;
+  margin-bottom: 4px;
+}
+
+.ig-post__accepted-answer p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ig-post__accepted-by {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cm-feed-list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cm-feed-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.cm-feed-skeleton__card {
+  height: 280px;
+  border-radius: 16px;
+}
+
 @media (max-width: 640px) {
   .cm-simple {
     padding-inline: 12px;

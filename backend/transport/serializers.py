@@ -9,8 +9,10 @@ from .models import (
     BusRoute,
     BusTrip,
     SeatReservation,
+    SeatReservationReview,
     VehicleRentalBooking,
     VehicleRentalListing,
+    VehicleRentalReview,
 )
 
 
@@ -49,6 +51,8 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "city",
             "cover_image",
             "is_active",
+            "rating_avg",
+            "rating_count",
             "created_at",
         )
         read_only_fields = ("owner", "created_at")
@@ -93,6 +97,11 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
 
 class VehicleRentalBookingSerializer(serializers.ModelSerializer):
     listing_title = serializers.CharField(source="listing.title", read_only=True)
+    listing_owner_username = serializers.CharField(source="listing.owner.username", read_only=True)
+    owner_display_name = serializers.SerializerMethodField()
+    listing_region = serializers.CharField(source="listing.region", read_only=True)
+    listing_city = serializers.CharField(source="listing.city", read_only=True)
+    has_review = serializers.SerializerMethodField()
 
     class Meta:
         model = VehicleRentalBooking
@@ -100,15 +109,33 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
             "id",
             "listing",
             "listing_title",
+            "listing_owner_username",
+            "owner_display_name",
+            "listing_region",
+            "listing_city",
             "renter",
             "start_date",
             "end_date",
             "total_price",
             "status",
             "mock_payment_ref",
+            "has_review",
             "created_at",
         )
-        read_only_fields = ("renter", "total_price", "status", "mock_payment_ref", "created_at")
+        read_only_fields = ("renter", "total_price", "status", "mock_payment_ref", "has_review", "created_at")
+
+    def get_has_review(self, obj):
+        try:
+            obj.review
+            return True
+        except VehicleRentalReview.DoesNotExist:
+            return False
+
+    def get_owner_display_name(self, obj):
+        profile = getattr(obj.listing.owner, "profile", None)
+        if profile and profile.display_name:
+            return profile.display_name
+        return obj.listing.owner.username
 
     def validate(self, attrs):
         listing = attrs["listing"]
@@ -150,6 +177,7 @@ class BusOperatorSerializer(serializers.ModelSerializer):
 
 class BusRouteSerializer(serializers.ModelSerializer):
     operator_name = serializers.CharField(source="operator.name", read_only=True)
+    operator_owner_username = serializers.CharField(source="operator.owner.username", read_only=True)
 
     class Meta:
         model = BusRoute
@@ -157,6 +185,7 @@ class BusRouteSerializer(serializers.ModelSerializer):
             "id",
             "operator",
             "operator_name",
+            "operator_owner_username",
             "origin",
             "destination",
             "description",
@@ -203,18 +232,50 @@ class BusTripSerializer(serializers.ModelSerializer):
 
 
 class SeatReservationSerializer(serializers.ModelSerializer):
+    trip_departs_at = serializers.DateTimeField(source="trip.departs_at", read_only=True)
+    route_label = serializers.SerializerMethodField()
+    operator_name = serializers.CharField(source="trip.route.operator.name", read_only=True)
+    operator_owner_username = serializers.CharField(
+        source="trip.route.operator.owner.username",
+        read_only=True,
+    )
+    seat_price = serializers.DecimalField(
+        source="trip.price",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+    )
+    has_review = serializers.SerializerMethodField()
+
     class Meta:
         model = SeatReservation
         fields = (
             "id",
             "trip",
+            "trip_departs_at",
+            "route_label",
+            "operator_name",
+            "operator_owner_username",
             "passenger",
             "seat_number",
+            "seat_price",
             "status",
             "mock_payment_ref",
+            "has_review",
             "created_at",
         )
-        read_only_fields = ("passenger", "status", "mock_payment_ref", "created_at")
+        read_only_fields = ("passenger", "status", "mock_payment_ref", "has_review", "created_at")
+
+    def get_has_review(self, obj):
+        try:
+            obj.review
+            return True
+        except SeatReservationReview.DoesNotExist:
+            return False
+
+    def get_route_label(self, obj):
+        route = obj.trip.route
+        return f"{route.origin} → {route.destination}"
 
     def validate(self, attrs):
         trip = attrs["trip"]

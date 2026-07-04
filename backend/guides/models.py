@@ -52,6 +52,11 @@ class TourGuideProfile(models.Model):
         blank=True,
         help_text='[{"src": "url", "caption": ""}]',
     )
+    guide_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Provider highlight channels for story rings",
+    )
     default_meeting_point = models.CharField(max_length=300, blank=True)
     specialities = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
@@ -59,6 +64,30 @@ class TourGuideProfile(models.Model):
 
     def __str__(self):
         return self.headline
+
+
+class GuideSave(models.Model):
+    """Traveller bookmark on a tour guide profile."""
+
+    guide = models.ForeignKey(
+        TourGuideProfile,
+        on_delete=models.CASCADE,
+        related_name="user_saves",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="guide_saves",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("guide", "user"),
+                name="guide_save_guide_user_uniq",
+            ),
+        ]
 
 
 class GuideBooking(models.Model):
@@ -86,3 +115,84 @@ class GuideBooking(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class GuideQuestion(models.Model):
+    guide = models.ForeignKey(
+        TourGuideProfile,
+        on_delete=models.CASCADE,
+        related_name="questions",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="guide_questions",
+    )
+    body = models.TextField()
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class GuideAnswer(models.Model):
+    question = models.ForeignKey(
+        GuideQuestion,
+        on_delete=models.CASCADE,
+        related_name="answers",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="guide_answers",
+    )
+    body = models.TextField()
+    is_official = models.BooleanField(
+        default=False,
+        help_text="Reply from the guide or business team.",
+    )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+
+class GuideReview(models.Model):
+    guide = models.ForeignKey(
+        TourGuideProfile,
+        on_delete=models.CASCADE,
+        related_name="traveler_reviews",
+    )
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="guide_reviews",
+    )
+    booking = models.ForeignKey(
+        GuideBooking,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="review",
+    )
+    rating = models.PositiveSmallIntegerField()
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(rating__gte=1) & models.Q(rating__lte=5),
+                name="guide_review_rating_1_5",
+            ),
+            models.UniqueConstraint(
+                fields=["guide", "reviewer"],
+                name="guide_review_one_per_user",
+            ),
+        ]
+

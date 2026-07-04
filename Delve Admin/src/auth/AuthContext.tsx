@@ -16,7 +16,7 @@ const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
 type AuthState = {
   profile: AdminProfile | null
   loading: boolean
-  login: (username: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   logout: () => void
   refresh: () => Promise<void>
 }
@@ -54,8 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const login = useCallback(
-    async (username: string, password: string) => {
-      await apiLogin(username.trim(), password)
+    async (email: string, password: string) => {
+      await apiLogin(email.trim(), password)
       const me = await apiFetch<AdminProfile>('/api/accounts/me/')
       if (!me.is_staff) {
         clearTokens()

@@ -3,11 +3,6 @@ import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from './useBusinessAccess'
 
-type Conversation = {
-  id: number
-  unread_count?: number
-}
-
 type Booking = {
   id: number
   status: string
@@ -29,35 +24,50 @@ export function useNavBadges() {
   const canSeeProviderBookings =
     profile?.user_type === 'service_provider' || businesses.length > 0
 
-  const { data: conversationsRaw } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: () => apiFetch<Conversation[]>('/api/messaging/conversations/'),
+  const { data: unreadPayload } = useQuery({
+    queryKey: ['messaging-unread-count'],
+    queryFn: () => apiFetch<{ unread: number }>('/api/messaging/unread-count/'),
     enabled: Boolean(profile),
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
   })
 
   const { data: userBookingsRaw } = useQuery({
     queryKey: ['my-bookings'],
-    queryFn: () => apiFetch<Booking[]>('/api/accommodation/bookings/').catch(() => [] as Booking[]),
+    queryFn: async () => {
+      const [stays, vehicles, seats, food] = await Promise.all([
+        apiFetch<Booking[]>('/api/accommodation/bookings/').catch(() => [] as Booking[]),
+        apiFetch<Booking[]>('/api/transport/vehicle-bookings/').catch(() => [] as Booking[]),
+        apiFetch<Booking[]>('/api/transport/bus/reservations/').catch(() => [] as Booking[]),
+        apiFetch<Booking[]>('/api/food/reservations/').catch(() => [] as Booking[]),
+      ])
+      return [...asArray(stays), ...asArray(vehicles), ...asArray(seats), ...asArray(food)]
+    },
     enabled: Boolean(profile),
     staleTime: 60_000,
   })
 
   const { data: providerBookingsRaw } = useQuery({
     queryKey: ['provider-bookings-badge'],
-    queryFn: () =>
-      apiFetch<ProviderBooking[]>('/api/accommodation/provider-bookings/?status=pending').catch(
-        () => [] as ProviderBooking[]
-      ),
+    queryFn: async () => {
+      const [stays, food] = await Promise.all([
+        apiFetch<ProviderBooking[]>('/api/accommodation/provider-bookings/?status=pending').catch(
+          () => [] as ProviderBooking[],
+        ),
+        apiFetch<ProviderBooking[]>('/api/food/provider-reservations/?status=pending').catch(
+          () => [] as ProviderBooking[],
+        ),
+      ])
+      return [...asArray(stays), ...asArray(food)]
+    },
     enabled: Boolean(profile) && canSeeProviderBookings,
     staleTime: 60_000,
   })
 
-  const conversations = asArray<Conversation>(conversationsRaw)
   const userBookings = asArray<Booking>(userBookingsRaw)
   const providerBookings = asArray<ProviderBooking>(providerBookingsRaw)
 
-  const unreadMessages = conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0)
+  const unreadMessages = unreadPayload?.unread ?? 0
   const pendingUserBookings = userBookings.filter((b) => b.status === 'pending').length
   const pendingProviderBookings = providerBookings.length
 

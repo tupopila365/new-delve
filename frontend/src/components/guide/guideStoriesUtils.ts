@@ -1,6 +1,10 @@
 import { mediaUrl } from '../../api/client'
 import { guidePackageDetailPath } from '../booking/bookingUtils'
-import type { VenueStoryChannel, VenueStorySlide } from '../food/stories/types'
+import type {
+  VenueStoryChannel,
+  VenueStoryChannelInput,
+  VenueStorySlide,
+} from '../food/stories/types'
 import {
   guideDisplayName,
   guideRegionLine,
@@ -54,6 +58,26 @@ function shortLabel(title: string, max = 16): string {
   return `${t.slice(0, max - 1)}…`
 }
 
+function mapCustomChannel(input: VenueStoryChannelInput, guidePath: string): VenueStoryChannel | null {
+  if (!input.slides?.length) return null
+  const slides: VenueStorySlide[] = input.slides.map((s, i) => ({
+    id: s.id ?? `${input.id}-${i}`,
+    kind: s.kind ?? 'image',
+    src: imgSrc(s.src),
+    headline: s.headline,
+    sub: s.sub,
+    durationMs: s.durationMs,
+    ctaPath: s.ctaPath ?? guidePath,
+    ctaLabel: s.ctaLabel ?? 'View guide',
+  }))
+  return {
+    id: input.id,
+    label: input.label,
+    coverSrc: input.coverSrc ? imgSrc(input.coverSrc) : slides[0].src,
+    slides,
+  }
+}
+
 export function buildGuideStoryChannels(
   guide: GuideProfile,
   options: {
@@ -70,6 +94,12 @@ export function buildGuideStoryChannels(
   const name = guideDisplayName(guide)
   const region = guideRegionLine(guide)
   const channels: VenueStoryChannel[] = []
+
+  // Provider-defined highlight rings first.
+  for (const custom of guide.guide_stories ?? []) {
+    const channel = mapCustomChannel(custom, guidePath)
+    if (channel) channels.push(channel)
+  }
 
   const introSlides: VenueStorySlide[] = []
   if (cover && (guide.headline || guide.bio?.trim())) {

@@ -11,7 +11,6 @@ import { EventDetailView } from '../components/events'
 import { EmptyState } from '../components/ui'
 import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
 import type { EventDetail, EventListItem } from '../utils/eventListing'
-import { postsToEventMoments, type EventMomentPost } from '../utils/eventMoments'
 import { resolveTicketingMode } from '../utils/eventTicketing'
 
 type EventBooking = {
@@ -66,13 +65,6 @@ export function EventDetail() {
     enabled: Boolean(profile && id),
   })
 
-  const { data: momentPostsRaw } = useQuery({
-    queryKey: ['event-moments', id],
-    queryFn: () => apiFetch<EventMomentPost[]>(`/api/events/${id}/moments/`, { auth: false }),
-    enabled: Boolean(id),
-  })
-  const momentPosts = asArray<EventMomentPost>(momentPostsRaw)
-
   const { data: questionsRaw, isLoading: loadingQuestions } = useQuery({
     queryKey: ['event-questions', id],
     queryFn: () => apiFetch<EventQuestionApi[]>(`/api/events/${id}/questions/`, { auth: false }),
@@ -119,11 +111,6 @@ export function EventDetail() {
       })),
     }))
   }, [questionRows])
-
-  const moments = useMemo(
-    () => (data ? postsToEventMoments(momentPosts, data.title) : []),
-    [momentPosts, data],
-  )
 
   const reviews = useMemo(
     () => normalizeReviews(reviewsData?.reviews ?? []),
@@ -245,6 +232,10 @@ export function EventDetail() {
         <p className="acc-detail__toast" role="status">
           <Link to="/login">Sign in</Link> to RSVP, ask questions, and share moments.
         </p>
+      ) : !profile.email_verified ? (
+        <p className="acc-detail__toast" role="status">
+          <Link to="/verify-email">Verify your email</Link> to RSVP for this event.
+        </p>
       ) : null}
       {rsvpMut.isError ? (
         <p className="acc-detail__toast acc-detail__toast--error" role="alert">
@@ -259,7 +250,6 @@ export function EventDetail() {
         onSave={() => profile && saveMut.mutate()}
         onShare={() => onShare(data.title)}
         relatedEvents={relatedEvents}
-        moments={moments}
         questions={questions}
         questionsLoading={loadingQuestions}
         canAnswerQuestions={canAnswerQuestions}
@@ -275,7 +265,7 @@ export function EventDetail() {
         bookingTotal={myBooking?.total_price}
         mockPaymentRef={myBooking?.mock_payment_ref}
         payPending={payMut.isPending}
-        onRsvp={profile ? () => rsvpMut.mutate() : undefined}
+        onRsvp={profile?.email_verified ? () => rsvpMut.mutate() : undefined}
         onCancelRsvp={profile && myBooking ? () => cancelRsvpMut.mutate() : undefined}
         onPay={profile && myBooking?.status === 'pending' ? () => payMut.mutate() : undefined}
       />

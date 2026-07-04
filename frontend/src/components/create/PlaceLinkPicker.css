@@ -1,0 +1,37 @@
+.place-link-picker__hint {
+  margin: -4px 0 10px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.place-link-picker__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.place-link-picker__tabs button {
+  flex: 1 1 auto;
+  min-width: calc(33.33% - 4px);
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.place-link-picker__tabs button.is-active {
+  border-color: rgba(232, 98, 10, 0.45);
+  background: rgba(232, 98, 10, 0.14);
+  color: #ff9a52;
+}
+
+.place-link-picker__field {
+  display: block;
+}

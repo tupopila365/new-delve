@@ -41,6 +41,14 @@ export type TripStop = {
   left_on: string
   notes: string
   cost?: number
+  linked_listing_type?: string
+  linked_listing_id?: number | null
+  linked_listing?: {
+    kind: 'accommodation' | 'food' | 'event'
+    id: number
+    title: string
+    href: string
+  } | null
   entries: TripEntry[]
 }
 
@@ -84,6 +92,7 @@ export type MockTrip = {
   comments_count: number
   liked_by_me: boolean
   saved_by_me: boolean
+  is_featured?: boolean
   journey_stories?: VenueStoryChannelInput[]
 }
 

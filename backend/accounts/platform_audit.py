@@ -24,6 +24,7 @@ ACTION_LABELS = {
     "email_verify_resend": "Verification email resent",
     "settings_update": "Platform settings updated",
     "user_delete": "Account deleted (GDPR)",
+    "user_self_delete": "Account self-deleted",
     "promotion_create": "Featured partner campaign created",
     "promotion_update": "Featured partner campaign updated",
     "promotion_cancel": "Featured partner campaign cancelled",

@@ -19,6 +19,7 @@ const NAV_SOON = [
   { to: '/admin#settings', label: 'Settings', hint: 'Soon' },
 ] as const
 
+/** @deprecated Traveller app no longer hosts admin UI — use PlatformAdminHandoff + Delve Admin app. */
 export function AdminLayout() {
   const { profile, loading } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)

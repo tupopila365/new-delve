@@ -11,6 +11,7 @@ from accommodation.models import AccommodationListing, AccommodationListingLike
 from promotions.constants import (
     CATEGORY_SPOTLIGHT_TARGET,
     FEATURED_RAIL_LIMIT,
+    MAX_PROMOTED_HOMEPAGE,
     PLACEMENT_MAX_SLOTS,
     PLACEMENT_TARGET_TYPES,
 )
@@ -167,13 +168,68 @@ def _annotate_partner(row: dict, campaign: PromotionCampaign) -> dict:
     row["is_featured_partner"] = True
     row["partner_label"] = campaign.label or DEFAULT_PARTNER_LABEL
     row["promotion_id"] = campaign.pk
+    row["is_editorial_pin"] = False
+    row["home_pin_id"] = None
+    return row
+
+
+def _annotate_editorial(row: dict, pin) -> dict:
+    row["is_featured_partner"] = True
+    row["partner_label"] = (pin.partner_label or pin.target_label or "Featured").strip() or "Featured"
+    row["promotion_id"] = None
+    row["is_editorial_pin"] = True
+    row["home_pin_id"] = pin.pk
+    row["_pin_target_type"] = pin.target_type
     return row
 
 
 def _annotate_organic(row: dict) -> dict:
     row["is_featured_partner"] = False
     row["partner_label"] = ""
+    row["is_editorial_pin"] = False
+    row["home_pin_id"] = None
     return row
+
+
+class _TargetRef:
+    __slots__ = ("target_type", "target_id")
+
+    def __init__(self, target_type: str, target_id: str):
+        self.target_type = target_type
+        self.target_id = str(target_id)
+
+
+def active_home_pins(placement: str, region: str = ""):
+    """Active editorial pins for a homepage placement, ordered."""
+    from promotions.models import HOMEPAGE_PIN_PLACEMENTS, HomePin
+
+    if placement not in HOMEPAGE_PIN_PLACEMENTS:
+        return []
+    now = timezone.now()
+    qs = HomePin.objects.filter(placement=placement, is_active=True).order_by("sort_order", "id")
+    qs = qs.filter(Q(starts_at__isnull=True) | Q(starts_at__lte=now))
+    qs = qs.filter(Q(ends_at__isnull=True) | Q(ends_at__gte=now))
+    pins = list(qs)
+    region = (region or "").strip().lower()
+    if not region:
+        return pins
+    return [p for p in pins if not (p.region or "").strip() or region in (p.region or "").lower()]
+
+
+def resolve_home_pin_rows(placement: str, *, region: str = "", user=None) -> list[dict]:
+    rows: list[dict] = []
+    seen: set[str | int] = set()
+    for pin in active_home_pins(placement, region):
+        ref = _TargetRef(pin.target_type, pin.target_id)
+        row = _resolve_by_target_type(ref, pin.target_type, user)
+        if not row:
+            continue
+        key = row.get("id", pin.target_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(_annotate_editorial(dict(row), pin))
+    return rows
 
 
 def _merge_promoted_with_organic(
@@ -187,9 +243,10 @@ def _merge_promoted_with_organic(
     limit: int = FEATURED_RAIL_LIMIT,
     region: str = "",
     region_filter_fields: tuple[str, ...] = ("region", "city"),
+    editorial: list[dict] | None = None,
 ) -> list[dict]:
-    promoted: list[dict] = []
-    promoted_keys: set[str | int] = set()
+    promoted: list[dict] = list(editorial or [])
+    promoted_keys: set[str | int] = {row.get("id") for row in promoted if row.get("id") is not None}
 
     for campaign in campaigns:
         if campaign.target_type != expected_target_type:
@@ -214,6 +271,84 @@ def _merge_promoted_with_organic(
     context = {"request": None}
     organic = serializer_class(organic_qs[:remaining], many=True, context=context).data
     return promoted + [_annotate_organic(dict(row)) for row in organic]
+
+
+def _featured_transport_rail(
+    *,
+    campaigns: list[PromotionCampaign],
+    user=None,
+    limit: int = FEATURED_RAIL_LIMIT,
+    region: str = "",
+    editorial: list[dict] | None = None,
+) -> list[dict]:
+    from transport.models import BusTrip, VehicleRentalListing
+    from transport.serializers import BusTripSerializer, VehicleRentalListingSerializer
+
+    transport_types = {PromotionTargetType.VEHICLE, PromotionTargetType.BUS_TRIP}
+    promoted: list[dict] = list(editorial or [])
+    promoted_vehicle_ids: set[int] = set()
+    promoted_trip_ids: set[int] = set()
+    for row in promoted:
+        row_id = row.get("id")
+        if not isinstance(row_id, int):
+            continue
+        if row.get("_pin_target_type") == PromotionTargetType.BUS_TRIP:
+            promoted_trip_ids.add(row_id)
+        else:
+            promoted_vehicle_ids.add(row_id)
+
+    for campaign in campaigns:
+        if campaign.target_type not in transport_types:
+            continue
+        row = _resolve_by_target_type(campaign, campaign.target_type, user)
+        if not row:
+            continue
+        row_id = row.get("id")
+        if campaign.target_type == PromotionTargetType.VEHICLE:
+            if row_id in promoted_vehicle_ids:
+                continue
+            promoted_vehicle_ids.add(row_id)
+        elif row_id in promoted_trip_ids:
+            continue
+        else:
+            promoted_trip_ids.add(row_id)
+        promoted.append(_annotate_partner(row, campaign))
+
+    now = timezone.now()
+    remaining = max(0, limit - len(promoted))
+    context = {"request": None}
+
+    vehicle_qs = (
+        VehicleRentalListing.objects.filter(is_active=True)
+        .exclude(pk__in=promoted_vehicle_ids)
+        .select_related("owner")
+        .order_by("-created_at")
+    )
+    if region:
+        vehicle_qs = vehicle_qs.filter(Q(region__icontains=region) | Q(city__icontains=region))
+
+    trip_qs = (
+        BusTrip.objects.filter(is_active=True, departs_at__gte=now)
+        .exclude(pk__in=promoted_trip_ids)
+        .select_related("route", "route__operator")
+        .order_by("departs_at")
+    )
+    if region:
+        trip_qs = trip_qs.filter(
+            Q(route__operator__region__icontains=region)
+            | Q(route__origin__icontains=region)
+            | Q(route__destination__icontains=region)
+        )
+
+    organic_vehicles = VehicleRentalListingSerializer(vehicle_qs[:remaining], many=True, context=context).data
+    trip_remaining = max(0, remaining - len(organic_vehicles))
+    organic_trips = (
+        BusTripSerializer(trip_qs[:trip_remaining], many=True, context=context).data if trip_remaining else []
+    )
+    organic = [_annotate_organic(dict(row)) for row in organic_vehicles] + [
+        _annotate_organic(dict(row)) for row in organic_trips
+    ]
+    return promoted + organic[:remaining]
 
 
 def _resolve_region(user=None, region: str = "") -> str:
@@ -303,6 +438,23 @@ def _resolve_by_target_type(campaign: PromotionCampaign, target_type: str, user=
         if not vehicle:
             return None
         return VehicleRentalListingSerializer(vehicle, context={"request": None}).data
+    if target_type == PromotionTargetType.BUS_TRIP:
+        from django.utils import timezone
+        from transport.models import BusTrip
+        from transport.serializers import BusTripSerializer
+
+        try:
+            tid = int(campaign.target_id)
+        except (TypeError, ValueError):
+            return None
+        trip = (
+            BusTrip.objects.filter(is_active=True, pk=tid, departs_at__gte=timezone.now())
+            .select_related("route", "route__operator")
+            .first()
+        )
+        if not trip:
+            return None
+        return BusTripSerializer(trip, context={"request": None}).data
     return None
 
 
@@ -323,6 +475,7 @@ def featured_for_placement(
 ) -> list[dict]:
     region = _resolve_region(user, region)
     campaigns = get_promoted_for_placement(placement, region, target_type=target_type)
+    editorial = resolve_home_pin_rows(placement, region=region, user=user)
 
     if placement == PromotionPlacement.HOMEPAGE_STAYS:
         from accommodation.serializers import AccommodationListingSerializer
@@ -336,6 +489,7 @@ def featured_for_placement(
             user=user,
             limit=limit,
             region=region,
+            editorial=editorial,
         )
 
     if placement == PromotionPlacement.HOMEPAGE_GUIDES:
@@ -357,6 +511,7 @@ def featured_for_placement(
             user=user,
             limit=limit,
             region="",
+            editorial=editorial,
         )
 
     if placement == PromotionPlacement.HOMEPAGE_FOOD:
@@ -372,6 +527,7 @@ def featured_for_placement(
             user=user,
             limit=limit,
             region=region,
+            editorial=editorial,
         )
 
     if placement == PromotionPlacement.HOMEPAGE_EVENTS:
@@ -387,21 +543,16 @@ def featured_for_placement(
             user=user,
             limit=limit,
             region=region,
+            editorial=editorial,
         )
 
     if placement == PromotionPlacement.HOMEPAGE_TRANSPORT:
-        from transport.models import VehicleRentalListing
-        from transport.serializers import VehicleRentalListingSerializer
-
-        return _merge_promoted_with_organic(
+        return _featured_transport_rail(
             campaigns=campaigns,
-            expected_target_type=PromotionTargetType.VEHICLE,
-            resolve_listing=lambda c: _resolve_by_target_type(c, PromotionTargetType.VEHICLE, user),
-            organic_qs=VehicleRentalListing.objects.filter(is_active=True).select_related("owner").order_by("-created_at"),
-            serializer_class=VehicleRentalListingSerializer,
             user=user,
             limit=limit,
             region=region,
+            editorial=editorial,
         )
 
     if placement == PromotionPlacement.CATEGORY_SPOTLIGHT and target_type:
@@ -500,6 +651,18 @@ def validate_target_listing(target_type: str, target_id: str, *, placement: str 
         if not vehicle:
             return False, "", "Active vehicle listing not found."
         return True, vehicle.title or f"{vehicle.make} {vehicle.model}", ""
+
+    if target_type == PromotionTargetType.BUS_TRIP:
+        from django.utils import timezone
+        from transport.models import BusTrip
+
+        trip = BusTrip.objects.filter(pk=lid, is_active=True).select_related("route").first()
+        if not trip:
+            return False, "", "Active bus trip not found."
+        if trip.departs_at < timezone.now():
+            return False, "", "Bus trip has already departed."
+        label = f"{trip.route.origin} → {trip.route.destination}"
+        return True, label, ""
 
     return False, "", "Unsupported target type."
 

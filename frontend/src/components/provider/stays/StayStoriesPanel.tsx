@@ -31,9 +31,9 @@ export function StayStoriesPanel({ listings }: Props) {
   })
 
   const createHref = (listingId?: number) => {
-    const params = new URLSearchParams({ return: '/provider/stays' })
+    const params = new URLSearchParams({ host_story: '1', return: '/provider/stays' })
     if (listingId) params.set('listing', String(listingId))
-    return `/accommodation/stories/new?${params.toString()}`
+    return `/create/highlight?${params.toString()}`
   }
 
   return (

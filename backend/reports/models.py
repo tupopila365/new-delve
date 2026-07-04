@@ -10,6 +10,13 @@ class ReportTargetType(models.TextChoices):
     BUSINESS = "business", "Business"
     MESSAGE = "message", "Message"
     CONVERSATION = "conversation", "Conversation"
+    ACCOMMODATION_QUESTION = "accommodation_question", "Stay question"
+    EVENT_QUESTION = "event_question", "Event question"
+    FOOD_QUESTION = "food_question", "Food question"
+    VEHICLE_QUESTION = "vehicle_question", "Vehicle question"
+    BUS_TRIP_QUESTION = "bus_trip_question", "Bus trip question"
+    JOURNEY = "journey", "Journey"
+    JOURNEY_QUESTION = "journey_question", "Journey question"
 
 
 class ReportReason(models.TextChoices):

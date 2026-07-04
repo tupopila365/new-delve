@@ -19,7 +19,7 @@ from accounts.permissions import IsPlatformAdmin
 from accounts.platform_audit import audit_activity_text, audit_activity_type, log_admin_action
 from accounts.serializers import BusinessProfileSerializer, BusinessVerificationDocumentSerializer
 from events_app.models import Event
-from food.models import FoodVenue
+from food.models import FoodReservation, FoodVenue
 from guides.models import GuideBooking, TourGuideProfile
 from social.models import Post
 from transport.models import BusTrip, SeatReservation, VehicleRentalBooking, VehicleRentalListing
@@ -37,7 +37,10 @@ class PlatformOverviewView(APIView):
     def get(self, request):
         listings_stays = AccommodationListing.objects.filter(is_active=True).count()
         listings_guides = TourGuideProfile.objects.filter(is_active=True).count()
-        listings_transport = VehicleRentalListing.objects.filter(is_active=True).count()
+        listings_transport = (
+            VehicleRentalListing.objects.filter(is_active=True).count()
+            + BusTrip.objects.filter(is_active=True, departs_at__gte=timezone.now()).count()
+        )
         listings_food = FoodVenue.objects.filter(is_active=True).count()
         listings_events = Event.objects.filter(is_published=True).count()
         listings_posts = Post.objects.filter(is_hidden=False, is_accommodation_story=False).count()
@@ -48,7 +51,8 @@ class PlatformOverviewView(APIView):
         bookings_stays = AccommodationBooking.objects.count()
         bookings_guides = GuideBooking.objects.count()
         bookings_transport = VehicleRentalBooking.objects.count() + SeatReservation.objects.count()
-        bookings_total = bookings_stays + bookings_guides + bookings_transport
+        bookings_food = FoodReservation.objects.count()
+        bookings_total = bookings_stays + bookings_guides + bookings_transport + bookings_food
 
         pending_stays = AccommodationBooking.objects.filter(_pending_booking_q()).count()
         pending_guides = GuideBooking.objects.filter(status="pending").count()
@@ -56,6 +60,7 @@ class PlatformOverviewView(APIView):
             VehicleRentalBooking.objects.filter(status="pending").count()
             + SeatReservation.objects.filter(status="pending").count()
         )
+        pending_food = FoodReservation.objects.filter(status="pending").count()
 
         users_unverified_email = Profile.objects.filter(email_verified=False).count()
 
@@ -75,10 +80,11 @@ class PlatformOverviewView(APIView):
                 "listings_events": listings_events,
                 "listings_posts": listings_posts,
                 "bookings": bookings_total,
-                "bookings_pending": pending_stays + pending_guides + pending_transport,
+                "bookings_pending": pending_stays + pending_guides + pending_transport + pending_food,
                 "bookings_stays": bookings_stays,
                 "bookings_guides": bookings_guides,
                 "bookings_transport": bookings_transport,
+                "bookings_food": bookings_food,
                 "reports_open": _open_reports_count(),
                 "users_unverified_email": users_unverified_email,
             }
@@ -161,6 +167,20 @@ class PlatformUserDetailView(APIView):
         data = _serialize_platform_user(user)
         data["businesses_count"] = BusinessProfile.objects.filter(owner=user).count()
         return Response(data)
+
+
+class PlatformUserProfileView(APIView):
+    """360° admin inspector — aggregated user footprint."""
+
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request, pk):
+        from accounts.admin_user_profile import build_admin_user_profile
+
+        user = User.objects.select_related("profile").filter(pk=pk).first()
+        if not user:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(build_admin_user_profile(user, request))
 
 
 class PlatformUserUpdateView(APIView):

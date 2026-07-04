@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { Featured, type FeaturedItem } from '../Featured'
 import { FEATURED_API, useFeaturedPlacement, type FeaturedPartnerFields } from '../../hooks/useFeaturedPlacement'
@@ -17,9 +16,10 @@ type Vehicle = FeaturedPartnerFields & {
   vehicle_type?: string | null
   seats?: number | null
   transmission?: string | null
+  route_detail?: undefined
 }
 
-type Trip = {
+type Trip = FeaturedPartnerFields & {
   id: number
   route_detail: {
     origin: string
@@ -33,12 +33,18 @@ type Trip = {
   available_seats: number
 }
 
+type TransportFeaturedRow = Vehicle | Trip
+
 const FALLBACK_TRANSPORT_IMAGE = '/images/default-journey.jpg'
 
 function formatDateTime(iso: string) {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return 'Upcoming'
   return date.toLocaleDateString('en-NA', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function isBusTripRow(row: TransportFeaturedRow): row is Trip {
+  return row.route_detail != null
 }
 
 function vehicleToFeatured(vehicle: Vehicle): FeaturedItem {
@@ -71,7 +77,7 @@ function tripToFeatured(trip: Trip): FeaturedItem {
     href: `/transport/bus/${trip.id}`,
     image: mediaUrl(trip.route_detail.cover_image) || FALLBACK_TRANSPORT_IMAGE,
     fallbackImage: FALLBACK_TRANSPORT_IMAGE,
-    eyebrow: 'Shared trip',
+    ...partnerBadgeFields(trip, 'Shared trip'),
     location: trip.route_detail.operator_name,
     meta: `${formatDateTime(trip.departs_at)} · ${trip.available_seats} seats left`,
     price: `N$${trip.price}`,
@@ -79,22 +85,16 @@ function tripToFeatured(trip: Trip): FeaturedItem {
 }
 
 export function FeaturedTransport() {
-  const { data: vehicles, isLoading: vehiclesLoading } = useFeaturedPlacement<Vehicle>(
-    'featured-transport-vehicles',
+  const { data: rows, isLoading } = useFeaturedPlacement<TransportFeaturedRow>(
+    'featured-transport-rail',
     FEATURED_API.transport,
   )
 
-  const { data: trips, isLoading: tripsLoading } = useQuery({
-    queryKey: ['featured-transport-shared-trips'],
-    queryFn: () => apiFetch<Trip[]>('/api/transport/bus/trips/', { auth: false }),
-    staleTime: 45_000,
-  })
+  const items: FeaturedItem[] = (rows ?? []).slice(0, 8).map((row) =>
+    isBusTripRow(row) ? tripToFeatured(row) : vehicleToFeatured(row),
+  )
 
-  const promotedVehicles = (vehicles ?? []).slice(0, 8).map(vehicleToFeatured)
-  const organicTrips = (trips ?? []).slice(0, Math.max(0, 8 - promotedVehicles.length)).map(tripToFeatured)
-  const items: FeaturedItem[] = [...promotedVehicles, ...organicTrips].slice(0, 8)
-
-  if (vehiclesLoading && tripsLoading) return null
+  if (isLoading) return null
 
   return (
     <Featured

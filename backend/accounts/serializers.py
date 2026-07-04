@@ -107,10 +107,12 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "allow_messages",
             "show_in_search",
         )
+        read_only_fields = ("user_type",)
 
 
 class BusinessProfileSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
+    stats = serializers.SerializerMethodField()
 
     class Meta:
         model = BusinessProfile
@@ -130,7 +132,13 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
             "onboarding_completed",
             "transport_modes",
             "verification_notes",
+            "stats",
         )
+
+    def get_stats(self, obj: BusinessProfile) -> dict:
+        from accounts.business_listings import business_stats
+
+        return business_stats(obj)
 
 
 class MyBusinessSerializer(serializers.ModelSerializer):
@@ -155,6 +163,7 @@ class MyBusinessSerializer(serializers.ModelSerializer):
             "city",
             "onboarding_completed",
             "transport_modes",
+            "verification_notes",
             "role",
             "permissions",
         )
@@ -265,7 +274,62 @@ class PublicProfileSerializer(serializers.ModelSerializer):
 
     id = serializers.IntegerField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
+    stats = serializers.SerializerMethodField()
+    relationship = serializers.SerializerMethodField()
+    owned_businesses = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
-        fields = ("id", "username", "display_name", "bio", "region", "city", "avatar", "user_type", "is_private", "posts_visibility", "allow_messages")
+        fields = (
+            "id",
+            "username",
+            "display_name",
+            "bio",
+            "region",
+            "city",
+            "avatar",
+            "user_type",
+            "is_private",
+            "posts_visibility",
+            "allow_messages",
+            "stats",
+            "relationship",
+            "owned_businesses",
+        )
+
+    def get_owned_businesses(self, obj: Profile) -> list[dict]:
+        return list(
+            BusinessProfile.objects.filter(owner=obj.user)
+            .order_by("business_name")
+            .values("id", "business_name", "verification_status", "slug")
+        )
+
+    def get_stats(self, obj: Profile) -> dict:
+        from accounts.profile_stats import compute_profile_stats
+
+        return compute_profile_stats(obj.user)
+
+    def get_relationship(self, obj: Profile) -> dict:
+        from accounts.profile_access import get_profile_relationship
+
+        request = self.context.get("request")
+        viewer = request.user if request else None
+        return get_profile_relationship(viewer, obj.user)
+
+    def to_representation(self, instance):
+        from accounts.profile_access import can_view_posts
+
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        viewer = request.user if request else None
+        if can_view_posts(viewer, instance.user):
+            return data
+        return {
+            "id": data["id"],
+            "username": data["username"],
+            "display_name": data.get("display_name"),
+            "avatar": data.get("avatar"),
+            "is_private": data["is_private"],
+            "user_type": data.get("user_type"),
+            "relationship": data["relationship"],
+        }

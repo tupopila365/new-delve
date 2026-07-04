@@ -85,6 +85,8 @@ class EventSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
+        if not hasattr(user, "profile") or user.profile.user_type != "service_provider":
+            raise serializers.ValidationError("Only service providers can create events.")
         validated_data["organizer"] = user
         if not validated_data.get("business"):
             biz = primary_event_business(user)

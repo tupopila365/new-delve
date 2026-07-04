@@ -26,7 +26,7 @@ export function AdminAccessGate() {
       <EmptyState
         iconElement={<Lock size={28} strokeWidth={2.25} />}
         title="Admin access required"
-        sub="You need a platform admin account to manage users, businesses, bookings, and reports."
+        sub="Platform admin tools live in the Delve Admin console and require a staff account (is_staff)."
         cta={{ label: 'Go to account', to: '/account' }}
       />
       <p className="adm-access__alt">

@@ -5,8 +5,9 @@ import {
   SPECIALITY_OPTIONS,
   type GuideProfileFormValues,
   type LanguageDetailForm,
-  type PortfolioItemForm,
 } from './guideProfileTypes'
+import { GuidePhotoEditor } from './GuidePhotoEditor'
+import { GuideStoriesEditor } from './GuideStoriesEditor'
 
 type Props = {
   values: GuideProfileFormValues
@@ -23,15 +24,12 @@ const SECTIONS = [
   { id: 'expertise', label: 'Expertise' },
   { id: 'credentials', label: 'Trust & credentials' },
   { id: 'pricing', label: 'Pricing & meeting' },
-  { id: 'portfolio', label: 'Portfolio' },
+  { id: 'photos', label: 'Photos' },
+  { id: 'stories', label: 'Stories' },
 ] as const
 
 function emptyLang(): LanguageDetailForm {
   return { language: '', level: 'Fluent' }
-}
-
-function emptyPortfolio(): PortfolioItemForm {
-  return { src: '', caption: '' }
 }
 
 export function GuideProfileForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
@@ -105,17 +103,6 @@ export function GuideProfileForm({ values, onChange, error, saving, onSubmit, on
                   maxLength={2000}
                 />
               </label>
-              <label className="guide-form__field">
-                Profile photo URL
-                <input
-                  value={values.photo_url}
-                  onChange={(e) => patch({ photo_url: e.target.value })}
-                  placeholder="https://…"
-                />
-              </label>
-              {values.photo_url ? (
-                <img src={values.photo_url} alt="" className="guide-form__preview" />
-              ) : null}
               <label className="guide-form__check">
                 <input
                   type="checkbox"
@@ -283,54 +270,18 @@ export function GuideProfileForm({ values, onChange, error, saving, onSubmit, on
             </div>
           )}
 
-          {section === 'portfolio' && (
+          {section === 'photos' && (
             <div className="guide-form__section">
-              <p className="guide-form__hint">
-                Portfolio photos feed your hero gallery and guide moments on the public profile.
-              </p>
-              {values.portfolio.map((item, i) => (
-                <div key={i} className="guide-form__subcard">
-                  <div className="guide-form__subcard-head">
-                    <strong>Photo {i + 1}</strong>
-                    <button
-                      type="button"
-                      className="guide-form__icon-btn"
-                      onClick={() => patch({ portfolio: values.portfolio.filter((_, idx) => idx !== i) })}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <label className="guide-form__field">
-                    Image URL
-                    <input
-                      value={item.src}
-                      onChange={(e) => {
-                        const portfolio = [...values.portfolio]
-                        portfolio[i] = { ...item, src: e.target.value }
-                        patch({ portfolio })
-                      }}
-                    />
-                  </label>
-                  <label className="guide-form__field">
-                    Caption
-                    <input
-                      value={item.caption}
-                      onChange={(e) => {
-                        const portfolio = [...values.portfolio]
-                        portfolio[i] = { ...item, caption: e.target.value }
-                        patch({ portfolio })
-                      }}
-                    />
-                  </label>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="guide-form__add"
-                onClick={() => patch({ portfolio: [...values.portfolio, emptyPortfolio()] })}
-              >
-                <Plus size={14} /> Add portfolio photo
-              </button>
+              <GuidePhotoEditor values={values} onChange={patch} />
+            </div>
+          )}
+
+          {section === 'stories' && (
+            <div className="guide-form__section">
+              <GuideStoriesEditor
+                channels={values.guide_stories}
+                onChange={(guide_stories) => patch({ guide_stories })}
+              />
             </div>
           )}
         </div>

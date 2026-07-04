@@ -74,6 +74,12 @@
   cursor: not-allowed;
 }
 
+.profile-bio__btn--following {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 250, 242, 0.82);
+}
+
 .profile-bio__btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;

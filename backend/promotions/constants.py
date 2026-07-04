@@ -1,8 +1,11 @@
 from promotions.models import PromotionPlacement, PromotionTargetType
 
 MAX_PROMOTED_HOMEPAGE = 2
+MAX_HOME_PINS = 2
+MAX_HOME_STORY_SLIDES = 6
 MAX_PROMOTED_CATEGORY_SPOTLIGHT = 1
 FEATURED_RAIL_LIMIT = 8
+
 
 PLACEMENT_MAX_SLOTS = {
     PromotionPlacement.HOMEPAGE_STAYS: MAX_PROMOTED_HOMEPAGE,
@@ -20,13 +23,17 @@ PLACEMENT_TARGET_TYPES: dict[str, list[str]] = {
     PromotionPlacement.HOMEPAGE_GUIDES: [PromotionTargetType.GUIDE],
     PromotionPlacement.HOMEPAGE_FOOD: [PromotionTargetType.FOOD],
     PromotionPlacement.HOMEPAGE_EVENTS: [PromotionTargetType.EVENT],
-    PromotionPlacement.HOMEPAGE_TRANSPORT: [PromotionTargetType.VEHICLE],
+    PromotionPlacement.HOMEPAGE_TRANSPORT: [
+        PromotionTargetType.VEHICLE,
+        PromotionTargetType.BUS_TRIP,
+    ],
     PromotionPlacement.CATEGORY_SPOTLIGHT: [
         PromotionTargetType.ACCOMMODATION,
         PromotionTargetType.GUIDE,
         PromotionTargetType.FOOD,
         PromotionTargetType.EVENT,
         PromotionTargetType.VEHICLE,
+        PromotionTargetType.BUS_TRIP,
     ],
     PromotionPlacement.DELVERS_FEED: [
         PromotionTargetType.POST,
@@ -35,6 +42,7 @@ PLACEMENT_TARGET_TYPES: dict[str, list[str]] = {
         PromotionTargetType.FOOD,
         PromotionTargetType.EVENT,
         PromotionTargetType.VEHICLE,
+        PromotionTargetType.BUS_TRIP,
     ],
     PromotionPlacement.COMMUNITY_FEED: [
         PromotionTargetType.POST,
@@ -43,6 +51,7 @@ PLACEMENT_TARGET_TYPES: dict[str, list[str]] = {
         PromotionTargetType.FOOD,
         PromotionTargetType.EVENT,
         PromotionTargetType.VEHICLE,
+        PromotionTargetType.BUS_TRIP,
     ],
 }
 
@@ -56,6 +65,9 @@ CATEGORY_SPOTLIGHT_TARGET = {
     "event": PromotionTargetType.EVENT,
     "transport": PromotionTargetType.VEHICLE,
     "vehicle": PromotionTargetType.VEHICLE,
+    "bus_trip": PromotionTargetType.BUS_TRIP,
+    "bus": PromotionTargetType.BUS_TRIP,
+    "shared": PromotionTargetType.BUS_TRIP,
 }
 
 # Display-only pricing (offline payment in v1).

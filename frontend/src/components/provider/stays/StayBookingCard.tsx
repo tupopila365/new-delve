@@ -72,7 +72,11 @@ export function StayBookingCard({
           : null}
         {booking.guest_username ? (
           <Link
-            to={messageUserPath(booking.guest_username, 'provider')}
+            to={messageUserPath(booking.guest_username, 'provider', {
+              type: 'booking_stay',
+              id: booking.id,
+              label: booking.listing_title,
+            })}
             state={{ from: '/provider/stays', guestName: booking.guest_display_name }}
             className="prov-ui__btn prov-ui__btn--ghost"
           >

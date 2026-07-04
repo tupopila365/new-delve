@@ -1,4 +1,4 @@
-import type { ListingDetailRow, ListingGalleryItem, ListingMomentItem } from '../components/listing/types'
+import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
 import {
   categoryMeta,
   eventCoverSrc,
@@ -83,10 +83,7 @@ export function buildGoogleCalendarUrl(event: EventDetail): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
-export function openStreetMapSearchUrl(venue: string, city: string, region: string) {
-  const q = [venue, city, region].filter(Boolean).join(', ')
-  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`
-}
+export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords } from './placeMap'
 
 export function eventCountdownLabel(startsAt: string): string | null {
   const start = new Date(startsAt)
@@ -155,34 +152,6 @@ export function buildEventDetailRows(event: EventDetail): ListingDetailRow[] {
     rows.push({ id: 'capacity', label: 'Capacity', value: `Up to ${event.capacity} attendees` })
   }
   return rows
-}
-
-export function buildEventMoments(event: EventDetail): ListingMomentItem[] {
-  const cover = eventCoverSrc(event.cover_image, event.category)
-  const cat = categoryMeta(event.category)
-  const altCover = eventCoverSrc(null, event.category)
-  return [
-    {
-      id: 'm1',
-      image: cover,
-      author: 'localguide',
-      body: 'Saved this for the weekend — who else is going?',
-      taggedListing: event.title,
-    },
-    {
-      id: 'm3',
-      image: altCover,
-      author: 'localguide',
-      body: `${cat.label} night — great energy and a friendly crowd.`,
-      taggedListing: event.title,
-    },
-    {
-      id: 'm2',
-      author: 'traveller',
-      body: 'Any tips on parking or what to bring?',
-      taggedListing: event.title,
-    },
-  ]
 }
 
 export {

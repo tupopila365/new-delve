@@ -31,7 +31,13 @@ export type MockPost = {
   is_delvers: boolean
   is_accommodation_story?: boolean
   is_hidden?: boolean
+  post_kind?: 'tip' | 'question'
+  place_label?: string
   listing?: { id: number; title: string } | null
+  event?: { id: number; title: string } | null
+  vehicle_listing?: { id: number; title: string } | null
+  bus_trip?: { id: number; title: string } | null
+  food_venue?: { id: number; title: string } | null
   created_at: string
   likes_count: number
   saves_count: number
@@ -1758,10 +1764,47 @@ export const mockPosts: MockPost[] = [
     video: null,
     delvers_board: '',
     is_delvers: false,
+    post_kind: 'tip',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     likes_count: 48,
     saves_count: 12,
     comments_count: 3,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 704,
+    author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
+    body: 'Where can I pick up a SIM card in Windhoek on a Sunday afternoon?',
+    region: 'Khomas',
+    place_label: 'Windhoek, Namibia',
+    image: null,
+    video: null,
+    delvers_board: '',
+    is_delvers: false,
+    post_kind: 'question',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    likes_count: 6,
+    saves_count: 1,
+    comments_count: 2,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 705,
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
+    body: 'Is the D1913 gravel stretch to Walvis safe for a small hatchback after rain?',
+    region: 'Erongo',
+    place_label: 'Walvis Bay, Namibia',
+    image: null,
+    video: null,
+    delvers_board: '',
+    is_delvers: false,
+    post_kind: 'question',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
+    likes_count: 11,
+    saves_count: 4,
+    comments_count: 1,
     liked_by_me: false,
     saved_by_me: false,
   },

@@ -1,4 +1,4 @@
-export { EventForm } from './EventForm'
+export { EventForm, EVENT_WIZARD_STEPS } from './EventForm'
 export { EventDetailView } from './EventDetailView'
 export { EventTicketCard } from './EventTicketCard'
 export { EventDateShowcase } from './EventDateShowcase'

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Clock, MapPin, Play, Route } from 'lucide-react'
 import type { TripStop } from '../../data/mockTrips'
 import { ListingSection } from '../listing'
@@ -74,6 +75,11 @@ export function JourneyRouteStops({ stops, tags = [], className = '' }: Props) {
                       </span>
                     </p>
                     {stop.notes?.trim() ? <p className="jn-route__notes">{stop.notes.trim()}</p> : null}
+                    {stop.linked_listing ? (
+                      <p className="jn-route__listing-link">
+                        <Link to={stop.linked_listing.href}>View on DELVE · {stop.linked_listing.title}</Link>
+                      </p>
+                    ) : null}
 
                     {visibleMedia.length > 0 ? (
                       <div className="jn-route__thumbs" role="list" aria-label={`Photos from ${stop.place_name}`}>

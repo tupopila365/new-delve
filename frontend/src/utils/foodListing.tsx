@@ -31,6 +31,8 @@ const CUISINE_LABELS: Record<string, string> = {
   asian: 'Asian',
   fast_food: 'Fast food',
   bar: 'Bar & drinks',
+  vegan: 'Vegan / vegetarian',
+  international: 'International',
   other: 'Restaurant',
 }
 
@@ -44,6 +46,8 @@ const CUISINE_ICONS: Record<string, LucideIcon> = {
   asian: Soup,
   fast_food: Sandwich,
   bar: Wine,
+  vegan: Utensils,
+  international: Utensils,
   other: Utensils,
 }
 
@@ -61,6 +65,10 @@ export type FoodVenueListing = {
   owner_display_name?: string | null
   rating_avg?: string | null
   rating_count?: number | null
+  has_reviewed?: boolean
+  can_review?: boolean
+  saved_by_me?: boolean
+  saves_count?: number
   phone?: string | null
   website?: string | null
   opening_hours?: string | null
@@ -95,10 +103,7 @@ export function priceLevelName(level: number): string {
   return ['', 'Budget', 'Mid-range', 'Upscale', 'Fine dining'][Math.min(4, level || 1)] ?? ''
 }
 
-export function openStreetMapSearchUrl(name: string, city: string, region: string) {
-  const q = [name, city, region].filter(Boolean).join(', ')
-  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`
-}
+export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords } from './placeMap'
 
 export function buildFoodGalleryImages(venue: FoodVenueListing): ListingGalleryItem[] {
   const photos = resolveVenuePhotos(venue.photos, venue.cover_image, venue.cuisine)
