@@ -1,6 +1,5 @@
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { buildGalleryItems } from '../components/AccommodationGallery'
-import { normalizeReviews } from '../components/GuestReviewCard'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import type { TourPackage } from '../components/guide/types'
 import type { ListingGalleryItem, ListingMomentItem } from '../components/listing/types'

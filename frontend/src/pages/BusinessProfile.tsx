@@ -6,6 +6,7 @@ import {
   AlertCircle,
   BedDouble,
   Building2,
+  Bus,
   Car,
   Compass,
   MapPin,

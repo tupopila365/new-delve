@@ -27,7 +27,12 @@ import {
 } from '../api/types'
 import { DEMO_ACTIVITY, DEMO_BOOKINGS, DEMO_LISTINGS, DEMO_REPORTS, demoAnalytics } from '../data/demoData'
 
-type MockProfile = AdminProfile & { password: string; user_type: string; is_staff: boolean }
+type MockProfile = AdminProfile & {
+  password: string
+  user_type: string
+  is_staff: boolean
+  bio?: string
+}
 
 const profiles: Record<string, MockProfile> = {
   demo_admin: {

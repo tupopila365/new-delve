@@ -9,6 +9,7 @@ import { ProviderUiChips, ProviderUiEmpty, ProviderUiHeader, ProviderUiPage, Pro
 import { getBookingStats, getProviderBookings } from '../data/providerData'
 import { mergeProviderBookings, useProviderEventBookings } from '../hooks/useProviderEventData'
 import { useProviderStayBookings } from '../hooks/useProviderStayData'
+import { useProviderTransportBookings } from '../hooks/useProviderTransportData'
 import { useProviderFoodBookings } from '../hooks/useProviderFoodData'
 import { bookingsPageSubtitle, categoriesForBusinessTypes } from '../utils/providerCategories'
 

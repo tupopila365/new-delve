@@ -20,11 +20,13 @@ import {
   DelveAdminStatusBadge,
 } from '../components'
 
+type StorySourceType = (typeof HOME_STORY_SOURCE_TYPES)[number]['value']
+
 export function HomeStoriesPage() {
   const qc = useQueryClient()
   const [channelId, setChannelId] = useState<string>(HOME_STORY_CHANNELS[0].id)
   const [toast, setToast] = useState('')
-  const [sourceType, setSourceType] = useState(HOME_STORY_CHANNELS[0].defaultSource)
+  const [sourceType, setSourceType] = useState<StorySourceType>(HOME_STORY_CHANNELS[0].defaultSource)
   const [targetId, setTargetId] = useState('')
   const [headline, setHeadline] = useState('')
   const [sub, setSub] = useState('')
@@ -242,7 +244,7 @@ export function HomeStoriesPage() {
 
       <DelveAdminPanel title="Editorial slides">
         {orderedSlides.length === 0 ? (
-          <DelveAdminEmpty message="No editorial slides on this channel yet." />
+          <DelveAdminEmpty title="No slides" message="No editorial slides on this channel yet." />
         ) : (
           <div className="da-stack">
             {orderedSlides.map((slide, index) => (
@@ -331,7 +333,10 @@ export function HomeStoriesPage() {
         >
           <label className="da-field">
             <span>Source</span>
-            <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+            <select
+              value={sourceType}
+              onChange={(e) => setSourceType(e.target.value as StorySourceType)}
+            >
               {HOME_STORY_SOURCE_TYPES.map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}

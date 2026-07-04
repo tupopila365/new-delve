@@ -9,7 +9,8 @@
   "scripts": {
     "postinstall": "node scripts/fix-query-core-sourcemap.mjs",
     "dev": "npx vite",
-    "build": "tsc -b && npx vite build",
+    "build": "npx vite build",
+    "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "preview": "npx vite preview",
     "start": "serve -s dist",

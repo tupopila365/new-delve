@@ -16,11 +16,13 @@ import {
   DelveAdminStatusBadge,
 } from '../components'
 
+type PinTargetType = (typeof HOME_PIN_PLACEMENTS)[number]['targetType'] | 'bus_trip'
+
 export function HomePinsPage() {
   const qc = useQueryClient()
   const [placement, setPlacement] = useState<string>(HOME_PIN_PLACEMENTS[0].value)
   const [toast, setToast] = useState('')
-  const [formTargetType, setFormTargetType] = useState(HOME_PIN_PLACEMENTS[0].targetType)
+  const [formTargetType, setFormTargetType] = useState<PinTargetType>(HOME_PIN_PLACEMENTS[0].targetType)
   const [formTargetId, setFormTargetId] = useState('')
   const [formPartnerLabel, setFormPartnerLabel] = useState('Featured')
   const [formRegion, setFormRegion] = useState('')
@@ -191,7 +193,7 @@ export function HomePinsPage() {
           then paid partners, then organic).
         </p>
         {orderedPins.length === 0 ? (
-          <DelveAdminEmpty message="No pins on this rail yet." />
+          <DelveAdminEmpty title="No pins" message="No pins on this rail yet." />
         ) : (
           <div className="da-stack">
             {orderedPins.map((pin, index) => (
@@ -276,7 +278,10 @@ export function HomePinsPage() {
           {isTransport ? (
             <label className="da-field">
               <span>Listing type</span>
-              <select value={formTargetType} onChange={(e) => setFormTargetType(e.target.value)}>
+              <select
+                value={formTargetType}
+                onChange={(e) => setFormTargetType(e.target.value as PinTargetType)}
+              >
                 {TRANSPORT_TARGET_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}

@@ -25,6 +25,7 @@ import {
 import { mergeProviderBookings, useProviderEventBookings } from '../hooks/useProviderEventData'
 import { useProviderListings } from '../hooks/useProviderListings'
 import { useProviderStayBookings } from '../hooks/useProviderStayData'
+import { useProviderTransportBookings } from '../hooks/useProviderTransportData'
 import { useProviderFoodBookings } from '../hooks/useProviderFoodData'
 import { categoriesForBusinessTypes } from '../utils/providerCategories'
 
