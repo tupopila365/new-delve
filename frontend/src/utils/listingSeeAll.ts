@@ -3,8 +3,6 @@ import { buildGalleryItems } from '../components/AccommodationGallery'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import type { TourPackage } from '../components/guide/types'
 import type { ListingGalleryItem, ListingMomentItem } from '../components/listing/types'
-import { mockTrips } from '../data/mockTrips'
-import { findUserTrip } from '../data/userTrips'
 import {
   buildListingImages,
   type AccommodationListing,
@@ -28,6 +26,12 @@ import {
   buildJourneyGallery,
   collectJourneyPhotos,
 } from './journeyListing'
+import {
+  findJourneyDemoTrip,
+  isJourneyDemoFallbackEnabled,
+  mapApiJourneyToTrip,
+  type ApiJourney,
+} from './journeyApi'
 import { fetchListingMoments } from './listingMoments'
 import { normalizeTourPackages } from './tourPackages'
 import {
@@ -205,8 +209,14 @@ async function fetchGuidePackageSeeAll(compositeId: string): Promise<ListingSeeA
   }
 }
 
-function fetchJourneySeeAll(id: string): ListingSeeAllData {
-  const trip = findUserTrip(Number(id)) ?? mockTrips.find((t) => t.id === Number(id))
+async function fetchJourneySeeAll(id: string): Promise<ListingSeeAllData> {
+  let trip
+  if (isJourneyDemoFallbackEnabled()) {
+    trip = findJourneyDemoTrip(Number(id))
+  } else {
+    const journey = await apiFetch<ApiJourney>(`/api/journeys/${id}/`, { auth: false })
+    trip = mapApiJourneyToTrip(journey)
+  }
   if (!trip) throw new ApiError('Journey not found.', 404, null)
 
   const photoItems = collectJourneyPhotos(trip)

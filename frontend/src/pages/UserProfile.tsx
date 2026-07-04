@@ -34,7 +34,6 @@ import { ProfileBioSection } from '../components/profile/ProfileBioSection'
 import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 import { ProfileStatsRow } from '../components/profile/ProfileStatsRow'
 import { filterProfileMediaPosts } from '../components/profile'
-import { loadUserTrips } from '../data/userTrips'
 import { postPermalinkPath } from '../utils/postPermalink'
 import {
   filterProfilePosts,
@@ -42,7 +41,7 @@ import {
   type ProfilePostFilter,
 } from '../utils/postFilters'
 import type { MockTrip } from '../data/mockTrips'
-import { mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
 import { useOwnerBusinesses } from '../hooks/useOwnerBusinesses'
 
 export type ProfileRelationship = {
@@ -192,10 +191,10 @@ export function UserProfile() {
     enabled: Boolean(pub) && !profileNotFound && !isPrivateGated,
   })
 
-  const profileJourneys = useMemo(() => {
-    const local = isMe ? loadUserTrips() : []
-    return mergeJourneyFeeds(journeys ?? [], local)
-  }, [journeys, isMe, tab])
+  const profileJourneys = useMemo(
+    () => mergeJourneyFeeds(journeys ?? [], journeyListFallback()),
+    [journeys],
+  )
 
   const { data: events, isLoading: loadingEvents } = useQuery({
     queryKey: ['user-events', username, isMe],

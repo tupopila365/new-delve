@@ -1,5 +1,36 @@
-import type { MockTrip } from '../data/mockTrips'
+import { mockTrips, type MockTrip } from '../data/mockTrips'
+import { findUserTrip, loadUserTrips } from '../data/userTrips'
 import { mediaUrl } from '../api/client'
+
+/** Demo journeys fill feeds only when VITE_USE_MOCKS=true (local dev). */
+export function isJourneyDemoFallbackEnabled(): boolean {
+  return import.meta.env.VITE_USE_MOCKS === 'true'
+}
+
+/** Hardcoded + localStorage demo rows merged into list feeds in mock mode only. */
+export function journeyListFallback(): MockTrip[] {
+  if (!isJourneyDemoFallbackEnabled()) return []
+  return [...loadUserTrips(), ...mockTrips]
+}
+
+/** Resolve a journey from demo/local sources when the mock API is active. */
+export function findJourneyDemoTrip(id: number): MockTrip | undefined {
+  if (!isJourneyDemoFallbackEnabled()) return undefined
+  return findUserTrip(id) ?? mockTrips.find((t) => t.id === id)
+}
+
+/** Tag/country-matched similar journeys from demo data (mock mode only). */
+export function similarJourneyDemoFallback(trip: MockTrip, excludeId: number): MockTrip[] {
+  if (!isJourneyDemoFallbackEnabled()) return []
+  return mergeJourneyFeeds([], mockTrips)
+    .filter((t) => t.id !== excludeId)
+    .filter(
+      (t) =>
+        t.countries.some((c) => trip.countries.includes(c)) ||
+        t.tags.some((tag) => trip.tags.includes(tag)),
+    )
+    .slice(0, 3)
+}
 
 export type ApiJourney = {
   id: number

@@ -2,10 +2,13 @@ import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Route } from 'lucide-react'
-import { mockTrips } from '../data/mockTrips'
-import { findUserTrip } from '../data/userTrips'
 import { apiFetch } from '../api/client'
-import { mapApiJourneyToTrip, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import {
+  findJourneyDemoTrip,
+  mapApiJourneyToTrip,
+  similarJourneyDemoFallback,
+  type ApiJourney,
+} from '../utils/journeyApi'
 import { useJourneyEngagement } from '../hooks/useJourneyEngagement'
 import { JourneyDetailView } from '../components/journeys/JourneyDetailView'
 import { DetailPage } from '../components/detail'
@@ -13,10 +16,7 @@ import { EmptyState } from '../components/ui'
 
 export function TripDetail() {
   const { id } = useParams<{ id: string }>()
-  const fallbackTrip = useMemo(
-    () => findUserTrip(Number(id)) ?? mockTrips.find((t) => t.id === Number(id)),
-    [id],
-  )
+  const fallbackTrip = useMemo(() => findJourneyDemoTrip(Number(id)), [id])
 
   const { data: apiJourney, isLoading } = useQuery({
     queryKey: ['journey', id],
@@ -42,14 +42,7 @@ export function TripDetail() {
   const similarJourneys = useMemo(() => {
     if (!trip) return []
     if (similarApi.length > 0) return similarApi.map(mapApiJourneyToTrip)
-    return mergeJourneyFeeds([], mockTrips)
-      .filter((t) => t.id !== trip.id)
-      .filter(
-        (t) =>
-          t.countries.some((c) => trip.countries.includes(c)) ||
-          t.tags.some((tag) => trip.tags.includes(tag)),
-      )
-      .slice(0, 3)
+    return similarJourneyDemoFallback(trip, trip.id)
   }, [trip, similarApi])
 
   if (isLoading && !fallbackTrip) {

@@ -24,10 +24,9 @@ import {
   X,
   type LucideProps,
 } from 'lucide-react'
-import { mockTrips, type MockTrip } from '../data/mockTrips'
-import { loadUserTrips } from '../data/userTrips'
+import type { MockTrip } from '../data/mockTrips'
 import { apiFetch } from '../api/client'
-import { mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
 import {
   isBudgetTrip,
   isWeekendTrip,
@@ -147,10 +146,10 @@ export function TripsList() {
     queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/', { auth: false }),
   })
 
-  const allTrips = useMemo(() => {
-    const local = loadUserTrips()
-    return mergeJourneyFeeds(apiJourneys, [...local, ...mockTrips])
-  }, [apiJourneys])
+  const allTrips = useMemo(
+    () => mergeJourneyFeeds(apiJourneys, journeyListFallback()),
+    [apiJourneys],
+  )
   const engagement = useJourneyEngagement(allTrips)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')

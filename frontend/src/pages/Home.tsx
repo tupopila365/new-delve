@@ -25,8 +25,7 @@ import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { MiniRating } from '../components/MiniRating'
 import { ListSkeleton } from '../components/ui'
 import { HOME_HERO_BG, homeCoverSrc } from '../data/homeDefaults'
-import { mockTrips } from '../data/mockTrips'
-import { mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import type { FeaturedPartnerFields } from '../hooks/useFeaturedPlacement'
 
@@ -299,7 +298,7 @@ export function Home() {
   const foodItems = food.slice(0, 10)
   const guideItems = guides.slice(0, 10)
   const journeyItems = useMemo(
-    () => mergeJourneyFeeds(apiJourneys, mockTrips).slice(0, 8),
+    () => mergeJourneyFeeds(apiJourneys, journeyListFallback()).slice(0, 8),
     [apiJourneys],
   )
   const showAnnouncement =
