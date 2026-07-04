@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q, QuerySet
 
-from accounts.models import PostsVisibility, Profile
+from accounts.models import PostsVisibility, Profile, UserType
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractBaseUser
@@ -34,6 +34,14 @@ def can_view_posts(viewer: AbstractBaseUser | None, target_user: AbstractBaseUse
     if profile.is_private:
         return is_following(viewer, target_user)
     return True
+
+
+def user_is_service_provider(user: AbstractBaseUser) -> bool:
+    """Fresh DB lookup — avoids stale profile cache after queryset .update() in tests."""
+    if not user or not getattr(user, "pk", None):
+        return False
+    ut = Profile.objects.filter(user_id=user.pk).values_list("user_type", flat=True).first()
+    return ut == UserType.SERVICE_PROVIDER
 
 
 def can_message(viewer: AbstractBaseUser | None, target_user: AbstractBaseUser) -> bool:

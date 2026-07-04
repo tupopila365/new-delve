@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name="providermmessagingsettings",
+            model_name="providermessagingsettings",
             name="business",
             field=models.OneToOneField(
                 blank=True,
@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AlterField(
-            model_name="providermmessagingsettings",
+            model_name="providermessagingsettings",
             name="user",
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddConstraint(
-            model_name="providermmessagingsettings",
+            model_name="providermessagingsettings",
             constraint=models.UniqueConstraint(
                 condition=models.Q(("business__isnull", True)),
                 fields=("user",),

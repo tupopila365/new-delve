@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
-from accounts.models import UserType
+from accounts.profile_access import user_is_service_provider
 
 from .models import (
     MAX_AUTO_WELCOME_BODY,
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 def is_service_provider(user: AbstractBaseUser) -> bool:
-    return getattr(user.profile, "user_type", None) == UserType.SERVICE_PROVIDER
+    return user_is_service_provider(user)
 
 
 def get_or_create_provider_messaging_settings(user, business: BusinessProfile | None = None) -> ProviderMessagingSettings:

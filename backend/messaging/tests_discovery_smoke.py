@@ -2,12 +2,15 @@
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, override_settings
-from rest_framework.settings import api_settings
 from rest_framework.test import APIClient
 
 from accounts.models import Profile
+from config.throttles import MessagingPeopleSearchThrottle
 from messaging.views import MessagingPeopleSearchView
+
+_PEOPLE_SEARCH_THROTTLE_RATE = "2/min"
 
 User = get_user_model()
 
@@ -119,10 +122,17 @@ class MessagingPeopleSearchThrottleTests(TestCase):
         },
     )
     def test_people_search_rate_limited(self):
-        api_settings.reload()
+        # DRF caches THROTTLE_RATES on the class at import time; patch for this test.
+        cache.clear()
+        orig_rates = MessagingPeopleSearchThrottle.THROTTLE_RATES
+        MessagingPeopleSearchThrottle.THROTTLE_RATES = {
+            **orig_rates,
+            "messaging_people_search": _PEOPLE_SEARCH_THROTTLE_RATE,
+        }
         try:
             self.assertEqual(self.client.get("/api/messaging/people/").status_code, 200)
             self.assertEqual(self.client.get("/api/messaging/people/").status_code, 200)
             self.assertEqual(self.client.get("/api/messaging/people/").status_code, 429)
         finally:
-            api_settings.reload()
+            MessagingPeopleSearchThrottle.THROTTLE_RATES = orig_rates
+            cache.clear()

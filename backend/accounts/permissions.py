@@ -1,14 +1,13 @@
 from rest_framework import permissions
 
+from accounts.profile_access import user_is_service_provider
+
 
 class IsServiceProvider(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return (
-            hasattr(request.user, "profile")
-            and request.user.profile.user_type == "service_provider"
-        )
+        return user_is_service_provider(request.user)
 
 
 class IsProviderOrBusinessMember(permissions.BasePermission):
@@ -19,10 +18,7 @@ class IsProviderOrBusinessMember(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        if (
-            hasattr(request.user, "profile")
-            and request.user.profile.user_type == "service_provider"
-        ):
+        if user_is_service_provider(request.user):
             return True
         from .models import BusinessMembership
 

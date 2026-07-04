@@ -63,6 +63,7 @@ class UnifiedSearchTests(TestCase):
         )
         Profile.objects.filter(user=closed).update(
             display_name="No DM User",
+            bio="Windhoek local — messages disabled",
             show_in_search=True,
             allow_messages=False,
             region="Khomas",

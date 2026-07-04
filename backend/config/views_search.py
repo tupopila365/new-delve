@@ -5,9 +5,8 @@ from rest_framework.views import APIView
 
 from accommodation.models import AccommodationListing
 from accommodation.serializers import AccommodationListingSerializer
-from accounts.profile_access import can_message
 from accounts.models import User
-from accounts.profile_access import filter_posts_for_viewer
+from accounts.profile_access import can_message, filter_posts_for_viewer
 from events_app.models import Event
 from events_app.serializers import EventSerializer
 from food.models import FoodVenue

@@ -11,12 +11,12 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name="providermmessagingsettings",
+            model_name="providermessagingsettings",
             name="booking_confirmed_body",
             field=models.TextField(blank=True, default=""),
         ),
         migrations.AddField(
-            model_name="providermmessagingsettings",
+            model_name="providermessagingsettings",
             name="booking_confirmed_enabled",
             field=models.BooleanField(default=False),
         ),
