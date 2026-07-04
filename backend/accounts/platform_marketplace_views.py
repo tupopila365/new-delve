@@ -260,7 +260,7 @@ class PlatformEmailVerificationView(APIView):
                 }
             )
 
-        from accounts.verification_email import send_verification_email
+        from accounts.mail import send_verification_email
 
         send_verification_email(user)
         log_admin_action(

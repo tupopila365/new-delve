@@ -85,3 +85,13 @@ class EmailVerificationFlowTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("unverified", res.data["detail"])
         self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(FRONTEND_URL="https://app.example.com")
+    def test_verification_email_uses_frontend_url(self):
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post("/api/accounts/resend-verification/", {}, format="json")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        body = mail.outbox[0].body
+        self.assertIn("https://app.example.com/verify-email?token=", body)
+        self.assertEqual(mail.outbox[0].subject, "Verify your DELVE account")

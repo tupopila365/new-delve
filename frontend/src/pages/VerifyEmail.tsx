@@ -86,9 +86,16 @@ export function VerifyEmail() {
           : 'Confirm your email to unlock bookings and provider tools. You can browse and sign in before verifying.'
       }
       hint={
-        <>
-          In dev, check the <strong>Django console</strong> for the verification link.
-        </>
+        import.meta.env.DEV ? (
+          <>
+            In dev, check the <strong>Django console</strong> for the verification link.
+          </>
+        ) : (
+          <>
+            Check your inbox and spam folder for an email from DELVE, then open the link or paste
+            the token below.
+          </>
+        )
       }
       footer={
         <>

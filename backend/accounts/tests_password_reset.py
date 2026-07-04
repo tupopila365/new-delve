@@ -55,6 +55,18 @@ class PasswordResetRequestTests(TestCase):
         self.assertIn("reset-password", mail.outbox[0].body)
         self.assertTrue(PasswordResetToken.objects.filter(user=self.user, used=False).exists())
 
+    @override_settings(FRONTEND_URL="https://app.example.com")
+    def test_reset_email_uses_frontend_url(self):
+        res = self.client.post(
+            "/api/accounts/password-reset/request/",
+            {"email": self.user.email},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("https://app.example.com/reset-password?token=", mail.outbox[0].body)
+        self.assertEqual(mail.outbox[0].subject, "Reset your DELVE password")
+
     def test_request_same_response_for_known_email(self):
         res = self.client.post(
             "/api/accounts/password-reset/request/",

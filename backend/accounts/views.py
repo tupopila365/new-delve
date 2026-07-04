@@ -1,8 +1,6 @@
-import os
-
+from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from config.throttles import (
     AccountDeleteThrottle,
@@ -18,7 +16,13 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .verification_email import VERIFICATION_SENT_MESSAGE, can_resend_verification, send_verification_email
+from .mail import (
+    PASSWORD_RESET_SENT_MESSAGE,
+    VERIFICATION_SENT_MESSAGE,
+    can_resend_verification,
+    send_password_reset_email,
+    send_verification_email,
+)
 
 from .business_access import business_permissions
 from .platform_audit import log_admin_action
@@ -116,9 +120,13 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         send_verification_email(user)
+        if settings.DEBUG and "console" in settings.EMAIL_BACKEND:
+            detail = "Account created. Check your email (or console in dev) to verify."
+        else:
+            detail = "Account created. Check your email to verify."
         return Response(
             {
-                "detail": "Account created. Check your email (or console in dev) to verify.",
+                "detail": detail,
                 "user_id": user.id,
                 "username": user.username,
             },
@@ -181,9 +189,6 @@ class ResendVerificationView(APIView):
         return Response({"detail": VERIFICATION_SENT_MESSAGE})
 
 
-PASSWORD_RESET_SENT_MESSAGE = "If an account exists, we sent reset instructions."
-
-
 def _can_request_password_reset(user: User) -> bool:
     if not user.is_active:
         return False
@@ -204,21 +209,7 @@ class PasswordResetRequestView(APIView):
             return Response({"detail": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(email__iexact=email).first()
         if user and _can_request_password_reset(user):
-            token = PasswordResetToken.create_for_user(user)
-            frontend = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-            link = f"{frontend}/reset-password?token={token.token}"
-            send_mail(
-                subject="Reset your DELVE password",
-                message=(
-                    f"Hi {user.username},\n\n"
-                    f"Reset your password: {link}\n\n"
-                    f"This link expires in 1 hour.\n\n"
-                    f"Token: {token.token}"
-                ),
-                from_email=None,
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
+            send_password_reset_email(user)
         return Response({"detail": PASSWORD_RESET_SENT_MESSAGE})
 
 

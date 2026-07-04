@@ -3,12 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "20.x || 22.x"
+  },
   "scripts": {
     "postinstall": "node scripts/fix-query-core-sourcemap.mjs",
     "dev": "npx vite",
     "build": "tsc -b && npx vite build",
     "lint": "eslint .",
-    "preview": "npx vite preview"
+    "preview": "npx vite preview",
+    "start": "serve -s dist",
+    "heroku-postbuild": "npm run build"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.74.0",
@@ -16,6 +21,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.0",
+    "serve": "^14.2.6",
     "workbox-window": "^7.3.0"
   },
   "devDependencies": {
