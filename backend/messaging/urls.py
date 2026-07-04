@@ -5,6 +5,7 @@ from .views import (
     ConversationViewSet,
     MessageBlockDetailView,
     MessageBlockListCreateView,
+    MessagingPeopleSearchView,
     StartOrGetConversationView,
     UnreadCountView,
 )
@@ -14,6 +15,7 @@ router.register(r"conversations", ConversationViewSet, basename="conversation")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("people/", MessagingPeopleSearchView.as_view(), name="messaging-people"),
     path("start/", StartOrGetConversationView.as_view(), name="conversation-start"),
     path("unread-count/", UnreadCountView.as_view(), name="messaging-unread-count"),
     path("blocks/", MessageBlockListCreateView.as_view(), name="messaging-blocks"),

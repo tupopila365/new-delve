@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.profile_access import can_message
-from config.throttles import MessageStartThrottle
+from config.throttles import MessageStartThrottle, UserRateThrottle
 
 from .models import (
     CONTEXT_TYPES,
@@ -194,6 +194,111 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
             if username:
                 typing_users.append({"id": user.id, "username": username})
         return Response({"typing": typing_users})
+
+
+def _serialize_messaging_person(user, request) -> dict:
+    profile = user.profile
+    avatar = None
+    if profile.avatar:
+        avatar = request.build_absolute_uri(profile.avatar.url)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "display_name": profile.display_name or user.username,
+        "avatar": avatar,
+        "city": profile.city or "",
+        "region": profile.region or "",
+    }
+
+
+def _messageable_users_queryset(viewer):
+    """Users the viewer may discover for a new message thread."""
+    return (
+        User.objects.filter(is_active=True, profile__allow_messages=True, profile__show_in_search=True)
+        .exclude(pk=viewer.pk)
+        .exclude(
+            Q(messaging_blocks_received__blocker=viewer) | Q(messaging_blocks_created__blocked=viewer)
+        )
+        .select_related("profile")
+        .distinct()
+    )
+
+
+def _people_search_rank(q_lower: str, user) -> tuple[int, str]:
+    username = user.username.lower()
+    display = (user.profile.display_name or "").lower()
+    if username == q_lower:
+        return (0, username)
+    if username.startswith(q_lower):
+        return (1, username)
+    if q_lower in username:
+        return (2, username)
+    if q_lower in display:
+        return (3, username)
+    return (4, username)
+
+
+def _recent_conversation_partner_ids(viewer, *, limit: int = 20) -> list[int]:
+    partner_ids: list[int] = []
+    seen: set[int] = set()
+    conversations = (
+        Conversation.objects.filter(participants=viewer)
+        .prefetch_related("participants")
+        .order_by("-updated_at")[:limit]
+    )
+    for conv in conversations:
+        for participant in conv.participants.all():
+            if participant.pk == viewer.pk or participant.pk in seen:
+                continue
+            if not can_message(viewer, participant):
+                continue
+            seen.add(participant.pk)
+            partner_ids.append(participant.pk)
+            break
+    return partner_ids
+
+
+class MessagingPeopleSearchView(APIView):
+    """Search messageable users for the new-message compose sheet."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
+    def get(self, request):
+        q = (request.query_params.get("q") or "").strip()
+        try:
+            limit = int(request.query_params.get("limit") or (20 if q else 12))
+        except (TypeError, ValueError):
+            limit = 20 if q else 12
+        limit = max(1, min(limit, 25))
+
+        base = _messageable_users_queryset(request.user)
+
+        if q:
+            q_lower = q.lower()
+            rows = list(
+                base.filter(
+                    Q(username__icontains=q)
+                    | Q(profile__display_name__icontains=q)
+                    | Q(profile__city__icontains=q)
+                    | Q(profile__region__icontains=q)
+                )[:100]
+            )
+            rows.sort(key=lambda user: _people_search_rank(q_lower, user))
+            rows = rows[:limit]
+        else:
+            recent_ids = _recent_conversation_partner_ids(request.user)
+            recent_map = {user.pk: user for user in base.filter(pk__in=recent_ids)}
+            rows = [recent_map[pk] for pk in recent_ids if pk in recent_map]
+            if len(rows) < limit:
+                exclude = {user.pk for user in rows}
+                filler = (
+                    base.exclude(pk__in=exclude)
+                    .order_by("username")[: limit - len(rows)]
+                )
+                rows.extend(filler)
+
+        return Response({"results": [_serialize_messaging_person(user, request) for user in rows]})
 
 
 class StartOrGetConversationView(APIView):

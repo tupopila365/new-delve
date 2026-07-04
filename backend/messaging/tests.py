@@ -259,6 +259,89 @@ class MessagingPhaseCTests(TestCase):
         self.assertIsNone(res.data["context"])
 
 
+class MessagingPeopleSearchTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.alice = User.objects.create_user(
+            username="alice_people", email="alice_people@test.local", password="pass12345"
+        )
+        self.bob = User.objects.create_user(
+            username="bob_people", email="bob_people@test.local", password="pass12345"
+        )
+        self.slys = User.objects.create_user(
+            username="slys", email="slys@test.local", password="pass12345"
+        )
+        self.hidden = User.objects.create_user(
+            username="hidden_people", email="hidden_people@test.local", password="pass12345"
+        )
+        self.closed = User.objects.create_user(
+            username="closed_people", email="closed_people@test.local", password="pass12345"
+        )
+        Profile.objects.filter(user=self.alice).update(display_name="Alice People", allow_messages=True)
+        Profile.objects.filter(user=self.bob).update(
+            display_name="Bob Traveller", allow_messages=True, city="Windhoek", region="Khomas"
+        )
+        Profile.objects.filter(user=self.slys).update(
+            display_name="Slys Explorer", allow_messages=True, region="Erongo"
+        )
+        Profile.objects.filter(user=self.hidden).update(
+            display_name="Hidden User", allow_messages=True, show_in_search=False
+        )
+        Profile.objects.filter(user=self.closed).update(display_name="Closed User", allow_messages=False)
+
+    def test_people_search_requires_auth(self):
+        res = self.client.get("/api/messaging/people/?q=slys")
+        self.assertEqual(res.status_code, 401)
+
+    def test_people_search_finds_username(self):
+        self.client.force_authenticate(user=self.alice)
+        res = self.client.get("/api/messaging/people/?q=slys")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("slys", usernames)
+        self.assertNotIn("alice_people", usernames)
+
+    def test_people_search_finds_display_name(self):
+        self.client.force_authenticate(user=self.alice)
+        res = self.client.get("/api/messaging/people/?q=windhoek")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("bob_people", usernames)
+
+    def test_people_search_excludes_hidden_from_search(self):
+        self.client.force_authenticate(user=self.alice)
+        res = self.client.get("/api/messaging/people/?q=hidden")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertNotIn("hidden_people", usernames)
+
+    def test_people_search_excludes_messages_disabled(self):
+        self.client.force_authenticate(user=self.alice)
+        res = self.client.get("/api/messaging/people/?q=closed")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertNotIn("closed_people", usernames)
+
+    def test_people_search_excludes_blocked_user(self):
+        self.client.force_authenticate(user=self.alice)
+        block = self.client.post("/api/messaging/blocks/", {"username": "slys"}, format="json")
+        self.assertIn(block.status_code, (200, 201))
+        res = self.client.get("/api/messaging/people/?q=slys")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertNotIn("slys", usernames)
+
+    def test_people_suggestions_include_recent_partner(self):
+        self.client.force_authenticate(user=self.alice)
+        start = self.client.post("/api/messaging/start/", {"username": "bob_people"}, format="json")
+        self.assertEqual(start.status_code, 200)
+        res = self.client.get("/api/messaging/people/")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("bob_people", usernames)
+        self.assertEqual(usernames[0], "bob_people")
+
+
 class MessagingPhaseDTests(TestCase):
     def setUp(self):
         self.client = APIClient()
