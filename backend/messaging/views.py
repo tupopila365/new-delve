@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.profile_access import can_message
-from config.throttles import MessageStartThrottle, UserRateThrottle
+from config.throttles import MessageStartThrottle, MessagingPeopleSearchThrottle
 
 from .models import (
     CONTEXT_TYPES,
@@ -211,10 +211,56 @@ def _serialize_messaging_person(user, request) -> dict:
     }
 
 
-def _messageable_users_queryset(viewer):
+def _provider_principal_user_ids(user) -> set[int]:
+    """Listing/booking owners whose guests this user may message as a provider."""
+    from accounts.models import BusinessMembership
+
+    ids = {user.pk}
+    ids.update(
+        BusinessMembership.objects.filter(user=user).values_list("business__owner_id", flat=True)
+    )
+    return ids
+
+
+def _provider_guest_user_ids(user) -> set[int]:
+    """Guest user IDs with bookings on this provider's listings, guides, venues, or transport."""
+    principal_ids = _provider_principal_user_ids(user)
+    guest_ids: set[int] = set()
+
+    from accommodation.models import AccommodationBooking
+    from food.models import FoodReservation
+    from guides.models import GuideBooking
+    from transport.models import SeatReservation, VehicleRentalBooking
+
+    guest_ids.update(
+        AccommodationBooking.objects.filter(listing__owner_id__in=principal_ids).values_list(
+            "guest_id", flat=True
+        )
+    )
+    guest_ids.update(
+        GuideBooking.objects.filter(guide__user_id__in=principal_ids).values_list("client_id", flat=True)
+    )
+    guest_ids.update(
+        VehicleRentalBooking.objects.filter(listing__owner_id__in=principal_ids).values_list(
+            "renter_id", flat=True
+        )
+    )
+    guest_ids.update(
+        SeatReservation.objects.filter(trip__route__operator__owner_id__in=principal_ids).values_list(
+            "passenger_id", flat=True
+        )
+    )
+    guest_ids.update(
+        FoodReservation.objects.filter(venue__owner_id__in=principal_ids).values_list("guest_id", flat=True)
+    )
+    guest_ids.discard(user.pk)
+    return guest_ids
+
+
+def _messageable_users_queryset(viewer, *, provider_context: bool = False):
     """Users the viewer may discover for a new message thread."""
-    return (
-        User.objects.filter(is_active=True, profile__allow_messages=True, profile__show_in_search=True)
+    qs = (
+        User.objects.filter(is_active=True, profile__allow_messages=True)
         .exclude(pk=viewer.pk)
         .exclude(
             Q(messaging_blocks_received__blocker=viewer) | Q(messaging_blocks_created__blocked=viewer)
@@ -222,6 +268,12 @@ def _messageable_users_queryset(viewer):
         .select_related("profile")
         .distinct()
     )
+    if provider_context:
+        allowed_ids = _provider_guest_user_ids(viewer) | set(_recent_conversation_partner_ids(viewer))
+        qs = qs.filter(pk__in=allowed_ids)
+    else:
+        qs = qs.filter(profile__show_in_search=True)
+    return qs
 
 
 def _people_search_rank(q_lower: str, user) -> tuple[int, str]:
@@ -262,7 +314,7 @@ class MessagingPeopleSearchView(APIView):
     """Search messageable users for the new-message compose sheet."""
 
     permission_classes = [permissions.IsAuthenticated]
-    throttle_classes = [UserRateThrottle]
+    throttle_classes = [MessagingPeopleSearchThrottle]
 
     def get(self, request):
         q = (request.query_params.get("q") or "").strip()
@@ -272,7 +324,9 @@ class MessagingPeopleSearchView(APIView):
             limit = 20 if q else 12
         limit = max(1, min(limit, 25))
 
-        base = _messageable_users_queryset(request.user)
+        context = (request.query_params.get("context") or "").strip().lower()
+        provider_context = context == "provider"
+        base = _messageable_users_queryset(request.user, provider_context=provider_context)
 
         if q:
             q_lower = q.lower()

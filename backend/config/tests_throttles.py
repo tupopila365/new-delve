@@ -10,12 +10,13 @@ from config.throttles import (
     AccountDeleteThrottle,
     FollowThrottle,
     MessageStartThrottle,
+    MessagingPeopleSearchThrottle,
     PasswordResetConfirmThrottle,
     PasswordResetThrottle,
     PostCreateThrottle,
     ResendVerificationThrottle,
 )
-from messaging.views import StartOrGetConversationView
+from messaging.views import MessagingPeopleSearchView, StartOrGetConversationView
 from social.views import PostViewSet, UserFollowToggleView
 
 User = get_user_model()
@@ -24,6 +25,7 @@ User = get_user_model()
 class ThrottleConfigurationTests(TestCase):
     def test_social_and_messaging_views_declare_throttles(self):
         self.assertEqual(UserFollowToggleView.throttle_classes, [FollowThrottle])
+        self.assertEqual(MessagingPeopleSearchView.throttle_classes, [MessagingPeopleSearchThrottle])
         self.assertEqual(StartOrGetConversationView.throttle_classes, [MessageStartThrottle])
         view = PostViewSet()
         view.action = "create"
@@ -40,6 +42,7 @@ class ThrottleConfigurationTests(TestCase):
         self.assertEqual(rates["follow"], "120/hour")
         self.assertEqual(rates["post_create"], "60/hour")
         self.assertEqual(rates["message_start"], "30/hour")
+        self.assertEqual(rates["messaging_people_search"], "30/min")
         self.assertEqual(rates["password_reset"], "5/hour")
         self.assertEqual(rates["password_reset_confirm"], "10/hour")
         self.assertEqual(rates["resend_verification"], "5/hour")
@@ -51,6 +54,7 @@ class ThrottleConfigurationTests(TestCase):
         self.assertEqual(FollowThrottle().get_rate(), "120/hour")
         self.assertEqual(PostCreateThrottle().get_rate(), "60/hour")
         self.assertEqual(MessageStartThrottle().get_rate(), "30/hour")
+        self.assertEqual(MessagingPeopleSearchThrottle().get_rate(), "30/min")
         self.assertEqual(PasswordResetThrottle().get_rate(), "5/hour")
         self.assertEqual(PasswordResetConfirmThrottle().get_rate(), "10/hour")
         self.assertEqual(ResendVerificationThrottle().get_rate(), "5/hour")

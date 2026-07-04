@@ -13,6 +13,10 @@ class MessageStartThrottle(UserRateThrottle):
     scope = "message_start"
 
 
+class MessagingPeopleSearchThrottle(UserRateThrottle):
+    scope = "messaging_people_search"
+
+
 class PasswordResetThrottle(AnonRateThrottle):
     scope = "password_reset"
 
