@@ -57,6 +57,32 @@ class UnifiedSearchTests(TestCase):
         self.assertEqual(res.data["posts"], [])
         self.assertEqual(res.data["questions"], [])
 
+    def test_search_user_can_message_when_authenticated(self):
+        closed = User.objects.create_user(
+            username="no_dm_user", email="nodm@test.local", password="pass12345"
+        )
+        Profile.objects.filter(user=closed).update(
+            display_name="No DM User",
+            show_in_search=True,
+            allow_messages=False,
+            region="Khomas",
+        )
+        viewer = User.objects.create_user(
+            username="search_viewer", email="viewer@test.local", password="pass12345"
+        )
+        self.client.force_authenticate(user=viewer)
+        res = self.client.get("/api/search/?q=windhoek&types=profile")
+        self.assertEqual(res.status_code, 200)
+        by_name = {row["username"]: row for row in res.data["users"]}
+        self.assertTrue(by_name["searchable"]["can_message"])
+        self.assertFalse(by_name["no_dm_user"]["can_message"])
+
+    def test_search_user_omits_can_message_when_logged_out(self):
+        res = self.client.get("/api/search/?q=windhoek&types=profile")
+        self.assertEqual(res.status_code, 200)
+        self.assertGreaterEqual(len(res.data["users"]), 1)
+        self.assertNotIn("can_message", res.data["users"][0])
+
     def test_types_journeys_scopes_bucket(self):
         author = User.objects.create_user(
             username="type_journey", email="tj@test.local", password="pass12345"

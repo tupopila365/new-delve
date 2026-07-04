@@ -277,6 +277,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     stats = serializers.SerializerMethodField()
     relationship = serializers.SerializerMethodField()
     owned_businesses = serializers.SerializerMethodField()
+    has_auto_welcome = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -292,6 +293,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "is_private",
             "posts_visibility",
             "allow_messages",
+            "has_auto_welcome",
             "stats",
             "relationship",
             "owned_businesses",
@@ -316,6 +318,11 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         viewer = request.user if request else None
         return get_profile_relationship(viewer, obj.user)
 
+    def get_has_auto_welcome(self, obj: Profile) -> bool:
+        from messaging.provider_messaging import provider_has_auto_welcome
+
+        return provider_has_auto_welcome(obj.user)
+
     def to_representation(self, instance):
         from accounts.profile_access import can_view_posts
 
@@ -331,5 +338,6 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "avatar": data.get("avatar"),
             "is_private": data["is_private"],
             "user_type": data.get("user_type"),
+            "has_auto_welcome": data.get("has_auto_welcome", False),
             "relationship": data["relationship"],
         }

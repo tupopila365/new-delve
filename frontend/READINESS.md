@@ -78,7 +78,10 @@ Frontend role checks are **UI only** — real authorization is enforced by the D
 - `/search` → **People** chip → profile results with `can_message` when signed in
 - `/u/:username` → **Message** → `POST /api/messaging/start/`
 - `/provider/messages` → **Message a guest** → scoped guest list (`?context=provider`)
+- `/provider/messages/settings` → **Automated welcome** + provider quick-reply shortcuts (`GET/PATCH /api/messaging/provider-settings/`)
 - Settings → Privacy → **Appear in search** / **Allow message requests** affect discovery
+
+**Provider automated welcome:** When enabled, the provider’s custom message is sent once per **new** thread when a traveller starts the chat (`POST /api/messaging/start/`). Travellers see it as a real message labelled “Automated · Provider”. Only service providers can configure this — travellers never get suggestion chips or automated sends.
 
 **Production:** `VITE_USE_MOCKS=false` and `VITE_API_URL` pointing at the Django API. People search is rate-limited to **30 requests/minute** per signed-in user.
 
@@ -144,8 +147,9 @@ Run with **`VITE_USE_MOCKS=false`** and a seeded backend (`python manage.py seed
 5. **Privacy: hidden from search** — Disable “Appear in search”. User should not appear in `/search` or traveller compose; provider guest compose may still list them if they have a booking.
 6. **Block** — Block a user from message settings. They should disappear from compose search; starting a thread should fail.
 7. **Provider guest scope** — As a provider with bookings, `/provider/messages` → Message a guest. Only booked guests and recent chat partners should appear.
+8. **Provider automated welcome** — As provider, enable welcome at `/provider/messages/settings`. As traveller, message that provider for the first time — automated welcome should appear in the thread (not fake UI placeholders).
 
-Backend smoke (optional): `python manage.py test messaging.tests_discovery_smoke`
+Backend smoke (optional): `python manage.py test messaging.tests_discovery_smoke messaging.tests_provider_messaging`
 
 ### Provider tester
 

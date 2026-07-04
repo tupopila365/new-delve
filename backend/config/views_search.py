@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from accommodation.models import AccommodationListing
 from accommodation.serializers import AccommodationListingSerializer
+from accounts.profile_access import can_message
 from accounts.models import User
 from accounts.profile_access import filter_posts_for_viewer
 from events_app.models import Event
@@ -91,7 +92,7 @@ def _serialize_search_user(user, request) -> dict:
     avatar = None
     if profile.avatar:
         avatar = request.build_absolute_uri(profile.avatar.url)
-    return {
+    payload = {
         "id": user.id,
         "username": user.username,
         "display_name": profile.display_name,
@@ -101,6 +102,10 @@ def _serialize_search_user(user, request) -> dict:
         "region": profile.region,
         "bio": (profile.bio or "")[:160],
     }
+    viewer = request.user if request.user.is_authenticated else None
+    if viewer:
+        payload["can_message"] = can_message(viewer, user)
+    return payload
 
 
 class UnifiedSearchView(APIView):

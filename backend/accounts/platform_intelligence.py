@@ -203,6 +203,7 @@ def anonymize_user_account(user: User, *, actor: User, self_initiated: bool = Fa
     profile.city = ""
     profile.email_verified = False
     profile.is_private = True
+    profile.allow_messages = False
     profile.show_in_search = False
     profile.save()
 

@@ -52,6 +52,7 @@ class SelfDeleteAccountTests(TestCase):
         self.assertFalse(self.user.check_password("Pass12345!"))
         profile = self.user.profile
         self.assertFalse(profile.show_in_search)
+        self.assertFalse(profile.allow_messages)
         self.assertTrue(profile.is_private)
         self.assertEqual(profile.display_name, "Deleted user")
 
