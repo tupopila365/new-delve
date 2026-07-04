@@ -5,6 +5,7 @@ import logging
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 from .models import EmailVerificationToken, PasswordResetToken, User
 
@@ -13,8 +14,16 @@ logger = logging.getLogger(__name__)
 VERIFICATION_SENT_MESSAGE = "If an account exists and is unverified, we sent a verification email."
 PASSWORD_RESET_SENT_MESSAGE = "If an account exists, we sent reset instructions."
 
+VERIFICATION_EXPIRES_HOURS = 48
 
-def deliver_mail(*, subject: str, message: str, recipient_list: list[str]) -> bool:
+
+def deliver_mail(
+    *,
+    subject: str,
+    message: str,
+    recipient_list: list[str],
+    html_message: str | None = None,
+) -> bool:
     """Send email and log failures (never swallow silently without a log line)."""
     try:
         send_mail(
@@ -22,6 +31,7 @@ def deliver_mail(*, subject: str, message: str, recipient_list: list[str]) -> bo
             message=message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=recipient_list,
+            html_message=html_message,
             fail_silently=False,
         )
         return True
@@ -38,16 +48,17 @@ def deliver_mail(*, subject: str, message: str, recipient_list: list[str]) -> bo
 def send_verification_email(user: User) -> EmailVerificationToken:
     token = EmailVerificationToken.create_for_user(user)
     frontend = settings.FRONTEND_URL.rstrip("/")
-    link = f"{frontend}/verify-email?token={token.token}"
+    verify_url = f"{frontend}/verify-email?token={token.token}"
+    context = {
+        "username": user.username,
+        "verify_url": verify_url,
+        "token": str(token.token),
+        "expires_hours": VERIFICATION_EXPIRES_HOURS,
+    }
     deliver_mail(
         subject="Verify your DELVE account",
-        message=(
-            f"Hi {user.username},\n\n"
-            f"Verify your email by opening this link:\n{link}\n\n"
-            f"This link expires in 48 hours.\n\n"
-            f"If the link does not work, open DELVE and paste this token on the verify page:\n"
-            f"{token.token}\n"
-        ),
+        message=render_to_string("emails/verify_email.txt", context).strip(),
+        html_message=render_to_string("emails/verify_email.html", context),
         recipient_list=[user.email],
     )
     return token

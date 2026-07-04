@@ -1,0 +1,15 @@
+Hi {{ username }},
+
+Welcome to DELVE. Verify your email to unlock bookings, messages, and provider tools.
+
+Open this link:
+{{ verify_url }}
+
+This link expires in {{ expires_hours }} hours.
+
+If the link does not work, open DELVE and paste this token on the verify page:
+{{ token }}
+
+If you did not create a DELVE account, you can ignore this email.
+
+— DELVE

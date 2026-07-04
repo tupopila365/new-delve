@@ -95,3 +95,7 @@ class EmailVerificationFlowTests(TestCase):
         body = mail.outbox[0].body
         self.assertIn("https://app.example.com/verify-email?token=", body)
         self.assertEqual(mail.outbox[0].subject, "Verify your DELVE account")
+        html_parts = [p for p in mail.outbox[0].alternatives if p[1] == "text/html"]
+        self.assertEqual(len(html_parts), 1)
+        self.assertIn("Verify your email", html_parts[0][0])
+        self.assertIn("https://app.example.com/verify-email?token=", html_parts[0][0])

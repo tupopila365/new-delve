@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{% block title %}DELVE{% endblock %}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#ebe3d6;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#ebe3d6;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:520px;">
+          <tr>
+            <td align="center" style="padding-bottom:20px;">
+              <span style="font-family:'Syne',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:22px;font-weight:700;letter-spacing:0.12em;color:#1c1410;">DELVE</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#ffffff;border-radius:18px;padding:32px 28px;box-shadow:0 10px 30px rgba(28,20,16,0.08);">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-top:20px;font-size:12px;line-height:1.5;color:#6b5d52;">
+              {% block footer %}
+              <p style="margin:0 0 8px;">You received this email because of activity on your DELVE account.</p>
+              {% endblock %}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
