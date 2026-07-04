@@ -6941,54 +6941,7 @@ a.chip.chip--accent:hover {
 .up__empty-cta { border-radius: 20px; }
 
 /* ——— Shared UI primitives (list, dashboard, profile) ——— */
-.ui-empty {
-  text-align: center;
-  padding: 32px 20px;
-  border-radius: var(--detail-section-radius);
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px dashed rgba(28, 20, 16, 0.1);
-}
-
-.ui-empty--compact {
-  padding: 20px 16px;
-}
-
-.ui-empty__icon {
-  font-size: 2.4rem;
-  margin-bottom: 10px;
-  opacity: 0.55;
-}
-
-.ui-empty__title {
-  margin: 0 0 6px;
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.ui-empty__sub {
-  margin: 0 0 18px;
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.45;
-}
-
-.ui-empty__cta {
-  border-radius: 20px;
-}
-
-/* Aliases for legacy empty state classes */
-.ev-page__empty,
-.fd-page__empty,
-.gd-page__empty,
-.tp-page__empty,
-.acc-page__empty,
-.home-section__empty {
-  text-align: center;
-  padding: 32px 20px;
-  border-radius: var(--detail-section-radius);
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px dashed rgba(28, 20, 16, 0.1);
-}
+/* EmptyState styles live in components/ui/EmptyState.css */
 
 .ui-page-header {
   margin-bottom: 24px;
@@ -7998,19 +7951,6 @@ a.chip.chip--accent:hover {
   outline-offset: 2px;
 }
 
-.ui-empty__icon--graphic {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 12px;
-  border-radius: 16px;
-  background: var(--accent-soft);
-  color: var(--accent-hover);
-  font-size: inherit;
-  opacity: 1;
-}
 
 .acc-page__search {
   margin-bottom: 16px;
@@ -8660,15 +8600,6 @@ a.chip.chip--accent:hover {
   font-weight: 700;
   font-size: 13px;
   color: var(--text-secondary);
-}
-
-.acc-page__empty {
-  text-align: center;
-  padding: 36px 16px 28px;
-  border-radius: var(--radius-lg);
-  border: 1px dashed var(--hairline);
-  background: rgba(255, 255, 255, 0.5);
-  margin-top: 8px;
 }
 
 .acc-page__empty-title {
@@ -22473,30 +22404,6 @@ a.chip.chip--accent:hover {
   margin-bottom: 32px;
 }
 
-.home-section__empty {
-  margin: 0;
-  padding: 28px 20px;
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  border: 1px dashed rgba(28, 20, 16, 0.12);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-
-.home-section__empty-text {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.home-section__empty-cta {
-  margin: 0;
-}
 
 .section-see-all {
   flex-shrink: 0;

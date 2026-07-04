@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { Inbox, MessageCircle, PenLine, Search, UserRound } from 'lucide-react'
+import { Link, useOutletContext } from 'react-router-dom'
+import { Inbox, MessageCircle, PenLine, Search, Settings2, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import type { ProviderOutletContext } from '../ProviderLayout'
+import { useBusinessAccess } from '../../hooks/useBusinessAccess'
 import { SearchPanel } from '../marketplace'
 import { MessagesEmptyState } from './MessagesEmptyState'
 import { NewMessageSheet, type MessagePerson } from './NewMessageSheet'
@@ -71,6 +73,10 @@ type Props = {
 
 export function ConversationInbox({ context = 'user', hideSearchPanel = false }: Props) {
   const { profile } = useAuth()
+  const outletCtx = useOutletContext<ProviderOutletContext>()
+  const { canManageSettings } = useBusinessAccess(
+    context === 'provider' ? outletCtx?.activeBusiness?.id : undefined,
+  )
   const copy = COPY[context]
   const [query, setQuery] = useState('')
   const [whenFilter, setWhenFilter] = useState<WhenFilter>('all')
@@ -187,15 +193,22 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
           {filteredConversations.length === 1 ? copy.countSingular : copy.countPlural}
           {whenFilter === 'today' ? ' · today' : ''}
         </p>
-        <button
-          type="button"
-          className={context === 'provider' ? 'prov-msg-inbox__compose' : 'msg-page__new-toggle'}
-          aria-expanded={composeOpen}
-          onClick={() => setComposeOpen(true)}
-        >
-          <PenLine size={14} strokeWidth={2.35} aria-hidden />
-          {copy.newMessage}
-        </button>
+        <div className="prov-msg-inbox__toolbar-actions">
+          <button
+            type="button"
+            className={context === 'provider' ? 'prov-msg-inbox__compose' : 'msg-page__new-toggle'}
+            aria-expanded={composeOpen}
+            onClick={() => setComposeOpen(true)}
+          >
+            <PenLine size={14} strokeWidth={2.35} aria-hidden />
+            {copy.newMessage}
+          </button>
+          {context === 'provider' && canManageSettings ? (
+            <Link to="/provider/messages/settings" className="prov-msg-inbox__settings" aria-label="Messaging automation settings">
+              <Settings2 size={16} strokeWidth={2.25} aria-hidden />
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       {isLoading ? (

@@ -369,6 +369,24 @@ export function Settings() {
       {tab === 'privacy' && (
         <section className="sp__section settings-page__panel" id="sp-panel-privacy" role="tabpanel" aria-labelledby="sp-tab-privacy">
           <h2 id="sp-privacy-title" className="sp__section-title">Privacy &amp; visibility</h2>
+          <p className="sp__section-sub">
+            Control who can find you and who can start new conversations. Existing message threads are not removed when
+            you change these settings.
+          </p>
+
+          <div className="sp__privacy-note" role="note">
+            <p className="sp__privacy-note__title">How discovery works</p>
+            <ul className="sp__privacy-note__list">
+              <li>
+                <strong>Appear in search</strong> — your profile can show up on Search and in the new-message people
+                picker.
+              </li>
+              <li>
+                <strong>Allow message requests</strong> — others can start a new chat with you. When off, your profile
+                may still appear in search, but the Message action is hidden.
+              </li>
+            </ul>
+          </div>
 
           {/* Private account */}
           <div className="sp__toggle-card">
@@ -421,7 +439,8 @@ export function Settings() {
             <div className="sp__toggle-info">
               <p className="sp__toggle-label">Allow message requests</p>
               <p className="sp__toggle-sub">
-                When off, other users cannot send you new messages. Existing conversations are unaffected.
+                When off, others cannot start new chats with you from Search, profiles, or the message composer.
+                Existing conversations stay open.
               </p>
             </div>
             <label className="sp__sw" aria-label="Allow message requests">
@@ -439,7 +458,8 @@ export function Settings() {
             <div className="sp__toggle-info">
               <p className="sp__toggle-label">Appear in search &amp; discovery</p>
               <p className="sp__toggle-sub">
-                When off, your profile won't appear in search results or Delvers discovery.
+                When off, you are hidden from DELVE Search and the new-message people picker. Direct profile links
+                (@username) may still work.
               </p>
             </div>
             <label className="sp__sw" aria-label="Show in search">
@@ -649,8 +669,8 @@ export function Settings() {
               <div>
                 <p className="sp__action-title">Delete account</p>
                 <p className="sp__action-sub">
-                  Permanently anonymize your profile and hide your posts. Booking records are kept without personal
-                  details. This cannot be undone.
+                  Permanently anonymize your profile, hide your posts, and remove you from search and messaging
+                  discovery. Booking records are kept without personal details. This cannot be undone.
                 </p>
               </div>
             </div>

@@ -8,8 +8,8 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ("id", "sender", "sender_username", "body", "read", "created_at")
-        read_only_fields = ("sender", "read", "created_at")
+        fields = ("id", "sender", "sender_username", "body", "read", "is_automated", "created_at")
+        read_only_fields = ("sender", "read", "is_automated", "created_at")
 
 
 def _participant_payload(user, request) -> dict:
@@ -85,6 +85,7 @@ class ConversationSerializer(serializers.ModelSerializer):
                 "sender_username": obj.last_message_sender_username_ann,
                 "body": obj.last_message_body_ann,
                 "read": bool(obj.last_message_read_ann),
+                "is_automated": bool(getattr(obj, "last_message_is_automated_ann", False)),
                 "created_at": obj.last_message_created_ann,
             }
         m = obj.messages.select_related("sender").order_by("-created_at").first()

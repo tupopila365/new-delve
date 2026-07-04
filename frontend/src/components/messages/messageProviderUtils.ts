@@ -50,13 +50,17 @@ export function messageThreadPath(id: number | string, context: MessagingContext
   return PATHS[context].thread(id)
 }
 
-function appendPlaceContext(path: string, place?: MessagePlaceContext | null): string {
-  if (!place?.type || place.id == null || place.id === '') return path
+function appendPlaceContext(path: string, place?: MessagePlaceContext | null, businessId?: number | null): string {
+  if (!place?.type && place?.id == null && businessId == null) return path
   const params = new URLSearchParams()
-  params.set('context_type', place.type)
-  params.set('context_id', String(place.id))
-  if (place.label?.trim()) params.set('context_label', place.label.trim())
-  return `${path}?${params.toString()}`
+  if (place?.type && place.id != null && place.id !== '') {
+    params.set('context_type', place.type)
+    params.set('context_id', String(place.id))
+    if (place.label?.trim()) params.set('context_label', place.label.trim())
+  }
+  if (businessId != null) params.set('business_id', String(businessId))
+  const qs = params.toString()
+  return qs ? `${path}?${qs}` : path
 }
 
 /** Path to open a direct chat with a user (guest, provider, or traveller). */
@@ -64,15 +68,20 @@ export function messageUserPath(
   username: string | undefined | null,
   context: MessagingContext = 'user',
   place?: MessagePlaceContext | null,
+  businessId?: number | null,
 ): string {
   const clean = username?.trim()
   if (!clean) return messageInboxPath(context)
-  return appendPlaceContext(PATHS[context].user(clean), place)
+  return appendPlaceContext(PATHS[context].user(clean), place, businessId)
 }
 
 /** Path to open a direct chat with a service provider (traveller side). */
-export function messageProviderPath(username: string, place?: MessagePlaceContext | null): string {
-  return messageUserPath(username, 'user', place)
+export function messageProviderPath(
+  username: string,
+  place?: MessagePlaceContext | null,
+  businessId?: number | null,
+): string {
+  return messageUserPath(username, 'user', place, businessId)
 }
 
 export function messageProviderLabel(role?: string | null): string {
@@ -97,11 +106,23 @@ export function readPlaceContextFromSearch(params: URLSearchParams): MessagePlac
   }
 }
 
-export function placeContextStartPayload(place: MessagePlaceContext | null | undefined) {
-  if (!place) return {}
-  return {
-    context_type: place.type,
-    context_id: place.id,
-    ...(place.label?.trim() ? { context_label: place.label.trim() } : {}),
+export function readBusinessIdFromSearch(params: URLSearchParams): number | null {
+  const raw = params.get('business_id')?.trim()
+  if (!raw) return null
+  const id = Number(raw)
+  return Number.isFinite(id) ? id : null
+}
+
+export function placeContextStartPayload(
+  place: MessagePlaceContext | null | undefined,
+  businessId?: number | null,
+) {
+  const payload: Record<string, string | number> = {}
+  if (place) {
+    payload.context_type = place.type
+    payload.context_id = place.id
+    if (place.label?.trim()) payload.context_label = place.label.trim()
   }
+  if (businessId != null) payload.business_id = businessId
+  return payload
 }

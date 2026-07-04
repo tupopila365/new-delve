@@ -10,6 +10,7 @@ from accounts.business_access import (
     user_can_manage_booking_for_listing,
 )
 from accounts.permissions import IsProviderOrBusinessMember
+from messaging.booking_automation import notify_booking_confirmed
 
 from .models import GuideBooking, TourGuideProfile
 from .provider_serializers import ProviderGuideBookingSerializer
@@ -64,6 +65,14 @@ class ProviderGuideBookingViewSet(viewsets.ReadOnlyModelViewSet):
             )
         booking.status = target
         booking.save(update_fields=["status"])
+        if target == "confirmed":
+            notify_booking_confirmed(
+                provider=booking.guide.user,
+                guest=booking.client,
+                booking_type="booking_guide",
+                booking_id=booking.pk,
+                context_label=booking.guide.headline or booking.guide.user.username,
+            )
         return Response(ProviderGuideBookingSerializer(booking).data)
 
     @action(detail=True, methods=["post"])

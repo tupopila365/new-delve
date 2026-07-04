@@ -65,6 +65,29 @@
   gap: 10px;
 }
 
+.prov-msg-inbox__toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prov-msg-inbox__settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 250, 242, 0.12);
+  color: rgba(255, 250, 242, 0.72);
+  text-decoration: none;
+}
+
+.prov-msg-inbox__settings:hover {
+  border-color: rgba(255, 154, 82, 0.45);
+  color: #ff9a52;
+}
+
 .prov-msg-inbox__count {
   margin: 0;
   font-size: 0.74rem;

@@ -105,6 +105,40 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+.search-page-simple__empty {
+  width: min(100%, 560px);
+  margin: 20px auto 0;
+}
+
+.search-page-simple__person {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-page-simple__person .search-hit {
+  min-width: 0;
+}
+
+.search-page-simple__message-link {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 154, 82, 0.28);
+  background: rgba(232, 98, 10, 0.12);
+  color: #ff9a52;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.search-page-simple__message-link:hover {
+  background: rgba(232, 98, 10, 0.2);
+  color: #ffb07a;
+}
+
 .search-page-simple__results {
   width: min(100%, 560px);
   margin: 16px auto 0;

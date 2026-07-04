@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Lock, MessageCircle, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
@@ -10,6 +10,7 @@ import {
   messageInboxPath,
   messageThreadPath,
   placeContextStartPayload,
+  readBusinessIdFromSearch,
   readPlaceContextFromSearch,
 } from '../components/messages/messageProviderUtils'
 import '../components/messages/dm/dm-chat.css'
@@ -25,6 +26,7 @@ type PublicMessageProfile = {
   avatar?: string | null
   allow_messages?: boolean
   user_type?: string
+  has_auto_welcome?: boolean
   relationship?: { can_message: boolean }
 }
 
@@ -48,6 +50,7 @@ export function MessageUser({ context = 'user' }: Props) {
   const [searchParams] = useSearchParams()
   const backTo = (location.state as { from?: string; guestName?: string } | null)?.from
   const place = useMemo(() => readPlaceContextFromSearch(searchParams), [searchParams])
+  const businessId = useMemo(() => readBusinessIdFromSearch(searchParams), [searchParams])
   const username = useMemo(() => {
     const parts = location.pathname.split('/')
     const uIdx = parts.indexOf('u')
@@ -56,6 +59,7 @@ export function MessageUser({ context = 'user' }: Props) {
 
   const { profile: me } = useAuth()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const startedFor = useRef('')
   const inboxPath = messageInboxPath(context)
   const isProvider = context === 'provider'
@@ -85,10 +89,13 @@ export function MessageUser({ context = 'user' }: Props) {
         method: 'POST',
         body: JSON.stringify({
           username,
-          ...placeContextStartPayload(place),
+          ...placeContextStartPayload(place, businessId),
         }),
       }),
     onSuccess: (next) => {
+      void qc.invalidateQueries({ queryKey: ['conversations'] })
+      void qc.invalidateQueries({ queryKey: ['msgs', String(next.id)] })
+      void qc.invalidateQueries({ queryKey: ['messaging-unread-count'] })
       navigate(messageThreadPath(next.id, context), {
         replace: true,
         state: backTo ? { from: backTo } : undefined,
@@ -98,12 +105,12 @@ export function MessageUser({ context = 'user' }: Props) {
 
   useEffect(() => {
     if (!me || !target || isSelf || !messagesAllowed || !username) return
-    const key = `${username.toLowerCase()}|${place?.type ?? ''}|${place?.id ?? ''}`
+    const key = `${username.toLowerCase()}|${place?.type ?? ''}|${place?.id ?? ''}|${businessId ?? ''}`
     if (startedFor.current === key) return
     startedFor.current = key
     startMut.mutate()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start once per username+context
-  }, [isSelf, me, messagesAllowed, place?.id, place?.type, target, username])
+  }, [businessId, isSelf, me, messagesAllowed, place?.id, place?.type, target, username])
 
   const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
 
@@ -221,7 +228,6 @@ export function MessageUser({ context = 'user' }: Props) {
         personName={targetName}
         myUsername={me.username}
         messages={[]}
-        automatedMessages={[]}
         body=""
         onBodyChange={() => {}}
         onSend={() => {}}
@@ -230,6 +236,14 @@ export function MessageUser({ context = 'user' }: Props) {
         inboxHref={inboxPath}
         inboxLabel={isProvider ? 'Guest inbox' : 'Inbox'}
         showQuickReplies={false}
+        statusSlot={
+          !isProvider && target.user_type === 'service_provider' && target.has_auto_welcome ? (
+            <p className="dm-chat__auto-notice" role="note">
+              {targetName} sends an automated welcome when you start a new chat. A team member will reply personally
+              soon.
+            </p>
+          ) : null
+        }
       />
     </main>
   )

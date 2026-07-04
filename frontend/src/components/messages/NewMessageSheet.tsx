@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, Search, UserRound, X } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
+import { ApiError, apiFetch, getAccessToken, mediaUrl } from '../../api/client'
 import { MessagesEmptyState } from './MessagesEmptyState'
 import type { MessagingContext } from './messageProviderUtils'
 import { messageThreadPath } from './messageProviderUtils'
@@ -46,14 +47,32 @@ function personMeta(person: MessagePerson): string {
   return place ? `@${person.username} · ${place}` : `@${person.username}`
 }
 
+function buildMessagingPeoplePath(q: string, context: MessagingContext): string {
+  const params = new URLSearchParams()
+  const trimmed = q.trim()
+  if (trimmed) params.set('q', trimmed)
+  if (context === 'provider') params.set('context', 'provider')
+  const qs = params.toString()
+  return qs ? `/api/messaging/people/?${qs}` : '/api/messaging/people/'
+}
+
+function startChatErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 403) {
+    return "This person isn't accepting messages."
+  }
+  return 'Could not start this chat. Try again.'
+}
+
 export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'user' }: Props) {
   const composeCopy = COMPOSE_COPY[context]
+  const { profile } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [startingId, setStartingId] = useState<number | null>(null)
+  const signedIn = Boolean(profile && getAccessToken())
 
   useEffect(() => {
     if (!open) return
@@ -81,16 +100,6 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
     }
   }, [open, onClose])
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['message-people', debouncedQuery],
-    enabled: open,
-    queryFn: () =>
-      apiFetch<{ results: MessagePerson[] }>(
-        `/api/messaging/people/${debouncedQuery ? `?q=${encodeURIComponent(debouncedQuery)}` : ''}`,
-      ),
-    staleTime: 20_000,
-  })
-
   const startMut = useMutation({
     mutationFn: (userId: number) =>
       apiFetch<Conv>('/api/messaging/start/', {
@@ -99,10 +108,26 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
       }),
     onSuccess: (conversation) => {
       void qc.invalidateQueries({ queryKey: ['conversations'] })
+      void qc.invalidateQueries({ queryKey: ['msgs', String(conversation.id)] })
+      void qc.invalidateQueries({ queryKey: ['messaging-unread-count'] })
       onClose()
       navigate(messageThreadPath(conversation.id, context))
     },
     onSettled: () => setStartingId(null),
+  })
+
+  useEffect(() => {
+    if (!open) return
+    startMut.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset compose errors when search changes
+  }, [open, debouncedQuery])
+
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['message-people', context, debouncedQuery],
+    enabled: open && signedIn,
+    queryFn: () => apiFetch<{ results: MessagePerson[] }>(buildMessagingPeoplePath(debouncedQuery, context)),
+    staleTime: 20_000,
+    retry: 1,
   })
 
   const searchResults = data?.results ?? []
@@ -124,9 +149,12 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
 
   function onPick(person: MessagePerson) {
     if (startMut.isPending) return
+    startMut.reset()
     setStartingId(person.id)
     startMut.mutate(person.id)
   }
+
+  const loadingPeople = signedIn && (isLoading || isFetching)
 
   if (!open) return null
 
@@ -167,7 +195,16 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
         </label>
 
         <div className="msg-compose-sheet__body">
-          {isLoading ? (
+          {!signedIn ? (
+            <MessagesEmptyState
+              icon={<UserRound size={22} strokeWidth={1.75} />}
+              title="Sign in to message people"
+              subtitle="Find travellers and providers once you're signed in."
+              action={{ label: 'Sign in', href: '/login' }}
+            />
+          ) : null}
+
+          {signedIn && loadingPeople ? (
             <div className="msg-compose-sheet__loading" aria-label="Loading people">
               {[1, 2, 3, 4, 5].map((item) => (
                 <span key={item} />
@@ -175,27 +212,30 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
             </div>
           ) : null}
 
-          {!isLoading && isError ? (
+          {signedIn && !loadingPeople && isError ? (
             <MessagesEmptyState
               icon={<UserRound size={22} strokeWidth={1.75} />}
               title="Couldn't load people"
               subtitle="Check your connection and try again."
+              action={{ label: 'Retry', onClick: () => void refetch() }}
             />
           ) : null}
 
-          {!isLoading && !isError && list.length === 0 ? (
+          {signedIn && !loadingPeople && !isError && list.length === 0 ? (
             <MessagesEmptyState
               icon={<Search size={22} strokeWidth={1.75} />}
-              title={debouncedQuery ? 'No people found' : 'No suggestions yet'}
+              title={debouncedQuery ? (context === 'provider' ? 'No guests found' : 'No people found') : 'No suggestions yet'}
               subtitle={
                 debouncedQuery
-                  ? 'Try another name or username.'
-                  : 'Message someone from their profile to see them here.'
+                  ? 'Try @username or another spelling.'
+                  : context === 'provider'
+                    ? 'Guests from your bookings and recent chats appear here.'
+                    : 'Recent chats appear here, or search by name or username.'
               }
             />
           ) : null}
 
-          {!isLoading && !isError && list.length > 0 ? (
+          {signedIn && !loadingPeople && !isError && list.length > 0 ? (
             <>
               <p className="msg-compose-sheet__section">{sectionLabel}</p>
               <ul className="msg-compose-sheet__list">
@@ -230,7 +270,7 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
 
           {startMut.isError ? (
             <p className="msg-compose-sheet__error" role="alert">
-              Could not start this chat. Try again.
+              {startChatErrorMessage(startMut.error)}
             </p>
           ) : null}
         </div>

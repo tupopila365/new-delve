@@ -25,7 +25,5 @@ export { DmChatView } from './dm'
 export type { DmMessage } from './dm'
 export {
   messagingUserIdForUsername,
-  buildProviderAutomatedMessages,
   formatMessageTime,
-  DM_QUICK_REPLIES,
 } from './dm'

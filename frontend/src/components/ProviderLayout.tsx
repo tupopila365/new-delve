@@ -45,7 +45,7 @@ export function ProviderLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeBusinessId, setActiveBusinessId] = useState<number | null>(null)
 
-  const { businesses, activeBusiness, canManageListings, canManageBookings, isLoading, canAccessProvider } =
+  const { businesses, activeBusiness, canManageListings, canManageBookings, isLoading, canAccessProvider, canManageSettings } =
     useBusinessAccess(activeBusinessId)
 
   const resolvedBusiness: MyBusiness | undefined =
@@ -212,6 +212,7 @@ export function ProviderLayout() {
               businesses,
               canManageListings,
               canManageBookings,
+              canManageSettings,
             }}
           />
         </div>
@@ -234,4 +235,5 @@ export type ProviderOutletContext = {
   businesses: MyBusiness[]
   canManageListings: boolean
   canManageBookings: boolean
+  canManageSettings: boolean
 }

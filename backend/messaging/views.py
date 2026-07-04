@@ -14,10 +14,20 @@ from config.throttles import MessageStartThrottle, MessagingPeopleSearchThrottle
 from .models import (
     CONTEXT_TYPES,
     Conversation,
+    MAX_AUTO_WELCOME_BODY,
     Message,
     MessageBlock,
     make_pair_key,
     resolve_context_label,
+)
+from .provider_messaging import (
+    get_or_create_provider_messaging_settings,
+    normalize_quick_replies,
+    resolve_provider_messaging_access,
+    resolve_settings_for_read,
+    send_provider_auto_welcome_if_needed,
+    serialize_provider_messaging_settings_response,
+    validate_provider_messaging_settings,
 )
 from .serializers import ConversationSerializer, MessageSerializer
 
@@ -46,6 +56,7 @@ def _conversations_for_user(user):
             last_message_sender_username_ann=Subquery(last_msg.values("sender__username")[:1]),
             last_message_created_ann=Subquery(last_msg.values("created_at")[:1]),
             last_message_read_ann=Subquery(last_msg.values("read")[:1]),
+            last_message_is_automated_ann=Subquery(last_msg.values("is_automated")[:1]),
         )
         .prefetch_related("participants", "participants__profile")
         .order_by("-updated_at")
@@ -395,6 +406,13 @@ class StartOrGetConversationView(APIView):
             with transaction.atomic():
                 conv = Conversation.objects.create(pair_key=pair_key)
                 conv.participants.add(request.user.id, other.id)
+                _apply_context(conv, request.data)
+                send_provider_auto_welcome_if_needed(
+                    conv,
+                    request.user,
+                    other,
+                    start_data=request.data,
+                )
         except IntegrityError:
             conv = Conversation.objects.filter(pair_key=pair_key).first()
             if conv is None:
@@ -403,6 +421,53 @@ class StartOrGetConversationView(APIView):
         _apply_context(conv, request.data)
         conv = _conversations_for_user(request.user).filter(pk=conv.pk).first() or conv
         return Response(ConversationSerializer(conv, context={"request": request}).data)
+
+
+class ProviderMessagingSettingsView(APIView):
+    """Automated welcome and quick replies for providers and business managers."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        access, err = resolve_provider_messaging_access(
+            request.user,
+            request.query_params.get("business_id"),
+        )
+        if err:
+            return err
+        row, inherits = resolve_settings_for_read(access)
+        return Response(serialize_provider_messaging_settings_response(row, access, inherits_account_default=inherits))
+
+    def patch(self, request):
+        access, err = resolve_provider_messaging_access(
+            request.user,
+            request.query_params.get("business_id"),
+        )
+        if err:
+            return err
+        row = get_or_create_provider_messaging_settings(access.owner, business=access.business)
+        data = request.data
+        if "auto_welcome_enabled" in data:
+            row.auto_welcome_enabled = bool(data["auto_welcome_enabled"])
+        if "auto_welcome_body" in data:
+            body = str(data["auto_welcome_body"] or "").strip()
+            row.auto_welcome_body = body[:MAX_AUTO_WELCOME_BODY]
+        if "booking_confirmed_enabled" in data:
+            row.booking_confirmed_enabled = bool(data["booking_confirmed_enabled"])
+        if "booking_confirmed_body" in data:
+            body = str(data["booking_confirmed_body"] or "").strip()
+            row.booking_confirmed_body = body[:MAX_AUTO_WELCOME_BODY]
+        if "quick_replies_enabled" in data:
+            row.quick_replies_enabled = bool(data["quick_replies_enabled"])
+        if "quick_replies" in data:
+            row.quick_replies = normalize_quick_replies(data["quick_replies"])
+        err = validate_provider_messaging_settings(row)
+        if err:
+            return Response({"detail": err}, status=400)
+        row.save()
+        return Response(
+            serialize_provider_messaging_settings_response(row, access, inherits_account_default=False)
+        )
 
 
 class UnreadCountView(APIView):

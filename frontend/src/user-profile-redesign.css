@@ -538,34 +538,34 @@ button.up__post-card--btn {
   background: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Empty states inside profile */
+/* Empty states inside profile — compact variant on tab panels */
 .up.up--premium .ui-empty {
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-shadow: none;
   padding: 28px 12px;
+}
+
+.up.up--premium .ui-empty::before {
+  display: none;
 }
 
 .up.up--premium .ui-empty__icon--graphic {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.42);
 }
 
 .up.up--premium .ui-empty__title {
-  color: rgba(255, 255, 255, 0.88);
   font-size: 0.88rem;
 }
 
 .up.up--premium .ui-empty__sub {
-  color: rgba(255, 255, 255, 0.42);
   font-size: 0.76rem;
 }
 
 .up.up--premium .ui-empty__cta {
-  border-radius: 10px;
   font-size: 0.78rem;
 }
 

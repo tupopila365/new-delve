@@ -1,10 +1,13 @@
 import { useMemo } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import type { ProviderOutletContext } from '../components/ProviderLayout'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { ConversationContextChip } from '../components/messages/ConversationContextChip'
-import { buildProviderAutomatedMessages, DmChatView, useConversationThread } from '../components/messages/dm'
+import { DmChatView, useConversationThread } from '../components/messages/dm'
+import { useProviderMessagingSettings } from '../components/messages/useProviderMessagingSettings'
 import type {
   ConversationContextPayload,
   MessagingContext,
@@ -86,6 +89,16 @@ export function MessageThread({ context = 'user' }: Props) {
     enabled: Boolean(profile && id && other),
   })
 
+  const outletCtx = useOutletContext<ProviderOutletContext>()
+  const businessId = isProvider ? outletCtx?.activeBusiness?.id : undefined
+  const { canManageSettings } = useBusinessAccess(businessId)
+
+  const { data: providerMessagingSettings } = useProviderMessagingSettings({
+    enabled: isProvider,
+    businessId,
+    canManageSettings,
+  })
+
   const blockMut = useMutation({
     mutationFn: () =>
       apiFetch('/api/messaging/blocks/', {
@@ -101,10 +114,12 @@ export function MessageThread({ context = 'user' }: Props) {
 
   const personName = other?.display_name?.trim() || other?.username || 'Conversation'
   const personAvatar = mediaUrl(other?.avatar ?? otherProfile?.avatar ?? null)
-  const automatedMessages = useMemo(() => {
-    if (isProvider || !otherProfile) return []
-    return buildProviderAutomatedMessages(otherProfile)
-  }, [isProvider, otherProfile])
+  const providerQuickReplies =
+    isProvider &&
+    providerMessagingSettings?.quick_replies_enabled &&
+    providerMessagingSettings.quick_replies.length > 0
+      ? providerMessagingSettings.quick_replies
+      : undefined
 
   const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
 
@@ -140,7 +155,8 @@ export function MessageThread({ context = 'user' }: Props) {
         personName={personName}
         myUsername={profile.username}
         messages={messages}
-        automatedMessages={automatedMessages}
+        showQuickReplies={isProvider}
+        quickReplies={providerQuickReplies}
         body={body}
         onBodyChange={setBody}
         onSend={send}

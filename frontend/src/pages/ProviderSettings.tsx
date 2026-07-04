@@ -227,6 +227,13 @@ export function ProviderSettings() {
         ariaLabel="Settings sections"
       />
 
+      {canManageSettings ? (
+        <Link to="/provider/messages/settings" className="prov-settings__msg-automation">
+          <strong>Messaging automation</strong>
+          <span>Configure an automated welcome when guests message you, plus optional reply shortcuts.</span>
+        </Link>
+      ) : null}
+
       <SaveBanner saved={saved} error={error} />
 
       {tab === 'business' && activeBusiness ? (

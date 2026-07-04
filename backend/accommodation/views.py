@@ -12,6 +12,7 @@ from accounts.business_access import (
     user_can_manage_listing,
 )
 from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember, IsServiceProvider
+from messaging.booking_automation import notify_booking_confirmed
 
 from .filters import AccommodationListingFilter
 from .models import (
@@ -370,6 +371,14 @@ class AccommodationProviderBookingViewSet(viewsets.ReadOnlyModelViewSet):
         ser.is_valid(raise_exception=True)
         booking.status = target_status
         booking.save(update_fields=["status"])
+        if target_status == BookingStatus.CONFIRMED:
+            notify_booking_confirmed(
+                provider=booking.listing.owner,
+                guest=booking.guest,
+                booking_type="booking_stay",
+                booking_id=booking.pk,
+                context_label=booking.listing.title,
+            )
         return Response(ProviderAccommodationBookingSerializer(booking).data)
 
 

@@ -10,6 +10,7 @@ from accommodation.serializers import ProviderBookingStatusSerializer
 
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_booking_for_listing
 from accounts.permissions import IsProviderOrBusinessMember
+from messaging.booking_automation import notify_booking_confirmed
 
 from .models import SeatReservation, VehicleRentalBooking, VehicleRentalListing
 from .provider_serializers import ProviderRentalBookingSerializer, ProviderSeatBookingSerializer
@@ -35,7 +36,14 @@ class _ProviderBookingActionsMixin:
         ser.is_valid(raise_exception=True)
         booking.status = target_status
         booking.save(update_fields=["status"])
+        if target_status == BookingStatus.CONFIRMED:
+            payload = self._booking_confirmed_automessage_payload(booking)
+            if payload:
+                notify_booking_confirmed(**payload)
         return Response(self.get_serializer(booking).data)
+
+    def _booking_confirmed_automessage_payload(self, booking):
+        return None
 
     @action(detail=True, methods=["post"])
     def confirm(self, request, pk=None):
@@ -65,6 +73,15 @@ class ProviderRentalBookingViewSet(_ProviderBookingActionsMixin, viewsets.ReadOn
     def _listing_owner_id(self, booking):
         return booking.listing.owner_id
 
+    def _booking_confirmed_automessage_payload(self, booking):
+        return {
+            "provider": booking.listing.owner,
+            "guest": booking.renter,
+            "booking_type": "booking_vehicle",
+            "booking_id": booking.pk,
+            "context_label": booking.listing.title,
+        }
+
     def get_queryset(self):
         owner_ids = provider_listing_owner_ids(self.request.user)
         listing_ids = VehicleRentalListing.objects.filter(owner_id__in=owner_ids).values_list("pk", flat=True)
@@ -86,11 +103,28 @@ class ProviderSeatBookingViewSet(_ProviderBookingActionsMixin, viewsets.ReadOnly
     def _listing_owner_id(self, booking):
         return booking.trip.route.operator.owner_id
 
+    def _booking_confirmed_automessage_payload(self, booking):
+        route = booking.trip.route
+        return {
+            "provider": route.operator.owner,
+            "guest": booking.passenger,
+            "booking_type": "booking_bus",
+            "booking_id": booking.pk,
+            "context_label": f"{route.origin} → {route.destination}",
+        }
+
     def get_queryset(self):
         owner_ids = provider_listing_owner_ids(self.request.user)
         qs = (
             SeatReservation.objects.filter(trip__route__operator__owner_id__in=owner_ids)
-            .select_related("trip", "trip__route", "trip__route__operator", "passenger", "passenger__profile")
+            .select_related(
+                "trip",
+                "trip__route",
+                "trip__route__operator",
+                "trip__route__operator__owner",
+                "passenger",
+                "passenger__profile",
+            )
             .order_by("-created_at")
         )
         status_filter = (self.request.query_params.get("status") or "").strip()

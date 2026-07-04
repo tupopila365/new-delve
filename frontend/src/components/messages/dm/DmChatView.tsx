@@ -2,7 +2,7 @@ import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Ban, Bot, Loader2, Send, UserRound } from 'lucide-react'
 import { ReportButton } from '../../report/ReportButton'
-import { DM_QUICK_REPLIES, formatMessageTime, PROVIDER_DM_QUICK_REPLIES, type AutomatedMessage } from './messagingUtils'
+import { formatMessageTime } from './messagingUtils'
 import type { MessagingContext } from '../messageProviderUtils'
 import './dm-chat.css'
 
@@ -11,6 +11,7 @@ export type DmMessage = {
   sender_username: string
   body: string
   created_at?: string
+  is_automated?: boolean
   pending?: boolean
   failed?: boolean
 }
@@ -28,7 +29,6 @@ type Props = {
   personName: string
   myUsername: string
   messages: DmMessage[]
-  automatedMessages?: AutomatedMessage[]
   body: string
   onBodyChange: (value: string) => void
   onSend: () => void
@@ -57,7 +57,6 @@ export function DmChatView({
   personName,
   myUsername,
   messages,
-  automatedMessages = [],
   body,
   onBodyChange,
   onSend,
@@ -69,7 +68,7 @@ export function DmChatView({
   inboxHref = '/messages',
   inboxLabel = 'Inbox',
   statusSlot,
-  showQuickReplies = true,
+  showQuickReplies,
   context = 'user',
   quickReplies,
   reportTarget,
@@ -81,9 +80,9 @@ export function DmChatView({
   blocking = false,
 }: Props) {
   const location = [person.city, person.region].filter(Boolean).join(', ')
-  const showAutomated = automatedMessages.length > 0 && messages.length === 0 && !loading
-  const replies =
-    quickReplies ?? (context === 'provider' ? PROVIDER_DM_QUICK_REPLIES : DM_QUICK_REPLIES)
+  const isProviderContext = context === 'provider'
+  const replies = quickReplies ?? []
+  const showQuickReplyChips = (showQuickReplies ?? isProviderContext) && replies.length > 0
   const chatClass = context === 'provider' ? 'dm-chat dm-chat--provider' : 'dm-chat'
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -183,34 +182,27 @@ export function DmChatView({
               </div>
             ) : null}
 
-            {showAutomated
-              ? automatedMessages.map((msg) => (
-                  <article key={msg.id} className="dm-chat__bubble dm-chat__bubble--auto">
-                    {msg.label ? (
-                      <span className="dm-chat__auto-label">
-                        <Bot size={12} strokeWidth={2.25} aria-hidden />
-                        {msg.label}
-                      </span>
-                    ) : null}
-                    <p>{msg.body}</p>
-                  </article>
-                ))
-              : null}
-
             {messages.map((message) => {
               const mine = message.sender_username === myUsername
+              const automated = Boolean(message.is_automated) && !mine
               return (
                 <article
                   key={message.id}
                   className={[
                     'dm-chat__bubble',
-                    mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs',
+                    automated ? 'dm-chat__bubble--auto' : mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs',
                     message.pending ? 'dm-chat__bubble--pending' : '',
                     message.failed ? 'dm-chat__bubble--failed' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
                 >
+                  {automated ? (
+                    <span className="dm-chat__auto-label">
+                      <Bot size={12} strokeWidth={2.25} aria-hidden />
+                      Automated · Provider
+                    </span>
+                  ) : null}
                   <p>{message.body}</p>
                   {message.pending ? (
                     <small>Sending…</small>
@@ -232,7 +224,7 @@ export function DmChatView({
         ) : null}
       </div>
 
-      {showQuickReplies && !opening ? (
+      {showQuickReplyChips && replies.length > 0 && !opening ? (
         <div className="dm-chat__quick" aria-label="Quick replies">
           {replies.map((text) => (
             <button key={text} type="button" className="dm-chat__quick-btn" onClick={() => applyQuickReply(text)}>

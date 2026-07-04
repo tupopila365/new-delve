@@ -342,6 +342,86 @@ class MessagingPeopleSearchTests(TestCase):
         self.assertEqual(usernames[0], "bob_people")
 
 
+class MessagingProviderPeopleSearchTests(TestCase):
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from accommodation.models import AccommodationBooking, BookingStatus
+
+        self.client = APIClient()
+        self.provider = User.objects.create_user(
+            username="host_provider", email="host@test.local", password="pass12345"
+        )
+        self.guest = User.objects.create_user(
+            username="booked_guest", email="guest@test.local", password="pass12345"
+        )
+        self.stranger = User.objects.create_user(
+            username="random_traveller", email="stranger@test.local", password="pass12345"
+        )
+        Profile.objects.filter(user=self.provider).update(display_name="Host Provider", allow_messages=True)
+        Profile.objects.filter(user=self.guest).update(
+            display_name="Booked Guest", allow_messages=True, show_in_search=False
+        )
+        Profile.objects.filter(user=self.stranger).update(
+            display_name="Random Traveller", allow_messages=True, show_in_search=True
+        )
+        self.listing = AccommodationListing.objects.create(
+            owner=self.provider,
+            title="Provider Lodge",
+            region="Khomas",
+            city="Windhoek",
+            price_per_night="900.00",
+        )
+        today = timezone.now().date()
+        AccommodationBooking.objects.create(
+            listing=self.listing,
+            guest=self.guest,
+            check_in=today + timedelta(days=5),
+            check_out=today + timedelta(days=7),
+            total_price="1800.00",
+            status=BookingStatus.CONFIRMED,
+        )
+
+    def test_provider_people_search_lists_booked_guest(self):
+        self.client.force_authenticate(user=self.provider)
+        res = self.client.get("/api/messaging/people/?context=provider&q=booked")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("booked_guest", usernames)
+
+    def test_provider_people_search_excludes_unrelated_travellers(self):
+        self.client.force_authenticate(user=self.provider)
+        res = self.client.get("/api/messaging/people/?context=provider&q=random")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertNotIn("random_traveller", usernames)
+
+    def test_provider_people_search_includes_guest_hidden_from_search(self):
+        self.client.force_authenticate(user=self.provider)
+        res = self.client.get("/api/messaging/people/?context=provider")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("booked_guest", usernames)
+
+    def test_provider_people_search_includes_recent_conversation_partner(self):
+        self.client.force_authenticate(user=self.provider)
+        start = self.client.post("/api/messaging/start/", {"username": "random_traveller"}, format="json")
+        self.assertEqual(start.status_code, 200)
+        res = self.client.get("/api/messaging/people/?context=provider")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("random_traveller", usernames)
+
+    def test_traveller_people_search_still_global(self):
+        self.client.force_authenticate(user=self.provider)
+        res = self.client.get("/api/messaging/people/?q=random")
+        self.assertEqual(res.status_code, 200)
+        usernames = [row["username"] for row in res.data["results"]]
+        self.assertIn("random_traveller", usernames)
+
+
 class MessagingPhaseDTests(TestCase):
     def setUp(self):
         self.client = APIClient()

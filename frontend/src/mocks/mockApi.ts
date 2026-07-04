@@ -65,6 +65,7 @@ type MockAccBookingRow = {
   id: number
   listing: number
   listing_title: string
+  guest?: string
   check_in: string
   check_out: string
   guests: number
@@ -1059,7 +1060,20 @@ type MockMessagingMsg = {
   body: string
   created_at: string
   read: boolean
+  is_automated?: boolean
 }
+
+type MockProviderMessagingSettings = {
+  auto_welcome_enabled: boolean
+  auto_welcome_body: string
+  booking_confirmed_enabled: boolean
+  booking_confirmed_body: string
+  quick_replies_enabled: boolean
+  quick_replies: string[]
+  updated_at: string
+}
+
+const mockProviderMessagingSettings = new Map<string, MockProviderMessagingSettings>()
 
 const mockMessagingConversations = new Map<number, MockMessagingConv>()
 const mockMessagingMessages = new Map<number, MockMessagingMsg[]>()
@@ -1109,6 +1123,186 @@ function messagingPairKey(a: number, b: number): string {
   const x = Math.min(a, b)
   const y = Math.max(a, b)
   return `${x}:${y}`
+}
+
+function mockProviderGuestUsernames(s: MockState, providerUsername: string): Set<string> {
+  const guests = new Set<string>()
+  const ownedStayIds = new Set(mockStays.filter((st) => st.owner_username === providerUsername).map((st) => st.id))
+  const ownedStayTitles = new Set(
+    mockStays.filter((st) => st.owner_username === providerUsername).map((st) => st.title),
+  )
+
+  for (const row of mockAccBookings.values()) {
+    if (ownedStayIds.has(row.listing) && row.guest) guests.add(row.guest)
+  }
+  for (const row of [
+    { listing_title: 'Coastal guesthouse', guest_username: 'demo_user' },
+    { listing_title: 'Independence Ave Hotel', guest_username: 'demo_user' },
+    { listing_title: 'Freesia Hotel', guest_username: 'anna' },
+  ]) {
+    if (ownedStayTitles.has(row.listing_title)) guests.add(row.guest_username)
+  }
+
+  const guide = mockGuides.find((g) => g.username === providerUsername)
+  if (guide) {
+    if (guide.username === 'guide_pro') {
+      guests.add('demo_user')
+      guests.add('anna')
+    }
+    for (const row of mockGuideBookings.values()) {
+      if (row.guide === guide.id && row.client) guests.add(String(row.client))
+    }
+  }
+
+  const ownedVehicleIds = new Set(
+    mockVehicles.filter((v) => v.owner_username === providerUsername).map((v) => v.id),
+  )
+  for (const row of mockVehicleBookings.values()) {
+    if (ownedVehicleIds.has(row.listing) && row.client) guests.add(row.client)
+  }
+
+  const ownedFoodIds = new Set(mockFood.filter((f) => f.owner_username === providerUsername).map((f) => f.id))
+  for (const row of mockFoodReservationRows.values()) {
+    if (ownedFoodIds.has(row.venue) && row.client) guests.add(row.client)
+  }
+
+  const ownedTripIds = new Set(
+    mockBusTrips
+      .filter((t) => (t as { owner_username?: string }).owner_username === providerUsername)
+      .map((t) => t.id),
+  )
+  for (const row of mockBusReservationRows.values()) {
+    if (ownedTripIds.has(row.trip) && row.client) guests.add(row.client)
+  }
+
+  return guests
+}
+
+function mockProviderSettingsKey(ownerUsername: string, businessId: number | null): string {
+  return businessId != null ? `biz:${businessId}` : `user:${ownerUsername}`
+}
+
+function mockProviderMessagingSettingsFor(
+  ownerUsername: string,
+  businessId: number | null = null,
+): MockProviderMessagingSettings {
+  const key = mockProviderSettingsKey(ownerUsername, businessId)
+  let row = mockProviderMessagingSettings.get(key)
+  if (!row) {
+    row = {
+      auto_welcome_enabled: false,
+      auto_welcome_body: '',
+      booking_confirmed_enabled: false,
+      booking_confirmed_body: '',
+      quick_replies_enabled: false,
+      quick_replies: [],
+      updated_at: nowIso(),
+    }
+    mockProviderMessagingSettings.set(key, row)
+  }
+  return row
+}
+
+function mockFindBusinessById(businessId: number) {
+  const seeded = mockBusinessProfiles.find((b) => b.id === businessId)
+  if (seeded) return seeded
+  for (const rows of mockUserBusinesses.values()) {
+    const hit = rows.find((b) => b.id === businessId)
+    if (hit) return hit
+  }
+  return undefined
+}
+
+function mockResolveProviderSettingsForRead(ownerUsername: string, businessId: number | null) {
+  if (businessId != null) {
+    const bizKey = mockProviderSettingsKey(ownerUsername, businessId)
+    const bizRow = mockProviderMessagingSettings.get(bizKey)
+    if (bizRow) return { row: bizRow, inherits: false }
+    const defaultRow = mockProviderMessagingSettings.get(mockProviderSettingsKey(ownerUsername, null))
+    if (defaultRow) return { row: defaultRow, inherits: true }
+    return { row: mockProviderMessagingSettingsFor(ownerUsername, businessId), inherits: false }
+  }
+  return { row: mockProviderMessagingSettingsFor(ownerUsername, null), inherits: false }
+}
+
+function mockEffectiveWelcomeSettings(ownerUsername: string, businessId: number | null) {
+  if (businessId != null) {
+    const bizKey = mockProviderSettingsKey(ownerUsername, businessId)
+    const bizRow = mockProviderMessagingSettings.get(bizKey)
+    if (bizRow) return bizRow
+  }
+  return mockProviderMessagingSettings.get(mockProviderSettingsKey(ownerUsername, null))
+}
+
+function mockMaybeSendProviderAutoWelcome(
+  s: MockState,
+  convId: number,
+  initiatorId: number,
+  recipientId: number,
+  startPayload?: { business_id?: unknown; context_type?: unknown },
+) {
+  if (initiatorId === recipientId) return
+  const recipientUsername = messagingUsernameForId(s, recipientId)
+  const profile = s.profiles[recipientUsername]
+  if (!profile || profile.user_type !== 'service_provider') return
+  let businessId: number | null = null
+  const rawBusinessId = startPayload?.business_id
+  if (rawBusinessId != null && rawBusinessId !== '') {
+    const parsed = Number(rawBusinessId)
+    if (Number.isFinite(parsed)) {
+      const business = mockFindBusinessById(parsed)
+      if (business?.owner_username === recipientUsername) businessId = parsed
+    }
+  } else if (startPayload?.context_type) {
+    const owned = mockBusinessProfiles.filter((b) => b.owner_username === recipientUsername)
+    const created = mockUserBusinesses.get(recipientUsername) ?? []
+    const all = [...owned, ...created]
+    if (all.length === 1) businessId = all[0].id
+  }
+  const settings =
+    mockEffectiveWelcomeSettings(recipientUsername, businessId) ??
+    mockProviderMessagingSettingsFor(recipientUsername, null)
+  if (!settings.auto_welcome_enabled) return
+  const body = settings.auto_welcome_body.trim()
+  if (!body) return
+  const list = mockMessagingMessages.get(convId) ?? []
+  if (list.length > 0) return
+  const msg: MockMessagingMsg = {
+    id: mockMessagingMsgSeq++,
+    senderId: recipientId,
+    body,
+    created_at: nowIso(),
+    read: false,
+    is_automated: true,
+  }
+  mockMessagingMessages.set(convId, [msg])
+}
+
+function mockProviderHasAutoWelcome(username: string): boolean {
+  const keys = [mockProviderSettingsKey(username, null)]
+  for (const b of mockBusinessProfiles) {
+    if (b.owner_username === username) keys.push(mockProviderSettingsKey(username, b.id))
+  }
+  for (const b of mockUserBusinesses.get(username) ?? []) {
+    keys.push(mockProviderSettingsKey(username, b.id))
+  }
+  return keys.some((key) => {
+    const settings = mockProviderMessagingSettings.get(key)
+    return Boolean(settings?.auto_welcome_enabled && settings.auto_welcome_body.trim())
+  })
+}
+
+function mockValidateProviderMessagingSettings(row: MockProviderMessagingSettings): string | null {
+  if (row.auto_welcome_enabled && !row.auto_welcome_body.trim()) {
+    return 'Welcome message is required when automated welcome is enabled.'
+  }
+  if (row.booking_confirmed_enabled && !row.booking_confirmed_body.trim()) {
+    return 'Booking confirmed message is required when booking automation is enabled.'
+  }
+  if (row.quick_replies_enabled && row.quick_replies.length === 0) {
+    return 'Add at least one quick reply shortcut or turn the feature off.'
+  }
+  return null
 }
 
 function messagingEnsureSeed() {
@@ -1243,6 +1437,7 @@ function messagingSerializeMessage(s: MockState, m: MockMessagingMsg) {
     sender_username: messagingUsernameForId(s, m.senderId),
     body: m.body,
     read: m.read,
+    is_automated: Boolean(m.is_automated),
     created_at: m.created_at,
   }
 }
@@ -2213,6 +2408,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       is_private: mp.is_private ?? false,
       posts_visibility: mp.posts_visibility ?? 'public',
       allow_messages: mp.allow_messages ?? true,
+      has_auto_welcome: mp.user_type === 'service_provider' ? mockProviderHasAutoWelcome(key) : false,
       stats: mockProfileStats(s, key),
       relationship: mockProfileRelationship(s, viewer, key),
       owned_businesses: allPublicBusinesses()
@@ -3531,6 +3727,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       id,
       listing: listingId,
       listing_title: listing.title,
+      guest: s.currentUser as string,
       check_in: checkIn,
       check_out: checkOut,
       guests,
@@ -6137,8 +6334,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.currentUser as string
     const qq = (q.get('q') || '').trim().toLowerCase()
-    const results = Object.values(s.profiles)
-      .filter((p) => p.username !== me && p.allow_messages !== false)
+    const providerContext = (q.get('context') || '').trim().toLowerCase() === 'provider'
+    let pool = Object.values(s.profiles).filter((p) => p.username !== me && p.allow_messages !== false)
+    if (providerContext) {
+      const allowed = mockProviderGuestUsernames(s, me)
+      const myId = messagingNumericIdForUsername(me)
+      for (const conv of mockMessagingConversations.values()) {
+        if (!conv.participantIds.includes(myId)) continue
+        for (const pid of conv.participantIds) {
+          if (pid === myId) continue
+          allowed.add(messagingUsernameForId(s, pid))
+        }
+      }
+      pool = pool.filter((p) => allowed.has(p.username))
+    } else {
+      pool = pool.filter((p) => p.show_in_search !== false)
+    }
+    const results = pool
       .filter((p) => {
         if (!qq) return true
         return (
@@ -6298,6 +6510,93 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { marked_read: marked }
   }
 
+  if (pathname === '/api/messaging/provider-settings/' && (method === 'GET' || method === 'PATCH')) {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const businessIdRaw = q.get('business_id')
+    let ownerUsername = me
+    let businessId: number | null = null
+    let businessName: string | null = null
+
+    if (businessIdRaw) {
+      const businessIdNum = Number(businessIdRaw)
+      const seeded = mockBusinessProfiles.find((b) => b.id === businessIdNum)
+      const created = [...mockUserBusinesses.values()]
+        .flat()
+        .find((b) => b.id === businessIdNum)
+      const business = seeded ?? created
+      if (!business) {
+        throw new ApiError('Not found', 404, { detail: 'Business not found.' })
+      }
+      ownerUsername = business.owner_username
+      businessId = business.id
+      businessName = business.business_name
+      const ownerProfile = s.profiles[ownerUsername]
+      if (!ownerProfile || ownerProfile.user_type !== 'service_provider') {
+        throw new ApiError('Bad request', 400, { detail: 'Business owner is not a service provider.' })
+      }
+      if (me !== ownerUsername) {
+        throw new ApiError('Forbidden', 403, {
+          detail: 'You do not have permission to manage messaging settings for this business.',
+        })
+      }
+    } else {
+      const profile = s.profiles[me]
+      if (!profile || profile.user_type !== 'service_provider') {
+        throw new ApiError('Forbidden', 403, { detail: 'Service providers only.' })
+      }
+    }
+
+    const { row, inherits } =
+      method === 'PATCH'
+        ? { row: mockProviderMessagingSettingsFor(ownerUsername, businessId), inherits: false }
+        : mockResolveProviderSettingsForRead(ownerUsername, businessId)
+    if (method === 'PATCH') {
+      if (!isJsonBody(init.body)) throw new ApiError('Invalid body', 400, null)
+      const payload = JSON.parse(init.body) as Record<string, unknown>
+      if ('auto_welcome_enabled' in payload) row.auto_welcome_enabled = Boolean(payload.auto_welcome_enabled)
+      if ('auto_welcome_body' in payload) {
+        row.auto_welcome_body = String(payload.auto_welcome_body ?? '').trim().slice(0, 1000)
+      }
+      if ('booking_confirmed_enabled' in payload) {
+        row.booking_confirmed_enabled = Boolean(payload.booking_confirmed_enabled)
+      }
+      if ('booking_confirmed_body' in payload) {
+        row.booking_confirmed_body = String(payload.booking_confirmed_body ?? '').trim().slice(0, 1000)
+      }
+      if ('quick_replies_enabled' in payload) row.quick_replies_enabled = Boolean(payload.quick_replies_enabled)
+      if ('quick_replies' in payload && Array.isArray(payload.quick_replies)) {
+        row.quick_replies = payload.quick_replies
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 6)
+          .map((item) => item.slice(0, 120))
+      }
+      row.updated_at = nowIso()
+      mockProviderMessagingSettings.set(mockProviderSettingsKey(ownerUsername, businessId), row)
+    }
+    const validationError = mockValidateProviderMessagingSettings(row)
+    if (validationError) {
+      throw new ApiError('Bad request', 400, { detail: validationError })
+    }
+    return {
+      auto_welcome_enabled: row.auto_welcome_enabled,
+      auto_welcome_body: row.auto_welcome_body,
+      booking_confirmed_enabled: row.booking_confirmed_enabled,
+      booking_confirmed_body: row.booking_confirmed_body,
+      quick_replies_enabled: row.quick_replies_enabled,
+      quick_replies: row.quick_replies,
+      updated_at: row.updated_at,
+      business_id: businessId,
+      business_name: businessName,
+      owner_username: ownerUsername,
+      managed_for_owner: ownerUsername !== me,
+      inherits_account_default: method === 'GET' ? inherits : false,
+      scope: businessId != null ? 'business' : 'account',
+    }
+  }
+
   if (pathname === '/api/messaging/start/' && method === 'POST') {
     requireAuth(s)
     if (!isJsonBody(init.body)) {
@@ -6309,6 +6608,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       context_type?: unknown
       context_id?: unknown
       context_label?: unknown
+      business_id?: unknown
     }
     const me = messagingNumericIdForUsername(s.currentUser as string)
     let otherId: number | null = null
@@ -6353,6 +6653,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     messagingApplyContext(conv, payload)
     mockMessagingConversations.set(id, conv)
     mockMessagingMessages.set(id, [])
+    mockMaybeSendProviderAutoWelcome(s, id, me, otherId, payload)
     return messagingSerializeConversation(s, conv, me)
   }
 
@@ -6471,16 +6772,22 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
               textMatch(p.city ?? '', qq),
           )
           .slice(0, limit)
-          .map(([username, p], i) => ({
-            id: i + 1,
-            username,
-            display_name: p.display_name ?? username,
-            avatar: p.avatar ?? null,
-            user_type: p.user_type,
-            city: p.city ?? '',
-            region: p.region ?? '',
-            bio: (p.bio ?? '').slice(0, 160),
-          }))
+          .map(([username, p], i) => {
+            const row: Record<string, unknown> = {
+              id: i + 1,
+              username,
+              display_name: p.display_name ?? username,
+              avatar: p.avatar ?? null,
+              user_type: p.user_type,
+              city: p.city ?? '',
+              region: p.region ?? '',
+              bio: (p.bio ?? '').slice(0, 160),
+            }
+            if (s.currentUser) {
+              row.can_message = mockProfileRelationship(s, s.currentUser as string, username).can_message
+            }
+            return row
+          })
       : []
 
     return {

@@ -22,6 +22,7 @@ CONTEXT_TYPES = frozenset(
         "booking_vehicle",
         "booking_bus",
         "booking_food",
+        "booking_event",
     }
 )
 
@@ -37,6 +38,7 @@ CONTEXT_HREF_TEMPLATES = {
     "booking_vehicle": "/dashboard/bookings/vehicle/{id}",
     "booking_bus": "/dashboard/bookings/bus/{id}",
     "booking_food": "/dashboard/bookings/food/{id}",
+    "booking_event": "/dashboard/bookings/event/{id}",
 }
 
 
@@ -146,10 +148,85 @@ class Message(models.Model):
     )
     body = models.TextField()
     read = models.BooleanField(default=False)
+    is_automated = models.BooleanField(
+        default=False,
+        help_text="Provider-configured welcome or system message; not typed live by the sender.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["created_at"]
+
+
+MAX_AUTO_WELCOME_BODY = 1000
+MAX_QUICK_REPLY_LEN = 120
+MAX_QUICK_REPLIES = 6
+
+
+class ProviderMessagingSettings(models.Model):
+    """Automated welcome and composer shortcuts — per provider account or business."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="provider_messaging_settings",
+    )
+    business = models.OneToOneField(
+        "accounts.BusinessProfile",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="messaging_settings",
+    )
+    auto_welcome_enabled = models.BooleanField(default=False)
+    auto_welcome_body = models.TextField(blank=True, default="")
+    booking_confirmed_enabled = models.BooleanField(default=False)
+    booking_confirmed_body = models.TextField(blank=True, default="")
+    quick_replies_enabled = models.BooleanField(default=False)
+    quick_replies = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Provider messaging settings"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(business__isnull=True),
+                name="uniq_provider_messaging_default_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        if self.business_id:
+            return f"Messaging settings for business {self.business_id}"
+        return f"Messaging settings for user {self.user_id}"
+
+
+class BookingAutomatedMessageLog(models.Model):
+    """Ensures each booking trigger sends at most one automated message."""
+
+    TRIGGER_CONFIRMED = "confirmed"
+
+    booking_type = models.CharField(max_length=32)
+    booking_id = models.PositiveIntegerField()
+    trigger = models.CharField(max_length=32, default=TRIGGER_CONFIRMED)
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="booking_automation_logs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["booking_type", "booking_id", "trigger"],
+                name="uniq_booking_automated_message",
+            ),
+        ]
+        ordering = ["-created_at"]
 
 
 class MessageBlock(models.Model):

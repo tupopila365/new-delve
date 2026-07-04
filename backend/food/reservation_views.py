@@ -9,6 +9,7 @@ from accommodation.models import BookingStatus
 from accommodation.serializers import ProviderBookingStatusSerializer
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_booking_for_listing
 from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember
+from messaging.booking_automation import notify_booking_confirmed
 
 from .models import FoodReservation, FoodVenue
 from .reservation_serializers import (
@@ -74,6 +75,14 @@ class _ProviderFoodReservationActionsMixin:
         ser.is_valid(raise_exception=True)
         reservation.status = target_status
         reservation.save(update_fields=["status"])
+        if target_status == BookingStatus.CONFIRMED:
+            notify_booking_confirmed(
+                provider=reservation.venue.owner,
+                guest=reservation.guest,
+                booking_type="booking_food",
+                booking_id=reservation.pk,
+                context_label=reservation.venue.name,
+            )
         return Response(self.get_serializer(reservation).data)
 
     @action(detail=True, methods=["post"])

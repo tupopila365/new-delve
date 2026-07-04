@@ -57,6 +57,7 @@ import { ProviderReviews } from './pages/ProviderReviews'
 import { ProviderSettings } from './pages/ProviderSettings'
 import { ProviderAnalytics } from './pages/ProviderAnalytics'
 import { ProviderMessages } from './pages/ProviderMessages'
+import { ProviderMessagingSettingsPage } from './pages/ProviderMessagingSettingsPage'
 import { ProviderMessageThread } from './pages/ProviderMessageThread'
 import { ProviderMessageUser } from './pages/ProviderMessageUser'
 import { StaysAdmin } from './pages/StaysAdmin'
@@ -155,6 +156,7 @@ export default function App() {
             <Route path="analytics" element={<ProviderAnalytics />} />
             <Route path="settings" element={<ProviderSettings />} />
             <Route path="messages" element={<ProviderMessages />} />
+            <Route path="messages/settings" element={<ProviderMessagingSettingsPage />} />
             <Route path="messages/u/:username" element={<ProviderMessageUser />} />
             <Route path="messages/:id" element={<ProviderMessageThread />} />
             <Route path="stays" element={<StaysAdmin />} />

@@ -105,7 +105,12 @@ export function BusinessProfileHero({
         ) : null}
 
         <div className="biz-profile__hero-actions">
-          <MessageProviderLink username={ownerUsername} variant="primary" size="block" />
+          <MessageProviderLink
+            username={ownerUsername}
+            businessId={businessId}
+            variant="primary"
+            size="block"
+          />
           <div className="biz-profile__hero-secondary">
             <Link to={ownerProfileHref} className="biz-profile__owner-link">
               <UserRound size={15} strokeWidth={2.25} aria-hidden />

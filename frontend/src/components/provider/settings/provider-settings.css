@@ -438,3 +438,30 @@
   font-size: 0.78rem;
   color: rgba(255, 250, 242, 0.45);
 }
+
+.prov-settings__msg-automation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 154, 82, 0.28);
+  background: rgba(255, 154, 82, 0.08);
+  color: inherit;
+  text-decoration: none;
+}
+
+.prov-settings__msg-automation strong {
+  font-size: 0.9rem;
+}
+
+.prov-settings__msg-automation span {
+  font-size: 0.8125rem;
+  color: rgba(255, 250, 242, 0.62);
+  line-height: 1.45;
+}
+
+.prov-settings__msg-automation:hover {
+  border-color: rgba(255, 154, 82, 0.5);
+}

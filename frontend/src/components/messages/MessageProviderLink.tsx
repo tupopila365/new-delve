@@ -18,6 +18,7 @@ type Props = {
   size?: 'sm' | 'md' | 'block'
   fallbackToInbox?: boolean
   place?: MessagePlaceContext | null
+  businessId?: number | null
   children?: ReactNode
 }
 
@@ -44,11 +45,12 @@ export function MessageProviderLink({
   size = 'md',
   fallbackToInbox = true,
   place,
+  businessId,
   children,
 }: Props) {
   const text = label ?? messageProviderLabel(role)
   const href = username?.trim()
-    ? messageProviderPath(username, place)
+    ? messageProviderPath(username, place, businessId)
     : fallbackToInbox
       ? '/messages'
       : null

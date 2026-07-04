@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BedDouble,
@@ -13,9 +13,12 @@ import {
   Utensils,
   X,
 } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
 import { apiFetch } from '../api/client'
 import { QuickFilterChips } from '../components/marketplace'
 import { SearchHit } from '../components/search'
+import { messagingPaths } from '../components/messages/messageProviderUtils'
+import { EmptyState } from '../components/ui'
 import { communityPostPermalinkPath, postPermalinkPath } from '../utils/postPermalink'
 import type { FeedPost } from '../components/IgPostCard'
 import { isDelversPost } from '../utils/postFilters'
@@ -29,7 +32,7 @@ import {
 import './SearchPage.css'
 
 const SEARCH_CATEGORIES = [
-  { id: 'profile', label: 'Profile', Icon: UserRound },
+  { id: 'profile', label: 'People', Icon: UserRound },
   { id: 'ask_locals', label: 'Ask locals', Icon: MessageCircleQuestion },
   { id: 'delvers', label: 'Delvers', Icon: Compass },
   { id: 'food', label: 'Eat out', Icon: Utensils },
@@ -49,6 +52,7 @@ type SearchUser = {
   city: string
   region: string
   bio: string
+  can_message?: boolean
 }
 
 type NamedListing = {
@@ -140,6 +144,7 @@ function ratingLabel(value: string | number | null | undefined): string | undefi
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const { profile } = useAuth()
   const urlQ = searchParams.get('q')?.trim() ?? ''
   const urlType = readSearchType(searchParams)
 
@@ -164,10 +169,11 @@ export function SearchPage() {
     return () => window.clearTimeout(timer)
   }, [input, type, urlQ, urlType, setSearchParams])
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['unified-search', urlQ, urlType],
     queryFn: () => apiFetch<SearchResults>(buildSearchApiPath(urlQ, urlType)),
     enabled: urlQ.length >= 2,
+    retry: 1,
   })
 
   const placeholder = useMemo(() => {
@@ -244,6 +250,7 @@ export function SearchPage() {
   }
 
   const searching = urlQ.length >= 2 && (isLoading || isFetching)
+  const activeCategoryLabel = type ? (SEARCH_CATEGORIES.find((c) => c.id === type)?.label ?? type) : ''
 
   return (
     <div className={`search-page-simple${urlQ.length >= 2 ? ' search-page-simple--results' : ''}`}>
@@ -291,11 +298,19 @@ export function SearchPage() {
         <p className="search-page-simple__hint" aria-live="polite">
           Searching for “{urlQ}”…
         </p>
+      ) : isError ? (
+        <EmptyState
+          compact
+          className="search-page-simple__empty"
+          iconElement={<Search size={22} strokeWidth={1.75} />}
+          title="Search isn't available right now"
+          sub="Check your connection and try again."
+          cta={{ label: 'Retry', onClick: () => void refetch() }}
+        />
       ) : resultCount === 0 ? (
         <p className="search-page-simple__hint">
           No results for “{urlQ}”
-          {type ? ` in ${SEARCH_CATEGORIES.find((c) => c.id === type)?.label ?? type}` : ''}. Try another term or
-          category.
+          {activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}. Try another term or category.
         </p>
       ) : (
         <div className="search-page-simple__results" aria-live="polite">
@@ -307,19 +322,33 @@ export function SearchPage() {
             <section className="search-page-simple__section">
               <h2>People</h2>
               <ul>
-                {data!.users.map((user) => (
-                  <li key={user.id}>
-                    <SearchHit
-                      to={`/u/${user.username}`}
-                      title={user.display_name || user.username}
-                      subtitle={`@${user.username}`}
-                      meta={[user.city, user.region].filter(Boolean).join(', ') || undefined}
-                      imageUrl={user.avatar}
-                      imageVariant="avatar"
-                      fallbackIcon={<UserRound size={18} />}
-                    />
-                  </li>
-                ))}
+                {data!.users.map((user) => {
+                  const showMessage =
+                    profile &&
+                    user.username.toLowerCase() !== profile.username.toLowerCase() &&
+                    user.can_message === true
+                  return (
+                    <li key={user.id} className="search-page-simple__person">
+                      <SearchHit
+                        to={`/u/${user.username}`}
+                        title={user.display_name || user.username}
+                        subtitle={`@${user.username}`}
+                        meta={[user.city, user.region].filter(Boolean).join(', ') || undefined}
+                        imageUrl={user.avatar}
+                        imageVariant="avatar"
+                        fallbackIcon={<UserRound size={18} />}
+                      />
+                      {showMessage ? (
+                        <Link
+                          to={messagingPaths('user').user(user.username)}
+                          className="search-page-simple__message-link"
+                        >
+                          Message
+                        </Link>
+                      ) : null}
+                    </li>
+                  )
+                })}
               </ul>
             </section>
           ) : null}

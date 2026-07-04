@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_booking_for_listing
 from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember, IsServiceProvider
+from messaging.booking_automation import notify_booking_confirmed
 
 from .access import manageable_organizer_ids, user_can_manage_event, user_can_manage_event_template
 from .booking_serializers import (
@@ -414,6 +415,14 @@ class EventProviderBookingViewSet(viewsets.ReadOnlyModelViewSet):
         )
         ser.is_valid(raise_exception=True)
         apply_booking_status(booking, target_status)
+        if target_status == EventBookingStatus.CONFIRMED:
+            notify_booking_confirmed(
+                provider=booking.event.organizer,
+                guest=booking.attendee,
+                booking_type="booking_event",
+                booking_id=booking.pk,
+                context_label=booking.event.title,
+            )
         return Response(ProviderEventBookingSerializer(booking).data)
 
     @action(detail=True, methods=["post"])
