@@ -23,7 +23,7 @@ import { communityPostPermalinkPath } from '../utils/postPermalink'
 import { HomeStoriesRow } from '../components/HomeStoriesRow'
 import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { MiniRating } from '../components/MiniRating'
-import { ListSkeleton } from '../components/ui'
+import { ListSkeleton, EmptyState } from '../components/ui'
 import { HOME_HERO_BG, homeCoverSrc } from '../data/homeDefaults'
 import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
@@ -152,12 +152,13 @@ function HomeSection({
       {loading ? (
         <ListSkeleton count={5} />
       ) : count === 0 ? (
-        <div className="home-section__empty" role="status">
-          <p className="home-section__empty-text">{emptyMessage}</p>
-          <Link to={seeAllTo} className="section-see-all home-section__empty-cta">
-            Browse {title.toLowerCase()}
-          </Link>
-        </div>
+        <EmptyState
+          compact
+          className="home-section__empty"
+          title={emptyMessage}
+          sub={`Browse ${title.toLowerCase()} or check back soon.`}
+          cta={{ label: `Browse ${title.toLowerCase()}`, to: seeAllTo }}
+        />
       ) : (
         children
       )}
