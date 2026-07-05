@@ -1,6 +1,6 @@
 /** Lightweight client-side create funnel metrics (session-scoped). */
 
-export type CreateFormat = 'post' | 'highlight' | 'ask' | 'journey' | 'event' | 'host_story'
+export type CreateFormat = 'post' | 'highlight' | 'ask' | 'tip' | 'journey' | 'event' | 'host_story'
 
 export type CreateAnalyticsEvent = {
   format: CreateFormat

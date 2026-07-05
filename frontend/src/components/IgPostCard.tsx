@@ -4,6 +4,8 @@ import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { UserAvatar } from './UserAvatar'
 import { invalidatePostEngagementCaches } from '../utils/socialCache'
+import { renderTextWithHashtags } from '../utils/hashtags'
+import { communityPostPermalinkPath } from '../utils/postPermalink'
 import { PostMedia } from './PostMedia'
 
 export type PostMediaVariant = 'feed' | 'pin' | 'detail'
@@ -76,6 +78,8 @@ export function IgPostCard({
   const name = post.author.display_name || post.author.username
   const hasMedia = Boolean(post.video || post.image)
   const isQuestion = post.post_kind === 'question'
+  const questionPath = communityPostPermalinkPath(post.id)
+  const answerCount = post.comments_count ?? 0
 
   return (
     <article className={`ig-post${isQuestion ? ' ig-post--question' : ''}`}>
@@ -103,8 +107,8 @@ export function IgPostCard({
       {hasMedia ? (
         <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
       ) : isQuestion ? (
-        <div className="ig-post__question-body">
-          <p>{post.body}</p>
+        <Link to={questionPath} className="ig-post__question-body">
+          <p>{renderTextWithHashtags(post.body)}</p>
           {post.accepted_answer ? (
             <div className="ig-post__accepted-answer">
               <span className="ig-post__accepted-label">Accepted answer</span>
@@ -113,13 +117,17 @@ export function IgPostCard({
                 @{post.accepted_answer.author?.username ?? 'local'}
               </span>
             </div>
-          ) : (post.comments_count ?? 0) > 0 ? (
+          ) : answerCount > 0 ? (
             <span className="ig-post__question-answers">
-              {post.comments_count} {post.comments_count === 1 ? 'answer' : 'answers'}
+              {answerCount} {answerCount === 1 ? 'answer' : 'answers'}
             </span>
           ) : (
             <span className="ig-post__question-answers ig-post__question-answers--open">Needs answer</span>
           )}
+        </Link>
+      ) : post.body?.trim() ? (
+        <div className="ig-post__text-body">
+          <p>{renderTextWithHashtags(post.body)}</p>
         </div>
       ) : (
         <div className="post-media-placeholder">No photo or video</div>
@@ -135,9 +143,13 @@ export function IgPostCard({
           >
             <HeartIcon filled={post.liked_by_me} />
           </button>
-          <button type="button" className="ig-post__tool" aria-label="Comment">
+          <Link
+            to={questionPath}
+            className="ig-post__tool"
+            aria-label={isQuestion ? 'View answers' : 'View comments'}
+          >
             <CommentIcon />
-          </button>
+          </Link>
           <button
             type="button"
             className={`ig-post__tool ${post.saved_by_me ? 'ig-post__tool--save-active' : ''}`}
@@ -161,7 +173,7 @@ export function IgPostCard({
         {post.body && (hasMedia || !isQuestion) && (
           <p className="ig-post__caption">
             <strong>{post.author.username}</strong>
-            {post.body}
+            {renderTextWithHashtags(post.body)}
           </p>
         )}
       </div>

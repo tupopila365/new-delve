@@ -14,13 +14,6 @@
   gap: 14px;
 }
 
-.cm-simple__count {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
 .cm-simple__list {
   display: grid;
   gap: 14px;
@@ -36,27 +29,15 @@
 .cm-feed-cta {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .cm-feed-cta__title {
-  margin: 0 0 4px;
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.cm-feed-cta__sub {
   margin: 0;
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 0.82rem;
-  line-height: 1.45;
-  max-width: 36ch;
+  font-size: 1.05rem;
+  font-weight: 900;
 }
 
 .cm-feed-cta__btn {
@@ -65,43 +46,16 @@
   gap: 6px;
 }
 
-.cm-feed-cta__btn--secondary {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-}
-
 .cm-feed-cta__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.cm-ask-cta {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(232, 98, 10, 0.28);
-  background: rgba(232, 98, 10, 0.1);
-}
-
-.cm-ask-cta__copy {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.84rem;
-  line-height: 1.45;
-  font-weight: 600;
-}
-
-.cm-ask-cta__link {
-  color: #ff9a52;
-  font-size: 0.86rem;
-  font-weight: 900;
-  text-decoration: none;
-}
-
-.cm-ask-cta__link:hover {
-  color: #ffb07a;
+.cm-feed-cta__btn--secondary {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .cm-feed-filters {
@@ -128,10 +82,79 @@
 }
 
 .ig-post--question .ig-post__question-body {
+  display: block;
   padding: 16px 14px;
   background: rgba(255, 255, 255, 0.04);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: inherit;
+  text-decoration: none;
+}
+
+.ig-post__text-body {
+  padding: 16px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ig-post__text-body p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  font-weight: 650;
+}
+
+.cm-hashtag {
+  color: #ff9f52;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cm-hashtag:hover {
+  color: #ffb07a;
+  text-decoration: underline;
+}
+
+.cm-simple__toast {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  background: rgba(76, 175, 80, 0.12);
+  color: #9be7b0;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.cm-feed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(232, 98, 10, 0.14);
+  color: #ffb07a;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.cm-feed-tag button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+}
+
+.cm-feed-list__item--highlight .ig-post {
+  outline: 2px solid rgba(232, 98, 10, 0.55);
+  outline-offset: 2px;
 }
 
 .ig-post--question .ig-post__question-body p {
@@ -190,6 +213,10 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.cm-feed-list--threads {
+  gap: 12px;
 }
 
 .cm-feed-skeleton {

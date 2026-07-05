@@ -251,6 +251,7 @@ export function AppLayout() {
     loc.pathname === '/create/post' || loc.pathname === '/create/highlight'
   const createStudioLight =
     loc.pathname === '/create/ask' ||
+    loc.pathname === '/create/tip' ||
     loc.pathname === '/journeys/new' ||
     loc.pathname === '/events/new' ||
     /^\/journeys\/\d+\/edit$/.test(loc.pathname) ||

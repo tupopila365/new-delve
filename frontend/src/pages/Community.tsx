@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MessageCircle, Plus } from 'lucide-react'
+import { MessageCircle, Plus, X } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { FeedPost } from '../components/IgPostCard'
-import { IgPostCard } from '../components/IgPostCard'
+import { CommunityQuestionThread, CommunityTipCard } from '../components/community/CommunityQuestionThread'
 import { EmptyState } from '../components/ui'
 import './CommunityPage.css'
 
@@ -23,30 +23,119 @@ function feedQueryPath(region: string | undefined, filter: FeedFilter) {
   return `/api/social/feed/${qs ? `?${qs}` : ''}`
 }
 
+function isQuestionPost(post: FeedPost): boolean {
+  return post.post_kind === 'question'
+}
+
 export function Community({ embedded = false }: CommunityProps = {}) {
   const { profile } = useAuth()
   const region = profile?.region?.trim()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filter, setFilter] = useState<FeedFilter>('all')
+  const [toast, setToast] = useState('')
+  const [highlightId, setHighlightId] = useState<number | null>(null)
+  const [openThreadId, setOpenThreadId] = useState<number | null>(null)
+
+  const postedId = searchParams.get('posted')
+  const postedTipId = searchParams.get('postedTip')
+  const openId = searchParams.get('open')
+  const tagFilter = searchParams.get('tag')?.trim().toLowerCase() ?? ''
+  const feedQueryKey = ['feed', region ?? '', filter] as const
 
   const { data: feedRaw, isLoading } = useQuery({
-    queryKey: ['feed', region ?? '', filter],
+    queryKey: feedQueryKey,
     queryFn: () => apiFetch<FeedPost[]>(feedQueryPath(region, filter), { auth: Boolean(profile) }),
   })
 
-  const posts = asArray<FeedPost>(feedRaw)
+  const posts = useMemo(() => {
+    const rows = asArray<FeedPost>(feedRaw)
+    if (!tagFilter) return rows
+    return rows.filter((post) => post.body.toLowerCase().includes(`#${tagFilter}`))
+  }, [feedRaw, tagFilter])
+
+  useEffect(() => {
+    if (!postedId) return
+    const id = Number(postedId)
+    if (!Number.isFinite(id)) return
+    setFilter('question')
+    setHighlightId(id)
+    setOpenThreadId(id)
+    setToast('Your question was posted.')
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.delete('posted')
+      return next
+    }, { replace: true })
+    window.setTimeout(() => {
+      document.getElementById(`community-post-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 350)
+    const timer = window.setTimeout(() => {
+      setToast('')
+      setHighlightId(null)
+    }, 4200)
+    return () => window.clearTimeout(timer)
+  }, [postedId, setSearchParams])
+
+  useEffect(() => {
+    if (!postedTipId) return
+    const id = Number(postedTipId)
+    if (!Number.isFinite(id)) return
+    setFilter('tip')
+    setHighlightId(id)
+    setToast('Your tip was shared.')
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.delete('postedTip')
+      return next
+    }, { replace: true })
+    window.setTimeout(() => {
+      document.getElementById(`community-post-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 350)
+    const timer = window.setTimeout(() => {
+      setToast('')
+      setHighlightId(null)
+    }, 4200)
+    return () => window.clearTimeout(timer)
+  }, [postedTipId, setSearchParams])
+
+  useEffect(() => {
+    if (!openId) return
+    const id = Number(openId)
+    if (!Number.isFinite(id)) return
+    setFilter('question')
+    setOpenThreadId(id)
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.delete('open')
+      return next
+    }, { replace: true })
+    window.setTimeout(() => {
+      document.getElementById(`community-post-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 300)
+  }, [openId, setSearchParams])
+
   const askHref = profile ? '/create/ask' : '/login'
-  const tipHref = profile ? '/create/post' : '/login'
+  const tipHref = profile ? '/create/tip' : '/login'
+
+  const clearTag = () => {
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.delete('tag')
+      return next
+    }, { replace: true })
+  }
 
   return (
     <div className={`cm-simple${embedded ? ' cm-simple--embedded' : ''}`}>
       <div className="cm-simple__panel">
-        <div className="cm-feed-cta">
-          <div>
-            <h2 className="cm-feed-cta__title">Ask locals</h2>
-            <p className="cm-feed-cta__sub">
-              Travel tips, questions, and local advice from people near you.
-            </p>
-          </div>
+        {toast ? (
+          <p className="cm-simple__toast" role="status">
+            {toast}
+          </p>
+        ) : null}
+
+        <header className="cm-feed-cta">
+          <h1 className="cm-feed-cta__title">Ask locals</h1>
           <div className="cm-feed-cta__actions">
             <Link to={askHref} className="btn btn-primary cm-feed-cta__btn">
               <Plus size={16} strokeWidth={2.5} aria-hidden />
@@ -56,16 +145,7 @@ export function Community({ embedded = false }: CommunityProps = {}) {
               Share a tip
             </Link>
           </div>
-        </div>
-
-        <section className="cm-ask-cta" aria-label="Ask a question">
-          <p className="cm-ask-cta__copy">
-            Ask anything about a place. Locals and travellers answer in plain language.
-          </p>
-          <Link to={askHref} className="cm-ask-cta__link">
-            {profile ? 'Write your question' : 'Sign in to ask'}
-          </Link>
-        </section>
+        </header>
 
         <div className="cm-feed-filters" role="tablist" aria-label="Community feed filters">
           {(
@@ -88,9 +168,14 @@ export function Community({ embedded = false }: CommunityProps = {}) {
           ))}
         </div>
 
-        <p className="cm-simple__count" role="status">
-          {isLoading ? 'Loading feed…' : `${posts.length} ${posts.length === 1 ? 'post' : 'posts'}`}
-        </p>
+        {tagFilter ? (
+          <div className="cm-feed-tag">
+            <span>Showing #{tagFilter}</span>
+            <button type="button" onClick={clearTag} aria-label="Clear hashtag filter">
+              <X size={14} strokeWidth={2.25} aria-hidden />
+            </button>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <div className="cm-feed-skeleton" aria-hidden>
@@ -104,23 +189,36 @@ export function Community({ embedded = false }: CommunityProps = {}) {
             title={filter === 'question' ? 'No questions yet' : 'No community posts yet'}
             sub={
               filter === 'question'
-                ? 'Ask about safety, routes, prices, or anything about a place.'
-                : 'Share a travel tip or ask a question — posts here stay on the community feed.'
+                ? 'Be the first to ask about a place.'
+                : 'Share a tip or ask a question.'
             }
             cta={
               profile
                 ? {
                     label: filter === 'question' ? 'Ask a question' : 'Share a tip',
-                    to: filter === 'question' ? '/create/ask' : '/create/post',
+                    to: filter === 'question' ? '/create/ask' : '/create/tip',
                   }
                 : { label: 'Sign in', to: '/login' }
             }
           />
         ) : (
-          <ul className="cm-feed-list">
+          <ul className="cm-feed-list cm-feed-list--threads">
             {posts.map((post) => (
-              <li key={post.id}>
-                <IgPostCard post={post} queryKey={['feed', region ?? '', filter]} mediaVariant="feed" />
+              <li
+                key={post.id}
+                id={`community-post-${post.id}`}
+                className={highlightId === post.id ? 'cm-feed-list__item--highlight' : undefined}
+              >
+                {isQuestionPost(post) ? (
+                  <CommunityQuestionThread
+                    post={post}
+                    queryKey={feedQueryKey}
+                    highlighted={highlightId === post.id}
+                    defaultOpen={openThreadId === post.id}
+                  />
+                ) : (
+                  <CommunityTipCard post={post} queryKey={feedQueryKey} highlighted={highlightId === post.id} />
+                )}
               </li>
             ))}
           </ul>

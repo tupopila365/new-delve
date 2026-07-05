@@ -1,3 +1,5 @@
 export { CommunityAskQuestion } from './CommunityAskQuestion'
 export type { CommunityAskPayload } from './CommunityAskQuestion'
 export { CommunityQuestionCard } from './CommunityQuestionCard'
+export { CommunityEngagementActions } from './CommunityEngagementActions'
+export { CommunityQuestionThread, CommunityTipCard } from './CommunityQuestionThread'

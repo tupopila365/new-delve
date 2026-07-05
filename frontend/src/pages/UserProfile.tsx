@@ -701,7 +701,7 @@ function TipsTab({
             ? 'Text tips and feed posts you share appear here and on Community.'
             : 'Travel tips and feed posts will appear here once shared.'
         }
-        cta={{ label: isMe ? 'Share a tip' : 'Browse community', to: isMe ? '/create/post' : '/community' }}
+        cta={{ label: isMe ? 'Share a tip' : 'Browse community', to: isMe ? '/create/tip' : '/community' }}
       />
     )
   }

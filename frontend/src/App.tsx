@@ -10,9 +10,11 @@ import { AccommodationList } from './pages/AccommodationList'
 import { AccommodationStoryNew } from './pages/AccommodationStoryNew'
 import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
+import { CommunityQuestionDetail } from './pages/CommunityQuestionDetail'
 import { CreateHub } from './pages/CreateHub'
 import { CreatePost } from './pages/CreatePost'
 import { CreateAsk } from './pages/CreateAsk'
+import { CreateTip } from './pages/CreateTip'
 import { CreateStory } from './pages/CreateStory'
 import { StoriesNewRedirect } from './pages/StoriesNewRedirect'
 import { DelversSocial } from './pages/DelversSocial'
@@ -97,6 +99,7 @@ export default function App() {
           <Route path="/create" element={<CreateHub />} />
           <Route path="/create/post" element={<CreatePost />} />
           <Route path="/create/ask" element={<CreateAsk />} />
+          <Route path="/create/tip" element={<CreateTip />} />
           <Route path="/create/highlight" element={<CreateStory />} />
           <Route path="/stories/new" element={<StoriesNewRedirect />} />
           <Route path="/delvers/new" element={<Navigate to="/create/highlight" replace />} />
@@ -119,7 +122,7 @@ export default function App() {
           <Route path="/delvers/posts/:id" element={<DelversPostDetail />} />
           <Route path="/delvers/pin/new" element={<Navigate to="/create/post" replace />} />
           <Route path="/community" element={<Community />} />
-          <Route path="/community/posts/:id" element={<DelversPostDetail fallbackPath="/community" />} />
+          <Route path="/community/posts/:id" element={<CommunityQuestionDetail />} />
           <Route path="/transport" element={<Transport />} />
           <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
           <Route path="/transport/bus/:id" element={<BusTripDetail />} />

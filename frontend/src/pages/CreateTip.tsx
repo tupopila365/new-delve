@@ -6,24 +6,24 @@ import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { CreateStudioHeader } from '../components/create'
 import type { FeedPost } from '../components/IgPostCard'
-import { buildAskLocalsFormData } from '../utils/communityAsk'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
+import { buildCommunityTipFormData } from '../utils/communityTip'
 import { invalidateSocialCaches } from '../utils/socialCache'
 import './CreateAsk.css'
 
-const TIPS = ['Parking', 'Safety', 'Prices', 'Transport', 'Food', 'Best time to visit']
+const TAGS = ['Food', 'Transport', 'Safety', 'Parking', 'Routes', 'Hidden gems']
 
-function tipHashtag(tip: string): string {
-  return `#${tip.toLowerCase().replace(/\s+/g, '')}`
+function tagHashtag(tag: string): string {
+  return `#${tag.toLowerCase().replace(/\s+/g, '')}`
 }
 
-export function CreateAsk() {
+export function CreateTip() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const qc = useQueryClient()
   const [place, setPlace] = useState('')
-  const [question, setQuestion] = useState('')
+  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
@@ -37,8 +37,8 @@ export function CreateAsk() {
     if (prefill) setPlace(prefill)
   }, [searchParams])
 
-  const isDirty = place.trim().length > 0 || question.trim().length > 0 || Boolean(mediaFile)
-  const canPost = place.trim().length > 0 && question.trim().length > 0
+  const isDirty = place.trim().length > 0 || message.trim().length > 0 || Boolean(mediaFile)
+  const canPost = message.trim().length > 0 || Boolean(mediaFile)
 
   const clearMedia = () => {
     if (mediaPreview) URL.revokeObjectURL(mediaPreview)
@@ -59,7 +59,7 @@ export function CreateAsk() {
   }, [mediaPreview])
 
   const requestLeave = (to: string) => {
-    if (isDirty && !window.confirm('Discard this question?')) return
+    if (isDirty && !window.confirm('Discard this tip?')) return
     navigate(to)
   }
 
@@ -67,23 +67,22 @@ export function CreateAsk() {
     mutationFn: () =>
       apiFetch<FeedPost>('/api/social/posts/', {
         method: 'POST',
-        body: buildAskLocalsFormData(
-          place,
-          question,
+        body: buildCommunityTipFormData(
+          message,
           profile?.region,
+          place,
           mediaFile && mediaKind ? { file: mediaFile, kind: mediaKind } : null,
         ),
       }),
     onSuccess: async (post) => {
       trackCreatePublish({
-        format: 'ask',
+        format: 'tip',
         has_place: Boolean(place.trim()),
         startedAt: startedAt.current,
       })
       await invalidateSocialCaches(qc, { username: profile?.username })
-      void qc.invalidateQueries({ queryKey: ['home-community-questions'] })
       void qc.invalidateQueries({ queryKey: ['feed'] })
-      navigate(`/community?posted=${post.id}`)
+      navigate(`/community?postedTip=${post.id}`)
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not post.'),
@@ -93,8 +92,8 @@ export function CreateAsk() {
     return (
       <main className="create-ask create-ask--gate">
         <section className="create-ask-gate">
-          <h1>Ask locals</h1>
-          <p>Sign in to ask about a place and get answers from travellers and locals.</p>
+          <h1>Share a tip</h1>
+          <p>Sign in to share travel advice with the community.</p>
           <div className="create-ask-gate__actions">
             <Link to="/login" className="btn btn-primary">
               Sign in
@@ -112,13 +111,13 @@ export function CreateAsk() {
     <main className="create-ask">
       <CreateStudioHeader
         variant="light"
-        title="Ask locals"
+        title="Share a tip"
         subtitle="Community"
-        onBack={() => requestLeave('/create')}
-        actionLabel="Post"
+        onBack={() => requestLeave('/community')}
+        actionLabel="Share"
         actionDisabled={!canPost}
         actionPending={publish.isPending}
-        actionPendingLabel="Posting…"
+        actionPendingLabel="Sharing…"
         onAction={() => {
           setError('')
           publish.mutate()
@@ -127,27 +126,27 @@ export function CreateAsk() {
 
       <div className="create-ask__body">
         <p className="create-ask__intro">
-          Ask anything about a place. Locals and travellers answer in plain language.
+          Share advice like a message — text, photo, or short video. Keep it helpful and local.
         </p>
 
         <label className="create-ask__field">
-          <span>Where?</span>
+          <span>About a place (optional)</span>
           <input
             type="text"
             value={place}
             onChange={(e) => setPlace(e.target.value)}
-            placeholder="City and country, e.g. Windhoek, Namibia"
-            autoFocus
+            placeholder="e.g. Windhoek, Sossusvlei"
           />
         </label>
 
         <label className="create-ask__field">
-          <span>Your question</span>
+          <span>Your tip</span>
           <textarea
             rows={5}
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="What do you need to know? Use #hashtags like #parking or #food."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="What should travellers know? Use #hashtags to help people find it."
+            autoFocus
           />
         </label>
 
@@ -200,30 +199,26 @@ export function CreateAsk() {
         </div>
 
         <div className="create-ask__tips" aria-label="Suggested hashtags">
-          {TIPS.map((tip) => {
-            const hashtag = tipHashtag(tip)
+          {TAGS.map((tag) => {
+            const hashtag = tagHashtag(tag)
             return (
-            <button
-              key={tip}
-              type="button"
-              className="create-ask__tip"
-              onClick={() => {
-                if (question.includes(hashtag)) return
-                if (!question.trim()) {
-                  setQuestion(`Any tips on ${tip.toLowerCase()}? ${hashtag}`)
-                  return
-                }
-                setQuestion((q) => `${q.trim()} ${hashtag}`)
-              }}
-            >
-              {hashtag}
-            </button>
+              <button
+                key={tag}
+                type="button"
+                className="create-ask__tip"
+                onClick={() => {
+                  if (message.includes(hashtag)) return
+                  setMessage((value) => (value.trim() ? `${value.trim()} ${hashtag}` : `${hashtag} `))
+                }}
+              >
+                {hashtag}
+              </button>
             )
           })}
         </div>
 
         {error ? <p className="create-ask__error">{error}</p> : null}
-        <p className="create-ask__note">Your question goes straight to the community feed.</p>
+        <p className="create-ask__note">Your tip appears on the community feed right away.</p>
       </div>
     </main>
   )

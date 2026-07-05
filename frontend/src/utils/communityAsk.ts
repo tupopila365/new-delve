@@ -31,3 +31,21 @@ export function buildAskLocalsPost(
     is_delvers: false,
   }
 }
+
+export function buildAskLocalsFormData(
+  place: string,
+  question: string,
+  profileRegion?: string,
+  media?: { file: File; kind: 'image' | 'video' } | null,
+): FormData {
+  const payload = buildAskLocalsPost(place, question, profileRegion)
+  const fd = new FormData()
+  fd.append('body', payload.body)
+  fd.append('place_label', payload.place_label)
+  fd.append('region', payload.region)
+  fd.append('post_kind', payload.post_kind)
+  fd.append('is_delvers', 'false')
+  if (media?.kind === 'video') fd.append('video', media.file)
+  else if (media?.kind === 'image') fd.append('image', media.file)
+  return fd
+}
