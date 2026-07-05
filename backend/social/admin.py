@@ -5,7 +5,7 @@ from .models import Comment, Follow, Like, Post, Save
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ("id", "author", "region", "is_delvers", "is_accommodation_story", "listing", "created_at")
+    list_display = ("id", "author", "region", "is_delvers", "is_delvers_highlight", "is_accommodation_story", "listing", "created_at")
 
 
 admin.site.register(Comment)

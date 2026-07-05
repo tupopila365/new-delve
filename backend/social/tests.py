@@ -355,6 +355,38 @@ class PostCreateAndFeedRoutingTests(TestCase):
         self.assertIn("Home feed", feed_bodies)
         self.assertNotIn("Home feed", delvers_bodies)
 
+    def test_delvers_highlight_in_rings_not_pin_feed(self):
+        Post.objects.create(
+            author=self.author,
+            body="Pin moment",
+            region="Khomas",
+            is_delvers=True,
+            is_delvers_highlight=False,
+        )
+        Post.objects.create(
+            author=self.author,
+            body="Story highlight",
+            region="Khomas",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/test.jpg",
+        )
+
+        delvers = self.client.get("/api/social/delvers/")
+        highlights = self.client.get("/api/social/delvers/highlights/")
+        profile = self.client.get(f"/api/social/users/{self.author.username}/posts/")
+
+        self.assertEqual(delvers.status_code, 200)
+        self.assertEqual(highlights.status_code, 200)
+        delvers_bodies = [p["body"] for p in delvers.data if isinstance(p, dict) and "body" in p]
+        highlight_bodies = [p["body"] for p in highlights.data if isinstance(p, dict) and "body" in p]
+        profile_bodies = [p["body"] for p in profile.data if isinstance(p, dict) and "body" in p]
+
+        self.assertIn("Pin moment", delvers_bodies)
+        self.assertNotIn("Story highlight", delvers_bodies)
+        self.assertIn("Story highlight", highlight_bodies)
+        self.assertNotIn("Story highlight", profile_bodies)
+
     def test_created_post_appears_on_author_profile(self):
         res = self.client.post(
             "/api/social/posts/",

@@ -92,6 +92,62 @@
   }
 }
 
+@keyframes ds-comment-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ds-comment-composer--compact {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0.75rem 0 0;
+  padding: 0.55rem 0.55rem 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(72, 48, 32, 0.06);
+  border: 1px solid rgba(72, 48, 32, 0.12);
+  animation: none;
+}
+
+.ds-comment-composer--compact input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #39281f;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.ds-comment-composer--compact input::placeholder {
+  color: rgba(57, 40, 31, 0.45);
+}
+
+.ds-comment-composer--compact .ds-comment-composer__send {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.ds-comment-composer__status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1.1rem;
+  color: #9a4a4a;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
 @media (max-width: 700px) {
   .ds-comment-composer {
     margin-left: 12px;

@@ -2520,10 +2520,21 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/social/delvers/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
-    const posts = postsForViewer(s, s.posts).filter((p) => p.is_delvers && !p.is_accommodation_story).filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
+    const posts = postsForViewer(s, s.posts)
+      .filter((p) => p.is_delvers && !p.is_accommodation_story && !p.is_delvers_highlight)
+      .filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
     const ranked = [...posts].sort((a, b) => b.saves_count - a.saves_count)
     const organic = withMeFlags(s, ranked).slice(0, 80) as Record<string, unknown>[]
     return injectMockFeedPromotions(s, organic, 'delvers_feed', region, true)
+  }
+
+  if (pathname === '/api/social/delvers/highlights/' && method === 'GET') {
+    const region = (q.get('region') || '').trim()
+    const posts = postsForViewer(s, s.posts)
+      .filter((p) => Boolean(p.is_delvers_highlight))
+      .filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
+    const sorted = [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return withMeFlags(s, sorted).slice(0, 120)
   }
 
   const userPostsMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/posts\/$/)
@@ -2533,7 +2544,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       return []
     }
     const unLower = slug.toLowerCase()
-    const list = postsForViewer(s, s.posts).filter((p) => p.author.username.toLowerCase() === unLower)
+    const list = postsForViewer(s, s.posts).filter((p) => p.author.username.toLowerCase() === unLower && !p.is_delvers_highlight)
     const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, sorted).slice(0, 60)
   }
@@ -2551,7 +2562,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const board = (post.delvers_board || '').trim().toLowerCase()
     const regionLower = (post.region || '').trim().toLowerCase()
     const authorU = post.author.username.toLowerCase()
-    const others = visiblePosts(s.posts).filter((p) => p.id !== id && !p.is_accommodation_story)
+    const others = visiblePosts(s.posts).filter((p) => p.id !== id && !p.is_accommodation_story && !p.is_delvers_highlight)
     const ordered: typeof s.posts = []
     const seen = new Set<number>()
 
@@ -2757,6 +2768,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       delvers_board: '',
       is_delvers: false,
       is_accommodation_story: false,
+      is_delvers_highlight: false,
       post_kind: 'tip',
       place_label: '',
       listing: null,
@@ -2776,6 +2788,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const region = String(init.body.get('region') || '')
       const is_delvers = String(init.body.get('is_delvers') || 'false') === 'true'
       const is_accommodation_story = String(init.body.get('is_accommodation_story') || 'false') === 'true'
+      const is_delvers_highlight = String(init.body.get('is_delvers_highlight') || 'false') === 'true'
       const board = String(init.body.get('delvers_board') || '')
       const postKind = String(init.body.get('post_kind') || 'tip')
       const placeLabel = String(init.body.get('place_label') || '')
@@ -2790,6 +2803,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       base.region = region
       base.is_delvers = is_delvers
       base.is_accommodation_story = is_accommodation_story
+      base.is_delvers_highlight = is_delvers_highlight
       base.delvers_board = board
       base.post_kind = postKind === 'question' ? 'question' : 'tip'
       base.place_label = placeLabel
@@ -2801,6 +2815,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (hasImage) base.image = 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70'
       if (is_accommodation_story) {
         base.is_delvers = false
+        base.is_delvers_highlight = false
+      }
+      if (is_delvers_highlight) {
+        base.is_delvers = true
+        base.is_accommodation_story = false
+        if (!hasVideo && !hasImage) {
+          base.image = 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70'
+        }
       }
       if (listingRaw) {
         const lid = Number(listingRaw)
@@ -2850,6 +2872,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const data = JSON.parse(init.body) as Partial<MockPost> & {
         is_delvers?: boolean
         is_accommodation_story?: boolean
+        is_delvers_highlight?: boolean
         post_kind?: 'tip' | 'question'
         place_label?: string
       }
@@ -2857,6 +2880,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       base.region = data.region || base.region
       base.is_delvers = Boolean(data.is_delvers)
       base.is_accommodation_story = Boolean(data.is_accommodation_story)
+      base.is_delvers_highlight = Boolean(data.is_delvers_highlight)
       base.delvers_board = data.delvers_board || ''
       base.post_kind = data.post_kind === 'question' ? 'question' : 'tip'
       base.place_label = data.place_label || ''
@@ -2865,7 +2889,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         base.is_accommodation_story = false
       }
       if (data.listing) base.listing = data.listing
-      if (base.is_accommodation_story) base.is_delvers = false
+      if (base.is_accommodation_story) {
+        base.is_delvers = false
+        base.is_delvers_highlight = false
+      }
+      if (base.is_delvers_highlight) {
+        base.is_delvers = true
+        base.is_accommodation_story = false
+      }
     }
     s.posts.unshift(base)
     saveState(s)

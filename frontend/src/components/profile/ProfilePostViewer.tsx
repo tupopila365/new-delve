@@ -177,75 +177,73 @@ function ProfilePostSlide({
 
       <div className="ppv__scrim" aria-hidden />
 
-      <div className="ppv__hud">
-        <div className="ppv__hud-row">
-          <div className="ppv__meta">
-            <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ppv__author">
-              <span className="ppv__author-avatar" aria-hidden>
-                {avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}
+      <div className="ppv__actions">
+        {profile ? (
+          <>
+            <button
+              type="button"
+              className={`ppv__action${post.liked_by_me ? ' ppv__action--active' : ''}`}
+              aria-label={post.liked_by_me ? 'Unlike' : 'Like'}
+              onClick={() => likeMut.mutate()}
+            >
+              <Heart size={28} strokeWidth={2} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+              {likes > 0 ? <span className="ppv__action-count">{formatEngagementCount(likes)}</span> : null}
+            </button>
+            <button
+              type="button"
+              className="ppv__action"
+              aria-label="Comments"
+              aria-expanded={showComments}
+              onClick={onToggleComments}
+            >
+              <MessageCircle size={28} strokeWidth={2} aria-hidden />
+              {commentsCount > 0 ? (
+                <span className="ppv__action-count">{formatEngagementCount(commentsCount)}</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className={`ppv__action${post.saved_by_me ? ' ppv__action--save-active' : ''}`}
+              aria-label={post.saved_by_me ? 'Unsave' : 'Save'}
+              onClick={() => saveMut.mutate()}
+            >
+              <Bookmark size={26} strokeWidth={2} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
+            </button>
+          </>
+        ) : (
+          <>
+            {likes > 0 ? (
+              <span className="ppv__action">
+                <Heart size={28} strokeWidth={2} aria-hidden />
+                <span className="ppv__action-count">{formatEngagementCount(likes)}</span>
               </span>
-              @{post.author.username}
-            </Link>
-            {post.body?.trim() ? <p className="ppv__caption">{post.body.trim()}</p> : null}
-            {post.place_label ? <p className="ppv__region">{post.place_label}</p> : post.region ? <p className="ppv__region">{post.region}</p> : null}
-            {isQuestion && post.accepted_answer ? (
-              <div className="ppv__accepted-snippet">
-                <CheckCircle2 size={14} strokeWidth={2.25} aria-hidden />
-                <span>{post.accepted_answer.body}</span>
-              </div>
             ) : null}
-          </div>
+            {commentsCount > 0 ? (
+              <span className="ppv__action">
+                <MessageCircle size={28} strokeWidth={2} aria-hidden />
+                <span className="ppv__action-count">{formatEngagementCount(commentsCount)}</span>
+              </span>
+            ) : null}
+          </>
+        )}
+      </div>
 
-          <div className="ppv__actions">
-            {profile ? (
-              <>
-                <button
-                  type="button"
-                  className={`ppv__action${post.liked_by_me ? ' ppv__action--active' : ''}`}
-                  aria-label={post.liked_by_me ? 'Unlike' : 'Like'}
-                  onClick={() => likeMut.mutate()}
-                >
-                  <Heart size={28} strokeWidth={2} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
-                  {likes > 0 ? <span className="ppv__action-count">{formatEngagementCount(likes)}</span> : null}
-                </button>
-                <button
-                  type="button"
-                  className="ppv__action"
-                  aria-label="Comments"
-                  aria-expanded={showComments}
-                  onClick={onToggleComments}
-                >
-                  <MessageCircle size={28} strokeWidth={2} aria-hidden />
-                  {commentsCount > 0 ? (
-                    <span className="ppv__action-count">{formatEngagementCount(commentsCount)}</span>
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  className={`ppv__action${post.saved_by_me ? ' ppv__action--save-active' : ''}`}
-                  aria-label={post.saved_by_me ? 'Unsave' : 'Save'}
-                  onClick={() => saveMut.mutate()}
-                >
-                  <Bookmark size={26} strokeWidth={2} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
-                </button>
-              </>
-            ) : (
-              <>
-                {likes > 0 ? (
-                  <span className="ppv__action">
-                    <Heart size={28} strokeWidth={2} aria-hidden />
-                    <span className="ppv__action-count">{formatEngagementCount(likes)}</span>
-                  </span>
-                ) : null}
-                {commentsCount > 0 ? (
-                  <span className="ppv__action">
-                    <MessageCircle size={28} strokeWidth={2} aria-hidden />
-                    <span className="ppv__action-count">{formatEngagementCount(commentsCount)}</span>
-                  </span>
-                ) : null}
-              </>
-            )}
-          </div>
+      <div className="ppv__hud">
+        <div className="ppv__meta">
+          <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ppv__author">
+            <span className="ppv__author-avatar" aria-hidden>
+              {avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}
+            </span>
+            @{post.author.username}
+          </Link>
+          {post.body?.trim() ? <p className="ppv__caption">{post.body.trim()}</p> : null}
+          {post.place_label ? <p className="ppv__region">{post.place_label}</p> : post.region ? <p className="ppv__region">{post.region}</p> : null}
+          {isQuestion && post.accepted_answer ? (
+            <div className="ppv__accepted-snippet">
+              <CheckCircle2 size={14} strokeWidth={2.25} aria-hidden />
+              <span>{post.accepted_answer.body}</span>
+            </div>
+          ) : null}
         </div>
       </div>
 

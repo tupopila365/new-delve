@@ -27,9 +27,10 @@ type Props = {
   triggerLabel?: string
   className?: string
   iconOnly?: boolean
+  iconSize?: number
 }
 
-export function ReportButton({ target, triggerLabel = 'Report', className = '', iconOnly }: Props) {
+export function ReportButton({ target, triggerLabel = 'Report', className = '', iconOnly, iconSize = 14 }: Props) {
   const { profile } = useAuth()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<(typeof REASONS)[number]['value']>('spam')
@@ -57,7 +58,7 @@ export function ReportButton({ target, triggerLabel = 'Report', className = '', 
   if (!profile) {
     return (
       <Link to="/login" className={`report-btn ${className}`.trim()} title="Sign in to report">
-        {iconOnly ? <Flag size={14} strokeWidth={2.25} aria-hidden /> : triggerLabel}
+        {iconOnly ? <Flag size={iconSize} strokeWidth={2.25} aria-hidden /> : triggerLabel}
       </Link>
     )
   }
@@ -73,7 +74,7 @@ export function ReportButton({ target, triggerLabel = 'Report', className = '', 
         }}
         aria-label={triggerLabel}
       >
-        {iconOnly ? <Flag size={14} strokeWidth={2.25} aria-hidden /> : triggerLabel}
+        {iconOnly ? <Flag size={iconSize} strokeWidth={2.25} aria-hidden /> : triggerLabel}
       </button>
 
       {open ? (

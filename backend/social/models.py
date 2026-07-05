@@ -36,6 +36,11 @@ class Post(models.Model):
         db_index=True,
         help_text="Host/provider story ring on Stays — not mixed into home or Delvers feeds.",
     )
+    is_delvers_highlight = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Delvers story highlight — shown in rings only, not the pin feed.",
+    )
     post_kind = models.CharField(
         max_length=16,
         choices=PostKind.choices,

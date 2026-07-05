@@ -36,6 +36,8 @@ export async function invalidateSocialCaches(
 
     qc.invalidateQueries({ queryKey: ['delvers-social'] }),
 
+    qc.invalidateQueries({ queryKey: ['delvers-highlights'] }),
+
     qc.invalidateQueries({ queryKey: ['home-delvers-preview'] }),
 
     qc.invalidateQueries({ queryKey: ['home-community-questions'] }),
@@ -146,6 +148,8 @@ type EngagementOptions = {
 
   authorUsername?: string
 
+  savedByUsername?: string
+
   queryKey?: unknown[]
 
 }
@@ -176,6 +180,8 @@ export async function invalidatePostEngagementCaches(
 
       qc.invalidateQueries({ queryKey: ['delvers-social'] }),
 
+      qc.invalidateQueries({ queryKey: ['delvers-highlights'] }),
+
       qc.invalidateQueries({ queryKey: ['feed'] }),
 
       qc.invalidateQueries({ queryKey: ['delvers'] }),
@@ -191,6 +197,12 @@ export async function invalidatePostEngagementCaches(
     tasks.push(qc.invalidateQueries({ queryKey: ['public-profile', options.authorUsername] }))
 
     tasks.push(qc.invalidateQueries({ queryKey: ['user-posts', options.authorUsername] }))
+
+  }
+
+  if (options.savedByUsername) {
+
+    tasks.push(qc.invalidateQueries({ queryKey: ['user-saved', options.savedByUsername] }))
 
   }
 

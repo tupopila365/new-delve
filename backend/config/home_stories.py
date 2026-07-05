@@ -261,6 +261,7 @@ def _pins_slides(*, region: str, user, request) -> list[dict]:
     qs = (
         Post.objects.filter(is_hidden=False, is_delvers=True)
         .exclude(is_accommodation_story=True)
+        .exclude(is_delvers_highlight=True)
         .exclude(post_kind=PostKind.QUESTION)
         .filter(Q(image__isnull=False) | Q(video__isnull=False))
         .select_related(

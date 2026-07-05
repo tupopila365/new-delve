@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { MessageCircle, RefreshCw, UserRound } from 'lucide-react'
+import { MessageCircle, RefreshCw, UserRound, X } from 'lucide-react'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
+import { DelversCommentComposer } from './DelversCommentComposer'
 import { ReportButton } from './report/ReportButton'
 import '../delvers-comments-panel.css'
 
@@ -23,6 +24,9 @@ type Props = {
   postId: number
   open: boolean
   count?: number
+  onClose: () => void
+  onCommented?: () => void
+  signedIn?: boolean
 }
 
 function formatCommentDate(value?: string): string {
@@ -36,7 +40,8 @@ function authorName(author: CommentAuthor): string {
   return author.display_name?.trim() || author.username || 'Delver'
 }
 
-export function DelversCommentsPanel({ postId, open, count = 0 }: Props) {
+export function DelversCommentsPanel({ postId, open, count = 0, onClose, onCommented, signedIn = false }: Props) {
+  const qc = useQueryClient()
   const commentsQuery = useQuery({
     queryKey: ['delvers-post-comments', postId],
     enabled: open,
@@ -50,6 +55,11 @@ export function DelversCommentsPanel({ postId, open, count = 0 }: Props) {
   const error = commentsQuery.error
   const needsLogin = error instanceof ApiError && error.status === 401
 
+  const handleCommented = () => {
+    void qc.invalidateQueries({ queryKey: ['delvers-post-comments', postId] })
+    onCommented?.()
+  }
+
   return (
     <section className="ds-comments-panel" aria-label="Post comments">
       <div className="ds-comments-panel__head">
@@ -57,16 +67,21 @@ export function DelversCommentsPanel({ postId, open, count = 0 }: Props) {
           <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
           {count > 0 ? `${count} ${count === 1 ? 'comment' : 'comments'}` : 'Comments'}
         </span>
-        <button
-          type="button"
-          className="ds-comments-panel__refresh"
-          onClick={() => void commentsQuery.refetch()}
-          disabled={commentsQuery.isFetching}
-          aria-label="Refresh comments"
-        >
-          <RefreshCw size={14} strokeWidth={2.25} aria-hidden />
-          {commentsQuery.isFetching ? 'Refreshing' : 'Refresh'}
-        </button>
+        <div className="ds-comments-panel__head-actions">
+          <button
+            type="button"
+            className="ds-comments-panel__refresh"
+            onClick={() => void commentsQuery.refetch()}
+            disabled={commentsQuery.isFetching}
+            aria-label="Refresh comments"
+          >
+            <RefreshCw size={14} strokeWidth={2.25} aria-hidden />
+            {commentsQuery.isFetching ? 'Refreshing' : 'Refresh'}
+          </button>
+          <button type="button" className="ds-comments-panel__close" onClick={onClose} aria-label="Close comments">
+            <X size={16} strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
       </div>
 
       {commentsQuery.isLoading ? (
@@ -125,6 +140,19 @@ export function DelversCommentsPanel({ postId, open, count = 0 }: Props) {
           })}
         </ul>
       ) : null}
+
+      {signedIn ? (
+        <DelversCommentComposer
+          postId={postId}
+          variant="compact"
+          placeholder="Add a comment..."
+          onCommented={handleCommented}
+        />
+      ) : (
+        <p className="ds-comments-panel__composer-hint">
+          <Link to="/login">Sign in</Link> to join the conversation.
+        </p>
+      )}
     </section>
   )
 }

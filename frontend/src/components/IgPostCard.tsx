@@ -24,6 +24,7 @@ export type FeedPost = {
   delvers_board?: string
   is_delvers?: boolean
   is_accommodation_story?: boolean
+  is_delvers_highlight?: boolean
   post_kind?: 'tip' | 'question'
   place_label?: string
   listing?: { id: number; title: string } | null
@@ -67,6 +68,7 @@ export function IgPostCard({
       void invalidatePostEngagementCaches(qc, {
         queryKey,
         authorUsername: post.author.username,
+        savedByUsername: profile?.username,
       })
     },
   })

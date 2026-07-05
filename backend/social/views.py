@@ -123,7 +123,10 @@ class DelversFeedView(APIView):
             region = (request.user.profile.region or "").strip()
 
         qs = filter_posts_for_viewer(
-            _base_post_queryset().filter(is_delvers=True).exclude(is_accommodation_story=True),
+            _base_post_queryset()
+            .filter(is_delvers=True)
+            .exclude(is_accommodation_story=True)
+            .exclude(is_delvers_highlight=True),
             request.user if request.user.is_authenticated else None,
         )
         qs = _annotate_post_counts(qs).annotate(
@@ -154,6 +157,27 @@ class DelversFeedView(APIView):
         )
 
 
+class DelversHighlightsView(APIView):
+    """Story-ring highlights for Delvers — not mixed into the pin feed."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        region = (request.query_params.get("region") or "").strip()
+        if not region and request.user.is_authenticated:
+            region = (request.user.profile.region or "").strip()
+
+        qs = filter_posts_for_viewer(
+            _base_post_queryset().filter(is_delvers_highlight=True),
+            request.user if request.user.is_authenticated else None,
+        )
+        if region:
+            qs = qs.filter(Q(region__iexact=region) | Q(region__icontains=region))
+        qs = _annotate_post_counts(qs).order_by("-created_at")[:120]
+        ser = PostSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
+
 class UserPublicPostsView(APIView):
     """All posts by a user (feed + Delvers), newest first — for public profile grids."""
 
@@ -166,7 +190,9 @@ class UserPublicPostsView(APIView):
             return Response([])
 
         qs = (
-            _annotate_post_counts(_base_post_queryset().filter(author=author))
+            _annotate_post_counts(
+                _base_post_queryset().filter(author=author).exclude(is_delvers_highlight=True)
+            )
             .order_by("-created_at")[:60]
         )
         ser = PostSerializer(qs, many=True, context={"request": request})
@@ -333,6 +359,7 @@ class PostViewSet(viewsets.ModelViewSet):
         base = filter_posts_for_viewer(
             Post.objects.exclude(pk=post.pk)
             .exclude(is_accommodation_story=True)
+            .exclude(is_delvers_highlight=True)
             .filter(is_hidden=False)
             .select_related("author", "author__profile"),
             request.user if request.user.is_authenticated else None,

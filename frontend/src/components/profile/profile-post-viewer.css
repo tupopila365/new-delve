@@ -36,38 +36,44 @@
 
 .ppv__slide {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 100%;
   height: 100dvh;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   background: #000;
+  overflow: hidden;
 }
 
 .ppv__media {
   position: absolute;
   inset: 0;
+  z-index: 0;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  background: #050505;
+  background: #000;
 }
 
 .ppv__media .post-media-wrap,
-.ppv__media .post-media-wrap--detail {
+.ppv__media .post-media-wrap--detail,
+.ppv__media .post-media-placeholder {
   width: 100%;
   height: 100%;
   max-width: 100%;
-  max-height: 100%;
+  max-height: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ppv__media .ig-post__media,
-.ppv__media video.ig-post__media {
+.ppv__media video.ig-post__media,
+.ppv__media .post-media-wrap--detail .ig-post__media,
+.ppv__media .post-media-wrap--detail video.ig-post__media {
   width: 100%;
   height: 100%;
-  max-height: 100dvh;
+  max-height: none;
+  min-height: 0;
   object-fit: contain;
   object-position: center;
   background: #000;
@@ -76,39 +82,38 @@
 .ppv__scrim {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
   background: linear-gradient(
     180deg,
     rgba(0, 0, 0, 0.45) 0%,
     rgba(0, 0, 0, 0) 18%,
-    rgba(0, 0, 0, 0) 62%,
-    rgba(0, 0, 0, 0.72) 100%
+    rgba(0, 0, 0, 0) 55%,
+    rgba(0, 0, 0, 0.55) 78%,
+    rgba(0, 0, 0, 0.82) 100%
   );
+}
+
+.ppv__actions {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(108px, calc(env(safe-area-inset-bottom) + 92px));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  pointer-events: auto;
 }
 
 .ppv__hud {
   position: absolute;
-  inset: 0;
+  inset: auto 72px max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
   pointer-events: none;
-  padding:
-    max(56px, calc(env(safe-area-inset-top) + 44px))
-    max(14px, env(safe-area-inset-right))
-    max(18px, env(safe-area-inset-bottom))
-    max(14px, env(safe-area-inset-left));
-}
-
-.ppv__hud-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
 }
 
 .ppv__meta {
-  flex: 1;
   min-width: 0;
   pointer-events: auto;
 }
@@ -161,14 +166,6 @@
   color: rgba(255, 255, 255, 0.62);
 }
 
-.ppv__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  pointer-events: auto;
-}
-
 .ppv__action {
   display: flex;
   flex-direction: column;
@@ -206,7 +203,7 @@
   position: absolute;
   top: max(14px, env(safe-area-inset-top));
   right: max(14px, env(safe-area-inset-right));
-  z-index: 3;
+  z-index: 4;
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.5);
@@ -397,5 +394,16 @@
     max-width: 480px;
     margin: 0 auto;
     border-inline: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}
+
+@media (max-width: 380px) {
+  .ppv__hud {
+    inset: auto 64px max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .ppv__actions {
+    bottom: max(96px, calc(env(safe-area-inset-bottom) + 84px));
+    gap: 14px;
   }
 }

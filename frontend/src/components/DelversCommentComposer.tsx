@@ -5,16 +5,24 @@ import '../delvers-comment-composer.css'
 
 type Props = {
   postId: number
-  onClose: () => void
+  onClose?: () => void
   onCommented: () => void
   placeholder?: string
+  variant?: 'full' | 'compact'
 }
 
-export function DelversCommentComposer({ postId, onClose, onCommented, placeholder = 'Write a comment...' }: Props) {
+export function DelversCommentComposer({
+  postId,
+  onClose,
+  onCommented,
+  placeholder = 'Write a comment...',
+  variant = 'full',
+}: Props) {
   const [body, setBody] = useState('')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
   const canSend = body.trim().length > 0 && !busy
+  const compact = variant === 'compact'
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -29,9 +37,11 @@ export function DelversCommentComposer({ postId, onClose, onCommented, placehold
         body: JSON.stringify({ body: text }),
       })
       setBody('')
-      setStatus('Comment posted')
+      setStatus(compact ? '' : 'Comment posted')
       onCommented()
-      window.setTimeout(onClose, 650)
+      if (!compact && onClose) {
+        window.setTimeout(onClose, 650)
+      }
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         setStatus('Sign in again to comment')
@@ -41,6 +51,25 @@ export function DelversCommentComposer({ postId, onClose, onCommented, placehold
     } finally {
       setBusy(false)
     }
+  }
+
+  if (compact) {
+    return (
+      <form className="ds-comment-composer ds-comment-composer--compact" onSubmit={submit} aria-label="Write a comment">
+        <input
+          type="text"
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          placeholder={placeholder}
+          maxLength={500}
+          aria-label="Comment"
+        />
+        <button type="submit" className="ds-comment-composer__send" disabled={!canSend} aria-label="Send comment">
+          <Send size={16} strokeWidth={2.3} aria-hidden />
+        </button>
+        {status ? <small className="ds-comment-composer__status">{status}</small> : null}
+      </form>
+    )
   }
 
   return (
@@ -59,9 +88,11 @@ export function DelversCommentComposer({ postId, onClose, onCommented, placehold
       <div className="ds-comment-composer__bar">
         <small>{status || `${body.trim().length}/500`}</small>
         <div className="ds-comment-composer__actions">
-          <button type="button" className="ds-comment-composer__close" onClick={onClose} aria-label="Close comment composer">
-            <X size={16} strokeWidth={2.3} aria-hidden />
-          </button>
+          {onClose ? (
+            <button type="button" className="ds-comment-composer__close" onClick={onClose} aria-label="Close comment composer">
+              <X size={16} strokeWidth={2.3} aria-hidden />
+            </button>
+          ) : null}
           <button type="submit" className="ds-comment-composer__send" disabled={!canSend} aria-label="Send comment">
             <Send size={16} strokeWidth={2.3} aria-hidden />
             <span>{busy ? 'Sending' : 'Send'}</span>

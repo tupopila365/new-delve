@@ -96,6 +96,7 @@ class PostSerializer(serializers.ModelSerializer):
             "delvers_board",
             "is_delvers",
             "is_accommodation_story",
+            "is_delvers_highlight",
             "post_kind",
             "place_label",
             "listing",
@@ -153,6 +154,10 @@ class PostSerializer(serializers.ModelSerializer):
         if is_acc is None:
             is_acc = instance.is_accommodation_story if instance else False
 
+        is_highlight = attrs.get("is_delvers_highlight")
+        if is_highlight is None:
+            is_highlight = instance.is_delvers_highlight if instance else False
+
         is_delvers = attrs.get("is_delvers")
         if is_delvers is None:
             is_delvers = instance.is_delvers if instance else False
@@ -180,6 +185,12 @@ class PostSerializer(serializers.ModelSerializer):
         if is_delvers and is_acc:
             raise serializers.ValidationError("Accommodation stories cannot be published as Delvers pins.")
 
+        if is_highlight and is_acc:
+            raise serializers.ValidationError("Accommodation stories cannot be Delvers highlights.")
+
+        if is_highlight and post_kind == PostKind.QUESTION:
+            raise serializers.ValidationError("Ask-locals questions cannot be Delvers highlights.")
+
         if post_kind == PostKind.QUESTION:
             if is_acc:
                 raise serializers.ValidationError("Ask-locals questions cannot be accommodation stories.")
@@ -192,6 +203,7 @@ class PostSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"body": "Write your question."})
             attrs["is_delvers"] = False
             attrs["is_accommodation_story"] = False
+            attrs["is_delvers_highlight"] = False
 
         event = attrs.get("event")
         if event is None and instance is not None:
@@ -204,8 +216,14 @@ class PostSerializer(serializers.ModelSerializer):
 
         if is_acc:
             attrs["is_delvers"] = False
+            attrs["is_delvers_highlight"] = False
         if is_delvers:
             attrs["is_accommodation_story"] = False
+        if is_highlight:
+            attrs["is_accommodation_story"] = False
+            attrs["is_delvers"] = True
+            if not image and not video:
+                raise serializers.ValidationError("Add a photo or short video for your highlight.")
 
         if is_acc:
             user = getattr(request, "user", None)

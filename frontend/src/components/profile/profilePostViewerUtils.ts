@@ -2,7 +2,7 @@ import type { FeedPost } from '../IgPostCard'
 
 /** Posts that have a photo or video — used for profile media viewer navigation. */
 export function filterProfileMediaPosts(posts: FeedPost[]): FeedPost[] {
-  return posts.filter((p) => Boolean(p.image || p.video))
+  return posts.filter((p) => Boolean(p.image || p.video) && !p.is_delvers_highlight)
 }
 
 export function formatEngagementCount(n: number): string {

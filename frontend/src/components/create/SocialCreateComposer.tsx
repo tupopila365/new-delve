@@ -172,6 +172,7 @@ export function SocialCreateComposer({ mode }: Props) {
       fd.append('region', region.trim())
       fd.append('is_delvers', postsToDelvers ? 'true' : 'false')
       fd.append('is_accommodation_story', hostStory ? 'true' : 'false')
+      fd.append('is_delvers_highlight', mode === 'story' && !hostStory ? 'true' : 'false')
       if (postsToDelvers) {
         fd.append('delvers_board', board.trim() || (mode === 'story' ? 'Highlights' : 'Posts'))
       }

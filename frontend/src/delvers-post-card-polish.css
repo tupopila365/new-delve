@@ -76,15 +76,19 @@
 @keyframes ds-heart-burst {
   0% {
     opacity: 0;
-    transform: scale(0.45);
+    transform: scale(0.35);
   }
-  18% {
+  15% {
     opacity: 1;
-    transform: scale(1.08);
+    transform: scale(1.12);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(0.96);
   }
   100% {
     opacity: 0;
-    transform: scale(1.32);
+    transform: scale(1.28);
   }
 }
 
@@ -116,8 +120,35 @@
 }
 
 .ds-post__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 13px 16px 7px;
   gap: 10px;
+}
+
+.ds-post__actions-primary,
+.ds-post__actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ds-post__actions-primary .ds-post__report {
+  margin-left: 2px;
+  opacity: 0.62;
+}
+
+.ds-post__actions-primary .ds-post__report:hover {
+  opacity: 1;
+}
+
+/* Override legacy ds.css last-child push — layout uses primary/secondary groups */
+.ds-post__actions > .ds-post__actions-primary button:last-child,
+.ds-post__actions > .ds-post__actions-primary a:last-child,
+.ds-post__actions > .ds-post__actions-secondary button:last-child,
+.ds-post__actions > .ds-post__actions-secondary a:last-child {
+  margin-left: 0;
 }
 
 .ds-post__actions button,
@@ -139,10 +170,15 @@
 }
 
 .ds-post__action--save {
-  margin-left: auto;
+  margin-left: 0;
 }
 
-.ds-post__actions .is-active {
+.ds-post__action--like.is-active {
+  color: #ff3040;
+  background: rgba(255, 48, 64, 0.14);
+}
+
+.ds-post__actions .is-active:not(.ds-post__action--like):not(.ds-post__action--save) {
   color: var(--accent);
   background: rgba(232, 98, 10, 0.12);
 }

@@ -5,7 +5,6 @@ import { Bell, Bookmark, Camera, Compass, Heart, Home, MapPin, MessageCircle, Pl
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { UserAvatar } from '../components/UserAvatar'
-import { DelversCommentComposer } from '../components/DelversCommentComposer'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
 import { ReportButton } from '../components/report/ReportButton'
 import { PostMedia } from '../components/PostMedia'
@@ -14,6 +13,7 @@ import {
   type DelversFeedPost,
   type DelversFeedItem,
   isFeedPost,
+  isDelversPin,
   isSponsoredListingItem,
 } from '../components/social/delversFeedTypes'
 import { EmptyState } from '../components/ui'
@@ -109,6 +109,7 @@ export function DelversSocial() {
   const lastScrollTopRef = useRef(0)
   const qc = useQueryClient()
   const qk = ['delvers-social', profile?.region] as const
+  const highlightsQk = ['delvers-highlights', profile?.region] as const
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk,
@@ -119,22 +120,73 @@ export function DelversSocial() {
       ),
   })
 
+  const { data: highlights = [] } = useQuery({
+    queryKey: highlightsQk,
+    queryFn: () =>
+      apiFetch<DelversFeedPost[]>(
+        `/api/social/delvers/highlights/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
+        { auth: false },
+      ),
+  })
+
   const likeMut = useMutation({
-    mutationFn: (post: PinPost) => apiFetch(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
+    mutationFn: (post: PinPost) =>
+      apiFetch<{ liked: boolean }>(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
+    onMutate: async (post) => {
+      await qc.cancelQueries({ queryKey: qk })
+      const previous = qc.getQueryData<DelversFeedItem[]>(qk)
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) => {
+          if (!isFeedPost(item) || item.id !== post.id) return item
+          const liked = !item.liked_by_me
+          return {
+            ...item,
+            liked_by_me: liked,
+            likes_count: Math.max(0, item.likes_count + (liked ? 1 : -1)),
+          }
+        }),
+      )
+      return { previous }
+    },
+    onError: (_err, _post, context) => {
+      if (context?.previous) qc.setQueryData(qk, context.previous)
+    },
     onSuccess: (_data, post) => {
       void invalidatePostEngagementCaches(qc, {
         queryKey: qk,
         authorUsername: post.author.username,
+        savedByUsername: profile?.username,
       })
     },
   })
 
   const saveMut = useMutation({
-    mutationFn: (post: PinPost) => apiFetch(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
+    mutationFn: (post: PinPost) =>
+      apiFetch<{ saved: boolean }>(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
+    onMutate: async (post) => {
+      await qc.cancelQueries({ queryKey: qk })
+      const previous = qc.getQueryData<DelversFeedItem[]>(qk)
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) => {
+          if (!isFeedPost(item) || item.id !== post.id) return item
+          const saved = !item.saved_by_me
+          return {
+            ...item,
+            saved_by_me: saved,
+            saves_count: Math.max(0, item.saves_count + (saved ? 1 : -1)),
+          }
+        }),
+      )
+      return { previous }
+    },
+    onError: (_err, _post, context) => {
+      if (context?.previous) qc.setQueryData(qk, context.previous)
+    },
     onSuccess: (_data, post) => {
       void invalidatePostEngagementCaches(qc, {
         queryKey: qk,
         authorUsername: post.author.username,
+        savedByUsername: profile?.username,
       })
     },
   })
@@ -182,7 +234,7 @@ export function DelversSocial() {
 
   const creators = useMemo((): Creator[] => {
     const map = new Map<string, Creator>()
-    for (const post of (data ?? []).filter(isFeedPost)) {
+    for (const post of highlights) {
       const key = post.author.username
       const current = map.get(key)
       if (current) {
@@ -201,10 +253,10 @@ export function DelversSocial() {
       }
     }
     return [...map.values()].sort((a, b) => b.likes - a.likes || b.posts - a.posts).slice(0, 10)
-  }, [data])
+  }, [highlights])
 
   const posts = useMemo(() => {
-    let list = [...(data ?? [])]
+    let list = [...(data ?? [])].filter((item) => !isFeedPost(item) || isDelversPin(item))
     const homeRegion = profile?.region?.trim().toLowerCase()
 
     if (tab === 'nearby' && homeRegion) {
@@ -273,7 +325,7 @@ export function DelversSocial() {
   }
 
   const openCreatorStories = (creator: Creator) => {
-    const rows = (data ?? []).filter(isFeedPost).filter((post) => post.author.username === creator.username)
+    const rows = highlights.filter((post) => post.author.username === creator.username)
     if (rows.length === 0) return
     setStoryTarget({
       kind: 'creator',
@@ -288,7 +340,7 @@ export function DelversSocial() {
 
   const openPlaceStories = (place: string) => {
     const placeKey = place.trim().toLowerCase()
-    const rows = (data ?? []).filter(isFeedPost).filter((post) => post.region?.trim().toLowerCase().includes(placeKey))
+    const rows = highlights.filter((post) => post.region?.trim().toLowerCase().includes(placeKey))
     if (rows.length === 0) {
       setQuery(place)
       return
@@ -589,7 +641,6 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   onShare: () => void
   onCommented: () => void
 }) {
-  const [commentOpen, setCommentOpen] = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [heartBurst, setHeartBurst] = useState(false)
   const lastTapRef = useRef(0)
@@ -599,9 +650,19 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   const date = formatDate(post.created_at)
   const commentCount = post.comments_count ?? 0
 
+  const triggerHeartBurst = () => {
+    setHeartBurst(true)
+    window.setTimeout(() => setHeartBurst(false), 720)
+  }
+
+  const handleLike = () => {
+    const liking = !post.liked_by_me
+    onLike()
+    if (liking) triggerHeartBurst()
+  }
+
   const handleCommented = () => {
     onCommented()
-    setCommentsOpen(true)
   }
 
   const permalink = postPermalinkPath(post.id)
@@ -625,18 +686,12 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
         aria-label={`${hasMedia ? 'Photo' : 'Note'} by ${name}. Double-tap to like.`}
         onDoubleClick={() => {
           if (!signedIn) return
-          onLike()
-          setHeartBurst(true)
-          window.setTimeout(() => setHeartBurst(false), 720)
+          handleLike()
         }}
         onTouchEnd={(e) => {
           const now = Date.now()
           if (now - lastTapRef.current < 320) {
-            if (signedIn) {
-              onLike()
-              setHeartBurst(true)
-              window.setTimeout(() => setHeartBurst(false), 720)
-            }
+            if (signedIn) handleLike()
             lastTapRef.current = 0
             e.preventDefault()
           } else {
@@ -656,43 +711,78 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
         )}
         {heartBurst ? (
           <span className="ds-post__heart-burst" aria-hidden>
-            <Heart size={72} strokeWidth={2} fill="currentColor" />
+            <Heart size={96} strokeWidth={1.75} fill="currentColor" />
           </span>
         ) : null}
       </div>
 
       <div className="ds-post__actions" aria-label="Post actions">
-        {signedIn ? (
-          <button type="button" onClick={onLike} disabled={likeBusy} className={post.liked_by_me ? 'is-active' : ''} aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}>
-            <Heart size={22} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+        <div className="ds-post__actions-primary">
+          {signedIn ? (
+            <button
+              type="button"
+              onClick={handleLike}
+              disabled={likeBusy}
+              className={`ds-post__action--like${post.liked_by_me ? ' is-active' : ''}`}
+              aria-label={post.liked_by_me ? 'Unlike post' : 'Like post'}
+              aria-pressed={post.liked_by_me}
+            >
+              <Heart size={22} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+            </button>
+          ) : (
+            <Link to="/login" className="ds-post__action--like" aria-label="Like post">
+              <Heart size={22} strokeWidth={2.25} aria-hidden />
+            </Link>
+          )}
+          {signedIn ? (
+            <button
+              type="button"
+              onClick={() => setCommentsOpen(true)}
+              className={commentsOpen ? 'is-active' : ''}
+              aria-label="View comments"
+              aria-expanded={commentsOpen}
+            >
+              <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
+            </button>
+          ) : (
+            <Link to="/login" aria-label="View comments">
+              <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
+            </Link>
+          )}
+          <button type="button" onClick={onShare} aria-label="Share post">
+            <Share2 size={22} strokeWidth={2.25} aria-hidden />
           </button>
-        ) : <Link to="/login" aria-label="Like post"><Heart size={22} strokeWidth={2.25} aria-hidden /></Link>}
-        {signedIn ? (
-          <button type="button" onClick={() => setCommentOpen((open) => !open)} className={commentOpen ? 'is-active' : ''} aria-label={commentOpen ? 'Close comment box' : 'Write comment'}>
-            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
-          </button>
-        ) : <Link to="/login" aria-label="Write comment"><MessageCircle size={22} strokeWidth={2.25} aria-hidden /></Link>}
-        <button type="button" onClick={onShare} aria-label="Share post"><Share2 size={22} strokeWidth={2.25} aria-hidden /></button>
-        <ReportButton
-          className="ds-post__report"
-          iconOnly
-          triggerLabel="Report post"
-          target={{
-            target_type: 'post',
-            target_id: String(post.id),
-            target_label: post.body?.slice(0, 60) || `Post by @${post.author.username}`,
-          }}
-        />
-        {signedIn ? (
-          <button type="button" onClick={onSave} disabled={saveBusy} className={`ds-post__action--save${post.saved_by_me ? ' is-active' : ''}`} aria-label={post.saved_by_me ? 'Unsave post' : 'Save post'}>
-            <Bookmark size={22} strokeWidth={2.25} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
-          </button>
-        ) : <Link to="/login" className="ds-post__action--save" aria-label="Save post"><Bookmark size={22} strokeWidth={2.25} aria-hidden /></Link>}
+          <ReportButton
+            className="ds-post__report"
+            iconOnly
+            iconSize={22}
+            triggerLabel="Report post"
+            target={{
+              target_type: 'post',
+              target_id: String(post.id),
+              target_label: post.body?.slice(0, 60) || `Post by @${post.author.username}`,
+            }}
+          />
+        </div>
+        <div className="ds-post__actions-secondary">
+          {signedIn ? (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saveBusy}
+              className={`ds-post__action--save${post.saved_by_me ? ' is-active' : ''}`}
+              aria-label={post.saved_by_me ? 'Unsave post' : 'Save post'}
+              aria-pressed={post.saved_by_me}
+            >
+              <Bookmark size={22} strokeWidth={2.25} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
+            </button>
+          ) : (
+            <Link to="/login" className="ds-post__action--save" aria-label="Save post">
+              <Bookmark size={22} strokeWidth={2.25} aria-hidden />
+            </Link>
+          )}
+        </div>
       </div>
-
-      {commentOpen ? (
-        <DelversCommentComposer postId={post.id} onClose={() => setCommentOpen(false)} onCommented={handleCommented} />
-      ) : null}
 
       <div className="ds-post__copy">
         <p className="ds-post__likes">{likesLabel(post.likes_count || 0)}</p>
@@ -717,7 +807,14 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
         {date ? <small className="ds-post__date">{date}</small> : null}
       </div>
 
-      <DelversCommentsPanel postId={post.id} open={commentsOpen} count={commentCount} />
+      <DelversCommentsPanel
+        postId={post.id}
+        open={commentsOpen}
+        count={commentCount}
+        onClose={() => setCommentsOpen(false)}
+        onCommented={handleCommented}
+        signedIn={signedIn}
+      />
     </article>
   )
 }
