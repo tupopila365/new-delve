@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AccommodationStoriesFeedView,
     CommentAcceptView,
+    CommentDislikeView,
+    CommentHeartView,
     CommentHelpfulView,
     DelversFeedView,
     DelversHighlightsView,
@@ -27,6 +29,8 @@ urlpatterns = [
     path("delvers/highlights/", DelversHighlightsView.as_view(), name="delvers-highlights"),
     path("comments/<int:pk>/accept/", CommentAcceptView.as_view(), name="comment-accept"),
     path("comments/<int:pk>/helpful/", CommentHelpfulView.as_view(), name="comment-helpful"),
+    path("comments/<int:pk>/dislike/", CommentDislikeView.as_view(), name="comment-dislike"),
+    path("comments/<int:pk>/heart/", CommentHeartView.as_view(), name="comment-heart"),
     path("users/<str:username>/posts/", UserPublicPostsView.as_view(), name="user-posts"),
     path("users/<str:username>/follow/", UserFollowToggleView.as_view(), name="user-follow-toggle"),
     path("users/<str:username>/followers/", UserFollowersView.as_view(), name="user-followers"),

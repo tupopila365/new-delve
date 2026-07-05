@@ -7,7 +7,7 @@ from events_app.models import Event
 from food.models import FoodVenue
 from transport.models import BusTrip, VehicleRentalListing
 
-from .models import Comment, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
+from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
 from .video_validation import validate_post_upload_keys, validate_post_video_file
 
 User = get_user_model()
@@ -25,20 +25,28 @@ class PostAuthorSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     author = PostAuthorSerializer(read_only=True)
     helpful_count = serializers.IntegerField(read_only=True, required=False)
+    dislike_count = serializers.IntegerField(read_only=True, required=False)
+    replies_count = serializers.IntegerField(read_only=True, required=False)
     marked_helpful_by_me = serializers.SerializerMethodField()
+    marked_disliked_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = (
             "id",
             "author",
+            "parent_id",
             "body",
             "created_at",
             "is_accepted_answer",
+            "hearted_by_author",
             "helpful_count",
+            "dislike_count",
+            "replies_count",
             "marked_helpful_by_me",
+            "marked_disliked_by_me",
         )
-        read_only_fields = ("author", "created_at", "is_accepted_answer")
+        read_only_fields = ("author", "created_at", "is_accepted_answer", "hearted_by_author")
 
     def get_marked_helpful_by_me(self, obj):
         request = self.context.get("request")
@@ -47,6 +55,14 @@ class CommentSerializer(serializers.ModelSerializer):
         if hasattr(obj, "marked_helpful_by_me"):
             return bool(obj.marked_helpful_by_me)
         return CommentHelpful.objects.filter(comment=obj, user=request.user).exists()
+
+    def get_marked_disliked_by_me(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        if hasattr(obj, "marked_disliked_by_me"):
+            return bool(obj.marked_disliked_by_me)
+        return CommentDislike.objects.filter(comment=obj, user=request.user).exists()
 
 
 class PostSerializer(serializers.ModelSerializer):

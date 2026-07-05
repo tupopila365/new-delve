@@ -17,7 +17,6 @@ import { friendlyApiMessage } from '../utils/friendlyError'
 import { buildJourneyPayload, mapApiJourneyToTrip, type ApiJourney } from '../utils/journeyApi'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
 import '../components/journeys/CreateJourneyPageEnhancer.css'
-import '../components/events/CreateEventPageEnhancer.css'
 
 /* ── constants ─────────────────────────────────────────────── */
 
@@ -441,6 +440,7 @@ export function CreateJourney() {
       subtitle={`Step ${step} of ${STEPS.length}`}
       steps={STEPS}
       step={step}
+      variant="dark"
       onLeave={requestLeave}
       onStepBack={back}
       onStepNext={next}
@@ -452,35 +452,50 @@ export function CreateJourney() {
     >
       {/* ── STEP 1: BASICS ── */}
       {step === 1 && (
-        <div className="cj-form">
-          <p className="cj-form__hint">Tell people what this journey is about.</p>
+        <div className="cj-compose">
+          <p className="cj-compose__prompt">Tell people what this journey is about.</p>
 
-          <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="cj-title">Title <span aria-hidden>*</span></label>
-            <input id="cj-title" type="text" className="input ce-form__input" placeholder="e.g. 10 days through Namibia" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
-          </div>
+          <div className="cj-compose-card">
+            <input
+              id="cj-title"
+              type="text"
+              className="cj-compose-card__title"
+              placeholder="Give your journey a title…"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={120}
+              aria-label="Journey title"
+            />
+            <textarea
+              id="cj-summary"
+              className="cj-compose-card__summary"
+              rows={3}
+              placeholder="A short description of the trip…"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              maxLength={400}
+              aria-label="Journey summary"
+            />
 
-          <div className="ce-form__field">
-            <label className="ce-form__label" htmlFor="cj-summary">Summary <span className="ce-form__label-opt">(optional)</span></label>
-            <textarea id="cj-summary" className="input ce-form__textarea" rows={3} placeholder="A short description of the trip…" value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={400} />
-          </div>
+            <div className="cj-compose-card__divider" aria-hidden />
 
-          <div className="ce-form__row">
-            <div className="ce-form__field">
-              <label className="ce-form__label" htmlFor="cj-start">Start date <span aria-hidden>*</span></label>
-              <input id="cj-start" type="date" className="input ce-form__input" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
+            <div className="cj-compose-card__meta">
+              <label className="cj-compose-card__meta-field" htmlFor="cj-start">
+                <span>Start</span>
+                <input id="cj-start" type="date" className="input ce-form__input" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
+              </label>
+              <label className="cj-compose-card__meta-field" htmlFor="cj-end">
+                <span>End</span>
+                <input id="cj-end" type="date" className="input ce-form__input" value={endsOn} min={startsOn} onChange={(e) => setEndsOn(e.target.value)} />
+              </label>
             </div>
-            <div className="ce-form__field">
-              <label className="ce-form__label" htmlFor="cj-end">End date <span aria-hidden>*</span></label>
-              <input id="cj-end" type="date" className="input ce-form__input" value={endsOn} min={startsOn} onChange={(e) => setEndsOn(e.target.value)} />
-            </div>
-          </div>
 
-          {startsOn && endsOn ? (
-            <p className="cj-form__calc">
-              {daysPreview} {daysPreview === 1 ? 'day' : 'days'}
-            </p>
-          ) : null}
+            {startsOn && endsOn ? (
+              <p className="cj-form__calc">
+                {daysPreview} {daysPreview === 1 ? 'day' : 'days'}
+              </p>
+            ) : null}
+          </div>
 
           <PartyPicker value={party} onChange={setParty} />
 
@@ -495,8 +510,8 @@ export function CreateJourney() {
 
       {/* ── STEP 2: STOPS ── */}
       {step === 2 && (
-        <div className="cj-form">
-          <p className="cj-form__hint">Add each place you visited in order. You can always add more later.</p>
+        <div className="cj-compose">
+          <p className="cj-compose__prompt">Add each place you visited, in order. You can always add more later.</p>
 
           {stops.map((stop, i) => (
             <div key={stop.key} className="cj-stop">
@@ -510,40 +525,39 @@ export function CreateJourney() {
 
               <div className="cj-stop__fields">
                 <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor={`cj-place-${stop.key}`}>Place name <span aria-hidden>*</span></label>
+                  <label className="ce-form__label" htmlFor={`cj-place-${stop.key}`}>Where</label>
                   <input id={`cj-place-${stop.key}`} type="text" className="input ce-form__input" placeholder="e.g. Swakopmund" value={stop.place_name} onChange={(e) => updateStop(stop.key, { place_name: e.target.value })} />
-                </div>
-
-                <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor={`cj-country-${stop.key}`}>Country</label>
-                  <select id={`cj-country-${stop.key}`} className="input ce-form__input" value={stop.country_code} onChange={(e) => updateStop(stop.key, { country_code: e.target.value })}>
-                    {COUNTRY_OPTIONS.map((c) => (
-                      <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="ce-form__row">
                   <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-arrived-${stop.key}`}>Arrived <span aria-hidden>*</span></label>
+                    <label className="ce-form__label" htmlFor={`cj-country-${stop.key}`}>Country</label>
+                    <select id={`cj-country-${stop.key}`} className="input ce-form__input" value={stop.country_code} onChange={(e) => updateStop(stop.key, { country_code: e.target.value })}>
+                      {COUNTRY_OPTIONS.map((c) => (
+                        <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="ce-form__field">
+                    <label className="ce-form__label" htmlFor={`cj-cost-${stop.key}`}>Spend <span className="ce-form__label-opt">optional</span></label>
+                    <input id={`cj-cost-${stop.key}`} type="number" min="0" className="input ce-form__input" placeholder="N$ 0" value={stop.cost} onChange={(e) => updateStop(stop.key, { cost: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="ce-form__row">
+                  <div className="ce-form__field">
+                    <label className="ce-form__label" htmlFor={`cj-arrived-${stop.key}`}>Arrived</label>
                     <input id={`cj-arrived-${stop.key}`} type="date" className="input ce-form__input" value={stop.arrived_on} onChange={(e) => updateStop(stop.key, { arrived_on: e.target.value })} />
                   </div>
                   <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-left-${stop.key}`}>Departed <span aria-hidden>*</span></label>
+                    <label className="ce-form__label" htmlFor={`cj-left-${stop.key}`}>Left</label>
                     <input id={`cj-left-${stop.key}`} type="date" className="input ce-form__input" value={stop.left_on} min={stop.arrived_on} onChange={(e) => updateStop(stop.key, { left_on: e.target.value })} />
                   </div>
                 </div>
 
-                <div className="ce-form__row">
-                  <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-cost-${stop.key}`}>Cost at stop (N$) <span className="ce-form__label-opt">optional</span></label>
-                    <input id={`cj-cost-${stop.key}`} type="number" min="0" className="input ce-form__input" placeholder="0" value={stop.cost} onChange={(e) => updateStop(stop.key, { cost: e.target.value })} />
-                  </div>
-                </div>
-
                 <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor={`cj-notes-${stop.key}`}>Notes <span className="ce-form__label-opt">optional</span></label>
-                  <textarea id={`cj-notes-${stop.key}`} className="input ce-form__textarea" rows={2} placeholder="What was memorable about this stop…" value={stop.notes} onChange={(e) => updateStop(stop.key, { notes: e.target.value })} />
+                  <label className="ce-form__label" htmlFor={`cj-notes-${stop.key}`}>What stood out?</label>
+                  <textarea id={`cj-notes-${stop.key}`} className="input ce-form__textarea" rows={2} placeholder="Memorable moments, tips, highlights…" value={stop.notes} onChange={(e) => updateStop(stop.key, { notes: e.target.value })} />
                 </div>
 
                 <JourneyStopMoment
@@ -567,8 +581,8 @@ export function CreateJourney() {
 
       {/* ── STEP 3: BUDGET ── */}
       {step === 3 && (
-        <div className="cj-form">
-          <p className="cj-form__hint">Log what you spent. Every item is optional — add as many as you like.</p>
+        <div className="cj-compose">
+          <p className="cj-compose__prompt">Log what you spent — every item is optional.</p>
 
           {costs.map((cost, i) => (
             <div key={cost.key} className="cj-cost-row">
@@ -626,8 +640,8 @@ export function CreateJourney() {
 
       {/* ── STEP 4: DETAILS ── */}
       {step === 4 && (
-        <div className="cj-form">
-          <p className="cj-form__hint">Add a few details to help others discover your diary.</p>
+        <div className="cj-compose">
+          <p className="cj-compose__prompt">Tag your trip so others can discover it.</p>
 
           <div className="ce-form__field">
             <label className="ce-form__label">Countries visited <span aria-hidden>*</span></label>

@@ -32,7 +32,7 @@ export function JourneyStopLinkPicker({ value, onChange, disabled = false }: Pro
       disabled={disabled}
       allowedKinds={['accommodation', 'food', 'event']}
       triggerLabel="Link a listing"
-      variant="light"
+      variant="dark"
     />
   )
 }

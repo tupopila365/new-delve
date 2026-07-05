@@ -1,30 +1,361 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Heart, ThumbsUp } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronDown, Heart, Reply, ThumbsUp } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import type { FeedPost } from '../IgPostCard'
 import { UserAvatar } from '../UserAvatar'
-import { DelversCommentComposer } from '../DelversCommentComposer'
-import { ReportButton } from '../report/ReportButton'
 import { renderTextWithHashtags } from '../../utils/hashtags'
+import type { CommunityComment, PaginatedComments } from '../../utils/communityComments'
+import {
+  TOP_LEVEL_COMMENT_PAGE,
+  communityCommentsPath,
+  normalizeCommentsResponse,
+} from '../../utils/communityComments'
+import { formatCount, relativeTime } from '../../utils/relativeTime'
 import { invalidatePostEngagementCaches } from '../../utils/socialCache'
-import { CommunityEngagementActions } from './CommunityEngagementActions'
+import { CommunityCommentNode } from './CommunityCommentNode'
+import { CommunityInlineReplyComposer } from './CommunityInlineReplyComposer'
+import { PostOverflowMenu } from './CommunityOverflowMenu'
+import type { ReportTarget } from '../report/ReportButton'
 import './community-question-thread.css'
 
-type PostComment = {
-  id: number
-  author?: {
-    username: string
-    display_name?: string | null
-    avatar?: string | null
-  } | null
-  body: string
-  created_at?: string
-  is_accepted_answer?: boolean
-  helpful_count?: number
-  marked_helpful_by_me?: boolean
+type ReplyTarget =
+  | { kind: 'post' }
+  | { kind: 'comment'; id: number; username: string }
+  | null
+
+type ThreadKind = 'question' | 'tip'
+
+type ThreadProps = {
+  post: FeedPost
+  queryKey: unknown[]
+  kind: ThreadKind
+  highlighted?: boolean
+  defaultOpen?: boolean
+}
+
+function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaultOpen = false }: ThreadProps) {
+  const { profile } = useAuth()
+  const qc = useQueryClient()
+  const signedIn = Boolean(profile)
+  const openedOnce = useRef(false)
+
+  const isQuestion = kind === 'question'
+  const [repliesOpen, setRepliesOpen] = useState(defaultOpen)
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget>(null)
+  const [heartBurst, setHeartBurst] = useState(false)
+  const [likeState, setLikeState] = useState({ count: post.likes_count ?? 0, liked: post.liked_by_me })
+  const [topComments, setTopComments] = useState<CommunityComment[]>([])
+  const [topTotal, setTopTotal] = useState(post.comments_count ?? 0)
+  const [topNextOffset, setTopNextOffset] = useState<number | null>(null)
+  const [topLoading, setTopLoading] = useState(false)
+
+  const isQuestionAuthor = Boolean(profile && profile.username === post.author.username)
+  const isPostAuthor = profile?.username === post.author.username
+  const replyCount = post.comments_count ?? topTotal
+  const name = post.author.display_name || post.author.username
+  const handle = `@${post.author.username}`
+  const hasMedia = Boolean(post.image || post.video)
+  const imageUrl = mediaUrl(post.image)
+  const videoUrl = mediaUrl(post.video)
+  const composerPlaceholder = isQuestion ? 'Write an answer…' : 'Add a reply…'
+
+  const commentsQueryKey = isQuestion
+    ? (['community-answers', post.id, profile?.username] as const)
+    : (['community-tip-replies', post.id, profile?.username] as const)
+
+  useEffect(() => {
+    setLikeState({ count: post.likes_count ?? 0, liked: post.liked_by_me })
+  }, [post.id, post.likes_count, post.liked_by_me])
+
+  useEffect(() => {
+    if (defaultOpen && !openedOnce.current) {
+      setRepliesOpen(true)
+      openedOnce.current = true
+    }
+  }, [defaultOpen])
+
+  const fetchTopComments = async (offset: number, append: boolean) => {
+    setTopLoading(true)
+    try {
+      const raw = await apiFetch<CommunityComment[] | PaginatedComments>(
+        communityCommentsPath(post.id, { limit: TOP_LEVEL_COMMENT_PAGE, offset }),
+      )
+      const page = normalizeCommentsResponse(raw)
+      setTopComments((prev) => (append ? [...prev, ...page.results] : page.results))
+      setTopTotal(page.count)
+      setTopNextOffset(page.next_offset)
+      qc.setQueryData(commentsQueryKey, page.results)
+    } finally {
+      setTopLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!repliesOpen) return
+    void fetchTopComments(0, false)
+  }, [repliesOpen, post.id])
+
+  const likeMut = useMutation({
+    mutationFn: () => apiFetch<{ liked: boolean }>(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
+    onSuccess: (data) => {
+      setLikeState((prev) => ({ ...prev, liked: data.liked }))
+      void invalidatePostEngagementCaches(qc, {
+        queryKey,
+        authorUsername: post.author.username,
+        savedByUsername: profile?.username,
+      })
+    },
+    onError: () => setLikeState({ count: post.likes_count ?? 0, liked: post.liked_by_me }),
+  })
+
+  const saveMut = useMutation({
+    mutationFn: () => apiFetch<{ saved: boolean }>(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
+    onSuccess: () => {
+      void invalidatePostEngagementCaches(qc, {
+        queryKey,
+        authorUsername: post.author.username,
+        savedByUsername: profile?.username,
+      })
+    },
+  })
+
+  const triggerHeartBurst = () => {
+    setHeartBurst(true)
+    window.setTimeout(() => setHeartBurst(false), 720)
+  }
+
+  const handleLike = () => {
+    const nextLiked = !likeState.liked
+    setLikeState({ liked: nextLiked, count: Math.max(0, likeState.count + (nextLiked ? 1 : -1)) })
+    likeMut.mutate()
+    if (nextLiked) triggerHeartBurst()
+  }
+
+  const handleReplied = () => {
+    void fetchTopComments(0, false)
+    void invalidatePostEngagementCaches(qc, { queryKey, authorUsername: post.author.username })
+    if (!repliesOpen) setRepliesOpen(true)
+  }
+
+  const startPostReply = () => {
+    setReplyTarget((prev) => (prev?.kind === 'post' ? null : { kind: 'post' }))
+    setRepliesOpen(true)
+  }
+
+  const startCommentReply = (comment: CommunityComment) => {
+    if (!comment.author?.username) return
+    setRepliesOpen(true)
+    setReplyTarget((prev) =>
+      prev?.kind === 'comment' && prev.id === comment.id
+        ? null
+        : { kind: 'comment', id: comment.id, username: comment.author!.username },
+    )
+  }
+
+  const cancelReply = () => setReplyTarget(null)
+
+  const toggleReplies = () => {
+    if (repliesOpen) {
+      setRepliesOpen(false)
+      setReplyTarget(null)
+    } else {
+      setRepliesOpen(true)
+    }
+  }
+
+  const reportTarget: ReportTarget = {
+    target_type: 'post',
+    target_id: String(post.id),
+    target_label: post.body?.slice(0, 60) || `${isQuestion ? 'Question' : 'Tip'} by @${post.author.username}`,
+  }
+
+  const postReplyActive = replyTarget?.kind === 'post'
+  const showBottomComposer = repliesOpen && replyTarget === null
+  const replyLabel = replyCount === 1 ? '1 reply' : `${replyCount} replies`
+
+  let acceptedPreview: ReactNode = null
+  if (isQuestion && post.accepted_answer && !repliesOpen) {
+    acceptedPreview = (
+      <div className="cm-thread__accepted-preview">
+        <span className="cm-thread__accepted-preview-label">Best answer</span>
+        <p>{post.accepted_answer.body}</p>
+      </div>
+    )
+  }
+
+  return (
+    <article className={`cm-thread${highlighted ? ' cm-thread--highlight' : ''}${kind === 'tip' ? ' cm-thread--tip' : ''}`}>
+      {heartBurst ? (
+        <span className="cm-thread__heart-burst" aria-hidden>
+          <Heart size={52} strokeWidth={1.75} fill="currentColor" />
+        </span>
+      ) : null}
+
+      <div className="cm-comment">
+        <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="cm-comment__avatar" aria-label={name}>
+          <UserAvatar src={post.author.avatar} name={name} fill />
+        </Link>
+
+        <div className="cm-comment__body">
+          <div className="cm-comment__head">
+            <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="cm-comment__handle">
+              {handle}
+            </Link>
+            {post.created_at ? (
+              <time className="cm-comment__time" dateTime={post.created_at}>
+                {relativeTime(post.created_at)}
+              </time>
+            ) : null}
+            {kind === 'tip' ? <span className="cm-comment__badge">Tip</span> : null}
+            {isQuestion && post.accepted_answer ? (
+              <span className="cm-comment__badge cm-comment__badge--accepted">Answered</span>
+            ) : null}
+            <PostOverflowMenu
+              signedIn={signedIn}
+              saved={post.saved_by_me}
+              saveBusy={saveMut.isPending}
+              onSave={() => saveMut.mutate()}
+              reportTarget={reportTarget}
+            />
+          </div>
+
+          {post.place_label ? <span className="cm-comment__place">{post.place_label}</span> : null}
+          {post.body?.trim() ? <p className="cm-comment__text">{renderTextWithHashtags(post.body)}</p> : null}
+
+          {hasMedia ? (
+            <div className="cm-comment__media">
+              {videoUrl ? (
+                <video src={videoUrl} controls playsInline preload="metadata" aria-label={isQuestion ? 'Question video' : 'Tip video'} />
+              ) : imageUrl ? (
+                <img src={imageUrl} alt="" />
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="cm-comment__bar" aria-label="Post actions">
+            {signedIn ? (
+              <button
+                type="button"
+                className={`cm-comment__bar-btn${likeState.liked ? ' is-active' : ''}`}
+                onClick={handleLike}
+                disabled={likeMut.isPending}
+                aria-pressed={likeState.liked}
+                aria-label={likeState.liked ? 'Unlike' : 'Like'}
+              >
+                <ThumbsUp size={16} strokeWidth={2.25} fill={likeState.liked ? 'currentColor' : 'none'} aria-hidden />
+                <span className="cm-comment__bar-count">{formatCount(likeState.count)}</span>
+              </button>
+            ) : (
+              <Link to="/login" className="cm-comment__bar-btn" aria-label="Like">
+                <ThumbsUp size={16} strokeWidth={2.25} aria-hidden />
+                <span className="cm-comment__bar-count">{formatCount(likeState.count)}</span>
+              </Link>
+            )}
+            {signedIn ? (
+              <button
+                type="button"
+                className={`cm-comment__bar-btn${postReplyActive ? ' is-active' : ''}`}
+                onClick={startPostReply}
+                aria-label="Reply"
+                aria-expanded={postReplyActive}
+              >
+                <Reply size={16} strokeWidth={2.25} aria-hidden />
+              </button>
+            ) : (
+              <Link to="/login" className="cm-comment__bar-btn" aria-label="Reply">
+                <Reply size={16} strokeWidth={2.25} aria-hidden />
+              </Link>
+            )}
+          </div>
+
+          {postReplyActive && signedIn ? (
+            <CommunityInlineReplyComposer
+              postId={post.id}
+              placeholder={composerPlaceholder}
+              onCommented={handleReplied}
+              onCancel={cancelReply}
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {acceptedPreview}
+
+      {replyCount > 0 || repliesOpen ? (
+        <button
+          type="button"
+          className={`cm-thread__replies-toggle${repliesOpen ? ' is-open' : ''}`}
+          onClick={toggleReplies}
+          aria-expanded={repliesOpen}
+        >
+          {repliesOpen ? 'Hide replies' : replyLabel}
+          <ChevronDown size={18} strokeWidth={2.5} aria-hidden />
+        </button>
+      ) : null}
+
+      {repliesOpen ? (
+        <div className="cm-thread__replies">
+          {topLoading && topComments.length === 0 ? (
+            <p className="cm-thread__replies-loading" role="status">Loading replies…</p>
+          ) : topComments.length === 0 ? (
+            <p className="cm-thread__replies-empty">
+              {isQuestion ? 'No answers yet — be the first to help.' : 'No replies yet.'}
+            </p>
+          ) : (
+            topComments.map((comment) => (
+              <CommunityCommentNode
+                key={comment.id}
+                comment={comment}
+                postId={post.id}
+                postAuthor={post.author}
+                signedIn={signedIn}
+                isQuestion={isQuestion}
+                isQuestionAuthor={isQuestionAuthor}
+                isPostAuthor={isPostAuthor}
+                replyTarget={replyTarget}
+                onStartReply={startCommentReply}
+                onCancelReply={cancelReply}
+                onCommented={handleReplied}
+                commentsQueryKey={commentsQueryKey}
+                composerPlaceholder={composerPlaceholder}
+              />
+            ))
+          )}
+
+          {topNextOffset != null ? (
+            <button
+              type="button"
+              className="cm-thread__show-more"
+              onClick={() => void fetchTopComments(topNextOffset, true)}
+              disabled={topLoading}
+            >
+              Show more replies
+              <ChevronDown size={16} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+
+          {showBottomComposer ? (
+            signedIn ? (
+              <CommunityInlineReplyComposer
+                postId={post.id}
+                placeholder={composerPlaceholder}
+                onCommented={handleReplied}
+                showCancel={false}
+                autoFocus={false}
+              />
+            ) : (
+              <Link to="/login" className="cm-thread__sign-in">
+                Sign in to {isQuestion ? 'answer' : 'reply'}
+              </Link>
+            )
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  )
 }
 
 type Props = {
@@ -34,536 +365,10 @@ type Props = {
   defaultOpen?: boolean
 }
 
-function commentAuthorName(comment: PostComment): string {
-  return comment.author?.display_name?.trim() || comment.author?.username || 'Local'
+export function CommunityQuestionThread(props: Props) {
+  return <CommunityFeedThread {...props} kind="question" />
 }
 
-export function CommunityQuestionThread({ post, queryKey, highlighted = false, defaultOpen = false }: Props) {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const signedIn = Boolean(profile)
-  const [answersOpen, setAnswersOpen] = useState(defaultOpen)
-  const [heartBurst, setHeartBurst] = useState(false)
-  const openedOnce = useRef(defaultOpen)
-
-  const isQuestionAuthor = Boolean(profile && profile.username === post.author.username)
-  const answerCount = post.comments_count ?? 0
-  const name = post.author.display_name || post.author.username
-  const hasMedia = Boolean(post.image || post.video)
-  const imageUrl = mediaUrl(post.image)
-  const videoUrl = mediaUrl(post.video)
-
-  useEffect(() => {
-    if (defaultOpen && !openedOnce.current) {
-      setAnswersOpen(true)
-      openedOnce.current = true
-    }
-  }, [defaultOpen])
-
-  const commentsQueryKey = ['community-answers', post.id, profile?.username] as const
-  const { data: answers = [], isLoading: answersLoading } = useQuery({
-    queryKey: commentsQueryKey,
-    queryFn: () => apiFetch<PostComment[]>(`/api/social/posts/${post.id}/comments/`),
-    enabled: answersOpen,
-    retry: false,
-  })
-
-  const likeMut = useMutation({
-    mutationFn: () => apiFetch<{ liked: boolean }>(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
-    onSuccess: () => {
-      void invalidatePostEngagementCaches(qc, {
-        queryKey,
-        authorUsername: post.author.username,
-        savedByUsername: profile?.username,
-      })
-    },
-  })
-
-  const saveMut = useMutation({
-    mutationFn: () => apiFetch<{ saved: boolean }>(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
-    onSuccess: () => {
-      void invalidatePostEngagementCaches(qc, {
-        queryKey,
-        authorUsername: post.author.username,
-        savedByUsername: profile?.username,
-      })
-    },
-  })
-
-  const helpfulMut = useMutation({
-    mutationFn: (commentId: number) =>
-      apiFetch<{ marked_helpful: boolean; helpful_count: number }>(
-        `/api/social/comments/${commentId}/helpful/`,
-        { method: 'POST' },
-      ),
-    onMutate: (commentId) => {
-      qc.setQueryData<PostComment[]>(commentsQueryKey, (old) =>
-        (old ?? []).map((comment) => {
-          if (comment.id !== commentId) return comment
-          const marked = !comment.marked_helpful_by_me
-          const count = comment.helpful_count ?? 0
-          return {
-            ...comment,
-            marked_helpful_by_me: marked,
-            helpful_count: Math.max(0, count + (marked ? 1 : -1)),
-          }
-        }),
-      )
-    },
-    onSuccess: (data, commentId) => {
-      qc.setQueryData<PostComment[]>(commentsQueryKey, (old) =>
-        (old ?? []).map((comment) =>
-          comment.id === commentId
-            ? { ...comment, marked_helpful_by_me: data.marked_helpful, helpful_count: data.helpful_count }
-            : comment,
-        ),
-      )
-    },
-    onError: () => {
-      void qc.invalidateQueries({ queryKey: commentsQueryKey })
-    },
-  })
-
-  const acceptMut = useMutation({
-    mutationFn: (commentId: number) =>
-      apiFetch(`/api/social/comments/${commentId}/accept/`, { method: 'POST' }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: commentsQueryKey })
-      void qc.invalidateQueries({ queryKey: ['post', post.id] })
-      void invalidatePostEngagementCaches(qc, { queryKey, authorUsername: post.author.username })
-    },
-  })
-
-  const triggerHeartBurst = () => {
-    setHeartBurst(true)
-    window.setTimeout(() => setHeartBurst(false), 720)
-  }
-
-  const handleLike = () => {
-    const liking = !post.liked_by_me
-    likeMut.mutate()
-    if (liking) triggerHeartBurst()
-  }
-
-  const handleCommented = () => {
-    void qc.invalidateQueries({ queryKey: commentsQueryKey })
-    void invalidatePostEngagementCaches(qc, { queryKey, authorUsername: post.author.username })
-  }
-
-  const statusLabel =
-    post.accepted_answer
-      ? 'Answered'
-      : answerCount > 0
-        ? `${answerCount} ${answerCount === 1 ? 'answer' : 'answers'}`
-        : 'Needs answer'
-
-  return (
-    <article className={`cm-thread${highlighted ? ' cm-thread--highlight' : ''}`}>
-      <div className="cm-thread__rail" aria-hidden />
-
-      <div className="cm-thread__card">
-        {heartBurst ? (
-          <span className="cm-thread__heart-burst" aria-hidden>
-            <Heart size={52} strokeWidth={1.75} fill="currentColor" />
-          </span>
-        ) : null}
-
-        <header className="cm-thread__head">
-          <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="cm-thread__author">
-            <UserAvatar src={post.author.avatar} name={name} className="cm-thread__author-avatar" fill />
-            <span className="cm-thread__author-meta">
-              <strong>{name}</strong>
-              <small>@{post.author.username}</small>
-            </span>
-          </Link>
-        </header>
-
-        {post.place_label ? <span className="cm-thread__place">{post.place_label}</span> : null}
-
-        <p className="cm-thread__question">{renderTextWithHashtags(post.body)}</p>
-
-        {hasMedia ? (
-          <div className="cm-thread__media">
-            <div className="cm-thread__thumb">
-              {videoUrl ? (
-                <video src={videoUrl} controls playsInline preload="metadata" aria-label="Question video" />
-              ) : imageUrl ? (
-                <img src={imageUrl} alt="" />
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        <p className={`cm-thread__status${answerCount === 0 && !post.accepted_answer ? ' cm-thread__status--open' : ''}`}>
-          {statusLabel}
-        </p>
-
-        <CommunityEngagementActions
-          signedIn={signedIn}
-          liked={post.liked_by_me}
-          saved={post.saved_by_me}
-          likeBusy={likeMut.isPending}
-          saveBusy={saveMut.isPending}
-          commentsOpen={answersOpen}
-          answerLabel={answerCount > 0 ? 'Answers' : 'Answer'}
-          onLike={handleLike}
-          onSave={() => saveMut.mutate()}
-          onToggleAnswers={() => setAnswersOpen((open) => !open)}
-          reportTarget={{
-            target_type: 'post',
-            target_id: String(post.id),
-            target_label: post.body?.slice(0, 60) || `Question by @${post.author.username}`,
-          }}
-        />
-
-        {post.accepted_answer && !answersOpen ? (
-          <div className="cm-thread__answer-body">
-            <div className="cm-thread__answer-meta">
-              <strong>Accepted answer</strong>
-              <span className="cm-thread__answer-badge">Best</span>
-            </div>
-            <p className="cm-thread__answer-text">{post.accepted_answer.body}</p>
-          </div>
-        ) : null}
-      </div>
-
-      {answersOpen ? (
-        <div className="cm-thread__answers">
-          <div className="cm-thread__answers-head">
-            <h3>{answerCount === 1 ? '1 answer' : `${Math.max(answerCount, answers.length)} answers`}</h3>
-          </div>
-
-          {answersLoading ? (
-            <p className="cm-thread__empty">Loading answers…</p>
-          ) : answers.length === 0 ? (
-            <p className="cm-thread__empty">No answers yet — be the first to help.</p>
-          ) : (
-            <ul className="cm-thread__answers-list">
-              {answers.map((answer) => (
-                <li
-                  key={answer.id}
-                  className={`cm-thread__answer${answer.is_accepted_answer ? ' cm-thread__answer--accepted' : ''}`}
-                >
-                  <div className="cm-thread__answer-rail" aria-hidden />
-                  <div className="cm-thread__answer-body">
-                    <div className="cm-thread__answer-meta">
-                      <strong>{commentAuthorName(answer)}</strong>
-                      {answer.is_accepted_answer ? (
-                        <span className="cm-thread__answer-badge">Accepted</span>
-                      ) : null}
-                      {answer.created_at
-                        ? new Date(answer.created_at).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                          })
-                        : null}
-                    </div>
-                    <p className="cm-thread__answer-text">{answer.body}</p>
-                    <div className="cm-thread__answer-actions">
-                      {signedIn ? (
-                        <button
-                          type="button"
-                          className={`cm-thread__answer-btn${answer.marked_helpful_by_me ? ' cm-thread__answer-btn--active' : ''}`}
-                          onClick={() => helpfulMut.mutate(answer.id)}
-                          disabled={helpfulMut.isPending}
-                          aria-pressed={answer.marked_helpful_by_me}
-                        >
-                          <ThumbsUp
-                            size={13}
-                            strokeWidth={2.25}
-                            fill={answer.marked_helpful_by_me ? 'currentColor' : 'none'}
-                            aria-hidden
-                          />
-                          {(answer.helpful_count ?? 0) > 0 ? answer.helpful_count : 'Helpful'}
-                        </button>
-                      ) : null}
-                      {isQuestionAuthor ? (
-                        <button
-                          type="button"
-                          className={`cm-thread__answer-btn${answer.is_accepted_answer ? ' cm-thread__answer-btn--active' : ''}`}
-                          onClick={() => acceptMut.mutate(answer.id)}
-                          disabled={acceptMut.isPending}
-                        >
-                          <CheckCircle2 size={13} strokeWidth={2.25} aria-hidden />
-                          {answer.is_accepted_answer ? 'Accepted' : 'Accept'}
-                        </button>
-                      ) : null}
-                      <ReportButton
-                        className="cm-thread__answer-btn"
-                        iconOnly
-                        iconSize={13}
-                        triggerLabel="Report answer"
-                        target={{
-                          target_type: 'comment',
-                          target_id: String(answer.id),
-                          target_label: answer.body.slice(0, 60),
-                        }}
-                      />
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="cm-thread__composer">
-            {signedIn ? (
-              <DelversCommentComposer
-                postId={post.id}
-                onCommented={handleCommented}
-                placeholder="Write an answer…"
-                variant="compact"
-              />
-            ) : (
-              <Link to="/login" className="btn btn-ghost btn-sm">
-                Sign in to answer
-              </Link>
-            )}
-          </div>
-        </div>
-      ) : null}
-    </article>
-  )
-}
-
-export function CommunityTipCard({ post, queryKey, highlighted = false }: {
-  post: FeedPost
-  queryKey: unknown[]
-  highlighted?: boolean
-}) {
-  const { profile } = useAuth()
-  const qc = useQueryClient()
-  const signedIn = Boolean(profile)
-  const [repliesOpen, setRepliesOpen] = useState(false)
-  const [heartBurst, setHeartBurst] = useState(false)
-
-  const name = post.author.display_name || post.author.username
-  const hasMedia = Boolean(post.image || post.video)
-  const imageUrl = mediaUrl(post.image)
-  const videoUrl = mediaUrl(post.video)
-  const replyCount = post.comments_count ?? 0
-
-  const commentsQueryKey = ['community-tip-replies', post.id, profile?.username] as const
-  const { data: replies = [], isLoading: repliesLoading } = useQuery({
-    queryKey: commentsQueryKey,
-    queryFn: () => apiFetch<PostComment[]>(`/api/social/posts/${post.id}/comments/`),
-    enabled: repliesOpen,
-    retry: false,
-  })
-
-  const likeMut = useMutation({
-    mutationFn: () => apiFetch<{ liked: boolean }>(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
-    onSuccess: () => {
-      void invalidatePostEngagementCaches(qc, {
-        queryKey,
-        authorUsername: post.author.username,
-        savedByUsername: profile?.username,
-      })
-    },
-  })
-
-  const saveMut = useMutation({
-    mutationFn: () => apiFetch<{ saved: boolean }>(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
-    onSuccess: () => {
-      void invalidatePostEngagementCaches(qc, {
-        queryKey,
-        authorUsername: post.author.username,
-        savedByUsername: profile?.username,
-      })
-    },
-  })
-
-  const helpfulMut = useMutation({
-    mutationFn: (commentId: number) =>
-      apiFetch<{ marked_helpful: boolean; helpful_count: number }>(
-        `/api/social/comments/${commentId}/helpful/`,
-        { method: 'POST' },
-      ),
-    onMutate: (commentId) => {
-      qc.setQueryData<PostComment[]>(commentsQueryKey, (old) =>
-        (old ?? []).map((comment) => {
-          if (comment.id !== commentId) return comment
-          const marked = !comment.marked_helpful_by_me
-          const count = comment.helpful_count ?? 0
-          return {
-            ...comment,
-            marked_helpful_by_me: marked,
-            helpful_count: Math.max(0, count + (marked ? 1 : -1)),
-          }
-        }),
-      )
-    },
-    onSuccess: (data, commentId) => {
-      qc.setQueryData<PostComment[]>(commentsQueryKey, (old) =>
-        (old ?? []).map((comment) =>
-          comment.id === commentId
-            ? { ...comment, marked_helpful_by_me: data.marked_helpful, helpful_count: data.helpful_count }
-            : comment,
-        ),
-      )
-    },
-    onError: () => {
-      void qc.invalidateQueries({ queryKey: commentsQueryKey })
-    },
-  })
-
-  const triggerHeartBurst = () => {
-    setHeartBurst(true)
-    window.setTimeout(() => setHeartBurst(false), 720)
-  }
-
-  const handleLike = () => {
-    const liking = !post.liked_by_me
-    likeMut.mutate()
-    if (liking) triggerHeartBurst()
-  }
-
-  const handleReplied = () => {
-    void qc.invalidateQueries({ queryKey: commentsQueryKey })
-    void invalidatePostEngagementCaches(qc, { queryKey, authorUsername: post.author.username })
-  }
-
-  return (
-    <article className={`cm-thread cm-thread--tip${highlighted ? ' cm-thread--highlight' : ''}`}>
-      <div className="cm-thread__rail" aria-hidden />
-
-      <div className="cm-thread__card">
-        {heartBurst ? (
-          <span className="cm-thread__heart-burst" aria-hidden>
-            <Heart size={52} strokeWidth={1.75} fill="currentColor" />
-          </span>
-        ) : null}
-
-        <header className="cm-thread__head">
-          <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="cm-thread__author">
-            <UserAvatar src={post.author.avatar} name={name} className="cm-thread__author-avatar" fill />
-            <span className="cm-thread__author-meta">
-              <strong>{name}</strong>
-              <small>@{post.author.username}</small>
-            </span>
-          </Link>
-          <span className="cm-thread__kind">Tip</span>
-        </header>
-
-        {post.place_label ? <span className="cm-thread__place cm-thread__place--tip">{post.place_label}</span> : null}
-
-        {post.body?.trim() ? (
-          <p className="cm-thread__question cm-thread__message">{renderTextWithHashtags(post.body)}</p>
-        ) : null}
-
-        {hasMedia ? (
-          <div className="cm-thread__media">
-            <div className="cm-thread__thumb">
-              {videoUrl ? (
-                <video src={videoUrl} controls playsInline preload="metadata" aria-label="Tip video" />
-              ) : imageUrl ? (
-                <img src={imageUrl} alt="" />
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {replyCount > 0 ? (
-          <p className="cm-thread__status">{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</p>
-        ) : null}
-
-        <CommunityEngagementActions
-          signedIn={signedIn}
-          liked={post.liked_by_me}
-          saved={post.saved_by_me}
-          likeBusy={likeMut.isPending}
-          saveBusy={saveMut.isPending}
-          commentsOpen={repliesOpen}
-          answerLabel={replyCount > 0 ? 'Replies' : 'Reply'}
-          onLike={handleLike}
-          onSave={() => saveMut.mutate()}
-          onToggleAnswers={() => setRepliesOpen((open) => !open)}
-          reportTarget={{
-            target_type: 'post',
-            target_id: String(post.id),
-            target_label: post.body?.slice(0, 60) || `Tip by @${post.author.username}`,
-          }}
-        />
-      </div>
-
-      {repliesOpen ? (
-        <div className="cm-thread__answers">
-          <div className="cm-thread__answers-head">
-            <h3>{replyCount === 1 ? '1 reply' : `${Math.max(replyCount, replies.length)} replies`}</h3>
-          </div>
-
-          {repliesLoading ? (
-            <p className="cm-thread__empty">Loading replies…</p>
-          ) : replies.length === 0 ? (
-            <p className="cm-thread__empty">No replies yet.</p>
-          ) : (
-            <ul className="cm-thread__answers-list">
-              {replies.map((reply) => (
-                <li key={reply.id} className="cm-thread__answer">
-                  <div className="cm-thread__answer-rail" aria-hidden />
-                  <div className="cm-thread__answer-body">
-                    <div className="cm-thread__answer-meta">
-                      <strong>{commentAuthorName(reply)}</strong>
-                      {reply.created_at
-                        ? new Date(reply.created_at).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                          })
-                        : null}
-                    </div>
-                    <p className="cm-thread__answer-text">{reply.body}</p>
-                    <div className="cm-thread__answer-actions">
-                      {signedIn ? (
-                        <button
-                          type="button"
-                          className={`cm-thread__answer-btn${reply.marked_helpful_by_me ? ' cm-thread__answer-btn--active' : ''}`}
-                          onClick={() => helpfulMut.mutate(reply.id)}
-                          disabled={helpfulMut.isPending}
-                          aria-pressed={reply.marked_helpful_by_me}
-                        >
-                          <ThumbsUp
-                            size={13}
-                            strokeWidth={2.25}
-                            fill={reply.marked_helpful_by_me ? 'currentColor' : 'none'}
-                            aria-hidden
-                          />
-                          {(reply.helpful_count ?? 0) > 0 ? reply.helpful_count : 'Helpful'}
-                        </button>
-                      ) : null}
-                      <ReportButton
-                        className="cm-thread__answer-btn"
-                        iconOnly
-                        iconSize={13}
-                        triggerLabel="Report reply"
-                        target={{
-                          target_type: 'comment',
-                          target_id: String(reply.id),
-                          target_label: reply.body.slice(0, 60),
-                        }}
-                      />
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="cm-thread__composer">
-            {signedIn ? (
-              <DelversCommentComposer
-                postId={post.id}
-                onCommented={handleReplied}
-                placeholder="Add a reply…"
-                variant="compact"
-              />
-            ) : (
-              <Link to="/login" className="btn btn-ghost btn-sm">
-                Sign in to reply
-              </Link>
-            )}
-          </div>
-        </div>
-      ) : null}
-    </article>
-  )
+export function CommunityTipCard(props: Props) {
+  return <CommunityFeedThread {...props} kind="tip" />
 }

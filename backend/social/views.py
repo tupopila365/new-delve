@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
 from config.throttles import FollowThrottle, PostCreateThrottle
 
-from .models import Comment, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
+from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
 
 User = get_user_model()
@@ -36,12 +36,16 @@ def _accepted_comment_prefetch():
     )
 
 
-def _comment_queryset_for_post(post, user):
+def _comment_queryset_for_post(post, user, *, parent_id=None):
     viewer = user if user and user.is_authenticated else None
     qs = (
         post.comments.filter(is_hidden=False)
-        .select_related("author", "author__profile")
-        .annotate(helpful_count=Count("helpful_votes", distinct=True))
+        .select_related("author", "author__profile", "parent")
+        .annotate(
+            helpful_count=Count("helpful_votes", distinct=True),
+            dislike_count=Count("dislike_votes", distinct=True),
+            replies_count=Count("replies", filter=Q(replies__is_hidden=False), distinct=True),
+        )
     )
     if viewer:
         qs = qs.annotate(
@@ -49,12 +53,50 @@ def _comment_queryset_for_post(post, user):
                 "helpful_votes",
                 filter=Q(helpful_votes__user=viewer),
                 distinct=True,
-            )
+            ),
+            marked_disliked_by_me=Count(
+                "dislike_votes",
+                filter=Q(dislike_votes__user=viewer),
+                distinct=True,
+            ),
         )
+    if parent_id is None:
+        qs = qs.filter(parent__isnull=True)
+    else:
+        qs = qs.filter(parent_id=parent_id)
     return qs.order_by(
         Case(When(is_accepted_answer=True, then=Value(0)), default=Value(1), output_field=IntegerField()),
         "-helpful_count",
         "created_at",
+    )
+
+
+def _parse_comment_pagination(request):
+    limit_raw = request.query_params.get("limit")
+    if limit_raw is None:
+        return None, 0
+    try:
+        limit = max(1, min(int(limit_raw), 50))
+        offset = max(0, int(request.query_params.get("offset", 0)))
+    except (TypeError, ValueError):
+        limit, offset = 20, 0
+    return limit, offset
+
+
+def _comment_list_response(request, qs):
+    limit, offset = _parse_comment_pagination(request)
+    if limit is None:
+        rows = list(qs)
+        return Response(CommentSerializer(rows, many=True, context={"request": request}).data)
+    total = qs.count()
+    rows = list(qs[offset : offset + limit])
+    next_offset = offset + limit if offset + limit < total else None
+    return Response(
+        {
+            "count": total,
+            "results": CommentSerializer(rows, many=True, context={"request": request}).data,
+            "next_offset": next_offset,
+        }
     )
 
 
@@ -437,16 +479,31 @@ class PostViewSet(viewsets.ModelViewSet):
         if not can_view_posts(request.user if request.user.is_authenticated else None, post.author):
             raise NotFound()
         if request.method == "GET":
-            qs = _comment_queryset_for_post(post, request.user)
-            return Response(CommentSerializer(qs, many=True, context={"request": request}).data)
+            parent_param = request.query_params.get("parent")
+            parent_id = None
+            if parent_param not in (None, "", "root"):
+                try:
+                    parent_id = int(parent_param)
+                except (TypeError, ValueError):
+                    return Response({"detail": "Invalid parent id."}, status=status.HTTP_400_BAD_REQUEST)
+                if not post.comments.filter(pk=parent_id, is_hidden=False).exists():
+                    raise NotFound()
+            qs = _comment_queryset_for_post(post, request.user, parent_id=parent_id)
+            return _comment_list_response(request, qs)
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = CommentSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
+        body = (request.data.get("body") or "").strip()
+        if not body:
+            return Response({"detail": "body is required."}, status=status.HTTP_400_BAD_REQUEST)
+        parent = None
+        parent_raw = request.data.get("parent_id")
+        if parent_raw is not None and parent_raw != "":
+            parent = get_object_or_404(Comment.objects.filter(post=post, is_hidden=False), pk=parent_raw)
         Comment.objects.create(
             post=post,
             author=request.user,
-            body=ser.validated_data["body"],
+            body=body,
+            parent=parent,
         )
         return Response({"detail": "ok"}, status=status.HTTP_201_CREATED)
 
@@ -535,6 +592,39 @@ class CommentHelpfulView(APIView):
             marked = True
         helpful_count = CommentHelpful.objects.filter(comment=comment).count()
         return Response({"marked_helpful": marked, "helpful_count": helpful_count})
+
+
+class CommentDislikeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        comment = get_object_or_404(Comment.objects.select_related("post"), pk=pk, is_hidden=False)
+        post = comment.post
+        if not can_view_posts(request.user, post.author):
+            raise NotFound()
+        vote, created = CommentDislike.objects.get_or_create(comment=comment, user=request.user)
+        if not created:
+            vote.delete()
+            marked = False
+        else:
+            marked = True
+        dislike_count = CommentDislike.objects.filter(comment=comment).count()
+        return Response({"marked_disliked": marked, "dislike_count": dislike_count})
+
+
+class CommentHeartView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        comment = get_object_or_404(Comment.objects.select_related("post"), pk=pk, is_hidden=False)
+        post = comment.post
+        if not can_view_posts(request.user, post.author):
+            raise NotFound()
+        if post.author_id != request.user.id:
+            raise PermissionDenied("Only the post author can heart comments.")
+        comment.hearted_by_author = not comment.hearted_by_author
+        comment.save(update_fields=["hearted_by_author"])
+        return Response({"hearted_by_author": comment.hearted_by_author})
 
 
 class FollowViewSet(viewsets.ModelViewSet):

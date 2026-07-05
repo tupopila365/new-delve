@@ -9,6 +9,7 @@ type Props = {
   subtitle?: string
   steps: readonly WizardStep[]
   step: number
+  variant?: 'light' | 'dark'
   onLeave: () => void
   onStepBack: () => void
   onStepNext: () => void
@@ -36,14 +37,15 @@ export function CreateWizardShell({
   primaryDisabled = false,
   error,
   children,
+  variant = 'light',
 }: Props) {
   const isFirst = step <= 1
   const isLast = step >= steps.length
 
   return (
-    <main className="create-wizard">
+    <main className={`create-wizard create-wizard--${variant}`}>
       <CreateStudioHeader
-        variant="light"
+        variant={variant}
         title={title}
         subtitle={subtitle}
         onBack={onLeave}

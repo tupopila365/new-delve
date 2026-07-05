@@ -248,13 +248,14 @@ export function AppLayout() {
   const loc = useLocation()
   const delversFeed = loc.pathname === '/delvers'
   const createStudioDark =
-    loc.pathname === '/create/post' || loc.pathname === '/create/highlight'
+    loc.pathname === '/create/post' ||
+    loc.pathname === '/create/highlight' ||
+    loc.pathname === '/journeys/new' ||
+    /^\/journeys\/\d+\/edit$/.test(loc.pathname)
   const createStudioLight =
     loc.pathname === '/create/ask' ||
     loc.pathname === '/create/tip' ||
-    loc.pathname === '/journeys/new' ||
     loc.pathname === '/events/new' ||
-    /^\/journeys\/\d+\/edit$/.test(loc.pathname) ||
     /^\/events\/\d+\/edit$/.test(loc.pathname)
 
   if (createStudioDark || createStudioLight) {

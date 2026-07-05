@@ -86,3 +86,56 @@
 .create-wizard__nav .btn-primary {
   min-width: 132px;
 }
+
+/* ── Dark variant (journeys, social compose) ── */
+.create-wizard--dark {
+  background: #0a0a0a;
+  color: #fffaf2;
+}
+
+.create-wizard--dark .create-wizard__dot {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.create-wizard--dark .create-wizard__step.is-active .create-wizard__dot {
+  border-color: rgba(232, 98, 10, 0.55);
+  background: rgba(232, 98, 10, 0.18);
+  color: #ff9a52;
+}
+
+.create-wizard--dark .create-wizard__step.is-done .create-wizard__dot {
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.12);
+  color: #86efac;
+}
+
+.create-wizard--dark .create-wizard__label {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.create-wizard--dark .create-wizard__step.is-active .create-wizard__label {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.create-wizard--dark .create-wizard__error {
+  background: rgba(220, 38, 38, 0.16);
+  color: #fca5a5;
+}
+
+.create-wizard--dark .create-wizard__nav {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 10, 0.96);
+  backdrop-filter: blur(16px);
+}
+
+.create-wizard--dark .create-wizard__nav .btn-ghost {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.create-wizard--dark .create-wizard__nav .btn-primary {
+  background: #e8620a;
+  color: #fff;
+}

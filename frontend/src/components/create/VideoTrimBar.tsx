@@ -6,9 +6,10 @@ type Props = {
   duration: number
   onChange: (next: VideoTrim) => void
   disabled?: boolean
+  maxDurationSec?: number
 }
 
-export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
+export function VideoTrimBar({ value, duration, onChange, disabled, maxDurationSec = MAX_TRIM_DURATION_SEC }: Props) {
   if (disabled || duration <= 0) {
     return (
       <div className="create-panel">
@@ -20,14 +21,14 @@ export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
 
   const safeEnd = Math.max(value.start + 0.5, value.end)
   const selectionSec = safeEnd - value.start
-  const overMax = selectionSec > MAX_TRIM_DURATION_SEC
+  const overMax = selectionSec > maxDurationSec
 
   return (
     <div className="create-panel">
       <p className="create-panel__title">Trim video</p>
       <p className="create-panel__hint">
         {value.start.toFixed(1)}s – {safeEnd.toFixed(1)}s of {duration.toFixed(1)}s
-        {overMax ? ` · Max ${MAX_TRIM_DURATION_SEC}s per clip` : ''}
+        {overMax ? ` · Max ${maxDurationSec}s per clip` : ''}
       </p>
       <label className="create-slider">
         <span>Start</span>
@@ -40,7 +41,7 @@ export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
           onChange={(event) => {
             const start = Number(event.target.value)
             const end = Math.max(start + 0.5, value.end)
-            const cappedEnd = Math.min(end, start + MAX_TRIM_DURATION_SEC)
+            const cappedEnd = Math.min(end, start + maxDurationSec)
             onChange({ start, end: cappedEnd })
           }}
         />
@@ -56,7 +57,7 @@ export function VideoTrimBar({ value, duration, onChange, disabled }: Props) {
           onChange={(event) => {
             const end = Number(event.target.value)
             const start = Math.min(value.start, end - 0.5)
-            const cappedEnd = Math.min(end, start + MAX_TRIM_DURATION_SEC)
+            const cappedEnd = Math.min(end, start + maxDurationSec)
             onChange({ start, end: cappedEnd })
           }}
         />

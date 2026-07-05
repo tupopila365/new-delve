@@ -525,6 +525,45 @@ class AskLocalsPhase3Tests(TestCase):
         self.assertIsNotNone(detail.data.get("accepted_answer"))
         self.assertIn("Grove Mall", detail.data["accepted_answer"]["body"])
 
+    def test_nested_reply_dislike_heart_and_pagination(self):
+        nested = Comment.objects.create(
+            post=self.question,
+            author=self.local,
+            parent=self.answer,
+            body="@asker Also check Maerua Mall.",
+        )
+        self.client.force_authenticate(user=self.asker)
+        heart = self.client.post(f"/api/social/comments/{self.answer.pk}/heart/")
+        self.assertEqual(heart.status_code, 200)
+        self.assertTrue(heart.data["hearted_by_author"])
+
+        self.client.force_authenticate(user=self.local)
+        dislike = self.client.post(f"/api/social/comments/{self.answer.pk}/dislike/")
+        self.assertEqual(dislike.status_code, 200)
+        self.assertTrue(dislike.data["marked_disliked"])
+        self.assertEqual(dislike.data["dislike_count"], 1)
+
+        top = self.client.get(f"/api/social/posts/{self.question.pk}/comments/?limit=1&offset=0")
+        self.assertEqual(top.status_code, 200)
+        self.assertEqual(top.data["count"], 1)
+        self.assertEqual(len(top.data["results"]), 1)
+        self.assertEqual(top.data["results"][0]["replies_count"], 1)
+
+        replies = self.client.get(
+            f"/api/social/posts/{self.question.pk}/comments/?parent={self.answer.pk}&limit=10&offset=0"
+        )
+        self.assertEqual(replies.status_code, 200)
+        self.assertEqual(replies.data["count"], 1)
+        self.assertEqual(replies.data["results"][0]["parent_id"], self.answer.pk)
+
+        self.client.force_authenticate(user=self.asker)
+        create = self.client.post(
+            f"/api/social/posts/{self.question.pk}/comments/",
+            {"body": "@local_helper Thanks!", "parent_id": self.answer.pk},
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201)
+
     def test_search_questions_bucket(self):
         res = self.client.get("/api/search/?q=sim")
         self.assertEqual(res.status_code, 200)

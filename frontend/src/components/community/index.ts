@@ -1,5 +1,8 @@
 export { CommunityAskQuestion } from './CommunityAskQuestion'
 export type { CommunityAskPayload } from './CommunityAskQuestion'
 export { CommunityQuestionCard } from './CommunityQuestionCard'
+export { CommunityCommentNode } from './CommunityCommentNode'
 export { CommunityEngagementActions } from './CommunityEngagementActions'
+export { CommunityInlineReplyComposer } from './CommunityInlineReplyComposer'
+export { CommentOverflowMenu, PostOverflowMenu } from './CommunityOverflowMenu'
 export { CommunityQuestionThread, CommunityTipCard } from './CommunityQuestionThread'

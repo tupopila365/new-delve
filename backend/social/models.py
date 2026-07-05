@@ -107,6 +107,14 @@ class Post(models.Model):
 
 class Comment(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+        help_text="Top-level comments have no parent; replies reference their parent comment.",
+    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -117,6 +125,11 @@ class Comment(models.Model):
         default=False,
         db_index=True,
         help_text="Marked by the question author as the best answer.",
+    )
+    hearted_by_author = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Post author hearted this comment (creator heart).",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     is_hidden = models.BooleanField(default=False, db_index=True)
@@ -132,6 +145,19 @@ class CommentHelpful(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="helpful_comment_votes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["comment", "user"]]
+
+
+class CommentDislike(models.Model):
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="dislike_votes")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="dislike_comment_votes",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -1,251 +1,481 @@
-.cj-page {
-  width: min(100%, 640px);
-  margin: 0 auto;
-  padding: 0 16px calc(var(--page-bottom-clearance, 96px));
-  color: #fffaf2;
-  background: transparent !important;
-}
+/* Journey create wizard — dark social compose (scoped to beat index.css) */
 
-.cj-page__bar,
-.cj-page__title {
-  display: none !important;
-}
-
-.cj-steps {
+.create-wizard--dark .cj-compose {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  margin: 0 0 14px;
+  gap: 14px;
+}
+
+.create-wizard--dark .cj-compose__prompt {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.create-wizard--dark .cj-form {
+  display: grid;
+  gap: 14px;
   padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
-.cj-steps::before {
-  display: none;
+.create-wizard--dark .cj-form__hint,
+.create-wizard--dark .cj-form__calc {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-weight: 650;
 }
 
-.cj-step {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.cj-step--active {
-  border-color: rgba(232, 98, 10, 0.45);
-  background: rgba(232, 98, 10, 0.1);
-}
-
-.cj-step__dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.68rem;
-  font-weight: 900;
-  display: grid;
-  place-items: center;
-}
-
-.cj-step--active .cj-step__dot {
-  background: #e8620a;
-  color: #fff;
-}
-
-.cj-step--done .cj-step__dot {
-  background: rgba(22, 163, 74, 0.2);
-  color: #86efac;
-}
-
-.cj-step__label {
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 0.64rem;
+.create-wizard--dark .cj-form__calc {
+  color: #ff9a52;
   font-weight: 800;
 }
 
-.cj-step--active .cj-step__label {
-  color: #ff9a52;
-}
-
-.cj-form {
-  display: flex;
-  flex-direction: column;
+/* Compose card — step 1 basics */
+.create-wizard--dark .cj-compose-card {
+  display: grid;
   gap: 12px;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.cj-form__hint,
-.cj-form__calc {
+.create-wizard--dark .cj-compose-card__title {
+  width: 100%;
   margin: 0;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.76rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fffaf2;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1.3;
 }
 
-.cj-form .ce-form__label {
-  color: rgba(255, 255, 255, 0.55);
+.create-wizard--dark .cj-compose-card__title::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.create-wizard--dark .cj-compose-card__title:focus {
+  outline: none;
+}
+
+.create-wizard--dark .cj-compose-card__summary {
+  width: 100%;
+  min-height: 72px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+  resize: none;
+}
+
+.create-wizard--dark .cj-compose-card__summary::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.create-wizard--dark .cj-compose-card__summary:focus {
+  outline: none;
+}
+
+.create-wizard--dark .cj-compose-card__divider {
+  height: 1px;
+  margin: 2px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.create-wizard--dark .cj-compose-card__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.create-wizard--dark .cj-compose-card__meta-field {
+  display: grid;
+  gap: 4px;
+}
+
+.create-wizard--dark .cj-compose-card__meta-field span {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Shared form fields inside wizard */
+.create-wizard--dark .ce-form__field {
+  display: grid;
+  gap: 6px;
+}
+
+.create-wizard--dark .ce-form__label {
+  color: rgba(255, 255, 255, 0.48);
   font-size: 0.72rem;
   font-weight: 800;
 }
 
-.cj-form .input,
-.cj-form select.input,
-.cj-form textarea.input {
+.create-wizard--dark .ce-form__label-opt {
+  color: rgba(255, 255, 255, 0.32);
+  font-weight: 650;
+}
+
+.create-wizard--dark .input,
+.create-wizard--dark select.input,
+.create-wizard--dark textarea.input,
+.create-wizard--dark .ce-form__input,
+.create-wizard--dark .ce-form__textarea {
+  width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fffaf2;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color-scheme: dark;
+}
+
+.create-wizard--dark .input::placeholder,
+.create-wizard--dark .ce-form__input::placeholder,
+.create-wizard--dark .ce-form__textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.create-wizard--dark .input:focus,
+.create-wizard--dark select.input:focus,
+.create-wizard--dark textarea.input:focus,
+.create-wizard--dark .ce-form__input:focus,
+.create-wizard--dark .ce-form__textarea:focus {
+  border-color: rgba(232, 98, 10, 0.5);
+  outline: none;
+}
+
+.create-wizard--dark select.input option,
+.create-wizard--dark .ce-form__input option {
+  background: #141414;
   color: #fffaf2;
 }
 
-.cj-form .ce-form__chip {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.62);
+.create-wizard--dark .ce-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.cj-form .ce-form__chip--active {
-  border-color: rgba(232, 98, 10, 0.45);
-  background: rgba(232, 98, 10, 0.12);
+@media (max-width: 480px) {
+  .create-wizard--dark .ce-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.create-wizard--dark .ce-form__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.create-wizard--dark .ce-form__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.62);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.create-wizard--dark .ce-form__chip--active {
+  border-color: rgba(232, 98, 10, 0.5);
+  background: rgba(232, 98, 10, 0.14);
   color: #ff9a52;
 }
 
-.cj-stop,
-.cj-cost-row,
-.cj-preview__card {
+/* Stop cards — step 2 (fixes white-on-white from index.css) */
+.create-wizard--dark .cj-stop {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.create-wizard--dark .cj-stop__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.create-wizard--dark .cj-stop__num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(232, 98, 10, 0.2);
+  color: #ff9a52;
+  font-size: 0.72rem;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.create-wizard--dark .cj-stop__title {
+  flex: 1;
+  margin: 0;
+  color: #fffaf2;
+  font-size: 0.92rem;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.create-wizard--dark .cj-stop__remove {
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.create-wizard--dark .cj-stop__remove:hover {
+  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.16);
+}
+
+.create-wizard--dark .cj-stop__fields {
+  display: grid;
+  gap: 10px;
+}
+
+.create-wizard--dark .cj-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  background: transparent;
+  color: #ff9a52;
+  font-size: 0.84rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.create-wizard--dark .cj-add-btn:hover {
+  border-color: rgba(232, 98, 10, 0.45);
+  background: rgba(232, 98, 10, 0.08);
+}
+
+/* Budget rows — step 3 */
+.create-wizard--dark .cj-cost-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
 }
 
-.cj-stop__title,
-.cj-preview__title {
+@media (max-width: 520px) {
+  .create-wizard--dark .cj-cost-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.create-wizard--dark .cj-cost-row__cat,
+.create-wizard--dark .cj-cost-row__note,
+.create-wizard--dark .cj-cost-row__amount {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
   color: #fffaf2;
+  font: inherit;
+  font-size: 0.8rem;
+  color-scheme: dark;
 }
 
-.cj-stop__num {
-  background: rgba(232, 98, 10, 0.18);
-  color: #ff9a52;
+.create-wizard--dark .cj-cost-row__amount-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.cj-add-btn {
-  border: 1px dashed rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  background: transparent;
-  color: #ff9a52;
-  font-weight: 850;
-}
-
-.cj-budget-total {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.62);
-}
-
-.cj-budget-total strong {
-  color: #fffaf2;
-}
-
-.cj-nav {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.cj-nav .btn-primary {
-  border-radius: 12px;
-  font-weight: 900;
-}
-
-.cj-nav .btn-ghost {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.cj-page .ce-form__err {
-  margin: 0 0 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(220, 38, 38, 0.14);
-  color: #fca5a5;
+.create-wizard--dark .cj-cost-row__currency {
+  color: rgba(255, 255, 255, 0.45);
   font-size: 0.78rem;
   font-weight: 800;
 }
 
-.cj-page .ui-empty {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.media-cover-editor__label {
-  margin: 0 0 8px;
+.create-wizard--dark .cj-cost-row__del {
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.55);
-  font-size: 0.72rem;
-  font-weight: 800;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
 }
 
-.media-cover-editor__status {
-  margin: 0;
+.create-wizard--dark .cj-budget-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.create-wizard--dark .cj-budget-total strong {
+  color: #fffaf2;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+/* Preview — step 4 */
+.create-wizard--dark .cj-preview__label {
+  margin: 0 0 8px;
   color: rgba(255, 255, 255, 0.42);
   font-size: 0.72rem;
-}
-
-.journey-stop-moment {
-  display: grid;
-  gap: 8px;
-}
-
-.journey-stop-moment__label {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.72rem;
   font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.journey-stop-moment__label span {
-  color: rgba(255, 255, 255, 0.32);
-  font-weight: 650;
-}
-
-.journey-stop-moment__pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  color: #ff9a52;
-  font-size: 0.76rem;
-  font-weight: 800;
-}
-
-.journey-stop-moment__pick input {
-  display: none;
-}
-
-.journey-stop-moment__preview {
-  position: relative;
+.create-wizard--dark .cj-preview__card {
   overflow: hidden;
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.journey-stop-moment__preview img {
+.create-wizard--dark .cj-preview__img {
   width: 100%;
   max-height: 180px;
   object-fit: cover;
   display: block;
 }
 
-.journey-stop-moment__clear {
+.create-wizard--dark .cj-preview__body {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 14px;
+}
+
+.create-wizard--dark .cj-preview__title {
+  margin: 0;
+  color: #fffaf2;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.create-wizard--dark .cj-preview__meta {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+/* Media cover editor */
+.create-wizard--dark .media-cover-editor__label {
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.create-wizard--dark .media-cover-editor__status {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.72rem;
+}
+
+/* Stop moment clip */
+.create-wizard--dark .journey-stop-moment {
+  display: grid;
+  gap: 8px;
+}
+
+.create-wizard--dark .journey-stop-moment__label {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.create-wizard--dark .journey-stop-moment__label span {
+  color: rgba(255, 255, 255, 0.32);
+  font-weight: 650;
+}
+
+.create-wizard--dark .journey-stop-moment__pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  color: #ff9a52;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.create-wizard--dark .journey-stop-moment__pick input {
+  display: none;
+}
+
+.create-wizard--dark .journey-stop-moment__preview {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.create-wizard--dark .journey-stop-moment__preview img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.create-wizard--dark .journey-stop-moment__clear {
   position: absolute;
   top: 8px;
   right: 8px;

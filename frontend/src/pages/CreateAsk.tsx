@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Camera, ImagePlus, X } from 'lucide-react'
 import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { CreateStudioHeader } from '../components/create'
+import { CommunityMediaAttach } from '../components/community/CommunityMediaAttach'
 import type { FeedPost } from '../components/IgPostCard'
 import { buildAskLocalsFormData } from '../utils/communityAsk'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
@@ -25,11 +25,10 @@ export function CreateAsk() {
   const [place, setPlace] = useState('')
   const [question, setQuestion] = useState('')
   const [error, setError] = useState('')
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [mediaKind, setMediaKind] = useState<'image' | 'video' | null>(null)
-  const imageInputRef = useRef<HTMLInputElement>(null)
-  const videoInputRef = useRef<HTMLInputElement>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const startedAt = useRef(startCreateSession())
 
   useEffect(() => {
@@ -37,26 +36,13 @@ export function CreateAsk() {
     if (prefill) setPlace(prefill)
   }, [searchParams])
 
-  const isDirty = place.trim().length > 0 || question.trim().length > 0 || Boolean(mediaFile)
+  const isDirty = place.trim().length > 0 || question.trim().length > 0 || Boolean(imageFile || videoFile)
   const canPost = place.trim().length > 0 && question.trim().length > 0
 
-  const clearMedia = () => {
-    if (mediaPreview) URL.revokeObjectURL(mediaPreview)
-    setMediaFile(null)
-    setMediaPreview(null)
-    setMediaKind(null)
-  }
-
-  const attachMedia = (file: File, kind: 'image' | 'video') => {
-    if (mediaPreview) URL.revokeObjectURL(mediaPreview)
-    setMediaFile(file)
-    setMediaKind(kind)
-    setMediaPreview(URL.createObjectURL(file))
-  }
-
   useEffect(() => () => {
-    if (mediaPreview) URL.revokeObjectURL(mediaPreview)
-  }, [mediaPreview])
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    if (videoPreview) URL.revokeObjectURL(videoPreview)
+  }, [imagePreview, videoPreview])
 
   const requestLeave = (to: string) => {
     if (isDirty && !window.confirm('Discard this question?')) return
@@ -71,7 +57,11 @@ export function CreateAsk() {
           place,
           question,
           profile?.region,
-          mediaFile && mediaKind ? { file: mediaFile, kind: mediaKind } : null,
+          videoFile
+            ? { file: videoFile, kind: 'video' }
+            : imageFile
+              ? { file: imageFile, kind: 'image' }
+              : null,
         ),
       }),
     onSuccess: async (post) => {
@@ -151,53 +141,30 @@ export function CreateAsk() {
           />
         </label>
 
-        <div className="create-ask__attach">
-          <span className="create-ask__attach-label">Add a photo or video (optional)</span>
-          <div className="create-ask__attach-actions">
-            <button type="button" className="create-ask__attach-btn" onClick={() => imageInputRef.current?.click()}>
-              <ImagePlus size={16} strokeWidth={2.25} aria-hidden />
-              Photo
-            </button>
-            <button type="button" className="create-ask__attach-btn" onClick={() => videoInputRef.current?.click()}>
-              <Camera size={16} strokeWidth={2.25} aria-hidden />
-              Video
-            </button>
-          </div>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) attachMedia(file, 'image')
-              e.target.value = ''
-            }}
-          />
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept="video/*"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) attachMedia(file, 'video')
-              e.target.value = ''
-            }}
-          />
-          {mediaPreview ? (
-            <div className="create-ask__attach-preview">
-              {mediaKind === 'video' ? (
-                <video src={mediaPreview} controls playsInline aria-label="Attached video preview" />
-              ) : (
-                <img src={mediaPreview} alt="Attached photo preview" />
-              )}
-              <button type="button" className="create-ask__attach-remove" onClick={clearMedia} aria-label="Remove attachment">
-                <X size={14} strokeWidth={2.5} aria-hidden />
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <CommunityMediaAttach
+          imagePreview={imagePreview}
+          videoPreview={videoPreview}
+          onImageChange={(file, preview) => {
+            if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
+            setImageFile(file)
+            setImagePreview(preview)
+            if (file) {
+              setVideoFile(null)
+              if (videoPreview) URL.revokeObjectURL(videoPreview)
+              setVideoPreview(null)
+            }
+          }}
+          onVideoChange={(file, preview) => {
+            if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
+            setVideoFile(file)
+            setVideoPreview(preview)
+            if (file) {
+              setImageFile(null)
+              if (imagePreview) URL.revokeObjectURL(imagePreview)
+              setImagePreview(null)
+            }
+          }}
+        />
 
         <div className="create-ask__tips" aria-label="Suggested hashtags">
           {TIPS.map((tip) => {
