@@ -1,5 +1,6 @@
 import { mockPosts } from '../mocks/mockData'
 import { categoriesForBusinessTypes } from '../utils/providerCategories'
+import { mocksEnabled } from '../utils/useMocks'
 import {
   getBookingStats,
   getProviderBookings,
@@ -139,11 +140,22 @@ function scopeListings(owner: string, businessTypes: string[]) {
   return listings.filter((l) => allowed.includes(l.category))
 }
 
-function scopeBookings(businessTypes: string[]) {
-  const bookings = getProviderBookings()
+function scopeBookings(businessTypes: string[], bookingsOverride?: ProviderBooking[]) {
+  const bookings = bookingsOverride ?? getProviderBookings()
   const allowed = categoriesForBusinessTypes(businessTypes)
   if (allowed.length === 0) return bookings
   return bookings.filter((b) => allowed.includes(b.category))
+}
+
+export type UserPostAnalytics = {
+  id: number
+  body: string
+  likes_count: number
+  saves_count: number
+  comments_count?: number
+  created_at: string
+  is_accommodation_story?: boolean
+  is_delvers?: boolean
 }
 
 export function getProviderAnalytics(
@@ -151,21 +163,26 @@ export function getProviderAnalytics(
   businessTypes: string[],
   period: AnalyticsPeriod = '30d',
   listingsOverride?: ProviderListing[],
+  bookingsOverride?: ProviderBooking[],
+  userPosts: UserPostAnalytics[] = [],
 ): ProviderAnalyticsSnapshot {
-  const scale = periodScale(period)
+  const useDemo = mocksEnabled()
+  const scale = useDemo ? periodScale(period) : 1
   const listings = listingsOverride ?? scopeListings(owner ?? '', businessTypes)
-  const bookings = scopeBookings(businessTypes)
+  const bookings = scopeBookings(businessTypes, bookingsOverride)
   const bookingStats = getBookingStats(bookings)
 
   const listingViews = Math.round(listings.reduce((s, l) => s + l.views, 0) * scale)
-  const profileViews = Math.round(listingViews * 0.42 + (owner ? ownerSeed(owner) % 40 : 0))
+  const profileViews = useDemo
+    ? Math.round(listingViews * 0.42 + (owner ? ownerSeed(owner) % 40 : 0))
+    : listingViews
   const bookingRequests = Math.max(bookings.length, Math.round(bookingStats.total * scale))
   const confirmedBookings = Math.round(bookingStats.confirmed * scale) || bookingStats.confirmed
   const revenue = Math.round(bookingStats.revenue * scale)
 
-  const posts = owner
+  const posts = useDemo && owner
     ? mockPosts.filter((p) => p.author.username === owner)
-    : []
+    : userPosts
   const postEngagement = posts.reduce(
     (s, p) => s + p.likes_count + p.saves_count + (p.comments_count ?? 0),
     0,
@@ -260,12 +277,19 @@ export function getProviderAnalytics(
       postEngagement,
       conversionRate,
     },
-    deltas: {
-      profileViews: 6 + (seed % 18),
-      listingViews: 4 + (seed % 22),
-      bookingRequests: 2 + (seed % 12),
-      revenue: 8 + (seed % 25),
-    },
+    deltas: useDemo
+      ? {
+          profileViews: 6 + (seed % 18),
+          listingViews: 4 + (seed % 22),
+          bookingRequests: 2 + (seed % 12),
+          revenue: 8 + (seed % 25),
+        }
+      : {
+          profileViews: 0,
+          listingViews: 0,
+          bookingRequests: 0,
+          revenue: 0,
+        },
     viewsTrend: buildTrend(owner ?? 'x', period, listingViews, 18),
     bookingsTrend: buildTrend(owner ?? 'x', period, bookingRequests, 6),
     bookingsByCategory,

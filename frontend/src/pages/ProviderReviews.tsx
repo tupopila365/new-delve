@@ -9,35 +9,10 @@ import {
   ProviderUiPage,
   ProviderUiStats,
 } from '../components/provider/ui'
-import { categoriesForBusinessTypes, reviewListingChips } from '../utils/providerCategories'
+import { ListSkeleton } from '../components/ui'
 import type { ListingCategory } from '../data/providerData'
-
-type Review = {
-  id: number
-  guest: string
-  listing: string
-  category: string
-  rating: number
-  date: string
-  body: string
-  needsReply: boolean
-  response?: string
-}
-
-const ALL_REVIEWS: Review[] = [
-  { id: 1, guest: 'Anna K.', listing: 'Freesia Hotel', category: 'Stay', rating: 5, date: '2026-04-28', body: 'Spotless room and great breakfast.', needsReply: true },
-  { id: 2, guest: 'Tobias L.', listing: 'Coastal Guesthouse', category: 'Stay', rating: 4.8, date: '2026-04-20', body: 'Loved the dune views from the terrace.', needsReply: false, response: 'Thank you — we are glad you enjoyed the terrace!' },
-  { id: 3, guest: 'Mila K.', listing: 'Desert sunrise tour', category: 'Guide', rating: 5, date: '2026-04-15', body: 'Kaoko knew every photo stop on the route.', needsReply: true },
-  { id: 4, guest: 'Priya N.', listing: 'Oryx Grill House', category: 'Food', rating: 4.7, date: '2026-04-10', body: 'Amazing local flavours. Will definitely be back.', needsReply: false },
-]
-
-const BREAKDOWN = [
-  { stars: 5, pct: 72 },
-  { stars: 4, pct: 18 },
-  { stars: 3, pct: 6 },
-  { stars: 2, pct: 3 },
-  { stars: 1, pct: 1 },
-]
+import { reviewStarBreakdown, useProviderReviews, type ProviderReviewRow } from '../hooks/useProviderReviews'
+import { categoriesForBusinessTypes, reviewListingChips } from '../utils/providerCategories'
 
 const RATING_FILTERS = [
   { id: 'All', label: 'All' },
@@ -60,10 +35,14 @@ export function ProviderReviews() {
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
   const listingChips = useMemo(() => reviewListingChips(businessTypes), [businessTypes])
 
+  const { data: allReviews = [], isLoading } = useProviderReviews()
+
   const scopedReviews = useMemo(() => {
-    if (allowedCategories.length === 0) return ALL_REVIEWS
-    return ALL_REVIEWS.filter((r) => allowedCategories.includes(r.category as ListingCategory))
-  }, [allowedCategories])
+    if (allowedCategories.length === 0) return allReviews
+    return allReviews.filter((r) => allowedCategories.includes(r.category as ListingCategory))
+  }, [allReviews, allowedCategories])
+
+  const breakdown = useMemo(() => reviewStarBreakdown(scopedReviews), [scopedReviews])
 
   const [filter, setFilter] = useState('All')
   const [listingFilter, setListingFilter] = useState('All listings')
@@ -90,6 +69,15 @@ export function ProviderReviews() {
     scopedReviews.length > 0
       ? Math.round(((scopedReviews.length - needsReply.length) / scopedReviews.length) * 100)
       : 0
+
+  if (isLoading) {
+    return (
+      <ProviderUiPage>
+        <ProviderUiHeader title="Reviews" subtitle="Guest ratings and written feedback for your listings." />
+        <ListSkeleton count={4} variant="row" />
+      </ProviderUiPage>
+    )
+  }
 
   if (scopedReviews.length === 0) {
     return (
@@ -123,7 +111,7 @@ export function ProviderReviews() {
       <section className="prov-ui__card">
         <h2 className="prov-ui__section-title">Rating breakdown</h2>
         <ul className="prov-ui-breakdown">
-          {BREAKDOWN.map((b) => (
+          {breakdown.map((b) => (
             <li key={b.stars}>
               <span>{b.stars} ★</span>
               <div className="prov-ui-breakdown__bar" aria-hidden>
@@ -164,7 +152,8 @@ export function ProviderReviews() {
   )
 }
 
-function ReviewCard({ review, urgent }: { review: Review; urgent?: boolean }) {
+function ReviewCard({ review, urgent }: { review: ProviderReviewRow; urgent?: boolean }) {
+  const dateLabel = review.date || 'Recent'
   return (
     <article className={`prov-ui-review${urgent ? ' prov-ui-review--urgent' : ''}`}>
       <div className="prov-ui-review__head">
@@ -174,7 +163,7 @@ function ReviewCard({ review, urgent }: { review: Review; urgent?: boolean }) {
         <div>
           <strong>{review.guest}</strong>
           <span>
-            {review.listing} · {review.category} · {review.date}
+            {review.listing} · {review.category} · {dateLabel}
           </span>
         </div>
         <span className="prov-ui-review__rating">★ {review.rating}</span>

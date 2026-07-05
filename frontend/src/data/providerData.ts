@@ -1,4 +1,9 @@
 import { mockStays, mockGuides, mockVehicles, mockFood } from '../mocks/mockData'
+import type { ProviderFoodVenue } from '../components/provider/food/foodVenueTypes'
+import type { ProviderBusTripListing } from '../components/provider/transport/busTripListingTypes'
+import type { ProviderVehicleListing } from '../components/provider/transport/vehicleListingTypes'
+import type { TourPackage } from '../components/guide/types'
+import { mocksEnabled } from '../utils/useMocks'
 import type { EventListing } from '../utils/eventDisplay'
 
 export type ListingCategory = 'Stay' | 'Guide' | 'Transport' | 'Food' | 'Event'
@@ -37,6 +42,11 @@ export type ProviderBooking = {
   paymentStatus?: string
   requestedAt?: string
   source?: string
+}
+
+export type AttentionHints = {
+  unreadMessages?: number
+  unansweredQuestions?: number
 }
 
 export type AttentionItem = {
@@ -102,7 +112,7 @@ export function stayToProviderListing(s: StayListingApi, bookingCount = 0): Prov
     rating: s.rating_avg ?? '—',
     ratingCount: s.rating_count ?? 0,
     bookings: bookingCount,
-    views: engagement > 0 ? engagement * 3 : demoViews(s.id),
+    views: engagement > 0 ? engagement * 3 : mocksEnabled() ? demoViews(s.id) : 0,
     updated: 'Recently',
     healthIssue: !s.cover_image
       ? 'Missing cover photo'
@@ -131,12 +141,110 @@ export function eventToProviderListing(
     rating: '—',
     ratingCount: 0,
     bookings: e.rsvp_count ?? 0,
-    views: engagement > 0 ? engagement : demoViews(e.id),
+    views: engagement > 0 ? engagement : mocksEnabled() ? demoViews(e.id) : 0,
     updated: 'Recently',
     healthIssue: !e.cover_image ? 'Add event poster' : undefined,
     image: e.cover_image,
     publicPath: `/events/${e.id}`,
     editPath: `/events/${e.id}/edit`,
+  }
+}
+
+export function foodVenueToProviderListing(v: ProviderFoodVenue, bookingCount = 0): ProviderListing {
+  const cover = v.cover_image ?? v.photos?.find((p) => p.is_cover)?.image ?? v.photos?.[0]?.image ?? null
+  const engagement = bookingCount + (v.rating_count ?? 0)
+  return {
+    id: `food-${v.id}`,
+    title: v.name,
+    category: 'Food',
+    status: v.is_active === false ? 'draft' : cover ? 'published' : 'needs_update',
+    city: v.city,
+    region: v.region,
+    price: 'Reservations',
+    rating: v.rating_avg ?? '—',
+    ratingCount: v.rating_count ?? 0,
+    bookings: bookingCount,
+    views: engagement > 0 ? engagement * 2 : mocksEnabled() ? demoViews(v.id) : 0,
+    updated: 'Recently',
+    healthIssue: !cover ? 'Venue missing photos' : undefined,
+    image: cover,
+    publicPath: `/food/${v.id}`,
+    editPath: '/provider/food',
+  }
+}
+
+export function vehicleToProviderListing(v: ProviderVehicleListing, bookingCount = 0): ProviderListing {
+  const engagement = bookingCount
+  return {
+    id: `vehicle-${v.id}`,
+    title: v.title,
+    category: 'Transport',
+    status: v.is_active === false ? 'draft' : v.cover_image ? 'published' : 'needs_update',
+    city: v.city,
+    region: v.region,
+    price: `N$${v.price_per_day}/day`,
+    rating: '—',
+    ratingCount: 0,
+    bookings: bookingCount,
+    views: engagement > 0 ? engagement * 3 : mocksEnabled() ? demoViews(v.id) : 0,
+    updated: 'Recently',
+    healthIssue: !v.cover_image ? 'Vehicle missing photos' : undefined,
+    image: v.cover_image,
+    publicPath: `/transport/vehicle/${v.id}`,
+    editPath: '/provider/transport',
+  }
+}
+
+export function busTripToProviderListing(t: ProviderBusTripListing): ProviderListing {
+  const route = t.route_detail
+  const title = `${route.origin} → ${route.destination}`
+  const cover = route.cover_image ?? route.gallery_images?.[0] ?? null
+  return {
+    id: `bus-${t.id}`,
+    title,
+    category: 'Transport',
+    status: t.is_active === false ? 'draft' : cover ? 'published' : 'needs_update',
+    city: route.origin,
+    region: route.origin,
+    price: t.price ? `N$${t.price}` : 'Per seat',
+    rating: '—',
+    ratingCount: 0,
+    bookings: 0,
+    views: mocksEnabled() ? demoViews(t.id) : 0,
+    updated: 'Recently',
+    healthIssue: !cover ? 'Trip missing cover image' : undefined,
+    image: cover,
+    publicPath: `/transport/bus/${t.id}`,
+    editPath: '/provider/transport',
+  }
+}
+
+export function guidePackageToProviderListing(
+  guideId: number,
+  pkg: TourPackage,
+  opts: { regions?: string[]; guidePhoto?: string | null; rating?: string; ratingCount?: number; isActive?: boolean },
+  bookingCount = 0,
+): ProviderListing {
+  const region = opts.regions?.[0] ?? 'Namibia'
+  const city = opts.regions?.[1] ?? region
+  const photo = pkg.photo ?? opts.guidePhoto ?? null
+  return {
+    id: `guide-${guideId}-${pkg.id}`,
+    title: pkg.title,
+    category: 'Guide',
+    status: opts.isActive === false ? 'draft' : photo ? 'published' : 'needs_update',
+    city,
+    region,
+    price: pkg.price ? `N$${pkg.price}/person` : 'On request',
+    rating: opts.rating ?? '—',
+    ratingCount: opts.ratingCount ?? 0,
+    bookings: bookingCount,
+    views: bookingCount > 0 ? bookingCount * 4 : mocksEnabled() ? demoViews(pkg.id) : 0,
+    updated: 'Recently',
+    healthIssue: !photo ? 'Add package photo' : undefined,
+    image: photo,
+    publicPath: `/guides/${guideId}`,
+    editPath: '/provider/guides',
   }
 }
 
@@ -241,7 +349,16 @@ export function getProviderListings(
   apiEvents: EventListing[] = [],
   apiStays: StayListingApi[] = [],
   stayBookingCounts?: Map<string, number>,
+  extraListings: ProviderListing[] = [],
 ): ProviderListing[] {
+  const fromApi = [
+    ...apiStays.map((s) => stayToProviderListing(s, stayBookingCounts?.get(s.title) ?? 0)),
+    ...apiEvents.map((e) => eventToProviderListing(e)),
+    ...extraListings,
+  ]
+  if (!mocksEnabled()) {
+    return fromApi
+  }
   let mock = getProviderMockListings(owner)
   if (apiEvents.length > 0) {
     mock = mock.filter((l) => l.category !== 'Event')
@@ -249,11 +366,17 @@ export function getProviderListings(
   if (apiStays.length > 0) {
     mock = mock.filter((l) => l.category !== 'Stay')
   }
-  if (!owner) return mock
-  const stayRows = apiStays.map((s) =>
-    stayToProviderListing(s, stayBookingCounts?.get(s.title) ?? 0),
-  )
-  return [...mock, ...stayRows, ...apiEvents.map((e) => eventToProviderListing(e))]
+  if (extraListings.some((l) => l.category === 'Guide')) {
+    mock = mock.filter((l) => l.category !== 'Guide')
+  }
+  if (extraListings.some((l) => l.category === 'Transport')) {
+    mock = mock.filter((l) => l.category !== 'Transport')
+  }
+  if (extraListings.some((l) => l.category === 'Food')) {
+    mock = mock.filter((l) => l.category === 'Food')
+  }
+  if (!owner) return [...mock, ...fromApi]
+  return [...mock, ...fromApi]
 }
 
 const DEMO_BOOKINGS: ProviderBooking[] = [
@@ -265,10 +388,14 @@ const DEMO_BOOKINGS: ProviderBooking[] = [
 ]
 
 export function getProviderBookings(): ProviderBooking[] {
-  return DEMO_BOOKINGS
+  return mocksEnabled() ? DEMO_BOOKINGS : []
 }
 
-export function getAttentionItems(listings: ProviderListing[], bookings: ProviderBooking[]): AttentionItem[] {
+export function getAttentionItems(
+  listings: ProviderListing[],
+  bookings: ProviderBooking[],
+  hints: AttentionHints = {},
+): AttentionItem[] {
   const pending = bookings.filter((b) =>
     ['requested', 'pending', 'reserved'].includes(b.status),
   ).length
@@ -286,14 +413,26 @@ export function getAttentionItems(listings: ProviderListing[], bookings: Provide
       actionTo: '/provider/bookings',
     })
   }
-  items.push({
-    id: 'messages',
-    label: '2 messages need replies',
-    count: 2,
-    priority: 'high',
-    actionLabel: 'Open inbox',
-    actionTo: '/provider/messages',
-  })
+  const unread = hints.unreadMessages ?? 0
+  if (unread > 0) {
+    items.push({
+      id: 'messages',
+      label: `${unread} message${unread === 1 ? '' : 's'} need${unread === 1 ? 's' : ''} replies`,
+      count: unread,
+      priority: 'high',
+      actionLabel: 'Open inbox',
+      actionTo: '/provider/messages',
+    })
+  } else if (mocksEnabled()) {
+    items.push({
+      id: 'messages',
+      label: '2 messages need replies',
+      count: 2,
+      priority: 'high',
+      actionLabel: 'Open inbox',
+      actionTo: '/provider/messages',
+    })
+  }
   if (needsUpdate > 0) {
     items.push({
       id: 'listings-update',
@@ -304,14 +443,26 @@ export function getAttentionItems(listings: ProviderListing[], bookings: Provide
       actionTo: '/provider/listings',
     })
   }
-  items.push({
-    id: 'reviews',
-    label: '2 reviews need responses',
-    count: 2,
-    priority: 'medium',
-    actionLabel: 'View reviews',
-    actionTo: '/provider/reviews',
-  })
+  const unanswered = hints.unansweredQuestions ?? 0
+  if (unanswered > 0) {
+    items.push({
+      id: 'questions',
+      label: `${unanswered} listing question${unanswered === 1 ? '' : 's'} unanswered`,
+      count: unanswered,
+      priority: 'medium',
+      actionLabel: 'Answer questions',
+      actionTo: '/provider/questions',
+    })
+  } else if (mocksEnabled()) {
+    items.push({
+      id: 'reviews',
+      label: '2 reviews need responses',
+      count: 2,
+      priority: 'medium',
+      actionLabel: 'View reviews',
+      actionTo: '/provider/reviews',
+    })
+  }
   if (noAvailability > 0) {
     items.push({
       id: 'availability',

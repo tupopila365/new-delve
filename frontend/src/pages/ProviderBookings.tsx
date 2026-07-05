@@ -6,11 +6,8 @@ import { useAuth } from '../auth/AuthContext'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import { ProviderBookingCard } from '../components/provider/bookings'
 import { ProviderUiChips, ProviderUiEmpty, ProviderUiHeader, ProviderUiPage, ProviderUiStats } from '../components/provider/ui'
-import { getBookingStats, getProviderBookings } from '../data/providerData'
-import { mergeProviderBookings, useProviderEventBookings } from '../hooks/useProviderEventData'
-import { useProviderStayBookings } from '../hooks/useProviderStayData'
-import { useProviderTransportBookings } from '../hooks/useProviderTransportData'
-import { useProviderFoodBookings } from '../hooks/useProviderFoodData'
+import { getBookingStats } from '../data/providerData'
+import { useProviderMergedBookings } from '../hooks/useProviderMergedBookings'
 import { bookingsPageSubtitle, categoriesForBusinessTypes } from '../utils/providerCategories'
 
 const STATUS_FILTERS = [
@@ -27,15 +24,11 @@ export function ProviderBookings() {
   const { activeBusiness, canManageBookings } = useOutletContext<ProviderOutletContext>()
   const businessTypes = activeBusiness?.business_types ?? []
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
-  const includeEvents = allowedCategories.length === 0 || allowedCategories.includes('Event')
-  const includeStays = allowedCategories.length === 0 || allowedCategories.includes('Stay')
-  const includeTransport = allowedCategories.length === 0 || allowedCategories.includes('Transport')
-  const includeFood = allowedCategories.length === 0 || allowedCategories.includes('Food')
 
-  const { data: eventBookings = [] } = useProviderEventBookings(Boolean(profile && includeEvents))
-  const { data: stayBookings = [] } = useProviderStayBookings(Boolean(profile && includeStays))
-  const { data: transportBookings = [] } = useProviderTransportBookings(Boolean(profile && includeTransport))
-  const { data: foodBookings = [] } = useProviderFoodBookings(Boolean(profile && includeFood))
+  const scopedBookings = useProviderMergedBookings({
+    allowedCategories,
+    enabled: Boolean(profile),
+  })
 
   const confirmEventMut = useMutation({
     mutationFn: (id: number) =>
@@ -109,18 +102,21 @@ export function ProviderBookings() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-food-reservations'] }),
   })
 
-  const scopedBookings = useMemo(
-    () =>
-      mergeProviderBookings(
-        getProviderBookings(),
-        eventBookings,
-        allowedCategories,
-        stayBookings,
-        transportBookings,
-        foodBookings,
-      ),
-    [allowedCategories, eventBookings, stayBookings, transportBookings, foodBookings],
-  )
+  const guideBookingAction = (id: number, action: string) =>
+    apiFetch(`/api/guides/provider-bookings/${id}/${action}/`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+
+  const confirmGuideMut = useMutation({
+    mutationFn: (id: number) => guideBookingAction(id, 'confirm'),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-guide-bookings'] }),
+  })
+
+  const completeGuideMut = useMutation({
+    mutationFn: (id: number) => guideBookingAction(id, 'complete'),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['provider-guide-bookings'] }),
+  })
 
   const stats = getBookingStats(scopedBookings)
   const [search, setSearch] = useState('')
@@ -213,7 +209,9 @@ export function ProviderBookings() {
                           })
                       : canManageBookings && b.source === 'food-api' && b.status === 'pending'
                         ? () => confirmFoodMut.mutate(b.id)
-                        : undefined
+                        : canManageBookings && b.source === 'guide-api' && b.status === 'pending'
+                          ? () => confirmGuideMut.mutate(b.id)
+                          : undefined
               }
               onCheckIn={
                 canManageBookings && b.source === 'event-api' && b.status === 'confirmed'
@@ -230,7 +228,9 @@ export function ProviderBookings() {
                           })
                       : canManageBookings && b.source === 'food-api' && b.status === 'confirmed'
                         ? () => checkInFoodMut.mutate(b.id)
-                        : undefined
+                        : canManageBookings && b.source === 'guide-api' && b.status === 'confirmed'
+                          ? () => completeGuideMut.mutate(b.id)
+                          : undefined
               }
               confirmPending={
                 (confirmEventMut.isPending && confirmEventMut.variables === b.id) ||
@@ -238,7 +238,8 @@ export function ProviderBookings() {
                 (confirmTransportMut.isPending &&
                   confirmTransportMut.variables?.id === b.id &&
                   (b.source === 'transport-rental-api' || b.source === 'transport-seat-api')) ||
-                (confirmFoodMut.isPending && confirmFoodMut.variables === b.id)
+                (confirmFoodMut.isPending && confirmFoodMut.variables === b.id) ||
+                (confirmGuideMut.isPending && confirmGuideMut.variables === b.id)
               }
               checkInPending={
                 (checkInEventMut.isPending && checkInEventMut.variables === b.id) ||
@@ -246,7 +247,8 @@ export function ProviderBookings() {
                 (checkInTransportMut.isPending &&
                   checkInTransportMut.variables?.id === b.id &&
                   (b.source === 'transport-rental-api' || b.source === 'transport-seat-api')) ||
-                (checkInFoodMut.isPending && checkInFoodMut.variables === b.id)
+                (checkInFoodMut.isPending && checkInFoodMut.variables === b.id) ||
+                (completeGuideMut.isPending && completeGuideMut.variables === b.id)
               }
             />
           ))}

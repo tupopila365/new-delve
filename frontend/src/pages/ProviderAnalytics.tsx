@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useOutletContext } from 'react-router-dom'
+import { apiFetch, asArray } from '../api/client'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import {
   ProviderAnalyticsBarChart,
@@ -16,10 +18,12 @@ import {
   enrichAnalyticsWithStayApi,
   getProviderAnalytics,
   type AnalyticsPeriod,
+  type UserPostAnalytics,
 } from '../data/providerAnalytics'
 import { useProviderEventAnalytics, useProviderEventBookings } from '../hooks/useProviderEventData'
 import { useProviderListings } from '../hooks/useProviderListings'
-import { useProviderStayBookings } from '../hooks/useProviderStayData'
+import { useProviderMergedBookings } from '../hooks/useProviderMergedBookings'
+import { useProviderStayAnalytics } from '../hooks/useProviderStayData'
 import { categoriesForBusinessTypes } from '../utils/providerCategories'
 import '../components/provider/analytics/provider-analytics.css'
 
@@ -32,45 +36,70 @@ const PERIOD_CHIPS = [
 export function ProviderAnalytics() {
   const { activeBusiness } = useOutletContext<ProviderOutletContext>()
   const [period, setPeriod] = useState<AnalyticsPeriod>('30d')
+  const owner = activeBusiness?.owner_username
   const businessTypes = activeBusiness?.business_types ?? []
   const allowedCategories = useMemo(() => categoriesForBusinessTypes(businessTypes), [businessTypes])
   const includeEvents = allowedCategories.length === 0 || allowedCategories.includes('Event')
   const includeStays = allowedCategories.length === 0 || allowedCategories.includes('Stay')
 
-  const listings = useProviderListings(activeBusiness?.owner_username)
+  const listings = useProviderListings(owner)
+  const bookings = useProviderMergedBookings({ allowedCategories })
   const eventListings = useMemo(() => listings.filter((l) => l.category === 'Event'), [listings])
   const stayListings = useMemo(() => listings.filter((l) => l.category === 'Stay'), [listings])
 
   const { data: eventBookings = [] } = useProviderEventBookings(includeEvents)
-  const { data: stayBookings = [] } = useProviderStayBookings(includeStays)
   const { data: eventAnalytics } = useProviderEventAnalytics(period, includeEvents)
+  const stayDays = period === '7d' ? 7 : period === '90d' ? 90 : 30
+  const { data: stayAnalytics } = useProviderStayAnalytics(includeStays, stayDays)
+
+  const { data: userPosts = [] } = useQuery({
+    queryKey: ['provider-analytics-posts', owner],
+    queryFn: async () => {
+      const rows = await apiFetch<UserPostAnalytics[]>(
+        `/api/social/users/${encodeURIComponent(owner!)}/posts/`,
+      )
+      return asArray<UserPostAnalytics>(rows)
+    },
+    enabled: Boolean(owner),
+  })
 
   const data = useMemo(() => {
-    let base = getProviderAnalytics(
-      activeBusiness?.owner_username,
-      businessTypes,
-      period,
-      listings,
-    )
+    let base = getProviderAnalytics(owner, businessTypes, period, listings, bookings, userPosts)
     if (includeEvents) {
       base = enrichAnalyticsWithEventApi(base, eventAnalytics, eventListings, eventBookings)
     }
     if (includeStays) {
-      base = enrichAnalyticsWithStayApi(base, stayListings, stayBookings, period)
+      base = enrichAnalyticsWithStayApi(
+        base,
+        stayListings,
+        bookings.filter((b) => b.category === 'Stay'),
+        period,
+      )
+    }
+    if (stayAnalytics && includeStays) {
+      base = {
+        ...base,
+        summary: {
+          ...base.summary,
+          revenue: Math.max(base.summary.revenue, stayAnalytics.on_platform_revenue ?? 0),
+        },
+      }
     }
     return base
   }, [
-    activeBusiness?.owner_username,
+    owner,
     businessTypes,
     period,
     listings,
+    bookings,
+    userPosts,
     includeEvents,
     includeStays,
     eventAnalytics,
     eventListings,
     eventBookings,
     stayListings,
-    stayBookings,
+    stayAnalytics,
   ])
 
   const topInsight = useMemo(() => {
