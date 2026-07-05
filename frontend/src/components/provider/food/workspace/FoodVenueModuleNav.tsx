@@ -1,4 +1,5 @@
 import type { FoodVenueModuleDef, ModuleStatus } from '../foodVenueModules'
+import { moduleStatusLabel, moduleStatusPillClass } from '../foodVenueModules'
 
 type Props = {
   modules: FoodVenueModuleDef[]
@@ -7,18 +8,13 @@ type Props = {
   onSelect: (id: FoodVenueModuleDef['id']) => void
 }
 
-function statusLabel(status: ModuleStatus) {
-  if (status === 'complete') return 'Complete'
-  if (status === 'draft') return 'In progress'
-  return 'Not started'
-}
-
 export function FoodVenueModuleNav({ modules, active, statusFor, onSelect }: Props) {
   return (
     <nav className="fv-nav" aria-label="Venue sections">
       <ul className="fv-nav__list">
         {modules.map((mod) => {
           const status = statusFor(mod.id)
+          const ModIcon = mod.Icon
           return (
             <li key={mod.id}>
               <button
@@ -27,13 +23,13 @@ export function FoodVenueModuleNav({ modules, active, statusFor, onSelect }: Pro
                 onClick={() => onSelect(mod.id)}
               >
                 <span className="fv-nav__icon" aria-hidden>
-                  {mod.icon}
+                  <ModIcon size={18} strokeWidth={2.25} />
                 </span>
                 <span className="fv-nav__text">
                   <strong>{mod.label}</strong>
                   <small>{mod.hint}</small>
                 </span>
-                <span className={`fv-nav__status fv-nav__status--${status}`}>{statusLabel(status)}</span>
+                <span className={moduleStatusPillClass(status)}>{moduleStatusLabel(status)}</span>
               </button>
             </li>
           )

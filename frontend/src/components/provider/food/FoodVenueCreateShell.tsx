@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { Store } from 'lucide-react'
 import { apiFetch } from '../../../api/client'
 import { friendlyApiMessage } from '../../../utils/friendlyError'
 import type { ProviderFoodVenue } from './foodVenueTypes'
+import '../ui/provider-ui.css'
 import './workspace/food-venue-workspace.css'
 
 type Props = {
@@ -28,7 +30,12 @@ export function FoodVenueCreateShell({ onClose, onCreated }: Props) {
     <div className="fv-create-shell" role="dialog" aria-modal="true" aria-labelledby="fv-create-title">
       <button type="button" className="fv-create-shell__backdrop" aria-label="Close" onClick={onClose} />
       <div className="fv-create-shell__panel">
-        <h2 id="fv-create-title">Add food venue</h2>
+        <div className="fv-create-shell__title-row">
+          <span className="fv-create-shell__icon" aria-hidden>
+            <Store size={20} strokeWidth={2.25} />
+          </span>
+          <h2 id="fv-create-title">Add food venue</h2>
+        </div>
         <p>Start with a name — you can fill location, hours, and photos in any order afterward.</p>
         {error ? (
           <p className="fv-workspace__error" role="alert">
@@ -48,12 +55,12 @@ export function FoodVenueCreateShell({ onClose, onCreated }: Props) {
           />
         </label>
         <div className="fv-create-shell__actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="prov-ui__btn prov-ui__btn--primary"
             disabled={!name.trim() || createMut.isPending}
             onClick={() => createMut.mutate()}
           >

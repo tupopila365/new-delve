@@ -36,6 +36,7 @@ import { FoodVenueModuleHub } from './FoodVenueModuleHub'
 import { FoodVenueModuleNav } from './FoodVenueModuleNav'
 import { FoodVenuePublishBar } from './FoodVenuePublishBar'
 import { OpeningHoursEditor } from './OpeningHoursEditor'
+import '../../ui/provider-ui.css'
 import './food-venue-workspace.css'
 
 type Props = {
@@ -185,6 +186,7 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
   )
 
   const activeDef = FOOD_VENUE_MODULES.find((m) => m.id === activeModule)!
+  const ActiveModuleIcon = activeDef.Icon
   const showHub = !isMobile || mobilePane === 'hub'
   const showEditor = !isMobile || mobilePane === 'editor'
 
@@ -206,20 +208,20 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
             <h1>{venue.name || 'Untitled venue'}</h1>
           </div>
           <div className="fv-workspace__badges">
-            <span className={`fv-badge${venue.is_active ? ' fv-badge--live' : ''}`}>
+            <span className={`prov-ui__pill${venue.is_active ? ' prov-ui__pill--ok' : ' prov-ui__pill--warn'}`}>
               {venue.is_active ? 'Published' : 'Draft'}
             </span>
-            <span className="fv-badge fv-badge--muted">{completeness.percent}% complete</span>
+            <span className="prov-ui__pill prov-ui__pill--muted">{completeness.percent}% complete</span>
           </div>
         </div>
         <p className="fv-workspace__sub">
           Each section saves on its own — work in any order. {completeness.completeCount} of{' '}
           {FOOD_VENUE_MODULES.length} sections complete.
-          {canManage ? ' Changes auto-save after you pause typing.' : ''}
         </p>
         <div className="fv-workspace__links">
           <Link to="/provider/food" className="fv-workspace__back">
-            ← All venues
+            <ChevronLeft size={16} strokeWidth={2.25} aria-hidden />
+            All venues
           </Link>
           <Link to={`/food/${venue.id}`} className="fv-workspace__preview">
             Preview public page
@@ -269,7 +271,10 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
 
             <header className="fv-workspace__panel-head">
               <h2 id="fv-module-title">
-                <span aria-hidden>{activeDef.icon}</span> {activeDef.label}
+                <span className="fv-workspace__panel-icon" aria-hidden>
+                  <ActiveModuleIcon size={18} strokeWidth={2.25} />
+                </span>
+                {activeDef.label}
               </h2>
               <p>{activeDef.hint}</p>
             </header>
@@ -325,19 +330,21 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
 
             {canManage ? (
               <footer className="fv-workspace__foot">
-                {saveStatusLabel ? (
-                  <span
-                    className={`fv-workspace__save-status fv-workspace__save-status--${saveState}`}
-                    role="status"
-                  >
-                    {saveStatusLabel}
-                  </span>
-                ) : (
-                  <span />
-                )}
+                <div className="fv-workspace__foot-meta">
+                  <p className="fv-workspace__autosave-hint">Changes auto-save after you pause typing.</p>
+                  {saveStatusLabel ? (
+                    <p
+                      className={`fv-workspace__save-status fv-workspace__save-status--${saveState}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {saveStatusLabel}
+                    </p>
+                  ) : null}
+                </div>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="prov-ui__btn prov-ui__btn--primary"
                   disabled={saveMut.isPending}
                   onClick={handleSave}
                 >

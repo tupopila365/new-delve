@@ -1,3 +1,13 @@
+import {
+  Camera,
+  Clapperboard,
+  Clock,
+  MapPin,
+  Phone,
+  Store,
+  UtensilsCrossed,
+  type LucideIcon,
+} from 'lucide-react'
 import type { VenueStoryChannelInput } from '../../food/stories/types'
 import { normalizeVenueStoriesForSave } from './venueStoriesFormUtils'
 import {
@@ -24,17 +34,17 @@ export type FoodVenueModuleDef = {
   id: FoodVenueModuleId
   label: string
   hint: string
-  icon: string
+  Icon: LucideIcon
 }
 
 export const FOOD_VENUE_MODULES: FoodVenueModuleDef[] = [
-  { id: 'identity', label: 'Venue', hint: 'Name, cuisine, and description', icon: '🏪' },
-  { id: 'location', label: 'Location', hint: 'Map pin, address, and region', icon: '📍' },
-  { id: 'hours', label: 'Hours', hint: 'When you are open each week', icon: '🕐' },
-  { id: 'contact', label: 'Contact', hint: 'Phone and website', icon: '📞' },
-  { id: 'service', label: 'Service', hint: 'Dine-in, delivery, and amenities', icon: '🍽' },
-  { id: 'photos', label: 'Photos', hint: 'Cover image and gallery', icon: '📷' },
-  { id: 'stories', label: 'Stories', hint: 'Optional highlight reels', icon: '✨' },
+  { id: 'identity', label: 'Venue', hint: 'Name, cuisine, and description', Icon: Store },
+  { id: 'location', label: 'Location', hint: 'Map pin, address, and region', Icon: MapPin },
+  { id: 'hours', label: 'Hours', hint: 'When you are open each week', Icon: Clock },
+  { id: 'contact', label: 'Contact', hint: 'Phone and website', Icon: Phone },
+  { id: 'service', label: 'Service', hint: 'Dine-in, delivery, and amenities', Icon: UtensilsCrossed },
+  { id: 'photos', label: 'Photos', hint: 'Cover image and gallery', Icon: Camera },
+  { id: 'stories', label: 'Stories', hint: 'Optional highlight reels', Icon: Clapperboard },
 ]
 
 export type ProviderFoodVenueRecord = {
@@ -250,6 +260,28 @@ export function workspaceCompleteness(venue: ProviderFoodVenueRecord): {
     }
   }
   return { percent: Math.round((earned / total) * 100), completeCount }
+}
+
+export function moduleStatusPillClass(status: ModuleStatus): string {
+  if (status === 'complete') return 'prov-ui__pill prov-ui__pill--ok fv-status-pill'
+  if (status === 'draft') return 'prov-ui__pill prov-ui__pill--warn fv-status-pill'
+  return 'prov-ui__pill prov-ui__pill--muted fv-status-pill'
+}
+
+export function moduleStatusLabel(status: ModuleStatus): string {
+  if (status === 'complete') return 'Complete'
+  if (status === 'draft') return 'In progress'
+  return 'Not started'
+}
+
+export function venueOpenPillClass(venue: {
+  is_open?: boolean | null
+  is_active: boolean
+}): string {
+  if (venue.is_open === true) return 'prov-ui__pill prov-ui__pill--ok'
+  if (venue.is_open === false) return 'prov-ui__pill prov-ui__pill--bad'
+  if (venue.is_active) return 'prov-ui__pill prov-ui__pill--ok'
+  return 'prov-ui__pill prov-ui__pill--warn'
 }
 
 export function saveLabel(module: FoodVenueModuleId): string {

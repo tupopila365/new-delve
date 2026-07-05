@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, MessageCircle, Store, CalendarDays, Star } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
@@ -179,8 +179,10 @@ export function FoodAdmin() {
             : []),
         ]}
         quickActions={[
-          ...(canManageListings ? [{ label: 'Add venue', to: '#venues', emoji: '＋' }] : []),
-          { label: 'Answer questions', to: '/provider/questions', emoji: '💬' },
+          ...(canManageListings
+            ? [{ label: 'Add venue', to: '#venues', Icon: Plus }]
+            : []),
+          { label: 'Answer questions', to: '/provider/questions', Icon: MessageCircle },
         ]}
       />
 
@@ -207,7 +209,10 @@ export function FoodAdmin() {
           <span className="adm-stat__l">Venues</span>
         </div>
         <div className="adm-stat">
-          <span className="adm-stat__n">⭐ {stats.avgRating}</span>
+          <span className="adm-stat__n adm-stat__n--icon">
+            <Star size={16} strokeWidth={2.25} aria-hidden />
+            {stats.avgRating}
+          </span>
           <span className="adm-stat__l">Avg rating</span>
         </div>
         <div className="adm-stat">
@@ -219,16 +224,23 @@ export function FoodAdmin() {
       <FoodMonetizationSection enabled={canAccessProvider} canManage={canManageListings} />
 
       <div className="adm-tabs" role="tablist">
-        {(['venues', 'reservations', 'reviews'] as const).map((t) => (
+        {(
+          [
+            { id: 'venues' as const, label: 'Venues', Icon: Store },
+            { id: 'reservations' as const, label: 'Reservations', Icon: CalendarDays },
+            { id: 'reviews' as const, label: 'Reviews', Icon: Star },
+          ] as const
+        ).map(({ id, label, Icon }) => (
           <button
-            key={t}
+            key={id}
             type="button"
             role="tab"
-            aria-selected={tab === t}
-            className={`adm-tab${tab === t ? ' adm-tab--active' : ''}`}
-            onClick={() => setTab(t)}
+            aria-selected={tab === id}
+            className={`adm-tab${tab === id ? ' adm-tab--active' : ''}`}
+            onClick={() => setTab(id)}
           >
-            {t === 'venues' ? '🏪 Venues' : t === 'reservations' ? '📅 Reservations' : '⭐ Reviews'}
+            <Icon size={16} strokeWidth={2.25} aria-hidden />
+            {label}
           </button>
         ))}
       </div>

@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
+import { Star, UtensilsCrossed } from 'lucide-react'
 import { mediaUrl } from '../../../api/client'
 import { cuisineLabel, priceLevelLabel } from '../../../utils/foodListing'
 import { venueCompleteness, type ProviderFoodVenue } from './foodVenueTypes'
+import { venueOpenPillClass } from './foodVenueModules'
 
 type Props = {
   venue: ProviderFoodVenue
@@ -18,19 +20,24 @@ export function FoodVenueCard({ venue, onEdit, canManage = true }: Props) {
   return (
     <article className="adm-listing-card">
       <div className="adm-listing-card__img">
-        {cover ? <img src={cover} alt="" /> : <span aria-hidden>🍽</span>}
+        {cover ? (
+          <img src={cover} alt="" />
+        ) : (
+          <UtensilsCrossed size={28} strokeWidth={1.75} aria-hidden className="adm-listing-card__placeholder-icon" />
+        )}
       </div>
       <div className="adm-listing-card__body">
         <div className="adm-listing-card__title-row">
           <p className="adm-listing-card__title">{venue.name}</p>
-          <span className={`adm-badge ${venue.is_active ? 'adm-badge--green' : 'adm-badge--yellow'}`}>{openLabel}</span>
+          <span className={venueOpenPillClass(venue)}>{openLabel}</span>
         </div>
         <p className="adm-listing-card__meta">
           {cuisineLabel(venue.cuisine)} · {venue.city}, {venue.region} · {priceLevelLabel(venue.price_level)}
         </p>
         {venue.rating_count ? (
           <p className="adm-listing-card__rating">
-            ⭐ {venue.rating_avg} ({venue.rating_count} reviews)
+            <Star size={14} strokeWidth={2.25} fill="currentColor" aria-hidden />
+            {venue.rating_avg} ({venue.rating_count} reviews)
           </p>
         ) : null}
         <p className="adm-listing-card__desc">{venue.tagline || venue.description}</p>
