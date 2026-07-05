@@ -15,6 +15,7 @@ VERIFICATION_SENT_MESSAGE = "If an account exists and is unverified, we sent a v
 PASSWORD_RESET_SENT_MESSAGE = "If an account exists, we sent reset instructions."
 
 VERIFICATION_EXPIRES_HOURS = 48
+PASSWORD_RESET_EXPIRES_HOURS = 1
 
 
 def deliver_mail(
@@ -75,17 +76,17 @@ def can_resend_verification(user: User) -> bool:
 def send_password_reset_email(user: User) -> PasswordResetToken:
     token = PasswordResetToken.create_for_user(user)
     frontend = settings.FRONTEND_URL.rstrip("/")
-    link = f"{frontend}/reset-password?token={token.token}"
+    reset_url = f"{frontend}/reset-password?token={token.token}"
+    context = {
+        "username": user.username,
+        "reset_url": reset_url,
+        "token": str(token.token),
+        "expires_hours": PASSWORD_RESET_EXPIRES_HOURS,
+    }
     deliver_mail(
         subject="Reset your DELVE password",
-        message=(
-            f"Hi {user.username},\n\n"
-            f"Reset your password by opening this link:\n{link}\n\n"
-            f"This link expires in 1 hour.\n\n"
-            f"If the link does not work, open DELVE and paste this token on the reset page:\n"
-            f"{token.token}\n\n"
-            f"If you did not request this, you can ignore this email.\n"
-        ),
+        message=render_to_string("emails/password_reset_email.txt", context).strip(),
+        html_message=render_to_string("emails/password_reset_email.html", context),
         recipient_list=[user.email],
     )
     return token

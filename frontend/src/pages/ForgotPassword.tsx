@@ -35,9 +35,15 @@ export function ForgotPassword() {
       title="Forgot password"
       subtitle="Enter your account email and we will send reset instructions."
       hint={
-        <>
-          In dev, check the <strong>Django console</strong>.
-        </>
+        import.meta.env.DEV ? (
+          <>
+            In dev, check the <strong>Django console</strong> for the reset link.
+          </>
+        ) : (
+          <>
+            Check your inbox and spam folder for an email from DELVE with a reset link or token.
+          </>
+        )
       }
       footer={
         <>

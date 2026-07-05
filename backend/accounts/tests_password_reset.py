@@ -64,8 +64,13 @@ class PasswordResetRequestTests(TestCase):
         )
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("https://app.example.com/reset-password?token=", mail.outbox[0].body)
+        body = mail.outbox[0].body
+        self.assertIn("https://app.example.com/reset-password?token=", body)
         self.assertEqual(mail.outbox[0].subject, "Reset your DELVE password")
+        html_parts = [p for p in mail.outbox[0].alternatives if p[1] == "text/html"]
+        self.assertEqual(len(html_parts), 1)
+        self.assertIn("Reset your password", html_parts[0][0])
+        self.assertIn("https://app.example.com/reset-password?token=", html_parts[0][0])
 
     def test_request_same_response_for_known_email(self):
         res = self.client.post(

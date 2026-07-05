@@ -43,7 +43,7 @@ export function Account() {
           name={profile.display_name || profile.username}
           className="account-page__avatar"
           shape="rounded"
-          fill
+          size="lg"
         />
         <div>
           <h2 className="account-page__name">{profile.display_name || profile.username}</h2>

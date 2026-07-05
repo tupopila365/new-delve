@@ -454,8 +454,8 @@ export function UserDashboard() {
           src={profile.avatar}
           name={displayName}
           shape="rounded"
+          size="lg"
           className="t-dash__avatar"
-          fill
         />
         <div className="t-dash__welcome-body">
           <p className="t-dash__welcome-name">Hi, {displayName}</p>
