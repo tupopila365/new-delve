@@ -65,10 +65,10 @@ export function MessageUser({ context = 'user' }: Props) {
   const isProvider = context === 'provider'
 
   const targetQuery = useQuery({
-    queryKey: ['message-profile', username],
+    queryKey: ['message-profile', username, me?.username],
     queryFn: () =>
-      apiFetch<PublicMessageProfile>(`/api/accounts/users/${encodeURIComponent(username)}/`, { auth: false }),
-    enabled: Boolean(username),
+      apiFetch<PublicMessageProfile>(`/api/accounts/users/${encodeURIComponent(username)}/`),
+    enabled: Boolean(username) && Boolean(me),
     retry: false,
   })
 
@@ -80,7 +80,8 @@ export function MessageUser({ context = 'user' }: Props) {
     me &&
       target &&
       !isSelf &&
-      (target.relationship?.can_message ?? target.allow_messages !== false),
+      target.allow_messages !== false &&
+      target.relationship?.can_message !== false,
   )
 
   const startMut = useMutation({

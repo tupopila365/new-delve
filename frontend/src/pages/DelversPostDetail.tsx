@@ -6,10 +6,15 @@ import { apiFetch } from '../api/client'
 import type { FeedPost } from '../components/IgPostCard'
 import { ProfilePostViewer } from '../components/profile'
 import { EmptyState } from '../components/ui'
-import { feedPostPermalinkPath } from '../utils/postPermalink'
+import { communityPostPermalinkPath, feedPostPermalinkPath } from '../utils/postPermalink'
+import { isDelversPost } from '../utils/postFilters'
 
 type Props = {
   fallbackPath?: string
+}
+
+function isDelversSwipePost(post: FeedPost): boolean {
+  return isDelversPost(post) && post.post_kind !== 'question'
 }
 
 export function DelversPostDetail({ fallbackPath = '/delvers' }: Props) {
@@ -17,6 +22,7 @@ export function DelversPostDetail({ fallbackPath = '/delvers' }: Props) {
   const navigate = useNavigate()
   const postId = Number(idParam)
   const [viewerIndex, setViewerIndex] = useState(0)
+  const isDelversViewer = fallbackPath === '/delvers'
 
   const { data: post, isLoading, isError } = useQuery({
     queryKey: ['post', postId],
@@ -26,22 +32,34 @@ export function DelversPostDetail({ fallbackPath = '/delvers' }: Props) {
   })
 
   const { data: similar = [] } = useQuery({
-    queryKey: ['post-similar', postId],
-    queryFn: () => apiFetch<FeedPost[]>(`/api/social/posts/${postId}/similar/`, { auth: false }),
+    queryKey: ['post-similar', postId, isDelversViewer],
+    queryFn: () =>
+      apiFetch<FeedPost[]>(
+        `/api/social/posts/${postId}/similar/${isDelversViewer ? '?context=delvers' : ''}`,
+      ),
     enabled: Number.isFinite(postId) && postId > 0 && Boolean(post),
   })
 
+  useEffect(() => {
+    if (!post || !isDelversViewer) return
+    if (!isDelversSwipePost(post)) {
+      navigate(communityPostPermalinkPath(post.id), { replace: true })
+    }
+  }, [post, isDelversViewer, navigate])
+
   const viewerPosts = useMemo(() => {
     if (!post) return []
-    const seen = new Set<number>([post.id])
-    const merged: FeedPost[] = [post]
+    const start = isDelversViewer && !isDelversSwipePost(post) ? [] : [post]
+    const seen = new Set<number>(start.map((item) => item.id))
+    const merged: FeedPost[] = [...start]
     for (const item of similar) {
+      if (isDelversViewer && !isDelversSwipePost(item)) continue
       if (seen.has(item.id)) continue
       seen.add(item.id)
       merged.push(item)
     }
     return merged
-  }, [post, similar])
+  }, [post, similar, isDelversViewer])
 
   useEffect(() => {
     setViewerIndex(0)
@@ -98,6 +116,14 @@ export function DelversPostDetail({ fallbackPath = '/delvers' }: Props) {
         <p style={{ textAlign: 'center', marginTop: 16 }}>
           <Link to={fallbackPath}>{fallbackPath === '/community' ? 'Back to Ask locals' : 'Explore Delvers'}</Link>
         </p>
+      </div>
+    )
+  }
+
+  if (isDelversViewer && !isDelversSwipePost(post)) {
+    return (
+      <div className="ds-page" style={{ padding: 24 }}>
+        <p className="ds-loading" role="status">Opening community post…</p>
       </div>
     )
   }

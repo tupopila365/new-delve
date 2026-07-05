@@ -7,7 +7,7 @@ from events_app.models import Event
 from food.models import FoodVenue
 from transport.models import BusTrip, VehicleRentalListing
 
-from .models import Comment, CommentHelpful, Follow, Like, Post, PostKind, Save
+from .models import Comment, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
 from .video_validation import validate_post_upload_keys, validate_post_video_file
 
 User = get_user_model()
@@ -53,10 +53,12 @@ class PostSerializer(serializers.ModelSerializer):
     author = PostAuthorSerializer(read_only=True)
     likes_count = serializers.IntegerField(read_only=True, required=False)
     saves_count = serializers.IntegerField(read_only=True, required=False)
+    fires_count = serializers.IntegerField(read_only=True, required=False)
     comments_count = serializers.IntegerField(read_only=True, required=False)
     feed_score = serializers.FloatField(read_only=True, required=False)
     liked_by_me = serializers.SerializerMethodField()
     saved_by_me = serializers.SerializerMethodField()
+    fired_by_me = serializers.SerializerMethodField()
     accepted_answer = serializers.SerializerMethodField()
     listing = serializers.PrimaryKeyRelatedField(
         queryset=AccommodationListing.objects.none(),
@@ -107,10 +109,12 @@ class PostSerializer(serializers.ModelSerializer):
             "created_at",
             "likes_count",
             "saves_count",
+            "fires_count",
             "comments_count",
             "feed_score",
             "liked_by_me",
             "saved_by_me",
+            "fired_by_me",
             "accepted_answer",
         )
         read_only_fields = ("author", "created_at")
@@ -330,6 +334,12 @@ class PostSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return Save.objects.filter(post=obj, user=request.user).exists()
+
+    def get_fired_by_me(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return Fire.objects.filter(post=obj, user=request.user).exists()
 
     def get_accepted_answer(self, obj):
         if obj.post_kind != PostKind.QUESTION:

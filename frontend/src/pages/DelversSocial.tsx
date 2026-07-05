@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Bell, Bookmark, Camera, Compass, Heart, Home, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
+import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { UserAvatar } from '../components/UserAvatar'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
+import { DelversCommentComposer } from '../components/DelversCommentComposer'
 import { ReportButton } from '../components/report/ReportButton'
 import { PostMedia } from '../components/PostMedia'
 import { SponsoredListingFeedCard } from '../components/social/SponsoredListingFeedCard'
@@ -139,30 +140,36 @@ export function DelversSocial() {
       apiFetch<{ liked: boolean }>(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
     onMutate: async (post) => {
       await qc.cancelQueries({ queryKey: qk })
-      const previous = qc.getQueryData<DelversFeedItem[]>(qk)
+      await qc.cancelQueries({ queryKey: highlightsQk })
+      const previousFeed = qc.getQueryData<DelversFeedItem[]>(qk)
+      const previousHighlights = qc.getQueryData<DelversFeedPost[]>(highlightsQk)
+      const patch = (item: DelversFeedPost) => {
+        const liked = !item.liked_by_me
+        return {
+          ...item,
+          liked_by_me: liked,
+          likes_count: Math.max(0, item.likes_count + (liked ? 1 : -1)),
+        }
+      }
       qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
-        (old ?? []).map((item) => {
-          if (!isFeedPost(item) || item.id !== post.id) return item
-          const liked = !item.liked_by_me
-          return {
-            ...item,
-            liked_by_me: liked,
-            likes_count: Math.max(0, item.likes_count + (liked ? 1 : -1)),
-          }
-        }),
+        (old ?? []).map((item) => (isFeedPost(item) && item.id === post.id ? patch(item) : item)),
       )
-      return { previous }
+      qc.setQueryData<DelversFeedPost[]>(highlightsQk, (old) =>
+        (old ?? []).map((item) => (item.id === post.id ? patch(item) : item)),
+      )
+      return { previousFeed, previousHighlights }
     },
     onError: (_err, _post, context) => {
-      if (context?.previous) qc.setQueryData(qk, context.previous)
+      if (context?.previousFeed) qc.setQueryData(qk, context.previousFeed)
+      if (context?.previousHighlights) qc.setQueryData(highlightsQk, context.previousHighlights)
     },
     onSuccess: (data, post) => {
+      const sync = (item: DelversFeedPost) =>
+        item.id === post.id ? { ...item, liked_by_me: data.liked } : item
       qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
-        (old ?? []).map((item) => {
-          if (!isFeedPost(item) || item.id !== post.id) return item
-          return { ...item, liked_by_me: data.liked }
-        }),
+        (old ?? []).map((item) => (isFeedPost(item) ? sync(item) : item)),
       )
+      qc.setQueryData<DelversFeedPost[]>(highlightsQk, (old) => (old ?? []).map(sync))
       void invalidatePostEngagementCaches(qc, {
         authorUsername: post.author.username,
         savedByUsername: profile?.username,
@@ -205,6 +212,57 @@ export function DelversSocial() {
       })
     },
   })
+
+  const fireMut = useMutation({
+    mutationFn: (post: PinPost) =>
+      apiFetch<{ fired: boolean }>(`/api/social/posts/${post.id}/fire/`, { method: 'POST' }),
+    onMutate: async (post) => {
+      await qc.cancelQueries({ queryKey: qk })
+      await qc.cancelQueries({ queryKey: highlightsQk })
+      const previousFeed = qc.getQueryData<DelversFeedItem[]>(qk)
+      const previousHighlights = qc.getQueryData<DelversFeedPost[]>(highlightsQk)
+      const patch = (item: DelversFeedPost) => {
+        const fired = !item.fired_by_me
+        return {
+          ...item,
+          fired_by_me: fired,
+          fires_count: Math.max(0, (item.fires_count ?? 0) + (fired ? 1 : -1)),
+        }
+      }
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) => (isFeedPost(item) && item.id === post.id ? patch(item) : item)),
+      )
+      qc.setQueryData<DelversFeedPost[]>(highlightsQk, (old) =>
+        (old ?? []).map((item) => (item.id === post.id ? patch(item) : item)),
+      )
+      return { previousFeed, previousHighlights }
+    },
+    onError: (_err, _post, context) => {
+      if (context?.previousFeed) qc.setQueryData(qk, context.previousFeed)
+      if (context?.previousHighlights) qc.setQueryData(highlightsQk, context.previousHighlights)
+    },
+    onSuccess: (data, post) => {
+      const sync = (item: DelversFeedPost) =>
+        item.id === post.id ? { ...item, fired_by_me: data.fired } : item
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) => (isFeedPost(item) ? sync(item) : item)),
+      )
+      qc.setQueryData<DelversFeedPost[]>(highlightsQk, (old) => (old ?? []).map(sync))
+      void invalidatePostEngagementCaches(qc, {
+        authorUsername: post.author.username,
+        savedByUsername: profile?.username,
+      })
+    },
+  })
+
+  const bumpHighlightCommentCount = (postId: number) => {
+    const patch = <T extends DelversFeedPost>(item: T): T =>
+      item.id === postId ? { ...item, comments_count: (item.comments_count ?? 0) + 1 } : item
+    qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+      (old ?? []).map((item) => (isFeedPost(item) ? patch(item) : item)),
+    )
+    qc.setQueryData<DelversFeedPost[]>(highlightsQk, (old) => (old ?? []).map(patch))
+  }
 
   useEffect(() => {
     if (!searchOpen) return
@@ -387,6 +445,15 @@ export function DelversSocial() {
 
   const postAction = postEntry(profile)
 
+  const resolvedStoryTarget = useMemo((): StoryTarget | null => {
+    if (!storyTarget) return null
+    const freshMap = new Map(highlights.map((item) => [item.id, item]))
+    return {
+      ...storyTarget,
+      posts: storyTarget.posts.map((item) => freshMap.get(item.id) ?? item),
+    }
+  }, [highlights, storyTarget])
+
   return (
     <div className={mobileChromeHidden ? 'ds-page ds-page--chrome-hidden' : 'ds-page'}>
       <header className="ds-topbar ds-topbar--clean">
@@ -512,12 +579,18 @@ export function DelversSocial() {
         </Link>
       </nav>
 
-      {storyTarget ? (
+      {resolvedStoryTarget ? (
         <StoryViewer
-          target={storyTarget}
+          target={resolvedStoryTarget}
           index={storyIndex}
           onIndex={setStoryIndex}
           onClose={closeStoryViewer}
+          signedIn={!!profile}
+          likeBusy={likeMut.isPending}
+          fireBusy={fireMut.isPending}
+          onLike={(post) => likeMut.mutate(post)}
+          onFire={(post) => fireMut.mutate(post)}
+          onCommented={bumpHighlightCommentCount}
         />
       ) : null}
     </div>
@@ -604,11 +677,17 @@ function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowA
   )
 }
 
-function StoryViewer({ target, index, onIndex, onClose }: {
+function StoryViewer({ target, index, onIndex, onClose, signedIn, likeBusy, fireBusy, onLike, onFire, onCommented }: {
   target: StoryTarget
   index: number
   onIndex: (next: number) => void
   onClose: () => void
+  signedIn: boolean
+  likeBusy: boolean
+  fireBusy: boolean
+  onLike: (post: PinPost) => void
+  onFire: (post: PinPost) => void
+  onCommented: (postId: number) => void
 }) {
   const post = target.posts[index]
   const image = mediaUrl(post?.image ?? null)
@@ -616,6 +695,12 @@ function StoryViewer({ target, index, onIndex, onClose }: {
   const caption = post ? postText(post) : ''
   const canPrev = index > 0
   const canNext = index < target.posts.length - 1
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [heartBurst, setHeartBurst] = useState(false)
+
+  useEffect(() => {
+    setCommentsOpen(false)
+  }, [index, post?.id])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -628,6 +713,31 @@ function StoryViewer({ target, index, onIndex, onClose }: {
   }, [canNext, canPrev, index, onClose, onIndex])
 
   if (!post) return null
+
+  const likeCount = post.likes_count ?? 0
+  const fireCount = post.fires_count ?? 0
+  const commentCount = post.comments_count ?? 0
+
+  const triggerHeartBurst = () => {
+    setHeartBurst(true)
+    window.setTimeout(() => setHeartBurst(false), 720)
+  }
+
+  const handleLike = () => {
+    if (!signedIn) return
+    const liking = !post.liked_by_me
+    onLike(post)
+    if (liking) triggerHeartBurst()
+  }
+
+  const handleFire = () => {
+    if (!signedIn) return
+    onFire(post)
+  }
+
+  const handleCommented = () => {
+    onCommented(post.id)
+  }
 
   return (
     <div className="ds-story-viewer" role="dialog" aria-modal="true" aria-label={`${target.title} stories`}>
@@ -661,18 +771,105 @@ function StoryViewer({ target, index, onIndex, onClose }: {
           </button>
         </header>
 
-        <div className="ds-story-viewer__media">
+        <div
+          className="ds-story-viewer__media"
+          onDoubleClick={() => {
+            if (signedIn) handleLike()
+          }}
+        >
           {image ? <img src={image} alt={caption} /> : video ? <video src={video} controls autoPlay playsInline /> : <div className="ds-story-viewer__note"><Compass size={34} strokeWidth={2} aria-hidden /><p>{caption}</p></div>}
+          {heartBurst ? (
+            <span className="ds-story-viewer__heart-burst" aria-hidden>
+              <Heart size={88} strokeWidth={1.75} fill="currentColor" />
+            </span>
+          ) : null}
         </div>
         <div className="ds-story-viewer__scrim" aria-hidden />
 
         <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--prev" disabled={!canPrev} onClick={() => onIndex(index - 1)} aria-label="Previous highlight" />
         <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--next" disabled={!canNext} onClick={() => onIndex(index + 1)} aria-label="Next highlight" />
 
-        <div className="ds-story-viewer__caption">
-          <p>{caption}</p>
-          <Link to={postPermalinkPath(post.id)}>View post</Link>
-        </div>
+        <footer className="ds-story-viewer__footer">
+          {caption ? (
+            <p className="ds-story-viewer__caption">{caption}</p>
+          ) : null}
+
+          <div className="ds-story-viewer__actions" role="group" aria-label="Highlight reactions">
+            {signedIn ? (
+              <button
+                type="button"
+                className={`ds-story-viewer__react${post.liked_by_me ? ' ds-story-viewer__react--active ds-story-viewer__react--heart' : ''}`}
+                onClick={handleLike}
+                disabled={likeBusy}
+                aria-label={post.liked_by_me ? 'Unlike highlight' : 'Like highlight'}
+                aria-pressed={post.liked_by_me}
+              >
+                <Heart size={18} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+                {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
+              </button>
+            ) : (
+              <Link to="/login" className="ds-story-viewer__react" aria-label="Like highlight">
+                <Heart size={18} strokeWidth={2.25} aria-hidden />
+                {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
+              </Link>
+            )}
+            {signedIn ? (
+              <button
+                type="button"
+                className={`ds-story-viewer__react ds-story-viewer__react--fire${post.fired_by_me ? ' ds-story-viewer__react--active' : ''}`}
+                onClick={handleFire}
+                disabled={fireBusy}
+                aria-label={post.fired_by_me ? 'Remove fire reaction' : 'React with fire'}
+                aria-pressed={post.fired_by_me ?? false}
+              >
+                <Flame size={18} strokeWidth={2.25} fill={post.fired_by_me ? 'currentColor' : 'none'} aria-hidden />
+                {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
+              </button>
+            ) : (
+              <Link to="/login" className="ds-story-viewer__react ds-story-viewer__react--fire" aria-label="React with fire">
+                <Flame size={18} strokeWidth={2.25} aria-hidden />
+                {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
+              </Link>
+            )}
+            {signedIn ? (
+              <button
+                type="button"
+                className={`ds-story-viewer__react${commentsOpen ? ' ds-story-viewer__react--active' : ''}`}
+                onClick={() => setCommentsOpen((open) => !open)}
+                aria-label={commentsOpen ? 'Close comments' : 'View comments'}
+                aria-expanded={commentsOpen}
+              >
+                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+                {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
+              </button>
+            ) : (
+              <Link to="/login" className="ds-story-viewer__react" aria-label="View comments">
+                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+                {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
+              </Link>
+            )}
+          </div>
+
+          {signedIn ? (
+            <DelversCommentComposer
+              postId={post.id}
+              variant="compact"
+              placeholder="Add a comment..."
+              onCommented={handleCommented}
+            />
+          ) : (
+            <Link to="/login" className="ds-story-viewer__signin">Sign in to comment</Link>
+          )}
+        </footer>
+
+        <DelversCommentsPanel
+          postId={post.id}
+          open={commentsOpen}
+          count={commentCount}
+          signedIn={signedIn}
+          onClose={() => setCommentsOpen(false)}
+          onCommented={handleCommented}
+        />
       </article>
     </div>
   )

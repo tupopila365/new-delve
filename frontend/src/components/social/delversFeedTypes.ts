@@ -10,8 +10,10 @@ export type DelversFeedPost = {
   delvers_board?: string
   liked_by_me: boolean
   saved_by_me: boolean
+  fired_by_me?: boolean
   likes_count: number
   saves_count: number
+  fires_count?: number
   comments_count?: number
   created_at?: string
   feed_item_type?: 'post'

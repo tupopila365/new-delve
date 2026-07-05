@@ -152,6 +152,19 @@ class PostSimilarTests(TestCase):
         res = self.client.get(f"/api/social/posts/{hidden.pk}/similar/")
         self.assertEqual(res.status_code, 404)
 
+    def test_similar_for_delvers_excludes_community_posts(self):
+        community = Post.objects.create(
+            author=self.author,
+            body="Community tip",
+            is_delvers=False,
+            region="Khomas",
+        )
+        res = self.client.get(f"/api/social/posts/{self.source.pk}/similar/")
+        self.assertEqual(res.status_code, 200)
+        ids = [row["id"] for row in res.data]
+        self.assertNotIn(community.pk, ids)
+        self.assertIn(self.same_board.pk, ids)
+
 
 class PostPermalinkSmokeTests(TestCase):
     def setUp(self):

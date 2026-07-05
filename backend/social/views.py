@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
 from config.throttles import FollowThrottle, PostCreateThrottle
 
-from .models import Comment, CommentHelpful, Follow, Like, Post, PostKind, Save
+from .models import Comment, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
 
 User = get_user_model()
@@ -21,6 +21,7 @@ def _annotate_post_counts(qs):
     return qs.annotate(
         likes_count=Count("likes", distinct=True),
         saves_count=Count("saves", distinct=True),
+        fires_count=Count("fires", distinct=True),
         comments_count=Count("comments", distinct=True),
     )
 
@@ -280,6 +281,7 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.select_related("author", "author__profile", "listing").annotate(
         likes_count=Count("likes", distinct=True),
         saves_count=Count("saves", distinct=True),
+        fires_count=Count("fires", distinct=True),
         comments_count=Count("comments", distinct=True),
     )
     serializer_class = PostSerializer
@@ -294,7 +296,7 @@ class PostViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You can only view your own saved posts.")
             qs = qs.filter(saves__user=target).distinct()
 
-        if self.action in ("list", "retrieve", "similar", "comments", "like", "save"):
+        if self.action in ("list", "retrieve", "similar", "comments", "like", "save", "fire"):
             qs = filter_posts_for_viewer(qs, self.request.user if self.request.user.is_authenticated else None)
         return qs
 
@@ -347,6 +349,17 @@ class PostViewSet(viewsets.ModelViewSet):
             return Response({"saved": False})
         return Response({"saved": True})
 
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def fire(self, request, pk=None):
+        post = self.get_object()
+        if not can_view_posts(request.user, post.author):
+            raise NotFound()
+        fire, created = Fire.objects.get_or_create(post=post, user=request.user)
+        if not created:
+            fire.delete()
+            return Response({"fired": False})
+        return Response({"fired": True})
+
     @action(
         detail=True,
         methods=["get"],
@@ -368,6 +381,13 @@ class PostViewSet(viewsets.ModelViewSet):
             request.user if request.user.is_authenticated else None,
         )
         base = _annotate_post_counts(base)
+
+        context = (request.query_params.get("context") or "").strip().lower()
+        delvers_only = post.is_delvers or context == "delvers"
+        pool = base
+        if delvers_only:
+            pool = base.filter(is_delvers=True).exclude(post_kind=PostKind.QUESTION)
+
         ordered_ids: list[int] = []
         seen: set[int] = set()
 
@@ -383,19 +403,22 @@ class PostViewSet(viewsets.ModelViewSet):
                     break
 
         board = (post.delvers_board or "").strip()
-        if post.is_delvers and board:
+        if delvers_only and board:
             take_from(
-                base.filter(is_delvers=True, delvers_board__iexact=board).order_by("-created_at"),
+                pool.filter(delvers_board__iexact=board).order_by("-created_at"),
                 14,
             )
-        take_from(base.filter(author=post.author).order_by("-created_at"), 10)
+        take_from(pool.filter(author=post.author).order_by("-created_at"), 10)
         if (post.region or "").strip():
             take_from(
-                base.filter(region__iexact=post.region.strip()).order_by("-created_at"),
+                pool.filter(region__iexact=post.region.strip()).order_by("-created_at"),
                 10,
             )
-        take_from(base.filter(is_delvers=True).order_by("-created_at"), 12)
-        take_from(base.order_by("-created_at"), 16)
+        if delvers_only:
+            take_from(pool.order_by("-created_at"), 16)
+        else:
+            take_from(base.filter(is_delvers=True).order_by("-created_at"), 12)
+            take_from(base.order_by("-created_at"), 16)
 
         if not ordered_ids:
             return Response([])

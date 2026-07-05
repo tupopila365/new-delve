@@ -143,8 +143,7 @@ export function UserProfile() {
   const messagesDisabled =
     pub != null &&
     !isMe &&
-    (pub.relationship?.can_message === false ||
-      (pub.relationship == null && pub.allow_messages === false))
+    (pub.allow_messages === false || pub.relationship?.can_message === false)
 
   const followMut = useMutation({
     mutationFn: () =>

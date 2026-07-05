@@ -26,6 +26,17 @@
   margin: 12px 0 8px;
   font-size: 1.1rem;
   font-weight: 900;
+  color: #fffaf2;
+}
+
+.dm-card .btn-ghost {
+  color: rgba(255, 250, 242, 0.88);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.dm-card .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fffaf2;
 }
 
 .dm-card p {
