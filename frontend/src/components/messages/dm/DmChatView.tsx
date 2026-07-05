@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Ban, Bot, Loader2, Send, UserRound } from 'lucide-react'
+import { ArrowLeft, Ban, Bot, Loader2, Send } from 'lucide-react'
+import { UserAvatar } from '../../UserAvatar'
 import { ReportButton } from '../../report/ReportButton'
 import { formatMessageTime } from './messagingUtils'
 import type { MessagingContext } from '../messageProviderUtils'
@@ -102,9 +103,12 @@ export function DmChatView({
           <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
         </button>
         <Link to={`/u/${encodeURIComponent(person.username)}`} className="dm-chat__person">
-          <span className="dm-chat__avatar" aria-hidden>
-            {person.avatar ? <img src={person.avatar} alt="" /> : <UserRound size={18} strokeWidth={2} />}
-          </span>
+          <UserAvatar
+            src={person.avatar}
+            name={personName}
+            className="dm-chat__avatar"
+            fill
+          />
           <span className="dm-chat__person-copy">
             <strong>{personName}</strong>
             <small>

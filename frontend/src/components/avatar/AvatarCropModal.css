@@ -1,0 +1,92 @@
+.avatar-crop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.avatar-crop__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: pointer;
+}
+
+.avatar-crop__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.avatar-crop__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.avatar-crop__head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fffaf2;
+}
+
+.avatar-crop__close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+  cursor: pointer;
+}
+
+.avatar-crop__stage {
+  position: relative;
+  height: min(62vw, 320px);
+  background: #0a0a0a;
+}
+
+.avatar-crop__zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 0;
+  color: rgba(255, 250, 242, 0.72);
+}
+
+.avatar-crop__zoom input {
+  flex: 1;
+}
+
+.avatar-crop__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.avatar-crop__spin {
+  animation: avatar-crop-spin 0.8s linear infinite;
+  vertical-align: -3px;
+  margin-right: 6px;
+}
+
+@keyframes avatar-crop-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

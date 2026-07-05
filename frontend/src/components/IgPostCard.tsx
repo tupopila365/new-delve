@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { apiFetch, mediaUrl } from '../api/client'
+import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { UserAvatar } from './UserAvatar'
 import { invalidatePostEngagementCaches } from '../utils/socialCache'
 import { PostMedia } from './PostMedia'
 
@@ -36,10 +37,6 @@ export type FeedPost = {
     author?: { username: string; display_name?: string | null }
     helpful_count?: number
   } | null
-}
-
-function avatarLetter(name: string) {
-  return (name || '?').trim().charAt(0).toUpperCase()
 }
 
 export function IgPostCard({
@@ -82,17 +79,12 @@ export function IgPostCard({
     <article className={`ig-post${isQuestion ? ' ig-post--question' : ''}`}>
       <header className="ig-post__header">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ig-post__header-profile">
-          <div className="ig-post__avatar" aria-hidden>
-            {post.author.avatar ? (
-              <img
-                src={mediaUrl(post.author.avatar) || ''}
-                alt=""
-                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-              />
-            ) : (
-              avatarLetter(name)
-            )}
-          </div>
+          <UserAvatar
+            src={post.author.avatar}
+            name={name}
+            className="ig-post__avatar"
+            fill
+          />
           <div className="ig-post__user">
             <div className="ig-post__name">{name}</div>
             <div className="ig-post__meta">

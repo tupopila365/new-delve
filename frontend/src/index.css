@@ -27937,6 +27937,11 @@ a.chip.chip--accent:hover {
   font-family: var(--font-sans);
 }
 
+.profile-menu__avatar-inner {
+  width: 100%;
+  height: 100%;
+}
+
 .profile-menu__avatar-img {
   width: 100%;
   height: 100%;

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Bell, Bookmark, Camera, Compass, Heart, Home, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { UserAvatar } from '../components/UserAvatar'
 import { DelversCommentComposer } from '../components/DelversCommentComposer'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
 import { ReportButton } from '../components/report/ReportButton'
@@ -430,10 +431,9 @@ export function DelversSocial() {
 }
 
 function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => void }) {
-  const avatar = mediaUrl(creator.avatar)
   return (
     <button type="button" className="ds-creator-bubble" onClick={onOpen} aria-label={`Open highlights by ${creator.display_name}`}>
-      <span>{avatar ? <img src={avatar} alt="" /> : <UserRound size={22} strokeWidth={2} />}</span>
+      <UserAvatar src={creator.avatar} name={creator.display_name} className="ds-creator-bubble__avatar" fill />
       <small>{creator.display_name}</small>
     </button>
   )
@@ -540,9 +540,12 @@ function StoryViewer({ target, index, onIndex, onClose }: {
         </div>
 
         <header className="ds-story-viewer__head">
-          <span className="ds-story-viewer__avatar">
-            {target.avatar ? <img src={mediaUrl(target.avatar) || ''} alt="" /> : target.kind === 'place' ? <MapPin size={20} strokeWidth={2.25} aria-hidden /> : target.title.charAt(0).toUpperCase()}
-          </span>
+          <UserAvatar
+            src={target.kind === 'place' ? null : target.avatar}
+            name={target.title}
+            className="ds-story-viewer__avatar"
+            fill
+          />
           {target.kind === 'creator' && target.username ? (
             <Link to={`/u/${encodeURIComponent(target.username)}`} className="ds-story-viewer__meta ds-story-viewer__meta-link">
               <strong>{target.title}</strong>
@@ -591,7 +594,6 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   const [heartBurst, setHeartBurst] = useState(false)
   const lastTapRef = useRef(0)
   const name = post.author.display_name || post.author.username
-  const avatar = mediaUrl(post.author.avatar ?? null)
   const text = postText(post)
   const hasMedia = Boolean(post.image || post.video)
   const date = formatDate(post.created_at)
@@ -611,7 +613,7 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
       ) : null}
       <header className="ds-post__head">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ds-post__author">
-          <span>{avatar ? <img src={avatar} alt="" /> : name.charAt(0).toUpperCase()}</span>
+          <UserAvatar src={post.author.avatar} name={name} className="ds-post__author-avatar" fill />
           <strong>{name}<small>@{post.author.username}</small></strong>
         </Link>
         {post.region ? <span className="ds-post__region"><MapPin size={13} strokeWidth={2.25} aria-hidden />{post.region}</span> : null}

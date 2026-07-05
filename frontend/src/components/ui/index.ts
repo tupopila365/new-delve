@@ -1,3 +1,4 @@
+export { UserAvatar } from '../UserAvatar'
 export { EmptyState } from './EmptyState'
 export { PageHeader } from './PageHeader'
 export { PageBottomCta } from './PageBottomCta'

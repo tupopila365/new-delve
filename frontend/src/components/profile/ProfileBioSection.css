@@ -14,7 +14,8 @@
 
 .profile-bio__avatar-wrap {
   width: 80px;
-  height: 80px;
+  min-height: 80px;
+  overflow: visible;
 }
 
 .profile-bio__avatar {

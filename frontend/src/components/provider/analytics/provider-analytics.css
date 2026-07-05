@@ -52,6 +52,14 @@
   color: rgba(255, 250, 242, 0.45);
 }
 
+.prov-analytics__trend-empty {
+  margin: 0;
+  padding: 8px 0 4px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.48);
+}
+
 .prov-analytics__trend {
   display: flex;
   align-items: flex-end;

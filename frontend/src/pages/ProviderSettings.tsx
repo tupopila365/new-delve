@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useOutletContext } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
+import { AvatarPhotoField, clearProfileAvatar, invalidateAvatarCaches, useAvatarPhotoEditor } from '../components/avatar'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
@@ -63,9 +63,7 @@ export function ProviderSettings() {
   const [bio, setBio] = useState('')
   const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const avatarRef = useRef<HTMLInputElement>(null)
+  const avatarEditor = useAvatarPhotoEditor(profile?.avatar ? mediaUrl(profile.avatar) : null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
@@ -127,12 +125,6 @@ export function ProviderSettings() {
     },
   })
 
-  function onAvatarChange(file: File | null) {
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-    setAvatarFile(file)
-    setAvatarPreview(file ? URL.createObjectURL(file) : null)
-  }
-
   function onLogoChange(file: File | null) {
     if (logoPreview) URL.revokeObjectURL(logoPreview)
     setLogoFile(file)
@@ -168,20 +160,19 @@ export function ProviderSettings() {
           setCoverPreview(null)
         }
       } else if (tab === 'profile') {
+        if (avatarEditor.removeOnSave) {
+          await clearProfileAvatar()
+        }
         const fd = new FormData()
         fd.append('display_name', displayName)
         fd.append('bio', bio)
         fd.append('region', region)
         fd.append('city', city)
-        if (avatarFile) fd.append('avatar', avatarFile)
+        if (avatarEditor.pendingFile) fd.append('avatar', avatarEditor.pendingFile)
         await apiFetch('/api/accounts/me/update/', { method: 'PATCH', body: fd })
         await refreshProfile()
-        if (profile) await qc.invalidateQueries({ queryKey: ['public-profile', profile.username] })
-        if (avatarFile) {
-          setAvatarFile(null)
-          if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-          setAvatarPreview(null)
-        }
+        if (profile) await invalidateAvatarCaches(qc, profile.username)
+        avatarEditor.clearPending()
       }
       flashSaved()
     } catch (e) {
@@ -193,8 +184,6 @@ export function ProviderSettings() {
 
   if (!profile) return <Navigate to="/login" replace />
 
-  const avatarSrc = avatarPreview || (profile.avatar ? mediaUrl(profile.avatar) : null)
-  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
   const serviceTypes = (activeBusiness?.business_types ?? []).filter((t) => t !== 'multi_provider')
   const logoSrc =
     logoPreview || (activeBusiness?.logo ? mediaUrl(activeBusiness.logo) : null)
@@ -407,47 +396,11 @@ export function ProviderSettings() {
             Your name and photo shown to guests when you message or reply to reviews.
           </p>
 
-          <div className="prov-settings__av-row">
-            <div className="prov-settings__av-wrap">
-              <div className="prov-settings__av-circle" aria-hidden>
-                {avatarSrc ? <img src={avatarSrc} alt="" /> : <span>{initial}</span>}
-              </div>
-              <button
-                type="button"
-                className="prov-settings__av-edit"
-                aria-label="Change profile photo"
-                onClick={() => avatarRef.current?.click()}
-              >
-                <Pencil size={12} strokeWidth={2.5} aria-hidden />
-              </button>
-            </div>
-            <div>
-              <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={() => avatarRef.current?.click()}>
-                Change photo
-              </button>
-              {avatarFile ? (
-                <button
-                  type="button"
-                  className="prov-settings__av-remove"
-                  onClick={() => {
-                    onAvatarChange(null)
-                    if (avatarRef.current) avatarRef.current.value = ''
-                  }}
-                >
-                  Remove
-                </button>
-              ) : null}
-              <p className="prov-settings__av-hint">JPG or PNG. Square, min 200×200 px.</p>
-            </div>
-            <input
-              ref={avatarRef}
-              type="file"
-              accept="image/*"
-              className="visually-hidden"
-              aria-label="Profile photo"
-              onChange={(e) => onAvatarChange(e.target.files?.[0] ?? null)}
-            />
-          </div>
+          <AvatarPhotoField
+            editor={avatarEditor}
+            displayName={profile.display_name || profile.username}
+            hasSavedAvatar={Boolean(profile.avatar)}
+          />
 
           <div className="prov-settings__fields">
             <label className="prov-settings__field">

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
-import { mediaUrl } from '../api/client'
+import { UserAvatar } from '../components/UserAvatar'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { adminConsoleUrl } from '../utils/adminAppUrl'
 import { EmptyState } from '../components/ui'
@@ -33,19 +33,18 @@ export function Account() {
     )
   }
 
-  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
   const showTeamBadge = canAccessProvider && profile.user_type !== 'service_provider'
 
   return (
     <div className="account-page">
       <section className="account-page__profile" aria-label="Your account">
-        {profile.avatar ? (
-          <img className="account-page__avatar" src={mediaUrl(profile.avatar) || ''} alt="" />
-        ) : (
-          <div className="account-page__avatar account-page__avatar--init" aria-hidden>
-            {initial}
-          </div>
-        )}
+        <UserAvatar
+          src={profile.avatar}
+          name={profile.display_name || profile.username}
+          className="account-page__avatar"
+          shape="rounded"
+          fill
+        />
         <div>
           <h2 className="account-page__name">{profile.display_name || profile.username}</h2>
           <p className="account-page__handle">@{profile.username}</p>

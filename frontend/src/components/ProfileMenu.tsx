@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { mediaUrl } from '../api/client'
+import { UserAvatar } from './UserAvatar'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
@@ -52,8 +52,6 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
     )
   }
 
-  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
-
   const onLogout = () => {
     setOpen(false)
     logout()
@@ -70,13 +68,12 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
         aria-haspopup="menu"
         aria-label="Account menu"
       >
-        {profile.avatar ? (
-          <img src={mediaUrl(profile.avatar) || ''} alt="" className="profile-menu__avatar-img" />
-        ) : (
-          <span className="profile-menu__avatar-letter" aria-hidden>
-            {initial}
-          </span>
-        )}
+        <UserAvatar
+          src={profile.avatar}
+          name={profile.display_name || profile.username}
+          fill
+          className="profile-menu__avatar-inner"
+        />
       </button>
 
       {open ? (

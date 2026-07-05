@@ -1,0 +1,70 @@
+.avatar-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.avatar-field__wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+
+.avatar-field__avatar {
+  width: 72px;
+  height: 72px;
+}
+
+.avatar-field__edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #121212;
+  border-radius: 50%;
+  background: var(--accent, #e8620a);
+  color: #fff;
+  cursor: pointer;
+}
+
+.avatar-field__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.avatar-field__btn {
+  justify-self: start;
+}
+
+.avatar-field__remove {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+}
+
+.avatar-field__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(255, 250, 242, 0.48);
+}
+
+.settings-page .avatar-field__hint,
+.settings-page .avatar-field__remove {
+  color: var(--text-secondary, rgba(28, 20, 16, 0.55));
+}
+
+.settings-page .avatar-field__remove {
+  color: #c2410c;
+}

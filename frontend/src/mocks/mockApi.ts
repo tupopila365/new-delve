@@ -1819,6 +1819,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if ('is_private' in raw) raw['is_private'] = raw['is_private'] === true || raw['is_private'] === 'true'
       if ('allow_messages' in raw) raw['allow_messages'] = raw['allow_messages'] === true || raw['allow_messages'] === 'true'
       if ('show_in_search' in raw) raw['show_in_search'] = raw['show_in_search'] === true || raw['show_in_search'] === 'true'
+      if ('avatar' in raw && (raw.avatar === null || raw.avatar === '')) raw.avatar = null
       data = raw as Partial<MockProfile>
     }
     s.profiles[me] = { ...s.profiles[me], ...data, username: me, email: s.profiles[me].email }

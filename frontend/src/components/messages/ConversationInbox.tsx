@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useOutletContext } from 'react-router-dom'
 import { Inbox, MessageCircle, PenLine, Search, Settings2, UserRound } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../../api/client'
+import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { UserAvatar } from '../UserAvatar'
 import type { ProviderOutletContext } from '../ProviderLayout'
 import { useBusinessAccess } from '../../hooks/useBusinessAccess'
 import { SearchPanel } from '../marketplace'
@@ -13,7 +14,6 @@ import { ConversationContextChip } from './ConversationContextChip'
 import {
   conversationOther,
   formatConversationTime,
-  participantInitial,
   participantLabel,
   previewText,
   type InboxConversation,
@@ -259,19 +259,16 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
             const label = participantLabel(other)
             const preview = previewText(conversation, profile.username)
             const unread = (conversation.unread_count ?? 0) > 0
-            const avatarSrc = mediaUrl(other?.avatar ?? null)
+            const avatarClass = context === 'provider' ? 'prov-msg-inbox__avatar' : 'msg-row__avatar'
             return (
               <li key={conversation.id}>
                 <Link to={messageThreadPath(conversation.id, context)} className={rowClass}>
-                  <span className={context === 'provider' ? 'prov-msg-inbox__avatar' : 'msg-row__avatar'} aria-hidden>
-                    {avatarSrc ? (
-                      <img src={avatarSrc} alt="" />
-                    ) : other ? (
-                      participantInitial(other)
-                    ) : (
-                      <UserRound size={18} strokeWidth={2} />
-                    )}
-                  </span>
+                  <UserAvatar
+                    src={other?.avatar}
+                    name={label}
+                    className={avatarClass}
+                    fill
+                  />
                   <span className={context === 'provider' ? 'prov-msg-inbox__main' : 'msg-row__main'}>
                     <span className={context === 'provider' ? 'prov-msg-inbox__top' : 'msg-row__top'}>
                       <strong>

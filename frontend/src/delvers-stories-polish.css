@@ -28,6 +28,7 @@
 
 .ds-create-bubble span,
 .ds-creator-bubble span,
+.ds-creator-bubble__avatar,
 .ds-place-bubble span {
   width: 60px;
   height: 60px;
@@ -47,7 +48,8 @@
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.24), 0 10px 24px rgba(232, 98, 10, 0.3);
 }
 
-.ds-creator-bubble span {
+.ds-creator-bubble span,
+.ds-creator-bubble__avatar {
   box-shadow: 0 0 0 2px var(--accent), 0 10px 22px rgba(0, 0, 0, 0.36);
 }
 

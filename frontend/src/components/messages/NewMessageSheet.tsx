@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, Search, UserRound, X } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
-import { ApiError, apiFetch, getAccessToken, mediaUrl } from '../../api/client'
+import { ApiError, apiFetch, getAccessToken } from '../../api/client'
+import { UserAvatar } from '../UserAvatar'
 import { MessagesEmptyState } from './MessagesEmptyState'
 import type { MessagingContext } from './messageProviderUtils'
 import { messageThreadPath } from './messageProviderUtils'
@@ -36,10 +37,6 @@ const COMPOSE_COPY = {
 
 function personLabel(person: MessagePerson): string {
   return person.display_name?.trim() || person.username
-}
-
-function personInitial(person: MessagePerson): string {
-  return personLabel(person).charAt(0).toUpperCase() || 'D'
 }
 
 function personMeta(person: MessagePerson): string {
@@ -240,7 +237,6 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
               <p className="msg-compose-sheet__section">{sectionLabel}</p>
               <ul className="msg-compose-sheet__list">
                 {list.map((person) => {
-                  const avatar = mediaUrl(person.avatar ?? null)
                   const busy = startingId === person.id && startMut.isPending
                   return (
                     <li key={person.username}>
@@ -250,9 +246,12 @@ export function NewMessageSheet({ open, onClose, recentPeople = [], context = 'u
                         onClick={() => onPick(person)}
                         disabled={startMut.isPending}
                       >
-                        <span className="msg-compose-sheet__avatar" aria-hidden>
-                          {avatar ? <img src={avatar} alt="" /> : personInitial(person)}
-                        </span>
+                        <UserAvatar
+                          src={person.avatar}
+                          name={personLabel(person)}
+                          className="msg-compose-sheet__avatar"
+                          fill
+                        />
                         <span className="msg-compose-sheet__copy">
                           <strong>{personLabel(person)}</strong>
                           <span>{personMeta(person)}</span>

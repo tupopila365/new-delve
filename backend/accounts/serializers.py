@@ -75,6 +75,13 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+    avatar = serializers.ImageField(required=False, allow_null=True)
+
+    def validate_avatar(self, value):
+        if value is None or value is False:
+            return None
+        return value
+
     def validate_country_code(self, value: str) -> str:
         v = (value or "").strip().upper()
         if not v:

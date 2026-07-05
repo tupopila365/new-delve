@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Compass, MapPin, MessageCircle, Plus, Share2, UserRound, Users } from 'lucide-react'
-import { mediaUrl } from '../../api/client'
+import { Compass, MapPin, MessageCircle, Plus, Share2, Users } from 'lucide-react'
+import { EditableProfileAvatar } from '../avatar/EditableProfileAvatar'
+import { UserAvatar } from '../UserAvatar'
 import { ReportButton } from '../report/ReportButton'
 import './ProfileBioSection.css'
 
@@ -45,7 +46,6 @@ export function ProfileBioSection({
   actions,
 }: Props) {
   const place = locationLabel(city, region)
-  const avatarSrc = mediaUrl(avatar)
   const isProvider = userType === 'service_provider'
   const messagePath = `/messages/u/${encodeURIComponent(username)}`
 
@@ -53,12 +53,17 @@ export function ProfileBioSection({
     <section className="profile-bio" aria-label="Profile">
       <div className="profile-bio__top">
         <div className="profile-bio__avatar-wrap">
-          {avatarSrc ? (
-            <img className="profile-bio__avatar" src={avatarSrc} alt={displayName} />
+          {isMe ? (
+            <EditableProfileAvatar avatar={avatar} displayName={displayName} username={username} />
           ) : (
-            <div className="profile-bio__avatar profile-bio__avatar--empty" aria-hidden>
-              <UserRound size={28} strokeWidth={1.75} />
-            </div>
+            <UserAvatar
+              src={avatar}
+              name={displayName}
+              size="xl"
+              shape="rounded"
+              className="profile-bio__avatar"
+              fill
+            />
           )}
         </div>
 

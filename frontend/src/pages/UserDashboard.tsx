@@ -20,6 +20,7 @@ import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
 import { foodCoverSrc } from '../utils/foodDisplay'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { UserAvatar } from '../components/UserAvatar'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { UserBookingCard, bookingNextStep } from '../components/booking'
 import { useMySeatBookingGroups, useMyVehicleBookings } from '../hooks/useMyTransportBookings'
@@ -444,19 +445,18 @@ export function UserDashboard() {
     (eventBookings ?? []).filter((b) => b.status === 'pending').length
 
   const displayName = profile.display_name?.trim() || profile.username
-  const avatar = mediaUrl(profile.avatar) || profile.avatar
   const where = locationLine(profile.city, profile.region)
 
   return (
     <div className="t-dash">
       <div className="t-dash__welcome">
-        {avatar ? (
-          <img src={avatar} alt="" className="t-dash__avatar" />
-        ) : (
-          <span className="t-dash__avatar t-dash__avatar--init" aria-hidden>
-            {displayName.charAt(0).toUpperCase()}
-          </span>
-        )}
+        <UserAvatar
+          src={profile.avatar}
+          name={displayName}
+          shape="rounded"
+          className="t-dash__avatar"
+          fill
+        />
         <div className="t-dash__welcome-body">
           <p className="t-dash__welcome-name">Hi, {displayName}</p>
           {where ? <p className="t-dash__welcome-meta">{where}</p> : null}

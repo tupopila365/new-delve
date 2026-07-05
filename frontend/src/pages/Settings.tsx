@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
+import { AvatarPhotoField, clearProfileAvatar, invalidateAvatarCaches, useAvatarPhotoEditor } from '../components/avatar'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import type { PostsVisibility } from '../auth/AuthContext'
@@ -43,9 +44,7 @@ export function Settings() {
   const [bio, setBio] = useState('')
   const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
-  const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const avatarRef = useRef<HTMLInputElement>(null)
+  const avatarEditor = useAvatarPhotoEditor(profile?.avatar ? mediaUrl(profile.avatar) : null)
 
   // ── Privacy fields ──────────────────────────────────────────
   const [isPrivate, setIsPrivate] = useState(false)
@@ -99,12 +98,6 @@ export function Settings() {
     setCountryCode(profile.country_code ?? '')
     setPreferredCurrency(profile.preferred_currency ?? '')
   }, [profile])
-
-  function onAvatarChange(file: File | null) {
-    if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-    setAvatarFile(file)
-    setAvatarPreview(file ? URL.createObjectURL(file) : null)
-  }
 
   function flashSaved() {
     setSaved(true)
@@ -169,12 +162,15 @@ export function Settings() {
     setError(null)
     try {
       if (tab === 'profile') {
+        if (avatarEditor.removeOnSave) {
+          await clearProfileAvatar()
+        }
         const fd = new FormData()
         fd.append('display_name', displayName)
         fd.append('bio', bio)
         fd.append('region', region)
         fd.append('city', city)
-        if (avatarFile) fd.append('avatar', avatarFile)
+        if (avatarEditor.pendingFile) fd.append('avatar', avatarEditor.pendingFile)
         await apiFetch('/api/accounts/me/update/', { method: 'PATCH', body: fd })
       } else if (tab === 'privacy') {
         await apiFetch('/api/accounts/me/update/', {
@@ -193,13 +189,12 @@ export function Settings() {
         })
       }
       await refreshProfile()
-      // Invalidate the public profile cache so the profile page reflects changes immediately
-      if (profile) await qc.invalidateQueries({ queryKey: ['public-profile', profile.username] })
+      if (profile) {
+        await invalidateAvatarCaches(qc, profile.username)
+      }
       flashSaved()
-      if (avatarFile) {
-        setAvatarFile(null)
-        if (avatarPreview) URL.revokeObjectURL(avatarPreview)
-        setAvatarPreview(null)
+      if (tab === 'profile') {
+        avatarEditor.clearPending()
       }
     } catch (e) {
       setError(friendlyApiMessage(e, 'Failed to save.'))
@@ -220,9 +215,6 @@ export function Settings() {
       </div>
     )
   }
-
-  const avatarSrc = avatarPreview || (profile.avatar ? mediaUrl(profile.avatar) : null)
-  const initial = (profile.display_name || profile.username || '?').charAt(0).toUpperCase()
 
   return (
     <div className="settings-page">
@@ -254,54 +246,11 @@ export function Settings() {
         <section className="sp__section settings-page__panel" id="sp-panel-profile" role="tabpanel" aria-labelledby="sp-tab-profile">
           <h2 id="sp-profile-title" className="sp__section-title">Edit profile</h2>
 
-          {/* Avatar */}
-          <div className="sp__av-row">
-            <div className="sp__av-wrap">
-              <div className="sp__av-circle" aria-hidden>
-                {avatarSrc
-                  ? <img src={avatarSrc} alt="Current avatar" />
-                  : <span>{initial}</span>}
-              </div>
-              <button
-                type="button"
-                className="sp__av-edit"
-                aria-label="Change profile photo"
-                onClick={() => avatarRef.current?.click()}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            </div>
-            <div>
-              <button
-                type="button"
-                className="btn btn-ghost sp__av-btn"
-                onClick={() => avatarRef.current?.click()}
-              >
-                Change photo
-              </button>
-              {avatarFile && (
-                <button
-                  type="button"
-                  className="sp__av-remove"
-                  onClick={() => { onAvatarChange(null); if (avatarRef.current) avatarRef.current.value = '' }}
-                >
-                  Remove
-                </button>
-              )}
-              <p className="sp__av-hint">JPG or PNG. Recommended: square, min 200×200 px.</p>
-            </div>
-            <input
-              ref={avatarRef}
-              type="file"
-              accept="image/*"
-              className="visually-hidden"
-              aria-label="Profile photo"
-              onChange={(e) => onAvatarChange(e.target.files?.[0] ?? null)}
-            />
-          </div>
+          <AvatarPhotoField
+            editor={avatarEditor}
+            displayName={profile.display_name || profile.username}
+            hasSavedAvatar={Boolean(profile.avatar)}
+          />
 
           <div className="sp__fields">
             <div className="sp__field">

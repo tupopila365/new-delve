@@ -105,25 +105,45 @@ function periodScale(period: AnalyticsPeriod) {
   return 2.6
 }
 
-function demoLikes(seed: number | string) {
-  const n = typeof seed === 'number' ? seed : ownerSeed(String(seed))
-  return 8 + (n % 45)
+function periodBucketMeta(period: AnalyticsPeriod): { labels: string[]; msPerBucket: number } {
+  if (period === '7d') {
+    return { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], msPerBucket: 86400000 }
+  }
+  if (period === '30d') {
+    return { labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], msPerBucket: 7 * 86400000 }
+  }
+  return { labels: ['Month 1', 'Month 2', 'Month 3'], msPerBucket: 30 * 86400000 }
 }
 
-function buildTrend(owner: string, period: AnalyticsPeriod, base: number, variance: number): TrendPoint[] {
-  const days = period === '7d' ? 7 : period === '30d' ? 4 : 3
+/** Demo-only: synthetic chart bars for local mock mode. */
+function buildDemoTrend(owner: string, period: AnalyticsPeriod, base: number, variance: number): TrendPoint[] {
+  const { labels } = periodBucketMeta(period)
   const seed = ownerSeed(owner)
-  const labels =
-    period === '7d'
-      ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-      : period === '30d'
-        ? ['Week 1', 'Week 2', 'Week 3', 'Week 4']
-        : ['Month 1', 'Month 2', 'Month 3']
-
-  return labels.slice(0, days).map((label, i) => ({
+  return labels.map((label, i) => ({
     label,
-    value: Math.max(1, Math.round(base / days + ((seed + i * 7) % variance))),
+    value: Math.max(1, Math.round(base / labels.length + ((seed + i * 7) % variance))),
   }))
+}
+
+function buildEmptyTrend(period: AnalyticsPeriod): TrendPoint[] {
+  return periodBucketMeta(period).labels.map((label) => ({ label, value: 0 }))
+}
+
+function buildBookingsTrendFromBookings(bookings: ProviderBooking[], period: AnalyticsPeriod): TrendPoint[] {
+  const days = PERIOD_DAYS[period]
+  const { labels, msPerBucket } = periodBucketMeta(period)
+  const periodStart = Date.now() - days * 86400000
+  const counts = new Array(labels.length).fill(0)
+
+  for (const booking of bookings) {
+    if (!booking.requestedAt) continue
+    const t = new Date(booking.requestedAt).getTime()
+    if (Number.isNaN(t) || t < periodStart) continue
+    const bucket = Math.min(labels.length - 1, Math.floor((t - periodStart) / msPerBucket))
+    counts[bucket] += 1
+  }
+
+  return labels.map((label, i) => ({ label, value: counts[i] }))
 }
 
 function avgRating(listings: ProviderListing[]) {
@@ -169,7 +189,8 @@ export function getProviderAnalytics(
   const useDemo = mocksEnabled()
   const scale = useDemo ? periodScale(period) : 1
   const listings = listingsOverride ?? scopeListings(owner ?? '', businessTypes)
-  const bookings = scopeBookings(businessTypes, bookingsOverride)
+  const allBookings = scopeBookings(businessTypes, bookingsOverride)
+  const bookings = useDemo ? allBookings : filterBookingsByPeriod(allBookings, period)
   const bookingStats = getBookingStats(bookings)
 
   const listingViews = Math.round(listings.reduce((s, l) => s + l.views, 0) * scale)
@@ -290,8 +311,12 @@ export function getProviderAnalytics(
           bookingRequests: 0,
           revenue: 0,
         },
-    viewsTrend: buildTrend(owner ?? 'x', period, listingViews, 18),
-    bookingsTrend: buildTrend(owner ?? 'x', period, bookingRequests, 6),
+    viewsTrend: useDemo
+      ? buildDemoTrend(owner ?? 'x', period, listingViews, 18)
+      : buildEmptyTrend(period),
+    bookingsTrend: useDemo
+      ? buildDemoTrend(owner ?? 'x', period, bookingRequests, 6)
+      : buildBookingsTrendFromBookings(bookings, period),
     bookingsByCategory,
     engagementByType,
     funnel,
