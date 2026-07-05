@@ -15,6 +15,8 @@ export type DelversFeedPost = {
   comments_count?: number
   created_at?: string
   feed_item_type?: 'post'
+  post_kind?: 'tip' | 'question'
+  is_delvers?: boolean
   is_delvers_highlight?: boolean
   is_sponsored?: boolean
   sponsor_label?: string
@@ -34,5 +36,9 @@ export function isFeedPost(item: DelversFeedItem): item is DelversFeedPost {
 }
 
 export function isDelversPin(item: DelversFeedPost): boolean {
-  return !item.is_delvers_highlight
+  return (
+    !item.is_delvers_highlight &&
+    item.post_kind !== 'question' &&
+    item.is_delvers !== false
+  )
 }

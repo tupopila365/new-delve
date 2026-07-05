@@ -58,36 +58,74 @@ function ProfilePostSlide({
   const isQuestion = post.post_kind === 'question'
   const isQuestionAuthor = Boolean(profile && profile.username === post.author.username)
 
+  const [engagement, setEngagement] = useState({
+    liked_by_me: post.liked_by_me,
+    saved_by_me: post.saved_by_me,
+    likes_count: post.likes_count ?? 0,
+  })
+
+  useEffect(() => {
+    setEngagement({
+      liked_by_me: post.liked_by_me,
+      saved_by_me: post.saved_by_me,
+      likes_count: post.likes_count ?? 0,
+    })
+  }, [post.id, post.liked_by_me, post.saved_by_me, post.likes_count])
+
   const likeMut = useMutation({
-    mutationFn: () => apiFetch(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
-    onSuccess: () => {
+    mutationFn: () => apiFetch<{ liked: boolean }>(`/api/social/posts/${post.id}/like/`, { method: 'POST' }),
+    onMutate: () => {
+      setEngagement((prev) => {
+        const liked = !prev.liked_by_me
+        return {
+          ...prev,
+          liked_by_me: liked,
+          likes_count: Math.max(0, prev.likes_count + (liked ? 1 : -1)),
+        }
+      })
+    },
+    onError: () => {
+      setEngagement({
+        liked_by_me: post.liked_by_me,
+        saved_by_me: post.saved_by_me,
+        likes_count: post.likes_count ?? 0,
+      })
+    },
+    onSuccess: (data) => {
+      setEngagement((prev) => ({ ...prev, liked_by_me: data.liked }))
       void invalidatePostEngagementCaches(qc, {
-        queryKey,
         authorUsername: post.author.username,
+        savedByUsername: profile?.username,
       })
       void qc.invalidateQueries({ queryKey: ['post', post.id] })
     },
   })
 
   const saveMut = useMutation({
-    mutationFn: () => apiFetch(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
-    onSuccess: () => {
+    mutationFn: () => apiFetch<{ saved: boolean }>(`/api/social/posts/${post.id}/save/`, { method: 'POST' }),
+    onMutate: () => {
+      setEngagement((prev) => ({ ...prev, saved_by_me: !prev.saved_by_me }))
+    },
+    onError: () => {
+      setEngagement((prev) => ({ ...prev, saved_by_me: post.saved_by_me }))
+    },
+    onSuccess: (data) => {
+      setEngagement((prev) => ({ ...prev, saved_by_me: data.saved }))
       void invalidatePostEngagementCaches(qc, {
-        queryKey,
         authorUsername: post.author.username,
+        savedByUsername: profile?.username,
       })
       void qc.invalidateQueries({ queryKey: ['post', post.id] })
-      void qc.invalidateQueries({ queryKey: ['user-saved', profile?.username] })
     },
   })
 
-  const commentsQueryKey = ['post-comments', post.id] as const
+  const commentsQueryKey = ['post-comments', post.id, profile?.username] as const
   const {
     data: comments = [],
     isLoading: commentsLoading,
   } = useQuery({
     queryKey: commentsQueryKey,
-    queryFn: () => apiFetch<PostComment[]>(`/api/social/posts/${post.id}/comments/`, { auth: false }),
+    queryFn: () => apiFetch<PostComment[]>(`/api/social/posts/${post.id}/comments/`),
     enabled: active && showComments,
     retry: false,
   })
@@ -105,7 +143,7 @@ function ProfilePostSlide({
 
   const name = post.author.display_name || post.author.username
   const avatar = mediaUrl(post.author.avatar ?? null)
-  const likes = post.likes_count ?? 0
+  const likes = engagement.likes_count
   const commentsCount = post.comments_count ?? 0
   const preview = profilePostPreview(post.body)
 
@@ -136,7 +174,30 @@ function ProfilePostSlide({
         `/api/social/comments/${commentId}/helpful/`,
         { method: 'POST' },
       ),
-    onSuccess: () => {
+    onMutate: (commentId) => {
+      qc.setQueryData<PostComment[]>(commentsQueryKey, (old) =>
+        (old ?? []).map((comment) => {
+          if (comment.id !== commentId) return comment
+          const marked = !comment.marked_helpful_by_me
+          const count = comment.helpful_count ?? 0
+          return {
+            ...comment,
+            marked_helpful_by_me: marked,
+            helpful_count: Math.max(0, count + (marked ? 1 : -1)),
+          }
+        }),
+      )
+    },
+    onSuccess: (data, commentId) => {
+      qc.setQueryData<PostComment[]>(commentsQueryKey, (old) =>
+        (old ?? []).map((comment) =>
+          comment.id === commentId
+            ? { ...comment, marked_helpful_by_me: data.marked_helpful, helpful_count: data.helpful_count }
+            : comment,
+        ),
+      )
+    },
+    onError: () => {
       void qc.invalidateQueries({ queryKey: commentsQueryKey })
     },
   })
@@ -182,11 +243,12 @@ function ProfilePostSlide({
           <>
             <button
               type="button"
-              className={`ppv__action${post.liked_by_me ? ' ppv__action--active' : ''}`}
-              aria-label={post.liked_by_me ? 'Unlike' : 'Like'}
+              className={`ppv__action${engagement.liked_by_me ? ' ppv__action--active' : ''}`}
+              aria-label={engagement.liked_by_me ? 'Unlike' : 'Like'}
+              aria-pressed={engagement.liked_by_me}
               onClick={() => likeMut.mutate()}
             >
-              <Heart size={28} strokeWidth={2} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+              <Heart size={28} strokeWidth={2} fill={engagement.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
               {likes > 0 ? <span className="ppv__action-count">{formatEngagementCount(likes)}</span> : null}
             </button>
             <button
@@ -203,11 +265,12 @@ function ProfilePostSlide({
             </button>
             <button
               type="button"
-              className={`ppv__action${post.saved_by_me ? ' ppv__action--save-active' : ''}`}
-              aria-label={post.saved_by_me ? 'Unsave' : 'Save'}
+              className={`ppv__action${engagement.saved_by_me ? ' ppv__action--save-active' : ''}`}
+              aria-label={engagement.saved_by_me ? 'Unsave' : 'Save'}
+              aria-pressed={engagement.saved_by_me}
               onClick={() => saveMut.mutate()}
             >
-              <Bookmark size={26} strokeWidth={2} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
+              <Bookmark size={26} strokeWidth={2} fill={engagement.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
             </button>
           </>
         ) : (
@@ -309,8 +372,14 @@ function ProfilePostSlide({
                           className={`ppv__helpful-btn${comment.marked_helpful_by_me ? ' ppv__helpful-btn--active' : ''}`}
                           onClick={() => helpfulMut.mutate(comment.id)}
                           disabled={helpfulMut.isPending}
+                          aria-pressed={comment.marked_helpful_by_me}
                         >
-                          <ThumbsUp size={14} strokeWidth={2.25} aria-hidden />
+                          <ThumbsUp
+                            size={14}
+                            strokeWidth={2.25}
+                            fill={comment.marked_helpful_by_me ? 'currentColor' : 'none'}
+                            aria-hidden
+                          />
                           {(comment.helpful_count ?? 0) > 0 ? comment.helpful_count : 'Helpful'}
                         </button>
                       ) : null}
@@ -335,9 +404,9 @@ function ProfilePostSlide({
             <div className="ppv__comments-composer">
               <DelversCommentComposer
                 postId={post.id}
-                onClose={onToggleComments}
                 onCommented={handleCommented}
-                placeholder={isQuestion ? 'Write an answer…' : undefined}
+                placeholder={isQuestion ? 'Write an answer…' : 'Add a comment…'}
+                variant="compact"
               />
             </div>
           ) : (

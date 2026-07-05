@@ -18,6 +18,12 @@ import {
 } from '../components/social/delversFeedTypes'
 import { EmptyState } from '../components/ui'
 import { invalidatePostEngagementCaches, invalidateSocialCaches } from '../utils/socialCache'
+import {
+  areAllHighlightsSeen,
+  creatorRingKey,
+  markHighlightsSeen,
+  placeRingKey,
+} from '../utils/delversHighlightSeen'
 import { copyPostPermalink, postPermalinkPath } from '../utils/postPermalink'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
@@ -105,18 +111,18 @@ export function DelversSocial() {
   const [toast, setToast] = useState('')
   const [storyTarget, setStoryTarget] = useState<StoryTarget | null>(null)
   const [storyIndex, setStoryIndex] = useState(0)
+  const [seenTick, setSeenTick] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastScrollTopRef = useRef(0)
   const qc = useQueryClient()
-  const qk = ['delvers-social', profile?.region] as const
-  const highlightsQk = ['delvers-highlights', profile?.region] as const
+  const qk = ['delvers-social', profile?.region, profile?.username] as const
+  const highlightsQk = ['delvers-highlights', profile?.region, profile?.username] as const
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk,
     queryFn: () =>
       apiFetch<DelversFeedItem[]>(
         `/api/social/delvers/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
-        { auth: false },
       ),
   })
 
@@ -125,7 +131,6 @@ export function DelversSocial() {
     queryFn: () =>
       apiFetch<DelversFeedPost[]>(
         `/api/social/delvers/highlights/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
-        { auth: false },
       ),
   })
 
@@ -151,9 +156,14 @@ export function DelversSocial() {
     onError: (_err, _post, context) => {
       if (context?.previous) qc.setQueryData(qk, context.previous)
     },
-    onSuccess: (_data, post) => {
+    onSuccess: (data, post) => {
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) => {
+          if (!isFeedPost(item) || item.id !== post.id) return item
+          return { ...item, liked_by_me: data.liked }
+        }),
+      )
       void invalidatePostEngagementCaches(qc, {
-        queryKey: qk,
         authorUsername: post.author.username,
         savedByUsername: profile?.username,
       })
@@ -182,9 +192,14 @@ export function DelversSocial() {
     onError: (_err, _post, context) => {
       if (context?.previous) qc.setQueryData(qk, context.previous)
     },
-    onSuccess: (_data, post) => {
+    onSuccess: (data, post) => {
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) => {
+          if (!isFeedPost(item) || item.id !== post.id) return item
+          return { ...item, saved_by_me: data.saved }
+        }),
+      )
       void invalidatePostEngagementCaches(qc, {
-        queryKey: qk,
         authorUsername: post.author.username,
         savedByUsername: profile?.username,
       })
@@ -324,6 +339,21 @@ export function DelversSocial() {
     void invalidateSocialCaches(qc, { username: profile?.username })
   }
 
+  const closeStoryViewer = () => {
+    if (storyTarget) {
+      const ringKey =
+        storyTarget.kind === 'creator' && storyTarget.username
+          ? creatorRingKey(storyTarget.username)
+          : placeRingKey(storyTarget.title)
+      markHighlightsSeen(
+        ringKey,
+        storyTarget.posts.slice(0, storyIndex + 1).map((item) => item.id),
+      )
+      setSeenTick((tick) => tick + 1)
+    }
+    setStoryTarget(null)
+  }
+
   const openCreatorStories = (creator: Creator) => {
     const rows = highlights.filter((post) => post.author.username === creator.username)
     if (rows.length === 0) return
@@ -401,7 +431,19 @@ export function DelversSocial() {
       <main className="ds-main ds-main--centered">
         <section className="ds-stories ds-stories--polished" aria-label="Creator and place highlights">
           <CreateStoryBubble signedIn={!!profile} />
-          {creators.map((creator) => <CreatorBubble key={creator.username} creator={creator} onOpen={() => openCreatorStories(creator)} />)}
+          {creators.map((creator) => {
+            const ringKey = creatorRingKey(creator.username)
+            const ids = highlights.filter((post) => post.author.username === creator.username).map((post) => post.id)
+            const seen = areAllHighlightsSeen(ringKey, ids)
+            return (
+              <CreatorBubble
+                key={creator.username}
+                creator={creator}
+                seen={seen}
+                onOpen={() => openCreatorStories(creator)}
+              />
+            )
+          })}
           {PLACES.map((place) => (
             <button key={place} type="button" className="ds-place-bubble" onClick={() => openPlaceStories(place)}>
               <span><MapPin size={18} strokeWidth={2.25} /></span>
@@ -475,16 +517,21 @@ export function DelversSocial() {
           target={storyTarget}
           index={storyIndex}
           onIndex={setStoryIndex}
-          onClose={() => setStoryTarget(null)}
+          onClose={closeStoryViewer}
         />
       ) : null}
     </div>
   )
 }
 
-function CreatorBubble({ creator, onOpen }: { creator: Creator; onOpen: () => void }) {
+function CreatorBubble({ creator, seen, onOpen }: { creator: Creator; seen: boolean; onOpen: () => void }) {
   return (
-    <button type="button" className="ds-creator-bubble" onClick={onOpen} aria-label={`Open highlights by ${creator.display_name}`}>
+    <button
+      type="button"
+      className={`ds-creator-bubble${seen ? ' ds-creator-bubble--seen' : ''}`}
+      onClick={onOpen}
+      aria-label={`Open highlights by ${creator.display_name}`}
+    >
       <UserAvatar src={creator.avatar} name={creator.display_name} className="ds-creator-bubble__avatar" fill />
       <small>{creator.display_name}</small>
     </button>

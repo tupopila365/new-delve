@@ -1,6 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { MessageCircle, RefreshCw, UserRound, X } from 'lucide-react'
+import { MessageCircle, RefreshCw, ThumbsUp, UserRound, X } from 'lucide-react'
 import { ApiError, apiFetch, mediaUrl } from '../api/client'
 import { DelversCommentComposer } from './DelversCommentComposer'
 import { ReportButton } from './report/ReportButton'
@@ -18,6 +18,8 @@ export type DelversComment = {
   author: CommentAuthor
   body: string
   created_at?: string
+  helpful_count?: number
+  marked_helpful_by_me?: boolean
 }
 
 type Props = {
@@ -42,11 +44,46 @@ function authorName(author: CommentAuthor): string {
 
 export function DelversCommentsPanel({ postId, open, count = 0, onClose, onCommented, signedIn = false }: Props) {
   const qc = useQueryClient()
+  const commentsQueryKey = ['delvers-post-comments', postId] as const
   const commentsQuery = useQuery({
-    queryKey: ['delvers-post-comments', postId],
+    queryKey: commentsQueryKey,
     enabled: open,
     queryFn: () => apiFetch<DelversComment[]>(`/api/social/posts/${postId}/comments/`),
     staleTime: 20_000,
+  })
+
+  const helpfulMut = useMutation({
+    mutationFn: (commentId: number) =>
+      apiFetch<{ marked_helpful: boolean; helpful_count: number }>(
+        `/api/social/comments/${commentId}/helpful/`,
+        { method: 'POST' },
+      ),
+    onMutate: (commentId) => {
+      qc.setQueryData<DelversComment[]>(commentsQueryKey, (old) =>
+        (old ?? []).map((comment) => {
+          if (comment.id !== commentId) return comment
+          const marked = !comment.marked_helpful_by_me
+          const helpfulCount = comment.helpful_count ?? 0
+          return {
+            ...comment,
+            marked_helpful_by_me: marked,
+            helpful_count: Math.max(0, helpfulCount + (marked ? 1 : -1)),
+          }
+        }),
+      )
+    },
+    onSuccess: (data, commentId) => {
+      qc.setQueryData<DelversComment[]>(commentsQueryKey, (old) =>
+        (old ?? []).map((comment) =>
+          comment.id === commentId
+            ? { ...comment, marked_helpful_by_me: data.marked_helpful, helpful_count: data.helpful_count }
+            : comment,
+        ),
+      )
+    },
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: commentsQueryKey })
+    },
   })
 
   if (!open) return null
@@ -56,7 +93,7 @@ export function DelversCommentsPanel({ postId, open, count = 0, onClose, onComme
   const needsLogin = error instanceof ApiError && error.status === 401
 
   const handleCommented = () => {
-    void qc.invalidateQueries({ queryKey: ['delvers-post-comments', postId] })
+    void qc.invalidateQueries({ queryKey: commentsQueryKey })
     onCommented?.()
   }
 
@@ -111,6 +148,7 @@ export function DelversCommentsPanel({ postId, open, count = 0, onClose, onComme
           {comments.map((comment) => {
             const name = authorName(comment.author)
             const avatar = mediaUrl(comment.author.avatar ?? null)
+            const liked = Boolean(comment.marked_helpful_by_me)
             return (
               <li key={comment.id} className="ds-comments-panel__item">
                 <Link to={`/u/${encodeURIComponent(comment.author.username)}`} className="ds-comments-panel__avatar" aria-label={name}>
@@ -123,6 +161,19 @@ export function DelversCommentsPanel({ postId, open, count = 0, onClose, onComme
                   </p>
                   <div className="ds-comments-panel__meta">
                     {comment.created_at ? <small>{formatCommentDate(comment.created_at)}</small> : null}
+                    {signedIn ? (
+                      <button
+                        type="button"
+                        className={`ds-comments-panel__like${liked ? ' is-active' : ''}`}
+                        onClick={() => helpfulMut.mutate(comment.id)}
+                        disabled={helpfulMut.isPending}
+                        aria-label={liked ? 'Unlike comment' : 'Like comment'}
+                        aria-pressed={liked}
+                      >
+                        <ThumbsUp size={13} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+                        {(comment.helpful_count ?? 0) > 0 ? comment.helpful_count : null}
+                      </button>
+                    ) : null}
                     <ReportButton
                       className="ds-comments-panel__report"
                       iconOnly

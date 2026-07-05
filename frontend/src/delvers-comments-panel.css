@@ -196,6 +196,31 @@
   font-weight: 800;
 }
 
+.ds-comments-panel__like {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 24px;
+  padding: 0 0.45rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(72, 48, 32, 0.08);
+  color: #8a654d;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ds-comments-panel__like.is-active {
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.12);
+}
+
+.ds-comments-panel__like.is-active svg {
+  fill: currentColor;
+}
+
 @media (max-width: 640px) {
   .ds-comments-panel {
     margin-inline: 0.75rem;

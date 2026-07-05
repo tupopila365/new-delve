@@ -20,7 +20,7 @@ export function DelversPostDetail({ fallbackPath = '/delvers' }: Props) {
 
   const { data: post, isLoading, isError } = useQuery({
     queryKey: ['post', postId],
-    queryFn: () => apiFetch<FeedPost>(`/api/social/posts/${postId}/`, { auth: false }),
+    queryFn: () => apiFetch<FeedPost>(`/api/social/posts/${postId}/`),
     enabled: Number.isFinite(postId) && postId > 0,
     retry: false,
   })

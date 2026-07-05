@@ -125,6 +125,7 @@ class DelversFeedView(APIView):
         qs = filter_posts_for_viewer(
             _base_post_queryset()
             .filter(is_delvers=True)
+            .exclude(post_kind=PostKind.QUESTION)
             .exclude(is_accommodation_story=True)
             .exclude(is_delvers_highlight=True),
             request.user if request.user.is_authenticated else None,
@@ -168,7 +169,9 @@ class DelversHighlightsView(APIView):
             region = (request.user.profile.region or "").strip()
 
         qs = filter_posts_for_viewer(
-            _base_post_queryset().filter(is_delvers_highlight=True),
+            _base_post_queryset()
+            .filter(is_delvers_highlight=True)
+            .exclude(post_kind=PostKind.QUESTION),
             request.user if request.user.is_authenticated else None,
         )
         if region:
