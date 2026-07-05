@@ -169,7 +169,7 @@ export function foodVenueToProviderListing(v: ProviderFoodVenue, bookingCount = 
     healthIssue: !cover ? 'Venue missing photos' : undefined,
     image: cover,
     publicPath: `/food/${v.id}`,
-    editPath: '/provider/food',
+    editPath: `/provider/food/${v.id}`,
   }
 }
 
@@ -338,7 +338,7 @@ export function getProviderMockListings(owner?: string): ProviderListing[] {
       healthIssue: !f.cover_image ? 'Venue missing photos' : undefined,
       image: f.cover_image,
       publicPath: `/food/${f.id}`,
-      editPath: '/provider/food',
+      editPath: `/provider/food/${v.id}`,
     }))
 
   return [...stays, ...guides, ...vehicles, ...food]

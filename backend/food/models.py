@@ -36,14 +36,23 @@ class FoodVenue(models.Model):
         choices=CuisineType.choices,
         default=CuisineType.OTHER,
     )
-    region = models.CharField(max_length=120)
+    region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     address = models.CharField(max_length=300, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    google_place_id = models.CharField(max_length=255, blank=True)
+    formatted_address = models.CharField(max_length=500, blank=True)
     phone = models.CharField(max_length=40, blank=True)
     website = models.URLField(blank=True)
     opening_hours = models.TextField(
         blank=True,
         help_text="One line per day or range, e.g. Mon–Fri 08:00–17:00",
+    )
+    opening_hours_json = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Structured weekly hours: [{"day":"mon","open":true,"opens":"08:00","closes":"17:00"}]',
     )
     closes_at = models.CharField(
         max_length=40,
@@ -87,7 +96,7 @@ class FoodVenue(models.Model):
         blank=True,
         help_text='Host-seeded reviews: [{"name": "...", "place": "...", "rating": 4.5, "body": "..."}]',
     )
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

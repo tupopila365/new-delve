@@ -12,6 +12,7 @@ from rest_framework import serializers
 
 
 
+from .hours_utils import apply_schedule_fields, normalize_schedule
 from .models import FoodVenue
 
 from .serializers import _cover_image_url
@@ -68,11 +69,21 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
 
             "address",
 
+            "latitude",
+
+            "longitude",
+
+            "google_place_id",
+
+            "formatted_address",
+
             "phone",
 
             "website",
 
             "opening_hours",
+
+            "opening_hours_json",
 
             "closes_at",
 
@@ -258,11 +269,28 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
 
 
 
+    def validate_opening_hours_json(self, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Opening hours must be a list of day entries.")
+        return normalize_schedule(value)
+
+    def _apply_opening_hours_json(self, instance, schedule):
+        if schedule is None:
+            return
+        apply_schedule_fields(instance, schedule)
+
     def create(self, validated_data):
 
         cover_url = validated_data.pop("cover_image_url", "")
+        schedule = validated_data.pop("opening_hours_json", None)
 
         instance = super().create(validated_data)
+
+        if schedule is not None:
+            self._apply_opening_hours_json(instance, schedule)
+            instance.save(update_fields=["opening_hours_json", "opening_hours", "closes_at"])
 
         self._finalize_media(instance, cover_url=cover_url if cover_url and not instance.cover_image else None)
 
@@ -273,10 +301,15 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
 
         cover_url = validated_data.pop("cover_image_url", None)
+        schedule = validated_data.pop("opening_hours_json", None)
 
         had_cover_upload = "cover_image" in validated_data
 
         instance = super().update(instance, validated_data)
+
+        if schedule is not None:
+            self._apply_opening_hours_json(instance, schedule)
+            instance.save(update_fields=["opening_hours_json", "opening_hours", "closes_at"])
 
         if cover_url is not None and not had_cover_upload:
 

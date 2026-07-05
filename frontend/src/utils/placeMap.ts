@@ -40,15 +40,60 @@ export function openStreetMapEmbedUrl(latitude: number, longitude: number, delta
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`
 }
 
+/** Google Maps directions to a precise pin. */
+export function googleMapsDirectionsUrl(
+  latitude: number,
+  longitude: number,
+  label?: string | null,
+): string {
+  const destination =
+    label?.trim() ?
+      encodeURIComponent(`${label.trim()}@${latitude},${longitude}`)
+    : `${latitude},${longitude}`
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}`
+}
+
+/** Google Maps place view / search for coordinates. */
+export function googleMapsPlaceUrl(latitude: number, longitude: number): string {
+  return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+}
+
+export function resolveDirectionsUrl(options: {
+  name?: string | null
+  address?: string | null
+  city?: string | null
+  region?: string | null
+  latitude?: number | null
+  longitude?: number | null
+}): string {
+  if (hasValidCoords(options.latitude, options.longitude)) {
+    const label = formatPlaceLine(options.name, options.address)
+    return googleMapsDirectionsUrl(options.latitude!, options.longitude!, label || null)
+  }
+  const q = formatPlaceLine(options.name, options.address, options.city, options.region)
+  if (!q) return ''
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+}
+
 export function resolveMapUrl(options: {
   address?: string | null
   latitude?: number | null
   longitude?: number | null
   mapUrl?: string | null
+  preferGoogle?: boolean
 }): string {
   if (options.mapUrl?.trim()) return options.mapUrl.trim()
+  if (options.preferGoogle !== false && hasValidCoords(options.latitude, options.longitude)) {
+    return googleMapsPlaceUrl(options.latitude!, options.longitude!)
+  }
   if (hasValidCoords(options.latitude, options.longitude)) {
     return openStreetMapMarkerUrl(options.latitude, options.longitude)
   }
   return openStreetMapSearchUrl(options.address)
+}
+
+export function parseCoord(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const n = typeof value === 'number' ? value : Number.parseFloat(String(value))
+  return Number.isFinite(n) ? n : null
 }

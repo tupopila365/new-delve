@@ -64,6 +64,7 @@ import { StaysAdmin } from './pages/StaysAdmin'
 import { GuidesAdmin } from './pages/GuidesAdmin'
 import { TransportAdmin } from './pages/TransportAdmin'
 import { FoodAdmin } from './pages/FoodAdmin'
+import { FoodVenueWorkspacePage } from './pages/FoodVenueWorkspacePage'
 import { EventsAdmin } from './pages/EventsAdmin'
 import { UserDashboard } from './pages/UserDashboard'
 import { BusinessProfile } from './pages/BusinessProfile'
@@ -163,6 +164,7 @@ export default function App() {
             <Route path="guides" element={<GuidesAdmin />} />
             <Route path="transport" element={<TransportAdmin />} />
             <Route path="food" element={<FoodAdmin />} />
+            <Route path="food/:venueId" element={<FoodVenueWorkspacePage />} />
             <Route path="events" element={<EventsAdmin />} />
           </Route>
         </Route>

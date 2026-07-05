@@ -5390,9 +5390,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       region: row.region,
       city: row.city ?? '',
       address: (row as { address?: string }).address ?? '',
+      latitude: (row as { latitude?: string | number | null }).latitude ?? null,
+      longitude: (row as { longitude?: string | number | null }).longitude ?? null,
+      google_place_id: (row as { google_place_id?: string }).google_place_id ?? '',
+      formatted_address: (row as { formatted_address?: string }).formatted_address ?? '',
       phone: (row as { phone?: string }).phone ?? '',
       website: (row as { website?: string }).website ?? '',
       opening_hours: (row as { opening_hours?: string }).opening_hours ?? '',
+      opening_hours_json: (row as { opening_hours_json?: unknown[] }).opening_hours_json ?? [],
       closes_at: row.closes_at ?? '',
       price_level: row.price_level,
       dine_in: (row as { dine_in?: boolean }).dine_in !== false,
@@ -5406,7 +5411,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       cover_image: row.cover_image,
       rating_avg: row.rating_avg,
       rating_count: row.rating_count,
-      is_active: (row as { is_active?: boolean }).is_active !== false,
+      is_active: (row as { is_active?: boolean }).is_active === true,
       created_at: new Date().toISOString(),
     }
   }
@@ -5465,6 +5470,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         phone: get('phone'),
         website: get('website'),
         opening_hours: get('opening_hours'),
+        opening_hours_json: parseJsonField('opening_hours_json'),
         closes_at: get('closes_at'),
         price_level: Number.parseInt(get('price_level') || '2', 10) || 2,
         dine_in: get('dine_in') !== 'false',
@@ -5472,7 +5478,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         delivery: get('delivery') === 'true',
         reservations: get('reservations') === 'true',
         is_open,
-        is_active: get('is_active') !== 'false',
+        is_active: get('is_active') === 'true',
         amenities: parseJsonField('amenities') ?? [],
         photos,
         venue_stories: parseJsonField('venue_stories') ?? [],
@@ -5512,9 +5518,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       region: data.region ?? '',
       city: data.city ?? '',
       address: data.address ?? '',
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
+      google_place_id: data.google_place_id ?? '',
+      formatted_address: data.formatted_address ?? '',
       phone: data.phone ?? '',
       website: data.website ?? '',
       opening_hours: data.opening_hours ?? '',
+      opening_hours_json: Array.isArray(data.opening_hours_json) ? data.opening_hours_json : [],
       closes_at: data.closes_at ?? '',
       price_level: data.price_level ?? 2,
       dine_in: data.dine_in !== false,
@@ -5528,13 +5539,21 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       cover_image: coverUrl || null,
       rating_avg: '0',
       rating_count: 0,
-      is_active: data.is_active !== false,
+      is_active: data.is_active === true,
     }
     mockFood.push(row as (typeof mockFood)[0])
     return serializeProviderFoodVenue(row as (typeof mockFood)[0])
   }
 
   const providerFoodMatch = pathname.match(/^\/api\/food\/provider-venues\/(\d+)\/?$/)
+  if (providerFoodMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const venue = mockFood.find((f) => f.id === Number(providerFoodMatch[1]) && f.owner_username === me)
+    if (!venue) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return serializeProviderFoodVenue(venue)
+  }
+
   if (providerFoodMatch && method === 'PATCH') {
     requireAuth(s)
     const me = s.currentUser as string
@@ -5557,6 +5576,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       }
       delete data.cover_image_url
       delete data.cover_image
+    }
+    if (Array.isArray(data.opening_hours_json)) {
+      const schedule = data.opening_hours_json as { day?: string; open?: boolean; opens?: string; closes?: string }[]
+      const lines: string[] = []
+      for (const entry of schedule) {
+        if (entry?.open && entry.day && entry.opens && entry.closes) {
+          lines.push(`${String(entry.day).slice(0, 3)} ${entry.opens}–${entry.closes}`)
+        }
+      }
+      ;(venue as { opening_hours_json?: unknown[] }).opening_hours_json = schedule
+      ;(venue as { opening_hours?: string }).opening_hours = lines.join('\n')
+      delete data.opening_hours_json
     }
     Object.assign(venue, data)
     return serializeProviderFoodVenue(venue)

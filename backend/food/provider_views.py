@@ -35,7 +35,7 @@ def _prepare_provider_venue_data(request):
             data = request.data.copy()
         else:
             data = dict(request.data)
-        for key in ("amenities", "photos", "venue_stories"):
+        for key in ("amenities", "photos", "venue_stories", "opening_hours_json"):
             raw = data.get(key)
             if isinstance(raw, str) and raw.strip():
                 try:

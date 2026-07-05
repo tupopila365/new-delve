@@ -72,6 +72,10 @@ export type FoodVenueListing = {
   phone?: string | null
   website?: string | null
   opening_hours?: string | null
+  latitude?: number | string | null
+  longitude?: number | string | null
+  google_place_id?: string | null
+  formatted_address?: string | null
   is_open?: boolean | null
   tagline?: string | null
   popular_dish?: string | null
@@ -103,7 +107,7 @@ export function priceLevelName(level: number): string {
   return ['', 'Budget', 'Mid-range', 'Upscale', 'Fine dining'][Math.min(4, level || 1)] ?? ''
 }
 
-export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords } from './placeMap'
+export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords, resolveDirectionsUrl, parseCoord } from './placeMap'
 
 export function buildFoodGalleryImages(venue: FoodVenueListing): ListingGalleryItem[] {
   const photos = resolveVenuePhotos(venue.photos, venue.cover_image, venue.cuisine)

@@ -9,6 +9,7 @@ export {
   venueCompleteness,
   venueToForm,
 } from './foodVenueTypes'
+export { FoodVenueCreateShell } from './FoodVenueCreateShell'
 export { FoodVenueForm } from './FoodVenueForm'
 export { FoodVenuePhotoEditor } from './FoodVenuePhotoEditor'
 export { FoodVenueStoriesEditor } from './FoodVenueStoriesEditor'

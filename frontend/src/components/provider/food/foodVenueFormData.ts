@@ -4,6 +4,32 @@ function appendBool(fd: FormData, key: string, value: boolean) {
   fd.append(key, value ? 'true' : 'false')
 }
 
+/** Build multipart body for photos module save only. */
+export function buildFoodVenuePhotosFormData(values: FoodVenueFormValues): FormData {
+  const fd = new FormData()
+  const gallery = values.gallery_urls
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const photos = gallery.map((image, index) => ({
+    id: index + 2,
+    image,
+    caption: '',
+    category: 'food',
+    is_cover: false,
+  }))
+  fd.append('photos', JSON.stringify(photos))
+  if (values.cover_image_file) {
+    fd.append('cover_image', values.cover_image_file)
+  } else if (values.cover_image_url.trim()) {
+    fd.append('cover_image_url', values.cover_image_url.trim())
+  }
+  for (const file of values.gallery_files) {
+    fd.append('gallery_images', file)
+  }
+  return fd
+}
+
 /** Build multipart body for provider venue create/update (cover + gallery file uploads). */
 export function buildFoodVenueFormData(values: FoodVenueFormValues): FormData {
   const payload = formToVenuePayload(values)

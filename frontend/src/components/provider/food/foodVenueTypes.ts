@@ -1,5 +1,8 @@
 import type { VenueStoryChannelInput } from '../../food/stories/types'
+import { emptySchedule, scheduleFromJson } from './openingHoursUtils'
+import { moduleStatus, workspaceCompleteness, type ProviderFoodVenueRecord } from './foodVenueModules'
 import { normalizeVenueStoriesForSave } from './venueStoriesFormUtils'
+import { parseCoord } from '../../../utils/placeMap'
 
 export const CUISINE_OPTIONS = [
   { value: 'local', label: 'Local / Namibian' },
@@ -25,9 +28,14 @@ export type FoodVenueFormValues = {
   region: string
   city: string
   address: string
+  latitude: number | null
+  longitude: number | null
+  google_place_id: string
+  formatted_address: string
   phone: string
   website: string
   opening_hours: string
+  opening_hours_json: import('./openingHoursUtils').OpeningHoursSchedule
   closes_at: string
   price_level: number
   dine_in: boolean
@@ -53,9 +61,14 @@ export const EMPTY_FOOD_VENUE_FORM: FoodVenueFormValues = {
   region: '',
   city: '',
   address: '',
+  latitude: null,
+  longitude: null,
+  google_place_id: '',
+  formatted_address: '',
   phone: '',
   website: '',
   opening_hours: '',
+  opening_hours_json: emptySchedule(),
   closes_at: '',
   price_level: 2,
   dine_in: true,
@@ -69,7 +82,7 @@ export const EMPTY_FOOD_VENUE_FORM: FoodVenueFormValues = {
   gallery_urls: '',
   gallery_files: [],
   venue_stories: [],
-  is_active: true,
+  is_active: false,
 }
 
 export type ProviderFoodVenue = {
@@ -83,9 +96,14 @@ export type ProviderFoodVenue = {
   region: string
   city: string
   address?: string | null
+  latitude?: number | string | null
+  longitude?: number | string | null
+  google_place_id?: string | null
+  formatted_address?: string | null
   phone?: string | null
   website?: string | null
   opening_hours?: string | null
+  opening_hours_json?: import('./openingHoursUtils').OpeningHoursSchedule | null
   closes_at?: string | null
   price_level: number
   dine_in?: boolean
@@ -127,9 +145,14 @@ export function venueToForm(venue: ProviderFoodVenue): FoodVenueFormValues {
     region: venue.region,
     city: venue.city ?? '',
     address: venue.address ?? '',
+    latitude: parseCoord(venue.latitude),
+    longitude: parseCoord(venue.longitude),
+    google_place_id: venue.google_place_id ?? '',
+    formatted_address: venue.formatted_address ?? '',
     phone: venue.phone ?? '',
     website: venue.website ?? '',
     opening_hours: venue.opening_hours ?? '',
+    opening_hours_json: scheduleFromJson(venue.opening_hours_json),
     closes_at: venue.closes_at ?? '',
     price_level: venue.price_level || 2,
     dine_in: venue.dine_in !== false,
@@ -179,6 +202,10 @@ export function formToVenuePayload(values: FoodVenueFormValues) {
     region: values.region.trim(),
     city: values.city.trim(),
     address: values.address.trim(),
+    latitude: values.latitude,
+    longitude: values.longitude,
+    google_place_id: values.google_place_id.trim(),
+    formatted_address: values.formatted_address.trim(),
     phone: values.phone.trim(),
     website: values.website.trim(),
     opening_hours: values.opening_hours.trim(),
@@ -198,12 +225,20 @@ export function formToVenuePayload(values: FoodVenueFormValues) {
 }
 
 export function venueCompleteness(venue: ProviderFoodVenue): { percent: number; missing: string[] } {
+  const record = venue as ProviderFoodVenueRecord
+  const { percent } = workspaceCompleteness(record)
   const missing: string[] = []
-  if (!venue.cover_image && !venue.photos?.length) missing.push('Cover photo')
-  if (!venue.description?.trim()) missing.push('Description')
-  if (!venue.opening_hours?.trim()) missing.push('Opening hours')
-  if (!venue.phone?.trim() && !venue.reservations) missing.push('Phone or reservations')
-  if (!venue.venue_stories?.length) missing.push('Highlight stories')
-  const filled = 6 - missing.length
-  return { percent: Math.round((filled / 6) * 100), missing }
+  const labels: Record<string, string> = {
+    identity: 'Venue details',
+    location: 'Location',
+    hours: 'Opening hours',
+    contact: 'Contact info',
+    photos: 'Cover photo',
+    stories: 'Stories',
+  }
+  for (const [id, label] of Object.entries(labels)) {
+    const status = moduleStatus(record, id as import('./foodVenueModules').FoodVenueModuleId)
+    if (status !== 'complete') missing.push(label)
+  }
+  return { percent, missing }
 }

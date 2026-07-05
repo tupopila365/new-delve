@@ -34,6 +34,7 @@ class FoodVenueDetailTests(TestCase):
             takeaway=True,
             is_open=True,
             amenities=["Wi‑Fi"],
+            is_active=True,
         )
 
     def test_public_detail_includes_extended_fields(self):
@@ -90,6 +91,80 @@ class ProviderFoodVenueApiTests(TestCase):
         self.assertEqual(len(res.data), 1)
         self.assertEqual(res.data[0]["name"], "Existing Venue")
         self.assertFalse(res.data[0]["is_active"])
+
+    def test_provider_can_create_venue_shell_with_name_only(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.post(
+            "/api/food/provider-venues/",
+            {"name": "Shell Venue"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["name"], "Shell Venue")
+        self.assertFalse(res.data["is_active"])
+        venue = FoodVenue.objects.get(pk=res.data["id"])
+        self.assertEqual(venue.region, "")
+        self.assertFalse(venue.is_active)
+
+    def test_provider_can_patch_location_only(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.patch(
+            f"/api/food/provider-venues/{self.venue.pk}/",
+            {"region": "Erongo", "city": "Swakopmund", "address": "1 Beach Rd"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["city"], "Swakopmund")
+        self.assertEqual(res.data["region"], "Erongo")
+
+    def test_provider_can_save_structured_hours(self):
+        self.client.force_authenticate(user=self.owner)
+        schedule = [
+            {"day": "mon", "open": True, "opens": "08:00", "closes": "17:00"},
+            {"day": "tue", "open": True, "opens": "08:00", "closes": "17:00"},
+            {"day": "sun", "open": False, "opens": "08:00", "closes": "17:00"},
+        ]
+        res = self.client.patch(
+            f"/api/food/provider-venues/{self.venue.pk}/",
+            {"opening_hours_json": schedule},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Mon", res.data["opening_hours"])
+        self.assertTrue(res.data["opening_hours_json"])
+        self.venue.refresh_from_db()
+        self.assertIn("Mon", self.venue.opening_hours)
+
+    def test_provider_can_patch_geo_location(self):
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.patch(
+            f"/api/food/provider-venues/{self.venue.pk}/",
+            {
+                "latitude": "-22.560885",
+                "longitude": "17.065755",
+                "google_place_id": "ChIJtest",
+                "formatted_address": "123 Independence Ave, Windhoek, Namibia",
+                "region": "Khomas",
+                "city": "Windhoek",
+                "address": "123 Independence Ave",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["google_place_id"], "ChIJtest")
+        self.assertEqual(str(res.data["latitude"]), "-22.560885")
+        self.venue.refresh_from_db()
+        self.assertEqual(float(self.venue.latitude), -22.560885)
+
+    def test_public_detail_includes_geo_fields(self):
+        self.venue.latitude = -22.560885
+        self.venue.longitude = 17.065755
+        self.venue.formatted_address = "123 Independence Ave, Windhoek"
+        self.venue.is_active = True
+        self.venue.save()
+        res = self.client.get(f"/api/food/venues/{self.venue.pk}/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(str(res.data["latitude"]), "-22.560885")
 
     def test_provider_can_create_venue(self):
         self.client.force_authenticate(user=self.owner)

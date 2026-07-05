@@ -35,9 +35,10 @@ import {
   buildFoodTrustHighlights,
   cuisineIcon,
   cuisineLabel,
-  openStreetMapSearchUrl,
+  parseCoord,
   priceLevelLabel,
   priceLevelName,
+  resolveDirectionsUrl,
   type FoodVenueListing,
 } from '../../utils/foodListing'
 import { FoodReviewForm } from './FoodReviewForm'
@@ -90,7 +91,17 @@ export function FoodDetailView({
 }: Props) {
   const { profile } = useAuth()
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
-  const mapHref = openStreetMapSearchUrl(data.name, data.city ?? '', data.region)
+  const latitude = parseCoord(data.latitude)
+  const longitude = parseCoord(data.longitude)
+  const displayAddress = data.formatted_address?.trim() || data.address?.trim() || locationLine || null
+  const directionsHref = resolveDirectionsUrl({
+    name: data.name,
+    address: data.address,
+    city: data.city,
+    region: data.region,
+    latitude,
+    longitude,
+  })
   const detailBackTo = `/food/${venueId}`
   const galleryImages = buildFoodGalleryImages(data)
   const highlights = buildFoodHighlights(data)
@@ -141,9 +152,9 @@ export function FoodDetailView({
     <a href={`tel:${data.phone}`} className="btn btn-primary">
       Call venue
     </a>
-  ) : mapHref ? (
-    <a href={mapHref} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-      Open in maps
+  ) : directionsHref ? (
+    <a href={directionsHref} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+      Get directions
     </a>
   ) : null
 
@@ -243,14 +254,23 @@ export function FoodDetailView({
             ) : null}
 
             <ListingLocationCard
-              address={data.address?.trim() || locationLine || null}
-              mapUrl={mapHref || null}
+              address={displayAddress}
+              latitude={latitude}
+              longitude={longitude}
+              mapUrl={directionsHref || null}
               approximateHint={
-                data.address?.trim()
+                latitude != null && longitude != null
                   ? null
-                  : 'Area only — street address may be shared by the venue.'
+                  : data.address?.trim()
+                    ? null
+                    : 'Area only — street address may be shared by the venue.'
               }
-              viewMapLabel="Open in maps"
+              viewMapLabel={latitude != null && longitude != null ? 'Get directions' : 'Open in maps'}
+              mapHint={
+                latitude != null && longitude != null
+                  ? 'Exact pin · opens Google Maps directions'
+                  : 'Opens map search for this area'
+              }
               className="fd-detail__map-card acc-detail__map-card"
             />
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { apiFetch } from '../api/client'
@@ -7,13 +7,9 @@ import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { ProviderCategoryStrip, ProviderAccessGate } from '../components/provider'
 import {
-  EMPTY_FOOD_VENUE_FORM,
   FoodMonetizationSection,
   FoodVenueCard,
-  FoodVenueForm,
-  buildFoodVenueFormData,
-  formToVenuePayload,
-  venueToForm,
+  FoodVenueCreateShell,
   type ProviderFoodVenue,
 } from '../components/provider/food'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
@@ -69,13 +65,12 @@ function formatReservationWhen(iso: string) {
 
 export function FoodAdmin() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const { canAccessProvider, canManageListings, canManageBookings, isViewerOnly } = useBusinessAccess()
   const [tab, setTab] = useState<'venues' | 'reservations' | 'reviews'>('venues')
   const [reservationFilter, setReservationFilter] = useState('all')
-  const [showForm, setShowForm] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
-  const [form, setForm] = useState(EMPTY_FOOD_VENUE_FORM)
+  const [showCreateShell, setShowCreateShell] = useState(false)
   const [formError, setFormError] = useState('')
 
   const { data: venues = [], isLoading } = useQuery({
@@ -139,32 +134,6 @@ export function FoodAdmin() {
     return rows
   }, [venues, reviewQueries])
 
-  const saveMut = useMutation({
-    mutationFn: async () => {
-      const hasUploads = Boolean(form.cover_image_file) || form.gallery_files.length > 0
-      const body = hasUploads ? buildFoodVenueFormData(form) : JSON.stringify(formToVenuePayload(form))
-      if (editId) {
-        return apiFetch<ProviderFoodVenue>(`/api/food/provider-venues/${editId}/`, {
-          method: 'PATCH',
-          body,
-        })
-      }
-      return apiFetch<ProviderFoodVenue>('/api/food/provider-venues/', {
-        method: 'POST',
-        body,
-      })
-    },
-    onSuccess: () => {
-      setShowForm(false)
-      setEditId(null)
-      setForm(EMPTY_FOOD_VENUE_FORM)
-      setFormError('')
-      void qc.invalidateQueries({ queryKey: ['provider-food-venues'] })
-      void qc.invalidateQueries({ queryKey: ['food'] })
-    },
-    onError: (err) => setFormError(friendlyApiMessage(err, 'Could not save venue.')),
-  })
-
   const stats = useMemo(() => {
     const avgRating = venues.length
       ? (
@@ -186,17 +155,12 @@ export function FoodAdmin() {
   }
 
   function openCreate() {
-    setEditId(null)
-    setForm(EMPTY_FOOD_VENUE_FORM)
     setFormError('')
-    setShowForm(true)
+    setShowCreateShell(true)
   }
 
   function openEdit(venue: ProviderFoodVenue) {
-    setEditId(venue.id)
-    setForm(venueToForm(venue))
-    setFormError('')
-    setShowForm(true)
+    navigate(`/provider/food/${venue.id}`)
   }
 
   return (
@@ -386,19 +350,14 @@ export function FoodAdmin() {
         </div>
       )}
 
-      {showForm && canManageListings ? (
-        <FoodVenueForm
-          values={form}
-          onChange={setForm}
-          error={formError}
-          saving={saveMut.isPending}
-          isEdit={editId != null}
-          onCancel={() => {
-            setShowForm(false)
-            setEditId(null)
-            setFormError('')
+      {showCreateShell && canManageListings ? (
+        <FoodVenueCreateShell
+          onClose={() => setShowCreateShell(false)}
+          onCreated={(venue) => {
+            setShowCreateShell(false)
+            void qc.invalidateQueries({ queryKey: ['provider-food-venues'] })
+            navigate(`/provider/food/${venue.id}`)
           }}
-          onSubmit={() => saveMut.mutate()}
         />
       ) : null}
     </div>

@@ -1,0 +1,75 @@
+.venue-loc-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.venue-loc-picker__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.venue-loc-picker__search input {
+  flex: 1;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  background: transparent;
+  min-width: 0;
+}
+
+.venue-loc-picker__map {
+  width: 100%;
+  height: 260px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
+}
+
+.venue-loc-picker__hint,
+.venue-loc-picker__loading,
+.venue-loc-picker__fallback {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.venue-loc-picker__fallback code {
+  font-size: 0.78rem;
+}
+
+.venue-loc-picker__error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #b91c1c;
+}
+
+.venue-loc-picker__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  font-size: 0.86rem;
+}
+
+.venue-loc-picker__summary a {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #0d9488;
+  text-decoration: none;
+}
+
+.pac-container {
+  z-index: 10000;
+}
