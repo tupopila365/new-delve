@@ -118,6 +118,7 @@ export function buildFoodGalleryImages(venue: FoodVenueListing): ListingGalleryI
   return photos.map((p) => ({
     src: mediaUrl(p.image) || p.image,
     alt: p.caption || venue.name,
+    kind: p.kind === 'video' ? 'video' : 'image',
   }))
 }
 

@@ -94,6 +94,7 @@ export type MockTrip = {
   saved_by_me: boolean
   is_featured?: boolean
   journey_stories?: VenueStoryChannelInput[]
+  gallery_images?: unknown[]
 }
 
 export const mockTrips: MockTrip[] = [

@@ -6,6 +6,8 @@ export type StorySlide = {
   src: string
   headline: string
   sub?: string
+  captionX?: number
+  captionY?: number
   durationMs?: number
   ctaPath?: string
   ctaLabel?: string

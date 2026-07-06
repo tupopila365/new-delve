@@ -1,4 +1,7 @@
+import { mediaUrl } from '../../api/client'
 import type { VenueStoryChannel, VenueStorySlide } from '../food/stories/types'
+import type { HighlightChannelInput } from '../highlights/types'
+import { ownerHighlightsOnly } from '../highlights/highlightChannelMerge'
 import type { ProviderStoryItem } from '../ProviderStoriesRow'
 import {
   admissionLabel,
@@ -15,6 +18,32 @@ import {
 
 export function eventSlideToStorySlide(slide: VenueStorySlide) {
   return slide
+}
+
+function imgSrc(path: string): string {
+  return mediaUrl(path) || path
+}
+
+function mapCustomChannel(input: HighlightChannelInput, eventPath: string): VenueStoryChannel | null {
+  if (!input.slides?.length) return null
+  const slides: VenueStorySlide[] = input.slides.map((s, i) => ({
+    id: s.id ?? `${input.id}-${i}`,
+    kind: s.kind ?? 'image',
+    src: imgSrc(s.src),
+    headline: s.headline,
+    sub: s.sub,
+    captionX: s.captionX,
+    captionY: s.captionY,
+    durationMs: s.durationMs,
+    ctaPath: s.ctaPath ?? eventPath,
+    ctaLabel: s.ctaLabel ?? 'View event',
+  }))
+  return {
+    id: input.id,
+    label: input.label,
+    coverSrc: input.coverSrc ? imgSrc(input.coverSrc) : slides[0].src,
+    slides,
+  }
 }
 
 export function buildEventSpotlightChannel(
@@ -152,7 +181,7 @@ export function buildEventStoryChannels(
     })
   }
 
-  return channels
+  return ownerHighlightsOnly(channels, event.event_stories, (custom) => mapCustomChannel(custom, eventPath))
 }
 
 export function buildEventProviderStoryItems(

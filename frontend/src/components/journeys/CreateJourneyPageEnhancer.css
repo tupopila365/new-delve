@@ -426,6 +426,17 @@
   font-size: 0.72rem;
 }
 
+.create-wizard--dark .media-cover-editor__status--error {
+  color: #ff9a82;
+}
+
+.create-wizard--dark .journey-stop-moment__error {
+  margin: 0;
+  color: #ff9a82;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
 /* Stop moment clip */
 .create-wizard--dark .journey-stop-moment {
   display: grid;

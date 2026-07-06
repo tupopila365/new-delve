@@ -308,7 +308,7 @@ class ProviderGuideProfileSerializer(serializers.ModelSerializer):
                 headline = str(slide.get("headline") or "").strip()
                 if not src or not headline:
                     raise serializers.ValidationError(
-                        f'Slide {j + 1} in "{label}" needs an image URL and headline.'
+                        f'Slide {j + 1} in "{label}" needs a photo or video and a caption.'
                     )
                 kind = slide.get("kind")
                 entry = {

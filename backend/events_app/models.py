@@ -109,6 +109,11 @@ class Event(models.Model):
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     cover_image = models.ImageField(upload_to="events/", blank=True, null=True)
+    gallery_images = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Additional hero gallery image URLs (cover is separate).",
+    )
     is_free = models.BooleanField(default=False)
     price = models.CharField(
         max_length=32,
@@ -126,6 +131,11 @@ class Event(models.Model):
         related_name="spawned_events",
     )
     is_published = models.BooleanField(default=True)
+    event_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Organizer highlight channels for story rings",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

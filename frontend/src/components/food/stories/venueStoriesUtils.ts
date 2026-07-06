@@ -4,6 +4,7 @@ import type { StorySlide } from '../../../data/homeStories'
 import { foodCoverSrc } from '../../../utils/foodDisplay'
 import type { FoodVenueListing } from '../../../utils/foodListing'
 import type { VenueStoryChannel, VenueStoryChannelInput, VenueStorySlide } from './types'
+import { ownerHighlightsOnly } from '../../highlights/highlightChannelMerge'
 
 function imgSrc(path: string): string {
   return mediaUrl(path) || path
@@ -125,12 +126,7 @@ export function buildVenueStoryChannels(
     })
   }
 
-  for (const custom of venue.venue_stories ?? []) {
-    const channel = mapCustomChannel(custom, venuePath)
-    if (channel) channels.push(channel)
-  }
-
-  return channels
+  return ownerHighlightsOnly(channels, venue.venue_stories, (custom) => mapCustomChannel(custom, venuePath))
 }
 
 function mapCustomChannel(input: VenueStoryChannelInput, venuePath: string): VenueStoryChannel | null {
@@ -141,6 +137,8 @@ function mapCustomChannel(input: VenueStoryChannelInput, venuePath: string): Ven
     src: imgSrc(s.src),
     headline: s.headline,
     sub: s.sub,
+    captionX: s.captionX,
+    captionY: s.captionY,
     durationMs: s.durationMs,
     ctaPath: s.ctaPath ?? venuePath,
     ctaLabel: s.ctaLabel,

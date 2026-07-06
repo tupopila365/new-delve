@@ -1,5 +1,6 @@
 import type { MockTrip } from '../data/mockTrips'
 import { partyDisplayLabel } from '../components/journeys/PartyPicker'
+import { parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
 
 const HOOK_BY_TAG: Record<string, string> = {
   '4x4': 'Best for a first-time desert road trip',
@@ -132,7 +133,12 @@ export function buildJourneyGalleryImages(
   const images: import('../components/listing/types').ListingGalleryItem[] = []
   const cover = journeyCoverSrc(trip.cover_image)
   if (cover) {
-    images.push({ id: 'cover', src: cover, alt: trip.title })
+    images.push({ id: 'cover', src: cover, alt: trip.title, kind: 'image' })
+  }
+  for (const [i, item] of parseGalleryMediaList(trip.gallery_images).entries()) {
+    const src = journeyCoverSrc(item.url) || item.url
+    if (!src || images.some((img) => img.src === src)) continue
+    images.push({ id: `gallery-${i}`, src, alt: trip.title, kind: item.kind })
   }
   for (const [i, p] of photoItems.entries()) {
     if (images.some((img) => img.src === p.src)) continue
@@ -141,9 +147,10 @@ export function buildJourneyGalleryImages(
       src: p.src,
       alt: p.caption || p.place,
       caption: p.place,
+      kind: 'image',
     })
   }
-  return images.length > 0 ? images : [{ src: JOURNEY_DEFAULT_IMAGE, alt: trip.title }]
+  return images.length > 0 ? images : [{ src: JOURNEY_DEFAULT_IMAGE, alt: trip.title, kind: 'image' }]
 }
 
 export function journeyStyleTags(trip: MockTrip): string[] {

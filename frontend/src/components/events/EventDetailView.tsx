@@ -27,7 +27,7 @@ import {
 } from '../listing'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
 import type { ReviewItem } from '../GuestReviewCard'
-import { ProviderStoriesRow } from '../ProviderStoriesRow'
+import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import {
   admissionLabel,
   buildEventDetailRows,
@@ -47,7 +47,7 @@ import {
 } from '../../utils/eventListing'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { externalTicketHref, resolveTicketingMode } from '../../utils/eventTicketing'
-import { buildEventProviderStoryItems } from './eventStoriesUtils'
+import { buildEventStoryChannels } from './eventStoriesUtils'
 import { EventAskSection } from './EventAskSection'
 import { EventDateShowcase } from './EventDateShowcase'
 import { EventOrganizerCard } from './EventOrganizerCard'
@@ -82,6 +82,8 @@ type Props = {
   onRsvp?: () => void
   onCancelRsvp?: () => void
   onPay?: () => void
+  isOwner?: boolean
+  onAddHighlight?: () => void
 }
 
 export function EventDetailView({
@@ -110,6 +112,8 @@ export function EventDetailView({
   onRsvp,
   onCancelRsvp,
   onPay,
+  isOwner = false,
+  onAddHighlight,
 }: Props) {
   const cat = categoryMeta(event.category)
   const CatIcon = cat.Icon
@@ -134,8 +138,8 @@ export function EventDetailView({
   const mapHref = openStreetMapSearchUrl(event.venue ?? '', event.city ?? '', event.region)
   const gcalUrl = buildGoogleCalendarUrl(event)
 
-  const storyItems = useMemo(
-    () => buildEventProviderStoryItems(event, { eventId, eventPath }),
+  const storyChannels = useMemo(
+    () => buildEventStoryChannels(event, { eventId, eventPath }),
     [event, eventId, eventPath],
   )
 
@@ -307,13 +311,16 @@ export function EventDetailView({
         className="ev-detail__quick-info acc-detail__quick-info"
       />
 
-      <ProviderStoriesRow
-        items={storyItems}
-        ariaLabel="Event highlights"
+      <HighlightStoriesSection
+        channels={storyChannels}
+        listingName={event.title}
+        explorePath={eventPath}
         title="Feel the vibe"
-        subtitle="The event, plan your night & venue — tap to watch"
+        subtitle="Tap a highlight to watch"
         ctaLabel="View event"
         className="ev-detail__stories acc-detail__section"
+        isOwner={isOwner}
+        onAddHighlight={onAddHighlight}
       />
 
       <DetailLayout

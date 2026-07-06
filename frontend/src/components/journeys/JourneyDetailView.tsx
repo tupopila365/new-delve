@@ -52,7 +52,10 @@ import { JourneyRouteStops } from './JourneyRouteStops'
 import { JourneyDayByDay } from './JourneyDayByDay'
 import { JourneyBudgetBreakdown } from './JourneyBudgetBreakdown'
 import { buildJourneyStoryChannels } from './journeyStoriesUtils'
-import { VenueStoriesSection } from '../food/stories'
+import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
+import { HighlightAddFlow } from '../highlights/HighlightAddFlow'
+import { normalizeHighlightsForSave } from '../highlights/highlightFormUtils'
+import type { HighlightChannelInput } from '../highlights/types'
 import { journeyAccentBadge } from '../../utils/journeyDisplay'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 
@@ -108,6 +111,8 @@ export function JourneyDetailView({
   const { profile } = useAuth()
   const isAuthor = profile?.username === trip.author.username
   const [authorErr, setAuthorErr] = useState<string | null>(null)
+  const [addHighlightOpen, setAddHighlightOpen] = useState(false)
+  const [savingHighlight, setSavingHighlight] = useState(false)
   const photoItems = collectJourneyPhotos(trip)
   const route = routeLabel(trip)
   const accent = journeyAccentBadge(trip)
@@ -139,6 +144,25 @@ export function JourneyDetailView({
       icon: <Icon size={15} strokeWidth={2.25} aria-hidden />,
     }
   })
+
+  async function saveJourneyHighlight(channel: HighlightChannelInput) {
+    setSavingHighlight(true)
+    setAuthorErr(null)
+    try {
+      const next = normalizeHighlightsForSave([...(trip.journey_stories ?? []), channel])
+      await apiFetch(`/api/journeys/${journeyId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ journey_stories: next }),
+      })
+      void qc.invalidateQueries({ queryKey: ['journey', journeyId] })
+      void qc.invalidateQueries({ queryKey: ['journeys'] })
+      setAddHighlightOpen(false)
+    } catch (error) {
+      setAuthorErr(friendlyApiMessage(error, 'Could not save this highlight.'))
+    } finally {
+      setSavingHighlight(false)
+    }
+  }
 
   async function deleteJourney() {
     if (!window.confirm('Delete this journey permanently? This cannot be undone.')) return
@@ -241,7 +265,7 @@ export function JourneyDetailView({
       ) : null}
 
       <div className="jn-detail__intro">
-        <VenueStoriesSection
+        <HighlightStoriesSection
           listingName={trip.title}
           explorePath={`/journeys/${journeyId}`}
           channels={storyChannels}
@@ -249,6 +273,15 @@ export function JourneyDetailView({
           subtitle="Route highlights, moments & tips"
           ctaLabel="View journey"
           className="jn-detail__stories"
+          isOwner={isAuthor}
+          onAddHighlight={() => setAddHighlightOpen(true)}
+        />
+
+        <HighlightAddFlow
+          open={addHighlightOpen}
+          onClose={() => setAddHighlightOpen(false)}
+          onSave={saveJourneyHighlight}
+          saving={savingHighlight}
         />
 
         <ListingQuickInfo

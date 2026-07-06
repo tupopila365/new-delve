@@ -36,6 +36,7 @@ export type ListingGalleryItem = {
   src: string
   alt?: string
   caption?: string
+  kind?: 'image' | 'video'
 }
 
 export type ListingDetailRow = {

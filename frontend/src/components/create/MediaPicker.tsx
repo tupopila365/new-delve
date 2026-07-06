@@ -5,31 +5,34 @@ type Props = {
   mediaKind: MediaKind
   onMediaKindChange: (kind: MediaKind) => void
   onPick: (file: File | null) => void
+  imagesOnly?: boolean
 }
 
-export function MediaPicker({ mediaKind, onMediaKindChange, onPick }: Props) {
+export function MediaPicker({ mediaKind, onMediaKindChange, onPick, imagesOnly = false }: Props) {
   return (
     <div className="create-media-picker">
-      <div className="create-media-picker__toggle" role="tablist" aria-label="Media type">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mediaKind === 'image'}
-          className={mediaKind === 'image' ? 'is-active' : ''}
-          onClick={() => onMediaKindChange('image')}
-        >
-          Photo
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mediaKind === 'video'}
-          className={mediaKind === 'video' ? 'is-active' : ''}
-          onClick={() => onMediaKindChange('video')}
-        >
-          Video
-        </button>
-      </div>
+      {!imagesOnly ? (
+        <div className="create-media-picker__toggle" role="tablist" aria-label="Media type">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mediaKind === 'image'}
+            className={mediaKind === 'image' ? 'is-active' : ''}
+            onClick={() => onMediaKindChange('image')}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mediaKind === 'video'}
+            className={mediaKind === 'video' ? 'is-active' : ''}
+            onClick={() => onMediaKindChange('video')}
+          >
+            Video
+          </button>
+        </div>
+      ) : null}
 
       <label className="create-media-picker__drop">
         <input

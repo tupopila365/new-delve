@@ -17,6 +17,8 @@ type Props = {
   onChange: (coverUrl: string | null) => void
   onFileReady?: (file: File | null) => void
   defaultAspect?: CropAspect
+  /** When true, hide video mode (e.g. listing cover slot). */
+  imagesOnly?: boolean
 }
 
 const defaultCrop = (aspect: CropAspect): CropSettings => ({
@@ -32,6 +34,7 @@ export function MediaCoverEditor({
   onChange,
   onFileReady,
   defaultAspect = '16:9',
+  imagesOnly = false,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null)
   const [mediaKind, setMediaKind] = useState<MediaKind>('image')
@@ -43,6 +46,7 @@ export function MediaCoverEditor({
   const [videoDuration, setVideoDuration] = useState(0)
   const [videoTrim, setVideoTrim] = useState({ start: 0, end: 0 })
   const [exporting, setExporting] = useState(false)
+  const [processError, setProcessError] = useState('')
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   const onFileReadyRef = useRef(onFileReady)
@@ -63,6 +67,7 @@ export function MediaCoverEditor({
     const timer = window.setTimeout(() => {
       void (async () => {
         setExporting(true)
+        setProcessError('')
         try {
           if (mediaKind === 'image') {
             const blob = await renderEditedImage(file, filter, crop)
@@ -77,6 +82,7 @@ export function MediaCoverEditor({
         } catch {
           onChangeRef.current(null)
           onFileReadyRef.current?.(null)
+          setProcessError('Could not process this file. Try a JPG or PNG under 12MB.')
         } finally {
           setExporting(false)
         }
@@ -88,9 +94,14 @@ export function MediaCoverEditor({
 
   const onPickFile = (nextFile: File | null) => {
     if (preview?.startsWith('blob:')) URL.revokeObjectURL(preview)
+    if (nextFile?.type.startsWith('video/') && imagesOnly) {
+      setProcessError('Cover must be a photo. Add videos in the gallery slots below.')
+      return
+    }
     setFile(nextFile)
     setPreview(nextFile ? URL.createObjectURL(nextFile) : null)
     if (nextFile) setActiveTool('filters')
+    setProcessError('')
   }
 
   const onMediaKindChange = (kind: MediaKind) => {
@@ -141,6 +152,11 @@ export function MediaCoverEditor({
                 include={COVER_TOOLS}
               />
               {exporting ? <p className="media-cover-editor__status">Applying edits…</p> : null}
+              {processError ? (
+                <p className="media-cover-editor__status media-cover-editor__status--error" role="alert">
+                  {processError}
+                </p>
+              ) : null}
               {activeTool === 'filters' ? <FilterStrip value={filter} onChange={setFilter} /> : null}
               {activeTool === 'crop' ? (
                 <CropControls value={crop} onChange={setCrop} disabled={mediaKind !== 'image'} />
@@ -163,7 +179,12 @@ export function MediaCoverEditor({
           ) : null}
         </>
       ) : (
-        <MediaPicker mediaKind={mediaKind} onMediaKindChange={onMediaKindChange} onPick={onPickFile} />
+        <MediaPicker
+          mediaKind={imagesOnly ? 'image' : mediaKind}
+          onMediaKindChange={imagesOnly ? () => {} : onMediaKindChange}
+          onPick={onPickFile}
+          imagesOnly={imagesOnly}
+        />
       )}
     </section>
   )

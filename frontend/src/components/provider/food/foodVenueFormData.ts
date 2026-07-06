@@ -1,4 +1,5 @@
 import { formToVenuePayload, type FoodVenueFormValues } from './foodVenueTypes'
+import { parseGalleryUrlsField } from '../../listing/photos/listingGalleryMedia'
 
 function appendBool(fd: FormData, key: string, value: boolean) {
   fd.append(key, value ? 'true' : 'false')
@@ -7,13 +8,11 @@ function appendBool(fd: FormData, key: string, value: boolean) {
 /** Build multipart body for photos module save only. */
 export function buildFoodVenuePhotosFormData(values: FoodVenueFormValues): FormData {
   const fd = new FormData()
-  const gallery = values.gallery_urls
-    .split(/[\n,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const photos = gallery.map((image, index) => ({
+  const gallery = parseGalleryUrlsField(values.gallery_urls)
+  const photos = gallery.map((item, index) => ({
     id: index + 2,
-    image,
+    image: item.url,
+    kind: item.kind,
     caption: '',
     category: 'food',
     is_cover: false,

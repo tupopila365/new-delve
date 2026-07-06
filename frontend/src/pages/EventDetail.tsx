@@ -8,6 +8,9 @@ import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EventDetailView } from '../components/events'
+import { HighlightAddFlow } from '../components/highlights/HighlightAddFlow'
+import { normalizeHighlightsForSave } from '../components/highlights/highlightFormUtils'
+import type { HighlightChannelInput } from '../components/highlights/types'
 import { EmptyState } from '../components/ui'
 import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
 import type { EventDetail, EventListItem } from '../utils/eventListing'
@@ -49,6 +52,9 @@ export function EventDetail() {
   const qc = useQueryClient()
   const [savedOverride, setSavedOverride] = useState<boolean | null>(null)
   const [shareMsg, setShareMsg] = useState('')
+  const [addHighlightOpen, setAddHighlightOpen] = useState(false)
+  const [savingHighlight, setSavingHighlight] = useState(false)
+  const [highlightErr, setHighlightErr] = useState<string | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['event', id, profile?.username ?? ''],
@@ -190,6 +196,25 @@ export function EventDetail() {
     }
   }
 
+  async function saveEventHighlight(channel: HighlightChannelInput) {
+    if (!id || !data) return
+    setSavingHighlight(true)
+    setHighlightErr(null)
+    try {
+      const next = normalizeHighlightsForSave([...(data.event_stories ?? []), channel])
+      const fd = new FormData()
+      fd.append('event_stories', JSON.stringify(next))
+      await apiFetch<EventDetail>(`/api/events/${id}/`, { method: 'PATCH', body: fd })
+      await qc.invalidateQueries({ queryKey: ['event', id] })
+      await qc.invalidateQueries({ queryKey: ['events'] })
+      setAddHighlightOpen(false)
+    } catch (e) {
+      setHighlightErr(e instanceof ApiError ? e.message : 'Could not save this highlight.')
+    } finally {
+      setSavingHighlight(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <DetailPage prefix="ev-detail" className="ev-detail--premium td acc-detail-page">
@@ -242,10 +267,17 @@ export function EventDetail() {
           {rsvpMut.error instanceof ApiError ? rsvpMut.error.message : 'Could not complete RSVP.'}
         </p>
       ) : null}
+      {highlightErr ? (
+        <p className="acc-detail__toast acc-detail__toast--error" role="alert">
+          {highlightErr}
+        </p>
+      ) : null}
       <EventDetailView
         event={data}
         eventId={id}
         editHref={canEdit ? `/events/${id}/edit` : undefined}
+        isOwner={canEdit}
+        onAddHighlight={canEdit ? () => setAddHighlightOpen(true) : undefined}
         saved={saved}
         onSave={() => profile && saveMut.mutate()}
         onShare={() => onShare(data.title)}
@@ -268,6 +300,12 @@ export function EventDetail() {
         onRsvp={profile?.email_verified ? () => rsvpMut.mutate() : undefined}
         onCancelRsvp={profile && myBooking ? () => cancelRsvpMut.mutate() : undefined}
         onPay={profile && myBooking?.status === 'pending' ? () => payMut.mutate() : undefined}
+      />
+      <HighlightAddFlow
+        open={addHighlightOpen}
+        onClose={() => setAddHighlightOpen(false)}
+        onSave={saveEventHighlight}
+        saving={savingHighlight}
       />
     </DetailPage>
   )

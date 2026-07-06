@@ -1,6 +1,9 @@
-import { MediaCoverEditor } from '../create'
+import { HighlightChannelEditor } from '../highlights/HighlightChannelEditor'
+import { ListingPhotoManager } from '../listing/photos'
+import type { ListingPhotoDraft } from '../listing/photos/types'
 import { EventCategoryPicker } from './EventCategoryPicker'
 import type { EventFormState } from '../../utils/eventForm'
+import '../provider/transport/transport-admin.css'
 
 export const EVENT_WIZARD_STEPS = [
   { id: 1, label: 'What' },
@@ -12,9 +15,8 @@ export const EVENT_WIZARD_STEPS = [
 type Props = {
   state: EventFormState
   onChange: (patch: Partial<EventFormState>) => void
-  coverPreview: string | null
-  onCoverPreviewChange: (value: string | null) => void
-  onCoverFileReady: (file: File | null) => void
+  photos: ListingPhotoDraft[]
+  onPhotosChange: (photos: ListingPhotoDraft[]) => void
   /** When set, only that wizard step is rendered. */
   step?: number
 }
@@ -22,9 +24,8 @@ type Props = {
 export function EventForm({
   state,
   onChange,
-  coverPreview,
-  onCoverPreviewChange,
-  onCoverFileReady,
+  photos,
+  onPhotosChange,
   step,
 }: Props) {
   const show = (id: number) => step == null || step === id
@@ -33,17 +34,15 @@ export function EventForm({
     <div className="ce-form">
       {show(1) ? (
         <>
-          <p className="cj-form__hint">Name your event and add a cover.</p>
-          <section className="ce-form__section" aria-labelledby="ce-cover-title">
-            <h2 id="ce-cover-title" className="ce-form__section-title">
-              Cover
+          <p className="cj-form__hint">Name your event and add photos for the top of the page.</p>
+          <section className="ce-form__section listing-photos-section" aria-labelledby="ce-photos-title">
+            <h2 id="ce-photos-title" className="ce-form__section-title">
+              Photos
             </h2>
-            <MediaCoverEditor
-              label="Event cover photo or video"
-              value={coverPreview}
-              onChange={onCoverPreviewChange}
-              onFileReady={onCoverFileReady}
-              defaultAspect="16:9"
+            <ListingPhotoManager
+              photos={photos}
+              onChange={onPhotosChange}
+              hint="First photo is the cover. Tap a photo to edit, or star another to make it cover."
             />
           </section>
 
@@ -294,6 +293,18 @@ export function EventForm({
                 inputMode="numeric"
               />
             </div>
+          </section>
+
+          <section className="ce-form__section" aria-labelledby="ce-highlights-title">
+            <h2 id="ce-highlights-title" className="ce-form__section-title">
+              Highlights
+            </h2>
+            <HighlightChannelEditor
+              channels={state.eventStories}
+              onChange={(eventStories) => onChange({ eventStories })}
+              hint="Story rings on your event page — name each ring yourself. When you add custom highlights, auto-generated rings are hidden."
+              emptyCopy="No custom highlight rings yet. Auto-generated rings still use your cover and description."
+            />
           </section>
         </>
       ) : null}

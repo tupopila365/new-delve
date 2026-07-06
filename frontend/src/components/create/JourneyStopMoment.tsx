@@ -9,6 +9,8 @@ import './SocialCreateComposer.css'
 export type StopMoment = {
   preview: string | null
   mediaKind: MediaKind | null
+  /** Raw file kept for server upload on publish. */
+  uploadFile?: File | null
 }
 
 type Props = {
@@ -24,6 +26,7 @@ export function JourneyStopMoment({ value, onChange }: Props) {
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [mediaKind, setMediaKind] = useState<MediaKind>('image')
+  const [processError, setProcessError] = useState('')
 
   useEffect(() => {
     return () => {
@@ -40,9 +43,10 @@ export function JourneyStopMoment({ value, onChange }: Props) {
             mediaKind === 'image'
               ? await blobToDataUrl(await renderEditedImage(file, filter, DEFAULT_CROP))
               : await videoPosterDataUrl(file, 0)
-          onChangeRef.current({ preview: url, mediaKind })
+          onChangeRef.current({ preview: url, mediaKind, uploadFile: file })
         } catch {
-          onChange({ preview: null, mediaKind: null })
+          setProcessError('Could not process this file. Try a JPG or PNG under 12MB.')
+          onChange({ preview: null, mediaKind: null, uploadFile: null })
         }
       })()
     }, 250)
@@ -55,7 +59,8 @@ export function JourneyStopMoment({ value, onChange }: Props) {
     if (localPreview?.startsWith('blob:')) URL.revokeObjectURL(localPreview)
     setLocalPreview(null)
     setFile(null)
-    onChange({ preview: null, mediaKind: null })
+    onChange({ preview: null, mediaKind: null, uploadFile: null })
+    setProcessError('')
   }
 
   function onPick(next: File | null) {
@@ -65,6 +70,7 @@ export function JourneyStopMoment({ value, onChange }: Props) {
     setMediaKind(kind)
     setFile(next)
     setLocalPreview(URL.createObjectURL(next))
+    setProcessError('')
   }
 
   return (
@@ -85,6 +91,11 @@ export function JourneyStopMoment({ value, onChange }: Props) {
         </label>
       )}
       {file && mediaKind === 'image' ? <FilterStrip value={filter} onChange={setFilter} /> : null}
+      {processError ? (
+        <p className="journey-stop-moment__error" role="alert">
+          {processError}
+        </p>
+      ) : null}
     </div>
   )
 }

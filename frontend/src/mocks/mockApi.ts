@@ -1579,6 +1579,18 @@ function saveState(s: MockState) {
   localStorage.setItem(KEY, JSON.stringify(s))
 }
 
+async function mockFileToDataUrl(file: File): Promise<string> {
+  const buf = await file.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  const mime = file.type || 'application/octet-stream'
+  return `data:${mime};base64,${btoa(binary)}`
+}
+
 function requireAuth(s: MockState) {
   if (!s.currentUser) {
     throw new ApiError('Unauthorized', 401, { detail: 'Unauthorized' })
@@ -2732,6 +2744,24 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return withMeFlags(s, [delversPost])[0]
   }
 
+  if (pathname === '/api/highlights/upload/' && method === 'POST') {
+    requireAuth(s)
+    const fd = init.body instanceof FormData ? init.body : null
+    const file = fd?.get('file')
+    if (!file || typeof file !== 'object' || !('arrayBuffer' in file)) {
+      throw new ApiError('Bad request', 400, { detail: 'A photo or video file is required.' })
+    }
+    const uploadFile = file as File
+    const kind = uploadFile.type.startsWith('video/') ? 'video' : 'image'
+    const maxBytes = kind === 'video' ? 50 * 1024 * 1024 : 12 * 1024 * 1024
+    if (uploadFile.size > maxBytes) {
+      throw new ApiError('Bad request', 400, {
+        detail: kind === 'video' ? 'Video must be 50MB or smaller.' : 'Image must be 12MB or smaller.',
+      })
+    }
+    return { url: await mockFileToDataUrl(uploadFile), kind }
+  }
+
   if (pathname === '/api/social/posts/' && method === 'GET') {
     const savedBy = (q.get('saved_by') || '').trim()
     if (savedBy) {
@@ -2811,7 +2841,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         base.is_delvers = false
         base.is_accommodation_story = false
       }
-      if (hasVideo) base.video = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+      if (hasVideo) {
+        const videoFile = init.body.get('video')
+        if (videoFile && typeof videoFile === 'object' && 'arrayBuffer' in videoFile) {
+          base.video = await mockFileToDataUrl(videoFile as File)
+        }
+      }
       if (hasImage) base.image = 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70'
       if (is_accommodation_story) {
         base.is_delvers = false
@@ -4815,6 +4850,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       days: Number(body.days) || 0,
       stops: body.stops || [],
       costs: body.costs || [],
+      journey_stories: body.journey_stories || [],
+      gallery_images: body.gallery_images || [],
       likes_count: 0,
       saves_count: 0,
       comments_count: 0,
@@ -4996,6 +5033,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       region: get('region'),
       city: get('city'),
       cover_image: null as string | null,
+      gallery_images: [] as string[],
       organizer_username: me,
       organizer_display_name: profile?.display_name || me,
       is_free: isFree,
@@ -5003,6 +5041,20 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       ticket_url: get('ticket_url') || undefined,
       capacity: Number.isFinite(capNum) && capNum > 0 ? capNum : undefined,
       is_published: true,
+    }
+    if (fd?.has('gallery_images')) {
+      const raw = get('gallery_images')
+      try {
+        created.gallery_images = raw ? JSON.parse(raw) : []
+      } catch {
+        created.gallery_images = []
+      }
+    }
+    const coverFile = fd?.get('cover_image')
+    if (coverFile instanceof File) {
+      const buf = await coverFile.arrayBuffer()
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      created.cover_image = `data:${coverFile.type || 'image/jpeg'};base64,${b64}`
     }
     mockEvents.push(created as (typeof mockEvents)[0])
     return { id: created.id }
@@ -5038,6 +5090,28 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (fd?.has('capacity')) {
       const capNum = Number.parseInt(get('capacity'), 10)
       ev.capacity = Number.isFinite(capNum) && capNum > 0 ? capNum : undefined
+    }
+    if (fd?.has('event_stories')) {
+      const raw = get('event_stories')
+      try {
+        ;(ev as { event_stories?: unknown }).event_stories = raw ? JSON.parse(raw) : []
+      } catch {
+        /* keep existing */
+      }
+    }
+    if (fd?.has('gallery_images')) {
+      const raw = get('gallery_images')
+      try {
+        ;(ev as { gallery_images?: string[] }).gallery_images = raw ? JSON.parse(raw) : []
+      } catch {
+        /* keep existing */
+      }
+    }
+    const coverFile = fd?.get('cover_image')
+    if (coverFile instanceof File) {
+      const buf = await coverFile.arrayBuffer()
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      ev.cover_image = `data:${coverFile.type || 'image/jpeg'};base64,${b64}`
     }
     return { ...ev }
   }

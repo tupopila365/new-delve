@@ -1,6 +1,8 @@
 import { mockTrips, type MockTrip } from '../data/mockTrips'
 import { findUserTrip, loadUserTrips } from '../data/userTrips'
 import { mediaUrl } from '../api/client'
+import type { HighlightChannelInput } from '../components/highlights/types'
+import { normalizeHighlightsForSave } from '../components/highlights/highlightFormUtils'
 
 /** Demo journeys fill feeds only when VITE_USE_MOCKS=true (local dev). */
 export function isJourneyDemoFallbackEnabled(): boolean {
@@ -60,6 +62,8 @@ export type ApiJourney = {
   liked_by_me?: boolean
   saved_by_me?: boolean
   is_featured?: boolean
+  journey_stories?: HighlightChannelInput[]
+  gallery_images?: unknown[]
 }
 
 export function mapApiJourneyToTrip(j: ApiJourney): MockTrip {
@@ -102,6 +106,14 @@ export function mapApiJourneyToTrip(j: ApiJourney): MockTrip {
     liked_by_me: j.liked_by_me ?? false,
     saved_by_me: j.saved_by_me ?? false,
     is_featured: j.is_featured ?? false,
+    journey_stories: (j.journey_stories ?? []).map((ch) => ({
+      ...ch,
+      slides: (ch.slides ?? []).map((s) => ({ ...s })),
+    })),
+    gallery_images: parseGalleryMediaList(j.gallery_images).map((item) => ({
+      url: mediaUrl(item.url) ?? item.url,
+      kind: item.kind,
+    })),
   }
 }
 
@@ -127,11 +139,14 @@ export function buildJourneyPayload(input: {
   costs: MockTrip['costs']
   days: number
   totalCost: number
+  journeyStories?: HighlightChannelInput[]
+  galleryImages?: (string | { url: string; kind: 'image' | 'video' })[]
 }) {
   return {
     title: input.title.trim(),
     summary: input.summary.trim(),
     cover_image: input.coverImage.trim() || '',
+    gallery_images: input.galleryImages ?? [],
     starts_on: input.startsOn,
     ends_on: input.endsOn,
     countries: input.selectedCountries,
@@ -143,5 +158,6 @@ export function buildJourneyPayload(input: {
     days: input.days,
     stops: input.stops,
     costs: input.costs,
+    journey_stories: normalizeHighlightsForSave(input.journeyStories ?? []),
   }
 }

@@ -27,6 +27,11 @@ class Journey(models.Model):
     title = models.CharField(max_length=160)
     summary = models.TextField(blank=True)
     cover_image = models.TextField(blank=True, help_text="Cover image URL or uploaded path.")
+    gallery_images = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Additional hero gallery image URLs (cover is separate).",
+    )
     starts_on = models.DateField()
     ends_on = models.DateField()
     days = models.PositiveSmallIntegerField(default=1)
@@ -45,6 +50,11 @@ class Journey(models.Model):
     is_hidden = models.BooleanField(default=False, db_index=True)
     is_featured = models.BooleanField(default=False, db_index=True)
     moderation_reason = models.TextField(blank=True)
+    journey_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Author highlight channels for story rings",
+    )
     comments_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

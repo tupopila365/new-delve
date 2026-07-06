@@ -5,18 +5,20 @@ type Props = {
   value: string
   onChange: (value: string) => void
   onPositionPreset: (position: CaptionPosition) => void
-  region: string
-  onRegionChange: (value: string) => void
+  region?: string
+  onRegionChange?: (value: string) => void
   maxLength?: number
+  showRegion?: boolean
 }
 
 export function CaptionEditor({
   value,
   onChange,
   onPositionPreset,
-  region,
+  region = '',
   onRegionChange,
   maxLength = 220,
+  showRegion = true,
 }: Props) {
   return (
     <div className="create-panel">
@@ -39,10 +41,16 @@ export function CaptionEditor({
           </button>
         ))}
       </div>
-      <label className="create-panel__field">
-        <span>Place</span>
-        <input value={region} onChange={(event) => onRegionChange(event.target.value)} placeholder="City or region" />
-      </label>
+      {showRegion ? (
+        <label className="create-panel__field">
+          <span>Place</span>
+          <input
+            value={region}
+            onChange={(event) => onRegionChange?.(event.target.value)}
+            placeholder="City or region"
+          />
+        </label>
+      ) : null}
     </div>
   )
 }

@@ -9,6 +9,7 @@ export type VenuePhoto = {
   caption?: string
   category: VenuePhotoCategory
   is_cover?: boolean
+  kind?: 'image' | 'video'
 }
 
 export type VenueReviewBreakdown = {

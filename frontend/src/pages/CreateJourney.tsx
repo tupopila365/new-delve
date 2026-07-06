@@ -6,16 +6,23 @@ import { apiFetch } from '../api/client'
 import type { TripCost, TripStop } from '../data/mockTrips'
 import {
   CreateWizardShell,
-  MediaCoverEditor,
   JourneyStopMoment,
   type StopMoment,
 } from '../components/create'
+import { ensureHighlightMediaUrl } from '../components/highlights/highlightMediaApi'
+import { ListingPhotoManager, resolveListingGalleryMedia, photosFromListingGallery } from '../components/listing/photos'
+import { serializeGalleryForApi } from '../components/listing/photos/listingPhotoUtils'
+import type { ListingPhotoDraft } from '../components/listing/photos/types'
 import { JourneyStopLinkPicker, type JourneyStopLink } from '../components/journeys/JourneyStopLinkPicker'
 import { PartyPicker, normalizePartyValue } from '../components/journeys/PartyPicker'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { buildJourneyPayload, mapApiJourneyToTrip, type ApiJourney } from '../utils/journeyApi'
+import { HighlightChannelEditor } from '../components/highlights/HighlightChannelEditor'
+import type { HighlightChannelInput } from '../components/highlights/types'
+import { ensureHighlightChannelsMediaUrls } from '../components/highlights/highlightMediaApi'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
+import '../components/provider/transport/transport-admin.css'
 import '../components/journeys/CreateJourneyPageEnhancer.css'
 
 /* ── constants ─────────────────────────────────────────────── */
@@ -159,29 +166,46 @@ function stopLinkPayload(link: JourneyStopLink) {
   return { linked_listing_type: link.kind, linked_listing_id: link.id }
 }
 
-function buildStopsPayload(stops: FormStop[]): TripStop[] {
-  return stops.map((s, i) => ({
-    id: i + 1,
-    order: i,
-    place_name: s.place_name.trim(),
-    country_code: s.country_code,
-    arrived_on: s.arrived_on,
-    left_on: s.left_on,
-    notes: s.notes.trim(),
-    cost: Number(s.cost) || undefined,
-    ...stopLinkPayload(s.linked),
-    entries: s.moment.preview
-      ? [
-          {
-            id: i + 1,
-            body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
-            image: s.moment.mediaKind === 'image' ? s.moment.preview : null,
-            video: s.moment.mediaKind === 'video' ? s.moment.preview : null,
-            happened_at: s.arrived_on,
-          },
-        ]
-      : [],
-  }))
+async function buildStopsPayloadWithUploads(stops: FormStop[]): Promise<TripStop[]> {
+  const rows: TripStop[] = []
+  for (let i = 0; i < stops.length; i += 1) {
+    const s = stops[i]
+    let image: string | null = null
+    let video: string | null = null
+    if (s.moment.preview && s.moment.mediaKind) {
+      const url = await ensureHighlightMediaUrl(
+        s.moment.preview,
+        s.moment.mediaKind,
+        s.moment.uploadFile ?? null,
+      )
+      if (s.moment.mediaKind === 'video') video = url
+      else image = url
+    }
+    rows.push({
+      id: i + 1,
+      order: i,
+      place_name: s.place_name.trim(),
+      country_code: s.country_code,
+      arrived_on: s.arrived_on,
+      left_on: s.left_on,
+      notes: s.notes.trim(),
+      cost: Number(s.cost) || undefined,
+      ...stopLinkPayload(s.linked),
+      entries:
+        image || video
+          ? [
+              {
+                id: i + 1,
+                body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
+                image,
+                video,
+                happened_at: s.arrived_on,
+              },
+            ]
+          : [],
+    })
+  }
+  return rows
 }
 
 /* ── component ─────────────────────────────────────────────── */
@@ -198,7 +222,7 @@ export function CreateJourney() {
   // Step 1 — basics
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
-  const [coverImage, setCoverImage] = useState('')
+  const [listingPhotos, setListingPhotos] = useState<ListingPhotoDraft[]>([])
   const [startsOn, setStartsOn] = useState('')
   const [endsOn, setEndsOn] = useState('')
   const [party, setParty] = useState('solo')
@@ -213,6 +237,7 @@ export function CreateJourney() {
   const [selectedTransport, setSelectedTransport] = useState<string[]>(['car'])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedCountries, setSelectedCountries] = useState<string[]>(['NA'])
+  const [journeyStories, setJourneyStories] = useState<HighlightChannelInput[]>([])
 
   // UI
   const [err, setErr] = useState<string | null>(null)
@@ -235,7 +260,7 @@ export function CreateJourney() {
     }
     setTitle(trip.title)
     setSummary(trip.summary)
-    setCoverImage(trip.cover_image || '')
+    setListingPhotos(photosFromListingGallery(trip.cover_image, trip.gallery_images))
     setStartsOn(trip.starts_on)
     setEndsOn(trip.ends_on)
     setParty(trip.party)
@@ -252,6 +277,12 @@ export function CreateJourney() {
             note: c.note,
           }))
         : [emptyCost()],
+    )
+    setJourneyStories(
+      (trip.journey_stories ?? []).map((ch) => ({
+        ...ch,
+        slides: (ch.slides ?? []).map((s) => ({ ...s })),
+      })),
     )
     setHydrated(true)
   }, [existing, hydrated, isEdit, navigate, profile])
@@ -368,14 +399,16 @@ export function CreateJourney() {
 
     const totalCost = costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
     const days = daysBetween(startsOn, endsOn)
-    const builtStops = buildStopsPayload(stops)
+    const builtStops = await buildStopsPayloadWithUploads(stops)
+    const resolvedMedia = await resolveListingGalleryMedia(listingPhotos)
+    const resolvedStories = await ensureHighlightChannelsMediaUrls(journeyStories)
     const builtCosts: TripCost[] = costs
       .filter((c) => c.amount && c.note)
       .map((c) => ({ category: c.category, amount: Number(c.amount), note: c.note.trim() }))
     const payload = buildJourneyPayload({
       title,
       summary,
-      coverImage,
+      coverImage: resolvedMedia.cover,
       startsOn,
       endsOn,
       party: normalizePartyValue(party),
@@ -386,6 +419,8 @@ export function CreateJourney() {
       costs: builtCosts,
       days,
       totalCost,
+      journeyStories: resolvedStories,
+      galleryImages: serializeGalleryForApi(resolvedMedia.gallery),
     })
 
     setPublishing(true)
@@ -499,11 +534,10 @@ export function CreateJourney() {
 
           <PartyPicker value={party} onChange={setParty} />
 
-          <MediaCoverEditor
-            label="Cover photo or video"
-            value={coverImage || null}
-            onChange={(url) => setCoverImage(url ?? '')}
-            defaultAspect="16:9"
+          <ListingPhotoManager
+            photos={listingPhotos}
+            onChange={setListingPhotos}
+            hint="Cover must be a photo. Add more photos or short videos (up to 1 min) for the hero gallery."
           />
         </div>
       )}
@@ -688,11 +722,32 @@ export function CreateJourney() {
             </div>
           </div>
 
+          <section className="ce-form__section" aria-labelledby="cj-highlights-title">
+            <h2 id="cj-highlights-title" className="ce-form__section-title">
+              Highlights
+            </h2>
+            <HighlightChannelEditor
+              channels={journeyStories}
+              onChange={setJourneyStories}
+              hint="Story rings on your journey page — name each ring yourself. When you add custom highlights, auto-generated rings are hidden."
+              emptyCopy="No custom highlight rings yet. Auto-generated rings still use your route and photos."
+            />
+          </section>
+
           {/* Preview card */}
           <div className="cj-preview">
             <p className="cj-preview__label">Preview</p>
             <div className="cj-preview__card">
-              {coverImage && <img src={coverImage} alt="" className="cj-preview__img" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />}
+              {listingPhotos[0]?.src ? (
+                <img
+                  src={listingPhotos[0].src.startsWith('blob:') || listingPhotos[0].src.startsWith('data:') ? listingPhotos[0].src : listingPhotos[0].src}
+                  alt=""
+                  className="cj-preview__img"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+              ) : null}
               <div className="cj-preview__body">
                 <p className="cj-preview__title">{title || 'Your journey title'}</p>
                 <p className="cj-preview__meta">

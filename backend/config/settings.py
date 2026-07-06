@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "reports",
     "promotions",
     "journeys",
+    "highlights",
 ]
 
 MIDDLEWARE = [
@@ -116,6 +117,10 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Cloudinary when CLOUDINARY_URL is set (Heroku beta media). Otherwise local disk.
 _use_cloudinary = bool(os.environ.get("CLOUDINARY_URL", "").strip())
+SERVE_LOCAL_MEDIA = os.environ.get(
+    "SERVE_LOCAL_MEDIA",
+    "false" if _use_cloudinary else "true",
+).lower() in ("true", "1", "yes")
 STORAGES = {
     "default": {
         "BACKEND": (

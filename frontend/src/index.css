@@ -1149,6 +1149,23 @@ button {
   pointer-events: none;
 }
 
+.story-viewer__overlay-caption {
+  position: absolute;
+  z-index: 2;
+  max-width: 86%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
 .story-viewer__caption {
   position: absolute;
   left: 20px;

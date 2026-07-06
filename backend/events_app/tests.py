@@ -79,6 +79,38 @@ class EventApiTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 1)
 
+    def test_organizer_can_save_event_stories(self):
+        stories = [
+            {
+                "id": "vibe",
+                "label": "The vibe",
+                "coverSrc": "https://cdn.example/vibe.jpg",
+                "slides": [
+                    {
+                        "src": "https://cdn.example/vibe.jpg",
+                        "headline": "Opening night energy",
+                        "sub": "Doors at 7pm",
+                    }
+                ],
+            }
+        ]
+        self.client.force_authenticate(user=self.organizer)
+        res = self.client.patch(
+            f"/api/events/{self.event.id}/",
+            {"event_stories": stories},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data["event_stories"]), 1)
+        self.assertEqual(res.data["event_stories"][0]["label"], "The vibe")
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.event_stories[0]["slides"][0]["headline"], "Opening night energy")
+
+        self.client.force_authenticate(user=None)
+        detail = self.client.get(f"/api/events/{self.event.id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(len(detail.data["event_stories"]), 1)
+
     def test_when_free_filter(self):
         res = self.client.get("/api/events/?when=free")
         self.assertEqual(res.status_code, 200)

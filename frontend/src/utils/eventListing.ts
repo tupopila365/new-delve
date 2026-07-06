@@ -1,4 +1,7 @@
 import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
+import type { HighlightChannelInput } from '../components/highlights/types'
+import { mediaUrl } from '../api/client'
+import { parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
 import {
   categoryMeta,
   eventCoverSrc,
@@ -15,6 +18,7 @@ export type EventDetail = EventListing & {
   ticket_url?: string | null
   capacity?: number | null
   business?: number | null
+  event_stories?: HighlightChannelInput[]
 }
 
 export type EventListItem = Pick<
@@ -99,8 +103,15 @@ export function eventCountdownLabel(startsAt: string): string | null {
 }
 
 export function buildEventGalleryImages(event: EventDetail): ListingGalleryItem[] {
-  const src = eventCoverSrc(event.cover_image, event.category)
-  return [{ id: 'cover', src, alt: event.title }]
+  const images: ListingGalleryItem[] = []
+  const cover = eventCoverSrc(event.cover_image, event.category)
+  if (cover) images.push({ id: 'cover', src: cover, alt: event.title, kind: 'image' })
+  for (const [i, item] of parseGalleryMediaList(event.gallery_images).entries()) {
+    const src = mediaUrl(item.url) ?? item.url
+    if (!src || images.some((img) => img.src === src)) continue
+    images.push({ id: `gallery-${i}`, src, alt: event.title, kind: item.kind })
+  }
+  return images.length > 0 ? images : [{ id: 'cover', src: cover, alt: event.title, kind: 'image' }]
 }
 
 export function buildEventTrustHighlights(event: EventDetail): string[] {

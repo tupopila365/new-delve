@@ -144,3 +144,47 @@ class JourneyApiTests(TestCase):
         self.assertIn("Another dune trip", titles)
         self.assertNotIn("Dune loop", titles)
         self.assertNotIn("Coast run", titles)
+
+    def test_author_can_save_journey_stories(self):
+        journey = Journey.objects.create(
+            author=self.author,
+            title="Stories journey",
+            starts_on=date(2026, 6, 1),
+            ends_on=date(2026, 6, 5),
+            days=5,
+            total_cost=Decimal("800"),
+        )
+        stories = [
+            {
+                "id": "sunrise",
+                "label": "Dune sunrise",
+                "coverSrc": "https://cdn.example/sunrise.jpg",
+                "slides": [
+                    {
+                        "src": "https://cdn.example/sunrise.jpg",
+                        "headline": "First light on the dunes",
+                        "sub": "Day 2 start",
+                        "captionX": 42,
+                        "captionY": 78,
+                    }
+                ],
+            }
+        ]
+        self.client.force_authenticate(user=self.author)
+        res = self.client.patch(
+            f"/api/journeys/{journey.id}/",
+            {"journey_stories": stories},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data["journey_stories"]), 1)
+        self.assertEqual(res.data["journey_stories"][0]["label"], "Dune sunrise")
+        journey.refresh_from_db()
+        self.assertEqual(journey.journey_stories[0]["slides"][0]["headline"], "First light on the dunes")
+        self.assertEqual(journey.journey_stories[0]["slides"][0]["captionX"], 42.0)
+        self.assertEqual(journey.journey_stories[0]["slides"][0]["captionY"], 78.0)
+
+        self.client.force_authenticate(user=None)
+        detail = self.client.get(f"/api/journeys/{journey.id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(len(detail.data["journey_stories"]), 1)

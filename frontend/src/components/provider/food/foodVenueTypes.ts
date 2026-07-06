@@ -3,6 +3,7 @@ import { emptySchedule, scheduleFromJson } from './openingHoursUtils'
 import { moduleStatus, workspaceCompleteness, type ProviderFoodVenueRecord } from './foodVenueModules'
 import { normalizeVenueStoriesForSave } from './venueStoriesFormUtils'
 import { parseCoord } from '../../../utils/placeMap'
+import { formatGalleryUrlsField, parseGalleryUrlsField } from '../../listing/photos/listingGalleryMedia'
 
 export const CUISINE_OPTIONS = [
   { value: 'local', label: 'Local / Namibian' },
@@ -112,7 +113,7 @@ export type ProviderFoodVenue = {
   reservations?: boolean
   is_open?: boolean | null
   amenities?: string[]
-  photos?: { id?: number; image: string; caption?: string; category?: string; is_cover?: boolean }[]
+  photos?: { id?: number; image: string; caption?: string; category?: string; is_cover?: boolean; kind?: 'image' | 'video' }[]
   venue_stories?: VenueStoryChannelInput[]
   cover_image?: string | null
   rating_avg?: string | null
@@ -124,10 +125,11 @@ function galleryUrlsFromPhotos(
   photos: ProviderFoodVenue['photos'],
 ): string {
   if (!photos?.length) return ''
-  return photos
-    .filter((p) => !p.is_cover)
-    .map((p) => p.image)
-    .join('\n')
+  return formatGalleryUrlsField(
+    photos
+      .filter((p) => !p.is_cover)
+      .map((p) => ({ url: p.image, kind: p.kind === 'video' ? 'video' : 'image' })),
+  )
 }
 
 export function venueToForm(venue: ProviderFoodVenue): FoodVenueFormValues {
@@ -179,13 +181,11 @@ export function formToVenuePayload(values: FoodVenueFormValues) {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
-  const gallery = values.gallery_urls
-    .split(/[\n,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const photos = gallery.map((image, index) => ({
+  const gallery = parseGalleryUrlsField(values.gallery_urls)
+  const photos = gallery.map((item, index) => ({
     id: index + 2,
-    image,
+    image: item.url,
+    kind: item.kind,
     caption: '',
     category: 'food',
     is_cover: false,

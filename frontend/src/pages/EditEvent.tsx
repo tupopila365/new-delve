@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, apiFetch, mediaUrl } from '../api/client'
+import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { CreateWizardShell } from '../components/create'
@@ -13,8 +13,11 @@ import {
   canSubmitEventForm,
   emptyEventFormState,
   eventToFormState,
+  photosFromEvent,
   type EventFormState,
 } from '../utils/eventForm'
+import type { ListingPhotoDraft } from '../components/listing/photos/types'
+import { resolveListingGalleryMedia } from '../components/listing/photos'
 import '../components/events/CreateEventPageEnhancer.css'
 import '../components/journeys/CreateJourneyPageEnhancer.css'
 
@@ -28,8 +31,7 @@ export function EditEvent() {
   const [step, setStep] = useState(1)
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
   const [hydrated, setHydrated] = useState(false)
-  const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<ListingPhotoDraft[]>([])
   const [err, setErr] = useState<string | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -48,7 +50,7 @@ export function EditEvent() {
   useEffect(() => {
     if (!data || hydrated) return
     setState(eventToFormState(data, profile?.region ?? ''))
-    setCoverPreview(mediaUrl(data.cover_image) ?? null)
+    setPhotos(photosFromEvent(data))
     setHydrated(true)
   }, [data, hydrated, profile?.region])
 
@@ -57,9 +59,10 @@ export function EditEvent() {
   const mut = useMutation({
     mutationFn: async () => {
       if (!id || !canSubmit) throw new Error('Title and start date are required.')
+      const resolved = await resolveListingGalleryMedia(photos)
       return apiFetch<EventDetail>(`/api/events/${id}/`, {
         method: 'PATCH',
-        body: buildEventFormData(state, coverFile, data?.business ?? activeBusiness?.id),
+        body: buildEventFormData(state, photos, resolved, data?.business ?? activeBusiness?.id),
       })
     },
     onSuccess: async () => {
@@ -198,9 +201,8 @@ export function EditEvent() {
         step={step}
         state={state}
         onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
-        coverPreview={coverPreview}
-        onCoverPreviewChange={setCoverPreview}
-        onCoverFileReady={setCoverFile}
+        photos={photos}
+        onPhotosChange={setPhotos}
       />
     </CreateWizardShell>
   )

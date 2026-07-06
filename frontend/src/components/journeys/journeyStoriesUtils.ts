@@ -2,6 +2,7 @@ import type { MockTrip } from '../../data/mockTrips'
 import { journeyCoverSrc, routeLabel } from '../../utils/journeyDisplay'
 import { fmtJourneyDateShort, formatJourneyCost } from '../../utils/journeyListing'
 import type { VenueStoryChannel, VenueStoryChannelInput, VenueStorySlide } from '../food/stories/types'
+import { ownerHighlightsOnly } from '../highlights/highlightChannelMerge'
 import { collectRouteMedia } from './journeyRouteMedia'
 
 export type { VenueStoryChannel, VenueStoryChannelInput }
@@ -41,6 +42,8 @@ function mapCustomChannel(input: VenueStoryChannelInput, journeyPath: string): V
     src: s.src,
     headline: s.headline,
     sub: s.sub,
+    captionX: s.captionX,
+    captionY: s.captionY,
     durationMs: s.durationMs,
     ctaPath: s.ctaPath ?? journeyPath,
     ctaLabel: s.ctaLabel ?? 'View journey',
@@ -153,10 +156,5 @@ export function buildJourneyStoryChannels(
     })
   }
 
-  for (const custom of trip.journey_stories ?? []) {
-    const channel = mapCustomChannel(custom, journeyPath)
-    if (channel) channels.push(channel)
-  }
-
-  return channels
+  return ownerHighlightsOnly(channels, trip.journey_stories, (custom) => mapCustomChannel(custom, journeyPath))
 }

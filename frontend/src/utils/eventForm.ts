@@ -1,3 +1,11 @@
+import type { HighlightChannelInput } from '../components/highlights/types'
+import { normalizeHighlightsForSave } from '../components/highlights/highlightFormUtils'
+import type { ListingPhotoDraft } from '../components/listing/photos/types'
+import type { ListingGalleryMediaItem } from '../components/listing/photos/listingGalleryMedia'
+import { photosFromListingGallery, serializeGalleryForApi } from '../components/listing/photos/listingPhotoUtils'
+import type { EventTicketingMode } from './eventTicketing'
+import { resolveTicketingMode } from './eventTicketing'
+
 export type EventFormState = {
   title: string
   description: string
@@ -11,6 +19,7 @@ export type EventFormState = {
   price: string
   ticketUrl: string
   capacity: string
+  eventStories: HighlightChannelInput[]
 }
 
 export const emptyEventFormState = (region = ''): EventFormState => ({
@@ -26,6 +35,7 @@ export const emptyEventFormState = (region = ''): EventFormState => ({
   price: '',
   ticketUrl: '',
   capacity: '',
+  eventStories: [],
 })
 
 export function isoToDatetimeLocal(iso: string | null | undefined): string {
@@ -35,9 +45,6 @@ export function isoToDatetimeLocal(iso: string | null | undefined): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
-
-import type { EventTicketingMode } from './eventTicketing'
-import { resolveTicketingMode } from './eventTicketing'
 
 export function eventToFormState(
   event: {
@@ -54,6 +61,7 @@ export function eventToFormState(
     ticket_url?: string | null
     ticketing_mode?: EventTicketingMode | null
     capacity?: number | null
+    event_stories?: HighlightChannelInput[]
   },
   fallbackRegion = '',
 ): EventFormState {
@@ -71,10 +79,19 @@ export function eventToFormState(
     price: event.price ?? '',
     ticketUrl: event.ticket_url ?? '',
     capacity: event.capacity ? String(event.capacity) : '',
+    eventStories: (event.event_stories ?? []).map((ch) => ({
+      ...ch,
+      slides: (ch.slides ?? []).map((s) => ({ ...s })),
+    })),
   }
 }
 
-export function buildEventFormData(state: EventFormState, coverFile: File | null, businessId?: number | null): FormData {
+export function buildEventFormData(
+  state: EventFormState,
+  photos: ListingPhotoDraft[],
+  resolved: { cover: string; gallery: ListingGalleryMediaItem[] },
+  businessId?: number | null,
+): FormData {
   const fd = new FormData()
   fd.append('title', state.title.trim())
   fd.append('description', state.description.trim())
@@ -93,9 +110,19 @@ export function buildEventFormData(state: EventFormState, coverFile: File | null
   }
   const cap = Number.parseInt(state.capacity.trim(), 10)
   if (state.capacity.trim() && Number.isFinite(cap) && cap > 0) fd.append('capacity', String(cap))
+  const coverFile = photos[0]?.file ?? null
   if (coverFile) fd.append('cover_image', coverFile)
+  fd.append('gallery_images', JSON.stringify(serializeGalleryForApi(resolved.gallery)))
   if (businessId) fd.append('business', String(businessId))
+  fd.append('event_stories', JSON.stringify(normalizeHighlightsForSave(state.eventStories)))
   return fd
+}
+
+export function photosFromEvent(event: {
+  cover_image?: string | null
+  gallery_images?: unknown[] | null
+}): ListingPhotoDraft[] {
+  return photosFromListingGallery(event.cover_image, event.gallery_images)
 }
 
 export function canSubmitEventForm(state: EventFormState): boolean {

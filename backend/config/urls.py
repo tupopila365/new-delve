@@ -16,9 +16,10 @@ urlpatterns = [
     path("api/reports/", include("reports.urls")),
     path("api/promotions/", include("promotions.urls")),
     path("api/journeys/", include("journeys.urls")),
+    path("api/highlights/", include("highlights.urls")),
     path("api/search/", include("config.search_urls")),
     path("api/home/", include("config.home_urls")),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG or settings.SERVE_LOCAL_MEDIA:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

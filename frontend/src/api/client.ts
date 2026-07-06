@@ -9,7 +9,9 @@ export function apiUrl(path: string): string {
 
 export function mediaUrl(maybePath: string | null | undefined): string | undefined {
   if (!maybePath) return undefined
-  if (maybePath.startsWith('http')) return maybePath
+  if (maybePath.startsWith('http') || maybePath.startsWith('data:') || maybePath.startsWith('blob:')) {
+    return maybePath
+  }
   return apiUrl(maybePath.startsWith('/') ? maybePath : `/${maybePath}`)
 }
 

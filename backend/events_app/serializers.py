@@ -1,8 +1,29 @@
 from rest_framework import serializers
 
+from common.gallery_media import validate_gallery_media_list
+from common.story_channels import validate_story_channels
+
 from .access import primary_event_business
 from .models import Event, EventLike, EventSave
 from .ticketing_utils import event_ticketing_mode, validate_event_ticketing
+
+
+def _parse_json_list_field(data, key: str):
+    """Multipart form sends JSON fields as strings."""
+    if not hasattr(data, "get"):
+        return data
+    raw = data.get(key)
+    if isinstance(raw, str) and raw.strip():
+        import json
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return data
+        if hasattr(data, "copy"):
+            data = data.copy()
+        data[key] = parsed
+    return data
 
 
 class EventSerializer(serializers.ModelSerializer):
@@ -37,6 +58,7 @@ class EventSerializer(serializers.ModelSerializer):
             "region",
             "city",
             "cover_image",
+            "gallery_images",
             "is_free",
             "price",
             "ticket_url",
@@ -45,6 +67,7 @@ class EventSerializer(serializers.ModelSerializer):
             "capacity",
             "recurrence_template",
             "is_published",
+            "event_stories",
             "likes_count",
             "saves_count",
             "rsvp_count",
@@ -64,6 +87,11 @@ class EventSerializer(serializers.ModelSerializer):
             return profile.display_name
         return obj.organizer.username
 
+    def to_internal_value(self, data):
+        data = _parse_json_list_field(data, "event_stories")
+        data = _parse_json_list_field(data, "gallery_images")
+        return super().to_internal_value(data)
+
     def validate(self, attrs):
         is_free = attrs.get(
             "is_free",
@@ -82,6 +110,15 @@ class EventSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(str(exc)) from exc
         attrs.update(normalized)
         return attrs
+
+    def validate_event_stories(self, value):
+        return validate_story_channels(value, field_label="Event stories")
+
+    def validate_gallery_images(self, value):
+        try:
+            return validate_gallery_media_list(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
     def create(self, validated_data):
         user = self.context["request"].user

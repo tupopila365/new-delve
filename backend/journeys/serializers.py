@@ -7,6 +7,8 @@ from rest_framework import serializers
 
 from accounts.models import PostsVisibility
 from accounts.profile_access import can_view_posts
+from common.gallery_media import validate_gallery_media_list
+from common.story_channels import validate_story_channels
 
 from .listing_links import LINKED_LISTING_TYPES, resolve_linked_listing
 from .models import CostCategory, Journey, JourneyCostLine, JourneyEntry, JourneyLike, JourneySave, JourneyStop, JourneyVisibility
@@ -121,6 +123,8 @@ class JourneySerializer(serializers.ModelSerializer):
             "currency",
             "visibility",
             "is_featured",
+            "journey_stories",
+            "gallery_images",
             "stops",
             "costs",
             "likes_count",
@@ -154,6 +158,15 @@ class JourneySerializer(serializers.ModelSerializer):
         if starts and ends and ends < starts:
             raise serializers.ValidationError({"ends_on": "End date must be on or after start date."})
         return attrs
+
+    def validate_journey_stories(self, value):
+        return validate_story_channels(value, field_label="Journey stories")
+
+    def validate_gallery_images(self, value):
+        try:
+            return validate_gallery_media_list(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
     @transaction.atomic
     def create(self, validated_data):

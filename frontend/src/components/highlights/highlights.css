@@ -1,0 +1,566 @@
+.hl-stories-empty {
+  padding: 18px 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+
+.hl-stories-empty__copy {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  color: rgba(255, 250, 242, 0.7);
+  line-height: 1.45;
+}
+
+.hl-stories-empty__btn,
+.hl-stories__add-btn,
+.hl-owner-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.92);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-stories-empty__btn:hover,
+.hl-stories__add-btn:hover,
+.hl-owner-bar__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hl-stories__owner-actions {
+  margin-top: 12px;
+}
+
+.hl-owner-bar {
+  display: flex;
+  justify-content: flex-start;
+  margin: 8px 0 0;
+}
+
+.highlight-channel-editor {
+  /* Reuses .food-stories-editor rules from transport-admin.css */
+}
+
+.hl-media-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hl-media-studio__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: rgba(255, 250, 242, 0.75);
+}
+
+.hl-media-studio__field input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 250, 242, 0.95);
+}
+
+.hl-media-studio__opt {
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+.hl-media-studio__error,
+.hl-add-flow__error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #ffb4b4;
+}
+
+.hl-media-studio__actions,
+.hl-add-flow__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hl-slide-card__thumb {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.hl-slide-card__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.hl-add-flow {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.hl-add-flow__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.62);
+  cursor: pointer;
+}
+
+.hl-add-flow__sheet {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 18px 16px 20px;
+  border-radius: 18px 18px 0 0;
+  background: #14110f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hl-add-flow__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.hl-add-flow__head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.hl-add-flow__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 250, 242, 0.9);
+  cursor: pointer;
+}
+
+.hl-add-flow__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 0.84rem;
+}
+
+.hl-add-flow__field input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 250, 242, 0.95);
+}
+
+.hl-add-flow__slides-label {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.hl-add-flow__slide {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hl-add-flow__thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.hl-add-flow__slide-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.82rem;
+}
+
+.hl-add-flow__slide-copy span {
+  color: rgba(255, 250, 242, 0.6);
+}
+
+/* —— Studio-style channel editor (journeys, events, food) —— */
+
+.hl-channel-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.hl-channel-editor__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.hl-channel-editor__empty {
+  padding: 20px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 154, 82, 0.45);
+  background: rgba(255, 154, 82, 0.06);
+  text-align: center;
+}
+
+.hl-channel-editor__empty p {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  color: rgba(255, 250, 242, 0.65);
+  line-height: 1.45;
+}
+
+.hl-channel-editor__cta,
+.hl-channel-editor__add-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 154, 82, 0.5);
+  background: rgba(255, 154, 82, 0.12);
+  color: rgba(255, 250, 242, 0.95);
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hl-channel-editor__cta:hover,
+.hl-channel-editor__add-ring:hover {
+  background: rgba(255, 154, 82, 0.2);
+}
+
+.hl-channel-editor__add-ring {
+  justify-self: start;
+  border-style: dashed;
+  background: transparent;
+}
+
+.hl-channel-editor__rings {
+  display: grid;
+  gap: 14px;
+}
+
+.hl-channel-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.hl-channel-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.hl-channel-card__ring-preview {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  padding: 3px;
+  background: linear-gradient(135deg, #ff9a52, #ff6b35, #c13584);
+  overflow: hidden;
+}
+
+.hl-channel-card__ring-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+  border: 2px solid #14110f;
+}
+
+.hl-channel-card__ring-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  border: 2px solid #14110f;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hl-channel-card__name {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.95);
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.hl-channel-card__name::placeholder {
+  color: rgba(255, 250, 242, 0.38);
+  font-weight: 500;
+}
+
+.hl-channel-card__name:focus {
+  outline: 2px solid rgba(255, 154, 82, 0.45);
+  outline-offset: 1px;
+}
+
+.hl-channel-card__remove {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.55);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.hl-channel-card__remove:hover {
+  background: rgba(200, 50, 50, 0.25);
+  color: #ffb4b4;
+}
+
+.hl-channel-card__filmstrip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+}
+
+.hl-slide-tile {
+  position: relative;
+  flex: 0 0 88px;
+  scroll-snap-align: start;
+}
+
+.hl-slide-tile__btn {
+  display: flex;
+  flex-direction: column;
+  width: 88px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  text-align: left;
+}
+
+.hl-slide-tile__btn img {
+  width: 88px;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+}
+
+.hl-slide-tile__play {
+  position: absolute;
+  left: 50%;
+  top: 44px;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.hl-slide-tile__caption {
+  display: block;
+  padding: 5px 6px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(255, 250, 242, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hl-slide-tile__delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.hl-slide-tile--add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 88px;
+  height: 138px;
+  border: 1px dashed rgba(255, 154, 82, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 154, 82, 0.06);
+  color: rgba(255, 250, 242, 0.7);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hl-slide-tile--add:hover {
+  background: rgba(255, 154, 82, 0.14);
+}
+
+/* Full-screen media studio sheet */
+.hl-studio-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.hl-studio-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: pointer;
+}
+
+.hl-studio-sheet__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 520px);
+  max-height: min(94vh, 820px);
+  overflow: auto;
+  margin: 0;
+  padding: 14px 14px 18px;
+  border-radius: 18px 18px 0 0;
+  background: #0e0e10;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.45);
+}
+
+.hl-studio-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.hl-studio-sheet__head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.hl-studio-sheet__close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.hl-studio-sheet .hl-media-studio {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.hl-add-flow__ring-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.hl-add-flow__ring-preview {
+  width: 48px;
+  height: 48px;
+}
+
+.hl-add-flow__name {
+  flex: 1;
+}
+
+.hl-add-flow__filmstrip {
+  margin-bottom: 14px;
+}
+
+/* Light provider surfaces */
+.fv-workspace .hl-channel-editor__hint,
+.guide-form .hl-channel-editor__hint,
+.transport-form__section .hl-channel-editor__hint,
+.ce-form__section .hl-channel-editor__hint {
+  color: rgba(30, 24, 18, 0.55);
+}
+
+.fv-workspace .hl-channel-card,
+.guide-form .hl-channel-card {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.fv-workspace .hl-channel-card__name,
+.guide-form .hl-channel-card__name {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(30, 24, 18, 0.92);
+}
+
+.fv-workspace .hl-channel-editor__empty p,
+.guide-form .hl-channel-editor__empty p {
+  color: rgba(30, 24, 18, 0.62);
+}

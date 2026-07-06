@@ -19,6 +19,7 @@ export type EventListing = {
   region: string
   city?: string | null
   cover_image: string | null
+  gallery_images?: unknown[]
   business?: number | null
   business_name?: string | null
   business_slug?: string | null

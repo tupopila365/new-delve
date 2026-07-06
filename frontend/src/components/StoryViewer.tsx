@@ -90,6 +90,10 @@ export function StoryViewer({ open, onClose, channelLabel, explorePath, slides, 
 
   const isFirst = index === 0
   const isLast = index === slides.length - 1
+  const hasOverlayCaption =
+    typeof slide.captionX === 'number' &&
+    typeof slide.captionY === 'number' &&
+    Boolean(slide.headline.trim())
 
   return createPortal(
     <div className="story-viewer" role="dialog" aria-modal="true" aria-label={`${channelLabel} highlights`}>
@@ -154,9 +158,17 @@ export function StoryViewer({ open, onClose, channelLabel, explorePath, slides, 
           />
         )}
         <div className="story-viewer__scrim" />
+        {hasOverlayCaption ? (
+          <div
+            className="story-viewer__overlay-caption"
+            style={{ left: `${slide.captionX}%`, top: `${slide.captionY}%` }}
+          >
+            {slide.headline}
+          </div>
+        ) : null}
         <div className="story-viewer__caption">
           <p className="story-viewer__kicker">{channelLabel}</p>
-          <h2 className="story-viewer__headline">{slide.headline}</h2>
+          {!hasOverlayCaption ? <h2 className="story-viewer__headline">{slide.headline}</h2> : null}
           {slide.sub ? <p className="story-viewer__sub">{slide.sub}</p> : null}
         </div>
       </div>

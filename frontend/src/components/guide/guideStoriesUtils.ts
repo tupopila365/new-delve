@@ -5,6 +5,7 @@ import type {
   VenueStoryChannelInput,
   VenueStorySlide,
 } from '../food/stories/types'
+import { ownerHighlightsOnly } from '../highlights/highlightChannelMerge'
 import {
   guideDisplayName,
   guideRegionLine,
@@ -66,6 +67,8 @@ function mapCustomChannel(input: VenueStoryChannelInput, guidePath: string): Ven
     src: imgSrc(s.src),
     headline: s.headline,
     sub: s.sub,
+    captionX: s.captionX,
+    captionY: s.captionY,
     durationMs: s.durationMs,
     ctaPath: s.ctaPath ?? guidePath,
     ctaLabel: s.ctaLabel ?? 'View guide',
@@ -94,12 +97,6 @@ export function buildGuideStoryChannels(
   const name = guideDisplayName(guide)
   const region = guideRegionLine(guide)
   const channels: VenueStoryChannel[] = []
-
-  // Provider-defined highlight rings first.
-  for (const custom of guide.guide_stories ?? []) {
-    const channel = mapCustomChannel(custom, guidePath)
-    if (channel) channels.push(channel)
-  }
 
   const introSlides: VenueStorySlide[] = []
   if (cover && (guide.headline || guide.bio?.trim())) {
@@ -187,5 +184,5 @@ export function buildGuideStoryChannels(
     })
   }
 
-  return channels
+  return ownerHighlightsOnly(channels, guide.guide_stories, (custom) => mapCustomChannel(custom, guidePath))
 }

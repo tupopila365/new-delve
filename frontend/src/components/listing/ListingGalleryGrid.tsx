@@ -52,7 +52,19 @@ export function ListingGalleryGrid({
         <div className="listing-gallery__carousel" ref={trackRef} onScroll={onScroll}>
           {images.map((item, index) => (
             <div key={item.id ?? `${item.src}-${index}`} className="listing-gallery__slide">
-              <img src={item.src} alt={item.alt ?? ''} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" />
+              {item.kind === 'video' ? (
+                <video
+                  src={item.src}
+                  playsInline
+                  muted
+                  loop
+                  autoPlay
+                  preload="metadata"
+                  aria-label={item.alt ?? ''}
+                />
+              ) : (
+                <img src={item.src} alt={item.alt ?? ''} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" />
+              )}
             </div>
           ))}
         </div>
@@ -84,7 +96,11 @@ export function ListingGalleryGrid({
 
           return (
             <div key={item.id ?? `${item.src}-${index}`} className="listing-gallery__cell">
-              <img src={item.src} alt={item.alt ?? ''} loading="lazy" decoding="async" />
+              {item.kind === 'video' ? (
+                <video src={item.src} muted playsInline preload="metadata" aria-label={item.alt ?? ''} />
+              ) : (
+                <img src={item.src} alt={item.alt ?? ''} loading="lazy" decoding="async" />
+              )}
               {showOverlay ? (
                 <Link
                   className="listing-gallery__more"

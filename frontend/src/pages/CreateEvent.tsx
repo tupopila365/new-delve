@@ -11,8 +11,11 @@ import {
   buildEventFormData,
   canSubmitEventForm,
   emptyEventFormState,
+  photosFromEvent,
   type EventFormState,
 } from '../utils/eventForm'
+import type { ListingPhotoDraft } from '../components/listing/photos/types'
+import { resolveListingGalleryMedia } from '../components/listing/photos'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
 import '../components/events/CreateEventPageEnhancer.css'
 import '../components/journeys/CreateJourneyPageEnhancer.css'
@@ -27,8 +30,7 @@ export function CreateEvent() {
 
   const [step, setStep] = useState(1)
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
-  const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<ListingPhotoDraft[]>([])
   const [err, setErr] = useState<string | null>(null)
   const startedAt = useRef(startCreateSession())
 
@@ -37,9 +39,10 @@ export function CreateEvent() {
   const mut = useMutation({
     mutationFn: async () => {
       if (!canSubmit) throw new Error('Title and start date are required.')
+      const resolved = await resolveListingGalleryMedia(photos)
       return apiFetch<CreatedEvent>('/api/events/', {
         method: 'POST',
-        body: buildEventFormData(state, coverFile, activeBusiness?.id),
+        body: buildEventFormData(state, photos, resolved, activeBusiness?.id),
       })
     },
     onSuccess: async (data) => {
@@ -137,9 +140,8 @@ export function CreateEvent() {
         step={step}
         state={state}
         onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
-        coverPreview={coverPreview}
-        onCoverPreviewChange={setCoverPreview}
-        onCoverFileReady={setCoverFile}
+        photos={photos}
+        onPhotosChange={setPhotos}
       />
     </CreateWizardShell>
   )

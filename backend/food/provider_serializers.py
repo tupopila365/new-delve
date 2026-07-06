@@ -203,6 +203,10 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
 
             ext = uploaded.name.rsplit(".", 1)[-1] if "." in uploaded.name else "jpg"
 
+            content_type = (getattr(uploaded, "content_type", "") or "").lower()
+
+            kind = "video" if content_type.startswith("video/") or ext.lower() in {".mp4", ".webm", ".mov"} else "image"
+
             path = default_storage.save(
 
                 f"food/gallery/{instance.pk}_{uuid.uuid4().hex}.{ext}",
@@ -224,6 +228,8 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
                     "id": instance.pk * 100 + len(photos) + 1,
 
                     "image": url,
+
+                    "kind": kind,
 
                     "caption": "",
 
@@ -411,7 +417,7 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
 
                     raise serializers.ValidationError(
 
-                        f'Slide {j + 1} in "{label}" needs an image URL and headline.'
+                        f'Slide {j + 1} in "{label}" needs a photo or video and a caption.'
 
                     )
 
