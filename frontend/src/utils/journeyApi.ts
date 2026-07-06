@@ -3,6 +3,7 @@ import { findUserTrip, loadUserTrips } from '../data/userTrips'
 import { mediaUrl } from '../api/client'
 import type { HighlightChannelInput } from '../components/highlights/types'
 import { normalizeHighlightsForSave } from '../components/highlights/highlightFormUtils'
+import { parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
 
 /** Demo journeys fill feeds only when VITE_USE_MOCKS=true (local dev). */
 export function isJourneyDemoFallbackEnabled(): boolean {
