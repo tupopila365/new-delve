@@ -2,6 +2,12 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
+from config.cloudinary_field_storages import (
+    audio_field_storage,
+    image_field_storage,
+    video_field_storage,
+)
+
 
 def make_pair_key(user_a_id: int, user_b_id: int) -> str:
     low, high = sorted((int(user_a_id), int(user_b_id)))
@@ -161,9 +167,24 @@ class Message(models.Model):
         related_name="forwards",
     )
     body = models.TextField(blank=True, default="")
-    image = models.ImageField(upload_to="messaging/messages/", blank=True, null=True)
-    video = models.FileField(upload_to="messaging/messages/", blank=True, null=True)
-    audio = models.FileField(upload_to="messaging/messages/", blank=True, null=True)
+    image = models.ImageField(
+        upload_to="messaging/messages/",
+        storage=image_field_storage,
+        blank=True,
+        null=True,
+    )
+    video = models.FileField(
+        upload_to="messaging/messages/",
+        storage=video_field_storage,
+        blank=True,
+        null=True,
+    )
+    audio = models.FileField(
+        upload_to="messaging/messages/",
+        storage=audio_field_storage,
+        blank=True,
+        null=True,
+    )
     read = models.BooleanField(default=False)
     is_automated = models.BooleanField(
         default=False,

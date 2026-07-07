@@ -1,6 +1,28 @@
+from django.core.files.storage import FileSystemStorage
 from django.test import SimpleTestCase
 
+from config import cloudinary_field_storages
 from config.cloudinary_resource_type import cloudinary_resource_type_for_name
+
+
+class PerFieldCloudinaryStorageTests(SimpleTestCase):
+    def test_image_field_storage_urls_use_image_upload_path(self):
+        storage = cloudinary_field_storages.image_field_storage
+        if isinstance(storage, FileSystemStorage):
+            self.skipTest("Cloudinary not configured")
+        self.assertEqual(storage._get_resource_type("community_groups/messages/photo"), "image")
+        url = storage.url("community_groups/messages/20260703_102502-chat_jlagxx")
+        self.assertIn("/image/upload/", url)
+        self.assertNotIn("/raw/upload/", url)
+
+    def test_video_field_storage_urls_use_video_upload_path(self):
+        storage = cloudinary_field_storages.video_field_storage
+        if isinstance(storage, FileSystemStorage):
+            self.skipTest("Cloudinary not configured")
+        self.assertEqual(storage._get_resource_type("community_groups/messages/clip"), "video")
+        url = storage.url("community_groups/messages/clip-id")
+        self.assertIn("/video/upload/", url)
+        self.assertNotIn("/raw/upload/", url)
 
 
 class CloudinaryResourceTypeTests(SimpleTestCase):

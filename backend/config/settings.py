@@ -126,7 +126,7 @@ SERVE_LOCAL_MEDIA = os.environ.get(
 STORAGES = {
     "default": {
         "BACKEND": (
-            "config.media_storage.DelveMediaCloudinaryStorage"
+            "cloudinary_storage.storage.MediaCloudinaryStorage"
             if _use_cloudinary
             else "django.core.files.storage.FileSystemStorage"
         ),

@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from config.cloudinary_field_storages import image_field_storage, video_field_storage
+
 
 class PostKind(models.TextChoices):
     TIP = "tip", "Tip"
@@ -15,9 +17,15 @@ class Post(models.Model):
     )
     body = models.TextField(blank=True)
     region = models.CharField(max_length=120, blank=True)
-    image = models.ImageField(upload_to="posts/", blank=True, null=True)
+    image = models.ImageField(
+        upload_to="posts/",
+        storage=image_field_storage,
+        blank=True,
+        null=True,
+    )
     video = models.FileField(
         upload_to="posts/videos/",
+        storage=video_field_storage,
         blank=True,
         null=True,
         help_text="Short video (e.g. mp4, webm). Use image or video, not both.",

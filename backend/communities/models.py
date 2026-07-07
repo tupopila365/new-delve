@@ -1,6 +1,12 @@
 from django.conf import settings
 from django.db import models
 
+from config.cloudinary_field_storages import (
+    audio_field_storage,
+    image_field_storage,
+    video_field_storage,
+)
+
 
 class GroupTopic(models.TextChoices):
     GENERAL = "general", "General"
@@ -102,9 +108,24 @@ class GroupMessage(models.Model):
         related_name="forwards",
     )
     body = models.TextField(blank=True, default="")
-    image = models.ImageField(upload_to="community_groups/messages/", blank=True, null=True)
-    video = models.FileField(upload_to="community_groups/messages/", blank=True, null=True)
-    audio = models.FileField(upload_to="community_groups/messages/", blank=True, null=True)
+    image = models.ImageField(
+        upload_to="community_groups/messages/",
+        storage=image_field_storage,
+        blank=True,
+        null=True,
+    )
+    video = models.FileField(
+        upload_to="community_groups/messages/",
+        storage=video_field_storage,
+        blank=True,
+        null=True,
+    )
+    audio = models.FileField(
+        upload_to="community_groups/messages/",
+        storage=audio_field_storage,
+        blank=True,
+        null=True,
+    )
     is_hidden = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
     deleted_by = models.ForeignKey(
