@@ -162,8 +162,8 @@ async function recordTrimmedVideo(
 
   if (paintFrame) {
     const canvas = document.createElement('canvas')
-    canvas.width = options?.canvasWidth ?? video.videoWidth || 720
-    canvas.height = options?.canvasHeight ?? video.videoHeight || 1280
+    canvas.width = options?.canvasWidth ?? (video.videoWidth || 720)
+    canvas.height = options?.canvasHeight ?? (video.videoHeight || 1280)
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not prepare video canvas.')
     stream = canvas.captureStream(30)
