@@ -90,6 +90,18 @@ export function useVoiceRecorder() {
     setLevels(idleLevels())
   }, [])
 
+  const restoreAudio = useCallback(
+    (file: File, preview: string, duration = 0) => {
+      if (audioPreview && audioPreview !== preview) URL.revokeObjectURL(audioPreview)
+      setAudioFile(file)
+      setAudioPreview(preview)
+      setDurationSec(duration)
+      setError(null)
+      setLevels(idleLevels())
+    },
+    [audioPreview],
+  )
+
   const sampleLevels = useCallback(() => {
     const analyser = analyserRef.current
     const data = levelDataRef.current
@@ -220,6 +232,7 @@ export function useVoiceRecorder() {
     cancelRecording,
     clearAudio,
     releaseAudioWithoutRevoke,
+    restoreAudio,
   }
 }
 

@@ -80,6 +80,7 @@ export function MessageThread({ context = 'user' }: Props) {
     setBody,
     send,
     sending,
+    sendError,
     hasMore,
     loadOlder,
     loadingOlder,
@@ -177,6 +178,7 @@ export function MessageThread({ context = 'user' }: Props) {
         onBodyChange={setBody}
         onSend={send}
         sending={sending}
+        sendError={sendError}
         loading={isLoading}
         canSendNow={canSendNow}
         imagePreview={imagePreview}

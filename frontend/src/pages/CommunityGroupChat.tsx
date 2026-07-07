@@ -181,6 +181,7 @@ export function CommunityGroupChat() {
       onBodyChange={thread.setBody}
       onSend={thread.send}
       sending={thread.sending}
+      sendError={thread.sendError}
       loading={thread.isLoading}
       canSend={canSend}
       canSendNow={thread.canSendNow}

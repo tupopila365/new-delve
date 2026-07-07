@@ -1,8 +1,19 @@
 import type { VideoTrim } from '../components/create/types'
 
 export const COMMUNITY_MAX_VIDEO_SEC = 30
+export const CHAT_MAX_VIDEO_SEC = 60
+export const CHAT_SKIP_COMPRESS_BYTES = 2 * 1024 * 1024
+export const CHAT_MAX_VIDEO_WIDTH = 720
+const CHAT_VIDEO_BITRATE = 1_500_000
 export const TRIM_FULL_VIDEO_EPSILON_SEC = 0.15
 const RENDER_TIMEOUT_MS = 120_000
+
+type RecordVideoOptions = {
+  videoBitsPerSecond?: number
+  canvasWidth?: number
+  canvasHeight?: number
+  keepAudio?: boolean
+}
 
 export type CommunityDrawStroke = {
   color: string
@@ -60,6 +71,29 @@ function extensionForMime(mimeType: string): string {
 function trimmedFilename(source: File, mimeType: string): string {
   const base = source.name.replace(/\.[^.]+$/, '') || 'video'
   return `${base}-community.${extensionForMime(mimeType)}`
+}
+
+function chatFilename(source: File, mimeType: string): string {
+  const base = source.name.replace(/\.[^.]+$/, '') || 'video'
+  return `${base}-chat.${extensionForMime(mimeType)}`
+}
+
+function scaledVideoDimensions(
+  sourceWidth: number,
+  sourceHeight: number,
+  maxWidth: number,
+): { width: number; height: number } {
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    return { width: maxWidth, height: Math.round((maxWidth * 16) / 9) }
+  }
+  if (sourceWidth <= maxWidth) {
+    return { width: sourceWidth, height: sourceHeight }
+  }
+  const scale = maxWidth / sourceWidth
+  return {
+    width: maxWidth,
+    height: Math.max(2, Math.round((sourceHeight * scale) / 2) * 2),
+  }
 }
 
 function waitForEvent(target: EventTarget, event: string): Promise<void> {
@@ -120,6 +154,7 @@ async function recordTrimmedVideo(
   video: HTMLVideoElement,
   trim: VideoTrim,
   paintFrame?: PaintFrame,
+  options?: RecordVideoOptions,
 ): Promise<Blob> {
   const mimeType = pickRecorderMimeType()
   let cleanup = () => {}
@@ -127,11 +162,17 @@ async function recordTrimmedVideo(
 
   if (paintFrame) {
     const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth || 720
-    canvas.height = video.videoHeight || 1280
+    canvas.width = options?.canvasWidth ?? video.videoWidth || 720
+    canvas.height = options?.canvasHeight ?? video.videoHeight || 1280
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not prepare video canvas.')
     stream = canvas.captureStream(30)
+    if (options?.keepAudio) {
+      const sourceStream = captureVideoStream(video)
+      for (const track of sourceStream.getAudioTracks()) {
+        stream.addTrack(track)
+      }
+    }
     const tick = () => paintFrame(ctx, canvas.width, canvas.height)
     video.addEventListener('timeupdate', tick)
     video.addEventListener('seeked', tick)
@@ -146,7 +187,7 @@ async function recordTrimmedVideo(
 
   const recorder = new MediaRecorder(stream, {
     mimeType,
-    videoBitsPerSecond: 2_500_000,
+    videoBitsPerSecond: options?.videoBitsPerSecond ?? 2_500_000,
   })
   const chunks: Blob[] = []
 
@@ -251,6 +292,63 @@ export async function renderCommunityVideo(
     }
 
     return recordTrimmedVideo(video, safeTrim)
+  } finally {
+    URL.revokeObjectURL(url)
+    video.src = ''
+  }
+}
+
+/** Re-encode chat videos to a smaller upload (720p max, ~1.5 Mbps). */
+export async function compressVideoForChat(file: File): Promise<File> {
+  const url = URL.createObjectURL(file)
+  const video = document.createElement('video')
+  video.playsInline = true
+  video.preload = 'auto'
+  video.src = url
+
+  try {
+    await waitForEvent(video, 'loadedmetadata')
+    const duration = video.duration
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new Error('This video could not be read. Try MP4 or re-export the clip.')
+    }
+
+    const srcW = video.videoWidth || 720
+    const srcH = video.videoHeight || 1280
+    const scaled = scaledVideoDimensions(srcW, srcH, CHAT_MAX_VIDEO_WIDTH)
+    const needsTrim = duration > CHAT_MAX_VIDEO_SEC
+    const trim: VideoTrim = needsTrim ? { start: 0, end: CHAT_MAX_VIDEO_SEC } : { start: 0, end: duration }
+    const needsScale = scaled.width < srcW
+    const needsCompress =
+      file.size > CHAT_SKIP_COMPRESS_BYTES || needsTrim || needsScale
+
+    if (!needsCompress) {
+      return file
+    }
+
+    video.currentTime = Math.max(0, trim.start)
+    await waitForEvent(video, 'seeked')
+
+    const blob = await recordTrimmedVideo(
+      video,
+      trim,
+      (ctx, width, height) => {
+        ctx.drawImage(video, 0, 0, width, height)
+      },
+      {
+        videoBitsPerSecond: CHAT_VIDEO_BITRATE,
+        canvasWidth: scaled.width,
+        canvasHeight: scaled.height,
+        keepAudio: true,
+      },
+    )
+
+    if (blob.size >= file.size) {
+      return file
+    }
+
+    const mimeType = blob.type || 'video/webm'
+    return new File([blob], chatFilename(file, mimeType), { type: mimeType })
   } finally {
     URL.revokeObjectURL(url)
     video.src = ''

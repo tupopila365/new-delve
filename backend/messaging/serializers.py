@@ -3,6 +3,7 @@ from rest_framework import serializers
 from social.video_validation import validate_post_video_file
 
 from .audio_validation import validate_message_audio_file
+from .image_validation import validate_message_image_file
 from .models import Conversation, Message
 
 
@@ -156,6 +157,12 @@ class MessageCreateSerializer(serializers.ModelSerializer):
                 validate_post_video_file(video)
             except Exception as exc:
                 raise serializers.ValidationError({"video": getattr(exc, "messages", [str(exc)])}) from exc
+
+        if image is not None:
+            try:
+                validate_message_image_file(image)
+            except Exception as exc:
+                raise serializers.ValidationError({"image": getattr(exc, "messages", [str(exc)])}) from exc
 
         if audio is not None:
             try:

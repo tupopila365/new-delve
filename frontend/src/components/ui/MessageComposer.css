@@ -86,6 +86,29 @@
   filter: brightness(1.06);
 }
 
+.msg-composer__attach-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.msg-composer__video-preparing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.82;
+}
+
+.msg-composer--dark .msg-composer__video-preparing {
+  color: rgba(255, 250, 242, 0.82);
+}
+
+.msg-composer--light .msg-composer__video-preparing {
+  color: rgba(28, 20, 16, 0.72);
+}
+
 .msg-composer__attach-preview {
   position: relative;
   margin-left: auto;

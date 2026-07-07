@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../../api/client'
 import { useVoiceRecorder } from '../../../hooks/useVoiceRecorder'
+import { formatApiErrorMessage } from '../../../utils/apiErrorMessage'
 import type { DmMessageReplyTo } from './dmMessageUtils'
 import { dmMessageDeletePath, dmMessageForwardPath } from './dmMessageUtils'
 import type { DmMessageDeleteScope } from './dmMessageUtils'
@@ -50,6 +51,7 @@ export type DmSendPayload = {
   imageFile?: File | null
   videoFile?: File | null
   audioFile?: File | null
+  audioDurationSec?: number
   replyToId?: number | null
 }
 
@@ -108,6 +110,7 @@ export function useConversationThread({
   const [nextBeforeId, setNextBeforeId] = useState<number | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [replyTo, setReplyTo] = useState<ThreadMessage | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
   const typingPingAt = useRef(0)
   const voice = useVoiceRecorder()
   const id = conversationId != null && conversationId !== '' ? String(conversationId) : ''
@@ -347,13 +350,31 @@ export function useConversationThread({
       setReplyTo(null)
       return { previous, tempId, payload, detachedMedia }
     },
-    onError: (_err, _payload, ctx) => {
-      revokeDetachedMedia(ctx?.detachedMedia)
+    onError: (err, _payload, ctx) => {
       if (ctx?.previous) qc.setQueryData(['msgs', id, pageSize], ctx.previous)
-      if (ctx?.payload) setBody(ctx.payload.body)
+      if (ctx?.payload) {
+        setBody(ctx.payload.body)
+        if (ctx.payload.imageFile) {
+          setImageFile(ctx.payload.imageFile)
+          setImagePreview(ctx.detachedMedia?.image ?? null)
+        }
+        if (ctx.payload.videoFile) {
+          setVideoFile(ctx.payload.videoFile)
+          setVideoPreview(ctx.detachedMedia?.video ?? null)
+        }
+        if (ctx.payload.audioFile && ctx.detachedMedia?.audio) {
+          voice.restoreAudio(
+            ctx.payload.audioFile,
+            ctx.detachedMedia.audio,
+            ctx.payload.audioDurationSec ?? 0,
+          )
+        }
+      }
+      setSendError(formatApiErrorMessage(err, 'Could not send message.'))
     },
     onSuccess: (serverMsg, _payload, ctx) => {
       revokeDetachedMedia(ctx?.detachedMedia)
+      setSendError(null)
       qc.setQueryData<MessagesPage>(['msgs', id, pageSize], (old) => {
         const results = (old?.results ?? []).filter((m) => m.id !== ctx?.tempId)
         if (!results.some((m) => m.id === serverMsg.id)) {
@@ -374,6 +395,7 @@ export function useConversationThread({
     if ((!text && !imageFile && !videoFile && !voice.audioFile) || !active || sendMut.isPending || !myUsername) {
       return
     }
+    setSendError(null)
     const replyToId =
       replyTo && typeof replyTo.id === 'number' ? replyTo.id : replyTo ? Number(replyTo.id) : null
     sendMut.mutate({
@@ -381,6 +403,7 @@ export function useConversationThread({
       imageFile,
       videoFile,
       audioFile: voice.audioFile,
+      audioDurationSec: voice.durationSec,
       replyToId: Number.isFinite(replyToId) ? replyToId : null,
     })
   }
@@ -439,7 +462,8 @@ export function useConversationThread({
     setBody: onBodyChange,
     send,
     sending: sendMut.isPending,
-    sendError: sendMut.isError,
+    sendError,
+    clearSendError: () => setSendError(null),
     canSendNow,
     imagePreview,
     videoPreview,

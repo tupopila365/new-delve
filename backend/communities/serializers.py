@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from messaging.audio_validation import validate_message_audio_file
+from messaging.image_validation import validate_message_image_file
 from social.video_validation import validate_post_video_file
 
 from tags.services import MAX_TAGS_PER_CONTENT, linkable_slugs_for_group, sync_group_tags
@@ -208,6 +209,12 @@ class GroupMessageCreateSerializer(serializers.ModelSerializer):
                 validate_post_video_file(video)
             except Exception as exc:
                 raise serializers.ValidationError({"video": getattr(exc, "messages", [str(exc)])}) from exc
+
+        if image is not None:
+            try:
+                validate_message_image_file(image)
+            except Exception as exc:
+                raise serializers.ValidationError({"image": getattr(exc, "messages", [str(exc)])}) from exc
 
         if audio is not None:
             try:

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../../../api/client'
 import { useVoiceRecorder } from '../../../hooks/useVoiceRecorder'
+import { formatApiErrorMessage } from '../../../utils/apiErrorMessage'
 import type { GroupMessage, GroupMessageDeleteScope, GroupMessageReaction, GroupMessagesPage } from '../../../utils/communityGroups'
 import {
   groupMessageDeletePath,
@@ -37,6 +38,7 @@ export type GroupSendPayload = {
   imageFile?: File | null
   videoFile?: File | null
   audioFile?: File | null
+  audioDurationSec?: number
   replyToId?: number | null
 }
 
@@ -79,6 +81,7 @@ export function useGroupThread({ slug, myUsername, enabled = true, pageSize = 50
   const [nextBeforeId, setNextBeforeId] = useState<number | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [replyTo, setReplyTo] = useState<GroupThreadMessage | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
   const voice = useVoiceRecorder()
   const active = Boolean(enabled && slug)
 
@@ -305,15 +308,31 @@ export function useGroupThread({ slug, myUsername, enabled = true, pageSize = 50
       setReplyTo(null)
       return { previous, tempId, payload, detachedMedia }
     },
-    onError: (_err, _payload, ctx) => {
-      revokeDetachedMedia(ctx?.detachedMedia)
+    onError: (err, _payload, ctx) => {
       if (ctx?.previous) qc.setQueryData(['group-msgs', slug, pageSize], ctx.previous)
       if (ctx?.payload) {
         setBody(ctx.payload.body)
+        if (ctx.payload.imageFile) {
+          setImageFile(ctx.payload.imageFile)
+          setImagePreview(ctx.detachedMedia?.image ?? null)
+        }
+        if (ctx.payload.videoFile) {
+          setVideoFile(ctx.payload.videoFile)
+          setVideoPreview(ctx.detachedMedia?.video ?? null)
+        }
+        if (ctx.payload.audioFile && ctx.detachedMedia?.audio) {
+          voice.restoreAudio(
+            ctx.payload.audioFile,
+            ctx.detachedMedia.audio,
+            ctx.payload.audioDurationSec ?? 0,
+          )
+        }
       }
+      setSendError(formatApiErrorMessage(err, 'Could not send message.'))
     },
     onSuccess: (serverMsg, _payload, ctx) => {
       revokeDetachedMedia(ctx?.detachedMedia)
+      setSendError(null)
       qc.setQueryData<GroupMessagesPage>(['group-msgs', slug, pageSize], (old) => {
         const results = (old?.results ?? []).filter((m) => m.id !== ctx?.tempId)
         if (!results.some((m) => m.id === serverMsg.id)) {
@@ -334,6 +353,7 @@ export function useGroupThread({ slug, myUsername, enabled = true, pageSize = 50
   function send() {
     const text = body.trim()
     if ((!text && !imageFile && !videoFile && !voice.audioFile) || !active || sendMut.isPending || !myUsername) return
+    setSendError(null)
     const replyToId =
       replyTo && typeof replyTo.id === 'number' ? replyTo.id : replyTo ? Number(replyTo.id) : null
     sendMut.mutate({
@@ -341,6 +361,7 @@ export function useGroupThread({ slug, myUsername, enabled = true, pageSize = 50
       imageFile,
       videoFile,
       audioFile: voice.audioFile,
+      audioDurationSec: voice.durationSec,
       replyToId: Number.isFinite(replyToId) ? replyToId : null,
     })
   }
@@ -389,6 +410,8 @@ export function useGroupThread({ slug, myUsername, enabled = true, pageSize = 50
     setBody,
     send,
     sending: sendMut.isPending,
+    sendError,
+    clearSendError: () => setSendError(null),
     canSendNow,
     imagePreview,
     videoPreview,

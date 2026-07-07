@@ -46,6 +46,7 @@ type Props = {
   onBodyChange: (value: string) => void
   onSend: () => void
   sending?: boolean
+  sendError?: string | null
   loading?: boolean
   opening?: boolean
   backLabel?: string
@@ -95,6 +96,7 @@ function DmChatViewInner({
   onBodyChange,
   onSend,
   sending = false,
+  sendError = null,
   loading = false,
   opening = false,
   backLabel = 'Back',
@@ -130,6 +132,9 @@ function DmChatViewInner({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
   const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null)
+  const [videoPickError, setVideoPickError] = useState<string | null>(null)
+  const [imagePickError, setImagePickError] = useState<string | null>(null)
+  const composerError = sendError || videoPickError || imagePickError
   const location = [person.city, person.region].filter(Boolean).join(', ')
   const isProviderContext = context === 'provider'
   const replies = quickReplies ?? []
@@ -357,8 +362,16 @@ function DmChatViewInner({
                   recordingDurationSec: voice?.durationSec ?? 0,
                   voiceLevels: voice?.levels,
                   skipVideoEditor: true,
-                  onImageChange: onImagePick!,
-                  onVideoChange: onVideoPick!,
+                  onImageChange: (file, preview) => {
+                    setImagePickError(null)
+                    onImagePick!(file, preview)
+                  },
+                  onImageError: setImagePickError,
+                  onVideoChange: (file, preview) => {
+                    setVideoPickError(null)
+                    onVideoPick!(file, preview)
+                  },
+                  onVideoError: setVideoPickError,
                   onVoiceRecordStart: voice?.startRecording,
                   onVoiceRecordStop: voice?.stopRecording,
                   onVoiceRecordCancel: voice?.cancelRecording,
@@ -366,6 +379,7 @@ function DmChatViewInner({
               : undefined
           }
         />
+        {composerError ? <p className="dm-chat__voice-error">{composerError}</p> : null}
         {voice?.error ? <p className="dm-chat__voice-error">{voice.error}</p> : null}
       </div>
 

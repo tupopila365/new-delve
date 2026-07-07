@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from io import BytesIO
 from rest_framework.test import APIClient
 
 from accounts.models import Profile
@@ -203,3 +205,37 @@ class CommunityGroupMessagingTests(TestCase):
         self.assertEqual(forwarded.data["to_group_slug"], other.slug)
         self.assertEqual(forwarded.data["message"]["body"], "Forward me")
         self.assertTrue(GroupMessage.objects.filter(group=other, body="Forward me").exists())
+
+    def test_group_message_video_upload(self):
+        self.client.force_authenticate(user=self.bob)
+        self.client.post(f"/api/communities/groups/{self.public_group.slug}/join/")
+        video = SimpleUploadedFile(
+            "clip.mp4",
+            b"\x00\x00\x00\x20ftypisom\x00\x00\x00\x00",
+            content_type="video/mp4",
+        )
+        send = self.client.post(
+            f"/api/communities/groups/{self.public_group.slug}/messages/",
+            {"body": "Video test", "video": video},
+            format="multipart",
+        )
+        self.assertEqual(send.status_code, 201, send.content)
+        self.assertTrue(send.data.get("video"))
+        message = GroupMessage.objects.get(id=send.data["id"])
+        self.assertTrue(message.video.name)
+
+    def test_group_message_image_upload(self):
+        from PIL import Image
+
+        self.client.force_authenticate(user=self.bob)
+        self.client.post(f"/api/communities/groups/{self.public_group.slug}/join/")
+        buf = BytesIO()
+        Image.new("RGB", (8, 8), color="red").save(buf, format="JPEG")
+        image = SimpleUploadedFile("photo.jpg", buf.getvalue(), content_type="image/jpeg")
+        send = self.client.post(
+            f"/api/communities/groups/{self.public_group.slug}/messages/",
+            {"body": "Photo test", "image": image},
+            format="multipart",
+        )
+        self.assertEqual(send.status_code, 201, send.content)
+        self.assertTrue(send.data.get("image"))
