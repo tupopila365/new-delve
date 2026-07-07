@@ -50,6 +50,7 @@ from .serializers import (
     GroupMessageReactSerializer,
     GroupMessageSerializer,
     GroupMemberReviewSerializer,
+    GroupMemberRoleSerializer,
 )
 
 DEFAULT_MESSAGE_PAGE = 50
@@ -107,6 +108,7 @@ class CommunityGroupViewSet(viewsets.ModelViewSet):
             "add_members",
             "pending_members",
             "review_member",
+            "update_member_role",
             "message_react",
             "message_delete",
             "message_forward",
@@ -157,8 +159,19 @@ class CommunityGroupViewSet(viewsets.ModelViewSet):
         return qs.distinct().order_by("-last_message_at", "-created_at")
 
     def get_object(self):
-        group = super().get_object()
-        if not can_view_group(group, self.request.user):
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        base = CommunityGroup.objects.filter(**filter_kwargs).first()
+        if base is None:
+            raise NotFound()
+        if self.action == "join":
+            if base.is_hidden:
+                raise NotFound()
+        elif not can_view_group(base, self.request.user):
+            raise NotFound()
+        user = self.request.user if self.request.user.is_authenticated else None
+        group = _annotate_groups(CommunityGroup.objects.filter(pk=base.pk), user).first()
+        if group is None:
             raise NotFound()
         return group
 
@@ -259,6 +272,38 @@ class CommunityGroupViewSet(viewsets.ModelViewSet):
             return Response({"action": "approve", "joined": True})
         membership.delete()
         return Response({"action": "reject", "joined": False})
+
+    @action(detail=True, methods=["post"], url_path="members/role")
+    def update_member_role(self, request, slug=None):
+        group = self.get_object()
+        if not is_group_admin(group, request.user):
+            raise PermissionDenied("Only group admins can change member roles.")
+        ser = GroupMemberRoleSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user_id = ser.validated_data["user_id"]
+        new_role = ser.validated_data["role"]
+        membership = GroupMembership.objects.filter(
+            group=group,
+            user_id=user_id,
+            status=MembershipStatus.ACTIVE,
+        ).first()
+        if membership is None:
+            raise NotFound("Active member not found.")
+        if membership.user_id == request.user.id and new_role != MembershipRole.ADMIN:
+            admin_count = GroupMembership.objects.filter(
+                group=group,
+                status=MembershipStatus.ACTIVE,
+                role=MembershipRole.ADMIN,
+            ).count()
+            if admin_count <= 1:
+                raise ValidationError({"detail": "You cannot remove the last group admin."})
+        if membership.role == new_role:
+            out = GroupMemberSerializer(membership, context=self.get_serializer_context())
+            return Response(out.data)
+        membership.role = new_role
+        membership.save(update_fields=["role"])
+        out = GroupMemberSerializer(membership, context=self.get_serializer_context())
+        return Response(out.data)
 
     @action(detail=True, methods=["post"])
     def join(self, request, slug=None):

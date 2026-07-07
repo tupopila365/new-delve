@@ -37,6 +37,11 @@
   border-radius: 0;
 }
 
+.create-studio--tool-open .create-studio__stage {
+  position: relative;
+  z-index: 65;
+}
+
 .create-studio__footer {
   display: grid;
   gap: 10px;

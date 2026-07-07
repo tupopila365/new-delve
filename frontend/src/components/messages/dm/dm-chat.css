@@ -33,7 +33,8 @@
 
 /* Break out of app-main horizontal padding on chat threads */
 .app-main:has(> .group-chat),
-.app-main:has(> .dm-page--thread) {
+.app-main:has(> .dm-page--thread),
+.app-main:has(.group-chat) {
   padding-left: 0;
   padding-right: 0;
   padding-bottom: 0;

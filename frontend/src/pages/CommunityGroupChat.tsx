@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { GroupChatView } from '../components/community/group/GroupChatView'
 import { useGroupThread } from '../components/community/group/useGroupThread'
 import type { CommunityGroup } from '../utils/communityGroups'
-import { groupDetailPath, groupInfoPath, groupJoinPath } from '../utils/communityGroups'
+import { groupDetailPath, groupInfoPath, groupJoinPath, isGroupMember } from '../utils/communityGroups'
 
 type JoinResult = { joined: boolean; pending_request: boolean }
 
@@ -14,7 +14,7 @@ function communityGroupQueryKey(slug: string | undefined, username: string | nul
 }
 
 function canReadGroupChat(group: CommunityGroup): boolean {
-  return Boolean(group.joined)
+  return isGroupMember(group)
 }
 
 function patchGroupJoined(
@@ -79,7 +79,7 @@ export function CommunityGroupChat() {
   })
 
   const group = groupQuery.data
-  const isJoined = Boolean(group?.joined || joinMut.data?.joined)
+  const isJoined = isGroupMember(group ? { ...group, joined: Boolean(group.joined || joinMut.data?.joined) } : null)
   const canRead = group ? canReadGroupChat({ ...group, joined: isJoined }) : false
   const canSend = Boolean(profile && isJoined)
   const thread = useGroupThread({

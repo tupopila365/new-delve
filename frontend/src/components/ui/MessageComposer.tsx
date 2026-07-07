@@ -4,6 +4,7 @@ import { CommunityVideoEditor } from '../community/CommunityVideoEditor'
 import { VoiceWaveform } from '../messages/chat/VoiceWaveform'
 import type { HashtagComposerConfig } from '../../hooks/useHashtagComposer'
 import { formatVoiceDuration } from '../../hooks/useVoiceRecorder'
+import { probeCommunityVideoFile } from '../../utils/communityMediaUpload'
 import { HashtagTextarea } from './HashtagTextarea'
 import '../messages/chat/voice-waveform.css'
 import './MessageComposer.css'
@@ -25,6 +26,7 @@ export type MessageComposerMediaProps = {
   onVoiceRecordStop?: () => void
   onVoiceRecordCancel?: () => void
   skipVideoEditor?: boolean
+  onVideoError?: (message: string) => void
 }
 
 type Props = {
@@ -97,10 +99,17 @@ export function MessageComposer({
 
   const clearAudio = () => media?.onAudioChange?.(null, null)
 
-  const pickVideo = (file: File) => {
+  const pickVideo = async (file: File) => {
     if (!media) return
     if (media.imagePreview) clearImage()
     if (media.audioPreview) clearAudio()
+
+    const probeError = await probeCommunityVideoFile(file)
+    if (probeError) {
+      media.onVideoError?.(probeError)
+      return
+    }
+
     if (media.skipVideoEditor) {
       if (editingVideo?.preview) URL.revokeObjectURL(editingVideo.preview)
       setEditingVideo(null)
@@ -192,7 +201,7 @@ export function MessageComposer({
             hidden
             onChange={(event) => {
               const file = event.target.files?.[0]
-              if (file) pickVideo(file)
+              if (file) void pickVideo(file)
               event.target.value = ''
             }}
           />

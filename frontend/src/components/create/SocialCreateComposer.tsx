@@ -270,7 +270,9 @@ export function SocialCreateComposer({ mode }: Props) {
   const leaveTarget = returnTo || (hostStory ? '/provider/stays' : '/create')
 
   return (
-    <main className={`create-studio create-studio--immersive${preview ? ' has-media' : ''}`}>
+    <main
+      className={`create-studio create-studio--immersive${preview ? ' has-media' : ''}${activeTool ? ' create-studio--tool-open' : ''}`}
+    >
       <CreateStudioHeader
         title={title}
         subtitle={subtitle}

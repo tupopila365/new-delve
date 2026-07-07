@@ -172,7 +172,12 @@ export function MediaCoverEditor({
                       setVideoTrim({ start: 0, end: duration })
                     }}
                   />
-                  <VideoTrimBar value={videoTrim} duration={videoDuration} onChange={setVideoTrim} />
+                  <VideoTrimBar
+                    value={videoTrim}
+                    duration={videoDuration}
+                    onChange={setVideoTrim}
+                    previewUrl={preview ?? undefined}
+                  />
                 </>
               ) : null}
             </>

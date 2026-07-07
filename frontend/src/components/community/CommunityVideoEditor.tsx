@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Eraser, Pencil, Scissors, X } from 'lucide-react'
+import { Eraser, Pencil, Scissors, Volume2, VolumeX, X } from 'lucide-react'
 import type { VideoTrim } from '../create/types'
 import { VideoTrimBar } from '../create/VideoTrimBar'
 import '../create/SocialCreateComposer.css'
@@ -36,6 +36,9 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
   const [activeStroke, setActiveStroke] = useState<CommunityDrawStroke | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [playheadSec, setPlayheadSec] = useState(0)
+  const [keepAudio, setKeepAudio] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const selectionSec = trimDurationSec(videoTrim)
   const trimInvalid = videoDuration > 0 && selectionSec > COMMUNITY_MAX_VIDEO_SEC
@@ -69,6 +72,7 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
     if (!video || videoDuration <= 0) return
 
     const tick = () => {
+      setPlayheadSec(video.currentTime)
       if (video.currentTime >= videoTrim.end - 0.03) {
         video.currentTime = videoTrim.start
       }
@@ -123,7 +127,13 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
     setBusy(true)
     setError('')
     try {
-      const processed = await prepareCommunityVideoForUpload(file, videoTrim, videoDuration, strokes)
+      const processed = await prepareCommunityVideoForUpload(
+        file,
+        videoTrim,
+        videoDuration,
+        strokes,
+        keepAudio && strokes.length === 0,
+      )
       const nextPreview = URL.createObjectURL(processed)
       onDone(processed, nextPreview)
     } catch (err) {
@@ -148,11 +158,22 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
           src={previewUrl}
           className="cm-video-editor__video"
           playsInline
-          muted
+          muted={!keepAudio || strokes.length > 0}
           autoPlay
           loop
+          preload="auto"
+          onError={() => {
+            setLoadFailed(true)
+            setError('This video could not be loaded. Try MP4, WebM, or MOV.')
+          }}
           onLoadedMetadata={(event) => {
+            setLoadFailed(false)
             const duration = event.currentTarget.duration || 0
+            if (!Number.isFinite(duration) || duration <= 0) {
+              setLoadFailed(true)
+              setError('This video could not be read. Try MP4 or re-export the clip.')
+              return
+            }
             setVideoDuration(duration)
             const nextTrim = defaultCommunityTrim(duration)
             setVideoTrim(nextTrim)
@@ -168,6 +189,29 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
           onPointerLeave={onPointerUp}
         />
       </div>
+
+      <div className="cm-video-editor__audio" role="group" aria-label="Video sound">
+        <button
+          type="button"
+          className={keepAudio && strokes.length === 0 ? 'is-active' : ''}
+          disabled={strokes.length > 0}
+          onClick={() => setKeepAudio(true)}
+        >
+          <Volume2 size={15} strokeWidth={2.25} aria-hidden />
+          Keep sound
+        </button>
+        <button
+          type="button"
+          className={!keepAudio || strokes.length > 0 ? 'is-active' : ''}
+          onClick={() => setKeepAudio(false)}
+        >
+          <VolumeX size={15} strokeWidth={2.25} aria-hidden />
+          Mute
+        </button>
+      </div>
+      {strokes.length > 0 ? (
+        <p className="cm-video-editor__audio-note">Drawing on a video removes the original sound.</p>
+      ) : null}
 
       <div className="cm-video-editor__tools" role="tablist" aria-label="Video editing tools">
         <button
@@ -197,6 +241,8 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
           value={videoTrim}
           duration={videoDuration}
           maxDurationSec={COMMUNITY_MAX_VIDEO_SEC}
+          previewUrl={previewUrl}
+          playheadSec={playheadSec}
           onChange={(next) => setVideoTrim(clampCommunityTrim(next, videoDuration))}
         />
       ) : (
@@ -230,7 +276,12 @@ export function CommunityVideoEditor({ file, previewUrl, onDone, onCancel }: Pro
 
       {error ? <p className="cm-video-editor__error">{error}</p> : null}
 
-      <button type="button" className="btn btn-primary cm-video-editor__save" disabled={busy || trimInvalid} onClick={() => void handleSave()}>
+      <button
+        type="button"
+        className="btn btn-primary cm-video-editor__save"
+        disabled={busy || trimInvalid || loadFailed}
+        onClick={() => void handleSave()}
+      >
         {busy ? 'Preparing…' : 'Use this video'}
       </button>
     </section>

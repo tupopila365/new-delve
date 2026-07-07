@@ -156,6 +156,10 @@ export function groupReviewMemberPath(slug: string) {
   return `/api/communities/groups/${encodeURIComponent(slug)}/members/review/`
 }
 
+export function groupUpdateMemberRolePath(slug: string) {
+  return `/api/communities/groups/${encodeURIComponent(slug)}/members/role/`
+}
+
 export function groupMessagesPath(slug: string, opts?: { limit?: number; beforeId?: number }) {
   const params = new URLSearchParams()
   if (opts?.limit) params.set('limit', String(opts.limit))
@@ -206,6 +210,15 @@ export function groupChatPath(slug: string) {
 export function groupShareUrl(slug: string): string {
   if (typeof window === 'undefined') return `/community/g/${slug}`
   return `${window.location.origin}/community/g/${encodeURIComponent(slug)}`
+}
+
+/** True when the viewer is an active group member (any role). */
+export function isGroupMember(
+  group: Pick<CommunityGroup, 'joined' | 'my_role'> | null | undefined,
+): boolean {
+  if (!group) return false
+  if (group.joined) return true
+  return group.my_role === 'admin' || group.my_role === 'member'
 }
 
 export function feedSearchPath(q: string, kind?: 'question' | 'tip') {

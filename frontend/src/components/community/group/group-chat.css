@@ -530,5 +530,14 @@
   z-index: 4;
   width: 100%;
   box-sizing: border-box;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px));
+  padding-bottom: calc(12px + var(--safe-bottom) + var(--keyboard-offset, 0px));
+}
+
+@media (max-width: 899px) {
+  .app-shell:has(.bottom-nav) .msg-composer-shell--group-chat {
+    z-index: 45;
+    padding-bottom: calc(
+      12px + var(--safe-bottom) + max(var(--keyboard-offset, 0px), var(--bottom-nav-clearance))
+    );
+  }
 }

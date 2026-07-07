@@ -76,6 +76,49 @@ class CommunityGroupMessagingTests(TestCase):
         self.assertEqual(len(read.data["results"]), 1)
         self.assertEqual(read.data["results"][0]["body"], "Hello group")
 
+    def test_private_group_member_can_retrieve_detail(self):
+        GroupMembership.objects.create(
+            group=self.private_group,
+            user=self.bob,
+            status=MembershipStatus.ACTIVE,
+            role="member",
+        )
+        self.client.force_authenticate(user=self.bob)
+        detail = self.client.get(f"/api/communities/groups/{self.private_group.slug}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.data["joined"])
+        self.assertEqual(detail.data["my_role"], "member")
+
+    def test_group_admin_can_promote_member(self):
+        GroupMembership.objects.create(
+            group=self.private_group,
+            user=self.bob,
+            status=MembershipStatus.ACTIVE,
+            role="member",
+        )
+        self.client.force_authenticate(user=self.alice)
+        promote = self.client.post(
+            f"/api/communities/groups/{self.private_group.slug}/members/role/",
+            {"user_id": self.bob.id, "role": "admin"},
+            format="json",
+        )
+        self.assertEqual(promote.status_code, 200)
+        self.assertEqual(promote.data["role"], "admin")
+        membership = GroupMembership.objects.get(group=self.private_group, user=self.bob)
+        self.assertEqual(membership.role, "admin")
+
+    def test_private_group_admin_can_retrieve_detail(self):
+        self.client.force_authenticate(user=self.alice)
+        detail = self.client.get(f"/api/communities/groups/{self.private_group.slug}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.data["joined"])
+        self.assertEqual(detail.data["my_role"], "admin")
+
+    def test_private_group_non_member_cannot_retrieve_detail(self):
+        self.client.force_authenticate(user=self.bob)
+        detail = self.client.get(f"/api/communities/groups/{self.private_group.slug}/")
+        self.assertEqual(detail.status_code, 404)
+
     def test_private_group_join_pending_and_admin_review(self):
         self.client.force_authenticate(user=self.bob)
         join = self.client.post(f"/api/communities/groups/{self.private_group.slug}/join/")

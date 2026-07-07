@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, apiFetch, asArray } from '../../api/client'
+import { apiFetch, asArray } from '../../api/client'
 import { fetchTagTrending, type TagSummary } from '../../api/tags'
 import { useAuth } from '../../auth/AuthContext'
 import type { FeedPost } from '../IgPostCard'
@@ -10,6 +10,8 @@ import { buildAskLocalsFormData } from '../../utils/communityAsk'
 import { startCreateSession, trackCreatePublish } from '../../utils/createAnalytics'
 import { extractHashtags, MAX_TAGS_PER_POST } from '../../utils/hashtags'
 import { invalidateSocialCaches } from '../../utils/socialCache'
+import { formatApiErrorMessage } from '../../utils/apiErrorMessage'
+import { validateCommunityImageFile, validateCommunityVideoFile } from '../../utils/communityMediaUpload'
 import { CommunityComposeModalShell } from './CommunityComposeModalShell'
 import { CommunityComposeTrendingTags } from './CommunityComposeTrendingTags'
 
@@ -102,8 +104,7 @@ export function CommunityAskModal({ open, onClose, onPosted }: Props) {
       onPosted(post)
       onClose()
     },
-    onError: (err) =>
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not post.'),
+    onError: (err) => setError(formatApiErrorMessage(err, 'Could not post.')),
   })
 
   const submit = () => {
@@ -151,7 +152,16 @@ export function CommunityAskModal({ open, onClose, onPosted }: Props) {
           media={{
             imagePreview,
             videoPreview,
+            onVideoError: (message) => setError(message),
             onImageChange: (file, preview) => {
+              if (file) {
+                const message = validateCommunityImageFile(file)
+                if (message) {
+                  setError(message)
+                  return
+                }
+              }
+              setError('')
               if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
               setImageFile(file)
               setImagePreview(preview)
@@ -162,6 +172,14 @@ export function CommunityAskModal({ open, onClose, onPosted }: Props) {
               }
             },
             onVideoChange: (file, preview) => {
+              if (file) {
+                const message = validateCommunityVideoFile(file)
+                if (message) {
+                  setError(message)
+                  return
+                }
+              }
+              setError('')
               if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
               setVideoFile(file)
               setVideoPreview(preview)

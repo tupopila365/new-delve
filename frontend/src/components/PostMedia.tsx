@@ -9,6 +9,7 @@ type Props = {
   className?: string
   /** Delvers feed: gradient overlay so video blocks do not look broken */
   showVideoPreview?: boolean
+  onMediaError?: () => void
 }
 
 /**
@@ -21,6 +22,7 @@ export function PostMedia({
   variant = 'feed',
   className = '',
   showVideoPreview = false,
+  onMediaError,
 }: Props) {
   const v = video ? mediaUrl(video) : undefined
   const img = image ? mediaUrl(image) : undefined
@@ -42,11 +44,12 @@ export function PostMedia({
           className={base}
           src={v}
           playsInline
-          muted
-          loop
+          muted={variant !== 'detail'}
+          loop={variant !== 'detail'}
           autoPlay={variant !== 'detail'}
           controls={variant === 'detail'}
-          preload="metadata"
+          preload={variant === 'feed' ? 'auto' : 'metadata'}
+          onError={onMediaError}
         />
       </div>
     )
@@ -55,7 +58,7 @@ export function PostMedia({
   if (img) {
     return (
       <div className={`post-media-wrap post-media-wrap--${variant} ${className}`.trim()}>
-        <img className={base} src={img} alt={alt} loading="lazy" decoding="async" />
+        <img className={base} src={img} alt={alt} loading="lazy" decoding="async" onError={onMediaError} />
       </div>
     )
   }

@@ -9,6 +9,7 @@ import { ComposerPillInput } from '../components/ui/ComposerPillInput'
 import { MessageComposer } from '../components/ui/MessageComposer'
 import type { FeedPost } from '../components/IgPostCard'
 import { buildAskLocalsFormData } from '../utils/communityAsk'
+import { validateCommunityImageFile, validateCommunityVideoFile } from '../utils/communityMediaUpload'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
 import { extractHashtags, MAX_TAGS_PER_POST } from '../utils/hashtags'
 import { invalidateSocialCaches } from '../utils/socialCache'
@@ -152,7 +153,16 @@ export function CreateAsk() {
             media={{
               imagePreview,
               videoPreview,
+              onVideoError: (message) => setError(message),
               onImageChange: (file, preview) => {
+                if (file) {
+                  const message = validateCommunityImageFile(file)
+                  if (message) {
+                    setError(message)
+                    return
+                  }
+                }
+                setError('')
                 if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
                 setImageFile(file)
                 setImagePreview(preview)
@@ -163,6 +173,14 @@ export function CreateAsk() {
                 }
               },
               onVideoChange: (file, preview) => {
+                if (file) {
+                  const message = validateCommunityVideoFile(file)
+                  if (message) {
+                    setError(message)
+                    return
+                  }
+                }
+                setError('')
                 if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
                 setVideoFile(file)
                 setVideoPreview(preview)

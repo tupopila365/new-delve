@@ -28,7 +28,7 @@ export function PostVideoTrimPanel({
           onTrimChange({ start: 0, end: duration })
         }}
       />
-      <VideoTrimBar value={videoTrim} duration={videoDuration} onChange={onTrimChange} />
+      <VideoTrimBar value={videoTrim} duration={videoDuration} onChange={onTrimChange} previewUrl={preview} />
     </div>
   )
 }

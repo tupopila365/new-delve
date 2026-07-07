@@ -407,7 +407,12 @@ export function HighlightMediaStudio({ onSaved, onCancel, submitLabel = 'Add sli
 
               />
 
-              <VideoTrimBar value={videoTrim} duration={videoDuration} onChange={setVideoTrim} />
+              <VideoTrimBar
+                value={videoTrim}
+                duration={videoDuration}
+                onChange={setVideoTrim}
+                previewUrl={preview ?? undefined}
+              />
 
             </>
 

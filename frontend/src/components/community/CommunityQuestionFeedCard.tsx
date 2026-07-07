@@ -5,6 +5,7 @@ import { UserAvatar } from '../UserAvatar'
 import { renderTextWithHashtags } from '../../utils/hashtags'
 import { communityPostPermalinkPath } from '../../utils/postPermalink'
 import { relativeTime } from '../../utils/relativeTime'
+import { CommunityFeedMedia } from './CommunityFeedMedia'
 import './community-feed-cards.css'
 
 type Props = {
@@ -46,6 +47,8 @@ export function CommunityQuestionFeedCard({ post, highlighted = false }: Props) 
       <div className="cm-feed-card__question">
         {renderTextWithHashtags(post.body, post.tag_slugs, 'cm-feed-card__hashtag')}
       </div>
+
+      <CommunityFeedMedia post={post} label="Question media" />
 
       {post.accepted_answer?.body ? (
         <p className="cm-feed-card__preview">

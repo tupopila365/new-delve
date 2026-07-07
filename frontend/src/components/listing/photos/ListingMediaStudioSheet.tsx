@@ -169,7 +169,12 @@ export function ListingMediaStudioSheet({
                     setVideoTrim({ start: 0, end: duration })
                   }}
                 />
-                <VideoTrimBar value={videoTrim} duration={videoDuration} onChange={setVideoTrim} />
+                <VideoTrimBar
+                  value={videoTrim}
+                  duration={videoDuration}
+                  onChange={setVideoTrim}
+                  previewUrl={preview}
+                />
               </>
             ) : (
               <MediaPicker mediaKind="video" onMediaKindChange={() => {}} onPick={onPick} />

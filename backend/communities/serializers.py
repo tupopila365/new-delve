@@ -254,6 +254,11 @@ class GroupMemberReviewSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=("approve", "reject"))
 
 
+class GroupMemberRoleSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    role = serializers.ChoiceField(choices=MembershipRole.choices)
+
+
 class GroupMemberSerializer(serializers.ModelSerializer):
     user = GroupAuthorSerializer(read_only=True)
 
@@ -307,6 +312,9 @@ class GroupListSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
+        status = getattr(obj, "my_status", None)
+        if status is not None:
+            return status == MembershipStatus.ACTIVE
         return is_active_member(obj, request.user)
 
     def get_pending_request(self, obj):

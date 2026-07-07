@@ -24,6 +24,8 @@ import {
 
   groupsListPath,
 
+  isGroupMember,
+
 } from '../../utils/communityGroups'
 
 import { parseTagFromSearch } from '../../utils/communityTags'
@@ -286,7 +288,7 @@ export function CommunityGroupsView({ searchQuery }: Props) {
 
   const myGroups = asArray<CommunityGroup>(mineQuery.data)
 
-  const discoverGroups = asArray<CommunityGroup>(discoverQuery.data).filter((g) => !g.joined)
+  const discoverGroups = asArray<CommunityGroup>(discoverQuery.data).filter((g) => !isGroupMember(g))
 
 
 
@@ -427,9 +429,10 @@ export function CommunityGroupsView({ searchQuery }: Props) {
               joinMut.isSuccess && joinMut.variables === group.slug && joinMut.data?.joined
 
             const joined = group.joined || justJoined
+            const isMember = isGroupMember({ ...group, joined })
 
             const pending = group.pending_request || (joinMut.variables === group.slug && joinMut.data?.pending_request)
-            const canOpenChat = group.visibility === 'public' || joined
+            const canOpenChat = group.visibility === 'public' || isMember
             const openGroup = () => navigate(canOpenChat ? groupChatPath(group.slug) : groupInfoPath(group.slug))
 
             return (

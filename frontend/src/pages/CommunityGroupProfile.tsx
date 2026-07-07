@@ -18,6 +18,8 @@ import {
   groupPendingMembersPath,
   groupReviewMemberPath,
   groupShareUrl,
+  groupUpdateMemberRolePath,
+  isGroupMember,
 } from '../utils/communityGroups'
 import './CommunityGroupProfile.css'
 
@@ -49,7 +51,7 @@ export function CommunityGroupProfile() {
 
   const membersQuery = useQuery({
     queryKey: ['community-group-members', slug],
-    enabled: Boolean(slug) && Boolean(groupQuery.data?.joined),
+    enabled: Boolean(slug) && isGroupMember(groupQuery.data),
     queryFn: () => apiFetch<GroupMember[]>(groupMembersPath(slug!)),
   })
 
@@ -121,10 +123,23 @@ export function CommunityGroupProfile() {
     },
   })
 
+  const roleMut = useMutation({
+    mutationFn: ({ userId, role }: { userId: number; role: 'admin' | 'member' }) =>
+      apiFetch<GroupMember>(groupUpdateMemberRolePath(slug!), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, role }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['community-group-members', slug] })
+      void qc.invalidateQueries({ queryKey: ['community-group', slug] })
+    },
+  })
+
   const group = groupQuery.data
   const members = asArray<GroupMember>(membersQuery.data)
   const topicLabel = COMMUNITY_GROUP_TOPICS.find((t) => t.id === group?.topic)?.label ?? group?.topic
-  const isJoined = Boolean(group?.joined || joinMut.data?.joined)
+  const isJoined = isGroupMember(group ? { ...group, joined: Boolean(group.joined || joinMut.data?.joined) } : null)
   const isAdmin = group?.my_role === 'admin'
 
   if (authLoading || groupQuery.isLoading) {
@@ -252,7 +267,7 @@ export function CommunityGroupProfile() {
         ) : (
           <ul className="group-profile__members">
             {members.map((row) => (
-              <li key={row.user.username}>
+              <li key={row.user.username} className="group-profile__member-row">
                 <Link to={`/u/${encodeURIComponent(row.user.username)}`} className="group-profile__member-pill">
                   <UserAvatar
                     src={row.user.avatar}
@@ -263,6 +278,29 @@ export function CommunityGroupProfile() {
                   <span>{row.user.display_name}</span>
                   {row.role === 'admin' ? <span className="group-profile__member-pill-badge">Admin</span> : null}
                 </Link>
+                {isAdmin && row.user.username !== profile?.username ? (
+                  <div className="group-profile__member-actions">
+                    {row.role === 'member' ? (
+                      <button
+                        type="button"
+                        className="group-profile__member-role-btn"
+                        disabled={roleMut.isPending}
+                        onClick={() => roleMut.mutate({ userId: row.user.id, role: 'admin' })}
+                      >
+                        Make admin
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="group-profile__member-role-btn group-profile__member-role-btn--muted"
+                        disabled={roleMut.isPending}
+                        onClick={() => roleMut.mutate({ userId: row.user.id, role: 'member' })}
+                      >
+                        Remove admin
+                      </button>
+                    )}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

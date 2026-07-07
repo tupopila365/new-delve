@@ -2847,7 +2847,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           base.video = await mockFileToDataUrl(videoFile as File)
         }
       }
-      if (hasImage) base.image = 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70'
+      if (hasImage) {
+        const imageFile = init.body.get('image')
+        if (imageFile && typeof imageFile === 'object' && 'arrayBuffer' in imageFile) {
+          base.image = await mockFileToDataUrl(imageFile as File)
+        }
+      }
       if (is_accommodation_story) {
         base.is_delvers = false
         base.is_delvers_highlight = false

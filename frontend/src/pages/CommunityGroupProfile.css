@@ -10,7 +10,7 @@
 .group-profile h1,
 .group-profile h2,
 .group-profile h3 {
-  color: rgba(255, 250, 242, 0.95);
+  color: #fff;
 }
 
 .group-profile__head {
@@ -80,7 +80,7 @@
   margin: 0;
   font-size: 1.35rem;
   font-weight: 900;
-  color: #fffaf2;
+  color: #fff;
 }
 
 .group-profile__topic {
@@ -115,7 +115,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 250, 242, 0.45);
+  color: #fff;
 }
 
 .group-profile__section-head {
@@ -199,7 +199,43 @@
 }
 
 .group-profile__members > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.group-profile__member-row {
+  width: 100%;
+}
+
+.group-profile__member-actions {
   display: inline-flex;
+  gap: 6px;
+}
+
+.group-profile__member-role-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.12);
+  color: #c4b5fd;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.group-profile__member-role-btn--muted {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 250, 242, 0.72);
+}
+
+.group-profile__member-role-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .group-profile__member-pill {

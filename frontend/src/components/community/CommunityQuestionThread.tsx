@@ -18,7 +18,8 @@ import { invalidatePostEngagementCaches } from '../../utils/socialCache'
 import { CommunityCommentNode } from './CommunityCommentNode'
 import { CommunityInlineReplyComposer } from './CommunityInlineReplyComposer'
 import { PostOverflowMenu } from './CommunityOverflowMenu'
-import { postToCommunityMedia, useCommunityMediaViewer } from './CommunityMediaViewer'
+import { PostMedia } from '../PostMedia'
+import { useCommunityMediaViewer } from './CommunityMediaViewer'
 import type { ReportTarget } from '../report/ReportButton'
 import './community-question-thread.css'
 import './community-media-lightbox.css'
@@ -61,7 +62,6 @@ function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaul
   const name = post.author.display_name || post.author.username
   const handle = `@${post.author.username}`
   const hasMedia = Boolean(post.image || post.video)
-  const mediaItem = postToCommunityMedia(post, isQuestion ? 'Question media' : 'Tip media')
   const composerPlaceholder = isQuestion ? 'Write an answer…' : 'Add a reply…'
 
   const commentsQueryKey = isQuestion
@@ -229,7 +229,7 @@ function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaul
             <p className="cm-comment__text">{renderTextWithHashtags(post.body, post.tag_slugs)}</p>
           ) : null}
 
-          {hasMedia && mediaItem ? (
+          {hasMedia ? (
             <div className="cm-comment__media">
               <button
                 type="button"
@@ -237,18 +237,12 @@ function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaul
                 aria-label="Open media fullscreen"
                 onClick={() => openPostMedia(post, isQuestion ? 'Question media' : 'Tip media')}
               >
-                {mediaItem.kind === 'video' ? (
-                  <video
-                    src={mediaItem.src}
-                    poster={mediaItem.poster ?? undefined}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    aria-label={isQuestion ? 'Question video' : 'Tip video'}
-                  />
-                ) : (
-                  <img src={mediaItem.src} alt="" />
-                )}
+                <PostMedia
+                  image={post.image}
+                  video={post.video}
+                  variant="feed"
+                  alt={isQuestion ? 'Question media' : 'Tip media'}
+                />
               </button>
             </div>
           ) : null}

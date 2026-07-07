@@ -232,7 +232,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 250, 242, 0.45);
+  color: #fff;
 }
 
 .cm-groups__create-row {
@@ -554,9 +554,11 @@
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px dashed rgba(255, 154, 82, 0.4);
-  background: rgba(255, 154, 82, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.12), transparent 58%),
+    rgba(255, 255, 255, 0.02);
   font-size: 0.8rem;
-  color: rgba(255, 250, 242, 0.62);
+  color: rgba(255, 255, 255, 0.52);
   line-height: 1.45;
 }

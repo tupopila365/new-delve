@@ -35,6 +35,8 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --nav-h: 52px;
   --bottom-nav-h: 56px;
+  /* Floating tab bar: 12px lift + bar height + safe area */
+  --bottom-nav-clearance: calc(var(--bottom-nav-h) + var(--safe-bottom) + 12px);
   --topnav-h: 54px;
 
   /* Detail page design tokens */

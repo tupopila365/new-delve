@@ -5,7 +5,7 @@ import { UserAvatar } from '../UserAvatar'
 import { renderTextWithHashtags } from '../../utils/hashtags'
 import { communityPostPermalinkPath } from '../../utils/postPermalink'
 import { formatCount, relativeTime } from '../../utils/relativeTime'
-import { postToCommunityMedia, useCommunityMediaViewer } from './CommunityMediaViewer'
+import { CommunityFeedMedia } from './CommunityFeedMedia'
 import './community-feed-cards.css'
 import './community-media-lightbox.css'
 
@@ -15,11 +15,8 @@ type Props = {
 }
 
 export function CommunityTipFeedCard({ post, highlighted = false }: Props) {
-  const { openPostMedia } = useCommunityMediaViewer()
   const name = post.author.display_name || post.author.username
   const replyCount = post.comments_count ?? 0
-  const mediaItem = postToCommunityMedia(post, 'Tip media')
-  const hasMedia = Boolean(mediaItem)
 
   return (
     <Link
@@ -46,24 +43,7 @@ export function CommunityTipFeedCard({ post, highlighted = false }: Props) {
         {renderTextWithHashtags(post.body, post.tag_slugs, 'cm-feed-card__hashtag')}
       </div>
 
-      {hasMedia && mediaItem ? (
-        <button
-          type="button"
-          className="cm-feed-card__media cm-media-open"
-          aria-label="Open media fullscreen"
-          onClick={(event) => {
-            event.preventDefault()
-            event.stopPropagation()
-            openPostMedia(post, 'Tip media')
-          }}
-        >
-          {mediaItem.kind === 'video' ? (
-            <video src={mediaItem.src} poster={mediaItem.poster ?? undefined} muted playsInline preload="metadata" />
-          ) : (
-            <img src={mediaItem.src} alt="" />
-          )}
-        </button>
-      ) : null}
+      <CommunityFeedMedia post={post} label="Tip media" />
 
       <div className="cm-feed-card__footer">
         <span className="cm-feed-card__stat">

@@ -62,6 +62,44 @@
   cursor: crosshair;
 }
 
+.cm-video-editor__audio {
+  display: flex;
+  gap: 8px;
+}
+
+.cm-video-editor__audio button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(28, 20, 16, 0.12);
+  border-radius: 999px;
+  background: rgba(28, 20, 16, 0.03);
+  color: var(--text-secondary, #6b5d52);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cm-video-editor__audio button.is-active {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent, #7c3aed);
+}
+
+.cm-video-editor__audio button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cm-video-editor__audio-note {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-tertiary, #9a8a7e);
+}
+
 .cm-video-editor__tools {
   display: flex;
   gap: 8px;
@@ -146,6 +184,10 @@
 
 .cm-video-editor__save {
   width: 100%;
+}
+
+.cm-video-editor .video-trim-bar {
+  margin-top: 4px;
 }
 
 .cm-video-editor .create-panel {

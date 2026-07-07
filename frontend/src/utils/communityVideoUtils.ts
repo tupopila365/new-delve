@@ -2,6 +2,7 @@ import type { VideoTrim } from '../components/create/types'
 
 export const COMMUNITY_MAX_VIDEO_SEC = 30
 export const TRIM_FULL_VIDEO_EPSILON_SEC = 0.15
+const RENDER_TIMEOUT_MS = 120_000
 
 export type CommunityDrawStroke = {
   color: string
@@ -33,7 +34,7 @@ function pickRecorderMimeType(): string {
       return mime
     }
   }
-  throw new Error('Video trimming is not supported in this browser.')
+  throw new Error('Video editing is not supported in this browser.')
 }
 
 export function clampCommunityTrim(trim: VideoTrim, duration: number): VideoTrim {
@@ -69,7 +70,7 @@ function waitForEvent(target: EventTarget, event: string): Promise<void> {
     }
     const onError = () => {
       cleanup()
-      reject(new Error('Could not process video'))
+      reject(new Error('This video could not be loaded. Try MP4 or a shorter clip.'))
     }
     const cleanup = () => {
       target.removeEventListener(event, onSuccess)
@@ -78,6 +79,16 @@ function waitForEvent(target: EventTarget, event: string): Promise<void> {
     target.addEventListener(event, onSuccess, { once: true })
     target.addEventListener('error', onError, { once: true })
   })
+}
+
+function captureVideoStream(video: HTMLVideoElement, fps = 30): MediaStream {
+  const el = video as HTMLVideoElement & {
+    captureStream?: (frameRate?: number) => MediaStream
+    mozCaptureStream?: (frameRate?: number) => MediaStream
+  }
+  if (typeof el.captureStream === 'function') return el.captureStream(fps)
+  if (typeof el.mozCaptureStream === 'function') return el.mozCaptureStream(fps)
+  throw new Error('Could not process video in this browser.')
 }
 
 function drawStrokes(
@@ -103,52 +114,50 @@ function drawStrokes(
   }
 }
 
-export async function renderCommunityVideo(
-  file: File,
+type PaintFrame = (ctx: CanvasRenderingContext2D, width: number, height: number) => void
+
+async function recordTrimmedVideo(
+  video: HTMLVideoElement,
   trim: VideoTrim,
-  duration: number,
-  strokes: CommunityDrawStroke[],
+  paintFrame?: PaintFrame,
 ): Promise<Blob> {
-  const safeTrim = clampCommunityTrim(trim, duration)
-  const clipSec = trimDurationSec(safeTrim)
-  if (clipSec <= 0) {
-    throw new Error('Set a valid trim range before sharing.')
-  }
-  if (clipSec > COMMUNITY_MAX_VIDEO_SEC) {
-    throw new Error(`Community videos must be ${COMMUNITY_MAX_VIDEO_SEC} seconds or less.`)
-  }
+  const mimeType = pickRecorderMimeType()
+  let cleanup = () => {}
+  let stream: MediaStream
 
-  const url = URL.createObjectURL(file)
-  const video = document.createElement('video')
-  video.playsInline = true
-  video.muted = true
-  video.src = url
-
-  try {
-    await waitForEvent(video, 'loadedmetadata')
+  if (paintFrame) {
     const canvas = document.createElement('canvas')
     canvas.width = video.videoWidth || 720
     canvas.height = video.videoHeight || 1280
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not prepare video canvas.')
+    stream = canvas.captureStream(30)
+    const tick = () => paintFrame(ctx, canvas.width, canvas.height)
+    video.addEventListener('timeupdate', tick)
+    video.addEventListener('seeked', tick)
+    cleanup = () => {
+      video.removeEventListener('timeupdate', tick)
+      video.removeEventListener('seeked', tick)
+    }
+    tick()
+  } else {
+    stream = captureVideoStream(video)
+  }
 
-    video.currentTime = Math.max(0, safeTrim.start)
-    await waitForEvent(video, 'seeked')
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: 2_500_000,
+  })
+  const chunks: Blob[] = []
 
-    const mimeType = pickRecorderMimeType()
-    const stream = canvas.captureStream(30)
-    const recorder = new MediaRecorder(stream, {
-      mimeType,
-      videoBitsPerSecond: 2_500_000,
-    })
-    const chunks: Blob[] = []
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
+  try {
+    return await new Promise<Blob>((resolve, reject) => {
       let settled = false
       const finish = (fn: () => void) => {
         if (settled) return
         settled = true
         window.clearTimeout(timeoutId)
+        cleanup()
         fn()
       }
 
@@ -160,7 +169,7 @@ export async function renderCommunityVideo(
         }
         video.pause()
         finish(() => reject(new Error('Video preparation timed out. Try a shorter clip.')))
-      }, 120_000)
+      }, RENDER_TIMEOUT_MS)
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data)
@@ -179,20 +188,12 @@ export async function renderCommunityVideo(
         finish(() => reject(new Error('Could not prepare video.')))
       }
 
-      const paintFrame = () => {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        if (strokes.length > 0) {
-          drawStrokes(ctx, strokes, canvas.width, canvas.height)
-        }
-      }
-
       const stopRecording = () => {
         if (recorder.state !== 'inactive') recorder.stop()
       }
 
       video.ontimeupdate = () => {
-        paintFrame()
-        if (video.currentTime >= safeTrim.end - 0.05) {
+        if (video.currentTime >= trim.end - 0.05) {
           video.pause()
           stopRecording()
         }
@@ -200,13 +201,56 @@ export async function renderCommunityVideo(
       video.onended = stopRecording
 
       recorder.start(100)
-      paintFrame()
       void video.play().catch(() => {
         finish(() => reject(new Error('Could not play video for export.')))
       })
     })
+  } catch (err) {
+    cleanup()
+    throw err
+  }
+}
 
-    return blob
+export async function renderCommunityVideo(
+  file: File,
+  trim: VideoTrim,
+  duration: number,
+  strokes: CommunityDrawStroke[],
+  keepAudio = true,
+): Promise<Blob> {
+  const safeTrim = clampCommunityTrim(trim, duration)
+  const clipSec = trimDurationSec(safeTrim)
+  if (clipSec <= 0) {
+    throw new Error('Set a valid trim range before sharing.')
+  }
+  if (clipSec > COMMUNITY_MAX_VIDEO_SEC) {
+    throw new Error(`Community videos must be ${COMMUNITY_MAX_VIDEO_SEC} seconds or less.`)
+  }
+
+  const url = URL.createObjectURL(file)
+  const video = document.createElement('video')
+  video.playsInline = true
+  video.preload = 'auto'
+  video.src = url
+
+  const useCanvas = strokes.length > 0 || !keepAudio
+  video.muted = useCanvas
+
+  try {
+    await waitForEvent(video, 'loadedmetadata')
+    video.currentTime = Math.max(0, safeTrim.start)
+    await waitForEvent(video, 'seeked')
+
+    if (useCanvas) {
+      return recordTrimmedVideo(video, safeTrim, (ctx, width, height) => {
+        ctx.drawImage(video, 0, 0, width, height)
+        if (strokes.length > 0) {
+          drawStrokes(ctx, strokes, width, height)
+        }
+      })
+    }
+
+    return recordTrimmedVideo(video, safeTrim)
   } finally {
     URL.revokeObjectURL(url)
     video.src = ''
@@ -218,18 +262,24 @@ export async function prepareCommunityVideoForUpload(
   trim: VideoTrim,
   duration: number,
   strokes: CommunityDrawStroke[],
+  keepAudio = true,
 ): Promise<File> {
   const safeTrim = clampCommunityTrim(trim, duration)
-  const needsRender =
-    strokes.length > 0 ||
-    !isFullVideoTrim(safeTrim, duration) ||
-    trimDurationSec(safeTrim) > COMMUNITY_MAX_VIDEO_SEC
+  const trimmed = !isFullVideoTrim(safeTrim, duration)
+  const tooLong = trimDurationSec(safeTrim) > COMMUNITY_MAX_VIDEO_SEC
+  const hasDrawings = strokes.length > 0
 
-  if (!needsRender && trimDurationSec(safeTrim) <= COMMUNITY_MAX_VIDEO_SEC) {
+  if (!trimmed && !tooLong && !hasDrawings && keepAudio) {
     return file
   }
 
-  const blob = await renderCommunityVideo(file, safeTrim, duration, strokes)
+  if (!trimmed && !tooLong && !hasDrawings && !keepAudio) {
+    const blob = await renderCommunityVideo(file, safeTrim, duration, strokes, false)
+    const mimeType = blob.type || 'video/webm'
+    return new File([blob], trimmedFilename(file, mimeType), { type: mimeType })
+  }
+
+  const blob = await renderCommunityVideo(file, safeTrim, duration, strokes, keepAudio)
   const mimeType = blob.type || 'video/webm'
   return new File([blob], trimmedFilename(file, mimeType), { type: mimeType })
 }
