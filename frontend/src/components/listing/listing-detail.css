@@ -783,7 +783,7 @@
 }
 
 .listing-moments__thumb--btn:focus-visible {
-  outline: 2px solid var(--accent-ring, rgba(232, 98, 10, 0.65));
+  outline: 2px solid var(--accent-ring, rgba(124, 58, 237, 0.65));
   outline-offset: 2px;
 }
 
@@ -1174,7 +1174,7 @@
 }
 
 .gpkg-detail__note a {
-  color: var(--accent, #e8620a);
+  color: var(--accent, #7c3aed);
   font-weight: 800;
   text-decoration: none;
 }

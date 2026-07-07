@@ -53,6 +53,7 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 900;
+  color: #fffaf2;
 }
 
 .msg-compose-sheet__close {
@@ -168,7 +169,7 @@
   overflow: hidden;
   border-radius: 50%;
   background: linear-gradient(145deg, #2a2a2a, #161616);
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.9rem;
   font-weight: 950;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
@@ -206,7 +207,7 @@
 
 .msg-compose-sheet__spinner {
   animation: msg-compose-spin 0.8s linear infinite;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 @keyframes msg-compose-spin {

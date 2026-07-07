@@ -139,7 +139,7 @@
 }
 
 .stay-card-v2__tags span {
-  background: rgba(232, 98, 10, 0.14);
+  background: rgba(124, 58, 237, 0.14);
   color: #ffb16f;
 }
 
@@ -165,9 +165,9 @@
 }
 
 .stay-card-v2__actions button.is-active {
-  border-color: rgba(232, 98, 10, 0.5);
-  background: rgba(232, 98, 10, 0.18);
-  color: #ff9a52;
+  border-color: rgba(124, 58, 237, 0.5);
+  background: rgba(124, 58, 237, 0.18);
+  color: #a78bfa;
 }
 
 .stay-card-v2__actions button:disabled {

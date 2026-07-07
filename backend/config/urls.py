@@ -17,6 +17,8 @@ urlpatterns = [
     path("api/promotions/", include("promotions.urls")),
     path("api/journeys/", include("journeys.urls")),
     path("api/highlights/", include("highlights.urls")),
+    path("api/communities/", include("communities.urls")),
+    path("api/tags/", include("tags.urls")),
     path("api/search/", include("config.search_urls")),
     path("api/home/", include("config.home_urls")),
 ]

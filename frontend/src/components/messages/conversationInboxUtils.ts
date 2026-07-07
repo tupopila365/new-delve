@@ -23,6 +23,51 @@ export type InboxConversation = {
   unread_count?: number
 }
 
+export type InboxGroupThread = {
+  id: number
+  slug: string
+  name: string
+  cover_src?: string | null
+  member_count: number
+  last_message: { body: string; sender_username: string; created_at: string } | null
+  updated_at: string
+  unread_count?: number
+}
+
+export type InboxEntry =
+  | { kind: 'dm'; data: InboxConversation }
+  | { kind: 'group'; data: InboxGroupThread }
+
+export function mergeInboxEntries(
+  conversations: InboxConversation[],
+  groups: InboxGroupThread[],
+): InboxEntry[] {
+  const entries: InboxEntry[] = [
+    ...conversations.map((data) => ({ kind: 'dm' as const, data })),
+    ...groups.map((data) => ({ kind: 'group' as const, data })),
+  ]
+  return entries.sort((a, b) => {
+    const aTime = Date.parse(a.data.updated_at)
+    const bTime = Date.parse(b.data.updated_at)
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0)
+  })
+}
+
+export function groupPreviewText(
+  thread: InboxGroupThread,
+  myUsername: string,
+): { text: string; fromYou: boolean } {
+  if (!thread.last_message) return { text: 'No messages yet', fromYou: false }
+  const body = thread.last_message.body.trim()
+  const clipped = body.length > 52 ? `${body.slice(0, 52)}…` : body
+  const fromYou = thread.last_message.sender_username === myUsername
+  return { text: fromYou ? `You: ${clipped}` : clipped, fromYou }
+}
+
+export function groupInitial(name: string): string {
+  return name.trim().charAt(0).toUpperCase() || 'G'
+}
+
 export function conversationOther(
   conversation: InboxConversation,
   myUsername: string,

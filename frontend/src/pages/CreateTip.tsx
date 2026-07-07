@@ -1,21 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError, apiFetch } from '../api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError, apiFetch, asArray } from '../api/client'
+import { fetchTagTrending, type TagSummary } from '../api/tags'
 import { useAuth } from '../auth/AuthContext'
-import { CreateStudioHeader } from '../components/create'
 import { CommunityMediaAttach } from '../components/community/CommunityMediaAttach'
-import type { FeedPost } from '../components/IgPostCard'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
 import { buildCommunityTipFormData } from '../utils/communityTip'
+import type { FeedPost } from '../components/IgPostCard'
+import { HashtagTextarea } from '../components/ui/HashtagTextarea'
+import { extractHashtags, MAX_TAGS_PER_POST } from '../utils/hashtags'
 import { invalidateSocialCaches } from '../utils/socialCache'
 import './CreateAsk.css'
 
-const TAGS = ['Food', 'Transport', 'Safety', 'Parking', 'Routes', 'Hidden gems']
-
-function tagHashtag(tag: string): string {
-  return `#${tag.toLowerCase().replace(/\s+/g, '')}`
-}
+const TRENDING_TAG_LIMIT = 8
 
 export function CreateTip() {
   const { profile } = useAuth()
@@ -36,8 +34,17 @@ export function CreateTip() {
     if (prefill) setPlace(prefill)
   }, [searchParams])
 
+  const trendingQuery = useQuery({
+    queryKey: ['tags-trending', 'community'],
+    queryFn: () => fetchTagTrending('community', TRENDING_TAG_LIMIT),
+  })
+  const trendingTags = useMemo(() => asArray<TagSummary>(trendingQuery.data), [trendingQuery.data])
+
+  const tagCount = useMemo(() => extractHashtags(message).length, [message])
+  const tooManyTags = tagCount > MAX_TAGS_PER_POST
+
   const isDirty = place.trim().length > 0 || message.trim().length > 0 || Boolean(imageFile || videoFile)
-  const canPost = message.trim().length > 0 || Boolean(imageFile || videoFile)
+  const canPost = (message.trim().length > 0 || Boolean(imageFile || videoFile)) && !tooManyTags
 
   useEffect(() => () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview)
@@ -72,7 +79,7 @@ export function CreateTip() {
       })
       await invalidateSocialCaches(qc, { username: profile?.username })
       void qc.invalidateQueries({ queryKey: ['feed'] })
-      navigate(`/community?postedTip=${post.id}`)
+      navigate(`/community/posts/${post.id}`)
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not post.'),
@@ -131,10 +138,17 @@ export function CreateTip() {
 
         <label className="create-ask__field">
           <span>Your tip</span>
-          <textarea
+          <HashtagTextarea
+            theme="light"
             rows={5}
+            inputClassName="create-ask__textarea"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={setMessage}
+            hashtags={{
+              scope: 'community',
+              maxTags: MAX_TAGS_PER_POST,
+              onMaxTags: () => setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`),
+            }}
             placeholder="What should travellers know? Use #hashtags to help people find it."
             autoFocus
           />
@@ -165,16 +179,21 @@ export function CreateTip() {
           }}
         />
 
-        <div className="create-ask__tips" aria-label="Suggested hashtags">
-          {TAGS.map((tag) => {
-            const hashtag = tagHashtag(tag)
+        <div className="create-ask__tips" aria-label="Trending hashtags">
+          {trendingTags.map((tag) => {
+            const hashtag = `#${tag.slug}`
             return (
               <button
-                key={tag}
+                key={tag.slug}
                 type="button"
                 className="create-ask__tip"
                 onClick={() => {
-                  if (message.includes(hashtag)) return
+                  if (extractHashtags(message).includes(tag.slug)) return
+                  if (extractHashtags(message).length >= MAX_TAGS_PER_POST) {
+                    setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`)
+                    return
+                  }
+                  setError('')
                   setMessage((value) => (value.trim() ? `${value.trim()} ${hashtag}` : `${hashtag} `))
                 }}
               >
@@ -183,6 +202,12 @@ export function CreateTip() {
             )
           })}
         </div>
+
+        {tooManyTags ? (
+          <p className="create-ask__error" role="alert">
+            Use up to {MAX_TAGS_PER_POST} hashtags per post.
+          </p>
+        ) : null}
 
         {error ? <p className="create-ask__error">{error}</p> : null}
         <p className="create-ask__note">Your tip appears on the community feed right away.</p>

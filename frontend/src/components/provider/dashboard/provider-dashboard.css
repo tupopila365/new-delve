@@ -35,7 +35,7 @@
 }
 
 .prov-dash__pill--warn {
-  background: rgba(232, 98, 10, 0.12);
+  background: rgba(124, 58, 237, 0.12);
   color: var(--accent);
 }
 
@@ -95,8 +95,8 @@
 }
 
 .prov-dash__stat--highlight {
-  background: rgba(232, 98, 10, 0.08);
-  border-color: rgba(232, 98, 10, 0.15);
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.15);
 }
 
 .prov-dash__stat--highlight strong {
@@ -173,8 +173,8 @@
 }
 
 .prov-dash__shortcut:hover {
-  border-color: rgba(232, 98, 10, 0.25);
-  background: rgba(232, 98, 10, 0.04);
+  border-color: rgba(124, 58, 237, 0.25);
+  background: rgba(124, 58, 237, 0.04);
 }
 
 .prov-dash__shortcut svg {
@@ -251,7 +251,7 @@
 }
 
 .prov-dash__booking-status--pending {
-  background: rgba(232, 98, 10, 0.1);
+  background: rgba(124, 58, 237, 0.1);
   color: var(--accent);
 }
 

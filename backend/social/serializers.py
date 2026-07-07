@@ -8,6 +8,7 @@ from food.models import FoodVenue
 from transport.models import BusTrip, VehicleRentalListing
 
 from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
+from tags.services import extract_hashtags_from_text, linkable_slugs_for_post, MAX_TAGS_PER_CONTENT
 from .video_validation import validate_post_upload_keys, validate_post_video_file
 
 User = get_user_model()
@@ -76,6 +77,7 @@ class PostSerializer(serializers.ModelSerializer):
     saved_by_me = serializers.SerializerMethodField()
     fired_by_me = serializers.SerializerMethodField()
     accepted_answer = serializers.SerializerMethodField()
+    tag_slugs = serializers.SerializerMethodField()
     listing = serializers.PrimaryKeyRelatedField(
         queryset=AccommodationListing.objects.none(),
         required=False,
@@ -132,6 +134,7 @@ class PostSerializer(serializers.ModelSerializer):
             "saved_by_me",
             "fired_by_me",
             "accepted_answer",
+            "tag_slugs",
         )
         read_only_fields = ("author", "created_at")
 
@@ -299,6 +302,16 @@ class PostSerializer(serializers.ModelSerializer):
         if food_venue is not None and not food_venue.is_active:
             raise serializers.ValidationError("That food venue is not available for moments.")
 
+        body = attrs.get("body")
+        if body is None and instance is not None:
+            body = instance.body
+        if body:
+            tag_slugs = extract_hashtags_from_text(body)
+            if len(tag_slugs) > MAX_TAGS_PER_CONTENT:
+                raise serializers.ValidationError(
+                    {"body": f"Use up to {MAX_TAGS_PER_CONTENT} hashtags per post."}
+                )
+
         return attrs
 
     def to_representation(self, instance):
@@ -372,6 +385,11 @@ class PostSerializer(serializers.ModelSerializer):
         if not comment:
             return None
         return CommentSerializer(comment, context=self.context).data
+
+    def get_tag_slugs(self, obj):
+        if hasattr(obj, "_prefetched_tag_slugs"):
+            return obj._prefetched_tag_slugs
+        return linkable_slugs_for_post(obj)
 
     def create(self, validated_data):
         validated_data["author"] = self.context["request"].user

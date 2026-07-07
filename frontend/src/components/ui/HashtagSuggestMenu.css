@@ -1,0 +1,77 @@
+.hashtag-suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.hashtag-suggest--dark {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 12, 28, 0.98);
+}
+
+.hashtag-suggest--light {
+  border: 1px solid rgba(28, 20, 16, 0.1);
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(28, 20, 16, 0.12);
+}
+
+.hashtag-suggest__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.hashtag-suggest--dark .hashtag-suggest__item {
+  color: #fffaf2;
+}
+
+.hashtag-suggest--light .hashtag-suggest__item {
+  color: #1c1410;
+}
+
+.hashtag-suggest__item.is-active,
+.hashtag-suggest__item:hover {
+  background: rgba(124, 58, 237, 0.18);
+}
+
+.hashtag-suggest__tag {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.hashtag-suggest__count {
+  font-size: 0.75rem;
+  opacity: 0.62;
+}
+
+.hashtag-suggest__status {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  opacity: 0.7;
+}
+
+.hashtag-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.hashtag-field .msg-composer__input {
+  width: 100%;
+}

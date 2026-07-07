@@ -1,5 +1,5 @@
 export { DmChatView } from './DmChatView'
-export type { DmMessage } from './DmChatView'
+export type { DmMessage } from './useConversationThread'
 export { useConversationThread } from './useConversationThread'
 export type { ThreadMessage } from './useConversationThread'
 export { messagingUserIdForUsername, formatMessageTime } from './messagingUtils'

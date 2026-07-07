@@ -10,6 +10,8 @@ from rest_framework.views import APIView
 
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
 from config.throttles import FollowThrottle, PostCreateThrottle
+from tags.models import TagScope
+from tags.services import filter_posts_by_tag
 
 from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
@@ -127,6 +129,12 @@ class FeedView(APIView):
         )
         if kind in (PostKind.TIP, PostKind.QUESTION):
             qs = qs.filter(post_kind=kind)
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(Q(body__icontains=q) | Q(place_label__icontains=q))
+        tag = (request.query_params.get("tag") or "").strip()
+        if tag:
+            qs = filter_posts_by_tag(qs, tag, scope=TagScope.COMMUNITY)
         qs = _annotate_post_counts(qs).annotate(
             region_boost=Case(
                 When(region__iexact=region, then=Value(5.0)),

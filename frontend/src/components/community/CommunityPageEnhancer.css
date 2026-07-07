@@ -1,4 +1,14 @@
-.cm-simple {
-  width: min(100%, 680px);
-  margin-inline: auto;
+.cm-page-enhancer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.cm-page-enhancer__search-sync {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }

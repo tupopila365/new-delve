@@ -61,7 +61,7 @@
 }
 
 .prov-ui__btn--primary {
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
 }
 
@@ -86,7 +86,7 @@
 
 .prov-ui__pill--warn {
   background: rgba(255, 154, 82, 0.15);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-ui__pill--bad {
@@ -140,7 +140,7 @@
 }
 
 .prov-ui__stat--accent strong {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-ui__stat span {
@@ -199,8 +199,8 @@
 }
 
 .prov-ui__chip--active {
-  background: #ff9a52;
-  border-color: #ff9a52;
+  background: #a78bfa;
+  border-color: #a78bfa;
   color: #1a0f05;
 }
 
@@ -237,7 +237,7 @@
 .prov-ui__link {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #ff9a52;
+  color: #a78bfa;
   text-decoration: none;
 }
 
@@ -269,14 +269,14 @@
 }
 
 .prov-ui__attention strong {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-ui__attention a {
   flex-shrink: 0;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #ff9a52;
+  color: #a78bfa;
   text-decoration: none;
 }
 
@@ -309,7 +309,7 @@
 
 .prov-ui__shortcut svg {
   flex-shrink: 0;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 /* Listing row */
@@ -410,7 +410,7 @@
 .prov-ui-review__rating {
   margin-left: auto;
   font-weight: 800;
-  color: #ff9a52;
+  color: #a78bfa;
   flex-shrink: 0;
 }
 
@@ -456,7 +456,7 @@
 .prov-ui-breakdown__bar i {
   display: block;
   height: 100%;
-  background: #ff9a52;
+  background: #a78bfa;
   border-radius: inherit;
 }
 
@@ -519,7 +519,7 @@
 
 .prov-shell--dark .adm-stat--accent,
 .prov-shell--dark .adm-stat--accent .adm-stat__n {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-shell--dark .adm-stat--accent {
@@ -541,16 +541,16 @@
 }
 
 .prov-shell--dark .adm-tab--active {
-  color: #ff9a52;
-  border-bottom-color: #ff9a52;
+  color: #a78bfa;
+  border-bottom-color: #a78bfa;
   background: none;
 }
 
 .prov-shell--dark .prov-chip--active,
 .prov-shell--dark .acc-quick-chip--active {
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
-  border-color: #ff9a52;
+  border-color: #a78bfa;
 }
 
 .prov-shell--dark .prov-chip,
@@ -569,7 +569,7 @@
 
 .prov-shell--dark .adm-add-btn:hover {
   border-color: rgba(255, 154, 82, 0.4);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-shell--dark .adm-listing-card__img {
@@ -609,7 +609,7 @@
 }
 
 .prov-shell--dark .prov-attention__action {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-shell--dark .btn.btn-ghost {
@@ -638,7 +638,7 @@
 }
 
 .prov-shell--dark .prov-health-bar i {
-  background: #ff9a52;
+  background: #a78bfa;
 }
 
 .prov-shell--dark .prov-rating-breakdown li {
@@ -667,7 +667,7 @@
   height: 40px;
   border-radius: 50%;
   background: rgba(255, 154, 82, 0.2);
-  color: #ff9a52;
+  color: #a78bfa;
   display: grid;
   place-items: center;
   font-weight: 800;
@@ -701,7 +701,7 @@
 }
 
 .prov-ui__booking-details strong {
-  color: #ff9a52;
+  color: #a78bfa;
   margin-left: auto;
 }
 
@@ -761,7 +761,7 @@
 
 .prov-ui__status--pending {
   background: rgba(255, 154, 82, 0.15);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-ui__status--confirmed {

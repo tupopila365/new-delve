@@ -15,7 +15,7 @@
 }
 
 .report-btn:hover {
-  color: #ff9a52;
+  color: #a78bfa;
   opacity: 1;
 }
 
@@ -116,7 +116,7 @@
 
 .report-sheet__submit {
   border: 0;
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
 }
 

@@ -481,3 +481,105 @@ class MessagingPhaseDTests(TestCase):
         self.assertEqual(unblock.status_code, 204)
         start = self.client.post("/api/messaging/start/", {"username": "bob_d"}, format="json")
         self.assertEqual(start.status_code, 200)
+
+
+class MessagingRichMessageTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.alice = User.objects.create_user(
+            username="alice_rich", email="alice_rich@test.local", password="pass12345"
+        )
+        self.bob = User.objects.create_user(
+            username="bob_rich", email="bob_rich@test.local", password="pass12345"
+        )
+        Profile.objects.filter(user=self.alice).update(display_name="Alice", allow_messages=True)
+        Profile.objects.filter(user=self.bob).update(display_name="Bob", allow_messages=True)
+        self.client.force_authenticate(user=self.alice)
+        start = self.client.post("/api/messaging/start/", {"username": "bob_rich"}, format="json")
+        self.conv_id = start.data["id"]
+
+    def test_reply_to_message(self):
+        parent = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Parent"},
+            format="json",
+        )
+        reply = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Reply", "reply_to_id": parent.data["id"]},
+            format="json",
+        )
+        self.assertEqual(reply.status_code, 201)
+        self.assertEqual(reply.data["reply_to"]["id"], parent.data["id"])
+
+    def test_delete_for_me_hides_message(self):
+        sent = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Hide me"},
+            format="json",
+        )
+        message_id = sent.data["id"]
+        delete = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/{message_id}/delete/",
+            {"scope": "me"},
+            format="json",
+        )
+        self.assertEqual(delete.status_code, 200)
+        listing = self.client.get(f"/api/messaging/conversations/{self.conv_id}/messages/")
+        self.assertEqual(len(listing.data["results"]), 0)
+
+    def test_delete_for_everyone_tombstones_message(self):
+        sent = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Unsend me"},
+            format="json",
+        )
+        message_id = sent.data["id"]
+        delete = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/{message_id}/delete/",
+            {"scope": "everyone"},
+            format="json",
+        )
+        self.assertEqual(delete.status_code, 200)
+        self.assertTrue(delete.data["message"]["is_deleted"])
+
+    def test_forward_message(self):
+        self.client.force_authenticate(user=self.bob)
+        start_bob = self.client.post("/api/messaging/start/", {"username": "alice_rich"}, format="json")
+        target_conv_id = start_bob.data["id"]
+        self.client.force_authenticate(user=self.alice)
+        source = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Forward this"},
+            format="json",
+        )
+        forwarded = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/{source.data['id']}/forward/",
+            {"to_conversation_id": target_conv_id},
+            format="json",
+        )
+        self.assertEqual(forwarded.status_code, 200)
+        self.assertEqual(forwarded.data["message"]["body"], "Forward this")
+
+    def test_forward_blocked_when_recipient_blocked(self):
+        from messaging.models import MessageBlock
+
+        MessageBlock.objects.create(blocker=self.bob, blocked=self.alice)
+        self.client.force_authenticate(user=self.bob)
+        start_bob = self.client.post("/api/messaging/start/", {"username": "alice_rich"}, format="json")
+        self.assertEqual(start_bob.status_code, 403)
+        existing = Conversation.objects.filter(participants=self.bob).filter(participants=self.alice).first()
+        if existing is None:
+            return
+        self.client.force_authenticate(user=self.alice)
+        source = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Blocked forward"},
+            format="json",
+        )
+        forwarded = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/{source.data['id']}/forward/",
+            {"to_conversation_id": existing.id},
+            format="json",
+        )
+        self.assertEqual(forwarded.status_code, 403)

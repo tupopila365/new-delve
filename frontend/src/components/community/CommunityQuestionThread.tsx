@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Heart, Reply, ThumbsUp } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../../api/client'
+import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import type { FeedPost } from '../IgPostCard'
 import { UserAvatar } from '../UserAvatar'
@@ -18,8 +18,10 @@ import { invalidatePostEngagementCaches } from '../../utils/socialCache'
 import { CommunityCommentNode } from './CommunityCommentNode'
 import { CommunityInlineReplyComposer } from './CommunityInlineReplyComposer'
 import { PostOverflowMenu } from './CommunityOverflowMenu'
+import { postToCommunityMedia, useCommunityMediaViewer } from './CommunityMediaViewer'
 import type { ReportTarget } from '../report/ReportButton'
 import './community-question-thread.css'
+import './community-media-lightbox.css'
 
 type ReplyTarget =
   | { kind: 'post' }
@@ -38,6 +40,7 @@ type ThreadProps = {
 
 function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaultOpen = false }: ThreadProps) {
   const { profile } = useAuth()
+  const { openPostMedia } = useCommunityMediaViewer()
   const qc = useQueryClient()
   const signedIn = Boolean(profile)
   const openedOnce = useRef(false)
@@ -58,8 +61,7 @@ function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaul
   const name = post.author.display_name || post.author.username
   const handle = `@${post.author.username}`
   const hasMedia = Boolean(post.image || post.video)
-  const imageUrl = mediaUrl(post.image)
-  const videoUrl = mediaUrl(post.video)
+  const mediaItem = postToCommunityMedia(post, isQuestion ? 'Question media' : 'Tip media')
   const composerPlaceholder = isQuestion ? 'Write an answer…' : 'Add a reply…'
 
   const commentsQueryKey = isQuestion
@@ -223,15 +225,31 @@ function CommunityFeedThread({ post, queryKey, kind, highlighted = false, defaul
           </div>
 
           {post.place_label ? <span className="cm-comment__place">{post.place_label}</span> : null}
-          {post.body?.trim() ? <p className="cm-comment__text">{renderTextWithHashtags(post.body)}</p> : null}
+          {post.body?.trim() ? (
+            <p className="cm-comment__text">{renderTextWithHashtags(post.body, post.tag_slugs)}</p>
+          ) : null}
 
-          {hasMedia ? (
+          {hasMedia && mediaItem ? (
             <div className="cm-comment__media">
-              {videoUrl ? (
-                <video src={videoUrl} controls playsInline preload="metadata" aria-label={isQuestion ? 'Question video' : 'Tip video'} />
-              ) : imageUrl ? (
-                <img src={imageUrl} alt="" />
-              ) : null}
+              <button
+                type="button"
+                className="cm-media-open"
+                aria-label="Open media fullscreen"
+                onClick={() => openPostMedia(post, isQuestion ? 'Question media' : 'Tip media')}
+              >
+                {mediaItem.kind === 'video' ? (
+                  <video
+                    src={mediaItem.src}
+                    poster={mediaItem.poster ?? undefined}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-label={isQuestion ? 'Question video' : 'Tip video'}
+                  />
+                ) : (
+                  <img src={mediaItem.src} alt="" />
+                )}
+              </button>
             </div>
           ) : null}
 

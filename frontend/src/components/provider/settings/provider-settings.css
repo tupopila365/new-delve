@@ -141,7 +141,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(255, 154, 82, 0.15);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-settings__av-row {
@@ -166,7 +166,7 @@
   place-items: center;
   font-size: 1.5rem;
   font-weight: 800;
-  color: #ff9a52;
+  color: #a78bfa;
   border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -183,7 +183,7 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #ff9a52;
+  background: #a78bfa;
   border: 2px solid #141110;
   color: #1a0f05;
   cursor: pointer;
@@ -273,7 +273,7 @@
   background: rgba(255, 154, 82, 0.12);
   border: 1px solid rgba(255, 154, 82, 0.25);
   font-size: 0.82rem;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-settings__resend-btn {
@@ -422,7 +422,7 @@
 }
 
 .prov-layout-banner a {
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 650;
 }
 

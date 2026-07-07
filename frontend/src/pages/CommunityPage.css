@@ -2,6 +2,7 @@
   width: min(100%, 680px);
   margin: 0 auto;
   padding: 8px 16px 48px;
+  color: rgba(255, 250, 242, 0.92);
 }
 
 .cm-simple__search-sync,
@@ -58,29 +59,6 @@
   color: rgba(255, 255, 255, 0.88);
 }
 
-.cm-feed-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.cm-feed-filters button {
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.cm-feed-filters button.is-active {
-  border-color: rgba(232, 98, 10, 0.55);
-  background: rgba(232, 98, 10, 0.14);
-  color: #fff;
-}
-
 .ig-post--question .ig-post__question-body {
   display: block;
   padding: 16px 14px;
@@ -106,13 +84,13 @@
 }
 
 .cm-hashtag {
-  color: #ff9f52;
+  color: #a78bfa;
   font-weight: 800;
   text-decoration: none;
 }
 
 .cm-hashtag:hover {
-  color: #ffb07a;
+  color: #c4b5fd;
   text-decoration: underline;
 }
 
@@ -134,8 +112,8 @@
   width: fit-content;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.14);
-  color: #ffb07a;
+  background: rgba(124, 58, 237, 0.14);
+  color: #c4b5fd;
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -153,8 +131,92 @@
 }
 
 .cm-feed-list__item--highlight .ig-post {
-  outline: 2px solid rgba(232, 98, 10, 0.55);
+  outline: 2px solid rgba(124, 58, 237, 0.55);
   outline-offset: 2px;
+}
+
+.cm-tag-page {
+  display: grid;
+  gap: 14px;
+}
+
+.cm-tag-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: none;
+  background: transparent;
+  color: rgba(255, 250, 242, 0.72);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cm-tag-page__back:hover {
+  color: #fffaf2;
+}
+
+.cm-tag-page__header {
+  display: grid;
+  gap: 4px;
+}
+
+.cm-tag-page__title {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.cm-tag-page__meta {
+  margin: 0;
+  color: rgba(255, 250, 242, 0.58);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.cm-tag-page__related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cm-tag-page__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #c4b5fd;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.cm-tag-page__chip:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.cm-tag-page__empty {
+  display: grid;
+  gap: 10px;
+  padding: 24px 0;
+}
+
+.cm-tag-page__empty h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.cm-tag-page__empty p {
+  margin: 0;
+  color: rgba(255, 250, 242, 0.62);
 }
 
 .ig-post--question .ig-post__question-body p {
@@ -220,7 +282,7 @@
 }
 
 .cm-feed-list__item--highlight .cm-thread {
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
 }
 
 .cm-feed-skeleton {
@@ -230,8 +292,11 @@
 
 .cm-feed-skeleton__card {
   height: 120px;
-  border-radius: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+}
+
+.cm-feed-skeleton__card--rounded {
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @media (max-width: 640px) {

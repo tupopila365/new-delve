@@ -29,9 +29,9 @@
 }
 
 .sp-filter__trigger--active {
-  border-color: rgba(232, 98, 10, 0.55);
-  background: rgba(232, 98, 10, 0.16);
-  color: #ff9a52;
+  border-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.16);
+  color: #a78bfa;
 }
 
 .sp-filter__trigger b {
@@ -41,7 +41,7 @@
   height: 19px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #ff9a52;
+  background: #a78bfa;
   color: #111;
   font-size: 0.68rem;
   font-weight: 950;
@@ -133,8 +133,8 @@
 }
 
 .sp-filter__option--active {
-  border-color: rgba(232, 98, 10, 0.58);
-  background: rgba(232, 98, 10, 0.15);
+  border-color: rgba(124, 58, 237, 0.58);
+  background: rgba(124, 58, 237, 0.15);
 }
 
 .sp-filter__tick {
@@ -150,8 +150,8 @@
 }
 
 .sp-filter__option--active .sp-filter__tick {
-  border-color: #ff9a52;
-  background: #ff9a52;
+  border-color: #a78bfa;
+  background: #a78bfa;
 }
 
 .sp-filter__option > span:last-child {

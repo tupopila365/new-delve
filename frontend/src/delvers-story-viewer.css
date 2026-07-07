@@ -126,7 +126,7 @@
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 45% 25%, rgba(232, 98, 10, 0.18), transparent 36%),
+    radial-gradient(circle at 45% 25%, rgba(124, 58, 237, 0.18), transparent 36%),
     linear-gradient(145deg, #201812, #050505);
 }
 

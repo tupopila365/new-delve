@@ -74,7 +74,7 @@
 
 .ce-form__input:focus,
 .ce-form__textarea:focus {
-  border-color: rgba(232, 98, 10, 0.45);
+  border-color: rgba(124, 58, 237, 0.45);
   outline: none;
 }
 
@@ -131,7 +131,7 @@
 }
 
 .ce-form__toggle input:checked ~ .ce-form__toggle-box {
-  background: #e8620a;
+  background: #7c3aed;
 }
 
 .ce-form__toggle input:checked ~ .ce-form__toggle-box::after {

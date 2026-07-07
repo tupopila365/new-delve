@@ -2,7 +2,7 @@
 .page-home {
   min-height: 100%;
   background:
-    radial-gradient(circle at 50% 0%, rgba(232, 98, 10, 0.14), transparent 22rem),
+    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.14), transparent 22rem),
     var(--bg, #181614) !important;
   color: rgba(255, 255, 255, 0.92);
 }
@@ -111,7 +111,7 @@
   border: 0;
   border-radius: 999px;
   padding: 0 14px;
-  background: #e8620a;
+  background: #7c3aed;
   color: #fffaf2;
   font-size: 0.82rem;
   font-weight: 950;
@@ -155,8 +155,8 @@
   gap: 12px;
   padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid rgba(232, 98, 10, 0.28);
-  background: rgba(232, 98, 10, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  background: rgba(124, 58, 237, 0.1);
 }
 
 .home-announcement__copy {
@@ -207,7 +207,7 @@
   padding: 4px 8px;
   border-radius: 999px;
   background: rgba(28, 20, 16, 0.78);
-  color: #ffb07a;
+  color: #c4b5fd;
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -260,7 +260,7 @@
 .page-home .section-see-all,
 .page-home .home-section-cta {
   flex: 0 0 auto;
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -291,8 +291,8 @@
   height: 38px;
   margin-bottom: 10px;
   border-radius: 14px;
-  background: rgba(232, 98, 10, 0.14);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.14);
+  color: #a78bfa;
 }
 
 .home-category-card__title {
@@ -319,7 +319,7 @@
   align-items: center;
   gap: 5px;
   margin-top: 10px;
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.76rem;
   font-weight: 900;
 }
@@ -453,7 +453,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #e8620a;
+  background: #7c3aed;
   color: #fffaf2;
   font-size: 0.85rem;
   font-weight: 900;
@@ -497,7 +497,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.78rem;
   font-weight: 900;
 }

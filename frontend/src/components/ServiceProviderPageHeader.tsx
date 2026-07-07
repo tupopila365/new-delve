@@ -64,7 +64,7 @@ export function ServiceProviderPageHeader({
       aria-label={`${title} header`}
     >
       <div className="sp-header__copy">
-        <p className="sp-header__eyebrow">{eyebrow}</p>
+        {eyebrow ? <p className="sp-header__eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>
         {subtitle ? <p className="sp-header__subtitle">{subtitle}</p> : null}
       </div>
@@ -91,7 +91,7 @@ export function ServiceProviderPageHeader({
 
           {filterGroups ? (
             <ServiceProviderFilterButton groups={filterGroups} scope={filterScope} />
-          ) : (
+          ) : filterButtonSelector ? (
             <button
               type="button"
               className={filtersOpen ? 'sp-header__filter sp-header__filter--active' : 'sp-header__filter'}
@@ -101,7 +101,7 @@ export function ServiceProviderPageHeader({
               <Filter size={16} strokeWidth={2.25} aria-hidden />
               <span>{filtersOpen ? 'Hide filters' : 'Filters'}</span>
             </button>
-          )}
+          ) : null}
         </div>
       ) : null}
     </section>

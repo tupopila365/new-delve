@@ -110,8 +110,8 @@
 .biz-profile__logo--ph {
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, rgba(255, 154, 82, 0.25), rgba(232, 98, 10, 0.12));
-  color: #ff9a52;
+  background: linear-gradient(145deg, rgba(255, 154, 82, 0.25), rgba(124, 58, 237, 0.12));
+  color: #a78bfa;
 }
 
 .biz-profile__badges {
@@ -179,7 +179,7 @@
 
 .biz-profile__meta li svg {
   flex-shrink: 0;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .biz-profile__meta .mini-rating {
@@ -197,7 +197,7 @@
   border-radius: 12px;
   font-size: 0.88rem;
   font-weight: 800;
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
   border: none;
 }
@@ -222,7 +222,7 @@
 }
 
 .biz-profile__report:hover {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .biz-profile__owner-link {
@@ -245,7 +245,7 @@
 .biz-profile__owner-link:hover {
   border-color: rgba(255, 154, 82, 0.35);
   background: rgba(255, 154, 82, 0.08);
-  color: #ff9a52;
+  color: #a78bfa;
   opacity: 1;
 }
 
@@ -355,7 +355,7 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .biz-profile__service-copy {
@@ -386,7 +386,7 @@
 .biz-profile__service-copy small {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .biz-profile__service-arrow {
@@ -407,7 +407,7 @@
   margin: 0 auto 12px;
   border-radius: 14px;
   background: rgba(255, 154, 82, 0.12);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .biz-profile__empty h3 {
@@ -445,7 +445,7 @@
 .biz-profile__empty-btn:hover {
   border-color: rgba(255, 154, 82, 0.35);
   background: rgba(255, 154, 82, 0.1);
-  color: #ff9a52;
+  color: #a78bfa;
   opacity: 1;
 }
 
@@ -493,7 +493,7 @@
 
 .biz-profile__location-copy svg {
   flex-shrink: 0;
-  color: #ff9a52;
+  color: #a78bfa;
   margin-top: 2px;
 }
 
@@ -530,7 +530,7 @@
 
 .biz-profile__directions:hover {
   border-color: rgba(255, 154, 82, 0.35);
-  color: #ff9a52;
+  color: #a78bfa;
   opacity: 1;
 }
 
@@ -546,7 +546,7 @@
   padding: 10px 14px;
   border-radius: 12px;
   background: rgba(255, 154, 82, 0.14);
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.78rem;
   font-weight: 700;
   text-align: center;
@@ -567,7 +567,7 @@
 }
 
 .biz-profile__manage-link {
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 700;
   text-decoration: none;
 }
@@ -593,7 +593,7 @@
   margin: 0 auto 12px;
   border-radius: 16px;
   background: rgba(255, 154, 82, 0.15);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .biz-profile__state-title {
@@ -618,7 +618,7 @@
   padding: 0 18px;
   border: none;
   border-radius: 10px;
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
   font-size: 0.85rem;
   font-weight: 700;
@@ -650,7 +650,7 @@
 }
 
 .biz-profile__section-link {
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.8rem;
   font-weight: 800;
   text-decoration: none;
@@ -687,8 +687,8 @@
   display: grid;
   place-items: center;
   aspect-ratio: 4 / 5;
-  background: rgba(232, 98, 10, 0.12);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.12);
+  color: #a78bfa;
 }
 
 .biz-profile__team-card__body {

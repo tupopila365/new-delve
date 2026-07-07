@@ -13,6 +13,10 @@ class MessageStartThrottle(UserRateThrottle):
     scope = "message_start"
 
 
+class MessageSendThrottle(UserRateThrottle):
+    scope = "message_send"
+
+
 class MessagingPeopleSearchThrottle(UserRateThrottle):
     scope = "messaging_people_search"
 

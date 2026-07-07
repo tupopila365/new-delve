@@ -7,6 +7,7 @@ type Props = {
   videoPreview: string | null
   onImageChange: (file: File | null, preview: string | null) => void
   onVideoChange: (file: File | null, preview: string | null) => void
+  embedded?: boolean
 }
 
 export function CommunityMediaAttach({
@@ -14,6 +15,7 @@ export function CommunityMediaAttach({
   videoPreview,
   onImageChange,
   onVideoChange,
+  embedded = false,
 }: Props) {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -39,8 +41,10 @@ export function CommunityMediaAttach({
   }
 
   return (
-    <div className="create-ask__attach">
-      <span className="create-ask__attach-label">Add a photo or video (optional)</span>
+    <div className={`create-ask__attach${embedded ? ' create-ask__attach--embedded' : ''}`}>
+      {embedded ? null : (
+        <span className="create-ask__attach-label">Add a photo or video (optional)</span>
+      )}
       <div className="create-ask__attach-actions">
         <button type="button" className="create-ask__attach-btn" onClick={() => imageInputRef.current?.click()}>
           <ImagePlus size={16} strokeWidth={2.25} aria-hidden />

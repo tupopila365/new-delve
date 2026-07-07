@@ -111,7 +111,7 @@
   .ds-mobile-action--create {
     color: #fff;
     background: var(--accent);
-    box-shadow: 0 10px 24px rgba(232, 98, 10, 0.32);
+    box-shadow: 0 10px 24px rgba(124, 58, 237, 0.32);
   }
 
   .ds-page--chrome-hidden .ds-mobile-actions {

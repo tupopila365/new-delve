@@ -11,9 +11,9 @@
 }
 
 .place-search--light .place-search__trigger.is-linked {
-  border-color: rgba(232, 98, 10, 0.35);
-  background: rgba(232, 98, 10, 0.08);
-  color: var(--accent, #e8620a);
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--accent, #7c3aed);
 }
 
 .place-search--light .place-search__clear {
@@ -54,8 +54,8 @@
 }
 
 .place-search--light .place-search-sheet__list button.is-active {
-  border-color: rgba(232, 98, 10, 0.35);
-  background: rgba(232, 98, 10, 0.1);
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.1);
 }
 
 .place-search--light .place-search-sheet__close {
@@ -82,9 +82,9 @@
 }
 
 .place-search__trigger.is-linked {
-  border-color: rgba(232, 98, 10, 0.4);
-  background: rgba(232, 98, 10, 0.12);
-  color: #ffb07a;
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.12);
+  color: #c4b5fd;
 }
 
 .place-search__trigger span {
@@ -228,8 +228,8 @@
 }
 
 .place-search-sheet__list button.is-active {
-  border-color: rgba(232, 98, 10, 0.4);
-  background: rgba(232, 98, 10, 0.12);
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.12);
 }
 
 .place-search-sheet__list strong {

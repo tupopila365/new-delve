@@ -60,7 +60,7 @@
 }
 
 .stay-card__badge--draft {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .stay-card__badge--hidden {
@@ -104,7 +104,7 @@
 .stay-card__type {
   margin: 4px 0 0;
   font-size: 0.78rem;
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 600;
 }
 
@@ -134,7 +134,7 @@
 .stay-card__missing {
   margin: 8px 0 0;
   font-size: 0.78rem;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .stay-card__actions {
@@ -234,8 +234,8 @@
 }
 
 .stay-form__nav-btn--active {
-  background: #ff9a52;
-  border-color: #ff9a52;
+  background: #a78bfa;
+  border-color: #a78bfa;
   color: #1a0f05;
 }
 
@@ -337,7 +337,7 @@
 .stay-form__chip--on {
   background: rgba(255, 154, 82, 0.2);
   border-color: rgba(255, 154, 82, 0.4);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .stay-form__subcard {
@@ -378,7 +378,7 @@
   border-radius: 10px;
   border: 1px dashed rgba(255, 255, 255, 0.15);
   background: transparent;
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.85rem;
   font-weight: 700;
   font-family: inherit;
@@ -459,7 +459,7 @@
 
 .stay-stories__pick:hover {
   border-color: rgba(255, 154, 82, 0.35);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .stay-stories__empty {
@@ -545,7 +545,7 @@
 }
 
 .stay-stories__meta a {
-  color: #ff9a52;
+  color: #a78bfa;
   text-decoration: none;
 }
 
@@ -562,7 +562,7 @@
   border-radius: 12px;
   border: 1px dashed rgba(255, 255, 255, 0.15);
   background: transparent;
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.88rem;
   font-weight: 700;
   font-family: inherit;

@@ -8,7 +8,7 @@
 }
 
 .event-card-v2--featured {
-  border-color: rgba(232, 98, 10, 0.22);
+  border-color: rgba(124, 58, 237, 0.22);
 }
 
 .event-card-v2__media {
@@ -58,7 +58,7 @@
 }
 
 .event-card-v2__badge--featured {
-  background: rgba(232, 98, 10, 0.88);
+  background: rgba(124, 58, 237, 0.88);
   color: #fffaf2;
 }
 
@@ -108,7 +108,7 @@
 }
 
 .event-card-v2__overlay-actions button.is-active {
-  background: rgba(232, 98, 10, 0.92);
+  background: rgba(124, 58, 237, 0.92);
   color: #fffaf2;
 }
 
@@ -159,7 +159,7 @@
   align-items: center;
   gap: 4px;
   margin: 0;
-  color: #e8620a;
+  color: #7c3aed;
   font-size: 0.76rem;
   font-weight: 900;
   white-space: nowrap;
@@ -219,7 +219,7 @@
 }
 
 .event-card-v2__organizer a:hover {
-  color: #e8620a;
+  color: #7c3aed;
 }
 
 .ev-page__grid {

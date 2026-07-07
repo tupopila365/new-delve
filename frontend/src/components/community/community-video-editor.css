@@ -84,9 +84,9 @@
 }
 
 .cm-video-editor__tools button.is-active {
-  border-color: rgba(232, 98, 10, 0.35);
-  background: rgba(232, 98, 10, 0.1);
-  color: var(--accent, #e8620a);
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--accent, #7c3aed);
 }
 
 .cm-video-editor__draw-tools {
@@ -108,7 +108,7 @@
 }
 
 .cm-video-editor__colors button.is-active {
-  outline: 2px solid var(--accent, #e8620a);
+  outline: 2px solid var(--accent, #7c3aed);
   outline-offset: 2px;
 }
 

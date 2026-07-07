@@ -10,6 +10,10 @@ import { AccommodationList } from './pages/AccommodationList'
 import { AccommodationStoryNew } from './pages/AccommodationStoryNew'
 import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
+import { CommunityTag } from './pages/CommunityTag'
+import { CommunityGroupChat } from './pages/CommunityGroupChat'
+import { CommunityGroupProfile } from './pages/CommunityGroupProfile'
+import { CommunityLayout } from './pages/CommunityLayout'
 import { CommunityQuestionDetail } from './pages/CommunityQuestionDetail'
 import { CreateHub } from './pages/CreateHub'
 import { CreatePost } from './pages/CreatePost'
@@ -121,8 +125,14 @@ export default function App() {
           <Route path="/delvers" element={<DelversSocial />} />
           <Route path="/delvers/posts/:id" element={<DelversPostDetail />} />
           <Route path="/delvers/pin/new" element={<Navigate to="/create/post" replace />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/community/posts/:id" element={<CommunityQuestionDetail />} />
+          <Route path="/community" element={<CommunityLayout />}>
+            <Route index element={<Community />} />
+            <Route path="tags/:slug" element={<CommunityTag />} />
+            <Route path="groups/new" element={<Navigate to="/community?view=groups&createGroup=1" replace />} />
+            <Route path="g/:slug" element={<CommunityGroupChat />} />
+            <Route path="g/:slug/info" element={<CommunityGroupProfile />} />
+            <Route path="posts/:id" element={<CommunityQuestionDetail />} />
+          </Route>
           <Route path="/transport" element={<Transport />} />
           <Route path="/transport/vehicle/:id" element={<VehicleDetail />} />
           <Route path="/transport/bus/:id" element={<BusTripDetail />} />

@@ -43,9 +43,9 @@
 }
 
 .ds-create-bubble span {
-  background: linear-gradient(135deg, var(--accent), #ff9a52);
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
   color: #fff;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.24), 0 10px 24px rgba(232, 98, 10, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.24), 0 10px 24px rgba(124, 58, 237, 0.3);
 }
 
 .ds-creator-bubble span,

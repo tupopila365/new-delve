@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Lock, MessageCircle, UserRound } from 'lucide-react'
+import { Lock, Loader2, MessageCircle, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DmChatView } from '../components/messages/dm'
@@ -113,7 +113,7 @@ export function MessageUser({ context = 'user' }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start once per username+context
   }, [businessId, isSelf, me, messagesAllowed, place?.id, place?.type, target, username])
 
-  const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
+  const pageClass = isProvider ? 'dm-page dm-page--provider dm-page--thread' : 'dm-page dm-page--thread'
 
   function handleBack() {
     if (backTo) navigate(backTo)
@@ -138,8 +138,8 @@ export function MessageUser({ context = 'user' }: Props) {
   if (targetQuery.isLoading) {
     return (
       <main className={pageClass}>
-        <div className="dm-chat__state" style={{ margin: 'auto' }}>
-          Loading profile…
+        <div className="dm-chat__state" role="status" aria-live="polite" aria-label="Loading profile">
+          <Loader2 size={24} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
         </div>
       </main>
     )

@@ -44,7 +44,7 @@
 .page-bottom-cta--light {
   border: 1px solid rgba(28, 20, 16, 0.06);
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.08), transparent 40%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.08), transparent 40%),
     linear-gradient(135deg, #fffaf4 0%, #f7f3ec 100%);
   box-shadow: 0 18px 50px rgba(28, 20, 16, 0.06);
 }

@@ -40,6 +40,7 @@ export type FeedPost = {
     author?: { username: string; display_name?: string | null }
     helpful_count?: number
   } | null
+  tag_slugs?: string[]
 }
 
 export function IgPostCard({
@@ -108,7 +109,7 @@ export function IgPostCard({
         <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
       ) : isQuestion ? (
         <Link to={questionPath} className="ig-post__question-body">
-          <p>{renderTextWithHashtags(post.body)}</p>
+          <p>{renderTextWithHashtags(post.body, post.tag_slugs)}</p>
           {post.accepted_answer ? (
             <div className="ig-post__accepted-answer">
               <span className="ig-post__accepted-label">Accepted answer</span>
@@ -127,7 +128,7 @@ export function IgPostCard({
         </Link>
       ) : post.body?.trim() ? (
         <div className="ig-post__text-body">
-          <p>{renderTextWithHashtags(post.body)}</p>
+          <p>{renderTextWithHashtags(post.body, post.tag_slugs)}</p>
         </div>
       ) : (
         <div className="post-media-placeholder">No photo or video</div>
@@ -173,7 +174,7 @@ export function IgPostCard({
         {post.body && (hasMedia || !isQuestion) && (
           <p className="ig-post__caption">
             <strong>{post.author.username}</strong>
-            {renderTextWithHashtags(post.body)}
+            {renderTextWithHashtags(post.body, post.tag_slugs)}
           </p>
         )}
       </div>

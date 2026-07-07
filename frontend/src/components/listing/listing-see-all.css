@@ -190,7 +190,7 @@
 }
 
 .listing-see-all__moment-thumb--btn:focus-visible {
-  outline: 2px solid rgba(232, 98, 10, 0.75);
+  outline: 2px solid rgba(124, 58, 237, 0.75);
   outline-offset: 2px;
 }
 
@@ -225,7 +225,7 @@
 .listing-see-all__moment-tag {
   display: block;
   margin-top: 4px;
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.72rem;
   font-weight: 800;
 }

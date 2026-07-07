@@ -1,4 +1,4 @@
-/* DELVE â€” warm sand/clay canvas + coral CTA, nature for success/confirmed */
+/* DELVE — warm sand/clay canvas + violet CTA, nature for success/confirmed */
 :root {
   --bg: #ebe3d6;
   --bg-elevated: #ffffff;
@@ -8,18 +8,18 @@
   --hairline: rgba(28, 20, 16, 0.12);
   --hairline-light: rgba(28, 20, 16, 0.07);
 
-  /* Primary CTA â€” coral-orange (taps, links, primary buttons) */
-  --accent: #e8620a;
-  --accent-hover: #c44e06;
-  --accent-soft: rgba(232, 98, 10, 0.1);
-  --accent-ring: rgba(232, 98, 10, 0.28);
+  /* Primary CTA — violet (taps, links, primary buttons) */
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --accent-ring: rgba(124, 58, 237, 0.28);
 
-  /* Success / confirmed / available â€” demoted green */
+  /* Success / confirmed / available — demoted green */
   --nature: #3d7a5a;
   --nature-soft: rgba(61, 122, 90, 0.1);
 
-  /* Urgency / warm gradient endpoints (same hue as accent) */
-  --sunset: #e8620a;
+  /* Urgency / warm gradient endpoints (brand purple) */
+  --sunset: #7c3aed;
 
   --like: #ef4444;
   --shadow-sm: 0 10px 30px rgba(28, 20, 16, 0.08);
@@ -794,7 +794,7 @@ button {
 .btn-primary {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 110%);
   color: #fff;
-  box-shadow: 0 16px 40px rgba(232, 98, 10, 0.22);
+  box-shadow: 0 16px 40px rgba(124, 58, 237, 0.22);
 }
 
 .btn-primary:hover {
@@ -3770,7 +3770,7 @@ a.chip.chip--accent:hover {
   border-radius: 34px;
   margin-bottom: 28px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.15), transparent 36%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.15), transparent 36%),
     radial-gradient(circle at bottom left, rgba(61, 122, 90, 0.08), transparent 34%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 242, 0.9));
   border: 1px solid rgba(28, 20, 16, 0.06);
@@ -4008,12 +4008,12 @@ a.chip.chip--accent:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
-  box-shadow: 0 12px 32px rgba(232, 98, 10, 0.22);
+  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.22);
 }
 
 .sf-post--featured {
-  border-color: rgba(232, 98, 10, 0.14);
-  box-shadow: 0 22px 70px rgba(232, 98, 10, 0.1);
+  border-color: rgba(124, 58, 237, 0.14);
+  box-shadow: 0 22px 70px rgba(124, 58, 237, 0.1);
 }
 
 .sf-post__featured-badge {
@@ -4021,7 +4021,7 @@ a.chip.chip--accent:hover {
   margin: 0 0 10px 4px;
   padding: 6px 11px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.12);
+  background: rgba(124, 58, 237, 0.12);
   color: var(--accent-hover);
   font-size: 11px;
   font-weight: 900;
@@ -4506,7 +4506,7 @@ a.chip.chip--accent:hover {
 .sf-post__comment:hover,
 .sf-post__share:hover {
   color: var(--accent-hover);
-  background: rgba(232, 98, 10, 0.06);
+  background: rgba(124, 58, 237, 0.06);
 }
 
 .sf-post__like:hover:not(:disabled).sf-post__like--active,
@@ -5379,7 +5379,7 @@ a.chip.chip--accent:hover {
   padding: 24px;
   border-radius: 28px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.1), transparent 35%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.1), transparent 35%),
     linear-gradient(135deg, #fffaf4 0%, #f7f3ec 100%);
   border: 1px solid rgba(28, 20, 16, 0.06);
   box-shadow: 0 20px 60px rgba(28, 20, 16, 0.06);
@@ -5596,7 +5596,7 @@ a.chip.chip--accent:hover {
 .dv-composer-card {
   padding: 20px 22px;
   border-radius: 22px;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   border: 1px solid rgba(28, 20, 16, 0.07);
   margin-bottom: 20px;
 }
@@ -5729,7 +5729,7 @@ a.chip.chip--accent:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   color: var(--accent-hover);
 }
 
@@ -6311,7 +6311,7 @@ a.chip.chip--accent:hover {
 .up--premium .up__cover {
   height: 140px;
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.18) 0%, rgba(61, 122, 90, 0.14) 55%, rgba(255, 213, 128, 0.35) 100%);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.18) 0%, rgba(61, 122, 90, 0.14) 55%, rgba(255, 213, 128, 0.35) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6459,7 +6459,7 @@ a.chip.chip--accent:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   color: var(--accent-hover);
 }
 
@@ -6537,7 +6537,7 @@ a.chip.chip--accent:hover {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   color: var(--accent-hover);
 }
 
@@ -8373,7 +8373,7 @@ a.chip.chip--accent:hover {
   max-height: 148px;
   width: 100%;
   color: var(--accent-hover);
-  background: linear-gradient(155deg, rgba(232, 98, 10, 0.1), rgba(28, 20, 16, 0.04));
+  background: linear-gradient(155deg, rgba(124, 58, 237, 0.1), rgba(28, 20, 16, 0.04));
 }
 
 .acc-page .acc-media-card .media-card__title,
@@ -8539,7 +8539,7 @@ a.chip.chip--accent:hover {
   display: grid;
   place-items: center;
   color: var(--accent-hover);
-  background: linear-gradient(155deg, rgba(232, 98, 10, 0.1), rgba(28, 20, 16, 0.04));
+  background: linear-gradient(155deg, rgba(124, 58, 237, 0.1), rgba(28, 20, 16, 0.04));
 }
 
 .acc-page .acc-featured-card__body {
@@ -8741,7 +8741,7 @@ a.chip.chip--accent:hover {
   gap: 12px;
   min-height: 280px;
   border-radius: 34px;
-  background: linear-gradient(155deg, rgba(232, 98, 10, 0.08), rgba(28, 20, 16, 0.04));
+  background: linear-gradient(155deg, rgba(124, 58, 237, 0.08), rgba(28, 20, 16, 0.04));
   color: var(--text-secondary);
   font-weight: 700;
   font-size: 14px;
@@ -9111,7 +9111,7 @@ a.chip.chip--accent:hover {
 
 .acc-detail__social-btn--saved {
   color: var(--accent-hover) !important;
-  border-color: rgba(232, 98, 10, 0.2) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
   background: var(--accent-soft) !important;
 }
 
@@ -9168,7 +9168,7 @@ a.chip.chip--accent:hover {
 .acc-detail__love-grid span {
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   font-size: 13px;
   font-weight: 800;
   color: var(--text);
@@ -9308,7 +9308,7 @@ a.chip.chip--accent:hover {
   margin: 12px 0;
   border-radius: 16px;
   background:
-    linear-gradient(135deg, rgba(232, 98, 10, 0.06), rgba(28, 20, 16, 0.03)),
+    linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(28, 20, 16, 0.03)),
     repeating-linear-gradient(45deg, rgba(28, 20, 16, 0.03) 0 8px, transparent 8px 16px);
   border: 1px solid rgba(28, 20, 16, 0.06);
 }
@@ -9413,7 +9413,7 @@ a.chip.chip--accent:hover {
   display: grid;
   place-items: center;
   color: var(--accent-hover);
-  background: linear-gradient(155deg, rgba(232, 98, 10, 0.08), rgba(28, 20, 16, 0.04));
+  background: linear-gradient(155deg, rgba(124, 58, 237, 0.08), rgba(28, 20, 16, 0.04));
 }
 
 .acc-detail__room-carousel-btn {
@@ -11107,7 +11107,7 @@ a.chip.chip--accent:hover {
 .acc-book__breakdown--inset {
   padding: 14px 16px;
   background: var(--accent-soft);
-  border: 1px solid rgba(232, 98, 10, 0.22);
+  border: 1px solid rgba(124, 58, 237, 0.22);
   border-radius: var(--radius-md);
   box-shadow: none;
 }
@@ -11498,12 +11498,12 @@ a.chip.chip--accent:hover {
 }
 
 .tp-page__hero-chip:hover {
-  border-color: rgba(232, 98, 10, 0.25);
+  border-color: rgba(124, 58, 237, 0.25);
   box-shadow: var(--shadow-sm);
 }
 
 .tp-page__hero-chip--active {
-  border-color: rgba(232, 98, 10, 0.35);
+  border-color: rgba(124, 58, 237, 0.35);
   background: var(--accent-soft);
   color: var(--accent-hover);
 }
@@ -12381,7 +12381,7 @@ a.chip.chip--accent:hover {
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: rgba(232, 98, 10, 0.1);
+  background: rgba(124, 58, 237, 0.1);
   color: var(--accent-hover);
   flex-shrink: 0;
 }
@@ -12714,7 +12714,7 @@ a.chip.chip--accent:hover {
 
 .tp-detail__social-btn--saved {
   color: var(--accent-hover) !important;
-  border-color: rgba(232, 98, 10, 0.2) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
   background: var(--accent-soft) !important;
 }
 
@@ -12786,7 +12786,7 @@ a.chip.chip--accent:hover {
 .tp-detail__amenities-grid span {
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   font-size: 13px;
   font-weight: 800;
   color: var(--text);
@@ -15391,7 +15391,7 @@ a.chip.chip--accent:hover {
 
 .evd-social-btn--saved {
   color: var(--accent-hover) !important;
-  border-color: rgba(232, 98, 10, 0.2) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
   background: var(--accent-soft) !important;
 }
 
@@ -15459,7 +15459,7 @@ a.chip.chip--accent:hover {
 .evd-expect-grid span {
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   font-size: 13px;
   font-weight: 800;
   color: var(--text);
@@ -15498,7 +15498,7 @@ a.chip.chip--accent:hover {
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: rgba(232, 98, 10, 0.1);
+  background: rgba(124, 58, 237, 0.1);
   color: var(--accent-hover);
   flex-shrink: 0;
 }
@@ -15548,7 +15548,7 @@ a.chip.chip--accent:hover {
   width: 48px;
   height: 48px;
   border-radius: 16px;
-  background: rgba(232, 98, 10, 0.1);
+  background: rgba(124, 58, 237, 0.1);
   color: var(--accent-hover);
   flex-shrink: 0;
 }
@@ -15591,7 +15591,7 @@ a.chip.chip--accent:hover {
 }
 
 .evd-related-card:hover {
-  border-color: rgba(232, 98, 10, 0.25);
+  border-color: rgba(124, 58, 237, 0.25);
   box-shadow: 0 10px 28px rgba(28, 20, 16, 0.08);
 }
 
@@ -16391,7 +16391,7 @@ a.chip.chip--accent:hover {
   border-radius: 34px;
   margin-bottom: 20px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.15), transparent 36%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.15), transparent 36%),
     radial-gradient(circle at bottom left, rgba(61, 122, 90, 0.1), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 242, 0.92));
   border: 1px solid rgba(28, 20, 16, 0.06);
@@ -17497,7 +17497,7 @@ a.chip.chip--accent:hover {
 .fd-detail__social-btn--saved,
 .acc-detail__social-btn--saved {
   color: var(--accent-hover);
-  border-color: rgba(232, 98, 10, 0.2);
+  border-color: rgba(124, 58, 237, 0.2);
 }
 
 .dl-detail__trust-row,
@@ -17533,7 +17533,7 @@ a.chip.chip--accent:hover {
 .tp-detail__seats-chip--high,
 .tp-detail__seats-chip--mid {
   color: var(--accent-hover);
-  border-color: rgba(232, 98, 10, 0.2);
+  border-color: rgba(124, 58, 237, 0.2);
   background: var(--accent-soft);
 }
 
@@ -18617,7 +18617,7 @@ a.chip.chip--accent:hover {
 
 .fd-detail__social-btn--saved {
   color: var(--accent-hover) !important;
-  border-color: rgba(232, 98, 10, 0.2) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
   background: var(--accent-soft) !important;
 }
 
@@ -18630,7 +18630,7 @@ a.chip.chip--accent:hover {
 .fd-detail__known-grid span {
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   color: var(--text);
   font-size: 13px;
   font-weight: 800;
@@ -19200,7 +19200,7 @@ a.chip.chip--accent:hover {
   border-radius: 34px;
   margin-bottom: 28px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.15), transparent 36%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.15), transparent 36%),
     radial-gradient(circle at bottom left, rgba(61, 122, 90, 0.1), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 242, 0.92));
   border: 1px solid rgba(28, 20, 16, 0.06);
@@ -20057,7 +20057,7 @@ a.chip.chip--accent:hover {
   gap: 10px;
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   font-size: 13px;
   font-weight: 800;
   color: var(--text);
@@ -20252,7 +20252,7 @@ a.chip.chip--accent:hover {
   padding: 32px;
   border-radius: 34px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.14), transparent 36%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.14), transparent 36%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 242, 0.92));
   border: 1px solid rgba(28, 20, 16, 0.06);
   box-shadow: 0 28px 90px rgba(28, 20, 16, 0.08);
@@ -20344,7 +20344,7 @@ a.chip.chip--accent:hover {
 
 .gd-detail__social-btn--saved {
   color: var(--accent-hover) !important;
-  border-color: rgba(232, 98, 10, 0.2) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
   background: var(--accent-soft) !important;
 }
 
@@ -20412,7 +20412,7 @@ a.chip.chip--accent:hover {
 .gd-detail__why-grid span {
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   font-size: 13px;
   font-weight: 800;
   color: var(--text);
@@ -21717,7 +21717,7 @@ a.chip.chip--accent:hover {
   gap: 10px;
   padding: 13px 14px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   font-size: 13px;
   font-weight: 800;
   color: var(--text);
@@ -22645,7 +22645,7 @@ a.chip.chip--accent:hover {
   flex-shrink: 0;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   color: var(--accent-hover);
   font-size: 11px;
   font-weight: 800;
@@ -22682,7 +22682,7 @@ a.chip.chip--accent:hover {
 
 .page-home .home-section-cta:hover {
   background: var(--accent-hover);
-  box-shadow: 0 8px 24px rgba(232, 98, 10, 0.22);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.22);
   color: #fff;
   text-decoration: none;
 }
@@ -22724,7 +22724,7 @@ a.chip.chip--accent:hover {
 .page-home .home-category-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: rgba(232, 98, 10, 0.14);
+  border-color: rgba(124, 58, 237, 0.14);
   color: inherit;
   text-decoration: none;
 }
@@ -23103,7 +23103,7 @@ a.chip.chip--accent:hover {
 
   .app-topnav__link:hover {
     color: var(--accent-hover);
-    background: rgba(232, 98, 10, 0.06);
+    background: rgba(124, 58, 237, 0.06);
     opacity: 1;
   }
 
@@ -23212,7 +23212,7 @@ a.chip.chip--accent:hover {
     font-size: 13px;
     font-weight: 800;
     text-decoration: none;
-    box-shadow: 0 8px 22px rgba(232, 98, 10, 0.22);
+    box-shadow: 0 8px 22px rgba(124, 58, 237, 0.22);
     transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
 
@@ -23221,12 +23221,12 @@ a.chip.chip--accent:hover {
     color: #fff;
     opacity: 1;
     transform: translateY(-1px);
-    box-shadow: 0 10px 26px rgba(232, 98, 10, 0.28);
+    box-shadow: 0 10px 26px rgba(124, 58, 237, 0.28);
   }
 
   .app-topnav__post-btn:active {
     transform: translateY(0);
-    box-shadow: 0 6px 16px rgba(232, 98, 10, 0.2);
+    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.2);
   }
 
   .app-topnav__avatar {
@@ -23247,7 +23247,7 @@ a.chip.chip--accent:hover {
 
   .app-topnav__avatar:hover {
     border-color: var(--accent-hover);
-    box-shadow: 0 4px 14px rgba(232, 98, 10, 0.15);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15);
     opacity: 1;
     transform: translateY(-1px);
   }
@@ -23286,7 +23286,7 @@ a.chip.chip--accent:hover {
   padding: 36px;
   border-radius: 34px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.16), transparent 36%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.16), transparent 36%),
     radial-gradient(circle at bottom left, rgba(61, 122, 90, 0.08), transparent 32%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 242, 0.9));
   border: 1px solid rgba(28, 20, 16, 0.06);
@@ -23346,10 +23346,10 @@ a.chip.chip--accent:hover {
 }
 
 .cm-search:focus-within {
-  border-color: rgba(232, 98, 10, 0.35);
+  border-color: rgba(124, 58, 237, 0.35);
   box-shadow:
     0 20px 55px rgba(28, 20, 16, 0.1),
-    0 0 0 4px rgba(232, 98, 10, 0.12);
+    0 0 0 4px rgba(124, 58, 237, 0.12);
 }
 
 .cm-search__icon {
@@ -23478,7 +23478,7 @@ a.chip.chip--accent:hover {
   padding: 24px;
   border-radius: 28px;
   background:
-    linear-gradient(135deg, rgba(232, 98, 10, 0.12), rgba(61, 122, 90, 0.1));
+    linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(61, 122, 90, 0.1));
   border: 1px solid rgba(28, 20, 16, 0.06);
   box-shadow: 0 18px 50px rgba(28, 20, 16, 0.06);
   margin-bottom: 18px;
@@ -23575,7 +23575,7 @@ a.chip.chip--accent:hover {
 }
 
 .cm-side-card__region-row:hover {
-  background: rgba(232, 98, 10, 0.06);
+  background: rgba(124, 58, 237, 0.06);
 }
 
 .cm-side-card__region-name {
@@ -23690,13 +23690,13 @@ a.chip.chip--accent:hover {
 
 .cm-tab-btn:hover {
   color: var(--text);
-  background: rgba(232, 98, 10, 0.05);
+  background: rgba(124, 58, 237, 0.05);
 }
 
 .cm-tab-btn--active {
   color: var(--accent-hover);
   border-bottom-color: var(--accent-hover);
-  background: rgba(232, 98, 10, 0.06);
+  background: rgba(124, 58, 237, 0.06);
 }
 
 .cm-tab-panel {
@@ -23872,7 +23872,7 @@ a.chip.chip--accent:hover {
 }
 
 .cm-status-badge--needs {
-  background: rgba(232, 98, 10, 0.1);
+  background: rgba(124, 58, 237, 0.1);
   color: var(--accent-hover);
 }
 
@@ -23904,7 +23904,7 @@ a.chip.chip--accent:hover {
 .cm-question-tag {
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   color: #9a3f05;
   font-size: 12px;
   font-weight: 800;
@@ -24029,8 +24029,8 @@ a.chip.chip--accent:hover {
 }
 
 .cm-answer-card--yours {
-  background: rgba(232, 98, 10, 0.04);
-  border-color: rgba(232, 98, 10, 0.12);
+  background: rgba(124, 58, 237, 0.04);
+  border-color: rgba(124, 58, 237, 0.12);
 }
 
 .cm-answer-card__header {
@@ -24289,12 +24289,12 @@ a.chip.chip--accent:hover {
 .cm-answer-submit--ready {
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #fff;
-  box-shadow: 0 14px 32px rgba(232, 98, 10, 0.22);
+  box-shadow: 0 14px 32px rgba(124, 58, 237, 0.22);
 }
 
 .cm-answer-submit--ready:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 18px 40px rgba(232, 98, 10, 0.28);
+  box-shadow: 0 18px 40px rgba(124, 58, 237, 0.28);
 }
 
 .cm-answer-compose__cancel {
@@ -24740,7 +24740,7 @@ a.chip.chip--accent:hover {
   padding: 32px;
   border-radius: 32px;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.1), transparent 35%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.1), transparent 35%),
     linear-gradient(135deg, #fffaf4 0%, #f7f3ec 100%);
   border: 1px solid rgba(28, 20, 16, 0.06);
   box-shadow: 0 24px 70px rgba(28, 20, 16, 0.06);
@@ -24768,7 +24768,7 @@ a.chip.chip--accent:hover {
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #fff;
   font-weight: 800;
-  box-shadow: 0 14px 32px rgba(232, 98, 10, 0.22);
+  box-shadow: 0 14px 32px rgba(124, 58, 237, 0.22);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -24780,7 +24780,7 @@ a.chip.chip--accent:hover {
   padding: 13px 22px;
   border-radius: 999px;
   font-weight: 800;
-  box-shadow: 0 14px 32px rgba(232, 98, 10, 0.22);
+  box-shadow: 0 14px 32px rgba(124, 58, 237, 0.22);
 }
 
 .jn-page__results-hint {
@@ -24833,7 +24833,7 @@ a.chip.chip--accent:hover {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.12), rgba(61, 122, 90, 0.1));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(61, 122, 90, 0.1));
   color: var(--accent-hover);
 }
 
@@ -24931,7 +24931,7 @@ a.chip.chip--accent:hover {
 }
 
 .jn-card__badge--style {
-  background: rgba(232, 98, 10, 0.92);
+  background: rgba(124, 58, 237, 0.92);
   color: #fff;
 }
 
@@ -25052,7 +25052,7 @@ a.chip.chip--accent:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   color: var(--accent-hover);
 }
 
@@ -25095,7 +25095,7 @@ a.chip.chip--accent:hover {
 
 .jn-page__share-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 42px rgba(232, 98, 10, 0.28);
+  box-shadow: 0 18px 42px rgba(124, 58, 237, 0.28);
   color: #fff;
   opacity: 1;
 }
@@ -25127,10 +25127,10 @@ a.chip.chip--accent:hover {
 }
 
 .jn-page .acc-page__search-inner:focus-within {
-  border-color: rgba(232, 98, 10, 0.35);
+  border-color: rgba(124, 58, 237, 0.35);
   box-shadow:
     0 18px 50px rgba(28, 20, 16, 0.1),
-    0 0 0 4px rgba(232, 98, 10, 0.12);
+    0 0 0 4px rgba(124, 58, 237, 0.12);
 }
 
 .jn-page__search {
@@ -25228,7 +25228,7 @@ a.chip.chip--accent:hover {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
-  box-shadow: 0 8px 20px rgba(232, 98, 10, 0.18);
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.18);
 }
 
 .jn-page .acc-quick-chip--active .jn-filter-chip__icon {
@@ -25385,7 +25385,7 @@ a.chip.chip--accent:hover {
   grid-column: 1 / -1;
   padding: 24px;
   border-radius: 28px;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.1), rgba(61, 122, 90, 0.1));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(61, 122, 90, 0.1));
   border: 1px solid var(--hairline-light);
   text-align: center;
 }
@@ -25431,7 +25431,7 @@ a.chip.chip--accent:hover {
   border-radius: 28px;
   text-align: center;
   background:
-    radial-gradient(circle at top right, rgba(232, 98, 10, 0.08), transparent 40%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.08), transparent 40%),
     linear-gradient(135deg, #fffaf4 0%, #f7f3ec 100%);
   border: 1px solid rgba(28, 20, 16, 0.06);
   box-shadow: 0 18px 50px rgba(28, 20, 16, 0.06);
@@ -25903,7 +25903,7 @@ a.chip.chip--accent:hover {
 .td-identity__pill--accent {
   background: var(--accent-soft);
   color: var(--accent-hover);
-  border-color: rgba(232, 98, 10, 0.15);
+  border-color: rgba(124, 58, 237, 0.15);
 }
 
 .td-identity__title {
@@ -26853,8 +26853,8 @@ a.chip.chip--accent:hover {
 }
 
 .td-route-strip__pill--cost {
-  background: rgba(232, 98, 10, 0.1);
-  border-color: rgba(232, 98, 10, 0.2);
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.2);
   color: var(--accent);
 }
 
@@ -26907,8 +26907,8 @@ a.chip.chip--accent:hover {
   margin: 0 0 14px;
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(232, 98, 10, 0.08);
-  border: 1px solid rgba(232, 98, 10, 0.14);
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.14);
 }
 
 .td-stop__tip strong {
@@ -27029,7 +27029,7 @@ a.chip.chip--accent:hover {
 }
 
 .td-similar__card:hover {
-  border-color: rgba(232, 98, 10, 0.25);
+  border-color: rgba(124, 58, 237, 0.25);
   box-shadow: 0 12px 32px rgba(28, 20, 16, 0.08);
 }
 
@@ -27045,7 +27045,7 @@ a.chip.chip--accent:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   color: var(--accent-hover);
 }
 
@@ -28182,7 +28182,7 @@ a.chip.chip--accent:hover {
   font-weight: 800;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.12);
+  background: rgba(124, 58, 237, 0.12);
   color: var(--accent);
 }
 
@@ -28356,7 +28356,7 @@ a.chip.chip--accent:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.18) 0%, rgba(61, 122, 90, 0.14) 55%, rgba(255, 213, 128, 0.3) 100%);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.18) 0%, rgba(61, 122, 90, 0.14) 55%, rgba(255, 213, 128, 0.3) 100%);
 }
 
 .bp--premium .bp__hero-placeholder-icon {
@@ -28678,7 +28678,7 @@ a.chip.chip--accent:hover {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.08), rgba(61, 122, 90, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(61, 122, 90, 0.08));
   color: var(--accent-hover);
 }
 
@@ -28901,7 +28901,7 @@ a.chip.chip--accent:hover {
 }
 
 .bp__hero-img--placeholder {
-  background: linear-gradient(135deg, rgba(232, 98, 10, 0.2), rgba(28, 20, 16, 0.08));
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(28, 20, 16, 0.08));
 }
 
 .bp__hero-scrim {
@@ -29231,7 +29231,7 @@ a.chip.chip--accent:hover {
   text-transform: uppercase;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.12);
+  background: rgba(124, 58, 237, 0.12);
   color: var(--accent);
 }
 
@@ -29276,7 +29276,7 @@ a.chip.chip--accent:hover {
 
 .prov-sidebar__link:hover,
 .prov-sidebar__link--active {
-  background: rgba(232, 98, 10, 0.1);
+  background: rgba(124, 58, 237, 0.1);
   color: var(--accent);
 }
 
@@ -29430,8 +29430,8 @@ a.chip.chip--accent:hover {
 }
 
 .prov-page__stat--accent {
-  background: rgba(232, 98, 10, 0.08);
-  border-color: rgba(232, 98, 10, 0.18);
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.18);
 }
 
 .prov-page__grid {
@@ -29607,8 +29607,8 @@ a.chip.chip--accent:hover {
 }
 
 .prov-page__stat--accent {
-  background: rgba(232, 98, 10, 0.08);
-  border-color: rgba(232, 98, 10, 0.15);
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.15);
 }
 
 .prov-overview-grid {
@@ -29720,7 +29720,7 @@ a.chip.chip--accent:hover {
   min-height: 180px;
   border-radius: 18px;
   border: 1.5px dashed rgba(28, 20, 16, 0.12);
-  background: linear-gradient(180deg, rgba(232, 98, 10, 0.04), transparent);
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.04), transparent);
   display: grid;
   place-items: center;
   text-align: center;
@@ -29876,8 +29876,8 @@ a.chip.chip--accent:hover {
 }
 
 .create-hub__option--provider {
-  border-color: rgba(232, 98, 10, 0.12);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 98, 10, 0.04));
+  border-color: rgba(124, 58, 237, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(124, 58, 237, 0.04));
 }
 
 .prov-reviews {
@@ -30228,7 +30228,7 @@ a.chip.chip--accent:hover {
 }
 
 .adm-platform__pill--staff {
-  background: rgba(232, 98, 10, 0.15);
+  background: rgba(124, 58, 237, 0.15);
   color: var(--accent);
 }
 
@@ -30580,7 +30580,7 @@ a.chip.chip--accent:hover {
 .search-page__hit:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
-  border-color: rgba(232, 98, 10, 0.12);
+  border-color: rgba(124, 58, 237, 0.12);
   color: inherit;
   text-decoration: none;
 }
@@ -30607,7 +30607,7 @@ a.chip.chip--accent:hover {
 }
 
 .search-page__hit-media--placeholder {
-  background: linear-gradient(145deg, rgba(232, 98, 10, 0.08), rgba(28, 20, 16, 0.04));
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.08), rgba(28, 20, 16, 0.04));
 }
 
 .search-page__hit-media--post {
@@ -30625,7 +30625,7 @@ a.chip.chip--accent:hover {
   margin-bottom: 6px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   color: var(--accent-hover);
   font-size: 10px;
   font-weight: 800;
@@ -32218,7 +32218,7 @@ a.chip.chip--accent:hover {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #e8620a;
+  color: #7c3aed;
 }
 
 .adm-handoff__title {
@@ -32242,7 +32242,7 @@ a.chip.chip--accent:hover {
   min-height: 44px;
   padding: 0 18px;
   border-radius: 10px;
-  background: #e8620a;
+  background: #7c3aed;
   color: #fff;
   font-weight: 800;
   text-decoration: none;
@@ -32259,7 +32259,7 @@ a.chip.chip--accent:hover {
 }
 
 .adm-handoff__meta a {
-  color: #e8620a;
+  color: #7c3aed;
   font-weight: 700;
   text-decoration: none;
 }

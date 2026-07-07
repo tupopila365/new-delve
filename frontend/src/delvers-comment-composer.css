@@ -71,7 +71,7 @@
   padding: 0 13px;
   color: #fff;
   background: var(--accent);
-  box-shadow: 0 10px 24px rgba(232, 98, 10, 0.28);
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.28);
 }
 
 .ds-comment-composer__send:disabled {

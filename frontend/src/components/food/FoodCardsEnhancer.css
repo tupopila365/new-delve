@@ -134,7 +134,7 @@
 
 .fd-card__price {
   margin-left: auto;
-  color: #ff9a52 !important;
+  color: #a78bfa !important;
   font-size: 0.78rem !important;
   font-weight: 950 !important;
 }
@@ -172,7 +172,7 @@
 
 .fd-featured__price {
   margin: 0 !important;
-  color: #ff9a52 !important;
+  color: #a78bfa !important;
   font-weight: 900 !important;
 }
 
@@ -235,7 +235,7 @@
 }
 
 .food-card-image-actions .acc-media-card__save--saved {
-  background: rgba(232, 98, 10, 0.92) !important;
+  background: rgba(124, 58, 237, 0.92) !important;
   color: #fffaf2 !important;
 }
 

@@ -60,9 +60,9 @@
 }
 
 .profile-bio__btn--accent {
-  border-color: rgba(232, 98, 10, 0.4);
-  background: rgba(232, 98, 10, 0.14);
-  color: #ff9a52;
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.14);
+  color: #a78bfa;
 }
 
 .profile-bio__btn--icon {

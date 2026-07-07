@@ -28,7 +28,7 @@
 .prov-shell--dark .prov-sidebar__module:hover,
 .prov-shell--dark .prov-sidebar__module--active {
   background: rgba(255, 154, 82, 0.12);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-shell--dark .prov-sidebar__biz-card {
@@ -157,7 +157,7 @@
 }
 
 .prov-bk__stat--accent strong {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-bk__stat span {
@@ -216,8 +216,8 @@
 }
 
 .prov-bk__chip--active {
-  background: #ff9a52;
-  border-color: #ff9a52;
+  background: #a78bfa;
+  border-color: #a78bfa;
   color: #1a0f05;
 }
 
@@ -245,7 +245,7 @@
   height: 36px;
   border-radius: 50%;
   background: rgba(255, 154, 82, 0.2);
-  color: #ff9a52;
+  color: #a78bfa;
   display: grid;
   place-items: center;
   font-weight: 800;
@@ -316,7 +316,7 @@
 }
 
 .prov-bk__btn--primary {
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
 }
 

@@ -121,7 +121,7 @@
 }
 
 .up__businesses-empty a {
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 700;
 }
 
@@ -159,7 +159,7 @@
   height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .up__business-card strong,
@@ -228,7 +228,7 @@
 }
 
 .up__stat--link .up__stat-l {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .up__tabs {
@@ -282,7 +282,7 @@
 }
 
 .up__tab--active::after {
-  background: #e8620a;
+  background: #7c3aed;
 }
 
 .up__panel {
@@ -316,9 +316,9 @@
 }
 
 .up__post-filter--active {
-  border-color: rgba(232, 98, 10, 0.45);
-  background: rgba(232, 98, 10, 0.14);
-  color: #ff9a52;
+  border-color: rgba(124, 58, 237, 0.45);
+  background: rgba(124, 58, 237, 0.14);
+  color: #a78bfa;
 }
 
 .up__panel-actions .btn {
@@ -461,7 +461,7 @@ button.up__post-card--btn {
   height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .up__explore {

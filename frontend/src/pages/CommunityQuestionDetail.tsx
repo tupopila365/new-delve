@@ -1,16 +1,15 @@
-import { useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Compass } from 'lucide-react'
+import { ArrowLeft, Compass } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import type { FeedPost } from '../components/IgPostCard'
-import { CommunityQuestionThread } from '../components/community/CommunityQuestionThread'
+import { CommunityQuestionThread, CommunityTipCard } from '../components/community/CommunityQuestionThread'
 import { EmptyState } from '../components/ui'
 import './CommunityQuestionDetail.css'
 
 export function CommunityQuestionDetail() {
   const { id: idParam } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const postId = Number(idParam)
   const feedQueryKey = ['feed'] as const
 
@@ -21,20 +20,16 @@ export function CommunityQuestionDetail() {
     retry: false,
   })
 
-  useEffect(() => {
-    if (post && post.post_kind !== 'question') {
-      navigate('/community', { replace: true })
-    }
-  }, [post, navigate])
+  const isQuestion = post?.post_kind === 'question'
 
   if (!Number.isFinite(postId) || postId <= 0) {
     return (
       <main className="cm-question-page">
         <EmptyState
           iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
-          title="Invalid question link"
-          sub="This link does not point to a valid question."
-          cta={{ label: 'Back to Ask locals', onClick: () => navigate('/community') }}
+          title="Invalid post link"
+          sub="This link does not point to a valid community post."
+          cta={{ label: 'Back to Community', to: '/community' }}
         />
       </main>
     )
@@ -43,7 +38,7 @@ export function CommunityQuestionDetail() {
   if (isLoading) {
     return (
       <main className="cm-question-page">
-        <p role="status">Loading question…</p>
+        <p role="status">Loading…</p>
       </main>
     )
   }
@@ -53,9 +48,9 @@ export function CommunityQuestionDetail() {
       <main className="cm-question-page">
         <EmptyState
           iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
-          title="Question not found"
+          title="Post not found"
           sub="It may have been removed or you do not have permission to view it."
-          cta={{ label: 'Back to Ask locals', onClick: () => navigate('/community') }}
+          cta={{ label: 'Back to Community', to: '/community' }}
         />
       </main>
     )
@@ -63,7 +58,16 @@ export function CommunityQuestionDetail() {
 
   return (
     <main className="cm-question-page">
-      <CommunityQuestionThread post={post} queryKey={feedQueryKey} defaultOpen highlighted />
+      <Link to="/community" className="cm-question-page__back">
+        <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
+        Community
+      </Link>
+
+      {isQuestion ? (
+        <CommunityQuestionThread post={post} queryKey={feedQueryKey} defaultOpen highlighted />
+      ) : (
+        <CommunityTipCard post={post} queryKey={feedQueryKey} defaultOpen highlighted />
+      )}
     </main>
   )
 }

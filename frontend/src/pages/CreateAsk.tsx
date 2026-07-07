@@ -1,21 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError, apiFetch } from '../api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError, apiFetch, asArray } from '../api/client'
+import { fetchTagTrending, type TagSummary } from '../api/tags'
 import { useAuth } from '../auth/AuthContext'
 import { CreateStudioHeader } from '../components/create'
-import { CommunityMediaAttach } from '../components/community/CommunityMediaAttach'
+import { ComposerPillInput } from '../components/ui/ComposerPillInput'
+import { MessageComposer } from '../components/ui/MessageComposer'
 import type { FeedPost } from '../components/IgPostCard'
 import { buildAskLocalsFormData } from '../utils/communityAsk'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
+import { extractHashtags, MAX_TAGS_PER_POST } from '../utils/hashtags'
 import { invalidateSocialCaches } from '../utils/socialCache'
 import './CreateAsk.css'
 
-const TIPS = ['Parking', 'Safety', 'Prices', 'Transport', 'Food', 'Best time to visit']
-
-function tipHashtag(tip: string): string {
-  return `#${tip.toLowerCase().replace(/\s+/g, '')}`
-}
+const TRENDING_TAG_LIMIT = 8
 
 export function CreateAsk() {
   const { profile } = useAuth()
@@ -36,8 +35,17 @@ export function CreateAsk() {
     if (prefill) setPlace(prefill)
   }, [searchParams])
 
+  const trendingQuery = useQuery({
+    queryKey: ['tags-trending', 'community'],
+    queryFn: () => fetchTagTrending('community', TRENDING_TAG_LIMIT),
+  })
+  const trendingTags = useMemo(() => asArray<TagSummary>(trendingQuery.data), [trendingQuery.data])
+
+  const tagCount = useMemo(() => extractHashtags(question).length, [question])
+  const tooManyTags = tagCount > MAX_TAGS_PER_POST
+
   const isDirty = place.trim().length > 0 || question.trim().length > 0 || Boolean(imageFile || videoFile)
-  const canPost = place.trim().length > 0 && question.trim().length > 0
+  const canPost = place.trim().length > 0 && question.trim().length > 0 && !tooManyTags
 
   useEffect(() => () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview)
@@ -73,7 +81,7 @@ export function CreateAsk() {
       await invalidateSocialCaches(qc, { username: profile?.username })
       void qc.invalidateQueries({ queryKey: ['home-community-questions'] })
       void qc.invalidateQueries({ queryKey: ['feed'] })
-      navigate(`/community?posted=${post.id}`)
+      navigate(`/community/posts/${post.id}`)
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not post.'),
@@ -105,24 +113,13 @@ export function CreateAsk() {
         title="Ask locals"
         subtitle="Community"
         onBack={() => requestLeave('/create')}
-        actionLabel="Post"
-        actionDisabled={!canPost}
-        actionPending={publish.isPending}
-        actionPendingLabel="Posting…"
-        onAction={() => {
-          setError('')
-          publish.mutate()
-        }}
       />
 
       <div className="create-ask__body">
-        <p className="create-ask__intro">
-          Ask anything about a place. Locals and travellers answer in plain language.
-        </p>
-
-        <label className="create-ask__field">
+        <label className="create-ask__field create-ask__composer-block">
           <span>Where?</span>
-          <input
+          <ComposerPillInput
+            theme="dark"
             type="text"
             value={place}
             onChange={(e) => setPlace(e.target.value)}
@@ -131,63 +128,87 @@ export function CreateAsk() {
           />
         </label>
 
-        <label className="create-ask__field">
+        <div className="create-ask__field create-ask__composer-block">
           <span>Your question</span>
-          <textarea
-            rows={5}
+          <MessageComposer
+            theme="dark"
             value={question}
-            onChange={(e) => setQuestion(e.target.value)}
+            onChange={setQuestion}
+            onSubmit={() => {
+              if (!canPost || publish.isPending) return
+              setError('')
+              publish.mutate()
+            }}
             placeholder="What do you need to know? Use #hashtags like #parking or #food."
-          />
-        </label>
-
-        <CommunityMediaAttach
-          imagePreview={imagePreview}
-          videoPreview={videoPreview}
-          onImageChange={(file, preview) => {
-            if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
-            setImageFile(file)
-            setImagePreview(preview)
-            if (file) {
-              setVideoFile(null)
-              if (videoPreview) URL.revokeObjectURL(videoPreview)
-              setVideoPreview(null)
-            }
-          }}
-          onVideoChange={(file, preview) => {
-            if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
-            setVideoFile(file)
-            setVideoPreview(preview)
-            if (file) {
-              setImageFile(null)
-              if (imagePreview) URL.revokeObjectURL(imagePreview)
-              setImagePreview(null)
-            }
-          }}
-        />
-
-        <div className="create-ask__tips" aria-label="Suggested hashtags">
-          {TIPS.map((tip) => {
-            const hashtag = tipHashtag(tip)
-            return (
-            <button
-              key={tip}
-              type="button"
-              className="create-ask__tip"
-              onClick={() => {
-                if (question.includes(hashtag)) return
-                if (!question.trim()) {
-                  setQuestion(`Any tips on ${tip.toLowerCase()}? ${hashtag}`)
-                  return
+            inputAriaLabel="Your question"
+            sendAriaLabel="Post question"
+            sendDisabled={!canPost}
+            sending={publish.isPending}
+            hashtags={{
+              scope: 'community',
+              maxTags: MAX_TAGS_PER_POST,
+              onMaxTags: () => setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`),
+            }}
+            media={{
+              imagePreview,
+              videoPreview,
+              onImageChange: (file, preview) => {
+                if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
+                setImageFile(file)
+                setImagePreview(preview)
+                if (file) {
+                  setVideoFile(null)
+                  if (videoPreview) URL.revokeObjectURL(videoPreview)
+                  setVideoPreview(null)
                 }
-                setQuestion((q) => `${q.trim()} ${hashtag}`)
-              }}
-            >
-              {hashtag}
-            </button>
+              },
+              onVideoChange: (file, preview) => {
+                if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
+                setVideoFile(file)
+                setVideoPreview(preview)
+                if (file) {
+                  setImageFile(null)
+                  if (imagePreview) URL.revokeObjectURL(imagePreview)
+                  setImagePreview(null)
+                }
+              },
+            }}
+          />
+        </div>
+
+        <div className="create-ask__tips" aria-label="Trending hashtags">
+          {trendingTags.map((tag) => {
+            const hashtag = `#${tag.slug}`
+            return (
+              <button
+                key={tag.slug}
+                type="button"
+                className="create-ask__tip"
+                onClick={() => {
+                  if (extractHashtags(question).includes(tag.slug)) return
+                  if (extractHashtags(question).length >= MAX_TAGS_PER_POST) {
+                    setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`)
+                    return
+                  }
+                  setError('')
+                  if (!question.trim()) {
+                    setQuestion(`Any tips on ${tag.slug}? ${hashtag}`)
+                    return
+                  }
+                  setQuestion((q) => `${q.trim()} ${hashtag}`)
+                }}
+              >
+                {hashtag}
+              </button>
             )
           })}
         </div>
+
+        {tooManyTags ? (
+          <p className="create-ask__error" role="alert">
+            Use up to {MAX_TAGS_PER_POST} hashtags per post.
+          </p>
+        ) : null}
 
         {error ? <p className="create-ask__error">{error}</p> : null}
         <p className="create-ask__note">Your question goes straight to the community feed.</p>

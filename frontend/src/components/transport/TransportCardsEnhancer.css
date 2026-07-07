@@ -115,7 +115,7 @@
 }
 
 .tp-vehicle-card__price {
-  color: #ff9a52 !important;
+  color: #a78bfa !important;
   font-size: 0.82rem !important;
   font-weight: 950 !important;
 }
@@ -218,7 +218,7 @@
 }
 
 .tp-trip-card__fare-value {
-  color: #ff9a52 !important;
+  color: #a78bfa !important;
   font-size: 0.84rem !important;
   font-weight: 950 !important;
 }
@@ -261,7 +261,7 @@
 
 .transport-card-image-actions .acc-media-card__save--saved,
 .transport-card-image-actions__btn--saved {
-  background: rgba(232, 98, 10, 0.92) !important;
+  background: rgba(124, 58, 237, 0.92) !important;
   color: #fffaf2 !important;
 }
 

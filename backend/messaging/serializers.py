@@ -1,15 +1,190 @@
 from rest_framework import serializers
 
+from social.video_validation import validate_post_video_file
+
+from .audio_validation import validate_message_audio_file
 from .models import Conversation, Message
+
+
+class MessageReplySerializer(serializers.ModelSerializer):
+    sender_username = serializers.CharField(source="sender.username", read_only=True)
+    image = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()
+    audio = serializers.SerializerMethodField()
+    is_deleted = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = ("id", "sender_username", "body", "image", "video", "audio", "is_deleted")
+
+    def _media_url(self, field):
+        if not field:
+            return None
+        request = self.context.get("request")
+        url = field.url
+        return request.build_absolute_uri(url) if request else url
+
+    def get_image(self, obj):
+        if obj.is_deleted_for_everyone:
+            return None
+        return self._media_url(obj.image)
+
+    def get_video(self, obj):
+        if obj.is_deleted_for_everyone:
+            return None
+        return self._media_url(obj.video)
+
+    def get_audio(self, obj):
+        if obj.is_deleted_for_everyone:
+            return None
+        return self._media_url(obj.audio)
+
+    def get_is_deleted(self, obj):
+        return obj.is_deleted_for_everyone
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.is_deleted_for_everyone:
+            data["body"] = ""
+        return data
 
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_username = serializers.CharField(source="sender.username", read_only=True)
+    image = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()
+    audio = serializers.SerializerMethodField()
+    reply_to = serializers.SerializerMethodField()
+    forwarded_from = serializers.SerializerMethodField()
+    is_deleted = serializers.SerializerMethodField()
+    can_unsend = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ("id", "sender", "sender_username", "body", "read", "is_automated", "created_at")
+        fields = (
+            "id",
+            "sender",
+            "sender_username",
+            "body",
+            "image",
+            "video",
+            "audio",
+            "reply_to",
+            "forwarded_from",
+            "read",
+            "is_automated",
+            "is_deleted",
+            "can_unsend",
+            "created_at",
+        )
         read_only_fields = ("sender", "read", "is_automated", "created_at")
+
+    def _media_url(self, field):
+        if not field:
+            return None
+        request = self.context.get("request")
+        url = field.url
+        return request.build_absolute_uri(url) if request else url
+
+    def get_image(self, obj):
+        if obj.is_deleted_for_everyone:
+            return None
+        return self._media_url(obj.image)
+
+    def get_video(self, obj):
+        if obj.is_deleted_for_everyone:
+            return None
+        return self._media_url(obj.video)
+
+    def get_audio(self, obj):
+        if obj.is_deleted_for_everyone:
+            return None
+        return self._media_url(obj.audio)
+
+    def get_reply_to(self, obj):
+        parent = getattr(obj, "reply_to", None)
+        if not parent:
+            return None
+        return MessageReplySerializer(parent, context=self.context).data
+
+    def get_forwarded_from(self, obj):
+        source = getattr(obj, "forwarded_from", None)
+        if not source:
+            return None
+        return MessageReplySerializer(source, context=self.context).data
+
+    def get_is_deleted(self, obj):
+        return obj.is_deleted_for_everyone
+
+    def get_can_unsend(self, obj):
+        from .message_actions import can_unsend_message
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return can_unsend_message(message=obj, user=user)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.is_deleted_for_everyone:
+            data["body"] = ""
+        return data
+
+
+class MessageCreateSerializer(serializers.ModelSerializer):
+    reply_to_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+
+    class Meta:
+        model = Message
+        fields = ("body", "image", "video", "audio", "reply_to_id")
+
+    def validate(self, attrs):
+        body = (attrs.get("body") or "").strip()
+        image = attrs.get("image")
+        video = attrs.get("video")
+        audio = attrs.get("audio")
+        reply_to_id = attrs.pop("reply_to_id", None)
+
+        media_count = sum(1 for item in (image, video, audio) if item is not None)
+        if not body and media_count == 0:
+            raise serializers.ValidationError("Add a message, photo, video, or voice note.")
+
+        if media_count > 1:
+            raise serializers.ValidationError("Use one attachment at a time.")
+
+        if video is not None:
+            try:
+                validate_post_video_file(video)
+            except Exception as exc:
+                raise serializers.ValidationError({"video": getattr(exc, "messages", [str(exc)])}) from exc
+
+        if audio is not None:
+            try:
+                validate_message_audio_file(audio)
+            except Exception as exc:
+                raise serializers.ValidationError({"audio": getattr(exc, "messages", [str(exc)])}) from exc
+
+        if body and len(body) > 2000:
+            raise serializers.ValidationError({"body": "Message is too long (max 2000 characters)."})
+
+        conversation = self.context.get("conversation")
+        if reply_to_id is not None:
+            parent = Message.objects.filter(
+                pk=reply_to_id, conversation=conversation, is_hidden=False
+            ).first()
+            if parent is None:
+                raise serializers.ValidationError({"reply_to_id": "Message not found."})
+            attrs["reply_to"] = parent
+
+        attrs["body"] = body
+        return attrs
+
+
+class MessageDeleteSerializer(serializers.Serializer):
+    scope = serializers.ChoiceField(choices=("me", "everyone"))
+
+
+class MessageForwardSerializer(serializers.Serializer):
+    to_conversation_id = serializers.IntegerField()
 
 
 def _participant_payload(user, request) -> dict:
@@ -91,4 +266,4 @@ class ConversationSerializer(serializers.ModelSerializer):
         m = obj.messages.select_related("sender").order_by("-created_at").first()
         if not m:
             return None
-        return MessageSerializer(m).data
+        return MessageSerializer(m, context=self.context).data

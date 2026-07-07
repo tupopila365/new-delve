@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Link, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
@@ -83,6 +84,18 @@ export function MessageThread({ context = 'user' }: Props) {
     loadOlder,
     loadingOlder,
     typingUsernames,
+    canSendNow,
+    imagePreview,
+    videoPreview,
+    onImagePick,
+    onVideoPick,
+    replyTo,
+    setReplyTo,
+    clearReplyTo,
+    deleteMessage,
+    forwardMessage,
+    forwarding,
+    voice,
   } = useConversationThread({
     conversationId: id,
     myUsername: profile?.username,
@@ -121,7 +134,7 @@ export function MessageThread({ context = 'user' }: Props) {
       ? providerMessagingSettings.quick_replies
       : undefined
 
-  const pageClass = isProvider ? 'dm-page dm-page--provider' : 'dm-page'
+  const pageClass = isProvider ? 'dm-page dm-page--provider dm-page--thread' : 'dm-page dm-page--thread'
 
   if (!profile) {
     return (
@@ -136,7 +149,9 @@ export function MessageThread({ context = 'user' }: Props) {
   if (!other) {
     return (
       <main className={pageClass}>
-        <div className="dm-chat__state">Loading conversation…</div>
+        <div className="dm-chat__state" role="status" aria-live="polite" aria-label="Loading conversation">
+          <Loader2 size={24} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+        </div>
       </main>
     )
   }
@@ -144,6 +159,7 @@ export function MessageThread({ context = 'user' }: Props) {
   return (
     <main className={pageClass}>
       <DmChatView
+        conversationId={id!}
         context={context}
         person={{
           username: other.username,
@@ -162,6 +178,18 @@ export function MessageThread({ context = 'user' }: Props) {
         onSend={send}
         sending={sending}
         loading={isLoading}
+        canSendNow={canSendNow}
+        imagePreview={imagePreview}
+        videoPreview={videoPreview}
+        onImagePick={onImagePick}
+        onVideoPick={onVideoPick}
+        replyTo={replyTo}
+        onClearReply={clearReplyTo}
+        onReplyTo={setReplyTo}
+        onDelete={deleteMessage}
+        onForward={forwardMessage}
+        forwarding={forwarding}
+        voice={voice}
         hasMore={hasMore}
         loadingOlder={loadingOlder}
         onLoadOlder={loadOlder}

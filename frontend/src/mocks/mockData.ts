@@ -1759,7 +1759,7 @@ export const mockPosts: MockPost[] = [
   {
     id: 701,
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
-    body: 'Weekend craft fair at Grove Mall — local ceramics and coffee.',
+    body: 'Weekend craft fair at Grove Mall — local ceramics and coffee. #food #windhoek',
     region: 'Windhoek',
     image: U.city,
     video: null,
@@ -1776,7 +1776,7 @@ export const mockPosts: MockPost[] = [
   {
     id: 704,
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
-    body: 'Where can I pick up a SIM card in Windhoek on a Sunday afternoon?',
+    body: 'Where can I pick up a SIM card in Windhoek on a Sunday afternoon? #transport #windhoek',
     region: 'Khomas',
     place_label: 'Windhoek, Namibia',
     image: null,
@@ -1794,7 +1794,7 @@ export const mockPosts: MockPost[] = [
   {
     id: 705,
     author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
-    body: 'Is the D1913 gravel stretch to Walvis safe for a small hatchback after rain?',
+    body: 'Is the D1913 gravel stretch to Walvis safe for a small hatchback after rain? #safety #transport',
     region: 'Erongo',
     place_label: 'Walvis Bay, Namibia',
     image: null,

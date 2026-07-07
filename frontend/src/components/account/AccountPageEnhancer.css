@@ -33,8 +33,8 @@
   place-items: center;
   font-size: 1.1rem;
   font-weight: 900;
-  background: rgba(232, 98, 10, 0.22);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.22);
+  color: #a78bfa;
 }
 
 .account-page__name {
@@ -79,8 +79,8 @@
 }
 
 .account-page .pill--warn {
-  background: rgba(232, 98, 10, 0.16);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.16);
+  color: #a78bfa;
 }
 
 .account-page__hint {
@@ -90,7 +90,7 @@
 }
 
 .account-page__hint a {
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 800;
   text-decoration: none;
 }
@@ -143,7 +143,7 @@
 }
 
 .account-page__row--accent span {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .account-page__row svg {
@@ -157,15 +157,15 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
-  color: #ff9a52;
+  color: #a78bfa;
   font: inherit;
   font-size: 0.82rem;
   font-weight: 900;
 }
 
 .account-page__logout:hover {
-  border-color: rgba(232, 98, 10, 0.35);
-  background: rgba(232, 98, 10, 0.08);
+  border-color: rgba(124, 58, 237, 0.35);
+  background: rgba(124, 58, 237, 0.08);
 }
 
 .account-page .ui-empty {

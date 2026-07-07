@@ -50,7 +50,7 @@
   display: grid;
   place-items: center;
   background:
-    linear-gradient(135deg, rgba(232, 98, 10, 0.22), rgba(20, 20, 20, 0.96)),
+    linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(20, 20, 20, 0.96)),
     url('https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80');
   background-size: cover;
   background-position: center;
@@ -67,7 +67,7 @@
 }
 
 .acc-media-card__save--saved {
-  background: rgba(232, 98, 10, 0.9) !important;
+  background: rgba(124, 58, 237, 0.9) !important;
 }
 
 .acc-media-card__bookmark {
@@ -80,7 +80,7 @@
 }
 
 .acc-media-card__bookmark--saved {
-  background: rgba(232, 98, 10, 0.9) !important;
+  background: rgba(124, 58, 237, 0.9) !important;
 }
 
 .acc-media-card__like-count,
@@ -153,7 +153,7 @@
 }
 
 .acc-media-card__star {
-  color: #ff9a52 !important;
+  color: #a78bfa !important;
 }
 
 .acc-media-card__amenities {
@@ -171,7 +171,7 @@
   min-height: 25px;
   padding: 0 8px;
   border-radius: 999px;
-  background: rgba(232, 98, 10, 0.14) !important;
+  background: rgba(124, 58, 237, 0.14) !important;
   color: #ffb16f !important;
   font-size: 0.69rem;
   font-weight: 820;
@@ -243,7 +243,7 @@
 .stay-card-image-actions__btn.is-active,
 .stay-card-image-actions .acc-media-card__save--saved,
 .stay-card-image-actions .acc-media-card__bookmark--saved {
-  background: rgba(232, 98, 10, 0.92) !important;
+  background: rgba(124, 58, 237, 0.92) !important;
   color: #fffaf2 !important;
 }
 

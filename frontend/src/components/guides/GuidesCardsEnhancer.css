@@ -196,7 +196,7 @@
 
 .gd-featured__rate {
   margin: 0 !important;
-  color: #ff9a52 !important;
+  color: #a78bfa !important;
   font-weight: 900 !important;
 }
 
@@ -238,7 +238,7 @@
 }
 
 .guide-card-image-actions .gd-card__save--saved {
-  background: rgba(232, 98, 10, 0.92) !important;
+  background: rgba(124, 58, 237, 0.92) !important;
   color: #fffaf2 !important;
 }
 

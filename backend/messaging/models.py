@@ -146,16 +146,79 @@ class Message(models.Model):
         on_delete=models.CASCADE,
         related_name="sent_messages",
     )
-    body = models.TextField()
+    reply_to = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+    )
+    forwarded_from = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="forwards",
+    )
+    body = models.TextField(blank=True, default="")
+    image = models.ImageField(upload_to="messaging/messages/", blank=True, null=True)
+    video = models.FileField(upload_to="messaging/messages/", blank=True, null=True)
+    audio = models.FileField(upload_to="messaging/messages/", blank=True, null=True)
     read = models.BooleanField(default=False)
     is_automated = models.BooleanField(
         default=False,
         help_text="Provider-configured welcome or system message; not typed live by the sender.",
     )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="messages_deleted",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["created_at"]
+
+    @property
+    def is_deleted_for_everyone(self) -> bool:
+        return self.is_hidden and self.deleted_at is not None
+
+    @property
+    def preview_text(self) -> str:
+        if self.is_deleted_for_everyone:
+            return "This message was deleted"
+        text = (self.body or "").strip()
+        if text:
+            return text[:200]
+        if self.video:
+            return "[Video]"
+        if self.image:
+            return "[Photo]"
+        if self.audio:
+            return "[Voice note]"
+        if self.forwarded_from_id:
+            return self.forwarded_from.preview_text if self.forwarded_from else "[Forwarded message]"
+        return ""
+
+
+class MessageUserHide(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="hidden_for")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="message_hides",
+    )
+    hidden_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["message", "user"], name="uniq_dm_message_user_hide"),
+        ]
+        ordering = ["-hidden_at"]
 
 
 MAX_AUTO_WELCOME_BODY = 1000

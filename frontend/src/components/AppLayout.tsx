@@ -191,34 +191,6 @@ const eventFilterGroups: ServiceProviderFilterGroup[] = [
   },
 ]
 
-const messageFilterGroups: ServiceProviderFilterGroup[] = [
-  {
-    id: 'msg-when',
-    title: 'Show',
-    singleSelect: true,
-    options: [
-      { id: 'all', label: 'All chats', action: { type: 'clickText', selector: '.msg-page__filter-sync button', text: 'All' } },
-      { id: 'today', label: 'Active today', action: { type: 'clickText', selector: '.msg-page__filter-sync button', text: 'Today' } },
-    ],
-  },
-]
-
-const communityFilterGroups: ServiceProviderFilterGroup[] = [
-  {
-    id: 'community-topics',
-    title: 'Topics',
-    singleSelect: true,
-    options: [
-      { id: 'safety', label: 'Safety', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Safety' } },
-      { id: 'transport', label: 'Transport', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Transport' } },
-      { id: 'food', label: 'Food', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Food' } },
-      { id: 'stay', label: 'Stay', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Stay' } },
-      { id: 'prices', label: 'Prices', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Prices' } },
-      { id: 'visas', label: 'Visas', action: { type: 'clickText', selector: '.cm-simple__topic-sync button', text: 'Visas' } },
-    ],
-  },
-]
-
 const transportFilterGroups: ServiceProviderFilterGroup[] = [
   {
     id: 'transport-type',
@@ -291,7 +263,10 @@ export function AppLayout() {
   const journeysPage = loc.pathname === '/journeys'
   const eventsPage = loc.pathname === '/events'
   const messagesPage = loc.pathname === '/messages'
-  const communityPage = loc.pathname === '/community'
+  const communityPage =
+    loc.pathname === '/community' ||
+    loc.pathname.startsWith('/community/tags/') ||
+    loc.pathname.startsWith('/community/posts/')
   const dashboardPage = loc.pathname === '/dashboard'
   const accountPage = loc.pathname === '/account'
   const settingsPage = loc.pathname === '/settings'
@@ -410,12 +385,9 @@ export function AppLayout() {
             <MessagesPageEnhancer />
             <ServiceProviderPageHeader
               title="Messages"
-              subtitle="Chats with hosts, guides, providers, and travellers."
-              eyebrow="Inbox"
+              eyebrow=""
               searchPlaceholder="Search name or message"
               searchInputSelector="#msg-search"
-              filterGroups={messageFilterGroups}
-              filterScope="messages"
             />
           </>
         ) : null}
@@ -423,13 +395,10 @@ export function AppLayout() {
           <>
             <CommunityPageEnhancer />
             <ServiceProviderPageHeader
-              title="Community feed"
-              subtitle="Travel tips and local advice from Delvers — post to Feed to show up here."
-              eyebrow="Community"
-              searchPlaceholder="Search questions…"
+              title="Community"
+              eyebrow=""
+              searchPlaceholder="Search questions, tips, groups, or #tags…"
               searchInputSelector="#cm-search"
-              filterGroups={communityFilterGroups}
-              filterScope="community"
             />
           </>
         ) : null}

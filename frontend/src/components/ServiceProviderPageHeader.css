@@ -25,7 +25,7 @@
 }
 
 .sp-header__eyebrow {
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.68rem;
   font-weight: 950;
   letter-spacing: 0.1em;
@@ -92,6 +92,17 @@
   color: rgba(255, 255, 255, 0.44);
 }
 
+.sp-header__search input::-webkit-search-cancel-button,
+.sp-header__search input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.sp-header__search input::-ms-clear {
+  display: none;
+}
+
 .sp-header__search button {
   display: grid;
   place-items: center;
@@ -121,9 +132,9 @@
 }
 
 .sp-header__filter--active {
-  border-color: rgba(232, 98, 10, 0.55);
-  background: rgba(232, 98, 10, 0.16);
-  color: #ff9a52;
+  border-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.16);
+  color: #a78bfa;
 }
 
 /* Remove the old accommodation listing header area, old filter UI, and old background from /accommodation. */

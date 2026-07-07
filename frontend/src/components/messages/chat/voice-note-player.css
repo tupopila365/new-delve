@@ -1,0 +1,72 @@
+.voice-note-player {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 180px;
+  max-width: 100%;
+  padding: 2px 0;
+}
+
+.voice-note-player__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.voice-note-player__btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fffaf2;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.voice-note-player--mine .voice-note-player__btn {
+  background: rgba(26, 16, 8, 0.1);
+  color: #1a1008;
+}
+
+.voice-note-player__pause {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.voice-note-player__meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-left: 38px;
+  min-width: 0;
+}
+
+.voice-note-player__time,
+.voice-note-player__sent {
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.voice-note-player__time {
+  opacity: 0.72;
+}
+
+.voice-note-player__sent {
+  color: rgba(255, 250, 242, 0.45);
+}
+
+.voice-note-player--mine .voice-note-player__sent {
+  color: rgba(26, 16, 8, 0.5);
+}

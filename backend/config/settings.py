@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     "promotions",
     "journeys",
     "highlights",
+    "communities",
+    "tags",
 ]
 
 MIDDLEWARE = [
@@ -162,6 +164,7 @@ REST_FRAMEWORK = {
         "follow": "120/hour",
         "post_create": "60/hour",
         "message_start": "30/hour",
+        "message_send": "120/hour",
         "messaging_people_search": "30/min",
         "password_reset": "5/hour",
         "password_reset_confirm": "10/hour",

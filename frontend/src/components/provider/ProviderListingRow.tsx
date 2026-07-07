@@ -29,7 +29,7 @@ export function ProviderListingRow({ listing }: Props) {
           {listing.updated}
         </span>
         {listing.healthIssue ? (
-          <span className="prov-ui-listing__meta" style={{ color: '#ff9a52' }}>
+          <span className="prov-ui-listing__meta" style={{ color: '#a78bfa' }}>
             ⚠ {listing.healthIssue}
           </span>
         ) : null}

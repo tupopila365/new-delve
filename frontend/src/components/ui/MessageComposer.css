@@ -1,0 +1,246 @@
+/* Shared pill input — used by MessageComposer and standalone fields */
+
+.composer-pill-input {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 11px 18px;
+  border-radius: 999px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.25;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.composer-pill-input--dark {
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  background: transparent;
+  color: #fffaf2;
+}
+
+.composer-pill-input--dark::placeholder {
+  color: rgba(255, 250, 242, 0.38);
+}
+
+.composer-pill-input--dark:focus {
+  outline: none;
+  border-color: #fff;
+}
+
+.composer-pill-input--light {
+  border: 1px solid rgba(28, 20, 16, 0.18);
+  background: var(--bg-elevated, #fff);
+  color: var(--text, #1c1410);
+}
+
+.composer-pill-input--light::placeholder {
+  color: rgba(107, 93, 82, 0.72);
+}
+
+.composer-pill-input--light:focus {
+  outline: none;
+  border-color: rgba(124, 58, 237, 0.45);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.16);
+}
+
+/* Shared composer — same layout as group-chat, styled for pill input + purple media actions */
+
+.msg-composer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.msg-composer__attach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex: 1 1 100%;
+}
+
+.msg-composer__attach-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.msg-composer__attach-btn:hover {
+  filter: brightness(1.06);
+}
+
+.msg-composer__attach-preview {
+  position: relative;
+  margin-left: auto;
+}
+
+.msg-composer__attach-preview img,
+.msg-composer__attach-preview video {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.msg-composer--dark .msg-composer__attach-preview img,
+.msg-composer--dark .msg-composer__attach-preview video {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.msg-composer--light .msg-composer__attach-preview img,
+.msg-composer--light .msg-composer__attach-preview video {
+  border: 1px solid rgba(28, 20, 16, 0.12);
+}
+
+.msg-composer__attach-preview button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.msg-composer__editor {
+  width: 100%;
+}
+
+.msg-composer__input {
+  flex: 1;
+  min-width: 0;
+  max-height: 120px;
+  resize: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.msg-composer__input::-webkit-scrollbar {
+  display: none;
+}
+
+.msg-composer__send {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.msg-composer__send:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+
+.msg-composer__send:disabled {
+  background: #5b21b6;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.msg-composer__spin {
+  animation: msg-composer-spin 0.8s linear infinite;
+}
+
+@keyframes msg-composer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.msg-composer-shell {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #121212;
+}
+
+.msg-composer__voice-live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 0 8px;
+}
+
+.msg-composer__voice-cancel {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.72);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.msg-composer__voice-timer {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.72);
+  min-width: 2.4rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.msg-composer__attach-btn--voice-stop {
+  flex-shrink: 0;
+}
+
+.msg-composer__voice-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+  flex: 1;
+  max-width: 220px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.msg-composer__voice-preview button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 250, 242, 0.8);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}

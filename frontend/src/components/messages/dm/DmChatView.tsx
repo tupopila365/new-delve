@@ -1,21 +1,21 @@
-import type { FormEvent, ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Ban, Bot, Loader2, Send } from 'lucide-react'
+import { ArrowLeft, Ban, Loader2 } from 'lucide-react'
 import { UserAvatar } from '../../UserAvatar'
 import { ReportButton } from '../../report/ReportButton'
-import { formatMessageTime } from './messagingUtils'
+import { MessageComposer } from '../../ui/MessageComposer'
+import { CommunityMediaViewerProvider, useCommunityMediaViewer } from '../../community/CommunityMediaViewer'
 import type { MessagingContext } from '../messageProviderUtils'
+import type { DmMessageDeleteScope } from './dmMessageUtils'
+import { DmChatBubble, DmChatReplyBar } from './DmChatBubble'
+import { DmForwardSheet } from './DmForwardSheet'
+import type { ThreadMessage } from './useConversationThread'
+import type { VoiceRecorderState } from '../../../hooks/useVoiceRecorder'
+import '../../community/group/group-chat.css'
+import '../../community/community-media-lightbox.css'
 import './dm-chat.css'
 
-export type DmMessage = {
-  id: number | string
-  sender_username: string
-  body: string
-  created_at?: string
-  is_automated?: boolean
-  pending?: boolean
-  failed?: boolean
-}
+export type { DmMessage } from './useConversationThread'
 
 type Person = {
   username: string
@@ -25,11 +25,23 @@ type Person = {
   region?: string
 }
 
+type VoiceState = Pick<
+  VoiceRecorderState,
+  'isRecording' | 'durationSec' | 'audioPreview' | 'error' | 'levels'
+> & {
+  audioFile: File | null
+  startRecording: () => Promise<void>
+  stopRecording: () => void
+  cancelRecording: () => void
+  clearAudio: () => void
+}
+
 type Props = {
+  conversationId?: string | number
   person: Person
   personName: string
   myUsername: string
-  messages: DmMessage[]
+  messages: ThreadMessage[]
   body: string
   onBodyChange: (value: string) => void
   onSend: () => void
@@ -51,9 +63,30 @@ type Props = {
   typingUsernames?: string[]
   onBlock?: () => void
   blocking?: boolean
+  canSendNow?: boolean
+  imagePreview?: string | null
+  videoPreview?: string | null
+  onImagePick?: (file: File | null, preview: string | null) => void
+  onVideoPick?: (file: File | null, preview: string | null) => void
+  replyTo?: ThreadMessage | null
+  onClearReply?: () => void
+  onReplyTo?: (message: ThreadMessage) => void
+  onDelete?: (messageId: number | string, scope: DmMessageDeleteScope) => void
+  onForward?: (messageId: number | string, toConversationId: number) => void
+  forwarding?: boolean
+  voice?: VoiceState
 }
 
-export function DmChatView({
+export function DmChatView(props: Props) {
+  return (
+    <CommunityMediaViewerProvider>
+      <DmChatViewInner {...props} />
+    </CommunityMediaViewerProvider>
+  )
+}
+
+function DmChatViewInner({
+  conversationId = '',
   person,
   personName,
   myUsername,
@@ -79,87 +112,159 @@ export function DmChatView({
   typingUsernames = [],
   onBlock,
   blocking = false,
+  canSendNow = false,
+  imagePreview = null,
+  videoPreview = null,
+  onImagePick,
+  onVideoPick,
+  replyTo = null,
+  onClearReply,
+  onReplyTo,
+  onDelete,
+  onForward,
+  forwarding = false,
+  voice,
 }: Props) {
+  const { openImage, openVideo } = useCommunityMediaViewer()
+  const composerShellRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
+  const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null)
   const location = [person.city, person.region].filter(Boolean).join(', ')
   const isProviderContext = context === 'provider'
   const replies = quickReplies ?? []
   const showQuickReplyChips = (showQuickReplies ?? isProviderContext) && replies.length > 0
-  const chatClass = context === 'provider' ? 'dm-chat dm-chat--provider' : 'dm-chat'
+  const hasMedia = Boolean(onImagePick && onVideoPick)
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!body.trim() || sending) return
-    onSend()
+  const focusComposer = useCallback(() => {
+    requestAnimationFrame(() => {
+      threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' })
+      composerShellRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      inputRef.current?.focus({ preventScroll: true })
+    })
+  }, [])
+
+  const handleReplyTo = useCallback(
+    (message: ThreadMessage) => {
+      onReplyTo?.(message)
+      focusComposer()
+    },
+    [focusComposer, onReplyTo],
+  )
+
+  const handleForwardPick = (toConversationId: number) => {
+    if (!forwardMessage) return
+    onForward?.(forwardMessage.id, toConversationId)
+    setForwardMessage(null)
   }
+
+  useEffect(() => {
+    if (!replyTo) return
+    focusComposer()
+  }, [focusComposer, replyTo])
+
+  useEffect(() => {
+    const shell = composerShellRef.current
+    const vv = window.visualViewport
+    if (!shell || !vv) return
+
+    const syncKeyboardOffset = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      shell.style.setProperty('--keyboard-offset', offset > 0 ? `${offset}px` : '0px')
+    }
+
+    syncKeyboardOffset()
+    vv.addEventListener('resize', syncKeyboardOffset)
+    vv.addEventListener('scroll', syncKeyboardOffset)
+    return () => {
+      vv.removeEventListener('resize', syncKeyboardOffset)
+      vv.removeEventListener('scroll', syncKeyboardOffset)
+      shell.style.removeProperty('--keyboard-offset')
+    }
+  }, [])
 
   const applyQuickReply = (text: string) => {
     onBodyChange(body.trim() ? `${body.trim()}\n${text}` : text)
+    inputRef.current?.focus()
+  }
+
+  const openMessageMedia = (img?: string, vid?: string, bodyText?: string, sender?: string) => {
+    const caption = bodyText?.trim() || (sender ? `@${sender}` : undefined)
+    if (vid) {
+      openVideo(vid, img ?? null, caption)
+      return
+    }
+    if (img) {
+      openImage(img, 'Message', caption)
+    }
   }
 
   return (
-    <section className={chatClass} aria-label={`Chat with ${personName}`}>
-      <header className="dm-chat__head">
-        <button type="button" className="dm-chat__back" onClick={onBack} aria-label={backLabel}>
+    <section
+      className={`group-chat dm-chat${isProviderContext ? ' dm-chat--provider' : ''}`}
+      aria-label={`Chat with ${personName}`}
+    >
+      <header className="group-chat__head dm-chat__head">
+        <button type="button" className="group-chat__back" onClick={onBack} aria-label={backLabel}>
           <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
         </button>
-        <Link to={`/u/${encodeURIComponent(person.username)}`} className="dm-chat__person">
-          <UserAvatar
-            src={person.avatar}
-            name={personName}
-            className="dm-chat__avatar"
-            fill
-          />
-          <span className="dm-chat__person-copy">
+        <Link to={`/u/${encodeURIComponent(person.username)}`} className="group-chat__profile-link">
+          <div className="group-chat__avatar dm-chat__avatar">
+            <UserAvatar src={person.avatar} name={personName} className="dm-chat__avatar-inner" fill />
+          </div>
+          <div className="group-chat__title">
             <strong>{personName}</strong>
             <small>
               @{person.username}
               {location ? ` · ${location}` : ''}
               {context === 'provider' ? ' · Guest' : ''}
             </small>
-          </span>
+          </div>
         </Link>
-        {onBlock ? (
-          <button
-            type="button"
-            className="dm-chat__block"
-            onClick={onBlock}
-            disabled={blocking}
-            aria-label={`Block ${personName}`}
-            title={`Block ${personName}`}
-          >
-            {blocking ? (
-              <Loader2 size={16} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
-            ) : (
-              <Ban size={16} strokeWidth={2.25} aria-hidden />
-            )}
-          </button>
-        ) : null}
-        {reportTarget ? (
-          <ReportButton
-            className="dm-chat__report"
-            iconOnly
-            triggerLabel="Report conversation"
-            target={reportTarget}
-          />
-        ) : null}
-        <Link to={inboxHref} className="dm-chat__inbox">
-          {inboxLabel}
-        </Link>
+        <div className="dm-chat__head-actions">
+          {onBlock ? (
+            <button
+              type="button"
+              className="dm-chat__head-btn"
+              onClick={onBlock}
+              disabled={blocking}
+              aria-label={`Block ${personName}`}
+              title={`Block ${personName}`}
+            >
+              {blocking ? (
+                <Loader2 size={16} strokeWidth={2.25} className="group-chat__spin" aria-hidden />
+              ) : (
+                <Ban size={16} strokeWidth={2.25} aria-hidden />
+              )}
+            </button>
+          ) : null}
+          {reportTarget ? (
+            <ReportButton
+              className="dm-chat__head-btn dm-chat__head-btn--report"
+              iconOnly
+              triggerLabel="Report conversation"
+              target={reportTarget}
+            />
+          ) : null}
+          <Link to={inboxHref} className="dm-chat__inbox-pill">
+            {inboxLabel}
+          </Link>
+        </div>
       </header>
 
-      {statusSlot ? <div className="dm-chat__status">{statusSlot}</div> : null}
+      {statusSlot ? <div className="group-chat__status">{statusSlot}</div> : null}
 
-      <div className="dm-chat__thread" aria-label="Messages" aria-live="polite">
+      <div ref={threadRef} className="group-chat__thread" aria-label="Messages" aria-live="polite">
         {opening ? (
-          <div className="dm-chat__state">
-            <Loader2 size={22} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+          <div className="group-chat__state">
+            <Loader2 size={22} strokeWidth={2.25} className="group-chat__spin" aria-hidden />
             <p>Opening chat…</p>
           </div>
         ) : null}
 
         {loading ? (
-          <div className="dm-chat__state">
-            <Loader2 size={22} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
+          <div className="group-chat__state">
+            <Loader2 size={22} strokeWidth={2.25} className="group-chat__spin" aria-hidden />
             <p>Loading messages…</p>
           </div>
         ) : null}
@@ -167,21 +272,14 @@ export function DmChatView({
         {!opening && !loading ? (
           <>
             {hasMore && onLoadOlder ? (
-              <div className="dm-chat__load-older">
+              <div className="group-chat__load-older">
                 <button
                   type="button"
-                  className="dm-chat__load-older-btn"
+                  className="group-chat__load-older-btn"
                   onClick={onLoadOlder}
                   disabled={loadingOlder}
                 >
-                  {loadingOlder ? (
-                    <>
-                      <Loader2 size={14} strokeWidth={2.25} className="dm-chat__spin" aria-hidden />
-                      Loading…
-                    </>
-                  ) : (
-                    'Load earlier messages'
-                  )}
+                  {loadingOlder ? 'Loading…' : 'Load earlier messages'}
                 </button>
               </div>
             ) : null}
@@ -190,38 +288,23 @@ export function DmChatView({
               const mine = message.sender_username === myUsername
               const automated = Boolean(message.is_automated) && !mine
               return (
-                <article
+                <DmChatBubble
                   key={message.id}
-                  className={[
-                    'dm-chat__bubble',
-                    automated ? 'dm-chat__bubble--auto' : mine ? 'dm-chat__bubble--mine' : 'dm-chat__bubble--theirs',
-                    message.pending ? 'dm-chat__bubble--pending' : '',
-                    message.failed ? 'dm-chat__bubble--failed' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  {automated ? (
-                    <span className="dm-chat__auto-label">
-                      <Bot size={12} strokeWidth={2.25} aria-hidden />
-                      Automated · Provider
-                    </span>
-                  ) : null}
-                  <p>{message.body}</p>
-                  {message.pending ? (
-                    <small>Sending…</small>
-                  ) : message.created_at ? (
-                    <small>{formatMessageTime(message.created_at)}</small>
-                  ) : null}
-                </article>
+                  message={message}
+                  mine={mine}
+                  automated={automated}
+                  onReplyTo={handleReplyTo}
+                  onDelete={(id, scope) => onDelete?.(id, scope)}
+                  onForward={(row) => setForwardMessage(row)}
+                  onOpenMedia={openMessageMedia}
+                  onRequestComposerFocus={focusComposer}
+                />
               )
             })}
 
             {typingUsernames.length > 0 ? (
               <p className="dm-chat__typing" aria-live="polite">
-                {typingUsernames.length === 1
-                  ? `${personName} is typing…`
-                  : 'They are typing…'}
+                {typingUsernames.length === 1 ? `${personName} is typing…` : 'They are typing…'}
               </p>
             ) : null}
           </>
@@ -238,22 +321,61 @@ export function DmChatView({
         </div>
       ) : null}
 
-      <form className="dm-chat__composer" onSubmit={onSubmit}>
-        <textarea
+      <div ref={composerShellRef} className="msg-composer-shell msg-composer-shell--group-chat">
+        {replyTo && onClearReply ? <DmChatReplyBar message={replyTo} onClear={onClearReply} /> : null}
+        <MessageComposer
+          theme="dark"
           value={body}
-          onChange={(event) => onBodyChange(event.target.value)}
-          placeholder={context === 'provider' ? `Reply to ${personName}…` : `Message ${personName}…`}
-          rows={1}
-          aria-label={context === 'provider' ? `Reply to ${personName}` : `Message ${personName}`}
+          onChange={onBodyChange}
+          onSubmit={onSend}
+          inputRef={inputRef}
+          placeholder={
+            replyTo
+              ? `Reply to @${replyTo.sender_username}…`
+              : context === 'provider'
+                ? `Reply to ${personName}…`
+                : `Message ${personName}…`
+          }
+          inputAriaLabel={
+            replyTo
+              ? `Reply to @${replyTo.sender_username}`
+              : context === 'provider'
+                ? `Reply to ${personName}`
+                : `Message ${personName}`
+          }
+          sendAriaLabel="Send message"
+          sendDisabled={!canSendNow || opening}
+          sending={sending}
+          media={
+            hasMedia
+              ? {
+                  imagePreview,
+                  videoPreview,
+                  audioPreview: voice?.audioPreview ?? null,
+                  audioDurationSec: voice?.durationSec ?? 0,
+                  isRecordingVoice: voice?.isRecording ?? false,
+                  recordingDurationSec: voice?.durationSec ?? 0,
+                  voiceLevels: voice?.levels,
+                  skipVideoEditor: true,
+                  onImageChange: onImagePick!,
+                  onVideoChange: onVideoPick!,
+                  onVoiceRecordStart: voice?.startRecording,
+                  onVoiceRecordStop: voice?.stopRecording,
+                  onVoiceRecordCancel: voice?.cancelRecording,
+                }
+              : undefined
+          }
         />
-        <button type="submit" disabled={!body.trim() || sending || opening} aria-label="Send message">
-          {sending ? (
-            <Loader2 size={18} strokeWidth={2.4} className="dm-chat__spin" aria-hidden />
-          ) : (
-            <Send size={18} strokeWidth={2.4} aria-hidden />
-          )}
-        </button>
-      </form>
+        {voice?.error ? <p className="dm-chat__voice-error">{voice.error}</p> : null}
+      </div>
+
+      <DmForwardSheet
+        open={Boolean(forwardMessage)}
+        currentConversationId={conversationId}
+        busy={forwarding}
+        onClose={() => setForwardMessage(null)}
+        onPick={handleForwardPick}
+      />
     </section>
   )
 }

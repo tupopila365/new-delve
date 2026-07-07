@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bookmark, MoreVertical } from 'lucide-react'
+import { Bookmark, MoreHorizontal } from 'lucide-react'
 import { ReportButton } from '../report/ReportButton'
 import type { ReportTarget } from '../report/ReportButton'
 
@@ -24,24 +24,25 @@ export function CommentOverflowMenu({ reportTarget }: ReplyMenuProps) {
   }, [open])
 
   return (
-    <div className="cm-comment__menu-wrap" ref={wrapRef}>
+    <div className="cm-overflow" ref={wrapRef}>
       <button
         type="button"
-        className="cm-comment__menu-btn"
+        className="cm-overflow__trigger"
         aria-label="More actions"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <MoreVertical size={16} strokeWidth={2.25} aria-hidden />
+        <MoreHorizontal size={18} strokeWidth={2.25} aria-hidden />
       </button>
       {open ? (
-        <div className="cm-comment__menu" role="menu">
+        <div className="cm-overflow__menu" role="menu">
           <ReportButton
-            className="cm-comment__menu-item"
+            className="cm-overflow__item cm-overflow__item--danger"
             triggerLabel="Report"
-            iconOnly
+            showIcon
             iconSize={16}
             target={reportTarget}
+            onTrigger={() => setOpen(false)}
           />
         </div>
       ) : null}
@@ -79,23 +80,23 @@ export function PostOverflowMenu({
   }, [open])
 
   return (
-    <div className="cm-comment__menu-wrap" ref={wrapRef}>
+    <div className="cm-overflow" ref={wrapRef}>
       <button
         type="button"
-        className="cm-comment__menu-btn"
+        className="cm-overflow__trigger"
         aria-label="More actions"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <MoreVertical size={18} strokeWidth={2.25} aria-hidden />
+        <MoreHorizontal size={18} strokeWidth={2.25} aria-hidden />
       </button>
       {open ? (
-        <div className="cm-comment__menu" role="menu">
+        <div className="cm-overflow__menu" role="menu">
           {signedIn ? (
             <button
               type="button"
               role="menuitem"
-              className={`cm-comment__menu-item${saved ? ' is-active' : ''}`}
+              className={`cm-overflow__item${saved ? ' is-active' : ''}`}
               disabled={saveBusy}
               onClick={() => {
                 onSave()
@@ -103,20 +104,27 @@ export function PostOverflowMenu({
               }}
             >
               <Bookmark size={16} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-              {saved ? 'Saved' : 'Save'}
+              <span>{saved ? 'Saved' : 'Save'}</span>
             </button>
           ) : (
-            <Link to="/login" role="menuitem" className="cm-comment__menu-item" onClick={() => setOpen(false)}>
+            <Link
+              to="/login"
+              role="menuitem"
+              className="cm-overflow__item"
+              onClick={() => setOpen(false)}
+            >
               <Bookmark size={16} strokeWidth={2.25} aria-hidden />
-              Save
+              <span>Save</span>
             </Link>
           )}
+          <div className="cm-overflow__divider" role="separator" />
           <ReportButton
-            className="cm-comment__menu-item"
+            className="cm-overflow__item cm-overflow__item--danger"
             triggerLabel="Report"
-            iconOnly
+            showIcon
             iconSize={16}
             target={reportTarget}
+            onTrigger={() => setOpen(false)}
           />
         </div>
       ) : null}

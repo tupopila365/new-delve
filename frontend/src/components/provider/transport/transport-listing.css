@@ -58,7 +58,7 @@
 }
 
 .transport-list-card__badge--draft {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .transport-list-card__body {
@@ -117,7 +117,7 @@
 .transport-list-card__missing {
   margin: 8px 0 0;
   font-size: 0.78rem;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .transport-list-card__actions {
@@ -135,7 +135,7 @@
   border-radius: 12px;
   border: 1px dashed rgba(255, 154, 82, 0.4);
   background: rgba(255, 154, 82, 0.06);
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.9rem;
   font-weight: 700;
   font-family: inherit;
@@ -227,8 +227,8 @@
 }
 
 .transport-form__nav-btn--active {
-  background: #ff9a52;
-  border-color: #ff9a52;
+  background: #a78bfa;
+  border-color: #a78bfa;
   color: #1a0f05;
 }
 
@@ -322,7 +322,7 @@
 .transport-form__chip--on {
   background: rgba(255, 154, 82, 0.2);
   border-color: rgba(255, 154, 82, 0.5);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .transport-form__preview {

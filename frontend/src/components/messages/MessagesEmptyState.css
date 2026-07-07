@@ -35,7 +35,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #ff9a52;
+  color: #a78bfa;
   font: inherit;
   font-size: 0.76rem;
   font-weight: 850;
@@ -44,6 +44,6 @@
 }
 
 .msg-empty__action:hover {
-  color: #ffb07a;
+  color: #c4b5fd;
   opacity: 1;
 }

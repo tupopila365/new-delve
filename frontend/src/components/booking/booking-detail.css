@@ -89,8 +89,8 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(232, 98, 10, 0.14);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.14);
+  color: #a78bfa;
 }
 
 .bk-detail-hero__copy {
@@ -205,7 +205,7 @@
 }
 
 .bk-detail-steps__item--active .bk-detail-steps__dot {
-  background: #ff9a52;
+  background: #a78bfa;
   box-shadow: 0 0 0 4px rgba(255, 154, 82, 0.18);
 }
 
@@ -608,7 +608,7 @@
 }
 
 .bk-stage__item--active .bk-stage__dot {
-  background: var(--accent, #e8620a);
-  box-shadow: 0 0 0 4px rgba(232, 98, 10, 0.16);
+  background: var(--accent, #7c3aed);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.16);
 }
 

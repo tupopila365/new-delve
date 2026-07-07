@@ -11,7 +11,7 @@
   display: block;
   margin-bottom: 4px;
   font-size: 0.85rem;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .transport-scope p {
@@ -122,7 +122,7 @@
 
 .transport-capacity__fill {
   height: 100%;
-  background: #ff9a52;
+  background: #a78bfa;
   border-radius: inherit;
 }
 

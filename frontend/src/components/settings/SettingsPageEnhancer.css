@@ -14,7 +14,7 @@
 }
 
 .settings-page__top-links a {
-  color: #ff9a52;
+  color: #a78bfa;
   font-size: 0.78rem;
   font-weight: 800;
   text-decoration: none;
@@ -40,13 +40,13 @@
 }
 
 .settings-page .sp__tab--active {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .settings-page .sp__tab--active::after {
   bottom: -1px;
   height: 2px;
-  background: #e8620a;
+  background: #7c3aed;
 }
 
 .settings-page__panel {
@@ -96,7 +96,7 @@
 }
 
 .settings-page .input:focus {
-  border-color: rgba(232, 98, 10, 0.45);
+  border-color: rgba(124, 58, 237, 0.45);
   outline: none;
 }
 
@@ -123,13 +123,13 @@
   width: 72px;
   height: 72px;
   border: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(232, 98, 10, 0.16);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.16);
+  color: #a78bfa;
 }
 
 .settings-page .sp__av-edit {
   border-color: #0b0b0b;
-  background: #e8620a;
+  background: #7c3aed;
 }
 
 .settings-page .sp__av-remove {
@@ -151,7 +151,7 @@
   border: 1px solid rgba(255, 154, 82, 0.2);
   border-radius: 12px;
   background:
-    radial-gradient(circle at 0 0, rgba(232, 98, 10, 0.12), transparent 55%),
+    radial-gradient(circle at 0 0, rgba(124, 58, 237, 0.12), transparent 55%),
     rgba(255, 255, 255, 0.03);
 }
 
@@ -178,8 +178,8 @@
 }
 
 .settings-page .sp__radio-card--active {
-  border-color: rgba(232, 98, 10, 0.45);
-  background: rgba(232, 98, 10, 0.08);
+  border-color: rgba(124, 58, 237, 0.45);
+  background: rgba(124, 58, 237, 0.08);
 }
 
 .settings-page .sp__radio-dot {
@@ -187,7 +187,7 @@
 }
 
 .settings-page .sp__radio-card--active .sp__radio-dot {
-  border-color: #e8620a;
+  border-color: #7c3aed;
 }
 
 .settings-page .sp__sw-track {
@@ -195,7 +195,7 @@
 }
 
 .settings-page .sp__sw input:checked ~ .sp__sw-track {
-  background: #e8620a;
+  background: #7c3aed;
 }
 
 .settings-page .sp__info-row {
@@ -203,13 +203,13 @@
 }
 
 .settings-page .sp__verify-link {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .settings-page .sp__verify-banner {
-  background: rgba(232, 98, 10, 0.12);
-  border-top-color: rgba(232, 98, 10, 0.22);
-  color: #ff9a52;
+  background: rgba(124, 58, 237, 0.12);
+  border-top-color: rgba(124, 58, 237, 0.22);
+  color: #a78bfa;
 }
 
 .settings-page .sp__identity-card {
@@ -249,7 +249,7 @@
 .settings-page .sp__signout-btn {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .settings-page .pill {

@@ -35,9 +35,9 @@
 }
 
 .create-wizard__step.is-active .create-wizard__dot {
-  border-color: rgba(232, 98, 10, 0.45);
-  background: rgba(232, 98, 10, 0.12);
-  color: var(--accent, #e8620a);
+  border-color: rgba(124, 58, 237, 0.45);
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--accent, #7c3aed);
 }
 
 .create-wizard__step.is-done .create-wizard__dot {
@@ -100,9 +100,9 @@
 }
 
 .create-wizard--dark .create-wizard__step.is-active .create-wizard__dot {
-  border-color: rgba(232, 98, 10, 0.55);
-  background: rgba(232, 98, 10, 0.18);
-  color: #ff9a52;
+  border-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.18);
+  color: #a78bfa;
 }
 
 .create-wizard--dark .create-wizard__step.is-done .create-wizard__dot {
@@ -136,6 +136,6 @@
 }
 
 .create-wizard--dark .create-wizard__nav .btn-primary {
-  background: #e8620a;
+  background: #7c3aed;
   color: #fff;
 }

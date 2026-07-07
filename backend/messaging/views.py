@@ -5,12 +5,19 @@ from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied, Throttled, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.profile_access import can_message
-from config.throttles import MessageStartThrottle, MessagingPeopleSearchThrottle
+from config.throttles import MessageSendThrottle, MessageStartThrottle, MessagingPeopleSearchThrottle
 
+from .message_actions import (
+    delete_message_for_everyone,
+    delete_message_for_me,
+    forward_message,
+    messages_visible_to_user,
+)
 from .models import (
     CONTEXT_TYPES,
     Conversation,
@@ -29,7 +36,13 @@ from .provider_messaging import (
     serialize_provider_messaging_settings_response,
     validate_provider_messaging_settings,
 )
-from .serializers import ConversationSerializer, MessageSerializer
+from .serializers import (
+    ConversationSerializer,
+    MessageCreateSerializer,
+    MessageDeleteSerializer,
+    MessageForwardSerializer,
+    MessageSerializer,
+)
 
 TYPING_TTL_SECONDS = 4
 
@@ -37,6 +50,12 @@ User = get_user_model()
 
 DEFAULT_MESSAGE_PAGE = 50
 MAX_MESSAGE_PAGE = 100
+
+
+def can_unsend_message_for_request(*, message: Message, user) -> bool:
+    from .message_actions import can_unsend_message
+
+    return can_unsend_message(message=message, user=user)
 
 
 def _conversations_for_user(user):
@@ -146,6 +165,10 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
         conv = self.get_object()
         if not conv.participants.filter(id=request.user.id).exists():
             return Response({"detail": "Forbidden"}, status=403)
+        if request.method == "POST":
+            throttle = MessageSendThrottle()
+            if not throttle.allow_request(request, self):
+                raise Throttled(wait=throttle.wait())
         if request.method == "GET":
             before_raw = request.query_params.get("before_id")
             before_id = None
@@ -158,11 +181,17 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
                 limit = int(request.query_params.get("limit") or DEFAULT_MESSAGE_PAGE)
             except (TypeError, ValueError):
                 limit = DEFAULT_MESSAGE_PAGE
-            qs = conv.messages.select_related("sender")
+            qs = messages_visible_to_user(conversation=conv, user=request.user).select_related(
+                "sender",
+                "reply_to",
+                "reply_to__sender",
+                "forwarded_from",
+                "forwarded_from__sender",
+            )
             rows, has_more, next_before_id = _paginate_messages(qs, before_id=before_id, limit=limit)
             return Response(
                 {
-                    "results": MessageSerializer(rows, many=True).data,
+                    "results": MessageSerializer(rows, many=True, context={"request": request}).data,
                     "has_more": has_more,
                     "next_before_id": next_before_id,
                 }
@@ -170,14 +199,107 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
         other = conv.participants.exclude(id=request.user.id).first()
         if other and not can_message(request.user, other):
             return Response({"detail": "You cannot message this user."}, status=403)
-        body = (request.data.get("body") or "").strip()
-        if not body:
-            return Response({"detail": "body required"}, status=400)
-        if len(body) > 2000:
-            return Response({"detail": "Message is too long (max 2000 characters)."}, status=400)
-        msg = Message.objects.create(conversation=conv, sender=request.user, body=body)
+        ser = MessageCreateSerializer(data=request.data, context={"request": request, "conversation": conv})
+        ser.is_valid(raise_exception=True)
+        msg = ser.save(conversation=conv, sender=request.user)
         Conversation.objects.filter(pk=conv.pk).update(updated_at=timezone.now())
-        return Response(MessageSerializer(msg).data, status=status.HTTP_201_CREATED)
+        msg = Message.objects.select_related(
+            "sender",
+            "reply_to",
+            "reply_to__sender",
+            "forwarded_from",
+            "forwarded_from__sender",
+        ).get(pk=msg.pk)
+        return Response(MessageSerializer(msg, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"messages/(?P<message_id>[0-9]+)/delete",
+    )
+    def message_delete(self, request, pk=None, message_id=None):
+        conv = self.get_object()
+        if not conv.participants.filter(id=request.user.id).exists():
+            return Response({"detail": "Forbidden"}, status=403)
+
+        message = messages_visible_to_user(conversation=conv, user=request.user).filter(pk=message_id).first()
+        if message is None:
+            raise NotFound()
+
+        ser = MessageDeleteSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        scope = ser.validated_data["scope"]
+
+        if scope == "everyone":
+            if not can_unsend_message_for_request(message=message, user=request.user):
+                raise PermissionDenied("You can only delete your own recent messages for everyone.")
+            delete_message_for_everyone(message=message, user=request.user)
+            message = Message.objects.select_related(
+                "sender",
+                "reply_to",
+                "reply_to__sender",
+                "forwarded_from",
+                "forwarded_from__sender",
+            ).get(pk=message.pk)
+            return Response(
+                {
+                    "scope": scope,
+                    "message": MessageSerializer(message, context={"request": request}).data,
+                }
+            )
+
+        delete_message_for_me(message=message, user=request.user)
+        return Response({"scope": scope, "removed": True})
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"messages/(?P<message_id>[0-9]+)/forward",
+    )
+    def message_forward(self, request, pk=None, message_id=None):
+        conv = self.get_object()
+        if not conv.participants.filter(id=request.user.id).exists():
+            return Response({"detail": "Forbidden"}, status=403)
+
+        message = (
+            messages_visible_to_user(conversation=conv, user=request.user)
+            .filter(pk=message_id)
+            .select_related("forwarded_from", "forwarded_from__sender")
+            .first()
+        )
+        if message is None:
+            raise NotFound()
+        if message.is_deleted_for_everyone:
+            raise ValidationError({"detail": "This message was deleted."})
+
+        ser = MessageForwardSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        target_id = ser.validated_data["to_conversation_id"]
+
+        target_conv = Conversation.objects.filter(pk=target_id, participants=request.user).first()
+        if target_conv is None:
+            raise PermissionDenied("Conversation not found.")
+
+        try:
+            forwarded = forward_message(source=message, user=request.user, target_conversation=target_conv)
+        except PermissionError as exc:
+            raise PermissionDenied(str(exc)) from exc
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        forwarded = Message.objects.select_related(
+            "sender",
+            "reply_to",
+            "reply_to__sender",
+            "forwarded_from",
+            "forwarded_from__sender",
+        ).get(pk=forwarded.pk)
+        return Response(
+            {
+                "message": MessageSerializer(forwarded, context={"request": request}).data,
+                "to_conversation_id": target_conv.pk,
+            }
+        )
 
     @action(detail=True, methods=["post"], url_path="read")
     def mark_read(self, request, pk=None):
@@ -474,7 +596,9 @@ class UnreadCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        unread = (
+        from communities.inbox import total_group_unread_for_user
+
+        dm_unread = (
             Message.objects.filter(
                 conversation__participants=request.user,
                 read=False,
@@ -482,7 +606,8 @@ class UnreadCountView(APIView):
             .exclude(sender=request.user)
             .count()
         )
-        return Response({"unread": unread})
+        group_unread = total_group_unread_for_user(request.user)
+        return Response({"unread": dm_unread + group_unread, "dm": dm_unread, "groups": group_unread})
 
 
 class MessageBlockListCreateView(APIView):

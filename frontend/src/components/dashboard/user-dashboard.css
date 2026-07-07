@@ -31,7 +31,7 @@
 .t-dash__avatar--init {
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #ff9a52, #e8620a);
+  background: linear-gradient(145deg, #a78bfa, #7c3aed);
   color: #1a0f05;
   font-size: 1.1rem;
   font-weight: 900;
@@ -65,7 +65,7 @@
 .t-dash__welcome-links a {
   font-size: 0.76rem;
   font-weight: 700;
-  color: #ff9a52;
+  color: #a78bfa;
   text-decoration: none;
 }
 
@@ -109,7 +109,7 @@
 }
 
 .t-dash__nav-icon {
-  color: #ff9a52;
+  color: #a78bfa;
   display: grid;
   place-items: center;
 }
@@ -199,7 +199,7 @@
   display: grid;
   place-items: center;
   background: rgba(255, 154, 82, 0.15);
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 900;
   font-size: 1rem;
 }
@@ -249,7 +249,7 @@
 
 .t-dash__bookings .bk-status--warning {
   background: rgba(255, 154, 82, 0.15);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .t-dash__bookings .bk-status--success {
@@ -264,13 +264,13 @@
 }
 
 .t-dash__bookings .bk-user-card__price {
-  color: #ff9a52;
+  color: #a78bfa;
   font-weight: 800;
 }
 
 .t-dash__bookings .bk-user-card__type {
   background: rgba(255, 154, 82, 0.12);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .t-dash__bookings .bk-user-card__actions {
@@ -293,7 +293,7 @@
 
 .t-dash__bookings .bk-user-card__actions .btn-ghost:hover:not(:disabled) {
   border-color: rgba(255, 154, 82, 0.4);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .t-dash__bookings .bk-user-card__actions .btn-ghost:disabled {
@@ -322,7 +322,7 @@
 
 .t-dash__explore a:hover {
   border-color: rgba(255, 154, 82, 0.35);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .t-dash__split {
@@ -349,7 +349,7 @@
   margin: 0 auto 10px;
   border-radius: 14px;
   background: rgba(255, 154, 82, 0.12);
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .t-dash__empty h3 {
@@ -372,7 +372,7 @@
   min-height: 36px;
   padding: 0 14px;
   border-radius: 10px;
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
   font-size: 0.8rem;
   font-weight: 800;
@@ -415,7 +415,7 @@
 }
 
 .t-dash__shortcut svg {
-  color: #ff9a52;
+  color: #a78bfa;
   flex-shrink: 0;
 }
 
@@ -444,7 +444,7 @@
   padding: 0 14px;
   border-radius: 10px;
   border: none;
-  background: #ff9a52;
+  background: #a78bfa;
   color: #1a0f05;
   font-size: 0.8rem;
   font-weight: 800;

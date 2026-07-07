@@ -27,10 +27,20 @@ type Props = {
   triggerLabel?: string
   className?: string
   iconOnly?: boolean
+  showIcon?: boolean
   iconSize?: number
+  onTrigger?: () => void
 }
 
-export function ReportButton({ target, triggerLabel = 'Report', className = '', iconOnly, iconSize = 14 }: Props) {
+export function ReportButton({
+  target,
+  triggerLabel = 'Report',
+  className = '',
+  iconOnly,
+  showIcon = false,
+  iconSize = 14,
+  onTrigger,
+}: Props) {
   const { profile } = useAuth()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<(typeof REASONS)[number]['value']>('spam')
@@ -58,7 +68,8 @@ export function ReportButton({ target, triggerLabel = 'Report', className = '', 
   if (!profile) {
     return (
       <Link to="/login" className={`report-btn ${className}`.trim()} title="Sign in to report">
-        {iconOnly ? <Flag size={iconSize} strokeWidth={2.25} aria-hidden /> : triggerLabel}
+        {showIcon || iconOnly ? <Flag size={iconSize} strokeWidth={2.25} aria-hidden /> : null}
+        {!iconOnly ? triggerLabel : null}
       </Link>
     )
   }
@@ -69,12 +80,14 @@ export function ReportButton({ target, triggerLabel = 'Report', className = '', 
         type="button"
         className={`report-btn ${className}`.trim()}
         onClick={() => {
+          onTrigger?.()
           setOpen(true)
           setDone(false)
         }}
         aria-label={triggerLabel}
       >
-        {iconOnly ? <Flag size={iconSize} strokeWidth={2.25} aria-hidden /> : triggerLabel}
+        {showIcon || iconOnly ? <Flag size={iconSize} strokeWidth={2.25} aria-hidden /> : null}
+        {!iconOnly ? triggerLabel : null}
       </button>
 
       {open ? (

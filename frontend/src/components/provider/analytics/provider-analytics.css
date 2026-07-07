@@ -89,7 +89,7 @@
   width: 100%;
   max-width: 36px;
   border-radius: 6px 6px 2px 2px;
-  background: linear-gradient(180deg, #ff9a52 0%, rgba(255, 154, 82, 0.35) 100%);
+  background: linear-gradient(180deg, #a78bfa 0%, rgba(255, 154, 82, 0.35) 100%);
   min-height: 4px;
 }
 
@@ -144,7 +144,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #ff9a52;
+  background: #a78bfa;
 }
 
 .prov-analytics__rank-list {
@@ -173,7 +173,7 @@
 }
 
 .prov-analytics__rank-item a:hover strong {
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-analytics__rank-num {
@@ -199,7 +199,7 @@
   text-align: right;
   font-size: 0.78rem;
   font-weight: 800;
-  color: #ff9a52;
+  color: #a78bfa;
 }
 
 .prov-analytics__post-row {
@@ -249,5 +249,5 @@
 }
 
 .prov-analytics__insight strong {
-  color: #ff9a52;
+  color: #a78bfa;
 }
