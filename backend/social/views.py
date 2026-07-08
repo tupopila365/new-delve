@@ -227,7 +227,7 @@ class DelversHighlightsView(APIView):
 
         qs = filter_posts_for_viewer(
             _base_post_queryset()
-            .filter(is_delvers_highlight=True, created_at__gte=delvers_highlight_cutoff())
+            .filter(is_delvers_highlight=True)
             .exclude(post_kind=PostKind.QUESTION),
             viewer,
         )

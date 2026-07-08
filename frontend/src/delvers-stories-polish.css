@@ -74,7 +74,20 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 22px rgba(0, 0, 0, 0.32);
 }
 
-.ds-creator-bubble--seen .ds-creator-bubble__avatar {
+.ds-creator-bubble__avatar .ds-ring-cover,
+.ds-creator-bubble__avatar img.ds-ring-cover,
+.ds-creator-bubble__avatar video.ds-ring-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.ds-creator-bubble__avatar .user-avatar {
+  width: 100%;
+  height: 100%;
+}
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
 }
 

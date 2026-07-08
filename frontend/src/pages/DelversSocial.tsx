@@ -21,11 +21,17 @@ import { EmptyState } from '../components/ui'
 import { invalidatePostEngagementCaches, invalidateSocialCaches } from '../utils/socialCache'
 import {
   areAllHighlightsSeen,
-  creatorRingKey,
   markHighlightsSeen,
   placeRingKey,
   tagRingKey,
 } from '../utils/delversHighlightSeen'
+import {
+  buildBoardRings,
+  buildPlaceRings,
+  highlightCoverFromPost,
+  type BoardHighlightRing,
+  type PlaceHighlightRing,
+} from '../utils/delversHighlightRings'
 import { copyPostPermalink, postPermalinkPath } from '../utils/postPermalink'
 import '../components/community/community-feed-cards.css'
 import '../delvers-topbar-clean.css'
@@ -40,22 +46,13 @@ type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
 type PinPost = DelversFeedPost
 
-type Creator = {
-  username: string
-  display_name: string
-  avatar: string | null
-  region: string
-  posts: number
-  likes: number
-  is_following: boolean
-}
-
 type StoryTarget = {
-  kind: 'creator' | 'place' | 'tag'
+  kind: 'board' | 'place' | 'tag'
   title: string
   subtitle: string
   avatar: string | null
   username?: string
+  boardKey?: string
   tagSlug?: string
   posts: PinPost[]
 }
@@ -67,8 +64,6 @@ const TABS: { id: FeedTab; label: string }[] = [
   { id: 'photos', label: 'Photos' },
   { id: 'tips', label: 'Tips' },
 ]
-
-const PLACES = ['Windhoek', 'Swakopmund', 'Etosha', 'Sossusvlei', 'Walvis Bay']
 
 function formatCount(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M`
@@ -318,36 +313,8 @@ export function DelversSocial() {
     }
   }, [])
 
-  const creators = useMemo((): Creator[] => {
-    const map = new Map<string, Creator>()
-    for (const post of highlights) {
-      const key = post.author.username
-      const isFollowing = Boolean(post.is_author_followed)
-      const current = map.get(key)
-      if (current) {
-        current.posts += 1
-        current.likes += post.likes_count
-        current.is_following = current.is_following || isFollowing
-        if (!current.region) current.region = post.region
-      } else {
-        map.set(key, {
-          username: post.author.username,
-          display_name: post.author.display_name || post.author.username,
-          avatar: post.author.avatar ?? null,
-          region: post.region || '',
-          posts: 1,
-          likes: post.likes_count,
-          is_following: isFollowing,
-        })
-      }
-    }
-    return [...map.values()]
-      .sort(
-        (a, b) =>
-          Number(b.is_following) - Number(a.is_following) || b.likes - a.likes || b.posts - a.posts,
-      )
-      .slice(0, 10)
-  }, [highlights])
+  const boardRings = useMemo(() => buildBoardRings(highlights), [highlights])
+  const placeRings = useMemo(() => buildPlaceRings(highlights), [highlights])
 
   const posts = useMemo(() => {
     let list = [...(data ?? [])].filter((item) => !isFeedPost(item) || isDelversPin(item))
@@ -421,8 +388,8 @@ export function DelversSocial() {
   const closeStoryViewer = () => {
     if (storyTarget) {
       const ringKey =
-        storyTarget.kind === 'creator' && storyTarget.username
-          ? creatorRingKey(storyTarget.username)
+        storyTarget.kind === 'board' && storyTarget.boardKey
+          ? storyTarget.boardKey
           : storyTarget.kind === 'tag' && storyTarget.tagSlug
             ? tagRingKey(storyTarget.tagSlug)
             : placeRingKey(storyTarget.title)
@@ -435,33 +402,28 @@ export function DelversSocial() {
     setStoryTarget(null)
   }
 
-  const openCreatorStories = (creator: Creator) => {
-    const rows = highlights.filter((post) => post.author.username === creator.username)
-    if (rows.length === 0) return
+  const openBoardStories = (ring: BoardHighlightRing) => {
+    if (ring.posts.length === 0) return
     setStoryTarget({
-      kind: 'creator',
-      title: creator.display_name,
-      subtitle: `@${creator.username} · ${rows.length} ${rows.length === 1 ? 'highlight' : 'highlights'}`,
-      avatar: creator.avatar,
-      username: creator.username,
-      posts: rows,
+      kind: 'board',
+      title: ring.label,
+      subtitle: `@${ring.username} · ${ring.posts.length} ${ring.posts.length === 1 ? 'slide' : 'slides'}`,
+      avatar: ring.avatar,
+      username: ring.username,
+      boardKey: ring.ringKey,
+      posts: ring.posts,
     })
     setStoryIndex(0)
   }
 
-  const openPlaceStories = (place: string) => {
-    const placeKey = place.trim().toLowerCase()
-    const rows = highlights.filter((post) => post.region?.trim().toLowerCase().includes(placeKey))
-    if (rows.length === 0) {
-      setQuery(place)
-      return
-    }
+  const openPlaceStories = (ring: PlaceHighlightRing) => {
+    if (ring.posts.length === 0) return
     setStoryTarget({
       kind: 'place',
-      title: place,
-      subtitle: `${rows.length} ${rows.length === 1 ? 'highlight' : 'highlights'} from this place`,
+      title: ring.label,
+      subtitle: `${ring.posts.length} ${ring.posts.length === 1 ? 'highlight' : 'highlights'} from this place`,
       avatar: null,
-      posts: rows,
+      posts: ring.posts,
     })
     setStoryIndex(0)
   }
@@ -549,16 +511,17 @@ export function DelversSocial() {
       <main className="ds-main ds-main--centered">
         <section className="ds-stories ds-stories--polished" aria-label="Creator, hashtag, and place highlights">
           <CreateStoryBubble signedIn={!!profile} />
-          {creators.map((creator) => {
-            const ringKey = creatorRingKey(creator.username)
-            const ids = highlights.filter((post) => post.author.username === creator.username).map((post) => post.id)
-            const seen = areAllHighlightsSeen(ringKey, ids)
+          {boardRings.map((ring) => {
+            const seen = areAllHighlightsSeen(ring.ringKey, ring.posts.map((p) => p.id))
             return (
-              <CreatorBubble
-                key={creator.username}
-                creator={creator}
+              <HighlightRingBubble
+                key={ring.id}
+                label={ring.label}
+                cover={ring.cover}
+                avatar={ring.avatar}
+                displayName={ring.displayName}
                 seen={seen}
-                onOpen={() => openCreatorStories(creator)}
+                onOpen={() => openBoardStories(ring)}
               />
             )
           })}
@@ -566,16 +529,29 @@ export function DelversSocial() {
             const ringKey = tagRingKey(ring.tag_slug)
             const ids = ring.posts.map((p) => p.id)
             const seen = areAllHighlightsSeen(ringKey, ids)
+            const cover = ring.posts[0] ? highlightCoverFromPost(ring.posts[0]) : { src: null, kind: 'image' as const }
             return (
-              <TagBubble key={ring.ring_id || ring.tag_slug} tag={ring.tag_slug} seen={seen} onOpen={() => openTagStories(ring)} />
+              <HighlightRingBubble
+                key={ring.ring_id || ring.tag_slug}
+                label={`#${ring.tag_slug}`}
+                cover={cover}
+                seen={seen}
+                onOpen={() => openTagStories(ring)}
+              />
             )
           })}
-          {PLACES.map((place) => (
-            <button key={place} type="button" className="ds-place-bubble" onClick={() => openPlaceStories(place)}>
-              <span><MapPin size={18} strokeWidth={2.25} /></span>
-              <small>{place}</small>
-            </button>
-          ))}
+          {placeRings.map((ring) => {
+            const seen = areAllHighlightsSeen(ring.ringKey, ring.posts.map((p) => p.id))
+            return (
+              <HighlightRingBubble
+                key={ring.id}
+                label={ring.label}
+                cover={ring.cover}
+                seen={seen}
+                onOpen={() => openPlaceStories(ring)}
+              />
+            )
+          })}
         </section>
 
         {toast ? <p className="ds-toast" role="status">{toast}</p> : null}
@@ -662,32 +638,44 @@ export function DelversSocial() {
   )
 }
 
-function CreatorBubble({ creator, seen, onOpen }: { creator: Creator; seen: boolean; onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      className={`ds-creator-bubble${seen ? ' ds-creator-bubble--seen' : ''}`}
-      onClick={onOpen}
-      aria-label={`Open highlights by ${creator.display_name}`}
-    >
-      <UserAvatar src={creator.avatar} name={creator.display_name} className="ds-creator-bubble__avatar" fill />
-      <small>{creator.display_name}</small>
-    </button>
-  )
-}
+function HighlightRingBubble({
+  label,
+  cover,
+  avatar,
+  displayName,
+  seen,
+  onOpen,
+}: {
+  label: string
+  cover: { src: string | null; kind: 'image' | 'video' }
+  avatar?: string | null
+  displayName?: string
+  seen: boolean
+  onOpen: () => void
+}) {
+  const ariaLabel = displayName ? `Open ${label} highlights by ${displayName}` : `Open ${label} highlights`
 
-function TagBubble({ tag, seen, onOpen }: { tag: string; seen: boolean; onOpen: () => void }) {
   return (
     <button
       type="button"
       className={`ds-creator-bubble${seen ? ' ds-creator-bubble--seen' : ''}`}
       onClick={onOpen}
-      aria-label={`Open hashtag highlights for #${tag}`}
+      aria-label={ariaLabel}
     >
-      <span className="ds-creator-bubble__avatar" aria-hidden>
-        <Hash size={18} strokeWidth={2.25} />
+      <span className="ds-creator-bubble__avatar">
+        {cover.src ? (
+          cover.kind === 'video' ? (
+            <video src={cover.src} muted playsInline preload="metadata" className="ds-ring-cover" aria-hidden />
+          ) : (
+            <img src={cover.src} alt="" className="ds-ring-cover" loading="lazy" />
+          )
+        ) : avatar ? (
+          <UserAvatar src={avatar} name={displayName || label} fill />
+        ) : (
+          <Hash size={18} strokeWidth={2.25} aria-hidden />
+        )}
       </span>
-      <small>#{tag}</small>
+      <small>{label}</small>
     </button>
   )
 }
@@ -838,7 +826,7 @@ function StoryViewer({ target, index, onIndex, onClose, signedIn, likeBusy, fire
             className="ds-story-viewer__avatar"
             fill
           />
-          {target.kind === 'creator' && target.username ? (
+          {target.kind === 'board' && target.username ? (
             <Link to={`/u/${encodeURIComponent(target.username)}`} className="ds-story-viewer__meta ds-story-viewer__meta-link">
               <strong>{target.title}</strong>
               <small>{target.subtitle}</small>

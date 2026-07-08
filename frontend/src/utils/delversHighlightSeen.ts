@@ -37,8 +37,14 @@ export function areAllHighlightsSeen(ringKey: string, postIds: number[]): boolea
   return postIds.every((id) => seen.has(id))
 }
 
+/** @deprecated Use boardRingKey — highlights are grouped by board name per creator. */
 export function creatorRingKey(username: string): string {
   return `creator:${username}`
+}
+
+export function boardRingKey(username: string, board: string): string {
+  const name = board.trim() || 'Highlights'
+  return `board:${username.trim().toLowerCase()}:${name.toLowerCase()}`
 }
 
 export function placeRingKey(place: string): string {

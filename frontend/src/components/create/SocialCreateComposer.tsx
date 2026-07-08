@@ -29,8 +29,9 @@ import {
   type PostDestination,
 } from './types'
 import { renderEditedImage } from './mediaUtils'
-import { isFullVideoTrim, MAX_TRIM_DURATION_SEC, prepareVideoForUpload } from './videoTrimUtils'
+import { isFullVideoTrim, MAX_TRIM_DURATION_SEC } from './videoTrimUtils'
 import { invalidateSocialCaches } from '../../utils/socialCache'
+import { loadVideoMetadata, prepareDelversVideoForUpload, probeDelversVideoFile } from '../../utils/delversVideoUtils'
 import './SocialCreateComposer.css'
 
 type Props = {
@@ -67,6 +68,7 @@ export function SocialCreateComposer({ mode }: Props) {
     mode === 'story' ? 'delvers' : 'delvers',
   )
   const [board, setBoard] = useState(mode === 'story' ? 'Highlights' : '')
+  const [postAsHighlight, setPostAsHighlight] = useState(false)
   const [placeLink, setPlaceLink] = useState<PlaceLink>(DEFAULT_PLACE_LINK)
   const [error, setError] = useState('')
   const startedAt = useRef(startCreateSession())
@@ -119,21 +121,51 @@ export function SocialCreateComposer({ mode }: Props) {
   }, [hostStory, searchParams])
 
   const postsToDelvers = !hostStory && (mode === 'story' || destination === 'delvers')
-  const isDirty = Boolean(file || caption.trim() || placeLink.kind !== 'none' || board.trim())
+  const publishAsHighlight = !hostStory && (mode === 'story' || (mode === 'post' && postAsHighlight && destination === 'delvers'))
+  const isDirty = Boolean(
+    file || caption.trim() || placeLink.kind !== 'none' || board.trim() || postAsHighlight,
+  )
 
   const requestLeave = (to: string) => {
     if (isDirty && !window.confirm('Discard this draft?')) return
     navigate(to)
   }
 
-  const onPickFile = (nextFile: File | null) => {
+  const onPickFile = async (nextFile: File | null) => {
     if (preview) URL.revokeObjectURL(preview)
+    setError('')
+    if (nextFile && mediaKind === 'video') {
+      const probeError = await probeDelversVideoFile(nextFile)
+      if (probeError) {
+        setError(probeError)
+        return
+      }
+    }
     setFile(nextFile)
-    setPreview(nextFile ? URL.createObjectURL(nextFile) : null)
+    const nextPreview = nextFile ? URL.createObjectURL(nextFile) : null
+    setPreview(nextPreview)
     setVideoDuration(0)
     setVideoTrim({ start: 0, end: 0 })
     if (nextFile) setActiveTool('filters')
   }
+
+  useEffect(() => {
+    if (!preview || mediaKind !== 'video') return
+    let cancelled = false
+    void loadVideoMetadata(preview)
+      .then(({ duration, trim }) => {
+        if (cancelled) return
+        setVideoDuration(duration)
+        setVideoTrim(trim)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Could not load video.')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [preview, mediaKind])
 
   const onMediaKindChange = (kind: MediaKind) => {
     setMediaKind(kind)
@@ -172,9 +204,10 @@ export function SocialCreateComposer({ mode }: Props) {
       fd.append('region', region.trim())
       fd.append('is_delvers', postsToDelvers ? 'true' : 'false')
       fd.append('is_accommodation_story', hostStory ? 'true' : 'false')
-      fd.append('is_delvers_highlight', mode === 'story' && !hostStory ? 'true' : 'false')
+      fd.append('is_delvers_highlight', publishAsHighlight ? 'true' : 'false')
       if (postsToDelvers) {
-        fd.append('delvers_board', board.trim() || (mode === 'story' ? 'Highlights' : 'Posts'))
+        const boardName = board.trim() || (publishAsHighlight ? 'Highlights' : 'Posts')
+        fd.append('delvers_board', boardName)
       }
       if (placeLink.kind === 'accommodation' && placeLink.id > 0) {
         fd.append('listing', String(placeLink.id))
@@ -193,7 +226,7 @@ export function SocialCreateComposer({ mode }: Props) {
       }
 
       if (mediaKind === 'video') {
-        const videoFile = await prepareVideoForUpload(file, videoTrim, videoDuration)
+        const videoFile = await prepareDelversVideoForUpload(file, videoTrim, videoDuration)
         fd.append('video', videoFile)
       } else {
         const blob = await renderEditedImage(file, filter, crop)
@@ -344,14 +377,29 @@ export function SocialCreateComposer({ mode }: Props) {
             </div>
           ) : null}
 
+          {mode === 'post' && !hostStory && destination === 'delvers' ? (
+            <label className="create-studio__highlight-toggle">
+              <input
+                type="checkbox"
+                checked={postAsHighlight}
+                onChange={(event) => setPostAsHighlight(event.target.checked)}
+              />
+              <span>Also save as a highlight ring (story-style, not in the feed)</span>
+            </label>
+          ) : null}
+
           {postsToDelvers || hostStory ? (
             <div className="create-studio__meta">
-              {mode === 'post' && !hostStory ? (
+              {(mode === 'post' && !hostStory) || mode === 'story' ? (
                 <input
                   className="create-studio__board"
                   value={board}
                   onChange={(event) => setBoard(event.target.value)}
-                  placeholder="Board · Weekend trips, food finds…"
+                  placeholder={
+                    mode === 'story' || postAsHighlight
+                      ? 'Highlight ring name · Weekend trips, food finds…'
+                      : 'Board · Weekend trips, food finds…'
+                  }
                 />
               ) : null}
               <PlaceSearchSheet
