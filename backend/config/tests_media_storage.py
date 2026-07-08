@@ -2,7 +2,27 @@ from django.core.files.storage import FileSystemStorage
 from django.test import SimpleTestCase
 
 from config import cloudinary_field_storages
+from config.cloudinary_media import cloudinary_video_delivery_url
 from config.cloudinary_resource_type import cloudinary_resource_type_for_name
+
+
+class CloudinaryVideoDeliveryUrlTests(SimpleTestCase):
+    def test_inserts_transcode_transform_for_video_urls(self):
+        url = "https://res.cloudinary.com/demo/video/upload/v1/media/posts/videos/clip"
+        self.assertEqual(
+            cloudinary_video_delivery_url(url),
+            "https://res.cloudinary.com/demo/video/upload/f_auto,q_auto/v1/media/posts/videos/clip",
+        )
+
+    def test_does_not_double_insert_transform(self):
+        url = "https://res.cloudinary.com/demo/video/upload/f_auto,q_auto/v1/media/clip"
+        self.assertEqual(cloudinary_video_delivery_url(url), url)
+
+    def test_leaves_non_cloudinary_and_empty_urls_untouched(self):
+        self.assertIsNone(cloudinary_video_delivery_url(None))
+        self.assertEqual(cloudinary_video_delivery_url(""), "")
+        local = "/media/posts/videos/clip.mp4"
+        self.assertEqual(cloudinary_video_delivery_url(local), local)
 
 
 class PerFieldCloudinaryStorageTests(SimpleTestCase):

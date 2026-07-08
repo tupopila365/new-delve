@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from config.cloudinary_media import cloudinary_video_delivery_url
 from messaging.audio_validation import validate_message_audio_file
 from messaging.image_validation import validate_message_image_file
 from social.video_validation import validate_post_video_file
@@ -76,7 +77,7 @@ class GroupMessageReplySerializer(serializers.ModelSerializer):
     def get_video(self, obj):
         if obj.is_deleted_for_everyone:
             return None
-        return self._media_url(obj.video)
+        return cloudinary_video_delivery_url(self._media_url(obj.video))
 
     def get_audio(self, obj):
         if obj.is_deleted_for_everyone:
@@ -139,7 +140,7 @@ class GroupMessageSerializer(serializers.ModelSerializer):
     def get_video(self, obj):
         if obj.is_deleted_for_everyone:
             return None
-        return self._media_url(obj.video)
+        return cloudinary_video_delivery_url(self._media_url(obj.video))
 
     def get_audio(self, obj):
         if obj.is_deleted_for_everyone:

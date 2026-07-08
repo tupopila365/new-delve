@@ -7,6 +7,7 @@ from events_app.models import Event
 from food.models import FoodVenue
 from transport.models import BusTrip, VehicleRentalListing
 
+from config.cloudinary_media import cloudinary_video_delivery_url
 from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
 from tags.services import extract_hashtags_from_text, linkable_slugs_for_post, MAX_TAGS_PER_CONTENT
 from .video_validation import validate_post_upload_keys, validate_post_video_file
@@ -316,6 +317,8 @@ class PostSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
+        if ret.get("video"):
+            ret["video"] = cloudinary_video_delivery_url(ret["video"])
         ret.pop("listing", None)
         ret.pop("event", None)
         ret.pop("vehicle_listing", None)

@@ -368,6 +368,16 @@ export async function prepareCommunityVideoForUpload(
   const hasDrawings = strokes.length > 0
 
   if (!trimmed && !tooLong && !hasDrawings && keepAudio) {
+    // No edits requested. Re-encode large clips so uploads stay small and
+    // Cloudinary gets a clean source; tiny clips upload untouched (Cloudinary
+    // transcodes on delivery either way). Fall back to the original on failure.
+    if (file.size > CHAT_SKIP_COMPRESS_BYTES) {
+      try {
+        return await compressVideoForChat(file)
+      } catch {
+        return file
+      }
+    }
     return file
   }
 
