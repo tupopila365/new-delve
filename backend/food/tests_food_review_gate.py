@@ -38,6 +38,7 @@ class FoodReviewGateTests(TestCase):
             region="Khomas",
             city="Windhoek",
             reservations=True,
+            is_active=True,
         )
         self.reserved_for = (timezone.now() + timedelta(days=1)).replace(
             hour=19, minute=0, second=0, microsecond=0

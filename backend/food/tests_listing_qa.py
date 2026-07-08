@@ -18,11 +18,18 @@ class FoodListingQuestionTests(TestCase):
         self.guest = User.objects.create_user(
             username="food_guest", email="food_guest@test.local", password="pass12345"
         )
+        self.admin = User.objects.create_user(
+            username="food_admin",
+            email="admin@food.local",
+            password="pass12345",
+            is_staff=True,
+        )
         self.venue = FoodVenue.objects.create(
             owner=self.owner,
             name="River Cafe",
             region="Khomas",
             city="Windhoek",
+            is_active=True,
         )
 
     def test_guest_can_ask_and_owner_can_answer(self):
@@ -54,14 +61,7 @@ class FoodListingQuestionTests(TestCase):
             author=self.guest,
             body="Spam question",
         )
-        self.client.force_authenticate(
-            user=User.objects.create_user(
-                username="food_admin",
-                email="admin@food.local",
-                password="pass12345",
-                is_staff=True,
-            )
-        )
+        self.client.force_authenticate(user=self.admin)
         hidden = self.client.patch(
             "/api/accounts/admin/moderation/",
             {
@@ -73,7 +73,9 @@ class FoodListingQuestionTests(TestCase):
             format="json",
         )
         self.assertEqual(hidden.status_code, 200)
+        self.assertTrue(FoodQuestion.objects.get(pk=question.pk).is_hidden)
 
         self.client.force_authenticate(user=None)
         listed = self.client.get(f"/api/food/venues/{self.venue.pk}/questions/")
+        self.assertEqual(listed.status_code, 200)
         self.assertEqual(len(listed.data), 0)

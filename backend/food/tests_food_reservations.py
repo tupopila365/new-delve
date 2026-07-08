@@ -38,6 +38,7 @@ class FoodReservationTests(TestCase):
             region="Erongo",
             city="Swakopmund",
             reservations=True,
+            is_active=True,
         )
         self.reserved_for = (timezone.now() + timedelta(days=2)).replace(
             hour=19, minute=0, second=0, microsecond=0

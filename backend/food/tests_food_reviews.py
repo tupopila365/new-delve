@@ -42,6 +42,7 @@ class FoodVenueReviewTests(TestCase):
             ],
             rating_avg=4.0,
             rating_count=1,
+            is_active=True,
         )
 
     def test_traveler_can_review_venue_once(self):

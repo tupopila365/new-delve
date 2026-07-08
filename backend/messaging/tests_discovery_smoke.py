@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import Profile
 from config.throttles import MessagingPeopleSearchThrottle
-from messaging.views import MessagingPeopleSearchView
+from messaging.views import MessagingPeopleSearchView, StartOrGetConversationView
 
 _PEOPLE_SEARCH_THROTTLE_RATE = "2/min"
 
@@ -28,11 +28,14 @@ class MessagingDiscoverySmokeTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls._orig_people_throttles = MessagingPeopleSearchView.throttle_classes
+        cls._orig_start_throttles = StartOrGetConversationView.throttle_classes
         MessagingPeopleSearchView.throttle_classes = []
+        StartOrGetConversationView.throttle_classes = []
 
     @classmethod
     def tearDownClass(cls):
         MessagingPeopleSearchView.throttle_classes = cls._orig_people_throttles
+        StartOrGetConversationView.throttle_classes = cls._orig_start_throttles
         super().tearDownClass()
 
     def setUp(self):

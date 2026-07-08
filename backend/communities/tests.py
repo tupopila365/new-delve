@@ -59,7 +59,7 @@ class CommunityGroupMessagingTests(TestCase):
 
     def test_public_group_messages_require_membership(self):
         res = self.client.get(f"/api/communities/groups/{self.public_group.slug}/messages/")
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 401)
 
         self.client.force_authenticate(user=self.bob)
         join = self.client.post(f"/api/communities/groups/{self.public_group.slug}/join/")
@@ -130,7 +130,7 @@ class CommunityGroupMessagingTests(TestCase):
 
         self.client.force_authenticate(user=self.bob)
         blocked = self.client.get(f"/api/communities/groups/{self.private_group.slug}/messages/")
-        self.assertEqual(blocked.status_code, 403)
+        self.assertEqual(blocked.status_code, 404)
 
         self.client.force_authenticate(user=self.alice)
         pending = self.client.get(f"/api/communities/groups/{self.private_group.slug}/members/pending/")

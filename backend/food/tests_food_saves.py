@@ -26,6 +26,7 @@ class FoodVenueSaveTests(TestCase):
             cuisine=CuisineType.CAFE,
             region="Khomas",
             city="Windhoek",
+            is_active=True,
         )
 
     def test_save_toggle_and_saved_list(self):

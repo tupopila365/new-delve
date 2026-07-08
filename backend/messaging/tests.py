@@ -564,6 +564,13 @@ class MessagingRichMessageTests(TestCase):
     def test_forward_blocked_when_recipient_blocked(self):
         from messaging.models import MessageBlock
 
+        source = self.client.post(
+            f"/api/messaging/conversations/{self.conv_id}/messages/",
+            {"body": "Blocked forward"},
+            format="json",
+        )
+        self.assertEqual(source.status_code, 201)
+
         MessageBlock.objects.create(blocker=self.bob, blocked=self.alice)
         self.client.force_authenticate(user=self.bob)
         start_bob = self.client.post("/api/messaging/start/", {"username": "alice_rich"}, format="json")
@@ -572,11 +579,6 @@ class MessagingRichMessageTests(TestCase):
         if existing is None:
             return
         self.client.force_authenticate(user=self.alice)
-        source = self.client.post(
-            f"/api/messaging/conversations/{self.conv_id}/messages/",
-            {"body": "Blocked forward"},
-            format="json",
-        )
         forwarded = self.client.post(
             f"/api/messaging/conversations/{self.conv_id}/messages/{source.data['id']}/forward/",
             {"to_conversation_id": existing.id},

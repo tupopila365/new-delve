@@ -2,12 +2,15 @@
 Django settings for DELVE backend.
 """
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+_TESTING = "test" in sys.argv
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
@@ -116,6 +119,15 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Throttle/typing cache must not leak across tests (user PKs are reused after rollback).
+if _TESTING:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+    TEST_RUNNER = "config.test_runner.CacheClearingDiscoverRunner"
 
 # Cloudinary when CLOUDINARY_URL is set (Heroku beta media). Otherwise local disk.
 _use_cloudinary = bool(os.environ.get("CLOUDINARY_URL", "").strip())
