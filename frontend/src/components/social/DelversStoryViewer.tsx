@@ -9,8 +9,7 @@ import { DelversCommentsPanel } from '../DelversCommentsPanel'
 import { DelversCommentComposer } from '../DelversCommentComposer'
 import { StoryProgressRail } from '../stories/StoryProgressRail'
 import { useStoryPlayback, type StoryPlaybackSlide } from '../../hooks/useStoryPlayback'
-import { useStorySwipeDismiss } from '../../hooks/useStorySwipeDismiss'
-import { useStoryMediaGestures } from '../../hooks/useStoryMediaGestures'
+import { useStoryViewerGestures } from '../../hooks/useStoryViewerGestures'
 import { storyHaptic } from '../../utils/storyHaptics'
 
 export type DelversStoryTarget = {
@@ -32,6 +31,8 @@ type Props = {
   onRingComplete: () => void
   canLeaveToPrevRing?: boolean
   onLeaveToPrevRing?: () => void
+  canSwipeToNextRing?: boolean
+  onSwipeToNextRing?: () => void
   signedIn: boolean
   likeBusy: boolean
   fireBusy: boolean
@@ -68,6 +69,8 @@ export function DelversStoryViewer({
   onRingComplete,
   canLeaveToPrevRing = false,
   onLeaveToPrevRing,
+  canSwipeToNextRing = false,
+  onSwipeToNextRing,
   signedIn,
   likeBusy,
   fireBusy,
@@ -81,8 +84,11 @@ export function DelversStoryViewer({
   const caption = post ? postText(post) : ''
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [heartBurst, setHeartBurst] = useState(false)
+  const [tapPaused, setTapPaused] = useState(false)
 
   const slides = useMemo(() => target.posts.map(postToStorySlide), [target.posts])
+  const isFirstSlide = index <= 0
+  const isLastSlide = index >= target.posts.length - 1
 
   const {
     slide,
@@ -102,12 +108,7 @@ export function DelversStoryViewer({
     index,
     onIndexChange: onIndex,
     onComplete: onRingComplete,
-    paused: commentsOpen,
-  })
-
-  const { dragProps, style: dragStyle } = useStorySwipeDismiss({
-    onDismiss: onClose,
-    enabled: !commentsOpen,
+    paused: commentsOpen || tapPaused,
   })
 
   const triggerHeartBurst = useCallback(() => {
@@ -134,17 +135,35 @@ export function DelversStoryViewer({
     }
   }, [handleLikeWithFeedback, post, triggerHeartBurst])
 
-  const { mediaPointerProps } = useStoryMediaGestures({
+  const handlePrev = useCallback(() => {
+    if (index <= 0 && canLeaveToPrevRing && onLeaveToPrevRing) {
+      onLeaveToPrevRing()
+      return
+    }
+    goPrev()
+  }, [canLeaveToPrevRing, goPrev, index, onLeaveToPrevRing])
+
+  const { cardPointerProps, style: gestureStyle } = useStoryViewerGestures({
     enabled: !commentsOpen,
+    isFirstSlide,
+    isLastSlide,
+    canPrevRing: Boolean(canLeaveToPrevRing),
+    canNextRing: canSwipeToNextRing,
     holdStart,
     holdEnd,
+    onTapPrev: handlePrev,
+    onTapNext: goNext,
+    onToggleTapPause: () => setTapPaused((paused) => !paused),
     onDoubleTap: signedIn ? handleDoubleTapLike : undefined,
-    swipeHandlers: dragProps,
+    onDismiss: onClose,
+    onPrevRing: () => onLeaveToPrevRing?.(),
+    onNextRing: () => onSwipeToNextRing?.(),
   })
 
   useEffect(() => {
     setCommentsOpen(false)
-  }, [index, post?.id])
+    setTapPaused(false)
+  }, [index, post?.id, target.title])
 
   useEffect(() => {
     const original = document.body.style.overflow
@@ -153,14 +172,6 @@ export function DelversStoryViewer({
       document.body.style.overflow = original
     }
   }, [])
-
-  const handlePrev = useCallback(() => {
-    if (index <= 0 && canLeaveToPrevRing && onLeaveToPrevRing) {
-      onLeaveToPrevRing()
-      return
-    }
-    goPrev()
-  }, [canLeaveToPrevRing, goPrev, index, onLeaveToPrevRing])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -178,6 +189,7 @@ export function DelversStoryViewer({
   const fireCount = post.fires_count ?? 0
   const commentCount = post.comments_count ?? 0
   const holding = isPaused && !commentsOpen
+  const cardStyle = gestureStyle
   const replyPlaceholder =
     target.kind === 'board' && target.username
       ? `Reply to @${target.username}...`
@@ -187,7 +199,8 @@ export function DelversStoryViewer({
     <div className="ds-story-viewer" role="dialog" aria-modal="true" aria-label={`${target.title} stories`}>
       <article
         className={`ds-story-viewer__card${isPaused ? ' ds-story-viewer__card--paused' : ''}`}
-        style={dragStyle}
+        style={cardStyle}
+        {...cardPointerProps}
       >
         <StoryProgressRail
           segments={target.posts}
@@ -224,11 +237,14 @@ export function DelversStoryViewer({
 
         <div
           className="ds-story-viewer__media"
-          aria-label={signedIn ? 'Highlight media. Double-tap to like. Hold to pause.' : 'Highlight media'}
+          aria-label={
+            signedIn
+              ? 'Highlight media. Tap center to pause. Double-tap to like. Swipe sideways between highlights.'
+              : 'Highlight media'
+          }
           onDoubleClick={() => {
             if (signedIn) handleDoubleTapLike()
           }}
-          {...mediaPointerProps}
         >
           {image ? (
             <img src={image} alt={caption} />
@@ -261,19 +277,6 @@ export function DelversStoryViewer({
           ) : null}
         </div>
         <div className="ds-story-viewer__scrim" aria-hidden />
-
-        <button
-          type="button"
-          className="ds-story-viewer__zone ds-story-viewer__zone--left"
-          aria-label="Previous highlight"
-          onClick={handlePrev}
-        />
-        <button
-          type="button"
-          className="ds-story-viewer__zone ds-story-viewer__zone--right"
-          aria-label="Next highlight"
-          onClick={goNext}
-        />
 
         <footer className="ds-story-viewer__footer">
           {caption ? <p className="ds-story-viewer__caption">{caption}</p> : null}

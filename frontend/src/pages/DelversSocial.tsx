@@ -461,6 +461,14 @@ export function DelversSocial() {
     setStoryIndex(startIndex)
   }, [storyQueue])
 
+  const canSwipeToNextRing = useMemo(() => {
+    if (activeRingIndex === null) return false
+    for (let i = activeRingIndex + 1; i < storyQueue.length; i += 1) {
+      if (storyTargetFromRing(storyQueue[i]).posts.length > 0) return true
+    }
+    return false
+  }, [activeRingIndex, storyQueue])
+
   const openBoardStories = (ring: BoardHighlightRing) => {
     openFromRing({ kind: 'board', ring })
   }
@@ -686,6 +694,8 @@ export function DelversSocial() {
           onRingComplete={handleRingComplete}
           canLeaveToPrevRing={activeRingIndex !== null && activeRingIndex > 0}
           onLeaveToPrevRing={handleLeaveToPrevRing}
+          canSwipeToNextRing={canSwipeToNextRing}
+          onSwipeToNextRing={handleRingComplete}
           signedIn={!!profile}
           likeBusy={likeMut.isPending}
           fireBusy={fireMut.isPending}

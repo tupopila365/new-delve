@@ -18,7 +18,8 @@
   background: #080808;
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
-  touch-action: pan-y;
+  touch-action: none;
+  user-select: none;
 }
 
 .ds-story-viewer__progress {
@@ -90,6 +91,7 @@
   gap: 10px;
   min-height: 50px;
   color: #fff;
+  touch-action: manipulation;
 }
 
 .ds-story-viewer__avatar {
@@ -224,6 +226,7 @@
   gap: 10px;
   color: #fff;
   pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .ds-story-viewer__caption {
