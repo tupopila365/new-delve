@@ -5,8 +5,8 @@ import {
   prepareVideoForUpload,
   trimDurationSec,
 } from '../components/create/videoTrimUtils'
-import { CHAT_SKIP_COMPRESS_BYTES, probeCommunityVideoFile } from './communityMediaUpload'
-import { compressVideoForChat } from './communityVideoUtils'
+import { probeCommunityVideoFile } from './communityMediaUpload'
+import { CHAT_SKIP_COMPRESS_BYTES, compressVideoForChat } from './communityVideoUtils'
 
 export { probeCommunityVideoFile as probeDelversVideoFile }
 
