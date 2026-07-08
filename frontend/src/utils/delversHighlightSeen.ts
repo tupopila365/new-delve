@@ -37,6 +37,14 @@ export function areAllHighlightsSeen(ringKey: string, postIds: number[]): boolea
   return postIds.every((id) => seen.has(id))
 }
 
+/** Index of the first slide not yet marked seen; 0 if all are seen or the ring is empty. */
+export function firstUnseenHighlightIndex(ringKey: string, postIds: number[]): number {
+  if (postIds.length === 0) return 0
+  const seen = getSeenHighlightIds(ringKey)
+  const index = postIds.findIndex((id) => !seen.has(id))
+  return index >= 0 ? index : 0
+}
+
 /** @deprecated Use boardRingKey — highlights are grouped by board name per creator. */
 export function creatorRingKey(username: string): string {
   return `creator:${username}`

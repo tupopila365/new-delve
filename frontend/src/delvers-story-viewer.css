@@ -18,6 +18,7 @@
   background: #080808;
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+  touch-action: pan-y;
 }
 
 .ds-story-viewer__progress {
@@ -25,22 +26,57 @@
   left: 14px;
   right: 14px;
   top: 12px;
-  z-index: 4;
+  z-index: 8;
   display: flex;
   gap: 5px;
 }
 
-.ds-story-viewer__progress span {
-  height: 3px;
+.ds-story-viewer__seg {
   flex: 1;
+  height: 3px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.28);
 }
 
-.ds-story-viewer__progress span.is-active,
-.ds-story-viewer__progress span.is-seen {
+.ds-story-viewer__fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  border-radius: 999px;
   background: #fff;
+}
+
+.ds-story-viewer__fill--idle {
+  transform: scaleX(0);
+}
+
+.ds-story-viewer__fill--done {
+  transform: scaleX(1);
+}
+
+.ds-story-viewer__fill--active {
+  animation-name: ds-story-bar-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.ds-story-viewer__fill--paused {
+  animation-play-state: paused;
+}
+
+.ds-story-viewer__fill--video {
+  transform: scaleX(0.02);
+  transition: transform 0.12s linear;
+}
+
+@keyframes ds-story-bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 .ds-story-viewer__head {
@@ -48,7 +84,7 @@
   left: 14px;
   right: 14px;
   top: 26px;
-  z-index: 4;
+  z-index: 8;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -118,6 +154,9 @@
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.34);
   color: #fff;
+  cursor: pointer;
+  position: relative;
+  z-index: 9;
 }
 
 .ds-story-viewer__media {
@@ -136,6 +175,15 @@
   height: 100%;
   display: block;
   object-fit: cover;
+  pointer-events: none;
+}
+
+.ds-story-viewer__card--paused .ds-story-viewer__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.08);
+  pointer-events: none;
 }
 
 .ds-story-viewer__note {
@@ -171,10 +219,11 @@
   left: 14px;
   right: 14px;
   bottom: 14px;
-  z-index: 5;
+  z-index: 9;
   display: grid;
   gap: 10px;
   color: #fff;
+  pointer-events: auto;
 }
 
 .ds-story-viewer__caption {
@@ -298,32 +347,75 @@
   border-bottom: 0;
 }
 
-.ds-story-viewer__nav {
+.ds-story-viewer__pause-badge {
   position: absolute;
-  top: 92px;
-  bottom: 168px;
-  z-index: 3;
-  width: 34%;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.ds-story-viewer__pause-badge svg {
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.45));
+}
+
+.ds-story-viewer__zone {
+  position: absolute;
+  top: 64px;
+  bottom: 148px;
+  z-index: 7;
   border: 0;
+  padding: 0;
+  margin: 0;
   background: transparent;
-  color: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.ds-story-viewer__nav--prev {
+.ds-story-viewer__zone--left {
   left: 0;
+  width: 32%;
 }
 
-.ds-story-viewer__nav--next {
+.ds-story-viewer__zone--right {
+  left: 32%;
   right: 0;
+  width: auto;
 }
 
-.ds-story-viewer__nav:disabled {
+.ds-story-viewer__reply {
+  width: 100%;
+}
+
+.ds-story-viewer__reply .ds-comment-composer--compact {
+  min-height: 44px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ds-story-viewer__reply .ds-comment-composer--compact input {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ds-story-viewer__reply .ds-comment-composer--compact .ds-comment-composer__send {
+  width: 34px;
+  height: 34px;
+}
+
+.ds-story-viewer__nav {
   display: none;
 }
 
 @media (max-width: 700px) {
   .ds-story-viewer {
     padding: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .ds-story-viewer__card {

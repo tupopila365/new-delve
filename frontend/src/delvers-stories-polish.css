@@ -8,6 +8,7 @@
 }
 
 .ds-stories--polished > * {
+  flex: 0 0 auto;
   scroll-snap-align: start;
 }
 
@@ -15,6 +16,7 @@
 .ds-creator-bubble,
 .ds-place-bubble {
   flex: 0 0 68px;
+  flex-shrink: 0;
   display: grid;
   justify-items: center;
   gap: 7px;
@@ -88,7 +90,22 @@
   width: 100%;
   height: 100%;
 }
+
+.ds-creator-bubble--seen .ds-creator-bubble__avatar {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
+}
+
+.ds-creator-bubble--active .ds-creator-bubble__avatar {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 4px rgba(124, 58, 237, 0.35),
+    0 10px 22px rgba(0, 0, 0, 0.36);
+  transform: scale(1.04);
+}
+
+.ds-creator-bubble--active small {
+  color: #fff;
+  font-weight: 900;
 }
 
 .ds-creator-bubble small,
@@ -123,5 +140,6 @@
     border-right: 0;
     border-radius: 0;
     padding-left: 16px;
+    padding-right: 16px;
   }
 }

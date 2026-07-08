@@ -46,8 +46,21 @@
 }
 
 .ds-stories {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
   scroll-behavior: smooth;
   overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.ds-stories::-webkit-scrollbar {
+  display: none;
 }
 
 .ds-create-bubble,

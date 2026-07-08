@@ -1087,6 +1087,10 @@ button {
   animation-fill-mode: forwards;
 }
 
+.story-viewer__fill--paused {
+  animation-play-state: paused;
+}
+
 @keyframes story-bar-fill {
   from {
     transform: scaleX(0);

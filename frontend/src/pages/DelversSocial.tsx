@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, Hash, MapPin, MessageCircle, Plus, Search, Share2, UserRound, X } from 'lucide-react'
@@ -21,18 +21,25 @@ import { EmptyState } from '../components/ui'
 import { invalidatePostEngagementCaches, invalidateSocialCaches } from '../utils/socialCache'
 import {
   areAllHighlightsSeen,
+  firstUnseenHighlightIndex,
   markHighlightsSeen,
-  placeRingKey,
   tagRingKey,
 } from '../utils/delversHighlightSeen'
 import {
   buildBoardRings,
+  buildDelversStoryRingQueue,
   buildPlaceRings,
+  findStoryRingIndex,
   highlightCoverFromPost,
+  mapHashtagRing,
+  ringKeyForStoryTarget,
+  storyTargetFromRing,
   type BoardHighlightRing,
+  type DelversStoryRing,
   type PlaceHighlightRing,
 } from '../utils/delversHighlightRings'
 import { copyPostPermalink, postPermalinkPath } from '../utils/postPermalink'
+import { DelversStoryViewer, type DelversStoryTarget } from '../components/social/DelversStoryViewer'
 import '../components/community/community-feed-cards.css'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
@@ -45,17 +52,6 @@ import '../components/Featured.css'
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
 type PinPost = DelversFeedPost
-
-type StoryTarget = {
-  kind: 'board' | 'place' | 'tag'
-  title: string
-  subtitle: string
-  avatar: string | null
-  username?: string
-  boardKey?: string
-  tagSlug?: string
-  posts: PinPost[]
-}
 
 const TABS: { id: FeedTab; label: string }[] = [
   { id: 'foryou', label: 'For you' },
@@ -109,10 +105,12 @@ export function DelversSocial() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileChromeHidden, setMobileChromeHidden] = useState(false)
   const [toast, setToast] = useState('')
-  const [storyTarget, setStoryTarget] = useState<StoryTarget | null>(null)
+  const [storyTarget, setStoryTarget] = useState<DelversStoryTarget | null>(null)
   const [storyIndex, setStoryIndex] = useState(0)
+  const [activeRingIndex, setActiveRingIndex] = useState<number | null>(null)
   const [seenTick, setSeenTick] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const storiesRowRef = useRef<HTMLElement>(null)
   const lastScrollTopRef = useRef(0)
   const qc = useQueryClient()
   const qk = ['delvers-social', profile?.region, profile?.username] as const
@@ -315,6 +313,19 @@ export function DelversSocial() {
 
   const boardRings = useMemo(() => buildBoardRings(highlights), [highlights])
   const placeRings = useMemo(() => buildPlaceRings(highlights), [highlights])
+  const hashtagRingsMapped = useMemo(() => hashtagRings.map(mapHashtagRing), [hashtagRings])
+  const storyQueue = useMemo(
+    () => buildDelversStoryRingQueue(boardRings, hashtagRingsMapped, placeRings),
+    [boardRings, hashtagRingsMapped, placeRings],
+  )
+
+  const markStoryProgress = useCallback((target: DelversStoryTarget, index: number) => {
+    markHighlightsSeen(
+      ringKeyForStoryTarget(target),
+      target.posts.slice(0, index + 1).map((item) => item.id),
+    )
+    setSeenTick((tick) => tick + 1)
+  }, [])
 
   const posts = useMemo(() => {
     let list = [...(data ?? [])].filter((item) => !isFeedPost(item) || isDelversPin(item))
@@ -387,65 +398,84 @@ export function DelversSocial() {
 
   const closeStoryViewer = () => {
     if (storyTarget) {
-      const ringKey =
-        storyTarget.kind === 'board' && storyTarget.boardKey
-          ? storyTarget.boardKey
-          : storyTarget.kind === 'tag' && storyTarget.tagSlug
-            ? tagRingKey(storyTarget.tagSlug)
-            : placeRingKey(storyTarget.title)
-      markHighlightsSeen(
-        ringKey,
-        storyTarget.posts.slice(0, storyIndex + 1).map((item) => item.id),
-      )
-      setSeenTick((tick) => tick + 1)
+      markStoryProgress(storyTarget, storyIndex)
     }
     setStoryTarget(null)
+    setActiveRingIndex(null)
   }
 
+  const openRingAtIndex = useCallback((queueIndex: number, slideIndex = 0) => {
+    const entry = storyQueue[queueIndex]
+    if (!entry) return false
+    const target = storyTargetFromRing(entry)
+    if (target.posts.length === 0) return false
+    setActiveRingIndex(queueIndex)
+    setStoryTarget(target)
+    setStoryIndex(Math.min(Math.max(slideIndex, 0), target.posts.length - 1))
+    return true
+  }, [storyQueue])
+
+  const handleRingComplete = useCallback(() => {
+    if (!storyTarget) {
+      setActiveRingIndex(null)
+      return
+    }
+    markStoryProgress(storyTarget, storyTarget.posts.length - 1)
+
+    const startIndex = activeRingIndex ?? -1
+    for (let nextIndex = startIndex + 1; nextIndex < storyQueue.length; nextIndex += 1) {
+      if (openRingAtIndex(nextIndex, 0)) return
+    }
+    setStoryTarget(null)
+    setActiveRingIndex(null)
+  }, [activeRingIndex, markStoryProgress, openRingAtIndex, storyQueue, storyTarget])
+
+  const handleLeaveToPrevRing = useCallback(() => {
+    if (storyTarget) {
+      markStoryProgress(storyTarget, storyIndex)
+    }
+    const startIndex = activeRingIndex ?? 0
+    for (let prevIndex = startIndex - 1; prevIndex >= 0; prevIndex -= 1) {
+      const entry = storyQueue[prevIndex]
+      if (!entry) continue
+      const target = storyTargetFromRing(entry)
+      if (target.posts.length === 0) continue
+      setActiveRingIndex(prevIndex)
+      setStoryTarget(target)
+      setStoryIndex(target.posts.length - 1)
+      return
+    }
+  }, [activeRingIndex, markStoryProgress, storyIndex, storyQueue, storyTarget])
+
+  const openFromRing = useCallback((entry: DelversStoryRing) => {
+    const target = storyTargetFromRing(entry)
+    if (target.posts.length === 0) return
+    const queueIndex = findStoryRingIndex(storyQueue, entry)
+    const ringKey = ringKeyForStoryTarget(target)
+    const startIndex = firstUnseenHighlightIndex(
+      ringKey,
+      target.posts.map((item) => item.id),
+    )
+    setActiveRingIndex(queueIndex >= 0 ? queueIndex : null)
+    setStoryTarget(target)
+    setStoryIndex(startIndex)
+  }, [storyQueue])
+
   const openBoardStories = (ring: BoardHighlightRing) => {
-    if (ring.posts.length === 0) return
-    setStoryTarget({
-      kind: 'board',
-      title: ring.label,
-      subtitle: `@${ring.username} · ${ring.posts.length} ${ring.posts.length === 1 ? 'slide' : 'slides'}`,
-      avatar: ring.avatar,
-      username: ring.username,
-      boardKey: ring.ringKey,
-      posts: ring.posts,
-    })
-    setStoryIndex(0)
+    openFromRing({ kind: 'board', ring })
   }
 
   const openPlaceStories = (ring: PlaceHighlightRing) => {
-    if (ring.posts.length === 0) return
-    setStoryTarget({
-      kind: 'place',
-      title: ring.label,
-      subtitle: `${ring.posts.length} ${ring.posts.length === 1 ? 'highlight' : 'highlights'} from this place`,
-      avatar: null,
-      posts: ring.posts,
-    })
-    setStoryIndex(0)
+    openFromRing({ kind: 'place', ring })
   }
 
   const openTagStories = (ring: (typeof hashtagRings)[number]) => {
-    const ids = ring.posts.map((p) => p.id)
-    if (ids.length === 0) return
-    const label = `#${ring.tag_slug}`
-    setStoryTarget({
-      kind: 'tag',
-      title: label,
-      subtitle: `${ids.length} ${ids.length === 1 ? 'highlight' : 'highlights'} for ${label}`,
-      avatar: null,
-      tagSlug: ring.tag_slug,
-      posts: ring.posts,
-    })
-    setStoryIndex(0)
+    openFromRing({ kind: 'tag', ring: mapHashtagRing(ring) })
   }
 
   const postAction = postEntry(profile)
 
-  const resolvedStoryTarget = useMemo((): StoryTarget | null => {
+  const resolvedStoryTarget = useMemo((): DelversStoryTarget | null => {
     if (!storyTarget) return null
     const feedPosts = (data ?? []).filter(isFeedPost)
     const freshMap = new Map<number, PinPost>()
@@ -460,6 +490,20 @@ export function DelversSocial() {
       posts: storyTarget.posts.map((item) => freshMap.get(item.id) ?? item),
     }
   }, [data, highlights, storyTarget])
+
+  useEffect(() => {
+    if (!resolvedStoryTarget) return
+    markStoryProgress(resolvedStoryTarget, storyIndex)
+  }, [markStoryProgress, resolvedStoryTarget, storyIndex])
+
+  useEffect(() => {
+    if (!resolvedStoryTarget || activeRingIndex === null) return
+    const ringKey = ringKeyForStoryTarget(resolvedStoryTarget)
+    const row = storiesRowRef.current
+    if (!row) return
+    const bubble = row.querySelector<HTMLElement>(`[data-story-ring-key="${CSS.escape(ringKey)}"]`)
+    bubble?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [activeRingIndex, resolvedStoryTarget])
 
   return (
     <div className={mobileChromeHidden ? 'ds-page ds-page--chrome-hidden' : 'ds-page'}>
@@ -509,18 +553,22 @@ export function DelversSocial() {
       </header>
 
       <main className="ds-main ds-main--centered">
-        <section className="ds-stories ds-stories--polished" aria-label="Creator, hashtag, and place highlights">
+        <section ref={storiesRowRef} className="ds-stories ds-stories--polished" aria-label="Creator, hashtag, and place highlights">
           <CreateStoryBubble signedIn={!!profile} />
           {boardRings.map((ring) => {
             const seen = areAllHighlightsSeen(ring.ringKey, ring.posts.map((p) => p.id))
+            const active = activeRingIndex !== null && storyQueue[activeRingIndex]?.kind === 'board'
+              && storyQueue[activeRingIndex]?.ring.id === ring.id
             return (
               <HighlightRingBubble
                 key={ring.id}
+                ringKey={ring.ringKey}
                 label={ring.label}
                 cover={ring.cover}
                 avatar={ring.avatar}
                 displayName={ring.displayName}
                 seen={seen}
+                active={active}
                 onOpen={() => openBoardStories(ring)}
               />
             )
@@ -530,24 +578,33 @@ export function DelversSocial() {
             const ids = ring.posts.map((p) => p.id)
             const seen = areAllHighlightsSeen(ringKey, ids)
             const cover = ring.posts[0] ? highlightCoverFromPost(ring.posts[0]) : { src: null, kind: 'image' as const }
+            const mapped = mapHashtagRing(ring)
+            const active = activeRingIndex !== null && storyQueue[activeRingIndex]?.kind === 'tag'
+              && storyQueue[activeRingIndex]?.ring.id === mapped.id
             return (
               <HighlightRingBubble
                 key={ring.ring_id || ring.tag_slug}
+                ringKey={ringKey}
                 label={`#${ring.tag_slug}`}
                 cover={cover}
                 seen={seen}
+                active={active}
                 onOpen={() => openTagStories(ring)}
               />
             )
           })}
           {placeRings.map((ring) => {
             const seen = areAllHighlightsSeen(ring.ringKey, ring.posts.map((p) => p.id))
+            const active = activeRingIndex !== null && storyQueue[activeRingIndex]?.kind === 'place'
+              && storyQueue[activeRingIndex]?.ring.id === ring.id
             return (
               <HighlightRingBubble
                 key={ring.id}
+                ringKey={ring.ringKey}
                 label={ring.label}
                 cover={ring.cover}
                 seen={seen}
+                active={active}
                 onOpen={() => openPlaceStories(ring)}
               />
             )
@@ -621,11 +678,14 @@ export function DelversSocial() {
       </nav>
 
       {resolvedStoryTarget ? (
-        <StoryViewer
+        <DelversStoryViewer
           target={resolvedStoryTarget}
           index={storyIndex}
           onIndex={setStoryIndex}
           onClose={closeStoryViewer}
+          onRingComplete={handleRingComplete}
+          canLeaveToPrevRing={activeRingIndex !== null && activeRingIndex > 0}
+          onLeaveToPrevRing={handleLeaveToPrevRing}
           signedIn={!!profile}
           likeBusy={likeMut.isPending}
           fireBusy={fireMut.isPending}
@@ -639,18 +699,22 @@ export function DelversSocial() {
 }
 
 function HighlightRingBubble({
+  ringKey,
   label,
   cover,
   avatar,
   displayName,
   seen,
+  active = false,
   onOpen,
 }: {
+  ringKey: string
   label: string
   cover: { src: string | null; kind: 'image' | 'video' }
   avatar?: string | null
   displayName?: string
   seen: boolean
+  active?: boolean
   onOpen: () => void
 }) {
   const ariaLabel = displayName ? `Open ${label} highlights by ${displayName}` : `Open ${label} highlights`
@@ -658,9 +722,11 @@ function HighlightRingBubble({
   return (
     <button
       type="button"
-      className={`ds-creator-bubble${seen ? ' ds-creator-bubble--seen' : ''}`}
+      data-story-ring-key={ringKey}
+      className={`ds-creator-bubble${seen ? ' ds-creator-bubble--seen' : ''}${active ? ' ds-creator-bubble--active' : ''}`}
       onClick={onOpen}
       aria-label={ariaLabel}
+      aria-current={active ? 'true' : undefined}
     >
       <span className="ds-creator-bubble__avatar">
         {cover.src ? (
@@ -745,204 +811,6 @@ function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowA
         </div>
       </div>
     </section>
-  )
-}
-
-function StoryViewer({ target, index, onIndex, onClose, signedIn, likeBusy, fireBusy, onLike, onFire, onCommented }: {
-  target: StoryTarget
-  index: number
-  onIndex: (next: number) => void
-  onClose: () => void
-  signedIn: boolean
-  likeBusy: boolean
-  fireBusy: boolean
-  onLike: (post: PinPost) => void
-  onFire: (post: PinPost) => void
-  onCommented: (postId: number) => void
-}) {
-  const post = target.posts[index]
-  const image = mediaUrl(post?.image ?? null)
-  const video = mediaUrl(post?.video ?? null)
-  const caption = post ? postText(post) : ''
-  const canPrev = index > 0
-  const canNext = index < target.posts.length - 1
-  const [commentsOpen, setCommentsOpen] = useState(false)
-  const [heartBurst, setHeartBurst] = useState(false)
-
-  useEffect(() => {
-    setCommentsOpen(false)
-  }, [index, post?.id])
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-      if (event.key === 'ArrowLeft' && canPrev) onIndex(index - 1)
-      if (event.key === 'ArrowRight' && canNext) onIndex(index + 1)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [canNext, canPrev, index, onClose, onIndex])
-
-  if (!post) return null
-
-  const likeCount = post.likes_count ?? 0
-  const fireCount = post.fires_count ?? 0
-  const commentCount = post.comments_count ?? 0
-
-  const triggerHeartBurst = () => {
-    setHeartBurst(true)
-    window.setTimeout(() => setHeartBurst(false), 720)
-  }
-
-  const handleLike = () => {
-    if (!signedIn) return
-    const liking = !post.liked_by_me
-    onLike(post)
-    if (liking) triggerHeartBurst()
-  }
-
-  const handleFire = () => {
-    if (!signedIn) return
-    onFire(post)
-  }
-
-  const handleCommented = () => {
-    onCommented(post.id)
-  }
-
-  return (
-    <div className="ds-story-viewer" role="dialog" aria-modal="true" aria-label={`${target.title} stories`}>
-      <article className="ds-story-viewer__card">
-        <div className="ds-story-viewer__progress" aria-hidden>
-          {target.posts.map((story, storyPosition) => (
-            <span key={story.id} className={storyPosition < index ? 'is-seen' : storyPosition === index ? 'is-active' : ''} />
-          ))}
-        </div>
-
-        <header className="ds-story-viewer__head">
-          <UserAvatar
-            src={target.kind === 'place' ? null : target.avatar}
-            name={target.title}
-            className="ds-story-viewer__avatar"
-            fill
-          />
-          {target.kind === 'board' && target.username ? (
-            <Link to={`/u/${encodeURIComponent(target.username)}`} className="ds-story-viewer__meta ds-story-viewer__meta-link">
-              <strong>{target.title}</strong>
-              <small>{target.subtitle}</small>
-            </Link>
-          ) : (
-            <span className="ds-story-viewer__meta">
-              <strong>{target.title}</strong>
-              <small>{target.subtitle}</small>
-            </span>
-          )}
-          <button type="button" className="ds-story-viewer__close" onClick={onClose} aria-label="Close highlights">
-            <X size={19} strokeWidth={2.35} aria-hidden />
-          </button>
-        </header>
-
-        <div
-          className="ds-story-viewer__media"
-          onDoubleClick={() => {
-            if (signedIn) handleLike()
-          }}
-        >
-          {image ? <img src={image} alt={caption} /> : video ? <video src={video} controls autoPlay playsInline /> : <div className="ds-story-viewer__note"><Compass size={34} strokeWidth={2} aria-hidden /><p>{caption}</p></div>}
-          {heartBurst ? (
-            <span className="ds-story-viewer__heart-burst" aria-hidden>
-              <Heart size={88} strokeWidth={1.75} fill="currentColor" />
-            </span>
-          ) : null}
-        </div>
-        <div className="ds-story-viewer__scrim" aria-hidden />
-
-        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--prev" disabled={!canPrev} onClick={() => onIndex(index - 1)} aria-label="Previous highlight" />
-        <button type="button" className="ds-story-viewer__nav ds-story-viewer__nav--next" disabled={!canNext} onClick={() => onIndex(index + 1)} aria-label="Next highlight" />
-
-        <footer className="ds-story-viewer__footer">
-          {caption ? (
-            <p className="ds-story-viewer__caption">{caption}</p>
-          ) : null}
-
-          <div className="ds-story-viewer__actions" role="group" aria-label="Highlight reactions">
-            {signedIn ? (
-              <button
-                type="button"
-                className={`ds-story-viewer__react${post.liked_by_me ? ' ds-story-viewer__react--active ds-story-viewer__react--heart' : ''}`}
-                onClick={handleLike}
-                disabled={likeBusy}
-                aria-label={post.liked_by_me ? 'Unlike highlight' : 'Like highlight'}
-                aria-pressed={post.liked_by_me}
-              >
-                <Heart size={18} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
-                {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
-              </button>
-            ) : (
-              <Link to="/login" className="ds-story-viewer__react" aria-label="Like highlight">
-                <Heart size={18} strokeWidth={2.25} aria-hidden />
-                {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
-              </Link>
-            )}
-            {signedIn ? (
-              <button
-                type="button"
-                className={`ds-story-viewer__react ds-story-viewer__react--fire${post.fired_by_me ? ' ds-story-viewer__react--active' : ''}`}
-                onClick={handleFire}
-                disabled={fireBusy}
-                aria-label={post.fired_by_me ? 'Remove fire reaction' : 'React with fire'}
-                aria-pressed={post.fired_by_me ?? false}
-              >
-                <Flame size={18} strokeWidth={2.25} fill={post.fired_by_me ? 'currentColor' : 'none'} aria-hidden />
-                {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
-              </button>
-            ) : (
-              <Link to="/login" className="ds-story-viewer__react ds-story-viewer__react--fire" aria-label="React with fire">
-                <Flame size={18} strokeWidth={2.25} aria-hidden />
-                {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
-              </Link>
-            )}
-            {signedIn ? (
-              <button
-                type="button"
-                className={`ds-story-viewer__react${commentsOpen ? ' ds-story-viewer__react--active' : ''}`}
-                onClick={() => setCommentsOpen((open) => !open)}
-                aria-label={commentsOpen ? 'Close comments' : 'View comments'}
-                aria-expanded={commentsOpen}
-              >
-                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-                {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
-              </button>
-            ) : (
-              <Link to="/login" className="ds-story-viewer__react" aria-label="View comments">
-                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-                {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
-              </Link>
-            )}
-          </div>
-
-          {signedIn ? (
-            <DelversCommentComposer
-              postId={post.id}
-              variant="compact"
-              placeholder="Add a comment..."
-              onCommented={handleCommented}
-            />
-          ) : (
-            <Link to="/login" className="ds-story-viewer__signin">Sign in to comment</Link>
-          )}
-        </footer>
-
-        <DelversCommentsPanel
-          postId={post.id}
-          open={commentsOpen}
-          count={commentCount}
-          signedIn={signedIn}
-          onClose={() => setCommentsOpen(false)}
-          onCommented={handleCommented}
-        />
-      </article>
-    </div>
   )
 }
 

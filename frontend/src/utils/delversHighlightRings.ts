@@ -124,3 +124,103 @@ export function buildPlaceRings(highlights: DelversFeedPost[]): PlaceHighlightRi
     return bTime - aTime
   })
 }
+
+export type HashtagHighlightRing = {
+  id: string
+  ringKey: string
+  label: string
+  tagSlug: string
+  posts: DelversFeedPost[]
+}
+
+export type DelversStoryRing =
+  | { kind: 'board'; ring: BoardHighlightRing }
+  | { kind: 'tag'; ring: HashtagHighlightRing }
+  | { kind: 'place'; ring: PlaceHighlightRing }
+
+export function mapHashtagRing(ring: {
+  ring_id: string
+  tag_slug: string
+  label?: string
+  posts: DelversFeedPost[]
+}): HashtagHighlightRing {
+  return {
+    id: ring.ring_id || ring.tag_slug,
+    ringKey: `tag:${ring.tag_slug.trim().toLowerCase()}`,
+    label: `#${ring.tag_slug}`,
+    tagSlug: ring.tag_slug,
+    posts: ring.posts,
+  }
+}
+
+/** Display order matches the Delvers stories row: boards, hashtags, places. */
+export function buildDelversStoryRingQueue(
+  boardRings: BoardHighlightRing[],
+  hashtagRings: HashtagHighlightRing[],
+  placeRings: PlaceHighlightRing[],
+): DelversStoryRing[] {
+  return [
+    ...boardRings.filter((ring) => ring.posts.length > 0).map((ring) => ({ kind: 'board' as const, ring })),
+    ...hashtagRings.filter((ring) => ring.posts.length > 0).map((ring) => ({ kind: 'tag' as const, ring })),
+    ...placeRings.filter((ring) => ring.posts.length > 0).map((ring) => ({ kind: 'place' as const, ring })),
+  ]
+}
+
+export function findStoryRingIndex(queue: DelversStoryRing[], entry: DelversStoryRing): number {
+  const key = ringKeyForStoryTarget(storyTargetFromRing(entry))
+  return queue.findIndex((item) => ringKeyForStoryTarget(storyTargetFromRing(item)) === key)
+}
+
+export function storyTargetFromRing(entry: DelversStoryRing): {
+  kind: 'board' | 'place' | 'tag'
+  title: string
+  subtitle: string
+  avatar: string | null
+  username?: string
+  boardKey?: string
+  tagSlug?: string
+  posts: DelversFeedPost[]
+} {
+  if (entry.kind === 'board') {
+    const { ring } = entry
+    return {
+      kind: 'board',
+      title: ring.label,
+      subtitle: `@${ring.username} · ${ring.posts.length} ${ring.posts.length === 1 ? 'slide' : 'slides'}`,
+      avatar: ring.avatar,
+      username: ring.username,
+      boardKey: ring.ringKey,
+      posts: ring.posts,
+    }
+  }
+  if (entry.kind === 'tag') {
+    const { ring } = entry
+    return {
+      kind: 'tag',
+      title: ring.label,
+      subtitle: `${ring.posts.length} ${ring.posts.length === 1 ? 'highlight' : 'highlights'} for ${ring.label}`,
+      avatar: null,
+      tagSlug: ring.tagSlug,
+      posts: ring.posts,
+    }
+  }
+  const { ring } = entry
+  return {
+    kind: 'place',
+    title: ring.label,
+    subtitle: `${ring.posts.length} ${ring.posts.length === 1 ? 'highlight' : 'highlights'} from this place`,
+    avatar: null,
+    posts: ring.posts,
+  }
+}
+
+export function ringKeyForStoryTarget(target: {
+  kind: 'board' | 'place' | 'tag'
+  boardKey?: string
+  tagSlug?: string
+  title: string
+}): string {
+  if (target.kind === 'board' && target.boardKey) return target.boardKey
+  if (target.kind === 'tag' && target.tagSlug) return `tag:${target.tagSlug.trim().toLowerCase()}`
+  return `place:${target.title.trim().toLowerCase()}`
+}
