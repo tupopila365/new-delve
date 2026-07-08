@@ -11,9 +11,10 @@ from rest_framework.views import APIView
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
 from config.throttles import FollowThrottle, PostCreateThrottle
 from tags.models import TagScope
-from tags.services import filter_posts_by_tag
+from tags.services import MAX_TAGS_PER_CONTENT, extract_hashtags_from_text, filter_posts_by_tag
 
 from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
+from .delvers_highlights import delvers_highlight_cutoff
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
 
 User = get_user_model()
@@ -219,17 +220,102 @@ class DelversHighlightsView(APIView):
         if not region and request.user.is_authenticated:
             region = (request.user.profile.region or "").strip()
 
+        viewer = request.user if request.user.is_authenticated else None
+        following_ids = set(
+            Follow.objects.filter(follower=viewer).values_list("following_id", flat=True)
+        ) if viewer else set()
+
         qs = filter_posts_for_viewer(
             _base_post_queryset()
-            .filter(is_delvers_highlight=True)
+            .filter(is_delvers_highlight=True, created_at__gte=delvers_highlight_cutoff())
             .exclude(post_kind=PostKind.QUESTION),
-            request.user if request.user.is_authenticated else None,
+            viewer,
         )
         if region:
             qs = qs.filter(Q(region__iexact=region) | Q(region__icontains=region))
         qs = _annotate_post_counts(qs).order_by("-created_at")[:120]
         ser = PostSerializer(qs, many=True, context={"request": request})
+        if following_ids:
+            for row in ser.data:
+                author = row.get("author") or {}
+                row["is_author_followed"] = (author.get("id") in following_ids)
+        else:
+            for row in ser.data:
+                row["is_author_followed"] = False
+
         return Response(ser.data)
+
+
+class DelversHashtagRingsView(APIView):
+    """Global (no region) 24h hashtag rings for Delvers, excluding private authors always."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        viewer = request.user if request.user.is_authenticated else None
+        following_ids = set(
+            Follow.objects.filter(follower=viewer).values_list("following_id", flat=True)
+        ) if viewer else set()
+
+        qs = (
+            _base_post_queryset()
+            .filter(created_at__gte=delvers_highlight_cutoff())
+            .exclude(is_accommodation_story=True)
+            .exclude(post_kind=PostKind.QUESTION)
+            .filter(Q(is_delvers=True) | Q(is_delvers_highlight=True))
+            # Hashtag rings: never show private authors (even if followed).
+            .filter(author__profile__is_private=False)
+        )
+
+        qs = filter_posts_for_viewer(qs, viewer)
+
+        # Cap total work: we only need top-ish tags for the UI.
+        qs = _annotate_post_counts(qs).order_by("-created_at")[:400]
+
+        ring_posts: dict[str, list[Post]] = {}
+        for post in qs:
+            body = getattr(post, "body", "") or ""
+            tags = extract_hashtags_from_text(body)[:MAX_TAGS_PER_CONTENT]
+            for slug in tags:
+                ring_posts.setdefault(slug, []).append(post)
+
+        def post_score(p: Post) -> float:
+            # Keep consistent with feed ranking-ish; also factors recency via created_at ordering.
+            return float(p.likes_count) * 2.5 + float(p.saves_count) * 4.0 + float(p.comments_count) * 1.0
+
+        ring_items: list[tuple[bool, float, str, list[Post]]] = []
+        for slug, posts in ring_posts.items():
+            # Followed creators first within the ring, then rank by engagement + recency.
+            ordered_posts = sorted(
+                posts,
+                key=lambda p: (
+                    -(p.author_id in following_ids),
+                    -post_score(p),
+                    -p.created_at.timestamp(),
+                ),
+            )
+            limited_posts = ordered_posts[:10]
+
+            ring_has_followed = any(p.author_id in following_ids for p in limited_posts)
+            ring_score = max((post_score(p) for p in limited_posts), default=0.0)
+            ring_items.append((ring_has_followed, ring_score, slug, limited_posts))
+
+        ring_items.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        ring_items = ring_items[:12]
+
+        rings_resp = []
+        for _, _, slug, posts in ring_items:
+            ser = PostSerializer(posts, many=True, context={"request": request})
+            rings_resp.append(
+                {
+                    "ring_id": f"tag:{slug}",
+                    "tag_slug": slug,
+                    "label": slug,
+                    "posts": ser.data,
+                }
+            )
+
+        return Response({"rings": rings_resp})
 
 
 class UserPublicPostsView(APIView):

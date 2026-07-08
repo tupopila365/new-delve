@@ -30,18 +30,28 @@
 }
 
 .ds-post-entry {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-height: 42px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 900;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 250, 242, 0.58);
+  font: inherit;
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.28);
+  cursor: pointer;
+}
+
+.ds-post-entry .cm-feed-toolbar__circle {
+  width: 42px;
+  height: 42px;
+}
+
+.ds-post-entry .cm-feed-toolbar__label {
+  max-width: 52px;
+  font-size: 0.62rem;
 }
 
 .ds-topbar-search {

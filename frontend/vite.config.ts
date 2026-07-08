@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'script-defer',
       devOptions: { enabled: false },
       includeAssets: ['favicon.svg'],
       manifest: {

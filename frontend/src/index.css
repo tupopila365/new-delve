@@ -657,6 +657,24 @@ button {
   background: rgba(255, 255, 255, 0.96);
 }
 
+.mobile-topbar__post-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+.mobile-topbar__post-btn .cm-feed-toolbar__circle {
+  width: 40px;
+  height: 40px;
+}
+
 /* Sidebar hidden on phone (bottom nav + top bar) */
 .app-sidebar {
   display: none;
@@ -23202,33 +23220,40 @@ a.chip.chip--accent:hover {
   }
 
   .app-topnav__post-btn {
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 42px;
-    padding: 0 22px;
-    background: var(--accent);
-    color: #fff;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 800;
+    gap: 4px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: rgba(255, 250, 242, 0.58);
+    font: inherit;
     text-decoration: none;
-    box-shadow: 0 8px 22px rgba(124, 58, 237, 0.22);
-    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+    box-shadow: none;
+  }
+
+  .app-topnav__post-btn .cm-feed-toolbar__circle {
+    width: 42px;
+    height: 42px;
+  }
+
+  .app-topnav__post-btn .cm-feed-toolbar__label {
+    max-width: 52px;
+    font-size: 0.62rem;
   }
 
   .app-topnav__post-btn:hover {
-    background: var(--accent-hover);
-    color: #fff;
     opacity: 1;
-    transform: translateY(-1px);
-    box-shadow: 0 10px 26px rgba(124, 58, 237, 0.28);
+    transform: none;
+    box-shadow: none;
   }
 
   .app-topnav__post-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.2);
+    transform: none;
+    box-shadow: none;
   }
 
   .app-topnav__avatar {

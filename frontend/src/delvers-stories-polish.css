@@ -26,7 +26,27 @@
   cursor: pointer;
 }
 
-.ds-create-bubble span,
+.ds-create-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: rgba(255, 250, 242, 0.58);
+}
+
+.ds-create-bubble .cm-feed-toolbar__circle {
+  width: 60px;
+  height: 60px;
+}
+
+.ds-create-bubble .cm-feed-toolbar__label {
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ds-creator-bubble span,
 .ds-creator-bubble__avatar,
 .ds-place-bubble span {
@@ -40,12 +60,6 @@
   color: #fff;
   outline: 2px solid #050505;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
-}
-
-.ds-create-bubble span {
-  background: linear-gradient(135deg, var(--accent), #a78bfa);
-  color: #fff;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.24), 0 10px 24px rgba(124, 58, 237, 0.3);
 }
 
 .ds-creator-bubble span,
@@ -64,7 +78,6 @@
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
 }
 
-.ds-create-bubble small,
 .ds-creator-bubble small,
 .ds-place-bubble small {
   width: 100%;
@@ -76,10 +89,6 @@
   font-size: 10.5px;
   font-weight: 850;
   line-height: 1.1;
-}
-
-.ds-create-bubble small {
-  color: #fff;
 }
 
 .ds-place-bubble small {

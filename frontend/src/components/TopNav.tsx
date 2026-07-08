@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSections'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
+import './community/community-feed-cards.css'
 
 export function TopNav() {
   const { profile } = useAuth()
@@ -88,11 +90,13 @@ export function TopNav() {
 
         <Link
           to={profile ? '/create' : '/login'}
-          className="app-topnav__post-btn"
+          className="cm-feed-toolbar__item cm-feed-toolbar__item--action app-topnav__post-btn"
           aria-label={profile ? 'Post photo, story, or journey' : 'Sign in to post'}
         >
-          <IconPlus />
-          Post
+          <span className="cm-feed-toolbar__circle" aria-hidden>
+            <Plus size={20} strokeWidth={2.5} aria-hidden />
+          </span>
+          <span className="cm-feed-toolbar__label">Post</span>
         </Link>
 
         <ProfileMenu avatarClassName="app-topnav__avatar" />
@@ -118,14 +122,6 @@ function IconMessages() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
-  )
-}
-
-function IconPlus() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
     </svg>
   )
 }

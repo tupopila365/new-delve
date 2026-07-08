@@ -47,7 +47,7 @@ class Post(models.Model):
     is_delvers_highlight = models.BooleanField(
         default=False,
         db_index=True,
-        help_text="Delvers story highlight — shown in rings only, not the pin feed.",
+        help_text="Delvers story highlight — shown in rings only (expires after 24 hours).",
     )
     post_kind = models.CharField(
         max_length=16,

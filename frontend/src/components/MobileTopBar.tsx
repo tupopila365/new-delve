@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSections'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
+import './community/community-feed-cards.css'
 
 export function MobileTopBar() {
   const { profile } = useAuth()
@@ -21,11 +23,15 @@ export function MobileTopBar() {
           <Link to="/search" className="mobile-topbar__icon" aria-label="Search">
             <IconSearch />
           </Link>
-          {profile ? (
-            <Link to="/create/post" className="mobile-topbar__icon" aria-label="Create post">
-              <IconPlus />
-            </Link>
-          ) : null}
+          <Link
+            to={profile ? '/create' : '/login'}
+            className="cm-feed-toolbar__item cm-feed-toolbar__item--action mobile-topbar__post-btn"
+            aria-label={profile ? 'Post photo, story, or journey' : 'Sign in to post'}
+          >
+            <span className="cm-feed-toolbar__circle" aria-hidden>
+              <Plus size={20} strokeWidth={2.5} aria-hidden />
+            </span>
+          </Link>
           <Link to="/messages" className="mobile-topbar__icon mobile-topbar__icon--badge" aria-label="Messages">
             <IconMessage />
             <NavBadge count={unreadMessages} />
@@ -82,14 +88,6 @@ function IconSearch() {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <circle cx="11" cy="11" r="7" />
       <path d="M20 20l-4-4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function IconPlus() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
     </svg>
   )
 }

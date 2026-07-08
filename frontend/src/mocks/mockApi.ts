@@ -2542,11 +2542,91 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/social/delvers/highlights/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
     const posts = postsForViewer(s, s.posts)
       .filter((p) => Boolean(p.is_delvers_highlight))
+      .filter((p) => new Date(p.created_at).getTime() >= cutoff)
       .filter((p) => (region ? p.region.toLowerCase().includes(region.toLowerCase()) : true))
     const sorted = [...posts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, sorted).slice(0, 120)
+  }
+
+  if (pathname === '/api/social/delvers/hashtag-rings/' && method === 'GET') {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    const viewer = s.currentUser
+    const following = viewer ? new Set((s.follows[viewer] || []).map((u) => u.toLowerCase())) : new Set<string>()
+
+    const normalizeTag = (raw: string): string => {
+      const slug = (raw || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 64)
+      return slug
+    }
+
+    const extractTags = (text: string): string[] => {
+      const seen = new Set<string>()
+      const out: string[] = []
+      const re = /#([\w\u00C0-\u024F]+)/g
+      for (const match of text.matchAll(re)) {
+        const raw = match[1] || ''
+        const slug = normalizeTag(raw)
+        if (!slug || seen.has(slug)) continue
+        seen.add(slug)
+        out.push(slug)
+        if (out.length >= 5) break
+      }
+      return out
+    }
+
+    const eligible = visiblePosts(s.posts)
+      .filter((p) => Boolean(p.is_delvers || p.is_delvers_highlight))
+      .filter((p) => !p.is_accommodation_story)
+      .filter((p) => p.post_kind !== 'question')
+      .filter((p) => new Date(p.created_at).getTime() >= cutoff)
+      // Hashtag rings: exclude private authors always.
+      .filter((p) => !(s.profiles[p.author.username]?.is_private ?? false))
+      .filter((p) => mockCanViewPosts(s, s.currentUser, p.author.username))
+
+    const ringPosts = new Map<string, typeof s.posts>()
+    for (const post of eligible) {
+      const tags = extractTags(post.body || '')
+      for (const slug of tags) {
+        const current = ringPosts.get(slug) || []
+        current.push(post)
+        ringPosts.set(slug, current)
+      }
+    }
+
+    const score = (p: MockPost) => (p.likes_count || 0) * 2.5 + (p.saves_count || 0) * 4.0 + (p.comments_count || 0)
+
+    const rings = [...ringPosts.entries()].map(([slug, posts]) => {
+      const ordered = [...posts].sort((a, b) => {
+        const fa = following.has(a.author.username.toLowerCase())
+        const fb = following.has(b.author.username.toLowerCase())
+        if (fa !== fb) return fb ? 1 : -1
+        const sa = score(a)
+        const sb = score(b)
+        if (sa !== sb) return sb - sa
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
+      const limited = ordered.slice(0, 10)
+      const ringHasFollowed = limited.some((p) => following.has(p.author.username.toLowerCase()))
+      const ringScore = Math.max(...limited.map(score), 0)
+      return { slug, limited, ringHasFollowed, ringScore }
+    })
+
+    rings.sort((a, b) => {
+      if (a.ringHasFollowed !== b.ringHasFollowed) return a.ringHasFollowed ? -1 : 1
+      return b.ringScore - a.ringScore
+    })
+
+    const top = rings.slice(0, 12)
+    return {
+      rings: top.map((r) => ({
+        ring_id: `tag:${r.slug}`,
+        tag_slug: r.slug,
+        label: r.slug,
+        posts: withMeFlags(s, r.limited),
+      })),
+    }
   }
 
   const userPostsMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/posts\/$/)

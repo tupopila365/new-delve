@@ -39,11 +39,3 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
-
-if (!import.meta.env.DEV) {
-  void import('virtual:pwa-register')
-    .then(({ registerSW }) => {
-      registerSW({ immediate: true })
-    })
-    .catch(() => {})
-}

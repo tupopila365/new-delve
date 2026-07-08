@@ -400,6 +400,38 @@ class PostCreateAndFeedRoutingTests(TestCase):
         self.assertIn("Story highlight", highlight_bodies)
         self.assertNotIn("Story highlight", profile_bodies)
 
+    def test_delvers_highlight_expires_after_24_hours(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        fresh = Post.objects.create(
+            author=self.author,
+            body="Fresh highlight",
+            region="Khomas",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/fresh.jpg",
+        )
+        expired = Post.objects.create(
+            author=self.author,
+            body="Expired highlight",
+            region="Khomas",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/expired.jpg",
+        )
+        Post.objects.filter(pk=expired.pk).update(
+            created_at=timezone.now() - timedelta(hours=25)
+        )
+
+        highlights = self.client.get("/api/social/delvers/highlights/")
+        self.assertEqual(highlights.status_code, 200)
+        bodies = [p["body"] for p in highlights.data if isinstance(p, dict) and "body" in p]
+        self.assertIn("Fresh highlight", bodies)
+        self.assertNotIn("Expired highlight", bodies)
+        self.assertEqual(fresh.is_delvers_highlight, True)
+
     def test_created_post_appears_on_author_profile(self):
         res = self.client.post(
             "/api/social/posts/",

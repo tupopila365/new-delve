@@ -44,3 +44,7 @@ export function creatorRingKey(username: string): string {
 export function placeRingKey(place: string): string {
   return `place:${place.trim().toLowerCase()}`
 }
+
+export function tagRingKey(tagSlug: string): string {
+  return `tag:${tagSlug.trim().toLowerCase()}`
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, MapPin, MessageCircle, Plus, Search, Share2, UserRound, Video, X } from 'lucide-react'
+import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, Hash, MapPin, MessageCircle, Plus, Search, Share2, UserRound, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { UserAvatar } from '../components/UserAvatar'
@@ -24,8 +24,10 @@ import {
   creatorRingKey,
   markHighlightsSeen,
   placeRingKey,
+  tagRingKey,
 } from '../utils/delversHighlightSeen'
 import { copyPostPermalink, postPermalinkPath } from '../utils/postPermalink'
+import '../components/community/community-feed-cards.css'
 import '../delvers-topbar-clean.css'
 import '../delvers-stories-polish.css'
 import '../delvers-post-card-polish.css'
@@ -45,14 +47,16 @@ type Creator = {
   region: string
   posts: number
   likes: number
+  is_following: boolean
 }
 
 type StoryTarget = {
-  kind: 'creator' | 'place'
+  kind: 'creator' | 'place' | 'tag'
   title: string
   subtitle: string
   avatar: string | null
   username?: string
+  tagSlug?: string
   posts: PinPost[]
 }
 
@@ -100,7 +104,7 @@ function postEntry(profile: ReturnType<typeof useAuth>['profile']) {
   if (profile) {
     return { to: '/create', label: 'Post', ariaLabel: 'Post photo, story, or journey' }
   }
-  return { to: '/login', label: 'Join', ariaLabel: 'Sign in to post on Delvers' }
+  return { to: '/login', label: 'Post', ariaLabel: 'Sign in to post on Delvers' }
 }
 
 export function DelversSocial() {
@@ -118,6 +122,7 @@ export function DelversSocial() {
   const qc = useQueryClient()
   const qk = ['delvers-social', profile?.region, profile?.username] as const
   const highlightsQk = ['delvers-highlights', profile?.region, profile?.username] as const
+  const hashtagRingsQk = ['delvers-hashtag-rings', profile?.username] as const
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk,
@@ -134,6 +139,14 @@ export function DelversSocial() {
         `/api/social/delvers/highlights/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
       ),
   })
+
+  const { data: hashtagRingsResp } = useQuery({
+    queryKey: hashtagRingsQk,
+    queryFn: () => apiFetch<{ rings: { ring_id: string; tag_slug: string; label: string; posts: PinPost[] }[] }>(
+      `/api/social/delvers/hashtag-rings/`,
+    ),
+  })
+  const hashtagRings = hashtagRingsResp?.rings ?? []
 
   const likeMut = useMutation({
     mutationFn: (post: PinPost) =>
@@ -309,10 +322,12 @@ export function DelversSocial() {
     const map = new Map<string, Creator>()
     for (const post of highlights) {
       const key = post.author.username
+      const isFollowing = Boolean(post.is_author_followed)
       const current = map.get(key)
       if (current) {
         current.posts += 1
         current.likes += post.likes_count
+        current.is_following = current.is_following || isFollowing
         if (!current.region) current.region = post.region
       } else {
         map.set(key, {
@@ -322,10 +337,16 @@ export function DelversSocial() {
           region: post.region || '',
           posts: 1,
           likes: post.likes_count,
+          is_following: isFollowing,
         })
       }
     }
-    return [...map.values()].sort((a, b) => b.likes - a.likes || b.posts - a.posts).slice(0, 10)
+    return [...map.values()]
+      .sort(
+        (a, b) =>
+          Number(b.is_following) - Number(a.is_following) || b.likes - a.likes || b.posts - a.posts,
+      )
+      .slice(0, 10)
   }, [highlights])
 
   const posts = useMemo(() => {
@@ -402,7 +423,9 @@ export function DelversSocial() {
       const ringKey =
         storyTarget.kind === 'creator' && storyTarget.username
           ? creatorRingKey(storyTarget.username)
-          : placeRingKey(storyTarget.title)
+          : storyTarget.kind === 'tag' && storyTarget.tagSlug
+            ? tagRingKey(storyTarget.tagSlug)
+            : placeRingKey(storyTarget.title)
       markHighlightsSeen(
         ringKey,
         storyTarget.posts.slice(0, storyIndex + 1).map((item) => item.id),
@@ -443,16 +466,38 @@ export function DelversSocial() {
     setStoryIndex(0)
   }
 
+  const openTagStories = (ring: (typeof hashtagRings)[number]) => {
+    const ids = ring.posts.map((p) => p.id)
+    if (ids.length === 0) return
+    const label = `#${ring.tag_slug}`
+    setStoryTarget({
+      kind: 'tag',
+      title: label,
+      subtitle: `${ids.length} ${ids.length === 1 ? 'highlight' : 'highlights'} for ${label}`,
+      avatar: null,
+      tagSlug: ring.tag_slug,
+      posts: ring.posts,
+    })
+    setStoryIndex(0)
+  }
+
   const postAction = postEntry(profile)
 
   const resolvedStoryTarget = useMemo((): StoryTarget | null => {
     if (!storyTarget) return null
-    const freshMap = new Map(highlights.map((item) => [item.id, item]))
+    const feedPosts = (data ?? []).filter(isFeedPost)
+    const freshMap = new Map<number, PinPost>()
+    for (const item of highlights) {
+      freshMap.set(item.id, item)
+    }
+    for (const item of feedPosts) {
+      freshMap.set(item.id, item as PinPost)
+    }
     return {
       ...storyTarget,
       posts: storyTarget.posts.map((item) => freshMap.get(item.id) ?? item),
     }
-  }, [highlights, storyTarget])
+  }, [data, highlights, storyTarget])
 
   return (
     <div className={mobileChromeHidden ? 'ds-page ds-page--chrome-hidden' : 'ds-page'}>
@@ -488,15 +533,21 @@ export function DelversSocial() {
               </button>
             ) : null}
           </form>
-          <Link to={postAction.to} className="ds-post-entry" aria-label={postAction.ariaLabel}>
-            <Plus size={16} strokeWidth={2.5} aria-hidden />
-            {postAction.label}
+          <Link
+            to={postAction.to}
+            className="cm-feed-toolbar__item cm-feed-toolbar__item--action ds-post-entry"
+            aria-label={postAction.ariaLabel}
+          >
+            <span className="cm-feed-toolbar__circle" aria-hidden>
+              <Plus size={20} strokeWidth={2.5} aria-hidden />
+            </span>
+            <span className="cm-feed-toolbar__label">{postAction.label}</span>
           </Link>
         </div>
       </header>
 
       <main className="ds-main ds-main--centered">
-        <section className="ds-stories ds-stories--polished" aria-label="Creator and place highlights">
+        <section className="ds-stories ds-stories--polished" aria-label="Creator, hashtag, and place highlights">
           <CreateStoryBubble signedIn={!!profile} />
           {creators.map((creator) => {
             const ringKey = creatorRingKey(creator.username)
@@ -509,6 +560,14 @@ export function DelversSocial() {
                 seen={seen}
                 onOpen={() => openCreatorStories(creator)}
               />
+            )
+          })}
+          {hashtagRings.map((ring) => {
+            const ringKey = tagRingKey(ring.tag_slug)
+            const ids = ring.posts.map((p) => p.id)
+            const seen = areAllHighlightsSeen(ringKey, ids)
+            return (
+              <TagBubble key={ring.ring_id || ring.tag_slug} tag={ring.tag_slug} seen={seen} onOpen={() => openTagStories(ring)} />
             )
           })}
           {PLACES.map((place) => (
@@ -565,9 +624,15 @@ export function DelversSocial() {
           <Search size={20} strokeWidth={2.25} aria-hidden />
           <span>Search</span>
         </button>
-        <Link to={postAction.to} className="ds-mobile-action ds-mobile-action--create" aria-label={postAction.ariaLabel}>
-          <Plus size={20} strokeWidth={2.5} aria-hidden />
-          <span>{postAction.label}</span>
+        <Link
+          to={postAction.to}
+          className="ds-mobile-action ds-mobile-action--create cm-feed-toolbar__item cm-feed-toolbar__item--action"
+          aria-label={postAction.ariaLabel}
+        >
+          <span className="cm-feed-toolbar__circle" aria-hidden>
+            <Plus size={20} strokeWidth={2.5} aria-hidden />
+          </span>
+          <span className="cm-feed-toolbar__label">{postAction.label}</span>
         </Link>
         <Link to={profile ? '/messages' : '/login'} className="ds-mobile-action">
           <Bell size={20} strokeWidth={2.25} aria-hidden />
@@ -611,15 +676,33 @@ function CreatorBubble({ creator, seen, onOpen }: { creator: Creator; seen: bool
   )
 }
 
+function TagBubble({ tag, seen, onOpen }: { tag: string; seen: boolean; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`ds-creator-bubble${seen ? ' ds-creator-bubble--seen' : ''}`}
+      onClick={onOpen}
+      aria-label={`Open hashtag highlights for #${tag}`}
+    >
+      <span className="ds-creator-bubble__avatar" aria-hidden>
+        <Hash size={18} strokeWidth={2.25} />
+      </span>
+      <small>#{tag}</small>
+    </button>
+  )
+}
+
 function CreateStoryBubble({ signedIn }: { signedIn: boolean }) {
   return (
     <Link
       to={signedIn ? '/create/highlight' : '/login'}
-      className="ds-create-bubble"
+      className="cm-feed-toolbar__item cm-feed-toolbar__item--action ds-create-bubble"
       aria-label={signedIn ? 'Add a highlight' : 'Sign in to add a highlight'}
     >
-      <span><Video size={22} strokeWidth={2.4} aria-hidden /></span>
-      <small>Highlight</small>
+      <span className="cm-feed-toolbar__circle" aria-hidden>
+        <Plus size={20} strokeWidth={2.5} aria-hidden />
+      </span>
+      <span className="cm-feed-toolbar__label">Highlight</span>
     </Link>
   )
 }
