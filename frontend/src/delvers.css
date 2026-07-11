@@ -1,0 +1,1826 @@
+/* ============================================================
+   DELVERS — Consolidated stylesheet
+   Merge of all delvers-*.css files + new visual polish
+   ============================================================ */
+
+/* ── Base / Reset (from ds.css) ─────────────────────────────── */
+html, body, #root {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto !important;
+}
+
+.app-shell--delvers,
+.app-main--delvers {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible !important;
+  background: #000 !important;
+}
+
+.app-main--delvers {
+  max-width: none;
+  margin: 0;
+  padding: 0 16px 96px;
+}
+
+.ds-page {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding-bottom: 96px;
+  color: #f8f3ee;
+}
+
+/* ── Shared transition token ──────────────────────────────── */
+.ds-create-bubble,
+.ds-creator-bubble,
+.ds-place-bubble,
+.ds-post,
+.ds-post__media img,
+.ds-post__author,
+.ds-post__comments,
+.ds-mobile-action,
+.ds-empty-social__primary,
+.ds-empty-social__secondary {
+  transition: transform 0.18s ease, opacity 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+/* ============================================================
+   TOPBAR (from ds.css + delvers-topbar-clean.css)
+   ============================================================ */
+.ds-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto minmax(280px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 62px;
+  padding: 8px 14px;
+  margin: 0 auto 16px;
+  border-radius: 0 0 18px 18px;
+  background: rgba(12, 12, 12, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  transition: transform 0.22s ease, opacity 0.2s ease;
+  isolation: isolate;
+}
+
+.ds-topbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.12), transparent 48%);
+  opacity: 0.9;
+}
+
+.ds-brand {
+  display: grid;
+  min-width: 108px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.ds-brand span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ds-tabs {
+  display: flex;
+  justify-content: center;
+  gap: clamp(12px, 2.2vw, 24px);
+  min-width: 0;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.ds-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ds-tab {
+  position: relative;
+  border: 0;
+  border-bottom: 0;
+  background: transparent;
+  padding: 12px 2px 9px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.ds-tab:hover {
+  color: #fff;
+}
+
+.ds-tab::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 50%;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0;
+  transition: left 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), right 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
+}
+
+.ds-tab--active::after,
+.ds-tab:hover::after {
+  left: 0;
+  right: 0;
+  opacity: 1;
+}
+
+.ds-tab--active {
+  color: #fff;
+}
+
+.ds-topbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 126px;
+}
+
+.ds-post-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 250, 242, 0.58);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.ds-post-entry:hover {
+  color: #fff;
+}
+
+.ds-post-entry .cm-feed-toolbar__circle {
+  width: 42px;
+  height: 42px;
+}
+
+.ds-post-entry .cm-feed-toolbar__label {
+  max-width: 52px;
+  font-size: 0.62rem;
+}
+
+/* ── Topbar Animated Search ───────────────────────────────── */
+.ds-topbar-search {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  grid-template-columns: 42px 0 0;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), grid-template-columns 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.22s ease;
+}
+
+.ds-topbar-search--open {
+  width: min(280px, 28vw);
+  grid-template-columns: 42px minmax(120px, 1fr) 36px;
+  background: #111;
+}
+
+.ds-search-trigger,
+.ds-search-close {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.ds-search-close {
+  width: 36px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ds-topbar-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease 0.08s;
+}
+
+.ds-topbar-search--open input {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ds-topbar-search input::placeholder {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.ds-search-card {
+  display: none !important;
+}
+
+/* ── Create button (legacy ds.css) ─────────────────────────── */
+.ds-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: background 0.16s ease, transform 0.12s ease, box-shadow 0.16s ease;
+}
+
+.ds-create:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+}
+
+/* ============================================================
+   STORIES ROW (from delvers-stories-polish.css + ds.css)
+   ============================================================ */
+.ds-stories {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  padding: 14px 14px 12px;
+  margin-bottom: 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(20, 20, 20, 0.96), rgba(12, 12, 12, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.ds-stories::-webkit-scrollbar {
+  display: none;
+}
+
+.ds-stories > * {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.ds-create-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 0 0 68px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 250, 242, 0.58);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ds-create-bubble .cm-feed-toolbar__circle {
+  width: 60px;
+  height: 60px;
+}
+
+.ds-create-bubble .cm-feed-toolbar__label {
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-create-bubble:hover {
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.ds-creator-bubble,
+.ds-place-bubble {
+  flex: 0 0 68px;
+  flex-shrink: 0;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ds-creator-bubble:hover,
+.ds-place-bubble:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.ds-creator-bubble span,
+.ds-creator-bubble__avatar {
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #171717;
+  color: #fff;
+  outline: 2px solid #050505;
+  box-shadow: 0 0 0 2px var(--accent), 0 10px 22px rgba(0, 0, 0, 0.36);
+}
+
+.ds-creator-bubble__avatar .ds-ring-cover,
+.ds-creator-bubble__avatar img.ds-ring-cover,
+.ds-creator-bubble__avatar video.ds-ring-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.ds-creator-bubble__avatar .user-avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.ds-creator-bubble--seen .ds-creator-bubble__avatar {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
+}
+
+.ds-creator-bubble--active .ds-creator-bubble__avatar {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 4px rgba(124, 58, 237, 0.35),
+    0 10px 22px rgba(0, 0, 0, 0.36);
+  transform: scale(1.04);
+}
+
+.ds-creator-bubble--active small {
+  color: #fff;
+  font-weight: 900;
+}
+
+.ds-creator-bubble small,
+.ds-place-bubble small {
+  width: 100%;
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 10.5px;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+.ds-place-bubble small {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.ds-place-bubble span {
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 22px rgba(0, 0, 0, 0.32);
+}
+
+/* ============================================================
+   FEED LAYOUT (from delvers-social-feed.css + delvers-social-fix.css)
+   ============================================================ */
+.ds-main,
+.ds-main--centered {
+  width: min(100%, var(--ds-feed-width, 640px));
+  max-width: var(--ds-feed-width, 640px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+:root {
+  --ds-feed-width: 660px;
+}
+
+.ds-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(100%, var(--ds-feed-width, 640px));
+  max-width: var(--ds-feed-width, 640px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ============================================================
+   POST CARD (from delvers-post-card-polish.css + ds.css)
+   ============================================================ */
+.ds-post {
+  overflow: hidden;
+  border-radius: 22px;
+  background: #0f0f0f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Feed entry animation ─────────────────────────────────── */
+@keyframes ds-post-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ds-feed > .ds-post {
+  animation: ds-post-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ds-feed > .ds-post:nth-child(1) { animation-delay: 0s; }
+.ds-feed > .ds-post:nth-child(2) { animation-delay: 0.05s; }
+.ds-feed > .ds-post:nth-child(3) { animation-delay: 0.1s; }
+.ds-feed > .ds-post:nth-child(4) { animation-delay: 0.15s; }
+.ds-feed > .ds-post:nth-child(5) { animation-delay: 0.2s; }
+.ds-feed > .ds-post:nth-child(6) { animation-delay: 0.25s; }
+
+.ds-post:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.62);
+}
+
+.ds-post--sponsored {
+  border-color: rgba(124, 58, 237, 0.25);
+}
+
+.ds-post__sponsored {
+  display: block;
+  padding: 8px 16px 0;
+  color: rgba(124, 58, 237, 0.72);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ds-post__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 12px;
+}
+
+.ds-post__author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #fff;
+  text-decoration: none;
+}
+
+.ds-post__author:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.ds-post__author > span,
+.ds-post__author-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1d1d1d;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.ds-post__author img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ds-post__author strong {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  font-size: 14px;
+  line-height: 1.15;
+  color: #fff;
+}
+
+.ds-post__author small {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.ds-post__region {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ── Post Media ──────────────────────────────────────────── */
+.ds-post__media {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: #090909;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ds-post__media::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 32%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.36));
+  opacity: 0.7;
+}
+
+.ds-post__media-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ds-post__media .post-media-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+.ds-post__media .post-media-wrap--feed .ig-post__media,
+.ds-post__media .post-media-wrap--feed video.ig-post__media {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+}
+
+.ds-post__media:hover img {
+  transform: scale(1.018);
+}
+
+.ds-post__media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ds-post__heart-burst {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #ff4d6d;
+  pointer-events: none;
+  animation: ds-heart-burst 0.72s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes ds-heart-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+.ds-post__video,
+.ds-post__text-media {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(124, 58, 237, 0.22), transparent 36%),
+    linear-gradient(145deg, #1d1713, #050505);
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 900;
+}
+
+.ds-post__video span,
+.ds-post__text-media span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+}
+
+.ds-post__text-media {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ── Post Actions ────────────────────────────────────────── */
+.ds-post__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px 7px;
+  gap: 10px;
+}
+
+.ds-post__actions-primary,
+.ds-post__actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ds-post__actions-primary .ds-post__report {
+  margin-left: 2px;
+  opacity: 0.62;
+}
+
+.ds-post__actions-primary .ds-post__report:hover {
+  opacity: 1;
+}
+
+/* Override legacy last-child push */
+.ds-post__actions > .ds-post__actions-primary button:last-child,
+.ds-post__actions > .ds-post__actions-primary a:last-child,
+.ds-post__actions > .ds-post__actions-secondary button:last-child,
+.ds-post__actions > .ds-post__actions-secondary a:last-child {
+  margin-left: 0;
+}
+
+.ds-post__actions button,
+.ds-post__actions a {
+  position: relative;
+  min-width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0;
+  outline: none;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.ds-post__actions button:hover,
+.ds-post__actions a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.ds-post__actions button:active,
+.ds-post__actions a:active {
+  transform: scale(0.94);
+}
+
+.ds-post__actions button:focus-visible,
+.ds-post__actions a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.ds-post__action--like.is-active {
+  color: #ff3040;
+  background: rgba(255, 48, 64, 0.14);
+}
+
+.ds-post__action--like.is-active svg {
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.ds-post__action--save {
+  margin-left: 0;
+}
+
+.ds-post__action--save.is-active {
+  color: #ffc107;
+  background: rgba(255, 193, 7, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 193, 7, 0.38);
+}
+
+.ds-post__action--save.is-active svg {
+  fill: currentColor;
+}
+
+.ds-post__actions .is-active:not(.ds-post__action--like):not(.ds-post__action--save) {
+  color: var(--accent);
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.ds-post__actions .is-active svg {
+  animation: ds-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ds-pop {
+  0% { transform: scale(0.82); }
+  58% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* ── Post Copy ───────────────────────────────────────────── */
+.ds-post__copy {
+  padding: 0 16px 16px;
+}
+
+.ds-post__likes {
+  margin: 0 0 7px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.ds-post__caption {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  line-height: 1.48;
+}
+
+.ds-post__caption-author {
+  display: inline;
+  color: #fff;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.ds-post__topic {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.ds-post__place-chip {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.14);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  color: #a78bfa;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: background 0.16s ease;
+}
+
+.ds-post__place-chip:hover {
+  background: rgba(124, 58, 237, 0.22);
+}
+
+.ds-post__comments {
+  display: inline-flex;
+  margin-top: 9px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.ds-post__comments:hover {
+  color: rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+}
+
+.ds-post__date {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   STORY VIEWER (from delvers-story-viewer.css)
+   ============================================================ */
+.ds-story-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(18px);
+  animation: ds-viewer-fade-in 0.22s ease;
+}
+
+@keyframes ds-viewer-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(18px);
+  }
+}
+
+.ds-story-viewer__card {
+  position: relative;
+  width: min(100%, 430px);
+  height: min(82vh, 760px);
+  overflow: hidden;
+  border-radius: 30px;
+  background: #080808;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+  touch-action: none;
+  user-select: none;
+  animation: ds-viewer-card-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ds-viewer-card-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.ds-story-viewer__progress {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 12px;
+  z-index: 8;
+  display: flex;
+  gap: 5px;
+}
+
+.ds-story-viewer__seg {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.ds-story-viewer__fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform 0.1s linear;
+}
+
+.ds-story-viewer__fill--idle {
+  transform: scaleX(0);
+}
+
+.ds-story-viewer__fill--done {
+  transform: scaleX(1);
+}
+
+.ds-story-viewer__fill--active {
+  animation-name: ds-story-bar-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.ds-story-viewer__fill--paused {
+  animation-play-state: paused;
+}
+
+.ds-story-viewer__fill--video {
+  transform: scaleX(0.02);
+  transition: transform 0.12s linear;
+}
+
+@keyframes ds-story-bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.ds-story-viewer__head {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 26px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  color: #fff;
+  touch-action: manipulation;
+}
+
+.ds-story-viewer__avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-weight: 950;
+}
+
+.ds-story-viewer__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ds-story-viewer__meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+
+.ds-story-viewer__meta-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ds-story-viewer__meta-link:hover strong {
+  text-decoration: underline;
+}
+
+.ds-story-viewer__meta strong,
+.ds-story-viewer__meta small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-story-viewer__meta strong {
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.ds-story-viewer__meta small {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ds-story-viewer__close {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.34);
+  color: #fff;
+  cursor: pointer;
+  position: relative;
+  z-index: 9;
+  transition: background 0.16s ease, transform 0.12s ease;
+}
+
+.ds-story-viewer__close:hover {
+  background: rgba(0, 0, 0, 0.54);
+  transform: scale(1.06);
+}
+
+.ds-story-viewer__media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 45% 25%, rgba(124, 58, 237, 0.18), transparent 36%),
+    linear-gradient(145deg, #201812, #050505);
+}
+
+.ds-story-viewer__media img,
+.ds-story-viewer__media video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.ds-story-viewer__card--paused .ds-story-viewer__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+
+.ds-story-viewer__note {
+  max-width: 78%;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  color: #fff;
+  text-align: center;
+}
+
+.ds-story-viewer__note svg {
+  color: var(--accent);
+}
+
+.ds-story-viewer__note p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+}
+
+.ds-story-viewer__scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.56), transparent 26%, transparent 48%, rgba(0, 0, 0, 0.82));
+}
+
+.ds-story-viewer__footer {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 9;
+  display: grid;
+  gap: 10px;
+  color: #fff;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.ds-story-viewer__caption {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 800;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ds-story-viewer__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ds-story-viewer__react {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.ds-story-viewer__react:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ds-story-viewer__react span {
+  line-height: 1;
+}
+
+.ds-story-viewer__react--active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ds-story-viewer__react--heart.ds-story-viewer__react--active {
+  color: #ff4d6d;
+}
+
+.ds-story-viewer__react--fire.ds-story-viewer__react--active {
+  color: #ff9f1a;
+}
+
+.ds-story-viewer__heart-burst {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ff4d6d;
+  pointer-events: none;
+  animation: ds-story-heart-burst 720ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes ds-story-heart-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+.ds-story-viewer__pause-badge {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.18);
+  animation: ds-pause-fade 0.15s ease;
+}
+
+@keyframes ds-pause-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ds-story-viewer__pause-badge svg {
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.45));
+}
+
+.ds-story-viewer__zone {
+  position: absolute;
+  top: 64px;
+  bottom: 148px;
+  z-index: 7;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ds-story-viewer__zone--left {
+  left: 0;
+  width: 32%;
+}
+
+.ds-story-viewer__zone--right {
+  left: 32%;
+  right: 0;
+  width: auto;
+}
+
+.ds-story-viewer__reply {
+  width: 100%;
+}
+
+.ds-story-viewer__reply .ds-comment-composer--compact {
+  min-height: 44px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ds-story-viewer__reply .ds-comment-composer--compact input {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ds-story-viewer__reply .ds-comment-composer--compact .ds-comment-composer__send {
+  width: 34px;
+  height: 34px;
+}
+
+.ds-story-viewer__nav {
+  display: none;
+}
+
+.ds-story-viewer__signin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  transition: background 0.16s ease;
+}
+
+.ds-story-viewer__signin:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Story viewer comments panel */
+.ds-story-viewer__card .ds-comment-composer--compact {
+  background: rgba(0, 0, 0, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+}
+
+.ds-story-viewer__card .ds-comment-composer--compact input {
+  color: #fff;
+}
+
+.ds-story-viewer__card .ds-comment-composer--compact input::placeholder {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.ds-story-viewer__card .ds-comments-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  max-height: min(58%, 420px);
+  margin: 0;
+  overflow: auto;
+  border-radius: 22px 22px 0 0;
+  border-bottom: 0;
+}
+
+/* ============================================================
+   SKELETON LOADING (from delvers-empty-loading.css)
+   ============================================================ */
+.ds-feed-skeleton {
+  display: grid;
+  gap: 18px;
+}
+
+.ds-skeleton-post {
+  overflow: hidden;
+  border-radius: 22px;
+  background: #0f0f0f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+.ds-skeleton-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 12px;
+}
+
+.ds-skeleton-avatar,
+.ds-skeleton-line,
+.ds-skeleton-media,
+.ds-skeleton-chip {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ds-skeleton-avatar::after,
+.ds-skeleton-line::after,
+.ds-skeleton-media::after,
+.ds-skeleton-chip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  animation: ds-shimmer 1.25s infinite;
+}
+
+.ds-skeleton-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.ds-skeleton-lines {
+  display: grid;
+  gap: 7px;
+  flex: 1;
+}
+
+.ds-skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+}
+
+.ds-skeleton-line--short {
+  width: 34%;
+}
+
+.ds-skeleton-line--medium {
+  width: 55%;
+}
+
+.ds-skeleton-line--wide {
+  width: 82%;
+}
+
+.ds-skeleton-media {
+  aspect-ratio: 4 / 5;
+}
+
+.ds-skeleton-actions {
+  display: flex;
+  gap: 10px;
+  padding: 13px 16px 7px;
+}
+
+.ds-skeleton-chip {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+}
+
+.ds-skeleton-chip:last-child {
+  margin-left: auto;
+}
+
+.ds-skeleton-copy {
+  display: grid;
+  gap: 9px;
+  padding: 0 16px 16px;
+}
+
+@keyframes ds-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+.ds-empty-social {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  padding: 44px 20px;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.2), transparent 42%),
+    linear-gradient(180deg, rgba(18, 18, 18, 0.98), rgba(10, 10, 10, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.ds-empty-social__icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  border-radius: 24px;
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.ds-empty-social h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(26px, 6vw, 38px);
+  letter-spacing: -0.05em;
+}
+
+.ds-empty-social p {
+  max-width: 320px;
+  margin: 10px auto 22px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ds-empty-social__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ds-empty-social__primary,
+.ds-empty-social__secondary {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ds-empty-social__primary:hover,
+.ds-empty-social__secondary:hover {
+  transform: translateY(-1px);
+}
+
+.ds-empty-social__primary {
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.32);
+}
+
+.ds-empty-social__primary:hover {
+  box-shadow: 0 14px 32px rgba(124, 58, 237, 0.44);
+}
+
+.ds-empty-social__secondary {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.ds-loading {
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 800;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* ============================================================
+   TOAST (from delvers-interactions.css)
+   ============================================================ */
+.ds-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + var(--safe-bottom));
+  z-index: 120;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: rgba(18, 18, 18, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.56);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  animation: ds-toast-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(18px);
+}
+
+@keyframes ds-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+/* ============================================================
+   MOBILE LAYOUT (from delvers-feed-mobile.css)
+   ============================================================ */
+.ds-mobile-actions {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .ds-page {
+    width: 100%;
+  }
+
+  .ds-main,
+  .ds-main--centered,
+  .ds-stories,
+  .ds-feed {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .ds-topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ds-topbar .ds-tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    order: 3;
+  }
+
+  .ds-topbar__actions {
+    min-width: 0;
+  }
+
+  .ds-topbar-search--open {
+    width: min(230px, 52vw);
+  }
+
+  .ds-topbar .ds-brand {
+    min-width: 0;
+  }
+
+  .ds-post-entry {
+    display: none;
+  }
+
+  .ds-page--chrome-hidden .ds-topbar {
+    transform: translateY(calc(-100% - 8px));
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .app-main--delvers {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: calc(88px + var(--safe-bottom));
+  }
+
+  .app-shell--delvers:has(.ds-page) .bottom-nav {
+    display: none;
+  }
+
+  .ds-topbar {
+    margin-left: -12px;
+    margin-right: -12px;
+  }
+
+  .ds-stories {
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .ds-stories--polished {
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+
+  .ds-post {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+
+  .ds-post__media {
+    aspect-ratio: 4 / 5;
+  }
+
+  .ds-empty-social {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+    margin-left: -12px;
+    margin-right: -12px;
+  }
+
+  /* Mobile bottom nav */
+  .ds-mobile-actions {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + var(--safe-bottom));
+    z-index: 80;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    gap: 6px;
+    min-height: 66px;
+    padding: 7px;
+    border-radius: 24px;
+    background: rgba(12, 12, 12, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(18px);
+    transition: transform 0.22s ease, opacity 0.2s ease;
+  }
+
+  .ds-mobile-action {
+    min-width: 0;
+    height: 50px;
+    display: grid;
+    place-items: center;
+    gap: 2px;
+    border: 0;
+    border-radius: 18px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 9.5px;
+    font-weight: 900;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease;
+  }
+
+  .ds-mobile-action:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+  }
+
+  .ds-mobile-action svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ds-mobile-action--active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .ds-mobile-action--create {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: auto;
+    min-height: 50px;
+    color: rgba(255, 250, 242, 0.58);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ds-mobile-action--create .cm-feed-toolbar__circle {
+    width: 40px;
+    height: 40px;
+  }
+
+  .ds-mobile-action--create .cm-feed-toolbar__label {
+    font-size: 9.5px;
+    font-weight: 600;
+    line-height: 1;
+    color: rgba(255, 250, 242, 0.52);
+  }
+
+  .ds-page--chrome-hidden .ds-mobile-actions {
+    transform: translateY(calc(100% + 14px));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ds-story-viewer {
+    padding: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .ds-story-viewer__card {
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+}
+
+/* ============================================================
+   TOUCH / HOVER SAFE (from delvers-interactions.css)
+   ============================================================ */
+.ds-tab:focus-visible,
+.ds-mobile-action:focus-visible,
+.ds-search-trigger:focus-visible,
+.ds-search-close:focus-visible,
+.ds-create:focus-visible,
+.ds-post-entry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (hover: none) {
+  .ds-post:hover,
+  .ds-post__media:hover img,
+  .ds-post__author:hover,
+  .ds-post__comments:hover {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   RAIL / LEGACY HIDE (from ds.css)
+   ============================================================ */
+.ds-rail {
+  display: none !important;
+}
+
+.ds-topbar-search:not(.ds-topbar-search--open) + .ds-search-card {
+  display: none;
+}

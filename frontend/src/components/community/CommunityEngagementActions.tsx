@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Bookmark, Heart, MessageCircle } from 'lucide-react'
 import { ReportButton, type ReportTarget } from '../report/ReportButton'
-import '../../delvers-interactions.css'
 
 type Props = {
   signedIn: boolean
@@ -31,7 +30,7 @@ export function CommunityEngagementActions({
   reportTarget,
 }: Props) {
   return (
-    <div className="ds-post__actions cm-thread__actions" aria-label="Question actions">
+    <div className="ds-post__actions" aria-label="Question actions">
       <div className="ds-post__actions-primary">
         {signedIn ? (
           <button
@@ -42,11 +41,11 @@ export function CommunityEngagementActions({
             aria-label={liked ? 'Unlike question' : 'Like question'}
             aria-pressed={liked}
           >
-            <Heart size={20} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+            <Heart size={22} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
           </button>
         ) : (
           <Link to="/login" className="ds-post__action--like" aria-label="Like question">
-            <Heart size={20} strokeWidth={2.25} aria-hidden />
+            <Heart size={22} strokeWidth={2.25} aria-hidden />
           </Link>
         )}
         {signedIn ? (
@@ -57,17 +56,17 @@ export function CommunityEngagementActions({
             aria-label={commentsOpen ? 'Close answers' : answerLabel}
             aria-expanded={commentsOpen}
           >
-            <MessageCircle size={20} strokeWidth={2.25} aria-hidden />
+            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
           </button>
         ) : (
           <Link to="/login" aria-label={answerLabel}>
-            <MessageCircle size={20} strokeWidth={2.25} aria-hidden />
+            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
           </Link>
         )}
         <ReportButton
           className="ds-post__report"
           iconOnly
-          iconSize={20}
+          iconSize={22}
           triggerLabel="Report question"
           target={reportTarget}
         />
@@ -82,11 +81,11 @@ export function CommunityEngagementActions({
             aria-label={saved ? 'Unsave question' : 'Save question'}
             aria-pressed={saved}
           >
-            <Bookmark size={20} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+            <Bookmark size={22} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
           </button>
         ) : (
           <Link to="/login" className="ds-post__action--save" aria-label="Save question">
-            <Bookmark size={20} strokeWidth={2.25} aria-hidden />
+            <Bookmark size={22} strokeWidth={2.25} aria-hidden />
           </Link>
         )}
       </div>

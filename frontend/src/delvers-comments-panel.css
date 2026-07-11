@@ -3,28 +3,28 @@
   width: fit-content;
   border: 0;
   background: transparent;
-  color: #8a654d;
+  color: rgba(255, 255, 255, 0.52);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 750;
   padding: 0;
   cursor: pointer;
   text-align: left;
+  transition: color 0.16s ease;
 }
 
 .ds-post__comments:hover,
 .ds-post__comments:focus-visible {
-  color: #4c3425;
-  text-decoration: underline;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .ds-comments-panel {
   margin: 0.85rem 1rem 0;
   padding: 0.85rem;
-  border: 1px solid rgba(72, 48, 32, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  background: rgba(255, 252, 246, 0.78);
-  box-shadow: 0 16px 42px rgba(72, 48, 32, 0.08);
+  background: rgba(12, 12, 12, 0.96);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.5);
 }
 
 .ds-comments-panel__head {
@@ -33,7 +33,7 @@
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
-  color: #3f2d22;
+  color: #f8f3ee;
   font-size: 0.84rem;
   font-weight: 800;
 }
@@ -48,10 +48,15 @@
 .ds-comments-panel__refresh {
   border: 0;
   background: transparent;
-  color: #8a654d;
+  color: rgba(255, 255, 255, 0.52);
   font: inherit;
   font-size: 0.78rem;
   cursor: pointer;
+  transition: color 0.16s ease;
+}
+
+.ds-comments-panel__refresh:hover {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .ds-comments-panel__refresh:disabled {
@@ -69,7 +74,7 @@
   height: 0.7rem;
   width: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(72, 48, 32, 0.08), rgba(72, 48, 32, 0.15), rgba(72, 48, 32, 0.08));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
 }
 
 .ds-comments-panel__loading span:nth-child(2) {
@@ -82,14 +87,19 @@
 
 .ds-comments-panel__notice {
   margin: 0;
-  color: #7b604d;
+  color: rgba(255, 255, 255, 0.58);
   font-size: 0.88rem;
   line-height: 1.45;
 }
 
 .ds-comments-panel__notice a {
-  color: #573824;
+  color: #a78bfa;
   font-weight: 800;
+  text-decoration: none;
+}
+
+.ds-comments-panel__notice a:hover {
+  text-decoration: underline;
 }
 
 .ds-comments-panel__list {
@@ -113,9 +123,10 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #f2e6d9;
-  color: #6f4a32;
+  background: #171717;
+  color: var(--accent, #7c3aed);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .ds-comments-panel__avatar img {
@@ -130,22 +141,26 @@
 
 .ds-comments-panel__body p {
   margin: 0;
-  color: #39281f;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.9rem;
   line-height: 1.45;
   word-wrap: break-word;
 }
 
 .ds-comments-panel__body a {
-  color: #2f2119;
+  color: #fff;
   font-weight: 850;
   text-decoration: none;
+}
+
+.ds-comments-panel__body a:hover {
+  text-decoration: underline;
 }
 
 .ds-comments-panel__body small {
   display: block;
   margin-top: 0.18rem;
-  color: #9a7a63;
+  color: rgba(255, 255, 255, 0.46);
   font-size: 0.74rem;
 }
 
@@ -162,7 +177,7 @@
 
 .ds-comments-panel__report {
   margin-left: auto;
-  color: #9a7a63;
+  color: rgba(255, 255, 255, 0.46);
 }
 
 .ds-comments-panel__head-actions {
@@ -178,22 +193,32 @@
   height: 28px;
   border: 0;
   border-radius: 999px;
-  background: rgba(72, 48, 32, 0.08);
-  color: #6f4a32;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78);
   cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.ds-comments-panel__close:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .ds-comments-panel__composer-hint {
   margin: 0.75rem 0 0;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(72, 48, 32, 0.1);
-  color: #7b604d;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.58);
   font-size: 0.84rem;
 }
 
 .ds-comments-panel__composer-hint a {
-  color: #573824;
+  color: #a78bfa;
   font-weight: 800;
+  text-decoration: none;
+}
+
+.ds-comments-panel__composer-hint a:hover {
+  text-decoration: underline;
 }
 
 .ds-comments-panel__like {
@@ -204,17 +229,22 @@
   padding: 0 0.45rem;
   border: 0;
   border-radius: 999px;
-  background: rgba(72, 48, 32, 0.08);
-  color: #8a654d;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
   font: inherit;
   font-size: 0.72rem;
   font-weight: 800;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.ds-comments-panel__like:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .ds-comments-panel__like.is-active {
-  color: #c0392b;
-  background: rgba(192, 57, 43, 0.12);
+  color: #ff4d6d;
+  background: rgba(255, 77, 109, 0.14);
 }
 
 .ds-comments-panel__like.is-active svg {
