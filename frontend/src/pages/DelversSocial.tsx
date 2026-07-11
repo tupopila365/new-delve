@@ -46,14 +46,6 @@ type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
 
 type PinPost = DelversFeedPost
 
-const TABS: { id: FeedTab; label: string }[] = [
-  { id: 'foryou', label: 'For you' },
-  { id: 'nearby', label: 'Nearby' },
-  { id: 'trending', label: 'Trending' },
-  { id: 'photos', label: 'Photos' },
-  { id: 'tips', label: 'Tips' },
-]
-
 function formatCount(n: number): string {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1).replace(/\.0$/, '')}M`
   if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`
@@ -101,6 +93,7 @@ export function DelversSocial() {
   const [storyTarget, setStoryTarget] = useState<DelversStoryTarget | null>(null)
   const [storyIndex, setStoryIndex] = useState(0)
   const [activeRingIndex, setActiveRingIndex] = useState<number | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [seenTick, setSeenTick] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const storiesRowRef = useRef<HTMLElement>(null)
@@ -511,9 +504,15 @@ export function DelversSocial() {
       <header className="ds-topbar ds-topbar--clean">
         <Link to="/delvers" className="ds-brand">DELVE <span>Delvers</span></Link>
         <nav className="ds-tabs" aria-label="Delvers feed tabs">
-          {TABS.map((item) => (
-            <button key={item.id} type="button" className={`ds-tab${tab === item.id ? ' ds-tab--active' : ''}`} onClick={() => setTab(item.id)}>
-              {item.label}
+          {(['foryou', 'nearby', 'trending', 'photos', 'tips'] as FeedTab[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={`ds-tab${tab === t ? ' ds-tab--active' : ''}`}
+              onClick={() => setTab(t)}
+              aria-current={tab === t ? 'true' : undefined}
+            >
+              {t === 'foryou' ? 'For You' : t === 'nearby' ? 'Nearby' : t === 'trending' ? 'Trending' : t === 'photos' ? 'Photos' : 'Tips'}
             </button>
           ))}
         </nav>
@@ -554,6 +553,10 @@ export function DelversSocial() {
       </header>
 
       <main className="ds-main ds-main--centered">
+        <div className="ds-highlights-label">
+          <span>Stories & highlights</span>
+          <div className="ds-highlights-label__line" />
+        </div>
         <section ref={storiesRowRef} className="ds-stories ds-stories--polished" aria-label="Creator, hashtag, and place highlights">
           <CreateStoryBubble signedIn={!!profile} />
           {boardRings.map((ring) => {
@@ -626,6 +629,13 @@ export function DelversSocial() {
 
         {!isLoading && !isError && posts.length === 0 ? (
           <DelversEmptyState signedIn={!!profile} onShowAll={showAll} />
+        ) : null}
+
+        {!isLoading && !isError && posts.length > 0 ? (
+          <div className="ds-feed-header">
+            <h2>{tab === 'foryou' ? 'For You' : tab === 'nearby' ? 'Nearby' : tab === 'trending' ? 'Trending' : tab === 'photos' ? 'Photos' : 'Tips'}</h2>
+            <div className="ds-feed-header__line" />
+          </div>
         ) : null}
 
         <section id="delvers-feed" className="ds-feed" aria-label="Delvers feed">
@@ -801,10 +811,16 @@ function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowA
 
   return (
     <section className="ds-empty-social" aria-label="No Delvers posts">
-      <div>
+      {/* Ghost cards in background */}
+      <div className="ds-empty-social__ghosts" aria-hidden>
+        <div className="ds-empty-social__ghost" />
+        <div className="ds-empty-social__ghost" />
+        <div className="ds-empty-social__ghost" />
+      </div>
+      <div className="ds-empty-social__content">
         <span className="ds-empty-social__icon"><Camera size={30} strokeWidth={2.1} aria-hidden /></span>
         <h2>No posts yet</h2>
-        <p>Share the first Delvers moment, travel tip, route discovery, or local story for others to explore.</p>
+        <p>Be the first to share a Delvers moment. Post a photo, story, travel tip, or local discovery.</p>
         <div className="ds-empty-social__actions">
           <Link to={action.to} className="ds-empty-social__primary" aria-label={action.ariaLabel}>
             <Plus size={16} strokeWidth={2.5} aria-hidden />

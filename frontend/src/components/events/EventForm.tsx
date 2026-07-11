@@ -3,7 +3,13 @@ import { ListingPhotoManager } from '../listing/photos'
 import type { ListingPhotoDraft } from '../listing/photos/types'
 import { EventCategoryPicker } from './EventCategoryPicker'
 import type { EventFormState } from '../../utils/eventForm'
-import '../provider/transport/transport-admin.css'
+import {
+  FormField,
+  FormTextarea,
+  FormRow,
+  TextInput,
+  DateInput,
+} from '../create/shared'
 
 export const EVENT_WIZARD_STEPS = [
   { id: 1, label: 'What' },
@@ -30,6 +36,9 @@ export function EventForm({
 }: Props) {
   const show = (id: number) => step == null || step === id
 
+  // Helpers for safe preview strings
+  const coverPreview = photos[0]?.src || ''
+
   return (
     <div className="ce-form">
       {show(1) ? (
@@ -51,14 +60,8 @@ export function EventForm({
               Basics
             </h2>
 
-            <div className="ce-form__field">
-              <label className="ce-form__label" htmlFor="ce-title">
-                Event title <span aria-hidden>*</span>
-              </label>
-              <input
-                id="ce-title"
-                type="text"
-                className="input ce-form__input"
+            <FormField label="Event title" id="ce-title">
+              <TextInput
                 placeholder="Live jazz night, food market, beach cleanup…"
                 value={state.title}
                 onChange={(e) => onChange({ title: e.target.value })}
@@ -66,7 +69,7 @@ export function EventForm({
                 maxLength={200}
                 autoComplete="off"
               />
-            </div>
+            </FormField>
 
             <EventCategoryPicker value={state.category} onChange={(category) => onChange({ category })} />
           </section>
@@ -81,34 +84,22 @@ export function EventForm({
               When
             </h2>
 
-            <div className="ce-form__row">
-              <div className="ce-form__field">
-                <label className="ce-form__label" htmlFor="ce-starts">
-                  Start <span aria-hidden>*</span>
-                </label>
-                <input
-                  id="ce-starts"
-                  type="datetime-local"
-                  className="input ce-form__input"
-                  value={state.startsAt}
-                  onChange={(e) => onChange({ startsAt: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="ce-form__field">
-                <label className="ce-form__label" htmlFor="ce-ends">
-                  End <span className="ce-form__label-opt">optional</span>
-                </label>
-                <input
-                  id="ce-ends"
-                  type="datetime-local"
-                  className="input ce-form__input"
-                  value={state.endsAt}
-                  min={state.startsAt}
-                  onChange={(e) => onChange({ endsAt: e.target.value })}
-                />
-              </div>
-            </div>
+            <FormRow>
+              <DateInput
+                label="Start"
+                id="ce-starts"
+                value={state.startsAt}
+                onChange={(e) => onChange({ startsAt: e.target.value })}
+                required
+              />
+              <DateInput
+                label="End"
+                id="ce-ends"
+                value={state.endsAt}
+                min={state.startsAt}
+                onChange={(e) => onChange({ endsAt: e.target.value })}
+              />
+            </FormRow>
           </section>
 
           <section className="ce-form__section" aria-labelledby="ce-where-title">
@@ -116,49 +107,31 @@ export function EventForm({
               Where
             </h2>
 
-            <div className="ce-form__field">
-              <label className="ce-form__label" htmlFor="ce-venue">
-                Venue
-              </label>
-              <input
-                id="ce-venue"
-                type="text"
-                className="input ce-form__input"
+            <FormField label="Venue" id="ce-venue">
+              <TextInput
                 placeholder="The Warehouse, community hall, beach…"
                 value={state.venue}
                 onChange={(e) => onChange({ venue: e.target.value })}
                 maxLength={200}
               />
-            </div>
+            </FormField>
 
-            <div className="ce-form__row">
-              <div className="ce-form__field">
-                <label className="ce-form__label" htmlFor="ce-city">
-                  City
-                </label>
-                <input
-                  id="ce-city"
-                  type="text"
-                  className="input ce-form__input"
+            <FormRow>
+              <FormField label="City" id="ce-city">
+                <TextInput
                   placeholder="Windhoek"
                   value={state.city}
                   onChange={(e) => onChange({ city: e.target.value })}
                 />
-              </div>
-              <div className="ce-form__field">
-                <label className="ce-form__label" htmlFor="ce-region">
-                  Region
-                </label>
-                <input
-                  id="ce-region"
-                  type="text"
-                  className="input ce-form__input"
+              </FormField>
+              <FormField label="Region" id="ce-region">
+                <TextInput
                   placeholder="Khomas"
                   value={state.region}
                   onChange={(e) => onChange({ region: e.target.value })}
                 />
-              </div>
-            </div>
+              </FormField>
+            </FormRow>
           </section>
         </>
       ) : null}
@@ -171,24 +144,19 @@ export function EventForm({
               About
             </h2>
 
-            <div className="ce-form__field">
-              <label className="ce-form__label" htmlFor="ce-desc">
-                Description <span className="ce-form__label-opt">optional</span>
-              </label>
-              <textarea
-                id="ce-desc"
-                className="input ce-form__textarea"
-                placeholder="What should people expect? Dress code, lineup, tickets at door…"
-                rows={5}
-                value={state.description}
-                onChange={(e) => onChange({ description: e.target.value })}
-              />
-            </div>
+            <FormTextarea
+              label="Description"
+              id="ce-desc"
+              placeholder="What should people expect? Dress code, lineup, tickets at door…"
+              rows={5}
+              value={state.description}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onChange({ description: e.target.value })}
+            />
           </section>
 
           <section className="ce-form__section" aria-labelledby="ce-tickets-title">
             <h2 id="ce-tickets-title" className="ce-form__section-title">
-              Tickets &amp; entry
+              Tickets & entry
             </h2>
 
             <fieldset className="ce-form__fieldset">
@@ -223,15 +191,10 @@ export function EventForm({
             </fieldset>
 
             {state.ticketingMode === 'on_platform' ? (
-              <div className="ce-form__field">
-                <label className="ce-form__label" htmlFor="ce-price">
-                  Price per ticket <span aria-hidden>*</span>
-                </label>
-                <input
-                  id="ce-price"
+              <FormField label="Price per ticket" id="ce-price">
+                <TextInput
                   type="text"
                   inputMode="decimal"
-                  className="input ce-form__input"
                   placeholder="150"
                   value={state.price}
                   onChange={(e) => onChange({ price: e.target.value.replace(/[^\d.]/g, '') })}
@@ -239,60 +202,45 @@ export function EventForm({
                   autoComplete="off"
                   required
                 />
-              </div>
+              </FormField>
             ) : null}
 
             {state.ticketingMode === 'external' ? (
               <>
-                <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor="ce-ticket-url">
-                    Ticket link <span aria-hidden>*</span>
-                  </label>
-                  <input
-                    id="ce-ticket-url"
+                <FormField label="Ticket link" id="ce-ticket-url">
+                  <TextInput
                     type="url"
-                    className="input ce-form__input"
                     placeholder="https://tickets.example.com/your-event"
                     value={state.ticketUrl}
                     onChange={(e) => onChange({ ticketUrl: e.target.value })}
                     autoComplete="off"
                     required
                   />
-                </div>
-                <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor="ce-price-display">
-                    Display price <span className="ce-form__label-opt">optional</span>
-                  </label>
-                  <input
-                    id="ce-price-display"
+                </FormField>
+                <FormField label="Display price" id="ce-price-display">
+                  <TextInput
                     type="text"
                     inputMode="decimal"
-                    className="input ce-form__input"
                     placeholder="150"
                     value={state.price}
                     onChange={(e) => onChange({ price: e.target.value.replace(/[^\d.]/g, '') })}
                     maxLength={32}
                     autoComplete="off"
                   />
-                </div>
+                </FormField>
               </>
             ) : null}
 
-            <div className="ce-form__field">
-              <label className="ce-form__label" htmlFor="ce-capacity">
-                Capacity <span className="ce-form__label-opt">optional</span>
-              </label>
-              <input
-                id="ce-capacity"
+            <FormField label="Capacity" id="ce-capacity">
+              <TextInput
                 type="number"
                 min={1}
-                className="input ce-form__input"
                 placeholder="200"
                 value={state.capacity}
                 onChange={(e) => onChange({ capacity: e.target.value })}
                 inputMode="numeric"
               />
-            </div>
+            </FormField>
           </section>
 
           <section className="ce-form__section" aria-labelledby="ce-highlights-title">

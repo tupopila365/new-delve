@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft } from 'lucide-react'
 import { ApiError, apiFetch, asArray } from '../api/client'
 import { fetchTagTrending, type TagSummary } from '../api/tags'
 import { useAuth } from '../auth/AuthContext'
-import { CreateStudioHeader } from '../components/create'
-import { ComposerPillInput } from '../components/ui/ComposerPillInput'
+import { FormField, FormTextarea, TextInput } from '../components/create'
 import { MessageComposer } from '../components/ui/MessageComposer'
 import type { FeedPost } from '../components/IgPostCard'
 import { buildAskLocalsFormData } from '../utils/communityAsk'
@@ -53,9 +53,9 @@ export function CreateAsk() {
     if (videoPreview) URL.revokeObjectURL(videoPreview)
   }, [imagePreview, videoPreview])
 
-  const requestLeave = (to: string) => {
+  const requestLeave = () => {
     if (isDirty && !window.confirm('Discard this question?')) return
-    navigate(to)
+    navigate('/create')
   }
 
   const publish = useMutation({
@@ -90,137 +90,157 @@ export function CreateAsk() {
 
   if (!profile) {
     return (
-      <main className="create-ask create-ask--gate">
-        <section className="create-ask-gate">
-          <h1>Ask locals</h1>
-          <p>Sign in to ask about a place and get answers from travellers and locals.</p>
-          <div className="create-ask-gate__actions">
-            <Link to="/login" className="btn btn-primary">
-              Sign in
-            </Link>
-            <Link to="/register" className="btn btn-ghost">
-              Create account
-            </Link>
-          </div>
-        </section>
-      </main>
+      <div className="create-ask-page">
+        <div className="create-ask-header">
+          <button type="button" className="create-ask__back" onClick={requestLeave} aria-label="Back">
+            <ArrowLeft size={20} strokeWidth={2.25} />
+          </button>
+          <h1 className="create-ask__title">Ask locals</h1>
+        </div>
+        <div className="create-ask-empty">
+          <p>Sign in to ask locals for tips, recommendations, and insider knowledge.</p>
+          <Link to="/login" className="btn btn-primary">Sign in</Link>
+        </div>
+      </div>
     )
   }
 
   return (
-    <main className="create-ask">
-      <CreateStudioHeader
-        variant="light"
-        title="Ask locals"
-        subtitle="Community"
-        onBack={() => requestLeave('/create')}
-      />
+    <div className="create-ask-page">
+      <div className="create-ask-header">
+        <button type="button" className="create-ask__back" onClick={requestLeave} aria-label="Back">
+          <ArrowLeft size={20} strokeWidth={2.25} />
+        </button>
+        <h1 className="create-ask__title">Ask locals</h1>
+        <button
+          type="button"
+          className="create-ask__post-btn"
+          onClick={() => {
+            if (!canPost || publish.isPending) return
+            setError('')
+            publish.mutate()
+          }}
+          disabled={!canPost || publish.isPending}
+        >
+          {publish.isPending ? 'Posting…' : 'Post'}
+        </button>
+      </div>
 
-      <div className="create-ask__body">
-        <label className="create-ask__field create-ask__composer-block">
-          <span>Where?</span>
-          <ComposerPillInput
-            theme="dark"
-            type="text"
+      <div className="create-ask-form">
+        <FormField label="Where?">
+          <TextInput
             value={place}
             onChange={(e) => setPlace(e.target.value)}
             placeholder="City and country, e.g. Windhoek, Namibia"
-            autoFocus
           />
-        </label>
+        </FormField>
 
-        <div className="create-ask__field create-ask__composer-block">
-          <span>Your question</span>
-          <MessageComposer
-            theme="dark"
-            value={question}
-            onChange={setQuestion}
-            onSubmit={() => {
-              if (!canPost || publish.isPending) return
+        <FormTextarea
+          label="Your question"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="What do you need to know? Use #hashtags like #parking or #food."
+          rows={4}
+        />
+
+        <MessageComposer
+          theme="dark"
+          value={question}
+          onChange={setQuestion}
+          onSubmit={() => {
+            if (!canPost || publish.isPending) return
+            setError('')
+            publish.mutate()
+          }}
+          placeholder="Add details, tips requests, or recommendations…"
+          inputAriaLabel="Your question"
+          sendAriaLabel="Post question"
+          sendDisabled={!canPost}
+          sending={publish.isPending}
+          hashtags={{
+            scope: 'community',
+            maxTags: MAX_TAGS_PER_POST,
+            onMaxTags: () => setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`),
+          }}
+          media={{
+            imagePreview,
+            videoPreview,
+            onVideoError: (message) => setError(message),
+            onImageChange: (file, preview) => {
+              if (file) {
+                const message = validateCommunityImageFile(file)
+                if (message) {
+                  setError(message)
+                  return
+                }
+              }
               setError('')
-              publish.mutate()
-            }}
-            placeholder="What do you need to know? Use #hashtags like #parking or #food."
-            inputAriaLabel="Your question"
-            sendAriaLabel="Post question"
-            sendDisabled={!canPost}
-            sending={publish.isPending}
-            hashtags={{
-              scope: 'community',
-              maxTags: MAX_TAGS_PER_POST,
-              onMaxTags: () => setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`),
-            }}
-            media={{
-              imagePreview,
-              videoPreview,
-              onVideoError: (message) => setError(message),
-              onImageChange: (file, preview) => {
-                if (file) {
-                  const message = validateCommunityImageFile(file)
-                  if (message) {
-                    setError(message)
-                    return
-                  }
+              if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
+              setImageFile(file)
+              setImagePreview(preview)
+              if (file) {
+                setVideoFile(null)
+                if (videoPreview) URL.revokeObjectURL(videoPreview)
+                setVideoPreview(null)
+              }
+            },
+            onVideoChange: (file, preview) => {
+              if (file) {
+                const message = validateCommunityVideoFile(file)
+                if (message) {
+                  setError(message)
+                  return
                 }
-                setError('')
-                if (imagePreview && imagePreview !== preview) URL.revokeObjectURL(imagePreview)
-                setImageFile(file)
-                setImagePreview(preview)
-                if (file) {
-                  setVideoFile(null)
-                  if (videoPreview) URL.revokeObjectURL(videoPreview)
-                  setVideoPreview(null)
-                }
-              },
-              onVideoChange: (file, preview) => {
-                if (file) {
-                  const message = validateCommunityVideoFile(file)
-                  if (message) {
-                    setError(message)
-                    return
-                  }
-                }
-                setError('')
-                if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
-                setVideoFile(file)
-                setVideoPreview(preview)
-                if (file) {
-                  setImageFile(null)
-                  if (imagePreview) URL.revokeObjectURL(imagePreview)
-                  setImagePreview(null)
-                }
-              },
-            }}
-          />
-        </div>
+              }
+              setError('')
+              if (videoPreview && videoPreview !== preview) URL.revokeObjectURL(videoPreview)
+              setVideoFile(file)
+              setVideoPreview(preview)
+              if (file) {
+                setImageFile(null)
+                if (imagePreview) URL.revokeObjectURL(imagePreview)
+                setImagePreview(null)
+              }
+            },
+          }}
+        />
 
-        <div className="create-ask__tips" aria-label="Trending hashtags">
-          {trendingTags.map((tag) => {
-            const hashtag = `#${tag.slug}`
-            return (
-              <button
-                key={tag.slug}
-                type="button"
-                className="create-ask__tip"
-                onClick={() => {
-                  if (extractHashtags(question).includes(tag.slug)) return
-                  if (extractHashtags(question).length >= MAX_TAGS_PER_POST) {
-                    setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`)
-                    return
-                  }
-                  setError('')
-                  if (!question.trim()) {
-                    setQuestion(`Any tips on ${tag.slug}? ${hashtag}`)
-                    return
-                  }
-                  setQuestion((q) => `${q.trim()} ${hashtag}`)
-                }}
-              >
-                {hashtag}
-              </button>
-            )
-          })}
-        </div>
+        {trendingTags.length > 0 && (
+          <div className="create-ask-trending">
+            <p className="create-ask-trending__label">Trending</p>
+            <div className="create-ask-trending__list">
+              {trendingTags.map((tag) => {
+                const hashtag = `#${tag.slug}`
+                const active = extractHashtags(question).includes(tag.slug)
+                return (
+                  <button
+                    key={tag.slug}
+                    type="button"
+                    className={`create-ask-trending__chip ${active ? 'create-ask-trending__chip--active' : ''}`}
+                    onClick={() => {
+                      if (active) {
+                        setQuestion((q) => q.replace(new RegExp(`#${tag.slug}\\b`, 'g'), '').trim())
+                        return
+                      }
+                      if (extractHashtags(question).length >= MAX_TAGS_PER_POST) {
+                        setError(`Use up to ${MAX_TAGS_PER_POST} hashtags per post.`)
+                        return
+                      }
+                      setError('')
+                      if (!question.trim()) {
+                        setQuestion(`Any tips on ${tag.slug}? ${hashtag}`)
+                        return
+                      }
+                      setQuestion((q) => `${q.trim()} ${hashtag}`)
+                    }}
+                  >
+                    {hashtag}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {tooManyTags ? (
           <p className="create-ask__error" role="alert">
@@ -231,6 +251,6 @@ export function CreateAsk() {
         {error ? <p className="create-ask__error">{error}</p> : null}
         <p className="create-ask__note">Your question goes straight to the community feed.</p>
       </div>
-    </main>
+    </div>
   )
 }

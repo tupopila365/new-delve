@@ -11,15 +11,16 @@
   font-family: var(--font-display, inherit);
   font-size: 1.45rem;
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   color: #fffaf2;
 }
 
 .create-hub-grid__head p {
-  margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.48);
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 0.86rem;
-  font-weight: 650;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .create-hub-grid__primary {
@@ -27,41 +28,51 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 14px;
-  min-height: 88px;
+  min-height: 80px;
   padding: 18px 16px;
-  border: 1px solid rgba(124, 58, 237, 0.4);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.28), transparent 55%),
-    #141414;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
   color: #fffaf2;
   text-decoration: none;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  transition: all 0.2s ease;
+}
+
+.create-hub-grid__primary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 .create-hub-grid__primary strong {
   display: block;
-  font-size: 1.05rem;
-  font-weight: 950;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
 }
 
 .create-hub-grid__primary small {
   display: block;
   margin-top: 4px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.42);
   font-size: 0.78rem;
-  font-weight: 650;
-  line-height: 1.35;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .create-hub-grid__primary-icon {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  background: rgba(124, 58, 237, 0.2);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.15);
   color: #a78bfa;
+  transition: all 0.2s ease;
+}
+
+.create-hub-grid__primary:hover .create-hub-grid__primary-icon {
+  background: rgba(124, 58, 237, 0.25);
 }
 
 .create-hub-grid__tiles {
@@ -72,52 +83,99 @@
 
 .create-hub-grid__tile {
   display: grid;
-  gap: 8px;
-  min-height: 112px;
+  gap: 10px;
+  align-content: center;
+  min-height: 100px;
   padding: 14px 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  background: #121212;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
   color: #fffaf2;
   text-decoration: none;
+  transition: all 0.2s ease;
 }
 
 .create-hub-grid__tile:hover {
-  border-color: rgba(124, 58, 237, 0.35);
-  background: #161616;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 .create-hub-grid__tile-icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: rgba(124, 58, 237, 0.12);
   color: #a78bfa;
+  transition: all 0.2s ease;
+}
+
+.create-hub-grid__tile:hover .create-hub-grid__tile-icon {
+  background: rgba(124, 58, 237, 0.18);
 }
 
 .create-hub-grid__tile strong {
-  font-size: 0.9rem;
+  display: block;
+  font-size: 0.88rem;
   font-weight: 900;
+  letter-spacing: -0.01em;
 }
 
 .create-hub-grid__tile small {
-  color: rgba(255, 255, 255, 0.42);
+  display: block;
+  color: rgba(255, 255, 255, 0.38);
   font-size: 0.72rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .create-hub-grid__provider {
   justify-self: center;
-  margin-top: 4px;
-  color: rgba(255, 154, 82, 0.9);
+  margin-top: 8px;
+  padding: 8px 16px;
+  color: rgba(255, 255, 255, 0.55);
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
 }
 
 .create-hub-grid__provider:hover {
-  color: #c4b5fd;
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.1);
+  border-color: rgba(124, 58, 237, 0.3);
+}
+
+@media (max-width: 420px) {
+  .create-hub-grid {
+    gap: 14px;
+    padding: 8px 0 20px;
+  }
+
+  .create-hub-grid__primary {
+    min-height: 72px;
+    padding: 16px 14px;
+  }
+
+  .create-hub-grid__primary strong {
+    font-size: 0.95rem;
+  }
+
+  .create-hub-grid__tile {
+    min-height: 88px;
+    padding: 12px 10px;
+  }
+
+  .create-hub-grid__tile strong {
+    font-size: 0.82rem;
+  }
+
+  .create-hub-grid__tile small {
+    font-size: 0.68rem;
+  }
 }

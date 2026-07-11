@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Camera,
   Clapperboard,
-  MessageCircle,
   Route,
   Ticket,
 } from 'lucide-react'
@@ -48,7 +47,6 @@ export function CreateHub() {
         }}
         items={[
           { to: '/create/highlight', label: 'Highlight', hint: 'Story-style ring', Icon: Clapperboard },
-          { to: '/create/ask', label: 'Ask locals', hint: 'Get advice', Icon: MessageCircle },
           { to: '/journeys/new', label: 'Journey', hint: 'Trip diary', Icon: Route },
           { to: '/events/new', label: 'Event', hint: 'Publish a happening', Icon: Ticket },
         ]}

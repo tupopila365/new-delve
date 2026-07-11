@@ -11,7 +11,6 @@ import {
   buildEventFormData,
   canSubmitEventForm,
   emptyEventFormState,
-  photosFromEvent,
   type EventFormState,
 } from '../utils/eventForm'
 import type { ListingPhotoDraft } from '../components/listing/photos/types'
@@ -135,6 +134,7 @@ export function CreateEvent() {
       primaryPending={mut.isPending}
       primaryDisabled={!canSubmit}
       error={err}
+      variant="dark"
     >
       <EventForm
         step={step}

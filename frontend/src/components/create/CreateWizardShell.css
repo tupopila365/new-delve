@@ -80,11 +80,37 @@
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--hairline, rgba(28, 20, 16, 0.1));
   background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
-.create-wizard__nav .btn-primary {
-  min-width: 132px;
+.create-wizard__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 28px;
+  border-radius: 20px;
+  border: none;
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+}
+
+.create-wizard__cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.45);
+}
+
+.create-wizard__cta:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.create-wizard__cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── Dark variant (journeys, social compose) ── */
@@ -127,6 +153,7 @@
 .create-wizard--dark .create-wizard__nav {
   border-top-color: rgba(255, 255, 255, 0.08);
   background: rgba(10, 10, 10, 0.96);
+  -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
 

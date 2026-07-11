@@ -438,12 +438,6 @@ export function AppLayout() {
         {createPage ? (
           <>
             <CreatePageEnhancer />
-            <ServiceProviderPageHeader
-              title="Create"
-              subtitle="Post, highlight, ask locals, journeys, and events."
-              eyebrow="Share"
-              showTools={false}
-            />
           </>
         ) : null}
         <Outlet />

@@ -84,7 +84,7 @@ export function CreateWizardShell({
         {children}
       </div>
 
-      <footer className="create-wizard__nav">
+    <footer className="create-wizard__nav">
         {isFirst ? (
           <button type="button" className="btn btn-ghost" onClick={onLeave}>
             Cancel
@@ -97,14 +97,14 @@ export function CreateWizardShell({
         {isLast ? (
           <button
             type="button"
-            className="btn btn-primary"
+            className="create-wizard__cta"
             onClick={onPrimary}
             disabled={primaryDisabled || primaryPending}
           >
             {primaryPending ? primaryPendingLabel : primaryLabel}
           </button>
         ) : (
-          <button type="button" className="btn btn-primary" onClick={onStepNext}>
+          <button type="button" className="create-wizard__cta" onClick={onStepNext}>
             Continue
           </button>
         )}

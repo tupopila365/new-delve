@@ -22,48 +22,47 @@ import { HighlightChannelEditor } from '../components/highlights/HighlightChanne
 import type { HighlightChannelInput } from '../components/highlights/types'
 import { ensureHighlightChannelsMediaUrls } from '../components/highlights/highlightMediaApi'
 import { startCreateSession, trackCreatePublish } from '../utils/createAnalytics'
+import { JourneyForm } from '../components/journeys/JourneyForm'
 import '../components/provider/transport/transport-admin.css'
 import '../components/journeys/CreateJourneyPageEnhancer.css'
 
-/* ── constants ─────────────────────────────────────────────── */
-
 const TRANSPORT_OPTIONS = [
-  { value: 'car', label: 'Car', emoji: '🚗' },
-  { value: 'bus', label: 'Bus', emoji: '🚌' },
-  { value: 'flight', label: 'Flight', emoji: '✈️' },
-  { value: 'boat', label: 'Boat', emoji: '⛵' },
-  { value: 'bike', label: 'Bike', emoji: '🚲' },
-  { value: 'walk', label: 'Walk', emoji: '🚶' },
+  { value: 'car', label: 'Car', icon: '🚗' },
+  { value: 'bus', label: 'Bus', icon: '🚌' },
+  { value: 'flight', label: 'Flight', icon: '✈️' },
+  { value: 'boat', label: 'Boat', icon: '⛵' },
+  { value: 'bike', label: 'Bike', icon: '🚲' },
+  { value: 'walk', label: 'Walk', icon: '🚶' },
 ]
 
 const TAG_OPTIONS = [
-  { value: '4x4', label: '4×4', emoji: '🚙' },
-  { value: 'budget', label: 'Budget', emoji: '💸' },
-  { value: 'wildlife', label: 'Wildlife', emoji: '🐘' },
-  { value: 'coast', label: 'Coast', emoji: '🌊' },
-  { value: 'hiking', label: 'Hiking', emoji: '🥾' },
-  { value: 'photography', label: 'Photography', emoji: '📷' },
-  { value: 'camping', label: 'Camping', emoji: '⛺' },
-  { value: 'culture', label: 'Culture', emoji: '🎭' },
+  { value: '4x4', label: '4×4', icon: '🚙' },
+  { value: 'budget', label: 'Budget', icon: '💸' },
+  { value: 'wildlife', label: 'Wildlife', icon: '🐘' },
+  { value: 'coast', label: 'Coast', icon: '🌊' },
+  { value: 'hiking', label: 'Hiking', icon: '🥾' },
+  { value: 'photography', label: 'Photography', icon: '📷' },
+  { value: 'camping', label: 'Camping', icon: '⛺' },
+  { value: 'culture', label: 'Culture', icon: '🎭' },
 ]
 
 const COUNTRY_OPTIONS = [
-  { code: 'NA', label: 'Namibia', flag: '🇳🇦' },
-  { code: 'BW', label: 'Botswana', flag: '🇧🇼' },
-  { code: 'ZA', label: 'South Africa', flag: '🇿🇦' },
-  { code: 'ZM', label: 'Zambia', flag: '🇿🇲' },
-  { code: 'ZW', label: 'Zimbabwe', flag: '🇿🇼' },
-  { code: 'MZ', label: 'Mozambique', flag: '🇲🇿' },
-  { code: 'TZ', label: 'Tanzania', flag: '🇹🇿' },
-  { code: 'KE', label: 'Kenya', flag: '🇰🇪' },
+  { code: 'NA', label: 'Namibia', icon: '🇳🇦' },
+  { code: 'BW', label: 'Botswana', icon: '🇧🇼' },
+  { code: 'ZA', label: 'South Africa', icon: '🇿🇦' },
+  { code: 'ZM', label: 'Zambia', icon: '🇿🇲' },
+  { code: 'ZW', label: 'Zimbabwe', icon: '🇿🇼' },
+  { code: 'MZ', label: 'Mozambique', icon: '🇲🇿' },
+  { code: 'TZ', label: 'Tanzania', icon: '🇹🇿' },
+  { code: 'KE', label: 'Kenya', icon: '🇰🇪' },
 ]
 
-const COST_CATEGORIES: { value: TripCost['category']; label: string; emoji: string }[] = [
-  { value: 'stay', label: 'Accommodation', emoji: '🏨' },
-  { value: 'food', label: 'Food & drink', emoji: '🍽' },
-  { value: 'transport', label: 'Transport', emoji: '🚗' },
-  { value: 'activity', label: 'Activities', emoji: '🎯' },
-  { value: 'other', label: 'Other', emoji: '💼' },
+const COST_CATEGORIES: { value: TripCost['category']; label: string; icon: string }[] = [
+  { value: 'stay', label: 'Accommodation', icon: '🏨' },
+  { value: 'food', label: 'Food & drink', icon: '🍽' },
+  { value: 'transport', label: 'Transport', icon: '🚗' },
+  { value: 'activity', label: 'Activities', icon: '🎯' },
+  { value: 'other', label: 'Other', icon: '💼' },
 ]
 
 const STEPS = [
@@ -71,9 +70,8 @@ const STEPS = [
   { id: 2, label: 'Stops' },
   { id: 3, label: 'Budget' },
   { id: 4, label: 'Details' },
-]
+] as const
 
-/* ── stop type for the form ────────────────────────────────── */
 type FormStop = {
   key: string
   place_name: string
@@ -93,7 +91,6 @@ type FormCost = {
   note: string
 }
 
-/* ── helpers ───────────────────────────────────────────────── */
 function uid() {
   return Math.random().toString(36).slice(2)
 }
@@ -208,7 +205,6 @@ async function buildStopsPayloadWithUploads(stops: FormStop[]): Promise<TripStop
   return rows
 }
 
-/* ── component ─────────────────────────────────────────────── */
 export function CreateJourney() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -219,7 +215,6 @@ export function CreateJourney() {
   const { profile } = useAuth()
   const [step, setStep] = useState(1)
 
-  // Step 1 — basics
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [listingPhotos, setListingPhotos] = useState<ListingPhotoDraft[]>([])
@@ -227,19 +222,14 @@ export function CreateJourney() {
   const [endsOn, setEndsOn] = useState('')
   const [party, setParty] = useState('solo')
 
-  // Step 2 — stops
   const [stops, setStops] = useState<FormStop[]>([emptyStop()])
-
-  // Step 3 — budget
   const [costs, setCosts] = useState<FormCost[]>([emptyCost()])
 
-  // Step 4 — details
   const [selectedTransport, setSelectedTransport] = useState<string[]>(['car'])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedCountries, setSelectedCountries] = useState<string[]>(['NA'])
   const [journeyStories, setJourneyStories] = useState<HighlightChannelInput[]>([])
 
-  // UI
   const [err, setErr] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [hydrated, setHydrated] = useState(!isEdit)
@@ -321,7 +311,6 @@ export function CreateJourney() {
     )
   }
 
-  /* ── validation ──────────────────────────────────────────── */
   function validateStep(): string | null {
     if (step === 1) {
       if (!title.trim()) return 'Give your journey a title.'
@@ -360,7 +349,6 @@ export function CreateJourney() {
     setStep((s) => s - 1)
   }
 
-  /* ── stops helpers ───────────────────────────────────────── */
   function updateStop(key: string, patch: Partial<FormStop>) {
     setStops((prev) => prev.map((s) => (s.key === key ? { ...s, ...patch } : s)))
   }
@@ -371,7 +359,6 @@ export function CreateJourney() {
     setStops((prev) => (prev.length > 1 ? prev.filter((s) => s.key !== key) : prev))
   }
 
-  /* ── costs helpers ───────────────────────────────────────── */
   function updateCost(key: string, patch: Partial<FormCost>) {
     setCosts((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)))
   }
@@ -386,7 +373,6 @@ export function CreateJourney() {
     set(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])
   }
 
-  /* ── publish ─────────────────────────────────────────────── */
   async function publish() {
     if (!profile) {
       setErr('You need to sign in to publish a journey.')
@@ -459,7 +445,6 @@ export function CreateJourney() {
     }
   }
 
-  /* ── derived ─────────────────────────────────────────────── */
   const totalCostPreview = costs.reduce((s, c) => s + (Number(c.amount) || 0), 0)
   const daysPreview = daysBetween(startsOn, endsOn)
 
@@ -485,283 +470,35 @@ export function CreateJourney() {
       primaryPending={publishing}
       error={err}
     >
-      {/* ── STEP 1: BASICS ── */}
-      {step === 1 && (
-        <div className="cj-compose">
-          <p className="cj-compose__prompt">Tell people what this journey is about.</p>
-
-          <div className="cj-compose-card">
-            <input
-              id="cj-title"
-              type="text"
-              className="cj-compose-card__title"
-              placeholder="Give your journey a title…"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={120}
-              aria-label="Journey title"
-            />
-            <textarea
-              id="cj-summary"
-              className="cj-compose-card__summary"
-              rows={3}
-              placeholder="A short description of the trip…"
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              maxLength={400}
-              aria-label="Journey summary"
-            />
-
-            <div className="cj-compose-card__divider" aria-hidden />
-
-            <div className="cj-compose-card__meta">
-              <label className="cj-compose-card__meta-field" htmlFor="cj-start">
-                <span>Start</span>
-                <input id="cj-start" type="date" className="input ce-form__input" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
-              </label>
-              <label className="cj-compose-card__meta-field" htmlFor="cj-end">
-                <span>End</span>
-                <input id="cj-end" type="date" className="input ce-form__input" value={endsOn} min={startsOn} onChange={(e) => setEndsOn(e.target.value)} />
-              </label>
-            </div>
-
-            {startsOn && endsOn ? (
-              <p className="cj-form__calc">
-                {daysPreview} {daysPreview === 1 ? 'day' : 'days'}
-              </p>
-            ) : null}
-          </div>
-
-          <PartyPicker value={party} onChange={setParty} />
-
-          <ListingPhotoManager
-            photos={listingPhotos}
-            onChange={setListingPhotos}
-            hint="Cover must be a photo. Add more photos or short videos (up to 1 min) for the hero gallery."
-          />
-        </div>
-      )}
-
-      {/* ── STEP 2: STOPS ── */}
-      {step === 2 && (
-        <div className="cj-compose">
-          <p className="cj-compose__prompt">Add each place you visited, in order. You can always add more later.</p>
-
-          {stops.map((stop, i) => (
-            <div key={stop.key} className="cj-stop">
-              <div className="cj-stop__header">
-                <div className="cj-stop__num" aria-hidden>{i + 1}</div>
-                <p className="cj-stop__title">{stop.place_name || `Stop ${i + 1}`}</p>
-                {stops.length > 1 && (
-                  <button type="button" className="cj-stop__remove" aria-label="Remove stop" onClick={() => removeStop(stop.key)}>×</button>
-                )}
-              </div>
-
-              <div className="cj-stop__fields">
-                <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor={`cj-place-${stop.key}`}>Where</label>
-                  <input id={`cj-place-${stop.key}`} type="text" className="input ce-form__input" placeholder="e.g. Swakopmund" value={stop.place_name} onChange={(e) => updateStop(stop.key, { place_name: e.target.value })} />
-                </div>
-
-                <div className="ce-form__row">
-                  <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-country-${stop.key}`}>Country</label>
-                    <select id={`cj-country-${stop.key}`} className="input ce-form__input" value={stop.country_code} onChange={(e) => updateStop(stop.key, { country_code: e.target.value })}>
-                      {COUNTRY_OPTIONS.map((c) => (
-                        <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-cost-${stop.key}`}>Spend <span className="ce-form__label-opt">optional</span></label>
-                    <input id={`cj-cost-${stop.key}`} type="number" min="0" className="input ce-form__input" placeholder="N$ 0" value={stop.cost} onChange={(e) => updateStop(stop.key, { cost: e.target.value })} />
-                  </div>
-                </div>
-
-                <div className="ce-form__row">
-                  <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-arrived-${stop.key}`}>Arrived</label>
-                    <input id={`cj-arrived-${stop.key}`} type="date" className="input ce-form__input" value={stop.arrived_on} onChange={(e) => updateStop(stop.key, { arrived_on: e.target.value })} />
-                  </div>
-                  <div className="ce-form__field">
-                    <label className="ce-form__label" htmlFor={`cj-left-${stop.key}`}>Left</label>
-                    <input id={`cj-left-${stop.key}`} type="date" className="input ce-form__input" value={stop.left_on} min={stop.arrived_on} onChange={(e) => updateStop(stop.key, { left_on: e.target.value })} />
-                  </div>
-                </div>
-
-                <div className="ce-form__field">
-                  <label className="ce-form__label" htmlFor={`cj-notes-${stop.key}`}>What stood out?</label>
-                  <textarea id={`cj-notes-${stop.key}`} className="input ce-form__textarea" rows={2} placeholder="Memorable moments, tips, highlights…" value={stop.notes} onChange={(e) => updateStop(stop.key, { notes: e.target.value })} />
-                </div>
-
-                <JourneyStopMoment
-                  value={stop.moment}
-                  onChange={(moment) => updateStop(stop.key, { moment })}
-                />
-
-                <JourneyStopLinkPicker
-                  value={stop.linked}
-                  onChange={(linked) => updateStop(stop.key, { linked })}
-                />
-              </div>
-            </div>
-          ))}
-
-          <button type="button" className="cj-add-btn" onClick={addStop}>
-            <span aria-hidden>+</span> Add another stop
-          </button>
-        </div>
-      )}
-
-      {/* ── STEP 3: BUDGET ── */}
-      {step === 3 && (
-        <div className="cj-compose">
-          <p className="cj-compose__prompt">Log what you spent — every item is optional.</p>
-
-          {costs.map((cost, i) => (
-            <div key={cost.key} className="cj-cost-row">
-              <select
-                className="input cj-cost-row__cat"
-                value={cost.category}
-                aria-label="Category"
-                onChange={(e) => updateCost(cost.key, { category: e.target.value as TripCost['category'] })}
-              >
-                {COST_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
-                ))}
-              </select>
-
-              <input
-                type="text"
-                className="input cj-cost-row__note"
-                placeholder="Description (e.g. Hotel Heinitzburg)"
-                value={cost.note}
-                aria-label="Description"
-                onChange={(e) => updateCost(cost.key, { note: e.target.value })}
-              />
-
-              <div className="cj-cost-row__amount-wrap">
-                <span className="cj-cost-row__currency">N$</span>
-                <input
-                  type="number"
-                  min="0"
-                  className="input cj-cost-row__amount"
-                  placeholder="0"
-                  value={cost.amount}
-                  aria-label="Amount"
-                  onChange={(e) => updateCost(cost.key, { amount: e.target.value })}
-                />
-              </div>
-
-              {costs.length > 1 && (
-                <button type="button" className="cj-cost-row__del" aria-label={`Remove expense ${i + 1}`} onClick={() => removeCost(cost.key)}>×</button>
-              )}
-            </div>
-          ))}
-
-          <button type="button" className="cj-add-btn" onClick={addCost}>
-            <span aria-hidden>+</span> Add expense
-          </button>
-
-          {totalCostPreview > 0 && (
-            <div className="cj-budget-total">
-              <span>Total estimated spend</span>
-              <strong>N${totalCostPreview.toLocaleString()}</strong>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── STEP 4: DETAILS ── */}
-      {step === 4 && (
-        <div className="cj-compose">
-          <p className="cj-compose__prompt">Tag your trip so others can discover it.</p>
-
-          <div className="ce-form__field">
-            <label className="ce-form__label">Countries visited <span aria-hidden>*</span></label>
-            <div className="ce-form__chips">
-              {COUNTRY_OPTIONS.map((c) => (
-                <button key={c.code} type="button"
-                  className={`ce-form__chip${selectedCountries.includes(c.code) ? ' ce-form__chip--active' : ''}`}
-                  onClick={() => toggleChip(selectedCountries, c.code, setSelectedCountries)}
-                  aria-pressed={selectedCountries.includes(c.code)}
-                >
-                  {c.flag} {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="ce-form__field">
-            <label className="ce-form__label">How did you get around?</label>
-            <div className="ce-form__chips">
-              {TRANSPORT_OPTIONS.map((t) => (
-                <button key={t.value} type="button"
-                  className={`ce-form__chip${selectedTransport.includes(t.value) ? ' ce-form__chip--active' : ''}`}
-                  onClick={() => toggleChip(selectedTransport, t.value, setSelectedTransport)}
-                  aria-pressed={selectedTransport.includes(t.value)}
-                >
-                  <span aria-hidden>{t.emoji}</span> {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="ce-form__field">
-            <label className="ce-form__label">Trip style <span className="ce-form__label-opt">optional</span></label>
-            <div className="ce-form__chips">
-              {TAG_OPTIONS.map((t) => (
-                <button key={t.value} type="button"
-                  className={`ce-form__chip${selectedTags.includes(t.value) ? ' ce-form__chip--active' : ''}`}
-                  onClick={() => toggleChip(selectedTags, t.value, setSelectedTags)}
-                  aria-pressed={selectedTags.includes(t.value)}
-                >
-                  <span aria-hidden>{t.emoji}</span> {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <section className="ce-form__section" aria-labelledby="cj-highlights-title">
-            <h2 id="cj-highlights-title" className="ce-form__section-title">
-              Highlights
-            </h2>
-            <HighlightChannelEditor
-              channels={journeyStories}
-              onChange={setJourneyStories}
-              hint="Story rings on your journey page — name each ring yourself. When you add custom highlights, auto-generated rings are hidden."
-              emptyCopy="No custom highlight rings yet. Auto-generated rings still use your route and photos."
-            />
-          </section>
-
-          {/* Preview card */}
-          <div className="cj-preview">
-            <p className="cj-preview__label">Preview</p>
-            <div className="cj-preview__card">
-              {listingPhotos[0]?.src ? (
-                <img
-                  src={listingPhotos[0].src.startsWith('blob:') || listingPhotos[0].src.startsWith('data:') ? listingPhotos[0].src : listingPhotos[0].src}
-                  alt=""
-                  className="cj-preview__img"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-              ) : null}
-              <div className="cj-preview__body">
-                <p className="cj-preview__title">{title || 'Your journey title'}</p>
-                <p className="cj-preview__meta">
-                  {selectedCountries.map((c) => COUNTRY_OPTIONS.find((o) => o.code === c)?.flag).join(' ')}
-                  {daysPreview > 0 && ` · ${daysPreview} days`}
-                  {totalCostPreview > 0 && ` · N$${totalCostPreview.toLocaleString()}`}
-                </p>
-                <p className="cj-preview__meta">{stops.filter((s) => s.place_name).map((s) => s.place_name).join(' → ')}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      <JourneyForm
+        title={title}
+        summary={summary}
+        startsOn={startsOn}
+        endsOn={endsOn}
+        party={party}
+        listingPhotos={listingPhotos}
+        stops={stops}
+        costs={costs}
+        selectedTransport={selectedTransport}
+        selectedTags={selectedTags}
+        selectedCountries={selectedCountries}
+        journeyStories={journeyStories}
+        step={step}
+        onChange={(patch) => {
+          if ('title' in patch && patch.title !== undefined) setTitle(patch.title)
+          if ('summary' in patch && patch.summary !== undefined) setSummary(patch.summary)
+          if ('startsOn' in patch && patch.startsOn !== undefined) setStartsOn(patch.startsOn)
+          if ('endsOn' in patch && patch.endsOn !== undefined) setEndsOn(patch.endsOn)
+          if ('party' in patch && patch.party !== undefined) setParty(patch.party)
+          if ('listingPhotos' in patch && patch.listingPhotos !== undefined) setListingPhotos(patch.listingPhotos)
+          if ('stops' in patch && patch.stops !== undefined) setStops(patch.stops)
+          if ('costs' in patch && patch.costs !== undefined) setCosts(patch.costs)
+          if ('selectedTransport' in patch && patch.selectedTransport !== undefined) setSelectedTransport(patch.selectedTransport)
+          if ('selectedTags' in patch && patch.selectedTags !== undefined) setSelectedTags(patch.selectedTags)
+          if ('selectedCountries' in patch && patch.selectedCountries !== undefined) setSelectedCountries(patch.selectedCountries)
+          if ('journeyStories' in patch && patch.journeyStories !== undefined) setJourneyStories(patch.journeyStories)
+        }}
+      />
     </CreateWizardShell>
   )
 }

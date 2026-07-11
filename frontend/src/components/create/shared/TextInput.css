@@ -1,0 +1,15 @@
+.text-input {
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.text-input--error {
+  border-color: #fca5a5;
+  box-shadow: 0 0 0 2px rgba(252, 165, 165, 0.2);
+}
+
+@media (hover: hover) {
+  .text-input:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+}

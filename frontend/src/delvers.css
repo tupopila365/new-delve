@@ -3,6 +3,22 @@
    Merge of all delvers-*.css files + new visual polish
    ============================================================ */
 
+/* ── CSS Custom Properties ───────────────────────────────── */
+:root {
+  --ds-accent: #7c3aed;
+  --ds-accent-glow: rgba(124, 58, 237, 0.35);
+  --ds-surface: #0f0f0f;
+  --ds-surface-raised: #141414;
+  --ds-border: rgba(255, 255, 255, 0.1);
+  --ds-border-strong: rgba(255, 255, 255, 0.16);
+  --ds-text: #f8f3ee;
+  --ds-text-muted: rgba(255, 255, 255, 0.52);
+  --ds-text-dim: rgba(255, 255, 255, 0.38);
+  --ds-heart: #ff3040;
+  --ds-gold: #ffc107;
+  --ds-fire: #ff9f1a;
+}
+
 /* ── Base / Reset (from ds.css) ─────────────────────────────── */
 html, body, #root {
   height: auto;
@@ -29,6 +45,128 @@ html, body, #root {
   margin: 0 auto;
   padding-bottom: 96px;
   color: #f8f3ee;
+}
+
+/* ── Section Headers for Feed ──────────────────────────────── */
+.ds-feed-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+  padding: 0 4px;
+}
+
+.ds-feed-header h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.ds-feed-header small {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ds-feed-header__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.15);
+  color: #a78bfa;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ds-feed-header__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #ff4d6d;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ds-feed-header__live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff4d6d;
+  animation: ds-live-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ds-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.ds-feed-header__line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
+}
+
+/* ── Stories Row Header ──────────────────────────────────── */
+.ds-stories-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 8px;
+}
+
+.ds-stories-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.ds-stories-header a {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
+  font-weight: 850;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: color 0.16s ease;
+}
+
+.ds-stories-header a:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Highlights label bar ────────────────────────────────── */
+.ds-highlights-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.ds-highlights-label span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ds-highlights-label__line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
 }
 
 /* ── Shared transition token ──────────────────────────────── */
@@ -1460,17 +1598,61 @@ html, body, #root {
 
 /* ── Empty state ──────────────────────────────────────────── */
 .ds-empty-social {
+  position: relative;
   min-height: 360px;
   display: grid;
   place-items: center;
   padding: 44px 20px;
   border-radius: 26px;
+  overflow: hidden;
   background:
     radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.2), transparent 42%),
     linear-gradient(180deg, rgba(18, 18, 18, 0.98), rgba(10, 10, 10, 0.98));
   border: 1px solid rgba(255, 255, 255, 0.11);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
   text-align: center;
+}
+
+.ds-empty-social__ghosts {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 14px;
+  padding: 20px;
+  opacity: 0.06;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ds-empty-social__ghost {
+  flex: 1;
+  max-width: 200px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+
+.ds-empty-social__ghost::before {
+  content: '';
+  display: block;
+  padding-bottom: 130%;
+}
+
+.ds-empty-social__ghost::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  height: 60px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ds-empty-social__content {
+  position: relative;
+  z-index: 1;
 }
 
 .ds-empty-social__icon {

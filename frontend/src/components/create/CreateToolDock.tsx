@@ -1,6 +1,6 @@
-import { Crop, Scissors, SlidersHorizontal, Type } from 'lucide-react'
+ import { Crop, Scissors, SlidersHorizontal, Type, Sparkles, SmilePlus, PenLine } from 'lucide-react'
 
-export type CreateTool = 'filters' | 'crop' | 'caption' | 'trim'
+export type CreateTool = 'filters' | 'crop' | 'caption' | 'trim' | 'adjust' | 'text' | 'stickers' | 'draw'
 
 type Props = {
   active: CreateTool | null
@@ -11,8 +11,12 @@ type Props = {
 
 const TOOLS: { id: CreateTool; label: string; Icon: typeof SlidersHorizontal }[] = [
   { id: 'filters', label: 'Filters', Icon: SlidersHorizontal },
+  { id: 'adjust', label: 'Adjust', Icon: Sparkles },
   { id: 'crop', label: 'Crop', Icon: Crop },
   { id: 'caption', label: 'Caption', Icon: Type },
+  { id: 'text', label: 'Text', Icon: Type },
+  { id: 'stickers', label: 'Stickers', Icon: SmilePlus },
+  { id: 'draw', label: 'Draw', Icon: PenLine },
   { id: 'trim', label: 'Trim', Icon: Scissors },
 ]
 

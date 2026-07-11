@@ -1,0 +1,18 @@
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .form-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .form-row--triple {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .form-row--full {
+    grid-template-columns: 1fr;
+  }
+}
