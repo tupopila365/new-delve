@@ -23056,22 +23056,22 @@ a.chip.chip--accent:hover {
 
 @media (min-width: 900px) {
   :root {
-    --topnav-h: 72px;
+    --topnav-h: 68px;
   }
 
   .app-topnav {
     display: flex;
     align-items: center;
+    gap: 10px;
     height: var(--topnav-h);
-    padding: 0 2rem;
+    padding: 0 24px;
     position: sticky;
     top: 0;
     z-index: 50;
-    gap: 0;
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(28, 20, 16, 0.08);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border-bottom: 1px solid var(--hairline-light);
   }
 
   @media (prefers-reduced-transparency: reduce) {
@@ -23082,18 +23082,19 @@ a.chip.chip--accent:hover {
     }
   }
 
+  /* Logo */
   .app-topnav__logo {
     font-family: var(--font-display);
-    font-size: 1.55rem;
+    font-size: 1.5rem;
     font-weight: 900;
-    letter-spacing: 0.08em;
-    color: var(--accent-hover);
+    letter-spacing: 0.14em;
+    color: var(--text);
     background: none;
     -webkit-text-fill-color: currentColor;
     text-decoration: none;
-    margin-right: 28px;
+    margin-right: 20px;
     flex-shrink: 0;
-    transition: color 0.15s ease, opacity 0.15s ease;
+    transition: color 0.18s ease, opacity 0.18s ease;
   }
 
   .app-topnav__logo:hover {
@@ -23101,61 +23102,66 @@ a.chip.chip--accent:hover {
     opacity: 1;
   }
 
+  /* Nav links */
   .app-topnav__links {
     display: flex;
-    align-items: stretch;
-    height: 100%;
-    gap: 2px;
+    align-items: center;
+    gap: 4px;
     flex: 1;
     min-width: 0;
   }
 
   .app-topnav__link {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    padding: 10px 12px;
-    font-size: 14px;
+    padding: 9px 15px;
+    font-family: var(--font-sans);
+    font-size: 14.5px;
     font-weight: 600;
     color: var(--text-secondary);
     text-decoration: none;
-    border-bottom: none;
+    border: none;
     border-radius: 999px;
-    transition: color 0.15s ease, background 0.15s ease;
     white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.16s ease, background 0.16s ease;
   }
 
   .app-topnav__link:hover {
-    color: var(--accent-hover);
-    background: rgba(124, 58, 237, 0.06);
+    color: var(--text);
+    background: rgba(28, 20, 16, 0.05);
     opacity: 1;
   }
 
-  .app-topnav__link--active {
+  /* Active: filled accent pill */
+  .app-topnav__link--active,
+  .app-topnav__link--active:hover {
     color: var(--accent-hover);
-    font-weight: 800;
+    background: var(--accent-soft);
+    font-weight: 700;
   }
 
-  .app-topnav__link--active::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    transform: translateX(-50%);
-    width: 22px;
-    height: 3px;
-    border-radius: 999px;
-    background: var(--accent-hover);
-  }
-
+  /* More dropdown */
   .app-topnav__more {
     position: relative;
   }
 
   .app-topnav__more-btn {
-    border: none;
-    cursor: pointer;
-    font-family: var(--font-sans);
+    gap: 5px;
+    padding-right: 12px;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .app-topnav__more-chevron {
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+  }
+
+  .app-topnav__more-btn:hover .app-topnav__more-chevron {
+    opacity: 1;
   }
 
   .app-topnav__more-btn--open {
@@ -23163,31 +23169,41 @@ a.chip.chip--accent:hover {
     background: var(--accent-soft);
   }
 
+  .app-topnav__more-btn--open .app-topnav__more-chevron {
+    transform: rotate(180deg);
+    opacity: 1;
+  }
+
   .app-topnav__more-panel {
     position: absolute;
-    top: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    min-width: 180px;
+    top: calc(100% + 10px);
+    left: 0;
+    min-width: 200px;
     padding: 8px;
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.98);
-    border: 1px solid rgba(28, 20, 16, 0.08);
-    box-shadow: 0 18px 50px rgba(28, 20, 16, 0.12);
-    z-index: 50;
+    border: 1px solid var(--hairline-light);
+    box-shadow: 0 20px 54px rgba(28, 20, 16, 0.16);
+    z-index: 60;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    animation: topnav-panel-in 0.16s ease;
+  }
+
+  @keyframes topnav-panel-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   .app-topnav__more-item {
     padding: 10px 14px;
     border-radius: 12px;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 650;
     color: var(--text);
     text-decoration: none;
-    transition: background 0.15s ease;
+    transition: background 0.16s ease, color 0.16s ease;
   }
 
   .app-topnav__more-item:hover {
@@ -23195,74 +23211,82 @@ a.chip.chip--accent:hover {
     color: var(--accent-hover);
   }
 
+  /* Right-side actions */
   .app-topnav__actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     margin-left: auto;
     flex-shrink: 0;
   }
 
   .app-topnav__icon-btn {
-    width: 42px;
-    height: 42px;
+    position: relative;
+    width: 40px;
+    height: 40px;
     display: grid;
     place-items: center;
     border-radius: 999px;
-    color: var(--text);
+    color: var(--text-secondary);
     background: transparent;
     border: 1px solid transparent;
     text-decoration: none;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
   }
 
   .app-topnav__icon-btn:hover {
-    background: var(--accent-soft);
-    border-color: var(--hairline-light);
-    color: var(--accent-hover);
+    background: rgba(28, 20, 16, 0.05);
+    color: var(--text);
     opacity: 1;
   }
 
-  .app-topnav__post-btn {
-    display: flex;
-    flex-direction: column;
+  /* Divider between icons and CTA */
+  .app-topnav__divider {
+    width: 1px;
+    height: 26px;
+    margin: 0 4px;
+    background: var(--hairline-light);
+    flex-shrink: 0;
+  }
+
+  /* + Post CTA */
+  .app-topnav__post {
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
-    min-width: 0;
-    padding: 0;
+    gap: 7px;
+    height: 40px;
+    padding: 0 18px 0 15px;
     border: none;
-    background: transparent;
-    color: rgba(255, 250, 242, 0.58);
-    font: inherit;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
     text-decoration: none;
     cursor: pointer;
-    box-shadow: none;
+    flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(124, 58, 237, 0.32);
+    transition: background 0.16s ease, transform 0.12s ease, box-shadow 0.16s ease;
   }
 
-  .app-topnav__post-btn .cm-feed-toolbar__circle {
-    width: 42px;
-    height: 42px;
-  }
-
-  .app-topnav__post-btn .cm-feed-toolbar__label {
-    max-width: 52px;
-    font-size: 0.62rem;
-  }
-
-  .app-topnav__post-btn:hover {
+  .app-topnav__post:hover {
+    background: var(--accent-hover);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4);
     opacity: 1;
-    transform: none;
-    box-shadow: none;
   }
 
-  .app-topnav__post-btn:active {
-    transform: none;
-    box-shadow: none;
+  .app-topnav__post:active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.24);
   }
 
+  /* Avatar */
   .app-topnav__avatar {
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
     border-radius: 999px;
     background: var(--accent-soft);
     border: 2px solid var(--accent-ring);
@@ -23272,15 +23296,15 @@ a.chip.chip--accent:hover {
     text-decoration: none;
     color: var(--accent-hover);
     overflow: hidden;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
     flex-shrink: 0;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
   }
 
   .app-topnav__avatar:hover {
     border-color: var(--accent-hover);
-    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15);
-    opacity: 1;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
     transform: translateY(-1px);
+    opacity: 1;
   }
 
   .app-topnav__avatar-letter {

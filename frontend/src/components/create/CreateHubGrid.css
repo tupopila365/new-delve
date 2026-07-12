@@ -23,61 +23,9 @@
   line-height: 1.4;
 }
 
-.create-hub-grid__primary {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  min-height: 80px;
-  padding: 18px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  color: #fffaf2;
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.create-hub-grid__primary:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
-  transform: translateY(-1px);
-}
-
-.create-hub-grid__primary strong {
-  display: block;
-  font-size: 1rem;
-  font-weight: 900;
-  letter-spacing: -0.01em;
-}
-
-.create-hub-grid__primary small {
-  display: block;
-  margin-top: 4px;
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.create-hub-grid__primary-icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(124, 58, 237, 0.15);
-  color: #a78bfa;
-  transition: all 0.2s ease;
-}
-
-.create-hub-grid__primary:hover .create-hub-grid__primary-icon {
-  background: rgba(124, 58, 237, 0.25);
-}
-
 .create-hub-grid__tiles {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -155,15 +103,6 @@
   .create-hub-grid {
     gap: 14px;
     padding: 8px 0 20px;
-  }
-
-  .create-hub-grid__primary {
-    min-height: 72px;
-    padding: 16px 14px;
-  }
-
-  .create-hub-grid__primary strong {
-    font-size: 0.95rem;
   }
 
   .create-hub-grid__tile {

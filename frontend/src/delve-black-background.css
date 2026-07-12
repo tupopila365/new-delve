@@ -56,23 +56,143 @@ body {
   stroke: rgba(255, 255, 255, 0.88) !important;
 }
 
+/* ── Top nav (desktop) — dark skin ─────────────────────────── */
 .app-topnav {
-  background: rgba(24, 22, 20, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(18px);
+  background: rgba(20, 18, 16, 0.82) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
 }
 
-.app-topnav__logo,
-.app-topnav__link,
-.app-topnav__icon-btn {
-  color: rgba(255, 255, 255, 0.9) !important;
+.app-topnav__logo {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
 }
 
+.app-topnav__logo:hover {
+  color: #c4b5fd !important;
+  -webkit-text-fill-color: #c4b5fd !important;
+}
+
+/* Nav link tabs */
+.app-topnav__link {
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+
+.app-topnav__link:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.app-topnav__link--active,
+.app-topnav__link--active:hover,
+.app-topnav__more-btn--open {
+  color: #c4b5fd !important;
+  background: rgba(124, 58, 237, 0.22) !important;
+}
+
+/* More dropdown panel */
 .app-topnav__more-panel {
-  background: rgba(30, 27, 24, 0.96) !important;
+  background: rgba(28, 25, 22, 0.98) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.55) !important;
 }
 
 .app-topnav__more-item {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.app-topnav__more-item:hover {
+  color: #c4b5fd !important;
+  background: rgba(124, 58, 237, 0.2) !important;
+}
+
+/* Icon buttons */
+.app-topnav__icon-btn {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.app-topnav__icon-btn:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+}
+
+/* Divider */
+.app-topnav__divider {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Post CTA keeps the accent fill; ensure label/icon stay white */
+.app-topnav__post {
+  color: #fff !important;
+}
+
+/* Avatar */
+.app-topnav__avatar {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(124, 58, 237, 0.2) !important;
+}
+
+.app-topnav__avatar:hover {
+  border-color: rgba(196, 181, 253, 0.7) !important;
+}
+
+.app-topnav__avatar-letter {
+  color: #d6c9ff !important;
+}
+
+/* ── Profile menu dropdown — flat dark skin (no gradients) ─── */
+.profile-menu__panel {
+  background: rgba(28, 25, 22, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.55) !important;
+}
+
+.profile-menu__head {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.profile-menu__head strong {
+  color: #fff !important;
+}
+
+.profile-menu__head span {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.profile-menu__section-label {
+  color: rgba(255, 255, 255, 0.42) !important;
+}
+
+.profile-menu__item {
   color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.profile-menu__item:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.profile-menu__item--accent {
+  color: #c4b5fd !important;
+}
+
+.profile-menu__item--accent:hover {
+  background: rgba(124, 58, 237, 0.2) !important;
+}
+
+.profile-menu__item--sub {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.profile-menu__item--danger {
+  color: #ff6b5c !important;
+}
+
+.profile-menu__item--danger:hover {
+  background: rgba(255, 107, 92, 0.14) !important;
+}
+
+.profile-menu__divider {
+  background: rgba(255, 255, 255, 0.08) !important;
 }

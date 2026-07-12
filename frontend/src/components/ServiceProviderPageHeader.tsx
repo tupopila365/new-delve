@@ -13,6 +13,7 @@ type Props = {
   filterGroups?: ServiceProviderFilterGroup[]
   filterScope?: string
   showTools?: boolean
+  variant?: 'default' | 'hub'
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string) {
@@ -31,6 +32,7 @@ export function ServiceProviderPageHeader({
   filterGroups,
   filterScope,
   showTools = true,
+  variant = 'default',
 }: Props) {
   const [searchValue, setSearchValue] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -60,7 +62,11 @@ export function ServiceProviderPageHeader({
 
   return (
     <section
-      className={showTools ? 'sp-header' : 'sp-header sp-header--simple'}
+      className={[
+        'sp-header',
+        variant === 'hub' ? 'sp-header--hub' : '',
+        !showTools ? 'sp-header--simple' : '',
+      ].filter(Boolean).join(' ')}
       aria-label={`${title} header`}
     >
       <div className="sp-header__copy">

@@ -58,7 +58,8 @@ export function TopNav() {
             aria-haspopup="menu"
             onClick={() => setMoreOpen((v) => !v)}
           >
-            More
+            <span>More</span>
+            <IconChevron />
           </button>
           {moreOpen ? (
             <div className="app-topnav__more-panel" role="menu">
@@ -88,20 +89,37 @@ export function TopNav() {
           <NavBadge count={unreadMessages} />
         </Link>
 
+        <span className="app-topnav__divider" aria-hidden />
+
         <Link
           to={profile ? '/create' : '/login'}
-          className="cm-feed-toolbar__item cm-feed-toolbar__item--action app-topnav__post-btn"
+          className="app-topnav__post"
           aria-label={profile ? 'Post photo, story, or journey' : 'Sign in to post'}
         >
-          <span className="cm-feed-toolbar__circle" aria-hidden>
-            <Plus size={20} strokeWidth={2.5} aria-hidden />
-          </span>
-          <span className="cm-feed-toolbar__label">Post</span>
+          <Plus size={18} strokeWidth={2.6} aria-hidden />
+          <span>Post</span>
         </Link>
 
         <ProfileMenu avatarClassName="app-topnav__avatar" />
       </div>
     </header>
+  )
+}
+
+function IconChevron() {
+  return (
+    <svg
+      className="app-topnav__more-chevron"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      aria-hidden
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

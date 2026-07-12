@@ -11,28 +11,17 @@ export type CreateHubItem = {
 }
 
 type Props = {
-  primary: CreateHubItem
   items: readonly CreateHubItem[]
   providerHref?: string
 }
 
-export function CreateHubGrid({ primary, items, providerHref }: Props) {
+export function CreateHubGrid({ items, providerHref }: Props) {
   return (
     <div className="create-hub-grid">
       <header className="create-hub-grid__head">
         <h1>Create</h1>
         <p>Share a moment, ask locals, or plan a trip.</p>
       </header>
-
-      <Link to={primary.to} className="create-hub-grid__primary">
-        <span className="create-hub-grid__primary-icon" aria-hidden>
-          <primary.Icon size={26} strokeWidth={2.25} />
-        </span>
-        <span>
-          <strong>{primary.label}</strong>
-          {primary.hint ? <small>{primary.hint}</small> : null}
-        </span>
-      </Link>
 
       <div className="create-hub-grid__tiles" role="navigation" aria-label="Create formats">
         {items.map((item) => (

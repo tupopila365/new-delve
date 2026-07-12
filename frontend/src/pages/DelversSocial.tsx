@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Bell, Bookmark, Camera, Compass, Heart, Home, Hash, MapPin, MessageCircle, Plus, Search, Share2, UserRound, X } from 'lucide-react'
-import { apiFetch } from '../api/client'
+import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, Hash, MapPin, MessageCircle, Play, Plus, Search, Share2, UserRound, Volume2, VolumeX, X } from 'lucide-react'
+import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { UserAvatar } from '../components/UserAvatar'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
@@ -42,7 +42,18 @@ import { DelversStoryViewer, type DelversStoryTarget } from '../components/socia
 import '../components/community/community-feed-cards.css'
 import '../components/Featured.css'
 
-type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips'
+type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips' | 'reels'
+
+const TAB_LABELS: Record<FeedTab, string> = {
+  foryou: 'For You',
+  nearby: 'Nearby',
+  trending: 'Trending',
+  photos: 'Photos',
+  tips: 'Tips',
+  reels: 'Reels',
+}
+
+const FEED_TABS: FeedTab[] = ['foryou', 'nearby', 'trending', 'reels']
 
 type PinPost = DelversFeedPost
 
@@ -88,7 +99,7 @@ export function DelversSocial() {
   const [tab, setTab] = useState<FeedTab>('foryou')
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [mobileChromeHidden, setMobileChromeHidden] = useState(false)
+  const [chromeHidden, setChromeHidden] = useState(false)
   const [toast, setToast] = useState('')
   const [storyTarget, setStoryTarget] = useState<DelversStoryTarget | null>(null)
   const [storyIndex, setStoryIndex] = useState(0)
@@ -262,40 +273,54 @@ export function DelversSocial() {
   }, [searchOpen])
 
   useEffect(() => {
-    const onScroll = () => {
-      const viewportWidth = window.innerWidth
-      if (viewportWidth > 700) {
-        setMobileChromeHidden(false)
-        lastScrollTopRef.current = 0
-        return
+    // Hide the top/bottom nav chrome when scrolling down, reveal on scroll up.
+    // Applies on every viewport size (mobile + desktop). We listen in the
+    // capture phase so we catch scrolling whether it happens on the window or
+    // on a nested scroll container.
+    const readScrollTop = (target: EventTarget | null): number | null => {
+      if (target && target instanceof HTMLElement && target !== document.documentElement && target !== document.body) {
+        // Ignore purely horizontal scrollers (e.g. the stories row).
+        if (target.scrollHeight - target.clientHeight <= 0) return null
+        return target.scrollTop
       }
+      return Math.max(window.scrollY || 0, document.documentElement.scrollTop || 0, document.body.scrollTop || 0)
+    }
 
-      const top = Math.max(window.scrollY, document.documentElement.scrollTop, document.body.scrollTop, 0)
+    const onScroll = (e?: Event) => {
+      const top = readScrollTop(e ? e.target : null)
+      if (top === null) return
       const delta = top - lastScrollTopRef.current
 
+      // Ignore sub-pixel jitter, but keep the anchor so slow scrolling still
+      // accumulates until it crosses the threshold.
+      if (Math.abs(delta) < 2) return
+
       if (top <= 8) {
-        setMobileChromeHidden(false)
-      } else if (delta > 6) {
-        setMobileChromeHidden(true)
-      } else if (delta < -6) {
-        setMobileChromeHidden(false)
+        // Always show the chrome at the very top of the feed.
+        setChromeHidden(false)
+      } else if (delta > 0 && top > 72) {
+        // Any downward movement past the header height -> hide.
+        setChromeHidden(true)
+      } else if (delta < 0) {
+        // Any upward movement -> reveal.
+        setChromeHidden(false)
       }
 
       lastScrollTopRef.current = top
     }
 
-    const onResize = () => {
-      if (window.innerWidth > 700) setMobileChromeHidden(false)
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize, { passive: true })
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
     onScroll()
     return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onScroll, { capture: true })
     }
   }, [])
+
+  useEffect(() => {
+    // Reveal the chrome whenever the tab changes so switching tabs never leaves it hidden.
+    setChromeHidden(false)
+    lastScrollTopRef.current = 0
+  }, [tab])
 
   const boardRings = useMemo(() => buildBoardRings(highlights), [highlights])
   const placeRings = useMemo(() => buildPlaceRings(highlights), [highlights])
@@ -337,6 +362,9 @@ export function DelversSocial() {
     }
     if (tab === 'tips') {
       list = list.filter((p) => isFeedPost(p) && !p.image && !p.video && p.body?.trim())
+    }
+    if (tab === 'reels') {
+      list = list.filter((p) => isFeedPost(p) && Boolean(p.video))
     }
 
     const q = query.trim().toLowerCase()
@@ -500,11 +528,11 @@ export function DelversSocial() {
   }, [activeRingIndex, resolvedStoryTarget])
 
   return (
-    <div className={mobileChromeHidden ? 'ds-page ds-page--chrome-hidden' : 'ds-page'}>
+    <div className={chromeHidden ? 'ds-page ds-page--chrome-hidden' : 'ds-page'}>
       <header className="ds-topbar ds-topbar--clean">
         <Link to="/delvers" className="ds-brand">DELVE <span>Delvers</span></Link>
         <nav className="ds-tabs" aria-label="Delvers feed tabs">
-          {(['foryou', 'nearby', 'trending', 'photos', 'tips'] as FeedTab[]).map((t) => (
+          {FEED_TABS.map((t) => (
             <button
               key={t}
               type="button"
@@ -512,7 +540,7 @@ export function DelversSocial() {
               onClick={() => setTab(t)}
               aria-current={tab === t ? 'true' : undefined}
             >
-              {t === 'foryou' ? 'For You' : t === 'nearby' ? 'Nearby' : t === 'trending' ? 'Trending' : t === 'photos' ? 'Photos' : 'Tips'}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </nav>
@@ -552,6 +580,17 @@ export function DelversSocial() {
         </div>
       </header>
 
+      {tab === 'reels' ? (
+        <DelversReels
+          posts={posts as DelversFeedPost[]}
+          signedIn={!!profile}
+          isLoading={isLoading}
+          onLike={(p) => profile && likeMut.mutate(p)}
+          onSave={(p) => profile && saveMut.mutate(p)}
+          onFire={(p) => profile && fireMut.mutate(p)}
+          onShare={(id) => void onShare(id)}
+        />
+      ) : (
       <main className="ds-main ds-main--centered">
         <div className="ds-highlights-label">
           <span>Stories & highlights</span>
@@ -633,7 +672,7 @@ export function DelversSocial() {
 
         {!isLoading && !isError && posts.length > 0 ? (
           <div className="ds-feed-header">
-            <h2>{tab === 'foryou' ? 'For You' : tab === 'nearby' ? 'Nearby' : tab === 'trending' ? 'Trending' : tab === 'photos' ? 'Photos' : 'Tips'}</h2>
+            <h2>{TAB_LABELS[tab]}</h2>
             <div className="ds-feed-header__line" />
           </div>
         ) : null}
@@ -658,6 +697,7 @@ export function DelversSocial() {
           )}
         </section>
       </main>
+      )}
 
       <nav className="ds-mobile-actions" aria-label="Delvers mobile actions">
         <Link to="/" className="ds-mobile-action">
@@ -708,6 +748,227 @@ export function DelversSocial() {
         />
       ) : null}
     </div>
+  )
+}
+
+function DelversReels({
+  posts,
+  signedIn,
+  isLoading,
+  onLike,
+  onSave,
+  onFire,
+  onShare,
+}: {
+  posts: DelversFeedPost[]
+  signedIn: boolean
+  isLoading: boolean
+  onLike: (post: DelversFeedPost) => void
+  onSave: (post: DelversFeedPost) => void
+  onFire: (post: DelversFeedPost) => void
+  onShare: (id: number) => void
+}) {
+  const [muted, setMuted] = useState(true)
+
+  if (isLoading) {
+    return (
+      <section className="dsr-feed dsr-feed--solo" aria-label="Delvers reels">
+        <div className="dsr-slide dsr-slide--skeleton">
+          <div className="dsr-slide__shimmer" />
+        </div>
+      </section>
+    )
+  }
+
+  if (posts.length === 0) {
+    return (
+      <section className="dsr-feed dsr-feed--solo" aria-label="Delvers reels">
+        <div className="dsr-empty">
+          <Play size={40} strokeWidth={1.75} aria-hidden />
+          <h3 className="dsr-empty__title">No reels yet</h3>
+          <p className="dsr-empty__text">
+            Video posts from the Delvers feed show up here as full-screen reels.
+          </p>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="dsr-feed" aria-label="Delvers reels">
+      {posts.map((post) => (
+        <DelversReelSlide
+          key={post.id}
+          post={post}
+          signedIn={signedIn}
+          muted={muted}
+          onToggleMute={() => setMuted((m) => !m)}
+          onLike={() => onLike(post)}
+          onSave={() => onSave(post)}
+          onFire={() => onFire(post)}
+          onShare={() => onShare(post.id)}
+        />
+      ))}
+    </section>
+  )
+}
+
+function DelversReelSlide({
+  post,
+  signedIn,
+  muted,
+  onToggleMute,
+  onLike,
+  onSave,
+  onFire,
+  onShare,
+}: {
+  post: DelversFeedPost
+  signedIn: boolean
+  muted: boolean
+  onToggleMute: () => void
+  onLike: () => void
+  onSave: () => void
+  onFire: () => void
+  onShare: () => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [paused, setPaused] = useState(false)
+  const videoSrc = mediaUrl(post.video)
+  const poster = post.image ? mediaUrl(post.image) : undefined
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            v.play().then(() => setPaused(false)).catch(() => {})
+          } else {
+            v.pause()
+          }
+        }
+      },
+      { threshold: [0, 0.6, 1] },
+    )
+    io.observe(v)
+    return () => io.disconnect()
+  }, [])
+
+  const togglePlay = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.paused) {
+      v.play().then(() => setPaused(false)).catch(() => {})
+    } else {
+      v.pause()
+      setPaused(true)
+    }
+  }
+
+  const avatarUrl = post.author.avatar ? mediaUrl(post.author.avatar) : undefined
+
+  return (
+    <article className="dsr-slide">
+      {videoSrc ? (
+        <video
+          ref={videoRef}
+          className="dsr-slide__video"
+          src={videoSrc}
+          poster={poster}
+          loop
+          muted={muted}
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <div className="dsr-slide__video dsr-slide__video--empty" aria-hidden />
+      )}
+      <div className="dsr-slide__scrim" aria-hidden />
+      <button
+        type="button"
+        className="dsr-slide__tap"
+        aria-label={paused ? 'Play video' : 'Pause video'}
+        onClick={togglePlay}
+      />
+      {paused ? (
+        <div className="dsr-slide__play" aria-hidden>
+          <Play size={60} strokeWidth={1.5} fill="currentColor" />
+        </div>
+      ) : null}
+
+      <div className="dsr-rail">
+        <Link
+          to={`/u/${post.author.username}`}
+          className="dsr-rail__avatar"
+          aria-label={`View ${post.author.display_name}'s profile`}
+        >
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : post.author.display_name.charAt(0).toUpperCase()}
+        </Link>
+        <button
+          type="button"
+          className={`dsr-rail__btn${post.liked_by_me ? ' dsr-rail__btn--liked' : ''}`}
+          onClick={() => signedIn && onLike()}
+          aria-pressed={post.liked_by_me}
+          aria-label="Like"
+        >
+          <Heart size={30} strokeWidth={2} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+          <span>{formatCount(post.likes_count)}</span>
+        </button>
+        <button
+          type="button"
+          className={`dsr-rail__btn${post.fired_by_me ? ' dsr-rail__btn--fired' : ''}`}
+          onClick={() => signedIn && onFire()}
+          aria-pressed={post.fired_by_me}
+          aria-label="Fire reaction"
+        >
+          <Flame size={28} strokeWidth={2} fill={post.fired_by_me ? 'currentColor' : 'none'} aria-hidden />
+          <span>{formatCount(post.fires_count ?? 0)}</span>
+        </button>
+        <Link to={postPermalinkPath(post.id)} className="dsr-rail__btn" aria-label="Comments">
+          <MessageCircle size={28} strokeWidth={2} aria-hidden />
+          <span>{formatCount(post.comments_count ?? 0)}</span>
+        </Link>
+        <button
+          type="button"
+          className={`dsr-rail__btn${post.saved_by_me ? ' dsr-rail__btn--saved' : ''}`}
+          onClick={() => signedIn && onSave()}
+          aria-pressed={post.saved_by_me}
+          aria-label="Save"
+        >
+          <Bookmark size={28} strokeWidth={2} fill={post.saved_by_me ? 'currentColor' : 'none'} aria-hidden />
+          <span>{formatCount(post.saves_count)}</span>
+        </button>
+        <button type="button" className="dsr-rail__btn" onClick={onShare} aria-label="Share">
+          <Share2 size={26} strokeWidth={2} aria-hidden />
+          <span>Share</span>
+        </button>
+        <button
+          type="button"
+          className="dsr-rail__btn dsr-rail__btn--mute"
+          onClick={onToggleMute}
+          aria-label={muted ? 'Unmute' : 'Mute'}
+          aria-pressed={!muted}
+        >
+          {muted ? <VolumeX size={22} strokeWidth={2.25} aria-hidden /> : <Volume2 size={22} strokeWidth={2.25} aria-hidden />}
+        </button>
+      </div>
+
+      <div className="dsr-meta">
+        <Link to={`/u/${post.author.username}`} className="dsr-meta__user">
+          @{post.author.username}
+        </Link>
+        {post.delvers_board || post.region ? (
+          <p className="dsr-meta__sub">
+            {post.delvers_board ? <span>{post.delvers_board}</span> : null}
+            {post.delvers_board && post.region ? ' · ' : null}
+            {post.region ? <span className="dsr-meta__region">{post.region}</span> : null}
+          </p>
+        ) : null}
+        {post.body ? <p className="dsr-meta__caption">{post.body}</p> : null}
+      </div>
+    </article>
   )
 }
 

@@ -396,6 +396,7 @@ export function AppLayout() {
             <CommunityPageEnhancer />
             <ServiceProviderPageHeader
               title="Community"
+              variant="hub"
               eyebrow=""
               searchPlaceholder="Search questions, tips, groups, or #tags…"
               searchInputSelector="#cm-search"

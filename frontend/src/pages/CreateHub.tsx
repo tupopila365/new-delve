@@ -39,13 +39,8 @@ export function CreateHub() {
   return (
     <div className="create-page">
       <CreateHubGrid
-        primary={{
-          to: '/create/post',
-          label: 'Post',
-          hint: 'Photo or video with filters, crop, and captions',
-          Icon: Camera,
-        }}
         items={[
+          { to: '/create/post', label: 'Post', hint: 'Photo or video with filters, crop, and captions', Icon: Camera },
           { to: '/create/highlight', label: 'Highlight', hint: 'Story-style ring', Icon: Clapperboard },
           { to: '/journeys/new', label: 'Journey', hint: 'Trip diary', Icon: Route },
           { to: '/events/new', label: 'Event', hint: 'Publish a happening', Icon: Ticket },
