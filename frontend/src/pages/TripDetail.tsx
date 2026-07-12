@@ -11,7 +11,6 @@ import {
 } from '../utils/journeyApi'
 import { useJourneyEngagement } from '../hooks/useJourneyEngagement'
 import { JourneyDetailView } from '../components/journeys/JourneyDetailView'
-import { DetailPage } from '../components/detail'
 import { EmptyState } from '../components/ui'
 
 export function TripDetail() {
@@ -47,28 +46,32 @@ export function TripDetail() {
 
   if (isLoading && !fallbackTrip) {
     return (
-      <DetailPage prefix="td" className="td--premium acc-detail-page">
-        <div className="skeleton" style={{ height: 320, borderRadius: 12 }} aria-busy="true" />
-      </DetailPage>
+      <div className="jn-detail-page">
+        <div className="skeleton" style={{ height: 320, borderRadius: 24, marginTop: 12 }} aria-busy="true" />
+      </div>
     )
   }
 
   if (!trip || !id) {
     return (
-      <DetailPage prefix="td" className="td--premium acc-detail-page">
+      <div className="jn-detail-page">
         <EmptyState
           iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
           title="Journey not found"
           sub="This journey may have been removed or the link is incorrect."
           cta={{ label: 'Browse journeys', to: '/journeys' }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
   return (
-    <DetailPage prefix="td" className="td--premium acc-detail-page" toast={engagement.shareMsg || null}>
+    <div className="jn-detail-page">
+      {engagement.shareMsg ? (
+        <p className="jn-detail-page__toast" role="status">
+          {engagement.shareMsg}
+        </p>
+      ) : null}
       <JourneyDetailView
         trip={trip}
         journeyId={id}
@@ -80,6 +83,6 @@ export function TripDetail() {
         onLike={() => engagement.likeTrip(trip)}
         similarJourneys={similarJourneys}
       />
-    </DetailPage>
+    </div>
   )
 }

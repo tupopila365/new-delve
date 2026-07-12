@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ComponentType } from 'react'
 import type { LucideProps } from 'lucide-react'
 import {
-  ArrowRight,
   Bike,
   Bookmark,
   Bus,
@@ -13,15 +12,14 @@ import {
   Footprints,
   Heart,
   Info,
-  Map,
   MapPin,
   MessageCircle,
   Pencil,
   Plane,
   Route,
+  Share2,
   Ship,
   Trash2,
-  UserRound,
   Users,
 } from 'lucide-react'
 import type { MockTrip } from '../../data/mockTrips'
@@ -29,25 +27,18 @@ import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { postPermalinkPath } from '../../utils/postPermalink'
 import { friendlyApiMessage } from '../../utils/friendlyError'
-import { DetailLayout } from '../detail'
-import {
-  ListingBookBar,
-  ListingDetails,
-  ListingHeroGallery,
-  ListingHighlights,
-  ListingIdentityHeader,
-  ListingQuickInfo,
-} from '../listing'
-import { ListingQuestionsSection } from '../listing/ListingQuestionsSection'
+import { ReportButton } from '../report/ReportButton'
 import {
   buildJourneyDetailRows,
   buildJourneyGallery,
-  buildJourneyTrustHighlights,
   collectJourneyPhotos,
   formatJourneyCost,
+  journeyHook,
   partyLabel,
   routeLabel,
 } from '../../utils/journeyListing'
+import { JourneyHero } from './JourneyHero'
+import { JourneySection } from './JourneySection'
 import { JourneyRouteStops } from './JourneyRouteStops'
 import { JourneyDayByDay } from './JourneyDayByDay'
 import { JourneyBudgetBreakdown } from './JourneyBudgetBreakdown'
@@ -57,7 +48,10 @@ import { HighlightAddFlow } from '../highlights/HighlightAddFlow'
 import { normalizeHighlightsForSave } from '../highlights/highlightFormUtils'
 import type { HighlightChannelInput } from '../highlights/types'
 import { journeyAccentBadge } from '../../utils/journeyDisplay'
+import { JourneyInspirationGrid } from './JourneyInspirationGrid'
+import { JourneyCommentsSection } from './JourneyCommentsSection'
 import { messageProviderPath } from '../messages/messageProviderUtils'
+import './journey-detail.css'
 
 const TRANSPORT_ICONS: Record<string, ComponentType<LucideProps>> = {
   car: Car,
@@ -81,6 +75,13 @@ function transportMeta(mode: string) {
   const Icon = TRANSPORT_ICONS[mode] ?? Route
   const label = TRANSPORT_LABELS[mode] ?? mode
   return { Icon, label }
+}
+
+function travelledLabel(trip: MockTrip) {
+  if (!trip.starts_on) return null
+  const start = new Date(trip.starts_on)
+  if (Number.isNaN(start.getTime())) return null
+  return `Travelled ${start.toLocaleDateString('en-NA', { month: 'long', year: 'numeric' })}`
 }
 
 type Props = {
@@ -113,12 +114,17 @@ export function JourneyDetailView({
   const [authorErr, setAuthorErr] = useState<string | null>(null)
   const [addHighlightOpen, setAddHighlightOpen] = useState(false)
   const [savingHighlight, setSavingHighlight] = useState(false)
+  const commentsSectionRef = useRef<HTMLElement>(null)
+  const commentComposerRef = useRef<HTMLInputElement>(null)
+
   const photoItems = collectJourneyPhotos(trip)
   const route = routeLabel(trip)
   const accent = journeyAccentBadge(trip)
+  const hook = journeyHook(trip)
   const galleryImages = buildJourneyGallery(trip, photoItems)
-  const trustHighlights = buildJourneyTrustHighlights(trip)
   const storyRows = buildJourneyDetailRows(trip)
+  const travelled = travelledLabel(trip)
+  const authorInitial = (trip.author.display_name || trip.author.username || '?').charAt(0).toUpperCase()
 
   const practicalTips = trip.stops
     .map((s) => s.notes?.trim())
@@ -130,19 +136,9 @@ export function JourneyDetailView({
     [trip, journeyId],
   )
 
-  const tipHighlights = practicalTips.map((tip, i) => ({
-    id: `tip-${i}`,
-    label: tip,
-    icon: <Info size={16} strokeWidth={2.25} aria-hidden />,
-  }))
-
-  const transportChips = trip.transport_modes.map((m) => {
+  const transportFacts = trip.transport_modes.map((m) => {
     const { Icon, label } = transportMeta(m)
-    return {
-      id: m,
-      label,
-      icon: <Icon size={15} strokeWidth={2.25} aria-hidden />,
-    }
+    return { id: m, label, Icon }
   })
 
   async function saveJourneyHighlight(channel: HighlightChannelInput) {
@@ -190,50 +186,15 @@ export function JourneyDetailView({
     }
   }
 
-  const headerActions = [
-    ...(isAuthor
-      ? [
-          {
-            id: 'edit',
-            label: 'Edit journey',
-            icon: <Pencil size={14} strokeWidth={2.25} aria-hidden />,
-            href: `/journeys/${journeyId}/edit`,
-          },
-          {
-            id: 'delete',
-            label: 'Delete',
-            icon: <Trash2 size={14} strokeWidth={2.25} aria-hidden />,
-            onClick: () => void deleteJourney(),
-          },
-        ]
-      : []),
-    {
-      id: 'like',
-      label: liked ? `Liked · ${likeCount}` : `Like · ${likeCount}`,
-      icon: <Heart size={14} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />,
-      onClick: onLike,
-      accent: liked,
-    },
-    ...(isAuthor
-      ? []
-      : [
-          {
-            id: 'message-creator',
-            label: 'Message creator',
-            icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: messageProviderPath(trip.author.username),
-            accent: true,
-          },
-        ]),
-  ]
+  function openComments() {
+    commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.setTimeout(() => commentComposerRef.current?.focus(), 450)
+  }
 
   return (
     <>
-      <ListingHeroGallery
-        className="jn-detail__gallery-wrap acc-detail__gallery-wrap"
+      <JourneyHero
         images={galleryImages}
-        listingType="journey"
-        listingId={journeyId}
         backTo="/journeys"
         backLabel="Journeys"
         saved={saved}
@@ -241,189 +202,222 @@ export function JourneyDetailView({
         onShare={onShare}
       />
 
-      <ListingIdentityHeader
-        name={trip.title}
-        tagline={`Created by @${trip.author.username}`}
-        categoryLabel={accent ? `${accent} · Journey` : 'Journey'}
-        locationLabel={route}
-        saved={saved}
-        onSave={onSave}
-        onShare={onShare}
-        reportTarget={{
-          target_type: 'journey',
-          target_id: journeyId,
-          target_label: trip.title,
-        }}
-        actions={headerActions}
-        className="jn-detail__identity acc-detail__identity"
-      />
+      {/* Who took this trip — signals "someone's journey", not a listing */}
+      <div className="jd-head">
+        <Link to={`/u/${trip.author.username}`} className="jd-author">
+          {trip.author.avatar ? (
+            <img className="jd-author__avatar" src={trip.author.avatar} alt="" />
+          ) : (
+            <span className="jd-author__avatar jd-author__avatar--fallback" aria-hidden>
+              {authorInitial}
+            </span>
+          )}
+          <span className="jd-author__copy">
+            <span className="jd-author__name">{trip.author.display_name || trip.author.username}</span>
+            <span className="jd-author__sub">
+              @{trip.author.username}
+              {travelled ? ` · ${travelled}` : ''}
+            </span>
+          </span>
+        </Link>
+
+        <div className="jd-head__actions">
+          {isAuthor ? (
+            <>
+              <Link to={`/journeys/${journeyId}/edit`} className="jd-btn">
+                <Pencil size={14} strokeWidth={2.25} aria-hidden />
+                <span className="jd-btn--label">Edit</span>
+              </Link>
+              <button type="button" className="jd-btn jd-btn--danger jd-btn--icon" onClick={() => void deleteJourney()} aria-label="Delete journey">
+                <Trash2 size={14} strokeWidth={2.25} aria-hidden />
+              </button>
+            </>
+          ) : (
+            <Link to={messageProviderPath(trip.author.username)} className="jd-btn jd-btn--primary">
+              <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+              <span className="jd-btn--label">Message</span>
+            </Link>
+          )}
+          <ReportButton
+            className="jd-btn jd-btn--icon"
+            iconOnly
+            triggerLabel="Report journey"
+            target={{ target_type: 'journey', target_id: journeyId, target_label: trip.title }}
+          />
+        </div>
+      </div>
+
+      {/* Title, route, hook */}
+      <div className="jd-titleblock">
+        {accent ? <span className="jd-badge">{accent}</span> : null}
+        <h1 className="jd-title">{trip.title}</h1>
+        <p className="jd-route">
+          <Route size={17} strokeWidth={2.25} aria-hidden />
+          {route}
+        </p>
+        {hook ? <p className="jd-hook">{hook}</p> : null}
+      </div>
+
+      {/* Social engagement bar */}
+      <div className="jd-engage">
+        <button
+          type="button"
+          className={`jd-engage__btn${liked ? ' jd-engage__btn--liked' : ''}`}
+          onClick={onLike}
+          aria-pressed={liked}
+        >
+          <Heart size={18} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+          {likeCount}
+        </button>
+        <button
+          type="button"
+          className={`jd-engage__btn${saved ? ' jd-engage__btn--saved' : ''}`}
+          onClick={onSave}
+          aria-pressed={saved}
+        >
+          <Bookmark size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+          {saved ? 'Saved' : trip.saves_count}
+        </button>
+        <button
+          type="button"
+          className="jd-engage__btn jd-engage__btn--comments"
+          onClick={openComments}
+          aria-label={`${trip.comments_count} comments — view and write comments`}
+        >
+          <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+          {trip.comments_count}
+        </button>
+        <span className="jd-engage__spacer" />
+        <button type="button" className="jd-engage__btn" onClick={onShare}>
+          <Share2 size={17} strokeWidth={2.25} aria-hidden />
+          Share
+        </button>
+      </div>
 
       {authorErr ? (
-        <p className="ce-form__err" role="alert">
+        <p className="jd-err" role="alert">
           {authorErr}
         </p>
       ) : null}
 
-      <div className="jn-detail__intro">
-        <HighlightStoriesSection
-          listingName={trip.title}
-          explorePath={`/journeys/${journeyId}`}
-          channels={storyChannels}
-          title="Along the way"
-          subtitle="Route highlights, moments & tips"
-          ctaLabel="View journey"
-          className="jn-detail__stories"
-          isOwner={isAuthor}
-          onAddHighlight={() => setAddHighlightOpen(true)}
-        />
+      {/* At-a-glance facts */}
+      <ul className="jd-facts">
+        <li className="jd-fact">
+          <CalendarDays size={15} strokeWidth={2.25} aria-hidden />
+          {trip.days} days
+        </li>
+        <li className="jd-fact">
+          <MapPin size={15} strokeWidth={2.25} aria-hidden />
+          {trip.stops.length} {trip.stops.length === 1 ? 'stop' : 'stops'}
+        </li>
+        <li className="jd-fact">
+          <Users size={15} strokeWidth={2.25} aria-hidden />
+          {partyLabel(trip.party)}
+        </li>
+        {transportFacts.map(({ id, label, Icon }) => (
+          <li key={id} className="jd-fact">
+            <Icon size={15} strokeWidth={2.25} aria-hidden />
+            {label}
+          </li>
+        ))}
+        <li className="jd-fact jd-fact--cost">{formatJourneyCost(trip.total_cost, trip.currency)} total</li>
+      </ul>
 
-        <HighlightAddFlow
-          open={addHighlightOpen}
-          onClose={() => setAddHighlightOpen(false)}
-          onSave={saveJourneyHighlight}
-          saving={savingHighlight}
-        />
+      {/* Route highlights & moments */}
+      <HighlightStoriesSection
+        listingName={trip.title}
+        explorePath={`/journeys/${journeyId}`}
+        channels={storyChannels}
+        title="Along the way"
+        subtitle="Route highlights, moments & tips"
+        ctaLabel="View journey"
+        className="jd-stories"
+        isOwner={isAuthor}
+        onAddHighlight={() => setAddHighlightOpen(true)}
+      />
 
-        <ListingQuickInfo
-          chips={[
-            {
-              id: 'days',
-              label: `${trip.days} days`,
-              icon: <CalendarDays size={15} strokeWidth={2.25} aria-hidden />,
-            },
-            {
-              id: 'stops',
-              label: `${trip.stops.length} ${trip.stops.length === 1 ? 'stop' : 'stops'}`,
-              icon: <MapPin size={15} strokeWidth={2.25} aria-hidden />,
-            },
-            {
-              id: 'party',
-              label: partyLabel(trip.party),
-              icon: <Users size={15} strokeWidth={2.25} aria-hidden />,
-            },
-            ...transportChips,
-            {
-              id: 'cost',
-              label: `${formatJourneyCost(trip.total_cost)} total`,
-              accent: true,
-            },
-          ]}
-          highlights={trustHighlights}
-          className="jn-detail__quick-info acc-detail__quick-info"
-        />
-      </div>
+      <HighlightAddFlow
+        open={addHighlightOpen}
+        onClose={() => setAddHighlightOpen(false)}
+        onSave={saveJourneyHighlight}
+        saving={savingHighlight}
+      />
 
-      <DetailLayout
-        main={
-          <>
-            {trip.summary?.trim() || storyRows.length > 0 ? (
-              <ListingDetails
-                title="The story"
-                description={trip.summary?.trim() || null}
-                rows={storyRows.map((row) => ({
-                  ...row,
-                  icon:
-                    row.id === 'when' ? (
+      {trip.summary?.trim() || storyRows.length > 0 ? (
+        <JourneySection title="The story">
+          {trip.summary?.trim() ? <p className="jd-story__lead">{trip.summary.trim()}</p> : null}
+          {storyRows.length > 0 ? (
+            <ul className="jd-story__rows">
+              {storyRows.map((row) => (
+                <li key={row.id} className="jd-story__row">
+                  <span className="jd-story__row-label">
+                    {row.id === 'when' ? (
                       <CalendarDays size={14} strokeWidth={2.25} aria-hidden />
                     ) : row.id === 'countries' ? (
                       <MapPin size={14} strokeWidth={2.25} aria-hidden />
                     ) : (
                       <Route size={14} strokeWidth={2.25} aria-hidden />
-                    ),
-                }))}
-                className="jn-detail__story acc-detail__about"
-              />
-            ) : null}
+                    )}
+                    {row.label}
+                  </span>
+                  <span className="jd-story__row-value">{row.value}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </JourneySection>
+      ) : null}
 
-            <JourneyRouteStops stops={trip.stops} tags={trip.tags} className="jn-detail__route acc-detail__section" />
+      <JourneyRouteStops stops={trip.stops} tags={trip.tags} className="jn-detail__route" />
 
-            <JourneyDayByDay
-              stops={trip.stops}
-              className="jn-detail__diary acc-detail__section"
-              isAuthor={isAuthor}
-              onShareEntry={isAuthor ? shareEntryOnDelvers : undefined}
-            />
-
-            {tipHighlights.length > 0 ? (
-              <ListingHighlights
-                title="Practical tips"
-                items={tipHighlights}
-                className="jn-detail__tips acc-detail__love"
-              />
-            ) : null}
-
-            <JourneyBudgetBreakdown
-              totalCost={trip.total_cost}
-              days={trip.days}
-              costs={trip.costs}
-              currency={trip.currency}
-              className="jn-detail__budget acc-detail__section"
-            />
-
-            <ListingQuestionsSection
-              className="jn-detail__questions acc-detail__comments"
-              questionsPath={`/api/journeys/${journeyId}/questions/`}
-              answerPath={(questionId) => `/api/journeys/questions/${questionId}/answers/`}
-              queryKey={['journey-questions', journeyId]}
-              title="Questions and travel tips"
-              placeholder="How much was fuel? Where did you stay? Was a 4x4 required?"
-              canAnswer={isAuthor}
-              officialLabel="Creator"
-              invalidateKeys={[['me-journey-questions']]}
-            />
-
-            {similarJourneys.length > 0 ? (
-              <section className="detail-section td-similar acc-detail__section">
-                <h2 className="td-section-title listing-section__title">More inspiration</h2>
-                <div className="td-similar__grid">
-                  {similarJourneys.map((j) => (
-                    <Link key={j.id} to={`/journeys/${j.id}`} className="td-similar__card">
-                      {j.cover_image ? (
-                        <img src={j.cover_image} alt={j.title} />
-                      ) : (
-                        <div className="td-similar__placeholder" aria-hidden>
-                          <Map size={24} strokeWidth={1.75} />
-                        </div>
-                      )}
-                      <div>
-                        <p className="td-similar__title">{j.title}</p>
-                        <p className="td-similar__meta">
-                          <MapPin size={12} strokeWidth={2.25} aria-hidden />
-                          {routeLabel(j)}
-                        </p>
-                        <p className="td-similar__creator">
-                          <UserRound size={11} strokeWidth={2.25} aria-hidden />
-                          {j.author.display_name}
-                        </p>
-                      </div>
-                      <ArrowRight size={16} strokeWidth={2.5} className="td-similar__arrow" aria-hidden />
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ) : (
-              <section className="detail-section td-similar td-similar--empty acc-detail__section">
-                <Link to="/journeys" className="btn btn-primary">
-                  <Route size={15} strokeWidth={2.25} aria-hidden />
-                  Browse more journeys
-                </Link>
-              </section>
-            )}
-          </>
-        }
+      <JourneyDayByDay
+        stops={trip.stops}
+        className="jn-detail__diary"
+        isAuthor={isAuthor}
+        onShareEntry={isAuthor ? shareEntryOnDelvers : undefined}
       />
 
-      <ListingBookBar
-        title={trip.title}
-        subtitle={route}
-        action={
-          <button type="button" className="btn btn-primary" onClick={onSave}>
-            <Bookmark size={15} strokeWidth={2.25} aria-hidden />
-            {saved ? 'Saved' : 'Save journey'}
-          </button>
-        }
-        className="jn-detail__mobile-bar acc-detail__mobile-bar"
+      {practicalTips.length > 0 ? (
+        <JourneySection title="Practical tips">
+          <ul className="jd-tips">
+            {practicalTips.map((tip, i) => (
+              <li key={`tip-${i}`} className="jd-tip">
+                <Info size={16} strokeWidth={2.25} aria-hidden />
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </JourneySection>
+      ) : null}
+
+      <JourneyBudgetBreakdown
+        totalCost={trip.total_cost}
+        days={trip.days}
+        costs={trip.costs}
+        currency={trip.currency}
+        className="jn-detail__budget"
       />
+
+      <JourneyCommentsSection
+        journeyId={journeyId}
+        sectionRef={commentsSectionRef}
+        composerRef={commentComposerRef}
+        className="jn-detail__comments"
+      />
+
+      <JourneyInspirationGrid journeys={similarJourneys} className="jn-detail__inspiration" />
+
+      {/* Mobile action bar */}
+      <div className="jd-mobilebar">
+        <span className="jd-mobilebar__meta">
+          <span className="jd-mobilebar__title">{trip.title}</span>
+          <span className="jd-mobilebar__sub">{route}</span>
+        </span>
+        <button type="button" className="jd-mobilebar__btn" onClick={onSave}>
+          <Bookmark size={16} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+          {saved ? 'Saved' : 'Save journey'}
+        </button>
+      </div>
     </>
   )
 }

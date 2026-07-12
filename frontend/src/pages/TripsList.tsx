@@ -378,9 +378,17 @@ export function TripsList() {
         </div>
       )}
 
-      <p className="jn-page__results-hint" role="status">
-        {hint}
-      </p>
+      {!hasFilters && recentStories.length === 0 ? (
+        <p className="jn-page__results-hint" role="status">
+          {hint}
+        </p>
+      ) : null}
+
+      {hasFilters ? (
+        <p className="jn-page__results-hint" role="status">
+          {hint}
+        </p>
+      ) : null}
 
       {engagement.shareMsg ? (
         <p className="jn-page__toast" role="status">
@@ -392,7 +400,7 @@ export function TripsList() {
         <section className="ev-page__story-rings jn-page__story-rings" aria-labelledby="jn-rings-title">
           <div className="ev-page__stories-head">
             <h2 id="jn-rings-title" className="ev-page__stories-title">
-              Recent journeys
+              {hasFilters ? 'Matching journeys' : 'Explore travel stories and itineraries'}
             </h2>
             <span className="ev-page__stories-sub">Tap to preview</span>
           </div>
@@ -489,19 +497,13 @@ export function TripsList() {
                 </div>
               </section>
 
-              <section className="jn-bottom-cta" aria-labelledby="jn-cta-title">
-                <h2 id="jn-cta-title" className="jn-bottom-cta__title">
-                  Have a route others should know about?
-                </h2>
-                <p className="jn-bottom-cta__text">
-                  Share your journey and help another traveller plan their next trip.
-                </p>
+              <section className="jn-bottom-cta">
                 <Link
                   to={profile ? '/journeys/new' : '/login'}
-                  className="btn btn-primary jn-bottom-cta__btn"
+                  className="jn-bottom-cta__btn"
                 >
-                  <Plus size={16} strokeWidth={2.5} aria-hidden />
-                  Create journey
+                  <Plus size={18} strokeWidth={2.5} aria-hidden />
+                  <span>Create journey</span>
                 </Link>
               </section>
             </>

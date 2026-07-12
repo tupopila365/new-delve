@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, Camera, Play, Route } from 'lucide-react'
 import type { TripStop } from '../../data/mockTrips'
-import { ListingSection } from '../listing'
+import { JourneySection } from './JourneySection'
 import {
   collectRouteMedia,
   mediaFromStopEntry,
@@ -34,7 +34,7 @@ export function JourneyDayByDay({ stops, className = '', isAuthor = false, onSha
 
   return (
     <>
-      <ListingSection title="Day-by-day itinerary" className={`jn-diary-section ${className}`.trim()}>
+      <JourneySection title="Day-by-day itinerary" className={`jn-diary-section ${className}`.trim()}>
         {stops.length === 0 ? (
           <div className="jn-diary__empty td-empty-panel">
             <Route size={28} strokeWidth={1.75} aria-hidden />
@@ -134,7 +134,7 @@ export function JourneyDayByDay({ stops, className = '', isAuthor = false, onSha
             })}
           </div>
         )}
-      </ListingSection>
+      </JourneySection>
 
       {lightboxIndex != null ? (
         <JourneyStopMediaLightbox

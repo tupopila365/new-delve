@@ -1191,10 +1191,47 @@
 
 .td.acc-detail-page .listing-identity {
   padding-top: 16px;
+  padding-bottom: 8px;
 }
 
+/* Airier header: lighter tagline + meta, tighter chip */
+.td.acc-detail-page .listing-identity__tagline {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--listing-text-subtle);
+}
+
+.td.acc-detail-page .listing-identity__chips {
+  margin-top: 8px;
+}
+
+.td.acc-detail-page .listing-identity__chip {
+  background: transparent;
+  padding: 3px 0;
+  color: var(--listing-accent);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Flat stat line instead of a boxed strip */
 .td.acc-detail-page .listing-quick-info {
   margin-bottom: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  gap: 4px;
+}
+
+.td.acc-detail-page .listing-quick-info__stats {
+  font-size: 0.78rem;
+}
+
+/* Tighter rhythm between the stacked sections */
+.td.acc-detail-page .dl-detail__main,
+.td.acc-detail-page .acc-detail__main {
+  gap: 14px;
 }
 
 .acc-detail-page .fd-venue-stories .ev-page__stories-title {

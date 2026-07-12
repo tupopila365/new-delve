@@ -47,6 +47,12 @@
   padding-inline: 4px;
 }
 
+/* Keep the story rings aligned with the centered 980px content column. */
+.jn-page .ev-page__story-rings {
+  width: min(100%, 980px);
+  margin-inline: auto;
+}
+
 .jn-page__toast {
   position: fixed;
   left: 50%;

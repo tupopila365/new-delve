@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { TripCost } from '../../data/mockTrips'
-import { ListingSection } from '../listing'
+import { JourneySection } from './JourneySection'
 import {
   categoryBreakdown,
   formatBudgetAmount,
@@ -30,7 +30,7 @@ export function JourneyBudgetBreakdown({
   if (costs.length === 0 && totalCost <= 0) return null
 
   return (
-    <ListingSection title="Budget breakdown" className={`jn-budget-section ${className}`.trim()}>
+    <JourneySection title="Budget breakdown" className={`jn-budget-section ${className}`.trim()}>
       <div className="jn-budget">
         <div className="jn-budget__summary">
           <div className="jn-budget__stat jn-budget__stat--main">
@@ -95,6 +95,6 @@ export function JourneyBudgetBreakdown({
           </div>
         ) : null}
       </div>
-    </ListingSection>
+    </JourneySection>
   )
 }

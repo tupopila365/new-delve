@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock, MapPin, Play, Route } from 'lucide-react'
 import type { TripStop } from '../../data/mockTrips'
-import { ListingSection } from '../listing'
+import { JourneySection } from './JourneySection'
 import {
   collectRouteMedia,
   collectStopMedia,
@@ -35,7 +35,7 @@ export function JourneyRouteStops({ stops, tags = [], className = '' }: Props) {
 
   return (
     <>
-      <ListingSection title="Route and stops" className={`jn-route-section ${className}`.trim()}>
+      <JourneySection title="Route and stops" className={`jn-route-section ${className}`.trim()}>
         {stops.length === 0 ? (
           <div className="jn-route__empty td-empty-panel">
             <Route size={28} strokeWidth={1.75} aria-hidden />
@@ -134,7 +134,7 @@ export function JourneyRouteStops({ stops, tags = [], className = '' }: Props) {
             ))}
           </div>
         ) : null}
-      </ListingSection>
+      </JourneySection>
 
       {lightboxIndex != null ? (
         <JourneyStopMediaLightbox

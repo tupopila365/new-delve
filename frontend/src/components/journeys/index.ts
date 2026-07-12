@@ -1,4 +1,8 @@
+export { JourneyInspirationGrid } from './JourneyInspirationGrid'
 export { JourneyDetailView } from './JourneyDetailView'
+export { JourneySection } from './JourneySection'
+export { JourneyHero } from './JourneyHero'
+export { JourneyCommentsSection } from './JourneyCommentsSection'
 export { JourneyRouteStops } from './JourneyRouteStops'
 export { JourneyDayByDay } from './JourneyDayByDay'
 export { JourneyBudgetBreakdown } from './JourneyBudgetBreakdown'

@@ -5032,6 +5032,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         answers: [],
       }
       s.journeyQuestions.push(row)
+      journey.comments_count = s.journeyQuestions.filter(
+        (q) => q.journey_id === journeyId && !q.is_hidden,
+      ).length
       saveState(s)
       return mockJourneyQuestionsFor(s, journeyId).find((q) => q.id === row.id)
     }
