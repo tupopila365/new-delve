@@ -14,6 +14,7 @@ type Props = {
   maxDurationSec?: number
   previewUrl?: string
   playheadSec?: number
+  onScrub?: (sec: number) => void
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -54,7 +55,10 @@ export function VideoTrimBar({
   maxDurationSec = MAX_TRIM_DURATION_SEC,
   previewUrl,
   playheadSec,
+  onScrub,
 }: Props) {
+  const onScrubRef = useRef(onScrub)
+  onScrubRef.current = onScrub
   const trackRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ mode: DragMode; originX: number; originTrim: VideoTrim } | null>(null)
   const { thumbs } = useVideoFilmstrip(previewUrl)
@@ -83,17 +87,22 @@ export function VideoTrimBar({
       const { originTrim, mode } = drag
 
       if (mode === 'start') {
-        onChange(applyTrimChange(duration, maxDurationSec, originTrim, originTrim.start + deltaSec, originTrim.end))
+        const next = applyTrimChange(duration, maxDurationSec, originTrim, originTrim.start + deltaSec, originTrim.end)
+        onChange(next)
+        onScrubRef.current?.(next.start)
         return
       }
       if (mode === 'end') {
-        onChange(applyTrimChange(duration, maxDurationSec, originTrim, originTrim.start, originTrim.end + deltaSec))
+        const next = applyTrimChange(duration, maxDurationSec, originTrim, originTrim.start, originTrim.end + deltaSec)
+        onChange(next)
+        onScrubRef.current?.(Math.max(next.start, next.end - 0.05))
         return
       }
       const span = originTrim.end - originTrim.start
       let start = originTrim.start + deltaSec
       start = clamp(start, 0, Math.max(0, duration - span))
       onChange({ start, end: start + span })
+      onScrubRef.current?.(start)
     }
 
     const onUp = () => {

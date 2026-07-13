@@ -152,4 +152,79 @@
 
 .ds-post__report {
   margin-left: 0;
+  /* Pull the dots toward the card edge to free up header space. */
+  margin-right: -8px;
+}
+
+/* ── Kebab (three-dots) report menu ──────────────────────── */
+.report-menu {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.report-menu__trigger {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.report-menu__trigger:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.report-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.report-menu__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 195;
+  min-width: 168px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #191919;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.report-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fffaf2;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.report-menu__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fca5a5;
 }

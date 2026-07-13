@@ -1623,6 +1623,7 @@ function withMeFlags(s: MockState, posts: MockPost[]) {
       ...p,
       liked_by_me: liked.has(p.id),
       saved_by_me: saved.has(p.id),
+      is_author_followed: mockIsFollowing(s, me, p.author.username),
     }
     if (p.post_kind === 'question') {
       const accepted = mockAcceptedAnswer(s, p.id)
@@ -2554,6 +2555,46 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return withMeFlags(s, sorted).slice(0, 120)
   }
 
+  if ((pathname === '/api/tags/suggest/' || pathname === '/api/tags/trending/') && method === 'GET') {
+    const scope = (q.get('scope') || 'community').trim()
+    const isTrending = pathname === '/api/tags/trending/'
+    const limit = Math.min(Math.max(Number(q.get('limit')) || (isTrending ? 10 : 8), 1), 30)
+    const qTerm = (q.get('q') || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+
+    const normalizeTag = (raw: string): string =>
+      (raw || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 64)
+    const extractTags = (text: string): string[] => {
+      const out: string[] = []
+      const seen = new Set<string>()
+      for (const match of (text || '').matchAll(/#([\w\u00C0-\u024F]+)/g)) {
+        const slug = normalizeTag(match[1] || '')
+        if (!slug || seen.has(slug)) continue
+        seen.add(slug)
+        out.push(slug)
+      }
+      return out
+    }
+    const inScope = (p: MockPost): boolean => {
+      if (p.is_accommodation_story) return false
+      if (scope === 'delvers') return Boolean(p.is_delvers || p.is_delvers_highlight)
+      if (scope === 'community') return !p.is_delvers && !p.is_delvers_highlight
+      return true
+    }
+
+    const counts = new Map<string, number>()
+    for (const post of visiblePosts(s.posts)) {
+      if (!inScope(post)) continue
+      for (const slug of extractTags(post.body || '')) {
+        counts.set(slug, (counts.get(slug) || 0) + 1)
+      }
+    }
+
+    let rows = [...counts.entries()].map(([slug, use_count]) => ({ slug, use_count }))
+    if (qTerm) rows = rows.filter((r) => r.slug.startsWith(qTerm))
+    rows.sort((a, b) => b.use_count - a.use_count || a.slug.localeCompare(b.slug))
+    return rows.slice(0, limit)
+  }
+
   if (pathname === '/api/social/delvers/hashtag-rings/' && method === 'GET') {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     const viewer = s.currentUser
@@ -2575,7 +2616,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         if (!slug || seen.has(slug)) continue
         seen.add(slug)
         out.push(slug)
-        if (out.length >= 5) break
+        if (out.length >= 7) break
       }
       return out
     }
@@ -2964,6 +3005,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         if (imageFile && typeof imageFile === 'object' && 'arrayBuffer' in imageFile) {
           base.image = await mockFileToDataUrl(imageFile as File)
         }
+      }
+      // Carousel slides: slide 0 = base image/video, slides 1..4 via slide{i}_image/video.
+      const extraSlides: { order: number; kind: 'image' | 'video'; image: string | null; video: string | null }[] = []
+      for (let i = 1; i < 5; i += 1) {
+        const slideImage = init.body.get(`slide${i}_image`)
+        const slideVideo = init.body.get(`slide${i}_video`)
+        if (slideVideo && typeof slideVideo === 'object' && 'arrayBuffer' in slideVideo) {
+          extraSlides.push({ order: i, kind: 'video', image: null, video: await mockFileToDataUrl(slideVideo as File) })
+        } else if (slideImage && typeof slideImage === 'object' && 'arrayBuffer' in slideImage) {
+          extraSlides.push({ order: i, kind: 'image', image: await mockFileToDataUrl(slideImage as File), video: null })
+        }
+      }
+      if (extraSlides.length > 0) {
+        base.media = [
+          { order: 0, kind: base.video ? 'video' : 'image', image: base.image, video: base.video },
+          ...extraSlides,
+        ]
       }
       if (is_accommodation_story) {
         base.is_delvers = false

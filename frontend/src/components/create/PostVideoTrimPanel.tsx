@@ -8,6 +8,8 @@ type Props = {
   videoTrim: VideoTrim
   onDuration: (duration: number) => void
   onTrimChange: (trim: VideoTrim) => void
+  playheadSec?: number
+  onScrub?: (sec: number) => void
 }
 
 export function PostVideoTrimPanel({
@@ -16,9 +18,12 @@ export function PostVideoTrimPanel({
   videoTrim,
   onDuration,
   onTrimChange,
+  playheadSec,
+  onScrub,
 }: Props) {
   return (
     <div className="post-video-trim-panel">
+      <p className="create-panel__title">Trim</p>
       <video
         src={preview}
         className="visually-hidden"
@@ -28,7 +33,14 @@ export function PostVideoTrimPanel({
           onTrimChange({ start: 0, end: duration })
         }}
       />
-      <VideoTrimBar value={videoTrim} duration={videoDuration} onChange={onTrimChange} previewUrl={preview} />
+      <VideoTrimBar
+        value={videoTrim}
+        duration={videoDuration}
+        onChange={onTrimChange}
+        previewUrl={preview}
+        playheadSec={playheadSec}
+        onScrub={onScrub}
+      />
     </div>
   )
 }

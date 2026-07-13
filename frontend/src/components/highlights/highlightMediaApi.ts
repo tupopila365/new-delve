@@ -1,18 +1,35 @@
 import { apiFetch } from '../../api/client'
-import type { MediaKind } from '../create/types'
+import type { MediaKind, VideoTrim } from '../create/types'
+import { isFullVideoTrim } from '../create/videoTrimUtils'
+import { appendVideoEffectsToFormData, type PreparedVideoEffects } from '../create/videoEffects'
+import { prepareDelversVideoForUpload } from '../../utils/delversVideoUtils'
 import type { HighlightChannelInput } from './types'
 
 export type HighlightMediaUploadResult = {
   url: string
   kind: MediaKind
+  trim_start?: number
+  trim_end?: number
 }
 
 export async function uploadHighlightMedia(
   file: File,
   kind: MediaKind = file.type.startsWith('video/') ? 'video' : 'image',
+  trim?: VideoTrim,
+  duration = 0,
+  effects?: PreparedVideoEffects,
 ): Promise<HighlightMediaUploadResult> {
+  const uploadFile =
+    kind === 'video' && trim ? await prepareDelversVideoForUpload(file, trim, duration) : file
   const fd = new FormData()
-  fd.append('file', file, file.name || (kind === 'video' ? 'clip.mp4' : 'slide.jpg'))
+  fd.append('file', uploadFile, uploadFile.name || (kind === 'video' ? 'clip.mp4' : 'slide.jpg'))
+  if (kind === 'video' && trim && duration > 0 && !isFullVideoTrim(trim, duration)) {
+    fd.append('trim_start', trim.start.toFixed(3))
+    fd.append('trim_end', trim.end.toFixed(3))
+  }
+  if (kind === 'video' && effects) {
+    appendVideoEffectsToFormData(fd, '', effects)
+  }
   return apiFetch<HighlightMediaUploadResult>('/api/highlights/upload/', {
     method: 'POST',
     body: fd,

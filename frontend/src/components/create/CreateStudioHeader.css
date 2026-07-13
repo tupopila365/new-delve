@@ -1,27 +1,30 @@
 .create-studio-header {
   position: sticky;
-  top: calc(var(--safe-top, 0px));
+  top: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 52px;
-  padding: 8px 12px;
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 8px
+    max(12px, env(safe-area-inset-left, 0px));
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(11, 11, 11, 0.96);
   backdrop-filter: blur(16px);
+  touch-action: manipulation;
 }
 
 .create-studio-header__icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
   color: #fffaf2;
+  touch-action: manipulation;
 }
 
 .create-studio-header__copy {
@@ -43,15 +46,17 @@
 }
 
 .create-studio-header__share {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 16px;
   border: 0;
   border-radius: 999px;
   background: #7c3aed;
   color: #fff;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 900;
+  touch-action: manipulation;
 }
 
 .create-studio-header__share:disabled {

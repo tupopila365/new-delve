@@ -137,6 +137,8 @@ export function MediaCoverEditor({
             onCaptionKeyDown={() => {}}
             mode="post"
             showCaptionOverlay={false}
+            cropInteractive={activeTool === 'crop'}
+            onCropChange={setCrop}
           />
 
           <label className="create-studio__replace">

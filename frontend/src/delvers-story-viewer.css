@@ -214,6 +214,67 @@
   pointer-events: none;
 }
 
+/* Multi-media highlight carousel */
+.ds-story-carousel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ds-story-carousel__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.ds-story-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+.ds-story-carousel__slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+}
+
+.ds-story-carousel__slide img,
+.ds-story-carousel__slide video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: auto;
+}
+
+.ds-story-carousel__dots {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.ds-story-carousel__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.ds-story-carousel__dots span.is-active {
+  background: #fff;
+  transform: scale(1.3);
+}
+
 .ds-story-viewer__note {
   max-width: 78%;
   display: grid;

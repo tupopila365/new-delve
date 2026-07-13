@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { useEffect } from 'react'
 import { HighlightMediaStudio } from './HighlightMediaStudio'
 import type { HighlightChannelInput } from './types'
 import './highlights.css'
@@ -31,30 +31,34 @@ export function HighlightStudioSheet({
   onClose,
   onSaved,
 }: Props) {
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
   if (!open) return null
 
   return (
-    <div className="hl-studio-sheet" role="dialog" aria-modal="true" aria-labelledby="hl-studio-sheet-title">
-      <button type="button" className="hl-studio-sheet__backdrop" aria-label="Close" onClick={onClose} />
-      <div className="hl-studio-sheet__panel">
-        <header className="hl-studio-sheet__head">
-          <h2 id="hl-studio-sheet-title">{title}</h2>
-          <button type="button" className="hl-studio-sheet__close" onClick={onClose} aria-label="Close">
-            <X size={18} strokeWidth={2.25} aria-hidden />
-          </button>
-        </header>
-
-        <HighlightMediaStudio
-          key={initialSlide?.id ?? 'new-slide'}
-          initialSlide={initialSlide}
-          submitLabel={submitLabel}
-          onCancel={onClose}
-          onSaved={(saved) => {
-            onSaved(saved)
-            onClose()
-          }}
-        />
-      </div>
+    <div
+      className="hl-studio-sheet hl-studio-sheet--fullscreen"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <HighlightMediaStudio
+        key={initialSlide?.id ?? 'new-slide'}
+        initialSlide={initialSlide}
+        submitLabel={submitLabel}
+        onCancel={onClose}
+        onSaved={(saved) => {
+          onSaved(saved)
+          onClose()
+        }}
+      />
     </div>
   )
 }

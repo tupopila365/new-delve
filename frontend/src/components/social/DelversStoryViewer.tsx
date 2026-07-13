@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Compass, Flame, Heart, MessageCircle, Pause, X } from 'lucide-react'
@@ -63,6 +63,48 @@ function postToStorySlide(post: DelversFeedPost): StoryPlaybackSlide {
   if (post.video) return { id: post.id, kind: 'video' }
   if (post.image) return { id: post.id, kind: 'image' }
   return { id: post.id, kind: 'text' }
+}
+
+/** Swipeable carousel for a highlight post that carries multiple media. Pointer
+ * events are contained so ring swipe/tap gestures don't fire while browsing. */
+function StoryMediaCarousel({
+  media,
+  alt,
+}: {
+  media: NonNullable<DelversFeedPost['media']>
+  alt: string
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [i, setI] = useState(0)
+  const onScroll = () => {
+    const t = trackRef.current
+    if (!t) return
+    const n = Math.round(t.scrollLeft / t.clientWidth)
+    if (n !== i) setI(n)
+  }
+  return (
+    <div
+      className="ds-story-carousel"
+      onPointerDownCapture={(e) => e.stopPropagation()}
+    >
+      <div className="ds-story-carousel__track" ref={trackRef} onScroll={onScroll}>
+        {media.map((m, idx) => (
+          <div className="ds-story-carousel__slide" key={m.order ?? idx}>
+            {m.video ? (
+              <video src={mediaUrl(m.video)} playsInline muted loop autoPlay={idx === i} />
+            ) : (
+              <img src={mediaUrl(m.image)} alt={alt} />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="ds-story-carousel__dots" aria-hidden>
+        {media.map((m, idx) => (
+          <span key={m.order ?? idx} className={idx === i ? 'is-active' : ''} />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export function DelversStoryViewer({
@@ -269,7 +311,9 @@ export function DelversStoryViewer({
             if (signedIn) handleDoubleTapLike()
           }}
         >
-          {image ? (
+          {post?.media && post.media.length > 1 ? (
+            <StoryMediaCarousel media={post.media} alt={caption} />
+          ) : image ? (
             <img src={image} alt={caption} />
           ) : video ? (
             <video

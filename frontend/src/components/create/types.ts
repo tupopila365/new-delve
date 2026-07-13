@@ -41,10 +41,9 @@ export const MEDIA_FILTERS: { id: MediaFilter; label: string }[] = [
 ]
 
 export const CROP_ASPECTS: { id: CropAspect; label: string }[] = [
-  { id: 'original', label: 'Original' },
-  { id: '1:1', label: '1:1' },
-  { id: '4:5', label: '4:5' },
-  { id: '16:9', label: '16:9' },
+  { id: '1:1', label: 'Square' },
+  { id: '4:5', label: 'Portrait' },
+  { id: '16:9', label: 'Landscape' },
 ]
 
 export const CAPTION_PRESETS: { label: string; position: CaptionPosition }[] = [

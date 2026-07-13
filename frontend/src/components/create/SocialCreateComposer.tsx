@@ -8,10 +8,6 @@ import { useAuth } from '../../auth/AuthContext'
 import { startCreateSession, trackCreatePublish } from '../../utils/createAnalytics'
 import { CreateStudioHeader } from './CreateStudioHeader'
 import { MediaPicker } from './MediaPicker'
-import {
-  captionPositionFromPointer,
-  nudgeCaptionPosition,
-} from './MediaPreview'
 import { FilterStrip } from './FilterStrip'
 import { CropControls } from './CropControls'
 import { CaptionEditor } from './CaptionEditor'
@@ -23,6 +19,8 @@ import { DrawingCanvas, DrawingSurface, StrokeRenderer } from './DrawingCanvas'
 import { CreateToolDock, type CreateTool } from './CreateToolDock'
 import { CreateToolSheet } from './CreateToolSheet'
 import { PlaceSearchSheet } from './PlaceSearchSheet'
+import { RingHashtagPicker, MAX_RING_HASHTAGS } from './RingHashtagPicker'
+import { extractHashtags } from '../../utils/hashtags'
 import {
   DEFAULT_CROP,
   DEFAULT_PLACE_LINK,
@@ -47,7 +45,9 @@ import {
   cssFilterForMedia,
   aspectRatioValue,
 } from './mediaUtils'
+import { useCropStage } from './useCropStage'
 import { isFullVideoTrim, MAX_TRIM_DURATION_SEC } from './videoTrimUtils'
+import { appendVideoEffectsToFormData, prepareVideoEffects } from './videoEffects'
 import { invalidateSocialCaches } from '../../utils/socialCache'
 import { loadVideoMetadata, prepareDelversVideoForUpload, probeDelversVideoFile } from '../../utils/delversVideoUtils'
 import './SocialCreateComposer.css'
@@ -68,6 +68,56 @@ const TOOL_TITLES: Record<CreateTool, string> = {
 }
 
 const MAX_HISTORY = 50
+const MAX_SLIDES = 5
+
+/** Per-slide editor state for carousel posts. The active slide's values are
+ * mirrored into the top-level editing state; other slides keep their snapshot. */
+type SlideState = {
+  id: string
+  file: File
+  preview: string
+  mediaKind: MediaKind
+  filter: MediaFilter
+  filterIntensity: number
+  adjustments: Adjustments
+  crop: typeof DEFAULT_CROP
+  videoDuration: number
+  videoTrim: { start: number; end: number }
+  textOverlays: TextOverlay[]
+  stickers: StickerOverlay[]
+  strokes: DrawStroke[]
+  hasAutoEnhance: boolean
+  history: EditorSnapshot[]
+  historyIndex: number
+}
+
+let _slideIdCounter = 0
+function nextSlideId() {
+  _slideIdCounter += 1
+  return `slide_${_slideIdCounter}`
+}
+
+function makeSlide(file: File): SlideState {
+  const mediaKind: MediaKind = file.type.startsWith('video/') ? 'video' : 'image'
+  return {
+    id: nextSlideId(),
+    file,
+    preview: URL.createObjectURL(file),
+    mediaKind,
+    filter: 'original',
+    filterIntensity: 100,
+    adjustments: DEFAULT_ADJUSTMENTS,
+    crop: DEFAULT_CROP,
+    videoDuration: 0,
+    videoTrim: { start: 0, end: 0 },
+    textOverlays: [],
+    stickers: [],
+    strokes: [],
+    hasAutoEnhance: false,
+    history: [DEFAULT_EDITOR_SNAPSHOT],
+    historyIndex: 0,
+  }
+}
 
 export function SocialCreateComposer({ mode }: Props) {
   const { profile } = useAuth()
@@ -79,19 +129,26 @@ export function SocialCreateComposer({ mode }: Props) {
   const [mediaKind, setMediaKind] = useState<MediaKind>('image')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
+  // Carousel slides. Active slide's editor values live in the top-level state above/below.
+  const [slides, setSlides] = useState<SlideState[]>([])
+  const [activeIndex, setActiveIndex] = useState(0)
   const [caption, setCaption] = useState('')
   const [region, setRegion] = useState(profile?.region ?? '')
   const [filter, setFilter] = useState<MediaFilter>('original')
   const [filterIntensity, setFilterIntensity] = useState(100)
   const [adjustments, setAdjustments] = useState<Adjustments>(DEFAULT_ADJUSTMENTS)
   const [crop, setCrop] = useState(DEFAULT_CROP)
+  // Kept only so undo/redo snapshots stay compatible; the post caption is no
+  // longer drawn on the media (it is the Instagram-style caption under the post).
   const [captionPosition, setCaptionPosition] = useState({ x: 50, y: 78 })
-  const [captionDragging, setCaptionDragging] = useState(false)
   const [videoDuration, setVideoDuration] = useState(0)
   const [videoTrim, setVideoTrim] = useState({ start: 0, end: 0 })
+  const [videoPlayheadSec, setVideoPlayheadSec] = useState(0)
+  const previewVideoRef = useRef<HTMLVideoElement>(null)
   const [activeTool, setActiveTool] = useState<CreateTool | null>(null)
   const [destination, setDestination] = useState<PostDestination>('delvers')
-  const [board, setBoard] = useState(mode === 'story' ? 'Highlights' : '')
+  // Rings are now created from hashtags (community-style), replacing the old board name.
+  const [ringHashtags, setRingHashtags] = useState('')
   const [postAsHighlight, setPostAsHighlight] = useState(false)
   const [placeLink, setPlaceLink] = useState<PlaceLink>(DEFAULT_PLACE_LINK)
   const [error, setError] = useState('')
@@ -102,8 +159,21 @@ export function SocialCreateComposer({ mode }: Props) {
 
   // Text overlays
   const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([])
+  const [activeTextOverlayId, setActiveTextOverlayId] = useState<string | null>(null)
   // Stickers
   const [stickers, setStickers] = useState<StickerOverlay[]>([])
+  const stickersRef = useRef<StickerOverlay[]>([])
+  stickersRef.current = stickers
+  const stickerGesture = useRef<{
+    id: string
+    pointers: Map<number, { x: number; y: number }>
+    startSize: number
+    startRotation: number
+    startDist: number
+    startAngle: number
+    cleanup: () => void
+  } | null>(null)
+  const stickerWheelCommit = useRef<number | null>(null)
   // Drawing strokes
   const [strokes, setStrokes] = useState<DrawStroke[]>([])
   const [drawBrush, setDrawBrush] = useState({ color: '#ffffff', size: 8, opacity: 1 })
@@ -175,15 +245,93 @@ export function SocialCreateComposer({ mode }: Props) {
     setHistoryIndex(newIndex)
   }, [history, historyIndex])
 
+  // --- Carousel slide helpers ---
+  // Snapshot the active slide from the current top-level editing state.
+  const snapshotActiveSlide = (): SlideState | null => {
+    const current = slides[activeIndex]
+    if (!current || !file || !preview) return null
+    return {
+      ...current,
+      file,
+      preview,
+      mediaKind,
+      filter,
+      filterIntensity,
+      adjustments,
+      crop,
+      videoDuration,
+      videoTrim,
+      textOverlays,
+      stickers,
+      strokes,
+      hasAutoEnhance,
+      history,
+      historyIndex,
+    }
+  }
+
+  const loadSlide = (slide: SlideState) => {
+    setFile(slide.file)
+    setPreview(slide.preview)
+    setMediaKind(slide.mediaKind)
+    setFilter(slide.filter)
+    setFilterIntensity(slide.filterIntensity)
+    setAdjustments(slide.adjustments)
+    setCrop(slide.crop)
+    setVideoDuration(slide.videoDuration)
+    setVideoTrim(slide.videoTrim)
+    setTextOverlays(slide.textOverlays)
+    setStickers(slide.stickers)
+    setStrokes(slide.strokes)
+    setHasAutoEnhance(slide.hasAutoEnhance)
+    setHistory(slide.history)
+    setHistoryIndex(slide.historyIndex)
+    setActiveTextOverlayId(null)
+  }
+
+  // Slides with the active slide replaced by its current (uncommitted) state.
+  const committedSlides = (): SlideState[] => {
+    const snap = snapshotActiveSlide()
+    if (!snap) return slides
+    return slides.map((s, i) => (i === activeIndex ? snap : s))
+  }
+
+  const switchToSlide = (index: number) => {
+    if (index === activeIndex || index < 0 || index >= slides.length) return
+    const committed = committedSlides()
+    setSlides(committed)
+    setActiveIndex(index)
+    loadSlide(committed[index])
+    setActiveTool(null)
+  }
+
+  useEffect(() => {
+    if (!profile) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [profile])
+
   const hostStory =
     searchParams.get('host_story') === '1' || searchParams.get('host_story') === 'true'
   const returnTo = searchParams.get('return')?.trim() || ''
 
+  // Revoke every slide's object URL only on unmount (switching slides must not
+  // revoke a preview we still need).
+  const slidesRef = useRef<SlideState[]>([])
+  slidesRef.current = slides
+  const activePreviewRef = useRef<string | null>(null)
+  activePreviewRef.current = preview
   useEffect(() => {
     return () => {
-      if (preview) URL.revokeObjectURL(preview)
+      for (const s of slidesRef.current) {
+        if (s.preview) URL.revokeObjectURL(s.preview)
+      }
+      if (activePreviewRef.current) URL.revokeObjectURL(activePreviewRef.current)
     }
-  }, [preview])
+  }, [])
 
   useEffect(() => {
     if (!profile?.region) return
@@ -225,7 +373,7 @@ export function SocialCreateComposer({ mode }: Props) {
   const postsToDelvers = !hostStory && (mode === 'story' || destination === 'delvers')
   const publishAsHighlight = !hostStory && (mode === 'story' || (mode === 'post' && postAsHighlight && destination === 'delvers'))
   const isDirty = Boolean(
-    file || caption.trim() || placeLink.kind !== 'none' || board.trim() || postAsHighlight ||
+    file || slides.length > 0 || caption.trim() || placeLink.kind !== 'none' || ringHashtags.trim() || postAsHighlight ||
     textOverlays.length > 0 || stickers.length > 0 || strokes.length > 0 ||
     filter !== 'original' || filterIntensity < 100 ||
     adjustments.brightness !== 100 || adjustments.contrast !== 100 ||
@@ -237,38 +385,114 @@ export function SocialCreateComposer({ mode }: Props) {
     navigate(to)
   }
 
-  const onPickFile = async (nextFile: File | null) => {
-    if (preview) URL.revokeObjectURL(preview)
+  // Add one or more picked files as carousel slides (up to MAX_SLIDES).
+  const addFiles = async (picked: File[]) => {
     setError('')
-    if (nextFile && mediaKind === 'video') {
+    if (picked.length === 0) return
+
+    const room = MAX_SLIDES - slides.length
+    if (room <= 0) {
+      setError(`You can add up to ${MAX_SLIDES} photos or videos.`)
+      return
+    }
+
+    const accepted: File[] = []
+    for (const f of picked) {
+      if (accepted.length >= room) break
+      if (f.type.startsWith('video/')) {
+        const probeError = await probeDelversVideoFile(f)
+        if (probeError) {
+          setError(probeError)
+          continue
+        }
+      }
+      accepted.push(f)
+    }
+    if (accepted.length === 0) return
+    if (picked.length > room) {
+      setError(`Added ${room} — a post can hold up to ${MAX_SLIDES} slides.`)
+    }
+
+    const newSlides = accepted.map(makeSlide)
+    clearAutoEnhanceResult()
+
+    if (slides.length === 0) {
+      setSlides(newSlides)
+      setActiveIndex(0)
+      loadSlide(newSlides[0])
+      setActiveTool('filters')
+    } else {
+      const committed = committedSlides()
+      setSlides([...committed, ...newSlides])
+    }
+  }
+
+  const removeSlide = (index: number) => {
+    const base = committedSlides()
+    const target = base[index]
+    if (!target) return
+    if (target.preview) URL.revokeObjectURL(target.preview)
+    const next = base.filter((_, i) => i !== index)
+
+    if (next.length === 0) {
+      setSlides([])
+      setActiveIndex(0)
+      setFile(null)
+      setPreview(null)
+      setActiveTool(null)
+      setFilter('original')
+      setFilterIntensity(100)
+      setAdjustments(DEFAULT_ADJUSTMENTS)
+      setCrop(DEFAULT_CROP)
+      setTextOverlays([])
+      setStickers([])
+      setStrokes([])
+      setHistory([DEFAULT_EDITOR_SNAPSHOT])
+      setHistoryIndex(0)
+      return
+    }
+
+    const newActive = index < activeIndex ? activeIndex - 1 : Math.min(activeIndex, next.length - 1)
+    setSlides(next)
+    setActiveIndex(newActive)
+    loadSlide(next[newActive])
+  }
+
+  const moveSlide = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= slides.length) return
+    const base = committedSlides()
+    const reordered = [...base]
+    const [moved] = reordered.splice(index, 1)
+    reordered.splice(target, 0, moved)
+    setSlides(reordered)
+    // Keep the same slide active after reordering.
+    const newActiveIndex = reordered.findIndex((s) => s.id === base[activeIndex].id)
+    setActiveIndex(newActiveIndex)
+  }
+
+  const replaceActiveSlide = async (nextFile: File | null) => {
+    if (!nextFile) return
+    setError('')
+    if (nextFile.type.startsWith('video/')) {
       const probeError = await probeDelversVideoFile(nextFile)
       if (probeError) {
         setError(probeError)
         return
       }
     }
-    setFile(nextFile)
-    const nextPreview = nextFile ? URL.createObjectURL(nextFile) : null
-    setPreview(nextPreview)
-    setVideoDuration(0)
-    setVideoTrim({ start: 0, end: 0 })
-    if (nextFile) setActiveTool('filters')
-    // Reset enhancements
-    setAdjustments(DEFAULT_ADJUSTMENTS)
-    setFilter('original')
-    setFilterIntensity(100)
-    setHasAutoEnhance(false)
-    clearAutoEnhanceResult()
-    setTextOverlays([])
-    setStickers([])
-    setStrokes([])
-    // Reset history
-    setHistory([DEFAULT_EDITOR_SNAPSHOT])
-    setHistoryIndex(0)
+    const fresh = makeSlide(nextFile)
+    const old = slides[activeIndex]
+    if (old?.preview) URL.revokeObjectURL(old.preview)
+    setSlides((prev) => prev.map((s, i) => (i === activeIndex ? fresh : s)))
+    loadSlide(fresh)
+    setActiveTool('filters')
   }
 
   useEffect(() => {
-    if (!preview || mediaKind !== 'video') return
+    // Load video metadata only when this slide hasn't been measured yet, so we
+    // don't clobber a trim the user already set on a slide they're revisiting.
+    if (!preview || mediaKind !== 'video' || videoDuration > 0) return
     let cancelled = false
     void loadVideoMetadata(preview)
       .then(({ duration, trim }) => {
@@ -283,31 +507,41 @@ export function SocialCreateComposer({ mode }: Props) {
     return () => {
       cancelled = true
     }
-  }, [preview, mediaKind])
+  }, [preview, mediaKind, videoDuration])
 
-  const onMediaKindChange = (kind: MediaKind) => {
-    setMediaKind(kind)
-    onPickFile(null)
-  }
-
-  const moveCaption = (event: PointerEvent<HTMLElement>) => {
-    const frame = frameRef.current
-    if (!frame) return
-    setCaptionPosition(captionPositionFromPointer(frame, event.clientX, event.clientY))
-  }
-
-  const startCaptionDrag = (event: PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setCaptionDragging(true)
-    event.currentTarget.setPointerCapture(event.pointerId)
-    moveCaption(event)
-  }
-
-  const stopCaptionDrag = (event: PointerEvent<HTMLDivElement>) => {
-    setCaptionDragging(false)
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+  // Instagram-style preview: keep playback inside the trim selection and loop it.
+  const handlePreviewTimeUpdate = () => {
+    const v = previewVideoRef.current
+    if (!v) return
+    const { start, end } = videoTrim
+    if (end > start && v.currentTime >= end - 0.03) {
+      v.currentTime = start
+      if (!v.paused) void v.play().catch(() => {})
     }
+    if (activeTool === 'trim') setVideoPlayheadSec(v.currentTime)
+  }
+
+  const handlePreviewPlay = () => {
+    const v = previewVideoRef.current
+    if (!v) return
+    const { start, end } = videoTrim
+    if (end > start && (v.currentTime < start - 0.1 || v.currentTime >= end - 0.03)) {
+      v.currentTime = start
+    }
+  }
+
+  // Seek the preview to the frame under a trim handle while the user drags it.
+  const seekPreviewTo = (sec: number) => {
+    const v = previewVideoRef.current
+    if (!v) return
+    if (!v.paused) v.pause()
+    v.currentTime = sec
+    setVideoPlayheadSec(sec)
+  }
+
+  const removeTextOverlay = (id: string) => {
+    setTextOverlays((prev) => prev.filter((o) => o.id !== id))
+    saveSnapshot()
   }
 
   // Auto-enhance
@@ -359,32 +593,129 @@ export function SocialCreateComposer({ mode }: Props) {
     target.addEventListener('pointerup', onUp)
   }
 
-  // Sticker drag
+  // Sticker gesture: single-finger drag to move, two-finger pinch to resize + rotate.
   const handleStickerPointerDown = (id: string, event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault()
+    event.stopPropagation()
     const target = event.currentTarget
-    target.setPointerCapture(event.pointerId)
+    try {
+      target.setPointerCapture(event.pointerId)
+    } catch {
+      /* setPointerCapture can throw if the pointer is already released */
+    }
+
+    let gesture = stickerGesture.current
+    const isNewGesture = !gesture || gesture.id !== id
+    if (isNewGesture) {
+      gesture?.cleanup()
+      gesture = {
+        id,
+        pointers: new Map(),
+        startSize: 0,
+        startRotation: 0,
+        startDist: 0,
+        startAngle: 0,
+        cleanup: () => {},
+      }
+      stickerGesture.current = gesture
+    }
+    const g = gesture!
+    g.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+    const captureBase = () => {
+      const pts = [...g.pointers.values()]
+      if (pts.length < 2) return
+      const sticker = stickersRef.current.find((s) => s.id === id)
+      if (!sticker) return
+      const dx = pts[1].x - pts[0].x
+      const dy = pts[1].y - pts[0].y
+      g.startDist = Math.hypot(dx, dy) || 1
+      g.startAngle = (Math.atan2(dy, dx) * 180) / Math.PI
+      g.startSize = sticker.size
+      g.startRotation = sticker.rotation
+    }
+
+    if (g.pointers.size === 2) captureBase()
+
+    if (!isNewGesture) return
 
     const onMove = (e: globalThis.PointerEvent) => {
+      if (!g.pointers.has(e.pointerId)) return
+      const prevPoint = g.pointers.get(e.pointerId)!
+      g.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       const frame = frameRef.current
       if (!frame) return
       const rect = frame.getBoundingClientRect()
-      const x = ((e.clientX - rect.left) / rect.width) * 100
-      const y = ((e.clientY - rect.top) / rect.height) * 100
-      setStickers((prev) =>
-        prev.map((s) =>
-          s.id === id ? { ...s, x: Math.min(90, Math.max(5, x)), y: Math.min(90, Math.max(5, y)) } : s,
-        ),
-      )
+
+      if (g.pointers.size >= 2) {
+        const pts = [...g.pointers.values()]
+        const dx = pts[1].x - pts[0].x
+        const dy = pts[1].y - pts[0].y
+        const dist = Math.hypot(dx, dy) || 1
+        const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+        const scale = g.startDist > 0 ? dist / g.startDist : 1
+        const nextSize = Math.min(400, Math.max(16, g.startSize * scale))
+        const nextRotation = g.startRotation + (angle - g.startAngle)
+        setStickers((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, size: nextSize, rotation: nextRotation } : s)),
+        )
+      } else {
+        // Single-finger move by delta so the sticker follows the finger smoothly.
+        const dxPct = ((e.clientX - prevPoint.x) / rect.width) * 100
+        const dyPct = ((e.clientY - prevPoint.y) / rect.height) * 100
+        setStickers((prev) =>
+          prev.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  x: Math.min(95, Math.max(5, s.x + dxPct)),
+                  y: Math.min(95, Math.max(5, s.y + dyPct)),
+                }
+              : s,
+          ),
+        )
+      }
     }
-    const onUp = () => {
-      target.removeEventListener('pointermove', onMove)
-      target.removeEventListener('pointerup', onUp)
-      target.releasePointerCapture(event.pointerId)
-      saveSnapshot()
+
+    const onUp = (e: globalThis.PointerEvent) => {
+      g.pointers.delete(e.pointerId)
+      try {
+        target.releasePointerCapture(e.pointerId)
+      } catch {
+        /* pointer may already be released */
+      }
+      if (g.pointers.size === 1) {
+        // Dropped from two fingers to one — rebase so the remaining finger keeps dragging.
+        captureBase()
+      }
+      if (g.pointers.size === 0) {
+        g.cleanup()
+        stickerGesture.current = null
+        saveSnapshot()
+      }
     }
-    target.addEventListener('pointermove', onMove)
-    target.addEventListener('pointerup', onUp)
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    g.cleanup = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }
+
+  // Desktop: scroll wheel over a sticker to resize it (Ctrl/no-ctrl both work).
+  const handleStickerWheel = (id: string, event: WheelEvent) => {
+    event.preventDefault()
+    const factor = event.deltaY < 0 ? 1.08 : 0.92
+    setStickers((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, size: Math.min(400, Math.max(16, s.size * factor)) } : s,
+      ),
+    )
+    if (stickerWheelCommit.current) window.clearTimeout(stickerWheelCommit.current)
+    stickerWheelCommit.current = window.setTimeout(() => saveSnapshot(), 350)
   }
 
   const publish = useMutation({
@@ -394,14 +725,24 @@ export function SocialCreateComposer({ mode }: Props) {
         throw new Error('Link a stay listing for this host story.')
       }
 
+      // Hashtags drive the rings: merge the picked tags into the caption body so the
+      // backend builds a ring per hashtag, and name the creator board after the first one.
+      const ringTags = postsToDelvers ? extractHashtags(ringHashtags).slice(0, MAX_RING_HASHTAGS) : []
+      const captionText = caption.trim()
+      const captionTags = new Set(extractHashtags(captionText))
+      const extraTags = ringTags.filter((slug) => !captionTags.has(slug))
+      const bodyText = extraTags.length
+        ? `${captionText}${captionText ? '\n\n' : ''}${extraTags.map((slug) => `#${slug}`).join(' ')}`
+        : captionText
+
       const fd = new FormData()
-      fd.append('body', caption.trim())
+      fd.append('body', bodyText)
       fd.append('region', region.trim())
       fd.append('is_delvers', postsToDelvers ? 'true' : 'false')
       fd.append('is_accommodation_story', hostStory ? 'true' : 'false')
       fd.append('is_delvers_highlight', publishAsHighlight ? 'true' : 'false')
       if (postsToDelvers) {
-        const boardName = board.trim() || (publishAsHighlight ? 'Highlights' : 'Posts')
+        const boardName = ringTags[0] ? `#${ringTags[0]}` : (publishAsHighlight ? 'Highlights' : 'Posts')
         fd.append('delvers_board', boardName)
       }
       if (placeLink.kind === 'accommodation' && placeLink.id > 0) {
@@ -420,26 +761,48 @@ export function SocialCreateComposer({ mode }: Props) {
         fd.append('food_venue', String(placeLink.id))
       }
 
-      if (mediaKind === 'video') {
-        const videoFile = await prepareDelversVideoForUpload(file, videoTrim, videoDuration)
-        fd.append('video', videoFile)
-      } else {
-        const blob = await renderEditedImage(
-          file,
-          filter,
-          crop,
-          adjustments,
-          filterIntensity,
-          {
-            textOverlays,
-            stickers,
-            strokes,
-            caption: caption.trim()
-              ? { text: caption.trim(), position: captionPosition }
-              : undefined,
-          },
-        )
-        fd.append('image', new File([blob], 'post.jpg', { type: 'image/jpeg' }))
+      // Render/prepare each slide. Slide 0 goes to image/video; extra slides to
+      // slide{i}_image / slide{i}_video (consumed by the carousel backend).
+      const publishSlides = committedSlides()
+      for (let i = 0; i < publishSlides.length; i += 1) {
+        const slide = publishSlides[i]
+        const imageKey = i === 0 ? 'image' : `slide${i}_image`
+        const videoKey = i === 0 ? 'video' : `slide${i}_video`
+        if (slide.mediaKind === 'video') {
+          const videoFile = await prepareDelversVideoForUpload(slide.file, slide.videoTrim, slide.videoDuration)
+          fd.append(videoKey, videoFile)
+          const prefix = i === 0 ? '' : `slide${i}_`
+          // Server-side trim: send offsets so the backend cuts the clip
+          // (Cloudinary on delivery, ffmpeg on local storage).
+          if (slide.videoDuration > 0 && !isFullVideoTrim(slide.videoTrim, slide.videoDuration)) {
+            fd.append(`${prefix}trim_start`, slide.videoTrim.start.toFixed(3))
+            fd.append(`${prefix}trim_end`, slide.videoTrim.end.toFixed(3))
+          }
+          // Bake filters/adjustments + text/sticker/draw overlays into the clip.
+          const effects = await prepareVideoEffects(slide.file, {
+            filter: slide.filter,
+            filterIntensity: slide.filterIntensity,
+            adjustments: slide.adjustments,
+            textOverlays: slide.textOverlays,
+            stickers: slide.stickers,
+            strokes: slide.strokes,
+          })
+          appendVideoEffectsToFormData(fd, prefix, effects)
+        } else {
+          const blob = await renderEditedImage(
+            slide.file,
+            slide.filter,
+            slide.crop,
+            slide.adjustments,
+            slide.filterIntensity,
+            {
+              textOverlays: slide.textOverlays,
+              stickers: slide.stickers,
+              strokes: slide.strokes,
+            },
+          )
+          fd.append(imageKey, new File([blob], `post_${i}.jpg`, { type: 'image/jpeg' }))
+        }
       }
 
       return apiFetch<FeedPost>('/api/social/posts/', { method: 'POST', body: fd })
@@ -472,6 +835,21 @@ export function SocialCreateComposer({ mode }: Props) {
     },
     onError: (err) =>
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not publish.'),
+  })
+
+  const cropActive = activeTool === 'crop'
+  const {
+    transform: previewTransform,
+    dragging: cropDragging,
+    naturalRatio: cropNaturalRatio,
+    onImageLoad: onCropImageLoad,
+    onVideoLoad: onCropVideoLoad,
+    stageHandlers: cropStageHandlers,
+  } = useCropStage({
+    crop,
+    onChange: setCrop,
+    frameRef,
+    enabled: cropActive && mediaKind === 'image',
   })
 
   if (!profile) {
@@ -514,18 +892,18 @@ export function SocialCreateComposer({ mode }: Props) {
   const canUndo = historyIndex > 0
   const canRedo = historyIndex < history.length - 1
 
-  const previewRatio = aspectRatioValue(crop.aspect)
-  const previewFrameStyle = previewRatio
-    ? { aspectRatio: String(previewRatio) }
-    : mode === 'story'
-      ? { aspectRatio: '9 / 16' }
-      : { aspectRatio: '4 / 5' }
-
   const previewFilterStyle = showOriginal
     ? 'none'
     : cssFilterForMedia(filter, filterIntensity, adjustments)
 
-  const previewTransform = `scale(${crop.zoom}) translate(${crop.offsetX}%, ${crop.offsetY}%)`
+  const previewRatio = aspectRatioValue(crop.aspect)
+  const previewFrameStyle = previewRatio
+    ? { aspectRatio: String(previewRatio) }
+    : cropNaturalRatio
+      ? { aspectRatio: String(cropNaturalRatio) }
+      : mode === 'story'
+        ? { aspectRatio: '9 / 16' }
+        : { aspectRatio: '4 / 5' }
 
   return (
     <main
@@ -551,13 +929,19 @@ export function SocialCreateComposer({ mode }: Props) {
 
       <section className="create-studio__stage">
         {preview ? (
+          <>
           <div className="create-media" style={previewFrameStyle}>
-            <div ref={frameRef} className="create-media__frame">
+            <div
+              ref={frameRef}
+              className={`create-media__frame${cropActive && mediaKind === 'image' ? ' create-media__frame--croppable' : ''}${cropDragging ? ' is-dragging' : ''}`}
+            >
               {mediaKind === 'image' ? (
                 <img
                   src={preview}
                   alt=""
                   className="create-media__asset"
+                  draggable={false}
+                  onLoad={(event) => onCropImageLoad(event.currentTarget)}
                   style={{
                     transform: previewTransform,
                     filter: previewFilterStyle,
@@ -565,8 +949,12 @@ export function SocialCreateComposer({ mode }: Props) {
                 />
               ) : (
                 <video
+                  ref={previewVideoRef}
                   src={preview}
                   className="create-media__asset"
+                  onLoadedMetadata={(event) => onCropVideoLoad(event.currentTarget)}
+                  onTimeUpdate={handlePreviewTimeUpdate}
+                  onPlay={handlePreviewPlay}
                   style={{
                     transform: previewTransform,
                     filter: previewFilterStyle,
@@ -577,14 +965,23 @@ export function SocialCreateComposer({ mode }: Props) {
                 />
               )}
 
+              {cropActive && mediaKind === 'image' ? (
+                <div className="create-media__cropgrid create-media__cropgrid--layer" {...cropStageHandlers} aria-hidden>
+                  <span /><span /><span /><span />
+                </div>
+              ) : null}
+
               <TextOverlayRenderer
                 overlays={textOverlays}
+                activeId={activeTextOverlayId}
                 onPointerDown={handleTextPointerDown}
+                onRemove={removeTextOverlay}
               />
 
               <StickerRenderer
                 stickers={stickers}
                 onPointerDown={handleStickerPointerDown}
+                onWheel={handleStickerWheel}
               />
 
               <StrokeRenderer strokes={strokes} frameRef={frameRef} />
@@ -599,30 +996,79 @@ export function SocialCreateComposer({ mode }: Props) {
                 brush={drawBrush}
                 active={activeTool === 'draw'}
               />
-
-              <div
-                className={`create-media__caption${captionDragging ? ' is-dragging' : ''}`}
-                style={{ left: `${captionPosition.x}%`, top: `${captionPosition.y}%` }}
-                role="button"
-                tabIndex={0}
-                aria-label="Drag caption"
-                onPointerDown={startCaptionDrag}
-                onPointerMove={(event) => captionDragging && moveCaption(event)}
-                onPointerUp={stopCaptionDrag}
-                onPointerCancel={stopCaptionDrag}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowLeft') setCaptionPosition((pos) => nudgeCaptionPosition(pos, -3, 0))
-                  if (event.key === 'ArrowRight') setCaptionPosition((pos) => nudgeCaptionPosition(pos, 3, 0))
-                  if (event.key === 'ArrowUp') setCaptionPosition((pos) => nudgeCaptionPosition(pos, 0, -3))
-                  if (event.key === 'ArrowDown') setCaptionPosition((pos) => nudgeCaptionPosition(pos, 0, 3))
-                }}
-              >
-                {caption.trim() || 'Tap caption to edit'}
-              </div>
             </div>
           </div>
+
+          <div className="create-slide-strip" role="tablist" aria-label="Carousel slides">
+            {slides.map((s, i) => (
+              <div key={s.id} className={`create-slide-thumb${i === activeIndex ? ' is-active' : ''}`}>
+                <button
+                  type="button"
+                  className="create-slide-thumb__btn"
+                  role="tab"
+                  aria-selected={i === activeIndex}
+                  aria-label={`Slide ${i + 1}`}
+                  onClick={() => switchToSlide(i)}
+                >
+                  {s.mediaKind === 'video' ? (
+                    <video src={s.preview} muted playsInline className="create-slide-thumb__media" />
+                  ) : (
+                    <img src={s.preview} alt="" className="create-slide-thumb__media" />
+                  )}
+                  <span className="create-slide-thumb__index">{i + 1}</span>
+                </button>
+                <button
+                  type="button"
+                  className="create-slide-thumb__remove"
+                  onClick={() => removeSlide(i)}
+                  aria-label={`Remove slide ${i + 1}`}
+                >
+                  ×
+                </button>
+                {slides.length > 1 ? (
+                  <div className="create-slide-thumb__reorder">
+                    {i > 0 ? (
+                      <button type="button" onClick={() => moveSlide(i, -1)} aria-label="Move left">
+                        ‹
+                      </button>
+                    ) : null}
+                    {i < slides.length - 1 ? (
+                      <button type="button" onClick={() => moveSlide(i, 1)} aria-label="Move right">
+                        ›
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+            {slides.length < MAX_SLIDES ? (
+              <label className="create-slide-add" aria-label="Add more media">
+                <input
+                  type="file"
+                  accept="image/*,video/mp4,video/webm,video/quicktime"
+                  multiple
+                  onChange={(event) => {
+                    void addFiles(Array.from(event.target.files ?? []))
+                    event.currentTarget.value = ''
+                  }}
+                />
+                <span aria-hidden>+</span>
+              </label>
+            ) : null}
+          </div>
+          </>
         ) : (
-          <MediaPicker mediaKind={mediaKind} onMediaKindChange={onMediaKindChange} onPick={onPickFile} />
+          <MediaPicker
+            mediaKind={mediaKind}
+            onMediaKindChange={setMediaKind}
+            onPick={(f) => {
+              if (f) void addFiles([f])
+            }}
+            onPickMany={(files) => void addFiles(files)}
+            multiple
+            allowMixed
+            maxFiles={MAX_SLIDES}
+          />
         )}
       </section>
 
@@ -691,47 +1137,51 @@ export function SocialCreateComposer({ mode }: Props) {
             </div>
           ) : null}
 
-          {mode === 'post' && !hostStory && destination === 'delvers' ? (
-            <label className="create-studio__highlight-toggle">
-              <input
-                type="checkbox"
-                checked={postAsHighlight}
-                onChange={(event) => setPostAsHighlight(event.target.checked)}
-              />
-              <span>Also save as a highlight ring (story-style, not in the feed)</span>
-            </label>
-          ) : null}
+          {(postsToDelvers || hostStory) ? (
+            <details className="create-studio__details" open>
+              <summary>Post details</summary>
+              <div className="create-studio__details-body">
+                {mode === 'post' && !hostStory && destination === 'delvers' ? (
+                  <label className="create-studio__highlight-toggle">
+                    <input
+                      type="checkbox"
+                      checked={postAsHighlight}
+                      onChange={(event) => setPostAsHighlight(event.target.checked)}
+                    />
+                    <span>Also save as a highlight ring (story-style, not in the feed)</span>
+                  </label>
+                ) : null}
 
-          {postsToDelvers || hostStory ? (
-            <div className="create-studio__meta">
-              {(mode === 'post' && !hostStory) || mode === 'story' ? (
-                <input
-                  className="create-studio__board"
-                  value={board}
-                  onChange={(event) => setBoard(event.target.value)}
-                  placeholder={
-                    mode === 'story' || postAsHighlight
-                      ? 'Highlight ring name · Weekend trips, food finds…'
-                      : 'Board · Weekend trips, food finds…'
-                  }
+                {(mode === 'post' && !hostStory) || mode === 'story' ? (
+                  <RingHashtagPicker
+                    value={ringHashtags}
+                    onChange={setRingHashtags}
+                    disabled={publish.isPending}
+                    isHighlight={mode === 'story' || postAsHighlight}
+                    onLimit={() => setError(`Use up to ${MAX_RING_HASHTAGS} hashtags.`)}
+                  />
+                ) : null}
+
+                <PlaceSearchSheet
+                  value={placeLink}
+                  onChange={setPlaceLink}
+                  disabled={publish.isPending}
+                  allowedKinds={hostStory ? ['accommodation'] : undefined}
+                  triggerLabel={hostStory ? 'Link a stay' : 'Link a place'}
                 />
-              ) : null}
-              <PlaceSearchSheet
-                value={placeLink}
-                onChange={setPlaceLink}
-                disabled={publish.isPending}
-                allowedKinds={hostStory ? ['accommodation'] : undefined}
-                triggerLabel={hostStory ? 'Link a stay' : 'Link a place'}
-              />
-            </div>
+              </div>
+            </details>
           ) : null}
 
-          <div className="create-studio__footer-row">
+          <div className="create-studio__toolbar">
             <label className="create-studio__replace">
               <input
                 type="file"
-                accept={mediaKind === 'video' ? 'video/mp4,video/webm,video/quicktime' : 'image/*'}
-                onChange={(event) => onPickFile(event.target.files?.[0] ?? null)}
+                accept="image/*,video/mp4,video/webm,video/quicktime"
+                onChange={(event) => {
+                  void replaceActiveSlide(event.target.files?.[0] ?? null)
+                  event.currentTarget.value = ''
+                }}
               />
               Replace
             </label>
@@ -792,18 +1242,17 @@ export function SocialCreateComposer({ mode }: Props) {
           <CaptionEditor
             value={caption}
             onChange={setCaption}
-            onPositionPreset={setCaptionPosition}
             region={region}
             onRegionChange={setRegion}
+            showPositionPresets={false}
           />
         ) : null}
         {activeTool === 'text' ? (
           <TextOverlayTool
             overlays={textOverlays}
-            onChange={(o) => {
-              setTextOverlays(o)
-              saveSnapshot()
-            }}
+            onChange={setTextOverlays}
+            onCommit={saveSnapshot}
+            onActiveOverlayChange={setActiveTextOverlayId}
           />
         ) : null}
         {activeTool === 'stickers' ? (
@@ -833,6 +1282,8 @@ export function SocialCreateComposer({ mode }: Props) {
             videoTrim={videoTrim}
             onDuration={setVideoDuration}
             onTrimChange={setVideoTrim}
+            playheadSec={videoPlayheadSec}
+            onScrub={seekPreviewTo}
           />
         ) : null}
       </CreateToolSheet>

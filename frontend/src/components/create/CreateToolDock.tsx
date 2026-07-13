@@ -30,7 +30,6 @@ export function CreateToolDock({ active, onChange, showTrim, include }: Props) {
   return (
     <nav
       className="create-tool-dock"
-      style={{ gridTemplateColumns: `repeat(${visible.length}, minmax(0, 1fr))` }}
       aria-label="Editing tools"
     >
       {visible.map((tool) => (

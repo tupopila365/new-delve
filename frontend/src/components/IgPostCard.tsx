@@ -6,7 +6,7 @@ import { UserAvatar } from './UserAvatar'
 import { invalidatePostEngagementCaches } from '../utils/socialCache'
 import { renderTextWithHashtags } from '../utils/hashtags'
 import { communityPostPermalinkPath } from '../utils/postPermalink'
-import { PostMedia } from './PostMedia'
+import { PostMedia, type PostMediaItem } from './PostMedia'
 
 export type PostMediaVariant = 'feed' | 'pin' | 'detail'
 
@@ -17,6 +17,7 @@ export type FeedPost = {
   region: string
   image: string | null
   video: string | null
+  media?: PostMediaItem[]
   likes_count: number
   saves_count: number
   liked_by_me: boolean
@@ -77,7 +78,7 @@ export function IgPostCard({
   })
 
   const name = post.author.display_name || post.author.username
-  const hasMedia = Boolean(post.video || post.image)
+  const hasMedia = Boolean(post.video || post.image || (post.media && post.media.length > 0))
   const isQuestion = post.post_kind === 'question'
   const questionPath = communityPostPermalinkPath(post.id)
   const answerCount = post.comments_count ?? 0
@@ -106,7 +107,7 @@ export function IgPostCard({
       </header>
 
       {hasMedia ? (
-        <PostMedia image={post.image} video={post.video} variant={mediaVariant} alt="" />
+        <PostMedia image={post.image} video={post.video} media={post.media} variant={mediaVariant} alt="" />
       ) : isQuestion ? (
         <Link to={questionPath} className="ig-post__question-body">
           <p>{renderTextWithHashtags(post.body, post.tag_slugs)}</p>

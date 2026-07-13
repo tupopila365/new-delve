@@ -68,7 +68,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 40px;
+  min-height: 44px;
   margin: 0;
   padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -79,6 +79,7 @@
   font-size: 0.8rem;
   font-weight: 800;
   text-align: left;
+  touch-action: manipulation;
 }
 
 .place-search__trigger.is-linked {
@@ -176,14 +177,15 @@
 .place-search-sheet__close {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.75);
+  touch-action: manipulation;
 }
 
 .place-search-sheet__hint {
@@ -213,7 +215,7 @@
   background: transparent;
   color: #fffaf2;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: max(16px, 0.88rem);
   font-weight: 650;
 }
 
@@ -224,6 +226,7 @@
   overflow: auto;
   display: grid;
   gap: 6px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .place-search-sheet__list button {
@@ -231,13 +234,15 @@
   display: grid;
   gap: 2px;
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px;
+  min-height: 48px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
   color: inherit;
   font: inherit;
   text-align: left;
+  touch-action: manipulation;
 }
 
 .place-search-sheet__list button.is-active {
@@ -262,4 +267,10 @@
   color: rgba(255, 255, 255, 0.45);
   font-size: 0.8rem;
   text-align: center;
+}
+
+@media (max-width: 640px) {
+  .place-search-sheet__panel {
+    max-height: min(78dvh, 560px);
+  }
 }

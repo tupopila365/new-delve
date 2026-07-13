@@ -1,4 +1,5 @@
 import type { SponsoredListingFeedItem } from './SponsoredListingFeedCard'
+import type { PostMediaItem } from '../PostMedia'
 
 export type DelversFeedPost = {
   id: number
@@ -7,6 +8,7 @@ export type DelversFeedPost = {
   region: string
   image: string | null
   video: string | null
+  media?: PostMediaItem[]
   delvers_board?: string
   liked_by_me: boolean
   saved_by_me: boolean

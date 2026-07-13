@@ -67,6 +67,9 @@ export function cssFilterForMedia(
   return parts.length > 0 ? parts.join(' ') : 'none'
 }
 
+export const MIN_CROP_ZOOM = 1
+export const MAX_CROP_ZOOM = 3
+
 export function aspectRatioValue(aspect: CropAspect): number | null {
   switch (aspect) {
     case '1:1':
@@ -78,6 +81,52 @@ export function aspectRatioValue(aspect: CropAspect): number | null {
     default:
       return null
   }
+}
+
+/**
+ * Available pan room (in preview pixels) for an image drawn with object-fit:cover
+ * inside a frame, at a given zoom. Used to keep the on-screen crop WYSIWYG with
+ * the exported result and to clamp panning so no empty edges are ever shown.
+ */
+export function cropCoverOverflow(
+  naturalW: number,
+  naturalH: number,
+  frameW: number,
+  frameH: number,
+  zoom: number,
+): { overflowX: number; overflowY: number } {
+  if (!naturalW || !naturalH || !frameW || !frameH) {
+    return { overflowX: 0, overflowY: 0 }
+  }
+  const coverScale = Math.max(frameW / naturalW, frameH / naturalH)
+  const contentW = naturalW * coverScale * zoom
+  const contentH = naturalH * coverScale * zoom
+  return {
+    overflowX: Math.max(0, contentW - frameW),
+    overflowY: Math.max(0, contentH - frameH),
+  }
+}
+
+/**
+ * CSS transform for the preview media. `crop.offsetX/offsetY` are normalised to
+ * [-1, 1] (fraction of the available pan room). Positive values move the image
+ * right / down so it follows the user's finger while dragging.
+ */
+export function cropCoverTransform(
+  crop: CropSettings,
+  naturalW: number,
+  naturalH: number,
+  frameW: number,
+  frameH: number,
+): string {
+  const zoom = clamp(crop.zoom, MIN_CROP_ZOOM, MAX_CROP_ZOOM)
+  if (!naturalW || !naturalH || !frameW || !frameH) {
+    return `scale(${zoom})`
+  }
+  const { overflowX, overflowY } = cropCoverOverflow(naturalW, naturalH, frameW, frameH, zoom)
+  const px = clamp(crop.offsetX, -1, 1) * (overflowX / 2)
+  const py = clamp(crop.offsetY, -1, 1) * (overflowY / 2)
+  return `translate(${px}px, ${py}px) scale(${zoom})`
 }
 
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -299,14 +348,16 @@ export async function renderEditedImage(
     }
   }
 
-  const zoom = clamp(crop.zoom, 1, 2.5)
+  const zoom = clamp(crop.zoom, MIN_CROP_ZOOM, MAX_CROP_ZOOM)
   cropW /= zoom
   cropH /= zoom
 
+  // offsetX/offsetY are normalised to [-1, 1]. Positive moves the visible image
+  // right/down (i.e. the crop window slides left/up), matching the live preview.
   const maxOffsetX = (img.width - cropW) / 2
   const maxOffsetY = (img.height - cropH) / 2
-  const sx = clamp(img.width / 2 - cropW / 2 + (crop.offsetX / 100) * maxOffsetX * 2, 0, img.width - cropW)
-  const sy = clamp(img.height / 2 - cropH / 2 + (crop.offsetY / 100) * maxOffsetY * 2, 0, img.height - cropH)
+  const sx = clamp(img.width / 2 - cropW / 2 - clamp(crop.offsetX, -1, 1) * maxOffsetX, 0, img.width - cropW)
+  const sy = clamp(img.height / 2 - cropH / 2 - clamp(crop.offsetY, -1, 1) * maxOffsetY, 0, img.height - cropH)
 
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(cropW)
@@ -348,6 +399,129 @@ export async function renderEditedImage(
       else resolve(blob)
     }, 'image/jpeg', 0.92)
   })
+}
+
+/** True when there is any text/sticker/draw layer to bake. */
+export function hasBakeableOverlays(overlays?: ImageOverlays): boolean {
+  return Boolean(
+    overlays &&
+      ((overlays.textOverlays?.length ?? 0) > 0 ||
+        (overlays.stickers?.length ?? 0) > 0 ||
+        (overlays.strokes?.length ?? 0) > 0),
+  )
+}
+
+/**
+ * Render only the overlay layers (draw / text / stickers) onto a transparent
+ * PNG at the given pixel size. Positions are percent-based so the result maps
+ * 1:1 onto the video frame when the server composites it. Returns null when
+ * there is nothing to draw.
+ */
+export async function renderOverlaysToPng(
+  width: number,
+  height: number,
+  overlays: ImageOverlays,
+): Promise<Blob | null> {
+  if (!hasBakeableOverlays(overlays) || width <= 0 || height <= 0) return null
+
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(width)
+  canvas.height = Math.round(height)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas unavailable')
+
+  if (overlays.strokes?.length) drawStrokesOnCanvas(ctx, overlays.strokes, canvas.width, canvas.height)
+  if (overlays.textOverlays?.length) drawTextOverlays(ctx, overlays.textOverlays, canvas.width, canvas.height)
+  if (overlays.stickers?.length) drawStickerOverlays(ctx, overlays.stickers, canvas.width, canvas.height)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) reject(new Error('Could not export overlays'))
+      else resolve(blob)
+    }, 'image/png')
+  })
+}
+
+export type VideoColorGrade = {
+  brightness: number
+  contrast: number
+  saturation: number
+  hue: number
+  sepia: number
+  grayscale: number
+  sharpen: number
+}
+
+const NEUTRAL_GRADE: VideoColorGrade = {
+  brightness: 1,
+  contrast: 1,
+  saturation: 1,
+  hue: 0,
+  sepia: 0,
+  grayscale: 0,
+  sharpen: 0,
+}
+
+/**
+ * Mirror of {@link cssFilterForMedia} as numeric parameters the backend can turn
+ * into an ffmpeg colour grade. Keeps the baked video close to the live preview.
+ * Returns null when the grade is neutral (nothing to bake).
+ */
+export function computeVideoColorGrade(
+  filter: MediaFilter,
+  intensity = 100,
+  adjustments?: Adjustments,
+): VideoColorGrade | null {
+  const i = clamp(intensity, 0, 100) / 100
+  const g: VideoColorGrade = { ...NEUTRAL_GRADE }
+
+  switch (filter) {
+    case 'warm':
+      g.sepia += 0.35 * i
+      g.saturation *= 1 + 0.2 * i
+      break
+    case 'mono':
+      g.grayscale = Math.min(1, g.grayscale + 1 * i)
+      break
+    case 'dusk':
+      g.brightness *= 1 - 0.1 * i
+      g.contrast *= 1 + 0.1 * i
+      g.hue += -15 * i
+      g.saturation *= 1 - 0.15 * i
+      break
+    case 'vivid':
+      g.saturation *= 1 + 0.45 * i
+      g.contrast *= 1 + 0.08 * i
+      break
+    default:
+      break
+  }
+
+  if (adjustments) {
+    const b = (adjustments.brightness - 100) / 100
+    if (Math.abs(b) > 0.02) g.brightness *= 1 + b
+    const c = (adjustments.contrast - 100) / 100
+    if (Math.abs(c) > 0.02) g.contrast *= 1 + c
+    const s = (adjustments.saturation - 100) / 100
+    if (Math.abs(s) > 0.02) g.saturation *= 1 + s
+    const w = (adjustments.warmth - 100) / 100
+    if (Math.abs(w) > 0.02) {
+      g.sepia = Math.min(1, g.sepia + Math.abs(w) * 0.3)
+      g.hue += w > 0 ? 15 : -15
+    }
+    const sh = adjustments.sharpen / 100
+    if (sh > 0.02) g.sharpen = Math.max(g.sharpen, sh)
+  }
+
+  const meaningful =
+    Math.abs(g.brightness - 1) > 0.01 ||
+    Math.abs(g.contrast - 1) > 0.01 ||
+    Math.abs(g.saturation - 1) > 0.01 ||
+    Math.abs(g.hue) > 0.01 ||
+    g.sepia > 0.01 ||
+    g.grayscale > 0.01 ||
+    g.sharpen > 0.01
+  return meaningful ? g : null
 }
 
 /** Simple unsharp-mask sharpen via convolution */

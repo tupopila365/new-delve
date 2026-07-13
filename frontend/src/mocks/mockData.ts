@@ -20,6 +20,13 @@ export type MockProfile = {
   show_in_search: boolean
 }
 
+export type MockPostMediaItem = {
+  order?: number
+  kind: 'image' | 'video'
+  image: string | null
+  video: string | null
+}
+
 export type MockPost = {
   id: number
   author: { username: string; display_name: string; avatar: string | null }
@@ -27,6 +34,7 @@ export type MockPost = {
   region: string
   image: string | null
   video: string | null
+  media?: MockPostMediaItem[]
   delvers_board: string
   is_delvers: boolean
   is_accommodation_story?: boolean

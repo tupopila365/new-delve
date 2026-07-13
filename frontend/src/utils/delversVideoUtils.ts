@@ -1,36 +1,33 @@
 import type { VideoTrim } from '../components/create/types'
-import {
-  isFullVideoTrim,
-  MAX_TRIM_DURATION_SEC,
-  prepareVideoForUpload,
-  trimDurationSec,
-} from '../components/create/videoTrimUtils'
+import { MAX_TRIM_DURATION_SEC, trimDurationSec } from '../components/create/videoTrimUtils'
 import { probeCommunityVideoFile } from './communityMediaUpload'
 import { CHAT_SKIP_COMPRESS_BYTES, compressVideoForChat } from './communityVideoUtils'
 
 export { probeCommunityVideoFile as probeDelversVideoFile }
 
+/**
+ * Prepare the video file for upload. Trimming now happens server-side
+ * (Cloudinary delivery transform in prod, ffmpeg on local storage), so we send
+ * the ORIGINAL clip plus trim_start/trim_end offsets — no fragile in-browser
+ * re-encode. We only compress large clips to stay under the upload cap.
+ */
 export async function prepareDelversVideoForUpload(
   file: File,
   trim: VideoTrim,
-  duration: number,
+  _duration: number,
 ): Promise<File> {
   if (trimDurationSec(trim) > MAX_TRIM_DURATION_SEC) {
     throw new Error(`Video must be ${MAX_TRIM_DURATION_SEC} seconds or less.`)
   }
 
-  if (isFullVideoTrim(trim, duration)) {
-    if (file.size > CHAT_SKIP_COMPRESS_BYTES) {
-      try {
-        return await compressVideoForChat(file)
-      } catch {
-        return file
-      }
+  if (file.size > CHAT_SKIP_COMPRESS_BYTES) {
+    try {
+      return await compressVideoForChat(file)
+    } catch {
+      return file
     }
-    return file
   }
-
-  return prepareVideoForUpload(file, trim, duration)
+  return file
 }
 
 export async function loadVideoMetadata(previewUrl: string): Promise<{ duration: number; trim: VideoTrim }> {

@@ -16,12 +16,15 @@ export function CropControls({ value, onChange, disabled }: Props) {
     )
   }
 
-  const setAspect = (aspect: CropAspect) => onChange({ ...value, aspect })
+  // Changing the shape re-centres the pan so nothing gets stuck off-frame.
+  const setAspect = (aspect: CropAspect) =>
+    onChange({ ...value, aspect, offsetX: 0, offsetY: 0 })
 
   return (
     <div className="create-panel">
-      <p className="create-panel__title">Crop &amp; zoom</p>
-      <div className="create-crop-aspects" role="group" aria-label="Aspect ratio">
+      <p className="create-panel__title">Crop</p>
+      <p className="create-panel__hint">Drag the photo to reposition · pinch or scroll to zoom.</p>
+      <div className="create-crop-aspects" role="group" aria-label="Crop shape">
         {CROP_ASPECTS.map((item) => (
           <button
             key={item.id}
@@ -38,34 +41,21 @@ export function CropControls({ value, onChange, disabled }: Props) {
         <input
           type="range"
           min={1}
-          max={2.5}
-          step={0.05}
+          max={3}
+          step={0.02}
           value={value.zoom}
           onChange={(event) => onChange({ ...value, zoom: Number(event.target.value) })}
         />
       </label>
-      <label className="create-slider">
-        <span>Move left / right</span>
-        <input
-          type="range"
-          min={-50}
-          max={50}
-          step={1}
-          value={value.offsetX}
-          onChange={(event) => onChange({ ...value, offsetX: Number(event.target.value) })}
-        />
-      </label>
-      <label className="create-slider">
-        <span>Move up / down</span>
-        <input
-          type="range"
-          min={-50}
-          max={50}
-          step={1}
-          value={value.offsetY}
-          onChange={(event) => onChange({ ...value, offsetY: Number(event.target.value) })}
-        />
-      </label>
+      {(value.zoom !== 1 || value.offsetX !== 0 || value.offsetY !== 0) ? (
+        <button
+          type="button"
+          className="create-slider__reset"
+          onClick={() => onChange({ ...value, zoom: 1, offsetX: 0, offsetY: 0 })}
+        >
+          Reset position
+        </button>
+      ) : null}
     </div>
   )
 }

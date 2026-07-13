@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Flag } from 'lucide-react'
+import { MoreVertical, Flag } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
@@ -30,6 +30,13 @@ type Props = {
   showIcon?: boolean
   iconSize?: number
   onTrigger?: () => void
+  /**
+   * 'button' (default) renders a single report trigger.
+   * 'menu' renders a compact three-dots button that opens a small menu
+   * containing the report action — takes far less space in dense headers.
+   */
+  variant?: 'button' | 'menu'
+  menuLabel?: string
 }
 
 export function ReportButton({
@@ -40,12 +47,24 @@ export function ReportButton({
   showIcon = false,
   iconSize = 14,
   onTrigger,
+  variant = 'button',
+  menuLabel = 'More options',
 }: Props) {
   const { profile } = useAuth()
   const [open, setOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [reason, setReason] = useState<(typeof REASONS)[number]['value']>('spam')
   const [description, setDescription] = useState('')
   const [done, setDone] = useState(false)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
   const submitMut = useMutation({
     mutationFn: () =>
@@ -64,6 +83,116 @@ export function ReportButton({
       setDescription('')
     },
   })
+
+  const sheet = open ? (
+    <>
+      <button type="button" className="report-sheet__backdrop" aria-label="Close" onClick={() => setOpen(false)} />
+      <div className="report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-sheet-title">
+        <h2 id="report-sheet-title">Report content</h2>
+        <p className="report-sheet__sub">
+          {target.target_label ?? `${target.target_type} ${target.target_id}`}
+        </p>
+        {done ? (
+          <p className="report-sheet__done" role="status">
+            Thank you — our team will review this report.
+          </p>
+        ) : (
+          <>
+            <label className="report-sheet__field">
+              <span>Reason</span>
+              <select value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
+                {REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="report-sheet__field">
+              <span>Details (optional)</span>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us what happened…"
+              />
+            </label>
+            {submitMut.isError ? (
+              <p className="report-sheet__error" role="alert">
+                Could not submit report. Please try again.
+              </p>
+            ) : null}
+            <div className="report-sheet__actions">
+              <button type="button" className="report-sheet__cancel" onClick={() => setOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="report-sheet__submit"
+                disabled={submitMut.isPending}
+                onClick={() => submitMut.mutate()}
+              >
+                {submitMut.isPending ? 'Submitting…' : 'Submit report'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  ) : null
+
+  if (variant === 'menu') {
+    return (
+      <div className={`report-menu ${className}`.trim()}>
+        <button
+          type="button"
+          className="report-menu__trigger"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={menuLabel}
+        >
+          <MoreVertical size={iconSize} strokeWidth={2.25} aria-hidden />
+        </button>
+
+        {menuOpen ? (
+          <>
+            <button
+              type="button"
+              className="report-menu__backdrop"
+              aria-label="Close menu"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div className="report-menu__list" role="menu">
+              {profile ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="report-menu__item"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onTrigger?.()
+                    setOpen(true)
+                    setDone(false)
+                  }}
+                >
+                  <Flag size={15} strokeWidth={2.25} aria-hidden />
+                  {triggerLabel}
+                </button>
+              ) : (
+                <Link to="/login" role="menuitem" className="report-menu__item" onClick={() => setMenuOpen(false)}>
+                  <Flag size={15} strokeWidth={2.25} aria-hidden />
+                  {triggerLabel}
+                </Link>
+              )}
+            </div>
+          </>
+        ) : null}
+
+        {sheet}
+      </div>
+    )
+  }
 
   if (!profile) {
     return (
@@ -90,62 +219,7 @@ export function ReportButton({
         {!iconOnly ? triggerLabel : null}
       </button>
 
-      {open ? (
-        <>
-          <button type="button" className="report-sheet__backdrop" aria-label="Close" onClick={() => setOpen(false)} />
-          <div className="report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-sheet-title">
-            <h2 id="report-sheet-title">Report content</h2>
-            <p className="report-sheet__sub">
-              {target.target_label ?? `${target.target_type} ${target.target_id}`}
-            </p>
-            {done ? (
-              <p className="report-sheet__done" role="status">
-                Thank you — our team will review this report.
-              </p>
-            ) : (
-              <>
-                <label className="report-sheet__field">
-                  <span>Reason</span>
-                  <select value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
-                    {REASONS.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="report-sheet__field">
-                  <span>Details (optional)</span>
-                  <textarea
-                    rows={3}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Tell us what happened…"
-                  />
-                </label>
-                {submitMut.isError ? (
-                  <p className="report-sheet__error" role="alert">
-                    Could not submit report. Please try again.
-                  </p>
-                ) : null}
-                <div className="report-sheet__actions">
-                  <button type="button" className="report-sheet__cancel" onClick={() => setOpen(false)}>
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="report-sheet__submit"
-                    disabled={submitMut.isPending}
-                    onClick={() => submitMut.mutate()}
-                  >
-                    {submitMut.isPending ? 'Submitting…' : 'Submit report'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      ) : null}
+      {sheet}
     </>
   )
 }

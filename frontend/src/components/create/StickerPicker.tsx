@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { STICKER_PACK, type StickerOverlay } from './types'
 
 type Props = {
@@ -67,7 +67,9 @@ export function StickerPicker({ stickers, onChange }: Props) {
       {/* Active stickers */}
       {stickers.length > 0 ? (
         <div className="create-sticker-active">
-          <p className="create-panel__hint">Tap a sticker to remove it</p>
+          <p className="create-panel__hint">
+            On the preview: drag to move, pinch or scroll to resize and rotate. Tap below to remove.
+          </p>
           <div className="create-sticker-active__list">
             {stickers.map((s) => (
               <button
@@ -91,27 +93,56 @@ export function StickerPicker({ stickers, onChange }: Props) {
 export function StickerRenderer({
   stickers,
   onPointerDown,
+  onWheel,
 }: {
   stickers: StickerOverlay[]
   onPointerDown: (id: string, event: React.PointerEvent<HTMLDivElement>) => void
+  onWheel?: (id: string, event: WheelEvent) => void
 }) {
   return (
     <>
       {stickers.map((s) => (
-        <div
-          key={s.id}
-          className="create-sticker-overlay"
-          style={{
-            left: `${s.x}%`,
-            top: `${s.y}%`,
-            fontSize: `${s.size}px`,
-            transform: `translate(-50%, -50%) rotate(${s.rotation}deg)`,
-          }}
-          onPointerDown={(e) => onPointerDown(s.id, e)}
-        >
-          {s.emoji}
-        </div>
+        <StickerItem key={s.id} sticker={s} onPointerDown={onPointerDown} onWheel={onWheel} />
       ))}
     </>
+  )
+}
+
+function StickerItem({
+  sticker: s,
+  onPointerDown,
+  onWheel,
+}: {
+  sticker: StickerOverlay
+  onPointerDown: (id: string, event: React.PointerEvent<HTMLDivElement>) => void
+  onWheel?: (id: string, event: WheelEvent) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const onWheelRef = useRef(onWheel)
+  onWheelRef.current = onWheel
+
+  // React binds onWheel passively, so attach a non-passive listener to allow preventDefault.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const handler = (event: WheelEvent) => onWheelRef.current?.(s.id, event)
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [s.id])
+
+  return (
+    <div
+      ref={ref}
+      className="create-sticker-overlay"
+      style={{
+        left: `${s.x}%`,
+        top: `${s.y}%`,
+        fontSize: `${s.size}px`,
+        transform: `translate(-50%, -50%) rotate(${s.rotation}deg)`,
+      }}
+      onPointerDown={(e) => onPointerDown(s.id, e)}
+    >
+      {s.emoji}
+    </div>
   )
 }

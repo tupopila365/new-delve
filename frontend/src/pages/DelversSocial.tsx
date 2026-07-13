@@ -304,6 +304,44 @@ export function DelversSocial() {
     },
   })
 
+  // Follow/unfollow the post author. A follow applies to every post by that
+  // author, so we patch all of their posts in the feed cache.
+  const followMut = useMutation({
+    mutationFn: (post: PinPost) =>
+      apiFetch<{ following: boolean; followers_count: number }>(
+        `/api/social/users/${encodeURIComponent(post.author.username)}/follow/`,
+        { method: 'POST' },
+      ),
+    onMutate: async (post) => {
+      await qc.cancelQueries({ queryKey: qk })
+      const previousFeed = qc.getQueryData<DelversFeedItem[]>(qk)
+      const username = post.author.username
+      const next = !post.is_author_followed
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) =>
+          isFeedPost(item) && item.author.username === username
+            ? { ...item, is_author_followed: next }
+            : item,
+        ),
+      )
+      return { previousFeed }
+    },
+    onError: (_err, _post, context) => {
+      if (context?.previousFeed) qc.setQueryData(qk, context.previousFeed)
+    },
+    onSuccess: (data, post) => {
+      const username = post.author.username
+      qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+        (old ?? []).map((item) =>
+          isFeedPost(item) && item.author.username === username
+            ? { ...item, is_author_followed: data.following }
+            : item,
+        ),
+      )
+      void qc.invalidateQueries({ queryKey: ['public-profile', username] })
+    },
+  })
+
   const bumpHighlightCommentCount = (postId: number) => {
     const patch = <T extends DelversFeedPost>(item: T): T =>
       item.id === postId ? { ...item, comments_count: (item.comments_count ?? 0) + 1 } : item
@@ -736,10 +774,13 @@ export function DelversSocial() {
                 key={item.id}
                 post={item}
                 signedIn={!!profile}
+                currentUsername={profile?.username}
                 likeBusy={likeMut.isPending && likeMut.variables?.id === item.id}
                 saveBusy={saveMut.isPending && saveMut.variables?.id === item.id}
+                followBusy={followMut.isPending && followMut.variables?.author.username === item.author.username}
                 onLike={() => profile && likeMut.mutate(item)}
                 onSave={() => profile && saveMut.mutate(item)}
+                onFollow={() => profile && followMut.mutate(item)}
                 onShare={() => void onShare(item.id)}
                 onCommented={refreshFeed}
               />
@@ -1197,13 +1238,16 @@ function DelversEmptyState({ signedIn, onShowAll }: { signedIn: boolean; onShowA
   )
 }
 
-function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShare, onCommented }: {
+function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, followBusy, onLike, onSave, onFollow, onShare, onCommented }: {
   post: PinPost
   signedIn: boolean
+  currentUsername?: string
   likeBusy: boolean
   saveBusy: boolean
+  followBusy: boolean
   onLike: () => void
   onSave: () => void
+  onFollow: () => void
   onShare: () => void
   onCommented: () => void
 }) {
@@ -1215,6 +1259,8 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
   const hasMedia = Boolean(post.image || post.video)
   const date = formatDate(post.created_at)
   const commentCount = post.comments_count ?? 0
+  const isOwnPost = Boolean(currentUsername && post.author.username === currentUsername)
+  const showFollow = !post.is_sponsored && !isOwnPost
 
   const triggerHeartBurst = () => {
     setHeartBurst(true)
@@ -1241,15 +1287,33 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
       <header className="ds-post__head">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ds-post__author">
           <UserAvatar src={post.author.avatar} name={name} className="ds-post__author-avatar" fill />
-          <strong>{name}<small>@{post.author.username}</small></strong>
+          <strong><span className="ds-post__author-name">{name}</span><small>@{post.author.username}</small></strong>
         </Link>
+        {showFollow ? (
+          <span className="ds-post__follow-wrap">
+            {signedIn ? (
+              <button
+                type="button"
+                className={`ds-post__follow${post.is_author_followed ? ' is-following' : ''}`}
+                onClick={onFollow}
+                disabled={followBusy}
+                aria-pressed={post.is_author_followed}
+              >
+                {post.is_author_followed ? 'Following' : 'Follow'}
+              </button>
+            ) : (
+              <Link to="/login" className="ds-post__follow">Follow</Link>
+            )}
+          </span>
+        ) : null}
         <div className="ds-post__head-meta">
           {post.region ? <span className="ds-post__region"><MapPin size={13} strokeWidth={2.25} aria-hidden />{post.region}</span> : null}
           <ReportButton
             className="ds-post__report"
-            iconOnly
+            variant="menu"
             iconSize={18}
-            triggerLabel="Report post"
+            triggerLabel="Report"
+            menuLabel="Post options"
             target={{
               target_type: 'post',
               target_id: String(post.id),
@@ -1280,7 +1344,7 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
       >
         {hasMedia ? (
           <Link to={permalink} className="ds-post__media-link" aria-label={`Open post by ${name}`}>
-            <PostMedia image={post.image} video={post.video} variant="feed" alt={text} />
+            <PostMedia image={post.image} video={post.video} media={post.media} variant="feed" alt={text} />
           </Link>
         ) : (
           <Link to={permalink} className="ds-post__text-media" aria-label={`Open post by ${name}`}>
