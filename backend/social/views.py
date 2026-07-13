@@ -10,10 +10,10 @@ from rest_framework.views import APIView
 
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
 from config.throttles import FollowThrottle, PostCreateThrottle
-from tags.models import TagScope
-from tags.services import MAX_TAGS_PER_CONTENT, extract_hashtags_from_text, filter_posts_by_tag
+from tags.models import Tag, TagScope
+from tags.services import MAX_TAGS_PER_CONTENT, extract_hashtags_from_text, filter_posts_by_tag, normalize_tag
 
-from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
+from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save, TagFollow
 from .delvers_highlights import delvers_highlight_cutoff
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
 
@@ -228,6 +228,7 @@ class DelversHighlightsView(APIView):
         qs = filter_posts_for_viewer(
             _base_post_queryset()
             .filter(is_delvers_highlight=True)
+            .filter(created_at__gte=delvers_highlight_cutoff())
             .exclude(post_kind=PostKind.QUESTION),
             viewer,
         )
@@ -283,7 +284,17 @@ class DelversHashtagRingsView(APIView):
             # Keep consistent with feed ranking-ish; also factors recency via created_at ordering.
             return float(p.likes_count) * 2.5 + float(p.saves_count) * 4.0 + float(p.comments_count) * 1.0
 
-        ring_items: list[tuple[bool, float, str, list[Post]]] = []
+        slugs = list(ring_posts.keys())
+        followed_tag_slugs = set(
+            TagFollow.objects.filter(user=viewer, tag__slug__in=slugs).values_list("tag__slug", flat=True)
+        ) if viewer and slugs else set()
+        follower_counts = dict(
+            Tag.objects.filter(slug__in=slugs)
+            .annotate(followers_count=Count("followers", distinct=True))
+            .values_list("slug", "followers_count")
+        ) if slugs else {}
+
+        ring_items: list[tuple[bool, bool, float, str, list[Post]]] = []
         for slug, posts in ring_posts.items():
             # Followed creators first within the ring, then rank by engagement + recency.
             ordered_posts = sorted(
@@ -297,25 +308,58 @@ class DelversHashtagRingsView(APIView):
             limited_posts = ordered_posts[:10]
 
             ring_has_followed = any(p.author_id in following_ids for p in limited_posts)
+            ring_tag_followed = slug in followed_tag_slugs
             ring_score = max((post_score(p) for p in limited_posts), default=0.0)
-            ring_items.append((ring_has_followed, ring_score, slug, limited_posts))
+            ring_items.append((ring_tag_followed, ring_has_followed, ring_score, slug, limited_posts))
 
-        ring_items.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        ring_items.sort(key=lambda t: (t[0], t[1], t[2]), reverse=True)
         ring_items = ring_items[:12]
 
         rings_resp = []
-        for _, _, slug, posts in ring_items:
+        for followed_by_me, _, _, slug, posts in ring_items:
             ser = PostSerializer(posts, many=True, context={"request": request})
             rings_resp.append(
                 {
                     "ring_id": f"tag:{slug}",
                     "tag_slug": slug,
                     "label": slug,
+                    "followed_by_me": followed_by_me,
+                    "followers_count": follower_counts.get(slug, 0),
                     "posts": ser.data,
                 }
             )
 
         return Response({"rings": rings_resp})
+
+
+class DelversTagFollowToggleView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [FollowThrottle]
+
+    def post(self, request, slug):
+        tag_slug = normalize_tag(slug)
+        if not tag_slug:
+            return Response({"detail": "Invalid hashtag."}, status=status.HTTP_400_BAD_REQUEST)
+
+        tag, _ = Tag.objects.get_or_create(slug=tag_slug)
+        if tag.is_blocked:
+            return Response({"detail": "This hashtag is unavailable."}, status=status.HTTP_400_BAD_REQUEST)
+
+        follow, created = TagFollow.objects.get_or_create(user=request.user, tag=tag)
+        if not created:
+            follow.delete()
+            following = False
+        else:
+            following = True
+
+        followers_count = TagFollow.objects.filter(tag=tag).count()
+        return Response(
+            {
+                "following": following,
+                "followers_count": followers_count,
+                "tag_slug": tag.slug,
+            }
+        )
 
 
 class UserPublicPostsView(APIView):

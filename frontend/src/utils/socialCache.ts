@@ -152,6 +152,14 @@ type EngagementOptions = {
 
   queryKey?: unknown[]
 
+  /**
+   * Skip invalidating the feeds the user is currently looking at. Use this for
+   * like/save/fire toggles: the optimistic update already reflects the change,
+   * and refetching the feed here causes reorder/flicker and can momentarily
+   * reset the toggle if the write hasn't propagated to a read replica yet.
+   */
+  skipFeeds?: boolean
+
 }
 
 
@@ -174,7 +182,7 @@ export async function invalidatePostEngagementCaches(
 
     tasks.push(qc.invalidateQueries({ queryKey: options.queryKey }))
 
-  } else {
+  } else if (!options.skipFeeds) {
 
     tasks.push(
 

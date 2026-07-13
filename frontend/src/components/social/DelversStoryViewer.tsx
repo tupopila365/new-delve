@@ -20,6 +20,8 @@ export type DelversStoryTarget = {
   username?: string
   boardKey?: string
   tagSlug?: string
+  followedByMe?: boolean
+  followersCount?: number
   posts: DelversFeedPost[]
 }
 
@@ -39,6 +41,8 @@ type Props = {
   onLike: (post: DelversFeedPost) => void
   onFire: (post: DelversFeedPost) => void
   onCommented: (postId: number) => void
+  onToggleTagFollow?: (tagSlug: string) => void
+  tagFollowBusy?: boolean
 }
 
 function formatCount(n: number): string {
@@ -77,6 +81,8 @@ export function DelversStoryViewer({
   onLike,
   onFire,
   onCommented,
+  onToggleTagFollow,
+  tagFollowBusy = false,
 }: Props) {
   const post = target.posts[index]
   const image = mediaUrl(post?.image ?? null)
@@ -230,6 +236,23 @@ export function DelversStoryViewer({
               <small>{target.subtitle}</small>
             </span>
           )}
+          {target.kind === 'tag' && target.tagSlug ? (
+            signedIn ? (
+              <button
+                type="button"
+                className={`ds-story-viewer__follow${target.followedByMe ? ' ds-story-viewer__follow--on' : ''}`}
+                onClick={() => onToggleTagFollow?.(target.tagSlug!)}
+                disabled={tagFollowBusy}
+                aria-pressed={target.followedByMe}
+              >
+                {target.followedByMe ? 'Following' : 'Follow'}
+              </button>
+            ) : (
+              <Link to="/login" className="ds-story-viewer__follow">
+                Follow
+              </Link>
+            )
+          ) : null}
           <button type="button" className="ds-story-viewer__close" onClick={onClose} aria-label="Close highlights">
             <X size={19} strokeWidth={2.35} aria-hidden />
           </button>

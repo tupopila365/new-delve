@@ -186,6 +186,7 @@ export function ListingMediaStudioSheet({
             value={preview}
             onChange={setPreview}
             onFileReady={setFile}
+            initialFile={file}
             defaultAspect="16:9"
             imagesOnly
           />

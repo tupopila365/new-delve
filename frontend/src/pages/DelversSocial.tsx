@@ -44,6 +44,15 @@ import '../components/Featured.css'
 
 type FeedTab = 'foryou' | 'nearby' | 'trending' | 'photos' | 'tips' | 'reels'
 
+type HashtagRingApi = {
+  ring_id: string
+  tag_slug: string
+  label: string
+  followed_by_me?: boolean
+  followers_count?: number
+  posts: PinPost[]
+}
+
 const TAB_LABELS: Record<FeedTab, string> = {
   foryou: 'For You',
   nearby: 'Nearby',
@@ -132,7 +141,7 @@ export function DelversSocial() {
 
   const { data: hashtagRingsResp } = useQuery({
     queryKey: hashtagRingsQk,
-    queryFn: () => apiFetch<{ rings: { ring_id: string; tag_slug: string; label: string; posts: PinPost[] }[] }>(
+    queryFn: () => apiFetch<{ rings: HashtagRingApi[] }>(
       `/api/social/delvers/hashtag-rings/`,
     ),
   })
@@ -176,6 +185,7 @@ export function DelversSocial() {
       void invalidatePostEngagementCaches(qc, {
         authorUsername: post.author.username,
         savedByUsername: profile?.username,
+        skipFeeds: true,
       })
     },
   })
@@ -212,6 +222,7 @@ export function DelversSocial() {
       void invalidatePostEngagementCaches(qc, {
         authorUsername: post.author.username,
         savedByUsername: profile?.username,
+        skipFeeds: true,
       })
     },
   })
@@ -254,7 +265,42 @@ export function DelversSocial() {
       void invalidatePostEngagementCaches(qc, {
         authorUsername: post.author.username,
         savedByUsername: profile?.username,
+        skipFeeds: true,
       })
+    },
+  })
+
+  const tagFollowMut = useMutation({
+    mutationFn: (tagSlug: string) =>
+      apiFetch<{ following: boolean; followers_count: number; tag_slug: string }>(
+        `/api/social/delvers/tags/${encodeURIComponent(tagSlug)}/follow/`,
+        { method: 'POST' },
+      ),
+    onSuccess: (result) => {
+      const tag = result.tag_slug
+      qc.setQueryData<{ rings: HashtagRingApi[] }>(hashtagRingsQk, (old) => {
+        if (!old) return old
+        const rings = old.rings.map((ring) =>
+          ring.tag_slug === tag
+            ? {
+                ...ring,
+                followed_by_me: result.following,
+                followers_count: result.followers_count,
+              }
+            : ring,
+        )
+        rings.sort((a, b) => Number(Boolean(b.followed_by_me)) - Number(Boolean(a.followed_by_me)))
+        return { ...old, rings }
+      })
+      setStoryTarget((target) => {
+        if (!target || target.kind !== 'tag' || target.tagSlug !== tag) return target
+        return {
+          ...target,
+          followedByMe: result.following,
+          followersCount: result.followers_count,
+        }
+      })
+      void qc.invalidateQueries({ queryKey: hashtagRingsQk })
     },
   })
 
@@ -589,6 +635,10 @@ export function DelversSocial() {
           onSave={(p) => profile && saveMut.mutate(p)}
           onFire={(p) => profile && fireMut.mutate(p)}
           onShare={(id) => void onShare(id)}
+          onCommented={refreshFeed}
+          likeBusyId={likeMut.isPending ? likeMut.variables?.id : undefined}
+          saveBusyId={saveMut.isPending ? saveMut.variables?.id : undefined}
+          fireBusyId={fireMut.isPending ? fireMut.variables?.id : undefined}
         />
       ) : (
       <main className="ds-main ds-main--centered">
@@ -745,6 +795,8 @@ export function DelversSocial() {
           onLike={(post) => likeMut.mutate(post)}
           onFire={(post) => fireMut.mutate(post)}
           onCommented={bumpHighlightCommentCount}
+          onToggleTagFollow={(tagSlug) => tagFollowMut.mutate(tagSlug)}
+          tagFollowBusy={tagFollowMut.isPending}
         />
       ) : null}
     </div>
@@ -759,6 +811,10 @@ function DelversReels({
   onSave,
   onFire,
   onShare,
+  onCommented,
+  likeBusyId,
+  saveBusyId,
+  fireBusyId,
 }: {
   posts: DelversFeedPost[]
   signedIn: boolean
@@ -767,6 +823,10 @@ function DelversReels({
   onSave: (post: DelversFeedPost) => void
   onFire: (post: DelversFeedPost) => void
   onShare: (id: number) => void
+  onCommented: () => void
+  likeBusyId?: number
+  saveBusyId?: number
+  fireBusyId?: number
 }) {
   const [muted, setMuted] = useState(true)
 
@@ -807,6 +867,10 @@ function DelversReels({
           onSave={() => onSave(post)}
           onFire={() => onFire(post)}
           onShare={() => onShare(post.id)}
+          onCommented={onCommented}
+          likeBusy={likeBusyId === post.id}
+          saveBusy={saveBusyId === post.id}
+          fireBusy={fireBusyId === post.id}
         />
       ))}
     </section>
@@ -822,6 +886,10 @@ function DelversReelSlide({
   onSave,
   onFire,
   onShare,
+  onCommented,
+  likeBusy = false,
+  saveBusy = false,
+  fireBusy = false,
 }: {
   post: DelversFeedPost
   signedIn: boolean
@@ -831,9 +899,14 @@ function DelversReelSlide({
   onSave: () => void
   onFire: () => void
   onShare: () => void
+  onCommented: () => void
+  likeBusy?: boolean
+  saveBusy?: boolean
+  fireBusy?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [paused, setPaused] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
   const videoSrc = mediaUrl(post.video)
   const poster = post.image ? mediaUrl(post.image) : undefined
 
@@ -909,7 +982,8 @@ function DelversReelSlide({
         <button
           type="button"
           className={`dsr-rail__btn${post.liked_by_me ? ' dsr-rail__btn--liked' : ''}`}
-          onClick={() => signedIn && onLike()}
+          onClick={() => signedIn && !likeBusy && onLike()}
+          disabled={likeBusy}
           aria-pressed={post.liked_by_me}
           aria-label="Like"
         >
@@ -919,21 +993,29 @@ function DelversReelSlide({
         <button
           type="button"
           className={`dsr-rail__btn${post.fired_by_me ? ' dsr-rail__btn--fired' : ''}`}
-          onClick={() => signedIn && onFire()}
+          onClick={() => signedIn && !fireBusy && onFire()}
+          disabled={fireBusy}
           aria-pressed={post.fired_by_me}
           aria-label="Fire reaction"
         >
           <Flame size={28} strokeWidth={2} fill={post.fired_by_me ? 'currentColor' : 'none'} aria-hidden />
           <span>{formatCount(post.fires_count ?? 0)}</span>
         </button>
-        <Link to={postPermalinkPath(post.id)} className="dsr-rail__btn" aria-label="Comments">
+        <button
+          type="button"
+          className={`dsr-rail__btn${commentsOpen ? ' dsr-rail__btn--active' : ''}`}
+          onClick={() => setCommentsOpen(true)}
+          aria-label="Comments"
+          aria-expanded={commentsOpen}
+        >
           <MessageCircle size={28} strokeWidth={2} aria-hidden />
           <span>{formatCount(post.comments_count ?? 0)}</span>
-        </Link>
+        </button>
         <button
           type="button"
           className={`dsr-rail__btn${post.saved_by_me ? ' dsr-rail__btn--saved' : ''}`}
-          onClick={() => signedIn && onSave()}
+          onClick={() => signedIn && !saveBusy && onSave()}
+          disabled={saveBusy}
           aria-pressed={post.saved_by_me}
           aria-label="Save"
         >
@@ -968,6 +1050,27 @@ function DelversReelSlide({
         ) : null}
         {post.body ? <p className="dsr-meta__caption">{post.body}</p> : null}
       </div>
+
+      {commentsOpen ? (
+        <div className="dsr-comments">
+          <button
+            type="button"
+            className="dsr-comments__backdrop"
+            aria-label="Close comments"
+            onClick={() => setCommentsOpen(false)}
+          />
+          <div className="dsr-comments__sheet">
+            <DelversCommentsPanel
+              postId={post.id}
+              open={commentsOpen}
+              count={post.comments_count ?? 0}
+              onClose={() => setCommentsOpen(false)}
+              onCommented={onCommented}
+              signedIn={signedIn}
+            />
+          </div>
+        </div>
+      ) : null}
     </article>
   )
 }
@@ -1140,7 +1243,20 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           <UserAvatar src={post.author.avatar} name={name} className="ds-post__author-avatar" fill />
           <strong>{name}<small>@{post.author.username}</small></strong>
         </Link>
-        {post.region ? <span className="ds-post__region"><MapPin size={13} strokeWidth={2.25} aria-hidden />{post.region}</span> : null}
+        <div className="ds-post__head-meta">
+          {post.region ? <span className="ds-post__region"><MapPin size={13} strokeWidth={2.25} aria-hidden />{post.region}</span> : null}
+          <ReportButton
+            className="ds-post__report"
+            iconOnly
+            iconSize={18}
+            triggerLabel="Report post"
+            target={{
+              target_type: 'post',
+              target_id: String(post.id),
+              target_label: post.body?.slice(0, 60) || `Post by @${post.author.username}`,
+            }}
+          />
+        </div>
       </header>
 
       <div
@@ -1215,17 +1331,6 @@ function SocialPost({ post, signedIn, likeBusy, saveBusy, onLike, onSave, onShar
           <button type="button" onClick={onShare} aria-label="Share post">
             <Share2 size={22} strokeWidth={2.25} aria-hidden />
           </button>
-          <ReportButton
-            className="ds-post__report"
-            iconOnly
-            iconSize={22}
-            triggerLabel="Report post"
-            target={{
-              target_type: 'post',
-              target_id: String(post.id),
-              target_label: post.body?.slice(0, 60) || `Post by @${post.author.username}`,
-            }}
-          />
         </div>
         <div className="ds-post__actions-secondary">
           {signedIn ? (

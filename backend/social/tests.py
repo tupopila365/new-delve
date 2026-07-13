@@ -400,7 +400,7 @@ class PostCreateAndFeedRoutingTests(TestCase):
         self.assertIn("Story highlight", highlight_bodies)
         self.assertNotIn("Story highlight", profile_bodies)
 
-    def test_delvers_highlight_persists_beyond_24_hours(self):
+    def test_delvers_highlight_posts_expire_individually_after_24_hours(self):
         from datetime import timedelta
 
         from django.utils import timezone
@@ -429,7 +429,7 @@ class PostCreateAndFeedRoutingTests(TestCase):
         self.assertEqual(highlights.status_code, 200)
         bodies = [p["body"] for p in highlights.data if isinstance(p, dict) and "body" in p]
         self.assertIn("Fresh highlight", bodies)
-        self.assertIn("Older highlight", bodies)
+        self.assertNotIn("Older highlight", bodies)
         self.assertEqual(fresh.is_delvers_highlight, True)
 
     def test_created_post_appears_on_author_profile(self):

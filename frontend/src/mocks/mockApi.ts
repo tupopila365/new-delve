@@ -38,6 +38,7 @@ type MockState = {
   nextCommentId: number
   commentHelpful: Record<string, number[]>
   follows: Record<string, string[]>
+  tagFollows: Record<string, string[]>
   journeys: MockJourney[]
   nextJourneyId: number
   journeyLikes: Record<string, number[]>
@@ -1547,6 +1548,7 @@ function loadState(): MockState {
       stored.nextCommentId = stored.nextCommentId ?? 1
       stored.commentHelpful = stored.commentHelpful ?? {}
       stored.follows = stored.follows ?? {}
+      stored.tagFollows = stored.tagFollows ?? {}
       return ensureJourneyState(stored)
     } catch {
       // fallthrough
@@ -1563,6 +1565,7 @@ function loadState(): MockState {
     nextCommentId: 1,
     commentHelpful: {},
     follows: {},
+    tagFollows: {},
     journeys: mockTrips.map((t, i) => mockTripToJourney(t, i)),
     nextJourneyId: 2000,
     journeyLikes: {},
@@ -2555,6 +2558,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     const viewer = s.currentUser
     const following = viewer ? new Set((s.follows[viewer] || []).map((u) => u.toLowerCase())) : new Set<string>()
+    const followedTags = viewer ? new Set((s.tagFollows[viewer] || []).map((tag) => tag.toLowerCase())) : new Set<string>()
 
     const normalizeTag = (raw: string): string => {
       const slug = (raw || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 64)
@@ -2609,11 +2613,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       })
       const limited = ordered.slice(0, 10)
       const ringHasFollowed = limited.some((p) => following.has(p.author.username.toLowerCase()))
+      const ringTagFollowed = followedTags.has(slug)
       const ringScore = Math.max(...limited.map(score), 0)
-      return { slug, limited, ringHasFollowed, ringScore }
+      return { slug, limited, ringHasFollowed, ringTagFollowed, ringScore }
     })
 
     rings.sort((a, b) => {
+      if (a.ringTagFollowed !== b.ringTagFollowed) return a.ringTagFollowed ? -1 : 1
       if (a.ringHasFollowed !== b.ringHasFollowed) return a.ringHasFollowed ? -1 : 1
       return b.ringScore - a.ringScore
     })
@@ -2624,9 +2630,35 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         ring_id: `tag:${r.slug}`,
         tag_slug: r.slug,
         label: r.slug,
+        followed_by_me: r.ringTagFollowed,
+        followers_count: Object.values(s.tagFollows).filter((tags) => tags.includes(r.slug)).length,
         posts: withMeFlags(s, r.limited),
       })),
     }
+  }
+
+  const tagFollowMatch = pathname.match(/^\/api\/social\/delvers\/tags\/([^/]+)\/follow\/$/)
+  if (tagFollowMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser!
+    const raw = decodeURIComponent(tagFollowMatch[1])
+    const tagSlug = raw.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 64)
+    if (!tagSlug) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid hashtag.' })
+    }
+    const tags = s.tagFollows[me] ?? []
+    const idx = tags.indexOf(tagSlug)
+    let followingTag = false
+    if (idx >= 0) {
+      tags.splice(idx, 1)
+    } else {
+      tags.push(tagSlug)
+      followingTag = true
+    }
+    s.tagFollows[me] = tags
+    saveState(s)
+    const followersCount = Object.values(s.tagFollows).filter((rows) => rows.includes(tagSlug)).length
+    return { following: followingTag, followers_count: followersCount, tag_slug: tagSlug }
   }
 
   const userPostsMatch = pathname.match(/^\/api\/social\/users\/([^/]+)\/posts\/$/)

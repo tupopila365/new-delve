@@ -147,6 +147,32 @@
   font-weight: 800;
 }
 
+.ds-story-viewer__follow {
+  flex: 0 0 auto;
+  padding: 8px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+.ds-story-viewer__follow--on {
+  background: #fff;
+  color: #14100f;
+  border-color: #fff;
+}
+
+.ds-story-viewer__follow:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
+
 .ds-story-viewer__close {
   width: 38px;
   height: 38px;

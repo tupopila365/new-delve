@@ -19,6 +19,8 @@ type Props = {
   defaultAspect?: CropAspect
   /** When true, hide video mode (e.g. listing cover slot). */
   imagesOnly?: boolean
+  /** A file already chosen by the parent (e.g. gallery picker) to edit here. */
+  initialFile?: File | null
 }
 
 const defaultCrop = (aspect: CropAspect): CropSettings => ({
@@ -35,10 +37,13 @@ export function MediaCoverEditor({
   onFileReady,
   defaultAspect = '16:9',
   imagesOnly = false,
+  initialFile = null,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null)
-  const [mediaKind, setMediaKind] = useState<MediaKind>('image')
-  const [file, setFile] = useState<File | null>(null)
+  const [mediaKind, setMediaKind] = useState<MediaKind>(
+    initialFile?.type.startsWith('video/') ? 'video' : 'image',
+  )
+  const [file, setFile] = useState<File | null>(initialFile)
   const [preview, setPreview] = useState<string | null>(null)
   const [filter, setFilter] = useState<MediaFilter>('original')
   const [crop, setCrop] = useState(defaultCrop(defaultAspect))

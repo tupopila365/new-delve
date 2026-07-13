@@ -5,7 +5,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import Profile
-from social.models import Follow, Post
+from social.models import Follow, Post, TagFollow
+from tags.models import Tag
 
 from django.contrib.auth import get_user_model
 
@@ -113,4 +114,45 @@ class DelversHashtagRingsTests(TestCase):
         bodies = [p.get("body") for p in ring.get("posts", []) if isinstance(p, dict)]
         self.assertIn("Fresh #Dalmatians", bodies)
         self.assertNotIn("Expired #Dalmatians", bodies)
+
+    def test_followed_hashtag_rings_are_prioritized_and_marked(self):
+        safari = Tag.objects.create(slug="safari")
+        TagFollow.objects.create(user=self.viewer, tag=safari)
+        Post.objects.create(
+            author=self.public_author,
+            body="Quiet #beach",
+            region="Erongo",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/beach.jpg",
+        )
+        Post.objects.create(
+            author=self.public_author,
+            body="Fresh #safari",
+            region="Kunene",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/safari.jpg",
+        )
+
+        res = self.client.get("/api/social/delvers/hashtag-rings/")
+        self.assertEqual(res.status_code, 200)
+
+        rings = res.data.get("rings", [])
+        self.assertGreaterEqual(len(rings), 2)
+        self.assertEqual(rings[0].get("tag_slug"), "safari")
+        self.assertTrue(rings[0].get("followed_by_me"))
+        self.assertEqual(rings[0].get("followers_count"), 1)
+
+    def test_follow_hashtag_toggle(self):
+        res = self.client.post("/api/social/delvers/tags/Safari/follow/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["tag_slug"], "safari")
+        self.assertTrue(res.data["following"])
+        self.assertEqual(res.data["followers_count"], 1)
+
+        res = self.client.post("/api/social/delvers/tags/safari/follow/")
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.data["following"])
+        self.assertEqual(res.data["followers_count"], 0)
 

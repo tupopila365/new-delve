@@ -130,6 +130,8 @@ export type HashtagHighlightRing = {
   ringKey: string
   label: string
   tagSlug: string
+  followedByMe: boolean
+  followersCount: number
   posts: DelversFeedPost[]
 }
 
@@ -142,6 +144,8 @@ export function mapHashtagRing(ring: {
   ring_id: string
   tag_slug: string
   label?: string
+  followed_by_me?: boolean
+  followers_count?: number
   posts: DelversFeedPost[]
 }): HashtagHighlightRing {
   return {
@@ -149,6 +153,8 @@ export function mapHashtagRing(ring: {
     ringKey: `tag:${ring.tag_slug.trim().toLowerCase()}`,
     label: `#${ring.tag_slug}`,
     tagSlug: ring.tag_slug,
+    followedByMe: Boolean(ring.followed_by_me),
+    followersCount: Number(ring.followers_count ?? 0),
     posts: ring.posts,
   }
 }
@@ -179,6 +185,8 @@ export function storyTargetFromRing(entry: DelversStoryRing): {
   username?: string
   boardKey?: string
   tagSlug?: string
+  followedByMe?: boolean
+  followersCount?: number
   posts: DelversFeedPost[]
 } {
   if (entry.kind === 'board') {
@@ -201,6 +209,8 @@ export function storyTargetFromRing(entry: DelversStoryRing): {
       subtitle: `${ring.posts.length} ${ring.posts.length === 1 ? 'highlight' : 'highlights'} for ${ring.label}`,
       avatar: null,
       tagSlug: ring.tagSlug,
+      followedByMe: ring.followedByMe,
+      followersCount: ring.followersCount,
       posts: ring.posts,
     }
   }

@@ -227,3 +227,24 @@ class Follow(models.Model):
 
     class Meta:
         unique_together = [["follower", "following"]]
+
+
+class TagFollow(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tag_follows",
+    )
+    tag = models.ForeignKey(
+        "tags.Tag",
+        on_delete=models.CASCADE,
+        related_name="followers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["user", "tag"]]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["tag", "created_at"]),
+        ]
