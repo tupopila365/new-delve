@@ -10,3 +10,4 @@ whitenoise>=6.6
 dj-database-url>=2.1
 cloudinary>=1.40
 django-cloudinary-storage>=0.3
+imageio-ffmpeg>=0.5

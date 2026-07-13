@@ -38,3 +38,82 @@ class HighlightMediaUploadTests(APITestCase):
         self.assertEqual(res.status_code, 201)
         self.assertEqual(res.data["kind"], "video")
         self.assertTrue(res.data["url"])
+
+    def test_upload_video_accepts_trim_offsets(self):
+        video = SimpleUploadedFile("clip.mp4", b"\x00\x00\x00\x18ftypmp42", content_type="video/mp4")
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(
+            "/api/highlights/upload/",
+            {"file": video, "trim_start": "1.0", "trim_end": "5.0"},
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["kind"], "video")
+        self.assertTrue(res.data["url"])
+
+    def test_rejects_trim_on_image(self):
+        image = SimpleUploadedFile("slide.jpg", MINIMAL_JPEG, content_type="image/jpeg")
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(
+            "/api/highlights/upload/",
+            {"file": image, "trim_start": "0", "trim_end": "2"},
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("file", res.data)
+
+    def test_rejects_color_grade_on_image(self):
+        image = SimpleUploadedFile("slide.jpg", MINIMAL_JPEG, content_type="image/jpeg")
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(
+            "/api/highlights/upload/",
+            {"file": image, "grade_saturation": "1.5"},
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_video_with_grade_uploads(self):
+        # Fake mp4 can't actually be re-encoded; bake fails gracefully and the
+        # original upload is returned, so the request still succeeds.
+        video = SimpleUploadedFile("clip.mp4", b"\x00\x00\x00\x18ftypmp42", content_type="video/mp4")
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post(
+            "/api/highlights/upload/",
+            {"file": video, "grade_saturation": "1.4", "grade_brightness": "1.1"},
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["kind"], "video")
+        self.assertTrue(res.data["url"])
+
+
+class VideoEffectsHelperTests(APITestCase):
+    def test_neutral_grade_is_none(self):
+        from social.video_effects import parse_color_grade
+
+        data = {"grade_brightness": "1.0", "grade_contrast": "1.0", "grade_saturation": "1.0"}
+        self.assertIsNone(parse_color_grade(data))
+
+    def test_meaningful_grade_parsed(self):
+        from social.video_effects import parse_color_grade
+
+        grade = parse_color_grade({"grade_saturation": "1.5"})
+        self.assertIsNotNone(grade)
+        self.assertAlmostEqual(grade["saturation"], 1.5)
+
+    def test_filtergraph_includes_eq_and_sepia(self):
+        from social.video_effects import build_grade_filtergraph
+
+        graph = build_grade_filtergraph(
+            {"brightness": 1.1, "contrast": 1.2, "saturation": 1.3, "sepia": 0.4, "sharpen": 0.5}
+        )
+        self.assertIn("eq=", graph)
+        self.assertIn("colorchannelmixer=", graph)
+        self.assertIn("unsharp=", graph)
+
+    def test_prefixed_grade_for_carousel_slides(self):
+        from social.video_effects import parse_color_grade
+
+        grade = parse_color_grade({"slide2_grade_contrast": "1.4"}, prefix="slide2_")
+        self.assertIsNotNone(grade)
+        self.assertAlmostEqual(grade["contrast"], 1.4)

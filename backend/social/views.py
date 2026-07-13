@@ -11,13 +11,94 @@ from rest_framework.views import APIView
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
 from config.throttles import FollowThrottle, PostCreateThrottle
 from tags.models import Tag, TagScope
-from tags.services import MAX_TAGS_PER_CONTENT, extract_hashtags_from_text, filter_posts_by_tag, normalize_tag
+from tags.services import (
+    MAX_TAGS_PER_DELVERS_POST,
+    extract_hashtags_from_text,
+    filter_posts_by_tag,
+    normalize_tag,
+)
 
-from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save, TagFollow
+from .models import (
+    Comment,
+    CommentDislike,
+    CommentHelpful,
+    Fire,
+    Follow,
+    Like,
+    MAX_POST_MEDIA,
+    Post,
+    PostKind,
+    PostMedia,
+    Save,
+    TagFollow,
+)
 from .delvers_highlights import delvers_highlight_cutoff
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
+from .video_validation import validate_post_video_file
+from .video_trim import parse_trim_range, trim_saved_video, using_cloudinary
+from .video_effects import bake_video_field, parse_color_grade
 
 User = get_user_model()
+
+
+def _read_overlay_bytes(files, prefix=""):
+    """Return the uploaded overlay PNG bytes for a slide, if any."""
+    if files is None:
+        return None
+    overlay = files.get(f"{prefix}overlay")
+    if overlay is None:
+        return None
+    try:
+        overlay.seek(0)
+    except (OSError, AttributeError):
+        pass
+    return overlay.read()
+
+
+def _apply_video_edits(owner, *, trim, grade, overlay_bytes):
+    """Persist video edits on a Post/PostMedia video field.
+
+    * When a colour grade or overlay is present we bake everything (grade,
+      overlay, and any trim) into the file with one ffmpeg pass — this replaces
+      the stored clip and works on local and Cloudinary storage.
+    * Trim-only keeps the fast path: Cloudinary trims on delivery via stored
+      offsets; local storage is physically cut with ffmpeg.
+
+    Returns the list of changed field names so the caller can persist them.
+    """
+    if not getattr(owner, "video", None):
+        return []
+
+    if grade is not None or overlay_bytes:
+        if bake_video_field(owner.video, trim=trim, grade=grade, overlay_bytes=overlay_bytes):
+            # Baked physically, so any Cloudinary trim offsets must be cleared.
+            owner.video_trim_start = None
+            owner.video_trim_end = None
+            return ["video", "video_trim_start", "video_trim_end"]
+        # Baking failed — fall through to trim-only handling below.
+
+    return _apply_video_trim(owner, trim)
+
+
+def _apply_video_trim(owner, trim):
+    """Trim a Post/PostMedia video: Cloudinary trims on delivery (store the
+    offsets), local storage is physically cut with ffmpeg. Returns the list of
+    changed field names so the caller can persist them."""
+    if trim is None or not getattr(owner, "video", None):
+        return []
+    start, end = trim
+    if using_cloudinary():
+        owner.video_trim_start = start
+        owner.video_trim_end = end
+        return ["video_trim_start", "video_trim_end"]
+
+    if trim_saved_video(owner.video, start, end):
+        return ["video"]
+
+    # ffmpeg unavailable — keep offsets as a record (harmless locally).
+    owner.video_trim_start = start
+    owner.video_trim_end = end
+    return ["video_trim_start", "video_trim_end"]
 
 
 def _annotate_post_counts(qs):
@@ -104,7 +185,11 @@ def _comment_list_response(request, qs):
 
 
 def _base_post_queryset():
-    return Post.objects.filter(is_hidden=False).select_related("author", "author__profile")
+    return (
+        Post.objects.filter(is_hidden=False)
+        .select_related("author", "author__profile")
+        .prefetch_related("media")
+    )
 
 
 class FeedView(APIView):
@@ -174,13 +259,18 @@ class DelversFeedView(APIView):
         if not region and request.user.is_authenticated:
             region = (request.user.profile.region or "").strip()
 
+        viewer = request.user if request.user.is_authenticated else None
+        following_ids = set(
+            Follow.objects.filter(follower=viewer).values_list("following_id", flat=True)
+        ) if viewer else set()
+
         qs = filter_posts_for_viewer(
             _base_post_queryset()
             .filter(is_delvers=True)
             .exclude(post_kind=PostKind.QUESTION)
             .exclude(is_accommodation_story=True)
             .exclude(is_delvers_highlight=True),
-            request.user if request.user.is_authenticated else None,
+            viewer,
         )
         qs = _annotate_post_counts(qs).annotate(
             region_boost=Case(
@@ -197,6 +287,9 @@ class DelversFeedView(APIView):
             )
         ).order_by("-feed_score", "-created_at")[:80]
         ser = PostSerializer(qs, many=True, context={"request": request})
+        for row in ser.data:
+            author = row.get("author") or {}
+            row["is_author_followed"] = author.get("id") in following_ids if following_ids else False
         from promotions.feed_services import inject_feed_promotions
         from promotions.models import PromotionPlacement
 
@@ -228,12 +321,23 @@ class DelversHighlightsView(APIView):
         qs = filter_posts_for_viewer(
             _base_post_queryset()
             .filter(is_delvers_highlight=True)
-            .filter(created_at__gte=delvers_highlight_cutoff())
             .exclude(post_kind=PostKind.QUESTION),
             viewer,
         )
+
+        # Two audiences share this ring shelf:
+        #   * People you follow — their highlight boards PERSIST and always
+        #     surface, regardless of region or age (Instagram-style). Following
+        #     someone is a deliberate signal that you want to see their stories.
+        #   * Everyone else — ephemeral, region-scoped discovery: only fresh
+        #     (< 24h) highlights from your own region leak in.
+        ephemeral_q = Q(created_at__gte=delvers_highlight_cutoff())
         if region:
-            qs = qs.filter(Q(region__iexact=region) | Q(region__icontains=region))
+            ephemeral_q &= Q(region__iexact=region) | Q(region__icontains=region)
+        if following_ids:
+            qs = qs.filter(ephemeral_q | Q(author_id__in=following_ids))
+        else:
+            qs = qs.filter(ephemeral_q)
         qs = _annotate_post_counts(qs).order_by("-created_at")[:120]
         ser = PostSerializer(qs, many=True, context={"request": request})
         if following_ids:
@@ -276,7 +380,7 @@ class DelversHashtagRingsView(APIView):
         ring_posts: dict[str, list[Post]] = {}
         for post in qs:
             body = getattr(post, "body", "") or ""
-            tags = extract_hashtags_from_text(body)[:MAX_TAGS_PER_CONTENT]
+            tags = extract_hashtags_from_text(body)[:MAX_TAGS_PER_DELVERS_POST]
             for slug in tags:
                 ring_posts.setdefault(slug, []).append(post)
 
@@ -458,7 +562,7 @@ class AccommodationStoriesFeedView(APIView):
 
 
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.select_related("author", "author__profile", "listing").annotate(
+    queryset = Post.objects.select_related("author", "author__profile", "listing").prefetch_related("media").annotate(
         likes_count=Count("likes", distinct=True),
         saves_count=Count("saves", distinct=True),
         fires_count=Count("fires", distinct=True),
@@ -506,6 +610,65 @@ class PostViewSet(viewsets.ModelViewSet):
         if serializer.instance.author_id != self.request.user.id:
             raise PermissionDenied()
         super().perform_update(serializer)
+
+    def perform_create(self, serializer):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from rest_framework.exceptions import ValidationError
+
+        post = serializer.save(author=self.request.user)
+
+        data = getattr(self.request, "data", None)
+        files = getattr(self.request, "FILES", None)
+
+        # Edit slide 0 (Post.video) before it is mirrored into a PostMedia row.
+        changed = _apply_video_edits(
+            post,
+            trim=parse_trim_range(data),
+            grade=parse_color_grade(data),
+            overlay_bytes=_read_overlay_bytes(files),
+        )
+        if changed:
+            post.save(update_fields=changed)
+
+        # Collect extra carousel slides (slide 0 lives on Post.image/Post.video).
+        extra_slides: list[tuple[int, object, object]] = []
+        if files is not None:
+            for order in range(1, MAX_POST_MEDIA):
+                image = files.get(f"slide{order}_image")
+                video = files.get(f"slide{order}_video")
+                if not image and not video:
+                    continue
+                if video is not None:
+                    try:
+                        validate_post_video_file(video)
+                    except DjangoValidationError as exc:
+                        post.delete()
+                        raise ValidationError({"media": exc.messages}) from exc
+                extra_slides.append((order, image, video))
+
+        # Only materialise PostMedia rows when the post is actually a carousel.
+        if extra_slides:
+            PostMedia.objects.create(
+                post=post,
+                order=0,
+                image=post.image or None,
+                video=post.video or None,
+                video_trim_start=post.video_trim_start,
+                video_trim_end=post.video_trim_end,
+            )
+            for order, image, video in extra_slides:
+                slide = PostMedia.objects.create(
+                    post=post, order=order, image=image or None, video=video or None
+                )
+                slide_prefix = f"slide{order}_"
+                slide_changed = _apply_video_edits(
+                    slide,
+                    trim=parse_trim_range(data, prefix=slide_prefix),
+                    grade=parse_color_grade(data, prefix=slide_prefix),
+                    overlay_bytes=_read_overlay_bytes(files, prefix=slide_prefix),
+                )
+                if slide_changed:
+                    slide.save(update_fields=slide_changed)
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):

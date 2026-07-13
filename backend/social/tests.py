@@ -400,6 +400,91 @@ class PostCreateAndFeedRoutingTests(TestCase):
         self.assertIn("Story highlight", highlight_bodies)
         self.assertNotIn("Story highlight", profile_bodies)
 
+    def test_followed_creator_highlight_shows_across_regions(self):
+        # Viewer is in "Khomas"; a followed friend posts a highlight from a
+        # different region. It must still appear in the viewer's rings.
+        viewer = User.objects.create_user(
+            username="viewer", email="viewer@test.local", password="pass12345"
+        )
+        viewer.profile.region = "Khomas"
+        viewer.profile.save(update_fields=["region"])
+        Follow.objects.create(follower=viewer, following=self.author)
+
+        Post.objects.create(
+            author=self.author,
+            body="Friend highlight abroad",
+            region="Erongo",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/friend.jpg",
+        )
+
+        self.client.force_authenticate(user=viewer)
+        res = self.client.get("/api/social/delvers/highlights/")
+        self.assertEqual(res.status_code, 200)
+        bodies = [p["body"] for p in res.data if isinstance(p, dict) and "body" in p]
+        self.assertIn("Friend highlight abroad", bodies)
+        followed = next(
+            p for p in res.data if isinstance(p, dict) and p.get("body") == "Friend highlight abroad"
+        )
+        self.assertTrue(followed["is_author_followed"])
+
+    def test_unfollowed_creator_highlight_still_region_scoped(self):
+        # A stranger's highlight from another region should NOT leak in via the
+        # follow bypass.
+        viewer = User.objects.create_user(
+            username="viewer2", email="viewer2@test.local", password="pass12345"
+        )
+        viewer.profile.region = "Khomas"
+        viewer.profile.save(update_fields=["region"])
+
+        Post.objects.create(
+            author=self.author,
+            body="Stranger highlight abroad",
+            region="Erongo",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/stranger.jpg",
+        )
+
+        self.client.force_authenticate(user=viewer)
+        res = self.client.get("/api/social/delvers/highlights/")
+        self.assertEqual(res.status_code, 200)
+        bodies = [p["body"] for p in res.data if isinstance(p, dict) and "body" in p]
+        self.assertNotIn("Stranger highlight abroad", bodies)
+
+    def test_followed_creator_highlight_persists_past_24_hours(self):
+        # A highlight from someone you follow must keep showing in your rings
+        # even after the 24h window that expires anonymous discovery rings.
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        viewer = User.objects.create_user(
+            username="viewer3", email="viewer3@test.local", password="pass12345"
+        )
+        viewer.profile.region = "Khomas"
+        viewer.profile.save(update_fields=["region"])
+        Follow.objects.create(follower=viewer, following=self.author)
+
+        old = Post.objects.create(
+            author=self.author,
+            body="Old friend highlight",
+            region="Khomas",
+            is_delvers=True,
+            is_delvers_highlight=True,
+            image="posts/oldfriend.jpg",
+        )
+        Post.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(hours=48)
+        )
+
+        self.client.force_authenticate(user=viewer)
+        res = self.client.get("/api/social/delvers/highlights/")
+        self.assertEqual(res.status_code, 200)
+        bodies = [p["body"] for p in res.data if isinstance(p, dict) and "body" in p]
+        self.assertIn("Old friend highlight", bodies)
+
     def test_delvers_highlight_posts_expire_individually_after_24_hours(self):
         from datetime import timedelta
 

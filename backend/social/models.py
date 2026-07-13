@@ -30,6 +30,16 @@ class Post(models.Model):
         null=True,
         help_text="Short video (e.g. mp4, webm). Use image or video, not both.",
     )
+    video_trim_start = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Trim start (seconds). Applied on delivery for Cloudinary sources.",
+    )
+    video_trim_end = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Trim end (seconds). Applied on delivery for Cloudinary sources.",
+    )
     delvers_board = models.CharField(
         max_length=120,
         blank=True,
@@ -111,6 +121,46 @@ class Post(models.Model):
 
     def __str__(self):
         return f"Post {self.pk} by {self.author.username}"
+
+
+# Beta cap: an Instagram-style carousel post can hold up to this many slides.
+MAX_POST_MEDIA = 5
+
+
+class PostMedia(models.Model):
+    """One slide of a carousel post. Slide 0 mirrors Post.image/Post.video for
+    backwards-compatibility with single-media consumers."""
+
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="media",
+    )
+    image = models.ImageField(
+        upload_to="posts/",
+        storage=image_field_storage,
+        blank=True,
+        null=True,
+    )
+    video = models.FileField(
+        upload_to="posts/videos/",
+        storage=video_field_storage,
+        blank=True,
+        null=True,
+    )
+    video_trim_start = models.FloatField(null=True, blank=True)
+    video_trim_end = models.FloatField(null=True, blank=True)
+    order = models.PositiveIntegerField(default=0, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["post", "order"], name="social_postmedia_unique_order"),
+        ]
+
+    def __str__(self):
+        return f"PostMedia {self.pk} (post {self.post_id}, order {self.order})"
 
 
 class Comment(models.Model):
@@ -245,6 +295,6 @@ class TagFollow(models.Model):
     class Meta:
         unique_together = [["user", "tag"]]
         indexes = [
-            models.Index(fields=["user", "created_at"]),
-            models.Index(fields=["tag", "created_at"]),
+            models.Index(fields=["user", "created_at"], name="social_tagf_user_id_0a7f47_idx"),
+            models.Index(fields=["tag", "created_at"], name="social_tagf_tag_id_0fbd1a_idx"),
         ]

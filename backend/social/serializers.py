@@ -8,7 +8,7 @@ from food.models import FoodVenue
 from transport.models import BusTrip, VehicleRentalListing
 
 from config.cloudinary_media import cloudinary_video_delivery_url
-from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, Save
+from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, PostMedia, Save
 from tags.services import extract_hashtags_from_text, linkable_slugs_for_post, MAX_TAGS_PER_CONTENT
 from .video_validation import validate_post_upload_keys, validate_post_video_file
 
@@ -79,6 +79,7 @@ class PostSerializer(serializers.ModelSerializer):
     fired_by_me = serializers.SerializerMethodField()
     accepted_answer = serializers.SerializerMethodField()
     tag_slugs = serializers.SerializerMethodField()
+    media = serializers.SerializerMethodField()
     listing = serializers.PrimaryKeyRelatedField(
         queryset=AccommodationListing.objects.none(),
         required=False,
@@ -114,6 +115,7 @@ class PostSerializer(serializers.ModelSerializer):
             "region",
             "image",
             "video",
+            "media",
             "delvers_board",
             "is_delvers",
             "is_accommodation_story",
@@ -318,7 +320,9 @@ class PostSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if ret.get("video"):
-            ret["video"] = cloudinary_video_delivery_url(ret["video"])
+            ret["video"] = cloudinary_video_delivery_url(
+                ret["video"], instance.video_trim_start, instance.video_trim_end
+            )
         ret.pop("listing", None)
         ret.pop("event", None)
         ret.pop("vehicle_listing", None)
@@ -393,6 +397,53 @@ class PostSerializer(serializers.ModelSerializer):
         if hasattr(obj, "_prefetched_tag_slugs"):
             return obj._prefetched_tag_slugs
         return linkable_slugs_for_post(obj)
+
+    def get_media(self, obj):
+        """Ordered carousel slides. Falls back to the single image/video for
+        legacy posts that predate PostMedia."""
+        request = self.context.get("request")
+
+        def build_url(field_value, is_video, trim_start=None, trim_end=None):
+            if not field_value:
+                return None
+            url = field_value.url
+            if is_video:
+                url = cloudinary_video_delivery_url(url, trim_start, trim_end)
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+
+        rows = list(obj.media.all())
+        slides = []
+        if rows:
+            for row in rows:
+                image_url = build_url(row.image, False)
+                video_url = build_url(row.video, True, row.video_trim_start, row.video_trim_end)
+                if not image_url and not video_url:
+                    continue
+                slides.append(
+                    {
+                        "order": row.order,
+                        "kind": "video" if video_url else "image",
+                        "image": image_url,
+                        "video": video_url,
+                    }
+                )
+        if slides:
+            return slides
+
+        image_url = build_url(obj.image, False)
+        video_url = build_url(obj.video, True, obj.video_trim_start, obj.video_trim_end)
+        if not image_url and not video_url:
+            return []
+        return [
+            {
+                "order": 0,
+                "kind": "video" if video_url else "image",
+                "image": image_url,
+                "video": video_url,
+            }
+        ]
 
     def create(self, validated_data):
         validated_data["author"] = self.context["request"].user

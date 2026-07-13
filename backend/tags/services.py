@@ -14,6 +14,12 @@ from .models import Tag, TaggedItem, TagScope
 HASHTAG_RE = re.compile(r"#([\w\u00C0-\u024F]+)", re.UNICODE)
 
 MAX_TAGS_PER_CONTENT = 5
+# Delvers posts/highlights build story rings from hashtags and allow a few more.
+MAX_TAGS_PER_DELVERS_POST = 7
+
+
+def max_tags_for_scope(scope: str | None) -> int:
+    return MAX_TAGS_PER_DELVERS_POST if scope == TagScope.DELVERS else MAX_TAGS_PER_CONTENT
 
 
 def normalize_tag(raw: str) -> str:
@@ -57,7 +63,7 @@ def sync_post_tags(post: Post) -> list[str]:
         _refresh_tag_counts(old_tag_ids)
         return []
 
-    candidate_slugs = extract_hashtags_from_text(post.body)[:MAX_TAGS_PER_CONTENT]
+    candidate_slugs = extract_hashtags_from_text(post.body)[: max_tags_for_scope(scope)]
     active_slugs: list[str] = []
     for slug in candidate_slugs:
         tag, _ = Tag.objects.get_or_create(slug=slug)
