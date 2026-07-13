@@ -492,6 +492,21 @@ class StartOrGetConversationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     throttle_classes = [MessageStartThrottle]
 
+    def get_throttles(self):
+        # This endpoint doubles as "get existing conversation" and is hit every
+        # time the app opens a chat, so we must not auto-throttle on dispatch —
+        # that would break opening existing threads for active users. The rate
+        # limit is enforced manually in post() only when a *new* conversation is
+        # actually created (see _enforce_new_conversation_throttle).
+        return []
+
+    def _enforce_new_conversation_throttle(self, request):
+        """Rate-limit only the creation of brand-new conversations."""
+        for throttle_cls in self.throttle_classes:
+            throttle = throttle_cls()
+            if not throttle.allow_request(request, self):
+                raise Throttled(wait=throttle.wait())
+
     def post(self, request):
         other, err = _resolve_other_user(request.data)
         if err is not None:
@@ -523,6 +538,9 @@ class StartOrGetConversationView(APIView):
             _apply_context(existing, request.data)
             conv = _conversations_for_user(request.user).filter(pk=existing.pk).first() or existing
             return Response(ConversationSerializer(conv, context={"request": request}).data)
+
+        # Only creating a brand-new conversation counts against the rate limit.
+        self._enforce_new_conversation_throttle(request)
 
         try:
             with transaction.atomic():

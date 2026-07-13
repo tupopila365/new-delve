@@ -1,20 +1,21 @@
 import os
 import uuid
 
-from django.core.files.storage import default_storage
 from rest_framework import permissions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.cloudinary_field_storages import image_field_storage, video_field_storage
+from config.cloudinary_media import cloudinary_video_delivery_url
 from social.video_validation import validate_post_video_file
 
 HIGHLIGHT_IMAGE_MAX_BYTES = 12 * 1024 * 1024
 HIGHLIGHT_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".gif"})
 
 
-def _absolute_url(request, path: str) -> str:
-    url = default_storage.url(path)
+def _absolute_url(request, storage, path: str) -> str:
+    url = storage.url(path)
     if url.startswith("http"):
         return url
     return request.build_absolute_uri(url)
@@ -47,11 +48,18 @@ class HighlightMediaUploadView(APIView):
             if ext not in HIGHLIGHT_IMAGE_EXTENSIONS:
                 ext = ".jpg"
 
-        path = default_storage.save(
+        # Videos MUST use the video-scoped Cloudinary storage; the default
+        # (image) storage rejects video files with the wrong resource_type,
+        # which is why video uploads failed in production.
+        storage = video_field_storage if kind == "video" else image_field_storage
+        path = storage.save(
             f"highlights/{kind}s/{uuid.uuid4().hex}{ext}",
             uploaded,
         )
+        url = _absolute_url(request, storage, path)
+        if kind == "video":
+            url = cloudinary_video_delivery_url(url)
         return Response(
-            {"url": _absolute_url(request, path), "kind": kind},
+            {"url": url, "kind": kind},
             status=status.HTTP_201_CREATED,
         )

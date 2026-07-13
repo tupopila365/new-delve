@@ -5,6 +5,7 @@ import { Lock, Loader2, MessageCircle, UserRound } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DmChatView } from '../components/messages/dm'
+import { friendlyApiMessage } from '../utils/friendlyError'
 import type { ConversationContextPayload, MessagingContext } from '../components/messages/messageProviderUtils'
 import {
   messageInboxPath,
@@ -196,7 +197,7 @@ export function MessageUser({ context = 'user' }: Props) {
         <section className="dm-card">
           <MessageCircle size={26} strokeWidth={2} aria-hidden />
           <h1>Could not open chat</h1>
-          <p>Try again from the booking, or open your inbox.</p>
+          <p>{friendlyApiMessage(startMut.error, 'Try again, or open your inbox.')}</p>
           <button
             type="button"
             className="btn btn-primary"

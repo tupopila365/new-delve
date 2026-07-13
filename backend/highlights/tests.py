@@ -30,3 +30,11 @@ class HighlightMediaUploadTests(APITestCase):
         self.assertEqual(res.status_code, 201)
         self.assertEqual(res.data["kind"], "image")
         self.assertTrue(res.data["url"])
+
+    def test_upload_video_returns_url(self):
+        video = SimpleUploadedFile("clip.mp4", b"\x00\x00\x00\x18ftypmp42", content_type="video/mp4")
+        self.client.force_authenticate(user=self.user)
+        res = self.client.post("/api/highlights/upload/", {"file": video}, format="multipart")
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["kind"], "video")
+        self.assertTrue(res.data["url"])
