@@ -9,7 +9,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.profile_access import can_view_posts, filter_posts_for_viewer
-from config.throttles import FollowThrottle, PostCreateThrottle
+from config.throttles import FollowThrottle, MediaSignThrottle, PostCreateThrottle
+from config.cloudinary_upload import (
+    attach_public_id,
+    normalize_remote_media_ref,
+    remote_media_available,
+    sign_upload,
+)
 from tags.models import Tag, TagScope
 from tags.services import (
     MAX_TAGS_PER_DELVERS_POST,
@@ -36,9 +42,44 @@ from .delvers_highlights import delvers_highlight_cutoff
 from .serializers import CommentSerializer, FollowSerializer, PostSerializer, UserSummarySerializer
 from .video_validation import validate_post_video_file
 from .video_trim import parse_trim_range, trim_saved_video, using_cloudinary
-from .video_effects import bake_video_field, parse_color_grade
+from .video_effects import parse_color_grade
 
 User = get_user_model()
+
+
+def _remote_ref_from_data(data, *, image_keys, video_keys):
+    """Return (image_public_id|None, video_public_id|None) from request data."""
+    if data is None:
+        return None, None
+    image_pid = None
+    video_pid = None
+    for key in image_keys:
+        image_pid = normalize_remote_media_ref(data.get(key), expect_video=False)
+        if image_pid:
+            break
+    for key in video_keys:
+        video_pid = normalize_remote_media_ref(data.get(key), expect_video=True)
+        if video_pid:
+            break
+    return image_pid, video_pid
+
+
+def _apply_remote_slide0(post, data):
+    """Attach slide-0 Cloudinary public_ids when the client uploaded directly."""
+    image_pid, video_pid = _remote_ref_from_data(
+        data,
+        image_keys=("image_public_id", "image_url"),
+        video_keys=("video_public_id", "video_url"),
+    )
+    if image_pid and video_pid:
+        from rest_framework.exceptions import ValidationError
+
+        raise ValidationError("Use either an image or a video, not both.")
+    if image_pid:
+        attach_public_id(post, "image", image_pid)
+    if video_pid:
+        attach_public_id(post, "video", video_pid)
+    return bool(image_pid or video_pid)
 
 
 def _read_overlay_bytes(files, prefix=""):
@@ -55,29 +96,60 @@ def _read_overlay_bytes(files, prefix=""):
     return overlay.read()
 
 
-def _apply_video_edits(owner, *, trim, grade, overlay_bytes):
+def _apply_video_edits(owner, *, trim, grade, overlay_bytes, schedule=True):
     """Persist video edits on a Post/PostMedia video field.
 
-    * When a colour grade or overlay is present we bake everything (grade,
-      overlay, and any trim) into the file with one ffmpeg pass — this replaces
-      the stored clip and works on local and Cloudinary storage.
+    * Colour grade / overlays are deferred: instructions are stored and a
+      background bake is scheduled so Share is not blocked by ffmpeg.
+    * Grade-only on Cloudinary with ``DELVERS_CLOUDINARY_GRADE_DELIVERY`` skips
+      bake entirely and applies approximate effects on delivery.
     * Trim-only keeps the fast path: Cloudinary trims on delivery via stored
       offsets; local storage is physically cut with ffmpeg.
 
-    Returns the list of changed field names so the caller can persist them.
+    Returns ``(changed_field_names, bake_job_or_None)``. When the deferred path
+    already saved the owner, ``changed_field_names`` is empty. ``bake_job`` is
+    ``("post"|"postmedia", pk)`` when a bake was queued (caller may delay
+    ``schedule_bake`` until carousel rows exist by passing ``schedule=False``).
     """
     if not getattr(owner, "video", None):
-        return []
+        return [], None
 
     if grade is not None or overlay_bytes:
-        if bake_video_field(owner.video, trim=trim, grade=grade, overlay_bytes=overlay_bytes):
-            # Baked physically, so any Cloudinary trim offsets must be cleared.
-            owner.video_trim_start = None
-            owner.video_trim_end = None
-            return ["video", "video_trim_start", "video_trim_end"]
-        # Baking failed — fall through to trim-only handling below.
+        from config.cloudinary_media import grade_delivery_enabled
+        from .video_bake_jobs import queue_deferred_bake, schedule_bake
+        from .models import ProcessingStatus
 
-    return _apply_video_trim(owner, trim)
+        # Phase 3 fast path: grade-only + Cloudinary delivery transforms.
+        if (
+            grade is not None
+            and not overlay_bytes
+            and using_cloudinary()
+            and grade_delivery_enabled()
+        ):
+            changed: list[str] = ["edit_grade", "processing_status", "processing_error"]
+            owner.edit_grade = grade
+            owner.processing_status = ProcessingStatus.READY
+            owner.processing_error = ""
+            if trim is not None:
+                start, end = trim
+                owner.video_trim_start = start
+                owner.video_trim_end = end
+                changed.extend(["video_trim_start", "video_trim_end"])
+            owner.save(update_fields=list(dict.fromkeys(changed)))
+            return [], None
+
+        changed = queue_deferred_bake(
+            owner, trim=trim, grade=grade, overlay_bytes=overlay_bytes
+        )
+        owner.save(update_fields=changed)
+        kind = "postmedia" if owner.__class__.__name__ == "PostMedia" else "post"
+        job = (kind, owner.pk)
+        if schedule:
+            schedule_bake(kind, owner.pk)
+            return [], None
+        return [], job
+
+    return _apply_video_trim(owner, trim), None
 
 
 def _apply_video_trim(owner, trim):
@@ -620,31 +692,48 @@ class PostViewSet(viewsets.ModelViewSet):
         data = getattr(self.request, "data", None)
         files = getattr(self.request, "FILES", None)
 
+        # Prefer client → Cloudinary direct uploads (public_id / URL fields).
+        _apply_remote_slide0(post, data)
+        post.refresh_from_db()
+
+        pending_bakes: list[tuple[str, int]] = []
+
         # Edit slide 0 (Post.video) before it is mirrored into a PostMedia row.
-        changed = _apply_video_edits(
+        # Delay scheduling until after carousel rows exist so bake can't race.
+        changed, job = _apply_video_edits(
             post,
             trim=parse_trim_range(data),
             grade=parse_color_grade(data),
             overlay_bytes=_read_overlay_bytes(files),
+            schedule=False,
         )
         if changed:
             post.save(update_fields=changed)
+        if job:
+            pending_bakes.append(job)
 
-        # Collect extra carousel slides (slide 0 lives on Post.image/Post.video).
-        extra_slides: list[tuple[int, object, object]] = []
-        if files is not None:
-            for order in range(1, MAX_POST_MEDIA):
-                image = files.get(f"slide{order}_image")
-                video = files.get(f"slide{order}_video")
-                if not image and not video:
-                    continue
-                if video is not None:
-                    try:
-                        validate_post_video_file(video)
-                    except DjangoValidationError as exc:
-                        post.delete()
-                        raise ValidationError({"media": exc.messages}) from exc
-                extra_slides.append((order, image, video))
+        # Collect extra carousel slides (file upload and/or direct Cloudinary refs).
+        extra_slides: list[tuple[int, object | None, object | None, str | None, str | None]] = []
+        for order in range(1, MAX_POST_MEDIA):
+            image = files.get(f"slide{order}_image") if files is not None else None
+            video = files.get(f"slide{order}_video") if files is not None else None
+            image_pid, video_pid = _remote_ref_from_data(
+                data,
+                image_keys=(f"slide{order}_image_public_id", f"slide{order}_image_url"),
+                video_keys=(f"slide{order}_video_public_id", f"slide{order}_video_url"),
+            )
+            if not image and not video and not image_pid and not video_pid:
+                continue
+            if (image or image_pid) and (video or video_pid):
+                post.delete()
+                raise ValidationError({"media": "Each slide needs either an image or a video, not both."})
+            if video is not None:
+                try:
+                    validate_post_video_file(video)
+                except DjangoValidationError as exc:
+                    post.delete()
+                    raise ValidationError({"media": exc.messages}) from exc
+            extra_slides.append((order, image, video, image_pid, video_pid))
 
         # Only materialise PostMedia rows when the post is actually a carousel.
         if extra_slides:
@@ -655,20 +744,62 @@ class PostViewSet(viewsets.ModelViewSet):
                 video=post.video or None,
                 video_trim_start=post.video_trim_start,
                 video_trim_end=post.video_trim_end,
+                processing_status=post.processing_status,
+                processing_error=post.processing_error,
+                edit_grade=post.edit_grade,
+                overlay=post.overlay or None,
             )
-            for order, image, video in extra_slides:
+            for order, image, video, image_pid, video_pid in extra_slides:
                 slide = PostMedia.objects.create(
                     post=post, order=order, image=image or None, video=video or None
                 )
+                if image_pid:
+                    attach_public_id(slide, "image", image_pid)
+                if video_pid:
+                    attach_public_id(slide, "video", video_pid)
                 slide_prefix = f"slide{order}_"
-                slide_changed = _apply_video_edits(
+                slide_changed, slide_job = _apply_video_edits(
                     slide,
                     trim=parse_trim_range(data, prefix=slide_prefix),
                     grade=parse_color_grade(data, prefix=slide_prefix),
                     overlay_bytes=_read_overlay_bytes(files, prefix=slide_prefix),
+                    schedule=False,
                 )
                 if slide_changed:
                     slide.save(update_fields=slide_changed)
+                if slide_job:
+                    pending_bakes.append(slide_job)
+
+        if pending_bakes:
+            from .video_bake_jobs import schedule_bake
+
+            for kind, pk in pending_bakes:
+                schedule_bake(kind, pk)
+
+
+class MediaSignView(APIView):
+    """Return a short-lived signed Cloudinary upload payload for the browser."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [MediaSignThrottle]
+
+    def post(self, request):
+        if not remote_media_available():
+            return Response(
+                {"direct_upload": False, "detail": "Direct Cloudinary upload is not configured."},
+                status=status.HTTP_200_OK,
+            )
+        resource_type = (request.data.get("resource_type") or "image").strip().lower()
+        if resource_type not in ("image", "video"):
+            return Response(
+                {"detail": "resource_type must be image or video."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            payload = sign_upload(resource_type=resource_type)
+        except ValueError as exc:
+            return Response({"direct_upload": False, "detail": str(exc)}, status=status.HTTP_200_OK)
+        return Response(payload, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):

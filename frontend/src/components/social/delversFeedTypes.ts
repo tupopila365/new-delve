@@ -28,6 +28,8 @@ export type DelversFeedPost = {
   promotion_id?: number
   listing?: { id: number; title: string } | null
   event?: { id: number; title: string } | null
+  processing_status?: 'ready' | 'processing' | 'failed'
+  processing_error?: string
 }
 
 export type DelversFeedItem = DelversFeedPost | SponsoredListingFeedItem

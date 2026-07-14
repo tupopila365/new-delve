@@ -42,6 +42,7 @@
 
 .ds-post__media-link {
   display: block;
+  position: relative;
   width: 100%;
   height: 100%;
   color: inherit;

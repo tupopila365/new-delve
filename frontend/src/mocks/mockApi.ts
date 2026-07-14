@@ -2915,6 +2915,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { url: await mockFileToDataUrl(uploadFile), kind }
   }
 
+  if (pathname === '/api/social/media/sign/' && method === 'POST') {
+    requireAuth(s)
+    // Mocks have no Cloudinary — force the composer to use multipart file upload.
+    return { direct_upload: false, detail: 'Mocks do not use Cloudinary direct upload.' }
+  }
+
   if (pathname === '/api/social/posts/' && method === 'GET') {
     const savedBy = (q.get('saved_by') || '').trim()
     if (savedBy) {

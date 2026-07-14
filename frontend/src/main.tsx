@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { PublishQueueProvider } from './components/PublishQueueContext'
 import App from './App.tsx'
 import './index.css'
 import './delvers.css'
@@ -29,7 +30,9 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <PublishQueueProvider>
+              <App />
+            </PublishQueueProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

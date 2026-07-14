@@ -13,6 +13,7 @@ from .views import (
     DelversTagFollowToggleView,
     FeedView,
     FollowViewSet,
+    MediaSignView,
     PostViewSet,
     UserFollowersView,
     UserFollowingView,
@@ -26,6 +27,7 @@ router.register(r"follows", FollowViewSet, basename="follow")
 
 urlpatterns = [
     path("feed/", FeedView.as_view(), name="feed"),
+    path("media/sign/", MediaSignView.as_view(), name="media-sign"),
     path("accommodation-stories/", AccommodationStoriesFeedView.as_view(), name="accommodation-stories"),
     path("delvers/", DelversFeedView.as_view(), name="delvers-feed"),
     path("delvers/highlights/", DelversHighlightsView.as_view(), name="delvers-highlights"),

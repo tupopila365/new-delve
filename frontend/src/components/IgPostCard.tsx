@@ -35,6 +35,8 @@ export type FeedPost = {
   vehicle_listing?: { id: number; title: string } | null
   bus_trip?: { id: number; title: string } | null
   food_venue?: { id: number; title: string } | null
+  processing_status?: 'ready' | 'processing' | 'failed'
+  processing_error?: string
   accepted_answer?: {
     id: number
     body: string
@@ -107,7 +109,19 @@ export function IgPostCard({
       </header>
 
       {hasMedia ? (
-        <PostMedia image={post.image} video={post.video} media={post.media} variant={mediaVariant} alt="" />
+        <div className="ig-post__media-wrap">
+          <PostMedia image={post.image} video={post.video} media={post.media} variant={mediaVariant} alt="" />
+          {post.processing_status === 'processing' ? (
+            <span className="ig-post__processing" role="status">
+              Finalizing video…
+            </span>
+          ) : null}
+          {post.processing_status === 'failed' ? (
+            <span className="ig-post__processing ig-post__processing--failed" role="status">
+              Video needs a retry
+            </span>
+          ) : null}
+        </div>
       ) : isQuestion ? (
         <Link to={questionPath} className="ig-post__question-body">
           <p>{renderTextWithHashtags(post.body, post.tag_slugs)}</p>

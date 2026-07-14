@@ -131,6 +131,52 @@ export function DelversSocial() {
       ),
   })
 
+  // Poll posts that are still finalizing video effects (Phase 2 deferred bake).
+  useEffect(() => {
+    const processingIds = (data ?? [])
+      .filter(isFeedPost)
+      .filter((p) => p.processing_status === 'processing' && p.id > 0)
+      .map((p) => p.id)
+    if (processingIds.length === 0) return
+
+    let cancelled = false
+    const tick = async () => {
+      for (const id of processingIds) {
+        if (cancelled) return
+        try {
+          const fresh = await apiFetch<DelversFeedPost>(`/api/social/posts/${id}/`)
+          if (cancelled) return
+          if (fresh.processing_status === 'processing') continue
+          qc.setQueryData<DelversFeedItem[]>(qk, (old) =>
+            (old ?? []).map((item) =>
+              isFeedPost(item) && item.id === id
+                ? {
+                    ...item,
+                    image: fresh.image,
+                    video: fresh.video,
+                    media: fresh.media,
+                    processing_status: fresh.processing_status ?? 'ready',
+                    processing_error: fresh.processing_error ?? '',
+                  }
+                : item,
+            ),
+          )
+        } catch {
+          // Ignore transient poll failures.
+        }
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void tick()
+    }, 2500)
+    void tick()
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [data, qc, qk])
+
   const { data: highlights = [] } = useQuery({
     queryKey: highlightsQk,
     queryFn: () =>
@@ -1345,6 +1391,16 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
         {hasMedia ? (
           <Link to={permalink} className="ds-post__media-link" aria-label={`Open post by ${name}`}>
             <PostMedia image={post.image} video={post.video} media={post.media} variant="feed" alt={text} />
+            {post.processing_status === 'processing' ? (
+              <span className="ds-post__processing" role="status">
+                Finalizing video…
+              </span>
+            ) : null}
+            {post.processing_status === 'failed' ? (
+              <span className="ds-post__processing ds-post__processing--failed" role="status">
+                Video needs a retry
+              </span>
+            ) : null}
           </Link>
         ) : (
           <Link to={permalink} className="ds-post__text-media" aria-label={`Open post by ${name}`}>

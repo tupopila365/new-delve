@@ -1,2 +1,6 @@
 release: python manage.py migrate --noinput
-web: gunicorn config.wsgi --log-file -
+web: gunicorn config.wsgi --timeout 120 --log-file -
+# Video bake recovery (Heroku Scheduler every 1–5 min):
+#   python manage.py bake_pending_posts --limit 20
+# Orphan Cloudinary cleanup (daily):
+#   python manage.py cleanup_orphan_media --older-than-hours 24

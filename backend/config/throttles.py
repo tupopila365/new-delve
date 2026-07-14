@@ -9,6 +9,10 @@ class PostCreateThrottle(UserRateThrottle):
     scope = "post_create"
 
 
+class MediaSignThrottle(UserRateThrottle):
+    scope = "media_sign"
+
+
 class MessageStartThrottle(UserRateThrottle):
     scope = "message_start"
 

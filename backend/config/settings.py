@@ -175,6 +175,7 @@ REST_FRAMEWORK = {
         "login": "30/hour",
         "follow": "120/hour",
         "post_create": "60/hour",
+        "media_sign": "120/hour",
         "message_start": "30/hour",
         "message_send": "120/hour",
         "messaging_people_search": "30/min",

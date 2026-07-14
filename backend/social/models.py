@@ -9,6 +9,12 @@ class PostKind(models.TextChoices):
     QUESTION = "question", "Question"
 
 
+class ProcessingStatus(models.TextChoices):
+    READY = "ready", "Ready"
+    PROCESSING = "processing", "Processing"
+    FAILED = "failed", "Failed"
+
+
 class Post(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -39,6 +45,26 @@ class Post(models.Model):
         null=True,
         blank=True,
         help_text="Trim end (seconds). Applied on delivery for Cloudinary sources.",
+    )
+    processing_status = models.CharField(
+        max_length=16,
+        choices=ProcessingStatus.choices,
+        default=ProcessingStatus.READY,
+        db_index=True,
+        help_text="Video bake status when filters/overlays were applied.",
+    )
+    processing_error = models.TextField(blank=True)
+    edit_grade = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Pending colour grade params to bake asynchronously.",
+    )
+    overlay = models.ImageField(
+        upload_to="posts/overlays/",
+        storage=image_field_storage,
+        blank=True,
+        null=True,
+        help_text="Pending overlay PNG to bake asynchronously.",
     )
     delvers_board = models.CharField(
         max_length=120,
@@ -150,6 +176,20 @@ class PostMedia(models.Model):
     )
     video_trim_start = models.FloatField(null=True, blank=True)
     video_trim_end = models.FloatField(null=True, blank=True)
+    processing_status = models.CharField(
+        max_length=16,
+        choices=ProcessingStatus.choices,
+        default=ProcessingStatus.READY,
+        db_index=True,
+    )
+    processing_error = models.TextField(blank=True)
+    edit_grade = models.JSONField(null=True, blank=True)
+    overlay = models.ImageField(
+        upload_to="posts/overlays/",
+        storage=image_field_storage,
+        blank=True,
+        null=True,
+    )
     order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

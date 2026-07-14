@@ -11,6 +11,7 @@ from config.cloudinary_media import cloudinary_video_delivery_url
 from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, PostMedia, Save
 from tags.services import extract_hashtags_from_text, linkable_slugs_for_post, MAX_TAGS_PER_CONTENT
 from .video_validation import validate_post_upload_keys, validate_post_video_file
+from .video_bake_jobs import aggregate_processing_status
 
 User = get_user_model()
 
@@ -80,6 +81,8 @@ class PostSerializer(serializers.ModelSerializer):
     accepted_answer = serializers.SerializerMethodField()
     tag_slugs = serializers.SerializerMethodField()
     media = serializers.SerializerMethodField()
+    processing_status = serializers.SerializerMethodField()
+    processing_error = serializers.SerializerMethodField()
     listing = serializers.PrimaryKeyRelatedField(
         queryset=AccommodationListing.objects.none(),
         required=False,
@@ -116,6 +119,8 @@ class PostSerializer(serializers.ModelSerializer):
             "image",
             "video",
             "media",
+            "processing_status",
+            "processing_error",
             "delvers_board",
             "is_delvers",
             "is_accommodation_story",
@@ -139,7 +144,21 @@ class PostSerializer(serializers.ModelSerializer):
             "accepted_answer",
             "tag_slugs",
         )
-        read_only_fields = ("author", "created_at")
+        read_only_fields = ("author", "created_at", "processing_status", "processing_error")
+
+    def get_processing_status(self, obj):
+        return aggregate_processing_status(obj)
+
+    def get_processing_error(self, obj):
+        status = aggregate_processing_status(obj)
+        if status != "failed":
+            return ""
+        if obj.processing_error:
+            return obj.processing_error
+        for row in obj.media.all():
+            if row.processing_status == "failed" and row.processing_error:
+                return row.processing_error
+        return "Could not finalize video effects."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -199,7 +218,31 @@ class PostSerializer(serializers.ModelSerializer):
         if video is None and instance is not None:
             video = instance.video
 
+        # Direct Cloudinary uploads: client sends public_id / URL instead of a file.
+        data = getattr(request, "data", None) if request is not None else None
+        remote_image = False
+        remote_video = False
+        if data is not None and instance is None:
+            from config.cloudinary_upload import normalize_remote_media_ref
+
+            remote_image = bool(
+                normalize_remote_media_ref(
+                    data.get("image_public_id") or data.get("image_url"),
+                    expect_video=False,
+                )
+            )
+            remote_video = bool(
+                normalize_remote_media_ref(
+                    data.get("video_public_id") or data.get("video_url"),
+                    expect_video=True,
+                )
+            )
+
         if image and video:
+            raise serializers.ValidationError("Use either an image or a video, not both.")
+        if (image or remote_image) and (video or remote_video):
+            raise serializers.ValidationError("Use either an image or a video, not both.")
+        if remote_image and remote_video:
             raise serializers.ValidationError("Use either an image or a video, not both.")
 
         if video is not None:
@@ -208,6 +251,7 @@ class PostSerializer(serializers.ModelSerializer):
             except DjangoValidationError as exc:
                 raise serializers.ValidationError({"video": exc.messages}) from exc
 
+        has_media = bool(image or video or remote_image or remote_video)
         if is_delvers and is_acc:
             raise serializers.ValidationError("Accommodation stories cannot be published as Delvers pins.")
 
@@ -248,7 +292,7 @@ class PostSerializer(serializers.ModelSerializer):
         if is_highlight:
             attrs["is_accommodation_story"] = False
             attrs["is_delvers"] = True
-            if not image and not video:
+            if not has_media:
                 raise serializers.ValidationError("Add a photo or short video for your highlight.")
 
         if is_acc:
@@ -258,7 +302,7 @@ class PostSerializer(serializers.ModelSerializer):
             profile = getattr(user, "profile", None)
             if not profile or profile.user_type != UserType.SERVICE_PROVIDER:
                 raise serializers.ValidationError("Only hosts and providers can post accommodation stories.")
-            if not image and not video:
+            if not has_media:
                 raise serializers.ValidationError("Add a photo or short video for your story.")
 
         listing = attrs.get("listing")
@@ -321,7 +365,10 @@ class PostSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if ret.get("video"):
             ret["video"] = cloudinary_video_delivery_url(
-                ret["video"], instance.video_trim_start, instance.video_trim_end
+                ret["video"],
+                instance.video_trim_start,
+                instance.video_trim_end,
+                grade=getattr(instance, "edit_grade", None),
             )
         ret.pop("listing", None)
         ret.pop("event", None)
@@ -403,12 +450,12 @@ class PostSerializer(serializers.ModelSerializer):
         legacy posts that predate PostMedia."""
         request = self.context.get("request")
 
-        def build_url(field_value, is_video, trim_start=None, trim_end=None):
+        def build_url(field_value, is_video, trim_start=None, trim_end=None, grade=None):
             if not field_value:
                 return None
             url = field_value.url
             if is_video:
-                url = cloudinary_video_delivery_url(url, trim_start, trim_end)
+                url = cloudinary_video_delivery_url(url, trim_start, trim_end, grade=grade)
             if request is not None:
                 return request.build_absolute_uri(url)
             return url
@@ -418,7 +465,13 @@ class PostSerializer(serializers.ModelSerializer):
         if rows:
             for row in rows:
                 image_url = build_url(row.image, False)
-                video_url = build_url(row.video, True, row.video_trim_start, row.video_trim_end)
+                video_url = build_url(
+                    row.video,
+                    True,
+                    row.video_trim_start,
+                    row.video_trim_end,
+                    grade=getattr(row, "edit_grade", None),
+                )
                 if not image_url and not video_url:
                     continue
                 slides.append(
@@ -433,7 +486,13 @@ class PostSerializer(serializers.ModelSerializer):
             return slides
 
         image_url = build_url(obj.image, False)
-        video_url = build_url(obj.video, True, obj.video_trim_start, obj.video_trim_end)
+        video_url = build_url(
+            obj.video,
+            True,
+            obj.video_trim_start,
+            obj.video_trim_end,
+            grade=getattr(obj, "edit_grade", None),
+        )
         if not image_url and not video_url:
             return []
         return [

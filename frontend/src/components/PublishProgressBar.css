@@ -1,0 +1,76 @@
+.publish-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  padding: env(safe-area-inset-top, 0) 0 0;
+  background: rgba(10, 10, 12, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f5f5f5;
+  pointer-events: auto;
+}
+
+.publish-progress__track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.publish-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #5eead4, #a78bfa);
+  transition: width 0.25s ease;
+}
+
+.publish-progress__fill--failed {
+  background: #f87171;
+}
+
+.publish-progress__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px 10px;
+}
+
+.publish-progress__label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.publish-progress__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.publish-progress__actions button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.publish-progress__actions button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.publish-progress--failed .publish-progress__label {
+  color: #fecaca;
+}
+
+/* Make room so the strip doesn't cover immersive create chrome awkwardly —
+   still overlays feeds / browse pages intentionally. */
+body:has(.publish-progress) .ds-topbar,
+body:has(.publish-progress) .mobile-top-bar {
+  top: 42px;
+}

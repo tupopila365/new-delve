@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, Redo2, Undo2 } from 'lucide-react'
-import { ApiError, apiFetch } from '../../api/client'
-import type { FeedPost } from '../IgPostCard'
 import { useAuth } from '../../auth/AuthContext'
-import { startCreateSession, trackCreatePublish } from '../../utils/createAnalytics'
+import { startCreateSession } from '../../utils/createAnalytics'
 import { CreateStudioHeader } from './CreateStudioHeader'
 import { MediaPicker } from './MediaPicker'
 import { FilterStrip } from './FilterStrip'
@@ -37,7 +34,6 @@ import {
   type EditorSnapshot,
 } from './types'
 import {
-  renderEditedImage,
   analyzeImageForEnhance,
   clearAutoEnhanceResult,
   createEditorSnapshot,
@@ -47,9 +43,17 @@ import {
 } from './mediaUtils'
 import { useCropStage } from './useCropStage'
 import { isFullVideoTrim, MAX_TRIM_DURATION_SEC } from './videoTrimUtils'
-import { appendVideoEffectsToFormData, prepareVideoEffects } from './videoEffects'
-import { invalidateSocialCaches } from '../../utils/socialCache'
-import { loadVideoMetadata, prepareDelversVideoForUpload, probeDelversVideoFile } from '../../utils/delversVideoUtils'
+import {
+  computeSlideFingerprint,
+  ensureSlideUploaded,
+  getDirectUploadEnabled,
+  idleUploadState,
+  slideNeedsUpload,
+  uploadSlidesParallel,
+  type SlideUploadState,
+} from './socialMediaApi'
+import { usePublishQueue } from '../PublishQueueContext'
+import { loadVideoMetadata, probeDelversVideoFile } from '../../utils/delversVideoUtils'
 import './SocialCreateComposer.css'
 
 type Props = {
@@ -89,6 +93,8 @@ type SlideState = {
   hasAutoEnhance: boolean
   history: EditorSnapshot[]
   historyIndex: number
+  /** Background Cloudinary upload for this slide (eager while editing). */
+  upload: SlideUploadState
 }
 
 let _slideIdCounter = 0
@@ -116,6 +122,7 @@ function makeSlide(file: File): SlideState {
     hasAutoEnhance: false,
     history: [DEFAULT_EDITOR_SNAPSHOT],
     historyIndex: 0,
+    upload: idleUploadState(),
   }
 }
 
@@ -123,7 +130,7 @@ export function SocialCreateComposer({ mode }: Props) {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const qc = useQueryClient()
+  const { enqueueSocialPost } = usePublishQueue()
   const frameRef = useRef<HTMLDivElement>(null)
 
   const [mediaKind, setMediaKind] = useState<MediaKind>('image')
@@ -304,6 +311,84 @@ export function SocialCreateComposer({ mode }: Props) {
     loadSlide(committed[index])
     setActiveTool(null)
   }
+
+  // Debounced eager Cloudinary upload while the user edits.
+  const uploadGenRef = useRef(0)
+  const [shareBusy, setShareBusy] = useState(false)
+  const uploadKey = slides
+    .map((s, i) => {
+      const live =
+        i === activeIndex && file
+          ? {
+              ...s,
+              file,
+              mediaKind,
+              filter,
+              filterIntensity,
+              adjustments,
+              crop,
+              videoDuration,
+              videoTrim,
+              textOverlays,
+              stickers,
+              strokes,
+            }
+          : s
+      return `${live.id}:${computeSlideFingerprint(live)}`
+    })
+    .join('||')
+
+  useEffect(() => {
+    if (!uploadKey) return
+    const gen = ++uploadGenRef.current
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const snapshot = committedSlides()
+        if (snapshot.length === 0) return
+        if (!(await getDirectUploadEnabled())) return
+        if (snapshot.every((s) => !slideNeedsUpload(s))) return
+
+        setSlides((prev) =>
+          prev.map((s) => {
+            const live = snapshot.find((x) => x.id === s.id) ?? s
+            if (!slideNeedsUpload(live)) return s
+            return { ...s, upload: { ...s.upload, status: 'uploading', error: undefined } }
+          }),
+        )
+
+        const updated = await uploadSlidesParallel(snapshot, 3, (slideId, ratio) => {
+          if (gen !== uploadGenRef.current) return
+          setSlides((prev) =>
+            prev.map((s) =>
+              s.id === slideId
+                ? {
+                    ...s,
+                    upload: {
+                      ...s.upload,
+                      status: 'uploading',
+                      progress: ratio,
+                      error: undefined,
+                    },
+                  }
+                : s,
+            ),
+          )
+        })
+        if (gen !== uploadGenRef.current) return
+        setSlides((prev) =>
+          prev.map((s) => {
+            const next = updated.find((x) => x.id === s.id)
+            return next ? { ...s, upload: next.upload } : s
+          }),
+        )
+      })()
+    }, 550)
+    return () => {
+      window.clearTimeout(timer)
+    }
+    // committedSlides reads latest editor state via the uploadKey deps below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- uploadKey captures edit fingerprints
+  }, [uploadKey])
 
   useEffect(() => {
     if (!profile) return
@@ -718,124 +803,82 @@ export function SocialCreateComposer({ mode }: Props) {
     stickerWheelCommit.current = window.setTimeout(() => saveSnapshot(), 350)
   }
 
-  const publish = useMutation({
-    mutationFn: async () => {
-      if (!file) throw new Error('Add a photo or video first.')
-      if (hostStory && (placeLink.kind !== 'accommodation' || placeLink.id <= 0)) {
-        throw new Error('Link a stay listing for this host story.')
-      }
+  const handleShare = () => {
+    setError('')
+    if (!file || !profile) {
+      setError('Add a photo or video first.')
+      return
+    }
+    if (hostStory && (placeLink.kind !== 'accommodation' || placeLink.id <= 0)) {
+      setError('Link a stay listing for this host story.')
+      return
+    }
+    if (
+      mediaKind === 'video' &&
+      videoDuration > 0 &&
+      videoTrim.end - videoTrim.start > MAX_TRIM_DURATION_SEC
+    ) {
+      setError(`Video must be ${MAX_TRIM_DURATION_SEC} seconds or less.`)
+      return
+    }
 
-      // Hashtags drive the rings: merge the picked tags into the caption body so the
-      // backend builds a ring per hashtag, and name the creator board after the first one.
-      const ringTags = postsToDelvers ? extractHashtags(ringHashtags).slice(0, MAX_RING_HASHTAGS) : []
-      const captionText = caption.trim()
-      const captionTags = new Set(extractHashtags(captionText))
-      const extraTags = ringTags.filter((slug) => !captionTags.has(slug))
-      const bodyText = extraTags.length
-        ? `${captionText}${captionText ? '\n\n' : ''}${extraTags.map((slug) => `#${slug}`).join(' ')}`
-        : captionText
+    const publishSlides = committedSlides()
+    if (publishSlides.length === 0) {
+      setError('Add a photo or video first.')
+      return
+    }
 
-      const fd = new FormData()
-      fd.append('body', bodyText)
-      fd.append('region', region.trim())
-      fd.append('is_delvers', postsToDelvers ? 'true' : 'false')
-      fd.append('is_accommodation_story', hostStory ? 'true' : 'false')
-      fd.append('is_delvers_highlight', publishAsHighlight ? 'true' : 'false')
-      if (postsToDelvers) {
-        const boardName = ringTags[0] ? `#${ringTags[0]}` : (publishAsHighlight ? 'Highlights' : 'Posts')
-        fd.append('delvers_board', boardName)
-      }
-      if (placeLink.kind === 'accommodation' && placeLink.id > 0) {
-        fd.append('listing', String(placeLink.id))
-      }
-      if (postsToDelvers && placeLink.kind === 'event' && placeLink.id > 0) {
-        fd.append('event', String(placeLink.id))
-      }
-      if (postsToDelvers && placeLink.kind === 'vehicle' && placeLink.id > 0) {
-        fd.append('vehicle_listing', String(placeLink.id))
-      }
-      if (postsToDelvers && placeLink.kind === 'bus_trip' && placeLink.id > 0) {
-        fd.append('bus_trip', String(placeLink.id))
-      }
-      if (postsToDelvers && placeLink.kind === 'food' && placeLink.id > 0) {
-        fd.append('food_venue', String(placeLink.id))
-      }
+    const ringTags = postsToDelvers ? extractHashtags(ringHashtags).slice(0, MAX_RING_HASHTAGS) : []
+    const captionText = caption.trim()
+    const captionTags = new Set(extractHashtags(captionText))
+    const extraTags = ringTags.filter((slug) => !captionTags.has(slug))
+    const bodyText = extraTags.length
+      ? `${captionText}${captionText ? '\n\n' : ''}${extraTags.map((slug) => `#${slug}`).join(' ')}`
+      : captionText
+    const boardName = ringTags[0]
+      ? `#${ringTags[0]}`
+      : publishAsHighlight
+        ? 'Highlights'
+        : 'Posts'
 
-      // Render/prepare each slide. Slide 0 goes to image/video; extra slides to
-      // slide{i}_image / slide{i}_video (consumed by the carousel backend).
-      const publishSlides = committedSlides()
-      for (let i = 0; i < publishSlides.length; i += 1) {
-        const slide = publishSlides[i]
-        const imageKey = i === 0 ? 'image' : `slide${i}_image`
-        const videoKey = i === 0 ? 'video' : `slide${i}_video`
-        if (slide.mediaKind === 'video') {
-          const videoFile = await prepareDelversVideoForUpload(slide.file, slide.videoTrim, slide.videoDuration)
-          fd.append(videoKey, videoFile)
-          const prefix = i === 0 ? '' : `slide${i}_`
-          // Server-side trim: send offsets so the backend cuts the clip
-          // (Cloudinary on delivery, ffmpeg on local storage).
-          if (slide.videoDuration > 0 && !isFullVideoTrim(slide.videoTrim, slide.videoDuration)) {
-            fd.append(`${prefix}trim_start`, slide.videoTrim.start.toFixed(3))
-            fd.append(`${prefix}trim_end`, slide.videoTrim.end.toFixed(3))
-          }
-          // Bake filters/adjustments + text/sticker/draw overlays into the clip.
-          const effects = await prepareVideoEffects(slide.file, {
-            filter: slide.filter,
-            filterIntensity: slide.filterIntensity,
-            adjustments: slide.adjustments,
-            textOverlays: slide.textOverlays,
-            stickers: slide.stickers,
-            strokes: slide.strokes,
-          })
-          appendVideoEffectsToFormData(fd, prefix, effects)
-        } else {
-          const blob = await renderEditedImage(
-            slide.file,
-            slide.filter,
-            slide.crop,
-            slide.adjustments,
-            slide.filterIntensity,
-            {
-              textOverlays: slide.textOverlays,
-              stickers: slide.stickers,
-              strokes: slide.strokes,
-            },
-          )
-          fd.append(imageKey, new File([blob], `post_${i}.jpg`, { type: 'image/jpeg' }))
-        }
-      }
+    const dest = returnTo
+      ? returnTo
+      : hostStory
+        ? '/provider/stays'
+        : postsToDelvers
+          ? '/delvers'
+          : profile
+            ? `/u/${encodeURIComponent(profile.username)}`
+            : '/'
 
-      return apiFetch<FeedPost>('/api/social/posts/', { method: 'POST', body: fd })
-    },
-    onSuccess: async (data) => {
-      trackCreatePublish({
-        format: hostStory ? 'host_story' : mode === 'story' ? 'highlight' : 'post',
-        has_place: placeLink.kind !== 'none',
-        startedAt: startedAt.current,
+    try {
+      setShareBusy(true)
+      enqueueSocialPost({
+        slides: publishSlides,
+        bodyText,
+        region: region.trim() || profile.region || '',
+        postsToDelvers,
+        hostStory,
+        publishAsHighlight,
+        placeLink,
+        delversBoard: postsToDelvers ? boardName : undefined,
+        author: {
+          username: profile.username,
+          display_name: profile.display_name || profile.username,
+          avatar: profile.avatar ?? null,
+        },
+        analytics: {
+          format: hostStory ? 'host_story' : mode === 'story' ? 'highlight' : 'post',
+          has_place: placeLink.kind !== 'none',
+          startedAt: startedAt.current,
+        },
       })
-      await invalidateSocialCaches(qc, {
-        username: profile?.username,
-        accommodationStories: hostStory,
-        listingId: data.listing?.id ?? (placeLink.kind === 'accommodation' ? placeLink.id : undefined),
-        eventId: data.event?.id,
-        vehicleListingId:
-          data.vehicle_listing?.id ?? (placeLink.kind === 'vehicle' ? placeLink.id : undefined),
-        busTripId: data.bus_trip?.id ?? (placeLink.kind === 'bus_trip' ? placeLink.id : undefined),
-        foodVenueId: data.food_venue?.id ?? (placeLink.kind === 'food' ? placeLink.id : undefined),
-      })
-      if (returnTo) {
-        navigate(returnTo)
-      } else if (hostStory) {
-        navigate('/provider/stays')
-      } else if (postsToDelvers) {
-        navigate('/delvers')
-      } else {
-        navigate(profile ? `/u/${encodeURIComponent(profile.username)}` : '/')
-      }
-    },
-    onError: (err) =>
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not publish.'),
-  })
+      navigate(dest)
+    } catch (err) {
+      setShareBusy(false)
+      setError(err instanceof Error ? err.message : 'Could not publish.')
+    }
+  }
 
   const cropActive = activeTool === 'crop'
   const {
@@ -914,17 +957,10 @@ export function SocialCreateComposer({ mode }: Props) {
         subtitle={subtitle}
         onBack={() => requestLeave(leaveTarget)}
         actionLabel="Share"
-        actionDisabled={shareDisabled}
-        actionPending={publish.isPending}
-        actionPendingLabel={
-          publish.isPending && mediaKind === 'video' && !isFullVideoTrim(videoTrim, videoDuration)
-            ? 'Preparing…'
-            : 'Sharing…'
-        }
-        onAction={() => {
-          setError('')
-          publish.mutate()
-        }}
+        actionDisabled={shareDisabled || shareBusy}
+        actionPending={shareBusy}
+        actionPendingLabel="Sharing…"
+        onAction={handleShare}
       />
 
       <section className="create-studio__stage">
@@ -1001,14 +1037,62 @@ export function SocialCreateComposer({ mode }: Props) {
 
           <div className="create-slide-strip" role="tablist" aria-label="Carousel slides">
             {slides.map((s, i) => (
-              <div key={s.id} className={`create-slide-thumb${i === activeIndex ? ' is-active' : ''}`}>
+              <div
+                key={s.id}
+                className={`create-slide-thumb${i === activeIndex ? ' is-active' : ''}${
+                  s.upload.status === 'ready' ? ' is-uploaded' : ''
+                }${s.upload.status === 'error' ? ' is-upload-error' : ''}${
+                  s.upload.status === 'uploading' ? ' is-uploading' : ''
+                }`}
+              >
                 <button
                   type="button"
                   className="create-slide-thumb__btn"
                   role="tab"
                   aria-selected={i === activeIndex}
-                  aria-label={`Slide ${i + 1}`}
-                  onClick={() => switchToSlide(i)}
+                  aria-label={`Slide ${i + 1}${
+                    s.upload.status === 'ready'
+                      ? ', uploaded'
+                      : s.upload.status === 'uploading'
+                        ? ', uploading'
+                        : s.upload.status === 'error'
+                          ? ', upload failed'
+                          : ''
+                  }`}
+                  onClick={() => {
+                    if (s.upload.status === 'error') {
+                      const live =
+                        i === activeIndex && file
+                          ? {
+                              ...s,
+                              file,
+                              mediaKind,
+                              filter,
+                              filterIntensity,
+                              adjustments,
+                              crop,
+                              videoDuration,
+                              videoTrim,
+                              textOverlays,
+                              stickers,
+                              strokes,
+                            }
+                          : s
+                      setSlides((prev) =>
+                        prev.map((row) =>
+                          row.id === s.id
+                            ? { ...row, upload: { ...row.upload, status: 'uploading', error: undefined } }
+                            : row,
+                        ),
+                      )
+                      void ensureSlideUploaded(live, i).then((upload) => {
+                        setSlides((prev) =>
+                          prev.map((row) => (row.id === s.id ? { ...row, upload } : row)),
+                        )
+                      })
+                    }
+                    switchToSlide(i)
+                  }}
                 >
                   {s.mediaKind === 'video' ? (
                     <video src={s.preview} muted playsInline className="create-slide-thumb__media" />
@@ -1016,6 +1100,27 @@ export function SocialCreateComposer({ mode }: Props) {
                     <img src={s.preview} alt="" className="create-slide-thumb__media" />
                   )}
                   <span className="create-slide-thumb__index">{i + 1}</span>
+                  {s.upload.status === 'ready' ? (
+                    <span className="create-slide-thumb__status" aria-hidden>
+                      ✓
+                    </span>
+                  ) : null}
+                  {s.upload.status === 'uploading' ? (
+                    <span
+                      className="create-slide-thumb__status create-slide-thumb__status--busy"
+                      aria-hidden
+                      title={
+                        typeof s.upload.progress === 'number'
+                          ? `${Math.round(s.upload.progress * 100)}%`
+                          : undefined
+                      }
+                    />
+                  ) : null}
+                  {s.upload.status === 'error' ? (
+                    <span className="create-slide-thumb__status create-slide-thumb__status--error" aria-hidden>
+                      !
+                    </span>
+                  ) : null}
                 </button>
                 <button
                   type="button"
@@ -1156,7 +1261,7 @@ export function SocialCreateComposer({ mode }: Props) {
                   <RingHashtagPicker
                     value={ringHashtags}
                     onChange={setRingHashtags}
-                    disabled={publish.isPending}
+                    disabled={shareBusy}
                     isHighlight={mode === 'story' || postAsHighlight}
                     onLimit={() => setError(`Use up to ${MAX_RING_HASHTAGS} hashtags.`)}
                   />
@@ -1165,7 +1270,7 @@ export function SocialCreateComposer({ mode }: Props) {
                 <PlaceSearchSheet
                   value={placeLink}
                   onChange={setPlaceLink}
-                  disabled={publish.isPending}
+                  disabled={shareBusy}
                   allowedKinds={hostStory ? ['accommodation'] : undefined}
                   triggerLabel={hostStory ? 'Link a stay' : 'Link a place'}
                 />
