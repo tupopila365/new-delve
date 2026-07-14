@@ -7,7 +7,7 @@ from events_app.models import Event
 from food.models import FoodVenue
 from transport.models import BusTrip, VehicleRentalListing
 
-from config.cloudinary_media import cloudinary_video_delivery_url
+from config.cloudinary_media import absolute_media_url, cloudinary_video_delivery_url
 from .models import Comment, CommentDislike, CommentHelpful, Fire, Follow, Like, Post, PostKind, PostMedia, Save
 from tags.services import extract_hashtags_from_text, linkable_slugs_for_post, MAX_TAGS_PER_CONTENT
 from .video_validation import validate_post_upload_keys, validate_post_video_file
@@ -363,12 +363,18 @@ class PostSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
+        request = self.context.get("request")
+        if ret.get("image"):
+            ret["image"] = absolute_media_url(request, ret["image"])
         if ret.get("video"):
-            ret["video"] = cloudinary_video_delivery_url(
-                ret["video"],
-                instance.video_trim_start,
-                instance.video_trim_end,
-                grade=getattr(instance, "edit_grade", None),
+            ret["video"] = absolute_media_url(
+                request,
+                cloudinary_video_delivery_url(
+                    ret["video"],
+                    instance.video_trim_start,
+                    instance.video_trim_end,
+                    grade=getattr(instance, "edit_grade", None),
+                ),
             )
         ret.pop("listing", None)
         ret.pop("event", None)
@@ -456,9 +462,7 @@ class PostSerializer(serializers.ModelSerializer):
             url = field_value.url
             if is_video:
                 url = cloudinary_video_delivery_url(url, trim_start, trim_end, grade=grade)
-            if request is not None:
-                return request.build_absolute_uri(url)
-            return url
+            return absolute_media_url(request, url)
 
         rows = list(obj.media.all())
         slides = []

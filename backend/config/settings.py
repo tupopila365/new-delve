@@ -135,6 +135,11 @@ SERVE_LOCAL_MEDIA = os.environ.get(
     "SERVE_LOCAL_MEDIA",
     "false" if _use_cloudinary else "true",
 ).lower() in ("true", "1", "yes")
+# django-cloudinary-storage defaults PREFIX to MEDIA_URL ("/media/"), which makes
+# storage.url("posts/x") request "media/posts/x". Our signed browser uploads use
+# folder "posts" / "posts/videos", so an empty PREFIX keeps delivery URLs aligned
+# with the real Cloudinary public_ids (and still works for older "media/posts/…" ids).
+CLOUDINARY_STORAGE = {"PREFIX": ""}
 STORAGES = {
     "default": {
         "BACKEND": (

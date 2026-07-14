@@ -19,6 +19,22 @@ _VIDEO_UPLOAD_MARKER = "/video/upload/"
 _VIDEO_DELIVERY_TRANSFORM = "f_auto,q_auto"
 
 
+def absolute_media_url(request, url: str | None) -> str | None:
+    """Return a browser-usable absolute media URL without mangling CDN links.
+
+    ``request.build_absolute_uri`` is only for relative paths (e.g. ``/media/...``).
+    Cloudinary already returns ``https://res.cloudinary.com/...``; wrapping those
+    again can break delivery depending on Django/host headers.
+    """
+    if not url:
+        return None
+    if url.startswith(("http://", "https://", "//")):
+        return url
+    if request is not None:
+        return request.build_absolute_uri(url)
+    return url
+
+
 def grade_delivery_enabled() -> bool:
     """Feature flag: apply approximate colour grade via Cloudinary URL transforms."""
     raw = (os.environ.get("DELVERS_CLOUDINARY_GRADE_DELIVERY") or "").strip().lower()

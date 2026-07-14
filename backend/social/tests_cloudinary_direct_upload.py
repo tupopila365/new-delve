@@ -52,6 +52,24 @@ class CloudinaryUploadHelperTests(SimpleTestCase):
             )
 
 
+class AbsoluteMediaUrlTests(SimpleTestCase):
+    def test_keeps_cloudinary_https_urls(self):
+        from config.cloudinary_media import absolute_media_url
+
+        url = "https://res.cloudinary.com/demo/image/upload/v1/posts/x"
+        self.assertEqual(absolute_media_url(None, url), url)
+
+    def test_absolutizes_relative_media_paths(self):
+        from config.cloudinary_media import absolute_media_url
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/")
+        self.assertEqual(
+            absolute_media_url(request, "/media/posts/x.jpg"),
+            "http://testserver/media/posts/x.jpg",
+        )
+
+
 class CloudinaryVideoDeliveryTrimTests(SimpleTestCase):
     def test_inserts_trim_on_plain_url(self):
         url = "https://res.cloudinary.com/demo/video/upload/v1/media/posts/videos/clip"
@@ -127,3 +145,9 @@ class PostCreateWithRemoteMediaTests(TestCase):
 
         post = Post.objects.get(pk=res.data["id"])
         self.assertEqual(post.image.name, "posts/demo-slide")
+        image_url = res.data.get("image") or ""
+        self.assertIn("res.cloudinary.com", image_url)
+        self.assertIn("/image/upload/", image_url)
+        # Must address the real public_id (posts/…), not media/posts/…
+        self.assertIn("/posts/demo-slide", image_url)
+        self.assertNotIn("/media/posts/demo-slide", image_url)
