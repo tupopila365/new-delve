@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, ThumbsUp } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { JourneySection } from './JourneySection'
-import './journey-detail.css'
+import { JourneySection } from '../journeys/JourneySection'
+import '../journeys/journey-detail.css'
 
 type CommentAuthor = {
   id?: number
@@ -14,7 +14,7 @@ type CommentAuthor = {
   avatar?: string | null
 }
 
-type JourneyComment = {
+type EventComment = {
   id: number
   author: CommentAuthor | string
   body: string
@@ -25,11 +25,13 @@ type JourneyComment = {
   helpful_count?: number
   marked_helpful_by_me?: boolean
   is_official?: boolean
-  replies?: JourneyComment[]
+  replies?: EventComment[]
 }
 
 type Props = {
-  journeyId: string
+  eventId: string
+  /** Preferred section title count — falls back to loaded roots when omitted. */
+  commentsCount?: number
   sectionRef?: RefObject<HTMLElement | null>
   composerRef?: RefObject<HTMLInputElement | null>
   className?: string
@@ -37,45 +39,45 @@ type Props = {
 
 function normalizeAuthor(author: CommentAuthor | string): CommentAuthor {
   if (typeof author === 'string') {
-    const label = author.trim() || 'Delver'
+    const label = author.trim() || 'Guest'
     return { username: label, display_name: label, avatar: null }
   }
   return {
     id: author.id,
-    username: author.username || author.display_name?.trim() || 'Delver',
+    username: author.username || author.display_name?.trim() || 'Guest',
     display_name: author.display_name,
     avatar: author.avatar ?? null,
   }
 }
 
 function authorLabel(author: CommentAuthor): string {
-  return author.display_name?.trim() || author.username || 'Delver'
+  return author.display_name?.trim() || author.username || 'Guest'
 }
 
 function authorInitial(author: CommentAuthor): string {
   return authorLabel(author).charAt(0).toUpperCase() || '?'
 }
 
-function normalizeList(data: unknown): JourneyComment[] {
-  if (Array.isArray(data)) return data as JourneyComment[]
+function normalizeList(data: unknown): EventComment[] {
+  if (Array.isArray(data)) return data as EventComment[]
   if (data && typeof data === 'object' && Array.isArray((data as { results?: unknown }).results)) {
-    return (data as { results: JourneyComment[] }).results
+    return (data as { results: EventComment[] }).results
   }
   return []
 }
 
 type CommentNodeProps = {
-  comment: JourneyComment
-  journeyId: string
+  comment: EventComment
+  eventId: string
   depth?: number
   signedIn: boolean
   commentsPath: string
   onRefresh: () => void
 }
 
-function JourneyCommentNode({
+function EventCommentNode({
   comment,
-  journeyId,
+  eventId,
   depth = 0,
   signedIn,
   commentsPath,
@@ -87,7 +89,7 @@ function JourneyCommentNode({
   const avatar = mediaUrl(author.avatar ?? null)
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyDraft, setReplyDraft] = useState('')
-  const [replies, setReplies] = useState<JourneyComment[]>(comment.replies ?? [])
+  const [replies, setReplies] = useState<EventComment[]>(comment.replies ?? [])
   const [repliesLoaded, setRepliesLoaded] = useState(Boolean(comment.replies?.length))
   const [repliesOpen, setRepliesOpen] = useState(depth < 1)
   const [loadingReplies, setLoadingReplies] = useState(false)
@@ -115,11 +117,11 @@ function JourneyCommentNode({
   const helpfulMut = useMutation({
     mutationFn: () =>
       apiFetch<{ marked_helpful: boolean; helpful_count: number }>(
-        `/api/journeys/comments/${comment.id}/helpful/`,
+        `/api/events/comments/${comment.id}/helpful/`,
         { method: 'POST' },
       ),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['journey-comments', journeyId] })
+      void qc.invalidateQueries({ queryKey: ['event-comments', eventId] })
       onRefresh()
     },
   })
@@ -127,7 +129,7 @@ function JourneyCommentNode({
   async function loadReplies() {
     setLoadingReplies(true)
     try {
-      const data = await apiFetch<JourneyComment[] | { results: JourneyComment[] }>(
+      const data = await apiFetch<EventComment[] | { results: EventComment[] }>(
         `${commentsPath}?parent=${comment.id}`,
         { auth: false },
       )
@@ -163,7 +165,7 @@ function JourneyCommentNode({
           <Link to={`/u/${encodeURIComponent(author.username)}`}>
             <strong>{name}</strong>
           </Link>
-          {comment.is_official ? <span className="jd-comments__badge">Creator</span> : null}
+          {comment.is_official ? <span className="jd-comments__badge">Host</span> : null}
           <span>{comment.ago || ''}</span>
         </p>
         <p className="jd-comments__text">{comment.body}</p>
@@ -232,10 +234,10 @@ function JourneyCommentNode({
         {repliesOpen && replies.length > 0 ? (
           <ul className="jd-comments__replies">
             {replies.map((reply) => (
-              <JourneyCommentNode
+              <EventCommentNode
                 key={reply.id}
                 comment={reply}
-                journeyId={journeyId}
+                eventId={eventId}
                 depth={depth + 1}
                 signedIn={signedIn}
                 commentsPath={commentsPath}
@@ -249,8 +251,9 @@ function JourneyCommentNode({
   )
 }
 
-export function JourneyCommentsSection({
-  journeyId,
+export function EventCommentsSection({
+  eventId,
+  commentsCount,
   sectionRef,
   composerRef,
   className = '',
@@ -261,21 +264,22 @@ export function JourneyCommentsSection({
   const inputRef = composerRef ?? fallbackComposerRef
   const [composerDraft, setComposerDraft] = useState('')
 
-  const commentsPath = `/api/journeys/${journeyId}/comments/`
-  const commentsQueryKey = ['journey-comments', journeyId] as const
+  const commentsPath = `/api/events/${eventId}/comments/`
+  const commentsQueryKey = ['event-comments', eventId] as const
 
   const { data: comments = [], isLoading, refetch } = useQuery({
     queryKey: commentsQueryKey,
     queryFn: async () =>
-      normalizeList(await apiFetch<JourneyComment[] | { results: JourneyComment[] }>(commentsPath, { auth: false })),
+      normalizeList(await apiFetch<EventComment[] | { results: EventComment[] }>(commentsPath, { auth: false })),
   })
+
+  const titleCount = Math.max(commentsCount ?? 0, comments.length)
 
   const invalidateAll = () => {
     void qc.invalidateQueries({ queryKey: commentsQueryKey })
-    void qc.invalidateQueries({ queryKey: ['journey-questions', journeyId] })
-    void qc.invalidateQueries({ queryKey: ['journey', journeyId] })
-    void qc.invalidateQueries({ queryKey: ['journeys'] })
-    void qc.invalidateQueries({ queryKey: ['me-journey-questions'] })
+    void qc.invalidateQueries({ queryKey: ['event-questions', eventId] })
+    void qc.invalidateQueries({ queryKey: ['event', eventId] })
+    void qc.invalidateQueries({ queryKey: ['events'] })
   }
 
   const commentMut = useMutation({
@@ -298,10 +302,10 @@ export function JourneyCommentsSection({
 
   return (
     <JourneySection
-      title={`Comments${comments.length > 0 ? ` · ${comments.length}` : ''}`}
+      title={`Comments${titleCount > 0 ? ` · ${titleCount}` : ''}`}
       className={`jd-comments ${className}`.trim()}
     >
-      <section id="journey-comments" ref={sectionRef} className="jd-comments__anchor" aria-label="Journey comments">
+      <section id="event-comments" ref={sectionRef} className="jd-comments__anchor" aria-label="Event comments">
         {profile ? (
           <div className="jd-comments__composer">
             <span className="jd-comments__composer-avatar" aria-hidden>
@@ -313,7 +317,7 @@ export function JourneyCommentsSection({
               type="text"
               value={composerDraft}
               onChange={(e) => setComposerDraft(e.target.value)}
-              placeholder="Ask about the route, costs, or share a tip…"
+              placeholder="Ask about tickets, vibe, parking — or share a tip…"
               aria-label="Write a comment"
               disabled={commentMut.isPending}
               onKeyDown={(e) => {
@@ -334,7 +338,7 @@ export function JourneyCommentsSection({
           </div>
         ) : (
           <p className="jd-comments__signin">
-            <Link to="/login">Sign in</Link> to comment on this journey.
+            <Link to="/login">Sign in</Link> to comment on this event.
           </p>
         )}
 
@@ -343,17 +347,17 @@ export function JourneyCommentsSection({
         {!isLoading && comments.length === 0 ? (
           <div className="jd-comments__empty">
             <MessageCircle size={22} strokeWidth={2} aria-hidden />
-            <p>No comments yet. Be the first to ask about this route or share a travel tip.</p>
+            <p>No comments yet. Be the first to ask a question or share a local tip.</p>
           </div>
         ) : null}
 
         {comments.length > 0 ? (
           <ul className="jd-comments__list">
             {comments.map((comment) => (
-              <JourneyCommentNode
+              <EventCommentNode
                 key={comment.id}
                 comment={comment}
-                journeyId={journeyId}
+                eventId={eventId}
                 signedIn={Boolean(profile)}
                 commentsPath={commentsPath}
                 onRefresh={() => {

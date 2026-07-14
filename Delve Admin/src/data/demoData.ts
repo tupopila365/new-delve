@@ -232,7 +232,6 @@ export const DEMO_LISTINGS: AdminListing[] = [
     price_label: 'N$8400',
     category_label: 'Journey',
     created_at: '2026-03-10T08:00:00Z',
-    is_featured: true,
   },
   {
     id: 'post:12',

@@ -976,23 +976,7 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       listing_type: string
       listing_id: number
       published?: boolean
-      featured?: boolean
       reason?: string
-    }
-    if (body.featured != null) {
-      mockListings = mockListings.map((item) =>
-        item.listing_type === body.listing_type && item.listing_id === body.listing_id
-          ? { ...item, is_featured: Boolean(body.featured) }
-          : item,
-      )
-      const updated = mockListings.find(
-        (item) => item.listing_type === body.listing_type && item.listing_id === body.listing_id,
-      )
-      pushAudit(
-        `${body.featured ? 'Featured' : 'Unfeatured'} ${body.listing_type}:${body.listing_id}`,
-        'listing',
-      )
-      return updated
     }
     mockListings = mockListings.map((item) =>
       item.listing_type === body.listing_type && item.listing_id === body.listing_id

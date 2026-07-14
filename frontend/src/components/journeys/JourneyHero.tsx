@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bookmark, ChevronLeft, Share2 } from 'lucide-react'
+import { Bookmark, ChevronLeft, ChevronRight, Heart, Share2 } from 'lucide-react'
 import type { ListingGalleryItem } from '../listing/types'
 import './journey-detail.css'
 
@@ -8,24 +8,48 @@ type Props = {
   images: ListingGalleryItem[]
   backTo: string
   backLabel?: string
+  liked?: boolean
   saved?: boolean
+  likeBusy?: boolean
+  saveBusy?: boolean
+  onLike?: () => void
   onSave?: () => void
   onShare?: () => void
 }
 
-/** Journey hero — a swipeable cover carousel with back + save/share.
+/** Journey hero — a swipeable cover carousel with back + like/save/share.
  *  Self-contained (no listing gallery import). */
-export function JourneyHero({ images, backTo, backLabel = 'Journeys', saved, onSave, onShare }: Props) {
+export function JourneyHero({
+  images,
+  backTo,
+  backLabel = 'Journeys',
+  liked,
+  saved,
+  likeBusy = false,
+  saveBusy = false,
+  onLike,
+  onSave,
+  onShare,
+}: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
 
   const slides = images.length > 0 ? images : [{ src: '', alt: '', kind: 'image' as const }]
+  const multi = slides.length > 1
 
   const onScroll = () => {
     const el = trackRef.current
     if (!el) return
     const idx = Math.round(el.scrollLeft / Math.max(el.clientWidth, 1))
     setActive(Math.min(Math.max(idx, 0), slides.length - 1))
+  }
+
+  const goTo = (index: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const next = Math.min(Math.max(index, 0), slides.length - 1)
+    el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' })
+    setActive(next)
   }
 
   return (
@@ -36,6 +60,18 @@ export function JourneyHero({ images, backTo, backLabel = 'Journeys', saved, onS
       </Link>
 
       <div className="jd-hero__acts">
+        {onLike ? (
+          <button
+            type="button"
+            className={`jd-hero__act jd-hero__act--like${liked ? ' is-active' : ''}`}
+            onClick={onLike}
+            disabled={likeBusy}
+            aria-label={liked ? 'Unlike journey' : 'Like journey'}
+            aria-pressed={liked}
+          >
+            <Heart size={16} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        ) : null}
         {onShare ? (
           <button type="button" className="jd-hero__act" onClick={onShare} aria-label="Share journey">
             <Share2 size={16} strokeWidth={2.25} aria-hidden />
@@ -44,8 +80,9 @@ export function JourneyHero({ images, backTo, backLabel = 'Journeys', saved, onS
         {onSave ? (
           <button
             type="button"
-            className={`jd-hero__act${saved ? ' jd-hero__act--on' : ''}`}
+            className={`jd-hero__act jd-hero__act--save${saved ? ' is-active' : ''}`}
             onClick={onSave}
+            disabled={saveBusy}
             aria-label={saved ? 'Saved' : 'Save journey'}
             aria-pressed={saved}
           >
@@ -71,14 +108,41 @@ export function JourneyHero({ images, backTo, backLabel = 'Journeys', saved, onS
         ))}
       </div>
 
-      {slides.length > 1 ? (
+      {multi ? (
         <>
+          {active > 0 ? (
+            <button
+              type="button"
+              className="jd-hero__nav jd-hero__nav--prev"
+              onClick={() => goTo(active - 1)}
+              aria-label="Previous photo"
+            >
+              <ChevronLeft size={18} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {active < slides.length - 1 ? (
+            <button
+              type="button"
+              className="jd-hero__nav jd-hero__nav--next"
+              onClick={() => goTo(active + 1)}
+              aria-label="Next photo"
+            >
+              <ChevronRight size={18} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
           <span className="jd-hero__count">
             {active + 1} / {slides.length}
           </span>
-          <div className="jd-hero__dots" aria-hidden>
+          <div className="jd-hero__dots" aria-label="Gallery pages">
             {slides.slice(0, Math.min(slides.length, 8)).map((_, index) => (
-              <span key={index} className={`jd-hero__dot${index === active ? ' jd-hero__dot--on' : ''}`} />
+              <button
+                key={index}
+                type="button"
+                className={`jd-hero__dot${index === active ? ' jd-hero__dot--on' : ''}`}
+                onClick={() => goTo(index)}
+                aria-label={`Go to photo ${index + 1}`}
+                aria-current={index === active ? 'true' : undefined}
+              />
             ))}
           </div>
         </>

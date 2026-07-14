@@ -79,6 +79,102 @@ class EventApiTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 1)
 
+    def test_create_event_with_video_cover(self):
+        self.client.force_authenticate(self.organizer)
+        starts = (timezone.now() + timezone.timedelta(days=4)).isoformat()
+        res = self.client.post(
+            "/api/events/",
+            {
+                "title": "Video cover night",
+                "category": "music",
+                "starts_at": starts,
+                "region": "Khomas",
+                "city": "Windhoek",
+                "is_free": "true",
+                "is_published": "true",
+                "cover_image": "https://res.cloudinary.com/demo/video/upload/sample.mp4",
+                "cover_kind": "video",
+                "gallery_images": "[]",
+                "event_stories": "[]",
+            },
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data["cover_kind"], "video")
+        self.assertIn("sample.mp4", res.data["cover_image"])
+        event = Event.objects.get(id=res.data["id"])
+        self.assertEqual(event.cover_kind, "video")
+
+    def test_cover_kind_inferred_from_video_url(self):
+        self.client.force_authenticate(self.organizer)
+        starts = (timezone.now() + timezone.timedelta(days=5)).isoformat()
+        res = self.client.post(
+            "/api/events/",
+            {
+                "title": "Inferred video cover",
+                "category": "music",
+                "starts_at": starts,
+                "is_free": "true",
+                "is_published": "true",
+                "cover_image": "https://cdn.example.com/clips/opener.webm",
+                "gallery_images": "[]",
+                "event_stories": "[]",
+            },
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data["cover_kind"], "video")
+
+    def test_related_events_endpoint(self):
+        sibling = Event.objects.create(
+            organizer=self.organizer,
+            business=self.business,
+            title="Related culture night",
+            category=self.event.category or "culture",
+            city="Windhoek",
+            starts_at=timezone.now() + timezone.timedelta(days=3),
+            is_free=True,
+            is_published=True,
+        )
+        res = self.client.get(f"/api/events/{self.event.id}/related/")
+        self.assertEqual(res.status_code, 200)
+        ids = [row["id"] for row in res.data]
+        self.assertIn(sibling.id, ids)
+        self.assertNotIn(self.event.id, ids)
+
+    def test_category_follow_toggle_and_feed_boost(self):
+        music = Event.objects.create(
+            organizer=self.organizer,
+            business=self.business,
+            title="Late night jazz",
+            category="music",
+            starts_at=timezone.now() + timezone.timedelta(days=5),
+            is_free=True,
+            is_published=True,
+        )
+        culture = Event.objects.create(
+            organizer=self.organizer,
+            business=self.business,
+            title="Gallery walk",
+            category="culture",
+            starts_at=timezone.now() + timezone.timedelta(days=1),
+            is_free=True,
+            is_published=True,
+        )
+        self.client.force_authenticate(self.traveler)
+        res = self.client.post("/api/events/categories/music/follow/")
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.data["following"])
+        res = self.client.get("/api/events/category-follows/")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("music", res.data["categories"])
+        res = self.client.get("/api/events/")
+        self.assertEqual(res.status_code, 200)
+        ids = [row["id"] for row in res.data]
+        self.assertLess(ids.index(music.id), ids.index(culture.id))
+        res = self.client.post("/api/events/categories/music/follow/")
+        self.assertFalse(res.data["following"])
+
     def test_organizer_can_save_event_stories(self):
         stories = [
             {
@@ -248,7 +344,10 @@ class EventPhase3Tests(TestCase):
         res = self.client.get(f"/api/events/{self.event.id}/questions/")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 1)
-        self.assertEqual(len(res.data[0]["answers"]), 1)
+        self.assertEqual(res.data[0]["replies_count"], 1)
+        res = self.client.get(f"/api/events/{self.event.id}/comments/?parent={qid}")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data), 1)
 
     def test_ticket_and_self_check_in(self):
         self.client.force_authenticate(self.traveler)

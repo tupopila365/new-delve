@@ -611,3 +611,67 @@
 .ev-monetization__empty {
   opacity: 0.8;
 }
+
+/* Social event detail (shares journey detail chrome) */
+.ev-detail-page .ev-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ev-detail-page .ev-detail__badges .jd-badge {
+  margin: 0;
+}
+
+.ev-detail-page .ev-detail__follow-cat {
+  min-height: 28px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.88);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.ev-detail-page .ev-detail__follow-cat.is-active,
+.ev-detail-page .ev-detail__follow-cat:hover {
+  border-color: rgba(255, 193, 7, 0.45);
+  background: rgba(255, 193, 7, 0.14);
+  color: #ffc107;
+}
+
+.ev-detail-page .ev-detail__organizer {
+  margin: 8px 0 18px;
+}
+
+.ev-detail-page .ev-detail__ticket-block {
+  margin: 14px 0 18px;
+}
+
+.ev-detail-page .ev-detail__venue-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ev-detail-page .ev-detail__moment-cta {
+  margin: -4px 0 18px;
+  padding-inline: 2px;
+}
+
+.ev-detail-page .ev-detail__moments,
+.ev-detail-page .ev-detail__reviews,
+.ev-detail-page .ev-detail__related,
+.ev-detail-page .ev-detail__date-block {
+  margin-bottom: 16px;
+}
+
+.ev-detail-page a.jd-mobilebar__btn {
+  text-decoration: none;
+}

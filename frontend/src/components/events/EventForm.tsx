@@ -1,5 +1,7 @@
+import { Play } from 'lucide-react'
 import { HighlightChannelEditor } from '../highlights/HighlightChannelEditor'
 import { ListingPhotoManager } from '../listing/photos'
+import { photoKind } from '../listing/photos/listingPhotoUtils'
 import type { ListingPhotoDraft } from '../listing/photos/types'
 import { EventCategoryPicker } from './EventCategoryPicker'
 import type { EventFormState } from '../../utils/eventForm'
@@ -36,22 +38,27 @@ export function EventForm({
 }: Props) {
   const show = (id: number) => step == null || step === id
 
-  // Helpers for safe preview strings
-  const coverPreview = photos[0]?.src || ''
+  const coverPhoto = photos[0]
+  const coverIsVideo = coverPhoto ? photoKind(coverPhoto) === 'video' : false
+  const coverPreview = coverPhoto?.posterSrc || coverPhoto?.src || ''
+  const galleryPreview = photos.slice(0, 6)
 
   return (
     <div className="ce-form">
       {show(1) ? (
         <>
-          <p className="cj-form__hint">Name your event and add photos for the top of the page.</p>
+          <p className="cj-form__hint">
+            Name your event and add a cover — photo or short video. Tap any tile to preview and edit.
+          </p>
           <section className="ce-form__section listing-photos-section" aria-labelledby="ce-photos-title">
             <h2 id="ce-photos-title" className="ce-form__section-title">
-              Photos
+              Photos & videos
             </h2>
             <ListingPhotoManager
               photos={photos}
               onChange={onPhotosChange}
-              hint="First photo is the cover. Tap a photo to edit, or star another to make it cover."
+              allowVideoCover
+              hint="Cover can be a photo or short clip. Extra media goes in the gallery — clips autoplay on the feed."
             />
           </section>
 
@@ -262,18 +269,54 @@ export function EventForm({
           <h2 id="ce-review-title" className="ce-form__section-title">
             Review
           </h2>
-          <p className="cj-form__hint">Check the details, then publish.</p>
+          <p className="cj-form__hint">Check the details and media, then publish.</p>
           <div className="cj-preview">
             <div className="cj-preview__card">
               {coverPreview ? (
-                <img
-                  src={coverPreview}
-                  alt=""
-                  className="cj-preview__img"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
+                coverIsVideo ? (
+                  <video
+                    className="cj-preview__img"
+                    src={coverPhoto?.src}
+                    poster={coverPhoto?.posterSrc}
+                    muted
+                    playsInline
+                    controls
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={coverPreview}
+                    alt=""
+                    className="cj-preview__img"
+                    onError={(e) => {
+                      ;(e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                )
+              ) : null}
+              {galleryPreview.length > 1 ? (
+                <div className="ce-preview__media-strip" aria-label="Gallery preview">
+                  {galleryPreview.map((photo, index) => {
+                    const video = photoKind(photo) === 'video'
+                    return (
+                      <div
+                        key={photo.id}
+                        className={`ce-preview__thumb${index === 0 ? ' is-cover' : ''}${video ? ' is-video' : ''}`}
+                      >
+                        {video && !photo.posterSrc ? (
+                          <video src={photo.src} muted playsInline preload="metadata" aria-hidden />
+                        ) : (
+                          <img src={photo.posterSrc || photo.src} alt="" />
+                        )}
+                        {video ? (
+                          <span className="ce-preview__thumb-play" aria-hidden>
+                            <Play size={12} strokeWidth={2.5} fill="currentColor" />
+                          </span>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </div>
               ) : null}
               <div className="cj-preview__body">
                 <p className="cj-preview__title">{state.title.trim() || 'Your event title'}</p>
@@ -300,6 +343,9 @@ export function EventForm({
                         ? 'External tickets'
                         : 'Tickets TBA'}
                 </p>
+                {photos.some((p) => photoKind(p) === 'video') ? (
+                  <p className="cj-preview__meta">Includes video preview in gallery</p>
+                ) : null}
               </div>
             </div>
           </div>

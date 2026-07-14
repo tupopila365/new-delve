@@ -22,6 +22,8 @@ type Props = {
   /** Owner sees add CTA when no channels. */
   isOwner?: boolean
   onAddHighlight?: () => void
+  /** Owner can open full manage sheet (rename / delete rings / edit slides). */
+  onManageHighlights?: () => void
 }
 
 export function HighlightStoriesSection({
@@ -36,6 +38,7 @@ export function HighlightStoriesSection({
   ctaLabel = 'View listing',
   isOwner = false,
   onAddHighlight,
+  onManageHighlights,
 }: Props) {
   const name = listingName ?? venue?.name ?? ''
   const path = explorePath ?? (venueId ? `/food/${venueId}` : '/')
@@ -47,13 +50,17 @@ export function HighlightStoriesSection({
   const activeChannel = channels.find((c) => c.id === activeChannelId) ?? null
 
   if (channels.length === 0) {
-    if (!isOwner || !onAddHighlight) return null
+    if (!isOwner || (!onAddHighlight && !onManageHighlights)) return null
     return (
       <section
         className={`fd-venue-stories acc-detail__section hl-stories--empty${className ? ` ${className}` : ''}`}
         aria-labelledby="hl-stories-empty-title"
       >
-        <HighlightEmptyState onAdd={onAddHighlight} />
+        <HighlightEmptyState
+          onAdd={onManageHighlights ?? onAddHighlight!}
+          buttonLabel={onManageHighlights ? 'Create highlights' : 'Add highlight'}
+          copy="Add highlight rings travellers can tap through — create, rename, and edit them anytime."
+        />
       </section>
     )
   }
@@ -79,11 +86,18 @@ export function HighlightStoriesSection({
           activeId={activeChannelId}
           onSelect={setActiveChannelId}
         />
-        {isOwner && onAddHighlight ? (
+        {isOwner && (onAddHighlight || onManageHighlights) ? (
           <div className="hl-stories__owner-actions">
-            <button type="button" className="hl-stories__add-btn" onClick={onAddHighlight}>
-              Add highlight
-            </button>
+            {onAddHighlight ? (
+              <button type="button" className="hl-stories__add-btn" onClick={onAddHighlight}>
+                Add highlight
+              </button>
+            ) : null}
+            {onManageHighlights ? (
+              <button type="button" className="hl-stories__add-btn hl-stories__manage-btn" onClick={onManageHighlights}>
+                Manage highlights
+              </button>
+            ) : null}
           </div>
         ) : null}
       </section>

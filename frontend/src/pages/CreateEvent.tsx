@@ -1,16 +1,19 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { CreateWizardShell } from '../components/create'
 import { EventForm, EVENT_WIZARD_STEPS } from '../components/events/EventForm'
 import { EmptyState } from '../components/ui'
+import { usePublishQueue } from '../components/PublishQueueContext'
+import { ensureHighlightChannelsMediaUrls } from '../components/highlights/highlightMediaApi'
 import {
   buildEventFormData,
-  canSubmitEventForm,
+  collectEventFormIssues,
   emptyEventFormState,
+  validateEventStep,
   type EventFormState,
 } from '../utils/eventForm'
 import type { ListingPhotoDraft } from '../components/listing/photos/types'
@@ -26,80 +29,119 @@ export function CreateEvent() {
   const qc = useQueryClient()
   const { profile } = useAuth()
   const { activeBusiness } = useBusinessAccess()
+  const { enqueueEventPublish } = usePublishQueue()
 
   const [step, setStep] = useState(1)
+  const [furthestStep, setFurthestStep] = useState(1)
   const [state, setState] = useState<EventFormState>(() => emptyEventFormState(profile?.region ?? ''))
   const [photos, setPhotos] = useState<ListingPhotoDraft[]>([])
   const [err, setErr] = useState<string | null>(null)
+  const [publishIssues, setPublishIssues] = useState<string[]>([])
   const startedAt = useRef(startCreateSession())
 
-  const canSubmit = canSubmitEventForm(state)
-
-  const mut = useMutation({
-    mutationFn: async () => {
-      if (!canSubmit) throw new Error('Title and start date are required.')
-      const resolved = await resolveListingGalleryMedia(photos)
-      return apiFetch<CreatedEvent>('/api/events/', {
-        method: 'POST',
-        body: buildEventFormData(state, photos, resolved, activeBusiness?.id),
-      })
-    },
-    onSuccess: async (data) => {
-      trackCreatePublish({
-        format: 'event',
-        has_place: Boolean(state.venue.trim() || state.city.trim() || state.region.trim()),
-        startedAt: startedAt.current,
-      })
-      await qc.invalidateQueries({ queryKey: ['events'] })
-      await qc.invalidateQueries({ queryKey: ['provider-events'] })
-      if (profile?.username) {
-        await qc.invalidateQueries({ queryKey: ['user-events', profile.username] })
-      }
-      navigate(`/events/${data.id}`)
-    },
-    onError: (e) => {
-      setErr(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Failed to create event.')
-    },
-  })
-
-  function validateStep(): string | null {
-    if (step === 1) {
-      if (!state.title.trim()) return 'Give your event a title.'
-    }
-    if (step === 2) {
-      if (!state.startsAt) return 'Add a start date and time.'
-      if (state.endsAt && new Date(state.endsAt) < new Date(state.startsAt)) {
-        return 'End must be after start.'
-      }
-    }
-    if (step === 3) {
-      if (state.ticketingMode === 'on_platform' && !state.price.trim()) {
-        return 'Add a ticket price for on-platform sales.'
-      }
-      if (state.ticketingMode === 'external' && !state.ticketUrl.trim()) {
-        return 'Add an external ticket link.'
-      }
-    }
-    return null
+  function stepLabel(stepId: number) {
+    return EVENT_WIZARD_STEPS.find((s) => s.id === stepId)?.label ?? `Step ${stepId}`
   }
 
   function next() {
-    const message = validateStep()
+    const message = validateEventStep(step, state)
     if (message) {
-      setErr(message)
+      setErr(null)
+      setPublishIssues([message])
       return
     }
     setErr(null)
-    setStep((s) => Math.min(EVENT_WIZARD_STEPS.length, s + 1))
+    setPublishIssues([])
+    setStep((s) => {
+      const nextStep = Math.min(EVENT_WIZARD_STEPS.length, s + 1)
+      setFurthestStep((f) => Math.max(f, nextStep))
+      return nextStep
+    })
   }
 
   function back() {
     setErr(null)
+    setPublishIssues([])
     setStep((s) => Math.max(1, s - 1))
+  }
+
+  function goToStep(stepId: number) {
+    if (stepId < 1 || stepId > furthestStep) return
+    setErr(null)
+    setPublishIssues([])
+    setStep(stepId)
   }
 
   function requestLeave() {
     if (!window.confirm('Discard this event draft?')) return
+    navigate('/events')
+  }
+
+  function publish() {
+    if (!profile) {
+      setPublishIssues(['You need to sign in before you can publish an event.'])
+      navigate('/login')
+      return
+    }
+
+    const allIssues = collectEventFormIssues(state)
+    if (allIssues.length > 0) {
+      const firstStep = allIssues[0].step
+      setFurthestStep((f) => Math.max(f, step, firstStep))
+      setStep(firstStep)
+      setErr(null)
+      setPublishIssues(
+        allIssues.map((issue) =>
+          issue.step === firstStep ? issue.message : `${stepLabel(issue.step)}: ${issue.message}`,
+        ),
+      )
+      return
+    }
+
+    setErr(null)
+    setPublishIssues([])
+
+    const snapshot = {
+      state,
+      photos,
+      businessId: activeBusiness?.id ?? null,
+      username: profile.username,
+      startedAt: startedAt.current,
+    }
+
+    enqueueEventPublish({
+      title: snapshot.state.title.trim() || 'Event',
+      execute: async (onProgress) => {
+        onProgress({ status: 'uploading', progress: 0.08, message: 'Uploading photos & clips…' })
+        const [resolved, resolvedStories] = await Promise.all([
+          resolveListingGalleryMedia(snapshot.photos, { allowVideoCover: true }),
+          ensureHighlightChannelsMediaUrls(snapshot.state.eventStories),
+        ])
+        onProgress({ status: 'posting', progress: 0.88, message: 'Publishing event…' })
+        const created = await apiFetch<CreatedEvent>('/api/events/', {
+          method: 'POST',
+          body: buildEventFormData(
+            snapshot.state,
+            snapshot.photos,
+            resolved,
+            resolvedStories,
+            snapshot.businessId,
+          ),
+        })
+        trackCreatePublish({
+          format: 'event',
+          has_place: Boolean(
+            snapshot.state.venue.trim() || snapshot.state.city.trim() || snapshot.state.region.trim(),
+          ),
+          startedAt: snapshot.startedAt,
+        })
+        void qc.invalidateQueries({ queryKey: ['events'] })
+        void qc.invalidateQueries({ queryKey: ['provider-events'] })
+        void qc.invalidateQueries({ queryKey: ['user-events', snapshot.username] })
+        void qc.invalidateQueries({ queryKey: ['event', String(created.id)] })
+      },
+    })
+
     navigate('/events')
   }
 
@@ -122,19 +164,24 @@ export function CreateEvent() {
       subtitle={`Step ${step} of ${EVENT_WIZARD_STEPS.length}`}
       steps={EVENT_WIZARD_STEPS}
       step={step}
+      variant="dark"
       onLeave={requestLeave}
       onStepBack={back}
       onStepNext={next}
+      onStepSelect={goToStep}
+      furthestStep={furthestStep}
       onPrimary={() => {
-        setErr(null)
-        mut.mutate()
+        try {
+          publish()
+        } catch (e) {
+          setErr(e instanceof ApiError || e instanceof Error ? e.message : 'Failed to start publish.')
+        }
       }}
       primaryLabel="Publish event"
       primaryPendingLabel="Publishing…"
-      primaryPending={mut.isPending}
-      primaryDisabled={!canSubmit}
+      primaryPending={false}
       error={err}
-      variant="dark"
+      errors={publishIssues}
     >
       <EventForm
         step={step}

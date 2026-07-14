@@ -2,7 +2,11 @@ import type { HighlightChannelInput } from '../components/highlights/types'
 import { normalizeHighlightsForSave } from '../components/highlights/highlightFormUtils'
 import type { ListingPhotoDraft } from '../components/listing/photos/types'
 import type { ListingGalleryMediaItem } from '../components/listing/photos/listingGalleryMedia'
-import { photosFromListingGallery, serializeGalleryForApi } from '../components/listing/photos/listingPhotoUtils'
+import {
+  photoKind,
+  photosFromListingGallery,
+  serializeGalleryForApi,
+} from '../components/listing/photos/listingPhotoUtils'
 import type { EventTicketingMode } from './eventTicketing'
 import { resolveTicketingMode } from './eventTicketing'
 
@@ -21,6 +25,8 @@ export type EventFormState = {
   capacity: string
   eventStories: HighlightChannelInput[]
 }
+
+export type EventFormIssue = { step: number; message: string }
 
 export const emptyEventFormState = (region = ''): EventFormState => ({
   title: '',
@@ -89,7 +95,8 @@ export function eventToFormState(
 export function buildEventFormData(
   state: EventFormState,
   photos: ListingPhotoDraft[],
-  resolved: { cover: string; gallery: ListingGalleryMediaItem[] },
+  resolved: { cover: string; gallery: ListingGalleryMediaItem[]; coverKind?: 'image' | 'video' },
+  resolvedStories: HighlightChannelInput[],
   businessId?: number | null,
 ): FormData {
   const fd = new FormData()
@@ -110,24 +117,55 @@ export function buildEventFormData(
   }
   const cap = Number.parseInt(state.capacity.trim(), 10)
   if (state.capacity.trim() && Number.isFinite(cap) && cap > 0) fd.append('capacity', String(cap))
-  const coverFile = photos[0]?.file ?? null
-  if (coverFile) fd.append('cover_image', coverFile)
+
+  const cover = resolved.cover.trim()
+  const coverKind =
+    resolved.coverKind === 'video' || resolved.coverKind === 'image'
+      ? resolved.coverKind
+      : photos[0]
+        ? photoKind(photos[0])
+        : 'image'
+
+  fd.append('cover_image', cover)
+  fd.append('cover_kind', coverKind)
   fd.append('gallery_images', JSON.stringify(serializeGalleryForApi(resolved.gallery)))
   if (businessId) fd.append('business', String(businessId))
-  fd.append('event_stories', JSON.stringify(normalizeHighlightsForSave(state.eventStories)))
+  fd.append('event_stories', JSON.stringify(normalizeHighlightsForSave(resolvedStories)))
   return fd
 }
 
 export function photosFromEvent(event: {
   cover_image?: string | null
+  cover_kind?: 'image' | 'video' | null
   gallery_images?: unknown[] | null
 }): ListingPhotoDraft[] {
-  return photosFromListingGallery(event.cover_image, event.gallery_images)
+  return photosFromListingGallery(event.cover_image, event.gallery_images, event.cover_kind)
 }
 
 export function canSubmitEventForm(state: EventFormState): boolean {
-  if (!state.title.trim() || !state.startsAt) return false
-  if (state.ticketingMode === 'on_platform' && !state.price.trim()) return false
-  if (state.ticketingMode === 'external' && !state.ticketUrl.trim()) return false
-  return true
+  return collectEventFormIssues(state).length === 0
+}
+
+export function validateEventStep(step: number, state: EventFormState): string | null {
+  const issue = collectEventFormIssues(state).find((row) => row.step === step)
+  return issue?.message ?? null
+}
+
+export function collectEventFormIssues(state: EventFormState): EventFormIssue[] {
+  const issues: EventFormIssue[] = []
+  if (!state.title.trim()) {
+    issues.push({ step: 1, message: 'Give your event a title.' })
+  }
+  if (!state.startsAt) {
+    issues.push({ step: 2, message: 'Add a start date and time.' })
+  } else if (state.endsAt && new Date(state.endsAt) < new Date(state.startsAt)) {
+    issues.push({ step: 2, message: 'End must be after start.' })
+  }
+  if (state.ticketingMode === 'on_platform' && !state.price.trim()) {
+    issues.push({ step: 3, message: 'Add a ticket price for on-platform sales.' })
+  }
+  if (state.ticketingMode === 'external' && !state.ticketUrl.trim()) {
+    issues.push({ step: 3, message: 'Add an external ticket link.' })
+  }
+  return issues
 }

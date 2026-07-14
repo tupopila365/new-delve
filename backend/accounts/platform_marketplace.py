@@ -431,32 +431,6 @@ def set_listing_published(
     raise ValueError(f"Unsupported listing_type: {listing_type}")
 
 
-def set_journey_featured(listing_id: int, *, featured: bool) -> dict:
-    from journeys.models import Journey
-
-    obj = Journey.objects.select_related("author").filter(pk=listing_id).first()
-    if not obj:
-        raise ValueError("Listing not found.")
-    obj.is_featured = featured
-    obj.save(update_fields=["is_featured", "updated_at"])
-    region = ""
-    first_stop = obj.stops.order_by("order", "id").first()
-    if first_stop:
-        region = first_stop.region or ""
-    return _listing_row(
-        listing_type="journey",
-        listing_id=listing_id,
-        title=obj.title,
-        owner_username=obj.author.username,
-        region=region,
-        published=not obj.is_hidden and obj.visibility == "public",
-        price_label=f"N${obj.total_cost}" if obj.total_cost else "",
-        category_label="Journey",
-        created_at=obj.created_at,
-        is_featured=obj.is_featured,
-    )
-
-
 def _booking_row(
     *,
     booking_type: str,

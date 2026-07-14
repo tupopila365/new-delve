@@ -11,9 +11,7 @@ import { TransportCardsEnhancer } from './transport/TransportCardsEnhancer'
 import { TransportPageEnhancer } from './transport/TransportPageEnhancer'
 import { TransportPlanRental, TransportRouteSteps } from './transport/TransportPlanner'
 import { JourneysPageEnhancer } from './journeys/JourneysPageEnhancer'
-import { FeaturedJourneys } from './journeys/FeaturedJourneys'
 import { EventsPageEnhancer } from './events/EventsPageEnhancer'
-import { FeaturedEvents } from './events/FeaturedEvents'
 import { MessagesPageEnhancer } from './messages/MessagesPageEnhancer'
 import { CommunityPageEnhancer } from './community/CommunityPageEnhancer'
 import { UserDashboardPageEnhancer } from './dashboard/UserDashboardPageEnhancer'
@@ -133,60 +131,6 @@ const guideFilterGroups: ServiceProviderFilterGroup[] = [
       { id: 'etosha', label: 'Etosha', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Etosha' } },
       { id: 'walvis', label: 'Walvis Bay', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Walvis Bay' } },
       { id: 'sossusvlei', label: 'Sossusvlei', action: { type: 'clickText', selector: '.disc-side-card__link', text: 'Sossusvlei' } },
-    ],
-  },
-]
-
-const journeyFilterGroups: ServiceProviderFilterGroup[] = [
-  {
-    id: 'journey-style',
-    title: 'Journey style',
-    singleSelect: true,
-    options: [
-      { id: 'weekend', label: 'Weekend trips', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Weekend trips' } },
-      { id: 'nature', label: 'Nature', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Nature' } },
-      { id: 'culture', label: 'Culture', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Culture' } },
-      { id: 'food', label: 'Food', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Food' } },
-      { id: 'coast', label: 'Coast', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Coast' } },
-      { id: 'adventure', label: 'Adventure', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Adventure' } },
-      { id: 'family', label: 'Family friendly', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Family friendly' } },
-      { id: 'budget', label: 'Budget friendly', action: { type: 'clickText', selector: '.jn-page__quick-chips button', text: 'Budget friendly' } },
-    ],
-  },
-  {
-    id: 'journey-budget',
-    title: 'Budget range',
-    singleSelect: true,
-    options: [
-      { id: 'under-2k', label: 'Under N$2k', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'Under N$2k' } },
-      { id: '2-5k', label: 'N$2–5k', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'N$2–5k' } },
-      { id: '5-12k', label: 'N$5–12k', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'N$5–12k' } },
-      { id: '12k-plus', label: 'N$12k+', action: { type: 'clickText', selector: '.jn-page__budget-sync button', text: 'N$12k+' } },
-    ],
-  },
-]
-
-const eventFilterGroups: ServiceProviderFilterGroup[] = [
-  {
-    id: 'event-type',
-    title: 'Event type',
-    singleSelect: true,
-    options: [
-      { id: 'music', label: 'Music', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Music' } },
-      { id: 'culture', label: 'Culture', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Culture' } },
-      { id: 'food', label: 'Food & drink', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Food' } },
-      { id: 'sports', label: 'Sports', action: { type: 'clickText', selector: '.ev-page__category-sync button', text: 'Sports' } },
-      { id: 'business', label: 'Business', action: { type: 'clickText', selector: '.ev-page__category-sync button', text: 'Business' } },
-    ],
-  },
-  {
-    id: 'event-when',
-    title: 'When',
-    singleSelect: true,
-    options: [
-      { id: 'today', label: 'Today', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Today' } },
-      { id: 'weekend', label: 'This weekend', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'This weekend' } },
-      { id: 'free', label: 'Free', action: { type: 'clickText', selector: '.ev-page__quick-chips button', text: 'Free' } },
     ],
   },
 ]
@@ -350,36 +294,8 @@ export function AppLayout() {
             <FeaturedTransport />
           </>
         ) : null}
-        {journeysPage ? (
-          <>
-            <JourneysPageEnhancer />
-            <ServiceProviderPageHeader
-              title="Explore journeys"
-              subtitle="Discover real travel stories, itineraries, routes, and saved experiences from travellers and locals."
-              eyebrow="Journeys"
-              searchPlaceholder="Search Etosha, coast, weekend trip, food journey…"
-              searchInputSelector="#jn-search"
-              filterGroups={journeyFilterGroups}
-              filterScope="journeys"
-            />
-            <FeaturedJourneys />
-          </>
-        ) : null}
-        {eventsPage ? (
-          <>
-            <EventsPageEnhancer />
-            <ServiceProviderPageHeader
-              title="Events happening soon"
-              subtitle="Find markets, music, culture nights, food events, meetups, and local gatherings."
-              eyebrow="Events"
-              searchPlaceholder="Search market, music, Windhoek, food, meetup…"
-              searchInputSelector="#ev-search"
-              filterGroups={eventFilterGroups}
-              filterScope="events"
-            />
-            <FeaturedEvents />
-          </>
-        ) : null}
+        {journeysPage ? <JourneysPageEnhancer /> : null}
+        {eventsPage ? <EventsPageEnhancer /> : null}
         {messagesPage ? (
           <>
             <MessagesPageEnhancer />

@@ -61,5 +61,10 @@ export function formatGalleryUrlsField(items: ListingGalleryMediaItem[]): string
 }
 
 export function isVideoUrl(url: string): boolean {
-  return /\.(mp4|webm|mov)(\?|$)/i.test(url) || url.startsWith('data:video/')
+  const value = (url || '').trim()
+  if (!value) return false
+  if (value.startsWith('data:video/')) return true
+  if (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(value)) return true
+  // Cloudinary (and similar) deliver video without a file extension in the path.
+  return /\/video\/(?:upload\/)?/i.test(value)
 }

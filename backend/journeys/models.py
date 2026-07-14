@@ -125,10 +125,20 @@ class JourneySave(models.Model):
 
 
 class JourneyQuestion(models.Model):
+    """Threaded journey comments — same shape as social.Comment (parent replies)."""
+
     journey = models.ForeignKey(
         Journey,
         on_delete=models.CASCADE,
         related_name="questions",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+        help_text="Top-level comments have no parent; replies reference their parent comment.",
     )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -141,10 +151,29 @@ class JourneyQuestion(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["created_at"]
+
+
+class JourneyQuestionHelpful(models.Model):
+    question = models.ForeignKey(
+        JourneyQuestion,
+        on_delete=models.CASCADE,
+        related_name="helpful_votes",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="helpful_journey_question_votes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["question", "user"]]
 
 
 class JourneyAnswer(models.Model):
+    """Legacy one-level reply table — retained briefly for migration compatibility."""
+
     question = models.ForeignKey(
         JourneyQuestion,
         on_delete=models.CASCADE,

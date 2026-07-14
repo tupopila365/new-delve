@@ -50,10 +50,13 @@ export type PublishSlideSnapshot = SocialSlideUploadInput & {
   queuePreviewUrl: string
 }
 
+export type PublishJobKind = 'social' | 'journey' | 'event'
+
 export type PublishJobStatus = 'uploading' | 'posting' | 'done' | 'failed'
 
 export type PublishJob = {
   id: string
+  kind: PublishJobKind
   tempPostId: number
   status: PublishJobStatus
   progress: number
@@ -61,6 +64,8 @@ export type PublishJob = {
   error?: string
   postsToDelvers: boolean
   createdAt: number
+  /** Listing title (or short label) for progress copy. */
+  label?: string
 }
 
 export type EnqueueSocialPublishInput = {
@@ -76,27 +81,67 @@ export type EnqueueSocialPublishInput = {
   analytics: { format: CreateFormat; has_place: boolean; startedAt: number }
 }
 
+export type JourneyPublishProgress = {
+  status: PublishJobStatus
+  progress: number
+  message?: string
+}
+
+export type EnqueueJourneyPublishInput = {
+  /** Shown in the progress strip (e.g. journey title). */
+  title: string
+  /** Background work: uploads + create/update. Throw on failure. */
+  execute: (onProgress: (p: JourneyPublishProgress) => void) => Promise<void>
+}
+
+export type EnqueueEventPublishInput = EnqueueJourneyPublishInput
+
 type PublishQueueValue = {
   jobs: PublishJob[]
   enqueueSocialPost: (input: EnqueueSocialPublishInput) => { tempPostId: number; jobId: string }
+  enqueueJourneyPublish: (input: EnqueueJourneyPublishInput) => { jobId: string }
+  enqueueEventPublish: (input: EnqueueEventPublishInput) => { jobId: string }
   dismissJob: (jobId: string) => void
   retryJob: (jobId: string) => void
 }
 
 const PublishQueueContext = createContext<PublishQueueValue | null>(null)
 
-type StoredJob = {
+type StoredSocialJob = {
+  kind: 'social'
   meta: PublishJob
   slides: PublishSlideSnapshot[]
   input: EnqueueSocialPublishInput
 }
 
-function jobMessage(status: PublishJobStatus, progress: number): string {
-  if (status === 'uploading') {
-    return progress > 0.05 ? `Uploading… ${Math.round(progress * 100)}%` : 'Uploading…'
+type StoredListingJob = {
+  kind: 'journey' | 'event'
+  meta: PublishJob
+  input: EnqueueJourneyPublishInput
+}
+
+type StoredJob = StoredSocialJob | StoredListingJob
+
+function jobMessage(job: Pick<PublishJob, 'kind' | 'status' | 'progress' | 'label'>): string {
+  const label = job.label?.trim()
+  if (job.kind === 'journey' || job.kind === 'event') {
+    const noun = job.kind === 'event' ? 'event' : 'journey'
+    if (job.status === 'uploading') {
+      return job.progress > 0.05
+        ? `Uploading ${noun}… ${Math.round(job.progress * 100)}%`
+        : `Uploading ${noun}…`
+    }
+    if (job.status === 'posting') return `Publishing ${noun}…`
+    if (job.status === 'done') {
+      return label ? `“${label}” is live` : `${noun === 'event' ? 'Event' : 'Journey'} published`
+    }
+    return `Couldn’t publish ${noun}`
   }
-  if (status === 'posting') return 'Sharing…'
-  if (status === 'done') return 'Posted'
+  if (job.status === 'uploading') {
+    return job.progress > 0.05 ? `Uploading… ${Math.round(job.progress * 100)}%` : 'Uploading…'
+  }
+  if (job.status === 'posting') return 'Sharing…'
+  if (job.status === 'done') return 'Posted'
   return 'Couldn’t post'
 }
 
@@ -156,6 +201,9 @@ async function buildPostFormData(
       if (slide.mediaKind === 'video') {
         if (useDirectUpload && slide.upload.publicId) {
           fd.append(`${prefix}video_public_id`, slide.upload.publicId)
+          if (slide.upload.secureUrl) {
+            fd.append(`${prefix}video_url`, slide.upload.secureUrl)
+          }
         } else {
           const videoFile = await prepareDelversVideoForUpload(
             slide.file,
@@ -182,6 +230,9 @@ async function buildPostFormData(
 
       if (useDirectUpload && slide.upload.publicId) {
         fd.append(`${prefix}image_public_id`, slide.upload.publicId)
+        if (slide.upload.secureUrl) {
+          fd.append(`${prefix}image_url`, slide.upload.secureUrl)
+        }
         return
       }
       const blob = await renderEditedImage(
@@ -214,15 +265,14 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
       prev.map((j) => {
         if (j.id !== jobId) return j
         const next = { ...j, ...patch }
-        next.message = patch.message ?? jobMessage(next.status, next.progress)
+        next.message = patch.message ?? jobMessage(next)
         return next
       }),
     )
     const stored = storeRef.current.get(jobId)
     if (stored) {
       stored.meta = { ...stored.meta, ...patch }
-      stored.meta.message =
-        patch.message ?? jobMessage(stored.meta.status, stored.meta.progress)
+      stored.meta.message = patch.message ?? jobMessage(stored.meta)
     }
   }, [])
 
@@ -234,13 +284,8 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const runJob = useCallback(
-    async (jobId: string) => {
-      if (runningRef.current.has(jobId)) return
-      const stored = storeRef.current.get(jobId)
-      if (!stored) return
-      runningRef.current.add(jobId)
-
+  const runSocialJob = useCallback(
+    async (jobId: string, stored: StoredSocialJob) => {
       const { input, slides, meta } = stored
       patchJob(jobId, { status: 'uploading', progress: 0.05, error: undefined })
 
@@ -274,7 +319,6 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
           void qc.invalidateQueries({ queryKey: ['delvers-highlights'] })
         }
         if (!input.postsToDelvers) {
-          // Profile / host story paths: ensure destination caches refresh fully.
           void qc.invalidateQueries({ queryKey: ['user-posts', input.author.username] })
           void qc.invalidateQueries({ queryKey: ['public-profile', input.author.username] })
         }
@@ -294,11 +338,64 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
               : 'Could not publish.'
         removeOptimisticPost(qc, meta.tempPostId)
         patchJob(jobId, { status: 'failed', progress: 1, error: message, message })
+      }
+    },
+    [cleanupPreviews, patchJob, qc],
+  )
+
+  const runListingJob = useCallback(
+    async (jobId: string, stored: StoredListingJob) => {
+      const noun = stored.kind === 'event' ? 'event' : 'journey'
+      patchJob(jobId, {
+        status: 'uploading',
+        progress: 0.05,
+        error: undefined,
+        message: `Uploading ${noun}…`,
+      })
+
+      try {
+        await stored.input.execute((p) => {
+          patchJob(jobId, {
+            status: p.status,
+            progress: p.progress,
+            ...(p.message ? { message: p.message } : {}),
+          })
+        })
+        patchJob(jobId, { status: 'done', progress: 1 })
+        storeRef.current.delete(jobId)
+        window.setTimeout(() => {
+          setJobs((prev) => prev.filter((j) => j.id !== jobId || j.status !== 'done'))
+        }, 3200)
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : `Could not publish ${noun}.`
+        patchJob(jobId, { status: 'failed', progress: 1, error: message, message })
+      }
+    },
+    [patchJob],
+  )
+
+  const runJob = useCallback(
+    async (jobId: string) => {
+      if (runningRef.current.has(jobId)) return
+      const stored = storeRef.current.get(jobId)
+      if (!stored) return
+      runningRef.current.add(jobId)
+      try {
+        if (stored.kind === 'social') {
+          await runSocialJob(jobId, stored)
+        } else {
+          await runListingJob(jobId, stored)
+        }
       } finally {
         runningRef.current.delete(jobId)
       }
     },
-    [cleanupPreviews, patchJob, qc],
+    [runListingJob, runSocialJob],
   )
 
   const enqueueSocialPost = useCallback(
@@ -329,8 +426,6 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
       })
 
       if (input.postsToDelvers) {
-        // Show the ghost post immediately so the feed feels live on arrive.
-        // Exact baking status is refined by server `processing_status` after POST.
         void qc.cancelQueries({ queryKey: ['delvers-social'] })
         prependOptimisticDelversPost(
           qc,
@@ -351,6 +446,7 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
 
       const meta: PublishJob = {
         id: jobId,
+        kind: 'social',
         tempPostId,
         status: 'uploading',
         progress: 0,
@@ -358,7 +454,7 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
         postsToDelvers: input.postsToDelvers,
         createdAt: Date.now(),
       }
-      storeRef.current.set(jobId, { meta, slides, input })
+      storeRef.current.set(jobId, { kind: 'social', meta, slides, input })
       setJobs((prev) => [meta, ...prev.filter((j) => j.status !== 'done')])
       void runJob(jobId)
       return { tempPostId, jobId }
@@ -366,14 +462,50 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
     [qc, runJob],
   )
 
+  const enqueueListingPublish = useCallback(
+    (kind: 'journey' | 'event', input: EnqueueJourneyPublishInput) => {
+      const noun = kind === 'event' ? 'event' : 'journey'
+      const jobId = `${kind}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const label = input.title.trim() || (kind === 'event' ? 'Event' : 'Journey')
+      const meta: PublishJob = {
+        id: jobId,
+        kind,
+        tempPostId: 0,
+        status: 'uploading',
+        progress: 0,
+        message: `Uploading ${noun}…`,
+        postsToDelvers: false,
+        createdAt: Date.now(),
+        label,
+      }
+      storeRef.current.set(jobId, { kind, meta, input })
+      setJobs((prev) => [meta, ...prev.filter((j) => j.status !== 'done')])
+      void runJob(jobId)
+      return { jobId }
+    },
+    [runJob],
+  )
+
+  const enqueueJourneyPublish = useCallback(
+    (input: EnqueueJourneyPublishInput) => enqueueListingPublish('journey', input),
+    [enqueueListingPublish],
+  )
+
+  const enqueueEventPublish = useCallback(
+    (input: EnqueueEventPublishInput) => enqueueListingPublish('event', input),
+    [enqueueListingPublish],
+  )
+
   const dismissJob = useCallback(
     (jobId: string) => {
       const stored = storeRef.current.get(jobId)
       if (stored) {
-        if (stored.meta.status === 'failed') {
+        if (stored.kind === 'social' && stored.meta.status === 'failed') {
           removeOptimisticPost(qc, stored.meta.tempPostId)
         }
-        cleanupPreviews(stored.slides)
+        if (stored.kind === 'social') {
+          cleanupPreviews(stored.slides)
+        }
         storeRef.current.delete(jobId)
       }
       setJobs((prev) => prev.filter((j) => j.id !== jobId))
@@ -385,32 +517,40 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
     (jobId: string) => {
       const stored = storeRef.current.get(jobId)
       if (!stored || stored.meta.status !== 'failed') return
-      // Re-show optimistic card before retry.
-      const first = stored.slides[0]
-      const mediaUrl = first.queuePreviewUrl
-      prependOptimisticDelversPost(
-        qc,
-        buildOptimisticDelversPost({
-          tempId: stored.meta.tempPostId,
-          body: stored.input.bodyText,
-          region: stored.input.region.trim(),
-          image: first.mediaKind === 'image' ? mediaUrl : null,
-          video: first.mediaKind === 'video' ? mediaUrl : null,
-          author: stored.input.author,
-          is_delvers: stored.input.postsToDelvers,
-          is_delvers_highlight: stored.input.publishAsHighlight,
-          delvers_board: stored.input.delversBoard,
-          processing_status: 'ready',
-        }),
-      )
+      if (stored.kind === 'social') {
+        const first = stored.slides[0]
+        const mediaUrl = first.queuePreviewUrl
+        prependOptimisticDelversPost(
+          qc,
+          buildOptimisticDelversPost({
+            tempId: stored.meta.tempPostId,
+            body: stored.input.bodyText,
+            region: stored.input.region.trim(),
+            image: first.mediaKind === 'image' ? mediaUrl : null,
+            video: first.mediaKind === 'video' ? mediaUrl : null,
+            author: stored.input.author,
+            is_delvers: stored.input.postsToDelvers,
+            is_delvers_highlight: stored.input.publishAsHighlight,
+            delvers_board: stored.input.delversBoard,
+            processing_status: 'ready',
+          }),
+        )
+      }
       void runJob(jobId)
     },
     [qc, runJob],
   )
 
   const value = useMemo(
-    () => ({ jobs, enqueueSocialPost, dismissJob, retryJob }),
-    [jobs, enqueueSocialPost, dismissJob, retryJob],
+    () => ({
+      jobs,
+      enqueueSocialPost,
+      enqueueJourneyPublish,
+      enqueueEventPublish,
+      dismissJob,
+      retryJob,
+    }),
+    [jobs, enqueueSocialPost, enqueueJourneyPublish, enqueueEventPublish, dismissJob, retryJob],
   )
 
   return (

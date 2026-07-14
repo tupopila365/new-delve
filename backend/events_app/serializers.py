@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from common.gallery_media import validate_gallery_media_list
+from common.gallery_media import media_url_kind, validate_gallery_media_list
 from common.story_channels import validate_story_channels
 
 from .access import primary_event_business
@@ -33,6 +33,7 @@ class EventSerializer(serializers.ModelSerializer):
     business_slug = serializers.CharField(source="business.slug", read_only=True)
     likes_count = serializers.IntegerField(read_only=True, required=False)
     saves_count = serializers.IntegerField(read_only=True, required=False)
+    comments_count = serializers.IntegerField(read_only=True, required=False)
     rsvp_count = serializers.IntegerField(read_only=True, required=False)
     liked_by_me = serializers.BooleanField(read_only=True, required=False)
     saved_by_me = serializers.BooleanField(read_only=True, required=False)
@@ -58,6 +59,7 @@ class EventSerializer(serializers.ModelSerializer):
             "region",
             "city",
             "cover_image",
+            "cover_kind",
             "gallery_images",
             "is_free",
             "price",
@@ -70,13 +72,14 @@ class EventSerializer(serializers.ModelSerializer):
             "event_stories",
             "likes_count",
             "saves_count",
+            "comments_count",
             "rsvp_count",
             "liked_by_me",
             "saved_by_me",
             "attending_by_me",
             "created_at",
         )
-        read_only_fields = ("organizer", "external_ticket_clicks", "created_at")
+        read_only_fields = ("organizer", "external_ticket_clicks", "comments_count", "created_at")
 
     def get_ticketing_mode(self, obj):
         return event_ticketing_mode(obj)
@@ -91,6 +94,16 @@ class EventSerializer(serializers.ModelSerializer):
         data = _parse_json_list_field(data, "event_stories")
         data = _parse_json_list_field(data, "gallery_images")
         return super().to_internal_value(data)
+
+    def validate_cover_image(self, value):
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    def validate_cover_kind(self, value):
+        if value in ("image", "video"):
+            return value
+        raise serializers.ValidationError("cover_kind must be 'image' or 'video'.")
 
     def validate(self, attrs):
         is_free = attrs.get(
@@ -109,6 +122,18 @@ class EventSerializer(serializers.ModelSerializer):
         except ValueError as exc:
             raise serializers.ValidationError(str(exc)) from exc
         attrs.update(normalized)
+
+        cover = attrs.get(
+            "cover_image",
+            self.instance.cover_image if self.instance is not None else "",
+        )
+        cover = (cover or "").strip()
+        if "cover_image" in attrs:
+            attrs["cover_image"] = cover
+        if cover and "cover_kind" not in attrs:
+            attrs["cover_kind"] = media_url_kind(cover)
+        elif not cover and "cover_kind" not in attrs and self.instance is None:
+            attrs["cover_kind"] = "image"
         return attrs
 
     def validate_event_stories(self, value):

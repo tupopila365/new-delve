@@ -21,6 +21,7 @@ import {
   organizerLabel,
   type EventDetail,
 } from '../../utils/eventListing'
+import { messageProviderPath } from '../messages/messageProviderUtils'
 import { externalTicketHref, resolveTicketingMode } from '../../utils/eventTicketing'
 import './event-detail.css'
 
@@ -56,7 +57,14 @@ export function EventTicketCard({
   const ticketingMode = resolveTicketingMode(event)
   const start = formatEventDateLong(event.starts_at)
   const organizerName = organizerLabel(event)
-  const organizerProfileHref = `/u/${encodeURIComponent(event.organizer_username ?? '')}`
+  const eventPlace = {
+    type: 'event' as const,
+    id: event.id,
+    label: event.title,
+  }
+  const organizerMessageHref = event.organizer_username
+    ? messageProviderPath(event.organizer_username, eventPlace, event.business ?? null)
+    : null
   const cityLine = [event.city, event.region].filter(Boolean).join(', ')
   const hasLocation = Boolean(event.venue?.trim() || event.city || event.region)
   const gcalUrl = buildGoogleCalendarUrl(event)
@@ -133,11 +141,19 @@ export function EventTicketCard({
         </button>
       )
     }
+    if (organizerMessageHref) {
+      return (
+        <Link to={organizerMessageHref} className="btn btn-primary btn-block">
+          <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
+          Message organizer
+        </Link>
+      )
+    }
     return (
-      <Link to={organizerProfileHref} className="btn btn-primary btn-block">
-        <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
-        Contact organizer
-      </Link>
+      <span className="btn btn-primary btn-block" aria-disabled>
+        <Ticket size={16} strokeWidth={2.25} aria-hidden />
+        Tickets TBA
+      </span>
     )
   })()
 
@@ -235,12 +251,13 @@ export function EventTicketCard({
             <Navigation size={14} strokeWidth={2.25} aria-hidden />
             Directions
           </a>
-        ) : (
-          <Link to="/messages" className="event-ticket__secondary">
+        ) : null}
+        {organizerMessageHref ? (
+          <Link to={organizerMessageHref} className="event-ticket__secondary">
             <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
             Message
           </Link>
-        )}
+        ) : null}
       </div>
 
       <p className="event-ticket__trust">

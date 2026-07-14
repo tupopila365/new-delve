@@ -182,44 +182,6 @@ class JourneysCohesionSmokeTests(TestCase):
         self.assertEqual(post.delvers_board, "Journeys")
         self.assertEqual(post.author_id, self.author.pk)
 
-    def test_featured_first_orders_featured_ahead_of_organic(self):
-        self.journey.is_featured = True
-        self.journey.save(update_fields=["is_featured"])
-        Journey.objects.create(
-            author=self.author,
-            title="Organic newer route",
-            summary="Not featured.",
-            starts_on=date(2026, 7, 1),
-            ends_on=date(2026, 7, 3),
-            days=3,
-            tags=["coast"],
-            total_cost=Decimal("400"),
-            is_featured=False,
-        )
-        res = self.client.get("/api/journeys/?featured_first=1&limit=8")
-        self.assertEqual(res.status_code, 200)
-        titles = [row["title"] for row in res.data]
-        self.assertIn(self.journey.title, titles)
-        self.assertLess(titles.index(self.journey.title), titles.index("Organic newer route"))
-
-    def test_featured_filter_returns_only_featured_journeys(self):
-        self.journey.is_featured = True
-        self.journey.save(update_fields=["is_featured"])
-        Journey.objects.create(
-            author=self.author,
-            title="Not featured route",
-            starts_on=date(2026, 5, 1),
-            ends_on=date(2026, 5, 3),
-            days=3,
-            total_cost=Decimal("100"),
-        )
-
-        featured = self.client.get("/api/journeys/?featured=1")
-        self.assertEqual(featured.status_code, 200)
-        titles = [row["title"] for row in featured.data]
-        self.assertIn("Cohesion dunes loop", titles)
-        self.assertNotIn("Not featured route", titles)
-
     def test_stop_linked_listing_round_trip(self):
         from accommodation.models import AccommodationListing
 

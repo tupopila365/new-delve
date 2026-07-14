@@ -80,27 +80,6 @@ export function ListingsPage() {
     },
   })
 
-  const featureMut = useMutation({
-    mutationFn: ({
-      listing_type,
-      listing_id,
-      featured,
-    }: {
-      listing_type: string
-      listing_id: number
-      featured: boolean
-    }) =>
-      apiFetch<AdminListing>('/api/accounts/admin/listings/', {
-        method: 'PATCH',
-        body: JSON.stringify({ listing_type, listing_id, featured }),
-      }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['listings'] })
-      void qc.invalidateQueries({ queryKey: ['overview'] })
-      void qc.invalidateQueries({ queryKey: ['activity'] })
-    },
-  })
-
   const filtered = useMemo(() => {
     let rows = listings
     if (typeFilter !== 'All') {
@@ -171,7 +150,6 @@ export function ListingsPage() {
                 <>
                   <DelveAdminStatusBadge status={item.category_label} variant="info" />
                   <DelveAdminStatusBadge status={item.status} variant={statusVariant(item.status)} />
-                  {item.is_featured ? <DelveAdminStatusBadge status="Featured" variant="success" /> : null}
                 </>
               }
               actions={
@@ -192,21 +170,6 @@ export function ListingsPage() {
                       onClick={() => setInspectGuideId(item.listing_id)}
                     >
                       Inspect
-                    </button>
-                  ) : null}
-                  {item.listing_type === 'journey' && item.status === 'published' ? (
-                    <button
-                      type="button"
-                      className="da-link-btn"
-                      onClick={() =>
-                        featureMut.mutate({
-                          listing_type: item.listing_type,
-                          listing_id: item.listing_id,
-                          featured: !item.is_featured,
-                        })
-                      }
-                    >
-                      {item.is_featured ? 'Unfeature' : 'Feature'}
                     </button>
                   ) : null}
                   {item.status === 'published' ? (

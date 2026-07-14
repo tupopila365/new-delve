@@ -208,6 +208,36 @@
   color: #a78bfa;
 }
 
+/* ChipSelector: beat global .chip { color: var(--text) } light-theme rules */
+.create-wizard--dark .chip-field__label {
+  color: rgba(255, 250, 242, 0.78);
+}
+
+.create-wizard--dark .chip-field__opt {
+  color: rgba(255, 250, 242, 0.45);
+}
+
+.create-wizard--dark .chip-field .chip {
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fffaf2 !important;
+  font-weight: 750;
+}
+
+.create-wizard--dark .chip-field .chip:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+}
+
+.create-wizard--dark .chip-field .chip.chip--active,
+.create-wizard--dark .chip-field .chip.active {
+  background: rgba(124, 58, 237, 0.32) !important;
+  border-color: #a78bfa !important;
+  color: #f5f0ff !important;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.45);
+}
+
 /* Stop cards — step 2 (fixes white-on-white from index.css) */
 .create-wizard--dark .cj-stop {
   display: grid;
@@ -292,7 +322,7 @@
   background: rgba(124, 58, 237, 0.08);
 }
 
-/* Budget rows — step 3 */
+/* Budget rows — step 3 (must beat light .cj-cost-row* rules in index.css) */
 .create-wizard--dark .cj-cost-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -312,39 +342,79 @@
 
 .create-wizard--dark .cj-cost-row__cat,
 .create-wizard--dark .cj-cost-row__note,
-.create-wizard--dark .cj-cost-row__amount {
+.create-wizard--dark .cj-cost-row__note.input,
+.create-wizard--dark .cj-cost-row__amount,
+.create-wizard--dark .cj-cost-row__amount.input {
   min-height: 38px;
   padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fffaf2;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fffaf2 !important;
   font: inherit;
   font-size: 0.8rem;
+  font-weight: 650;
   color-scheme: dark;
+  box-shadow: none !important;
+}
+
+.create-wizard--dark .cj-cost-row__note::placeholder,
+.create-wizard--dark .cj-cost-row__note.input::placeholder,
+.create-wizard--dark .cj-cost-row__amount::placeholder,
+.create-wizard--dark .cj-cost-row__amount.input::placeholder {
+  color: rgba(255, 255, 255, 0.48) !important;
+  opacity: 1;
+}
+
+.create-wizard--dark .cj-cost-row__cat:focus,
+.create-wizard--dark .cj-cost-row__note:focus,
+.create-wizard--dark .cj-cost-row__amount:focus {
+  border-color: rgba(167, 139, 250, 0.65) !important;
+  outline: none;
 }
 
 .create-wizard--dark .cj-cost-row__amount-wrap {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  min-height: 38px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .create-wizard--dark .cj-cost-row__currency {
-  color: rgba(255, 255, 255, 0.45);
+  padding: 0 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: rgba(255, 250, 242, 0.72) !important;
   font-size: 0.78rem;
   font-weight: 800;
 }
 
+.create-wizard--dark .cj-cost-row__amount,
+.create-wizard--dark .cj-cost-row__amount.input {
+  width: 90px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
 .create-wizard--dark .cj-cost-row__del {
   border: 0;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 250, 242, 0.72);
   width: 28px;
   height: 28px;
   border-radius: 50%;
   font-size: 1.1rem;
   cursor: pointer;
+}
+
+.create-wizard--dark .cj-cost-row__del:hover {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.16);
 }
 
 .create-wizard--dark .cj-budget-total {

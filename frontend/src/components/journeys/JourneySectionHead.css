@@ -3,7 +3,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  width: min(100%, 980px);
+  width: min(100%, var(--jn-feed-max, 560px));
   margin: 36px auto 18px;
   padding-inline: 4px;
 }
@@ -30,9 +30,11 @@
 .journey-section-head__subtitle {
   margin: 4px 0 0;
   max-width: 52ch;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.88rem;
-  font-weight: 600;
+  color: rgba(255, 250, 242, 0.52);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   line-height: 1.45;
 }
 

@@ -1,111 +1,47 @@
-import { useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ArrowRight,
   BadgeDollarSign,
   Bookmark,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Heart,
-  Landmark,
-  Map,
-  MapPin,
-  Mountain,
+  Map as MapIcon,
   Plus,
   Route,
-  Share2,
+  Search,
+  Sparkles,
   Trees,
   UserRound,
-  Users,
-  Utensils,
   Waves,
-  X,
-  type LucideProps,
 } from 'lucide-react'
 import type { MockTrip } from '../data/mockTrips'
-import { apiFetch } from '../api/client'
-import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../utils/journeyApi'
+import { apiFetch, asArray } from '../api/client'
+import { mapApiJourneyToTrip, type ApiJourney } from '../utils/journeyApi'
 import {
   isBudgetTrip,
   isWeekendTrip,
   journeyCoverSrc,
   JOURNEY_DEFAULT_IMAGE,
-  countryLabel,
-  dayLabel,
 } from '../utils/journeyDisplay'
 import { useAuth } from '../auth/AuthContext'
 import { useJourneyEngagement } from '../hooks/useJourneyEngagement'
 import { JourneyListingCard } from '../components/journeys/JourneyListingCard'
 import { JourneySectionHead } from '../components/journeys/JourneySectionHead'
-import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
-import { QuickFilterChips, SearchPanel } from '../components/marketplace'
-import { EmptyState } from '../components/ui'
+import { JourneyListDelversViewer } from '../components/journeys/JourneyDelversHighlights'
+import { EmptyState, ListSkeleton } from '../components/ui'
+import '../components/journeys/JourneysPageEnhancer.css'
 const RECENT_STORY_COUNT = 5
 
-type FilterIcon = ComponentType<LucideProps>
+const SOCIAL_MODES = [
+  { id: '', label: 'For you', Icon: Sparkles },
+  { id: 'weekend', label: 'Weekend', Icon: CalendarDays },
+  { id: 'coast', label: 'Coast', Icon: Waves },
+  { id: 'nature', label: 'Nature', Icon: Trees },
+  { id: 'budget', label: 'Budget', Icon: BadgeDollarSign },
+  { id: 'saved', label: 'Saved', Icon: Bookmark },
+] as const
 
-type QuickFilter = {
-  id: string
-  label: string
-  Icon: FilterIcon
-  match: (trip: MockTrip) => boolean
-}
-
-const QUICK_FILTERS: QuickFilter[] = [
-  {
-    id: 'weekend',
-    label: 'Weekend trips',
-    Icon: CalendarDays,
-    match: (t) => isWeekendTrip(t),
-  },
-  {
-    id: 'nature',
-    label: 'Nature',
-    Icon: Trees,
-    match: (t) => t.tags.some((tag) => ['wildlife', 'hiking', 'dunes', 'etosha'].includes(tag)),
-  },
-  {
-    id: 'culture',
-    label: 'Culture',
-    Icon: Landmark,
-    match: (t) =>
-      t.tags.includes('first-timer') ||
-      t.stops.some((s) => /village|market|town/i.test(s.place_name) || /village|market|culture/i.test(s.notes)),
-  },
-  {
-    id: 'food',
-    label: 'Food',
-    Icon: Utensils,
-    match: (t) => t.tags.includes('food'),
-  },
-  {
-    id: 'coast',
-    label: 'Coast',
-    Icon: Waves,
-    match: (t) => t.tags.includes('coast') || t.tags.includes('kayaking'),
-  },
-  {
-    id: 'adventure',
-    label: 'Adventure',
-    Icon: Mountain,
-    match: (t) =>
-      t.tags.some((tag) => ['4x4', 'hiking', 'kayaking', 'cross-border', 'dunes'].includes(tag)),
-  },
-  {
-    id: 'family',
-    label: 'Family friendly',
-    Icon: Users,
-    match: (t) => t.party === 'family' || t.tags.includes('family'),
-  },
-  {
-    id: 'budget',
-    label: 'Budget friendly',
-    Icon: BadgeDollarSign,
-    match: (t) => isBudgetTrip(t),
-  },
-]
+type SortMode = 'recent' | 'popular'
 
 const BUDGET_BUCKETS = [
   { label: 'Under N$2k', min: 0, max: 2000 },
@@ -141,58 +77,56 @@ function resultsHint(count: number, filters: { quick: string; search: string; bu
 export function TripsList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { data: apiJourneys = [] } = useQuery({
-    queryKey: ['journeys'],
-    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/', { auth: false }),
-  })
-
-  const allTrips = useMemo(
-    () => mergeJourneyFeeds(apiJourneys, journeyListFallback()),
-    [apiJourneys],
-  )
-  const engagement = useJourneyEngagement(allTrips)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [quickFilter, setQuickFilter] = useState('')
   const [selectedBucket, setSelectedBucket] = useState<(typeof BUDGET_BUCKETS)[number] | null>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const [sortMode, setSortMode] = useState<SortMode>('recent')
 
   const [activeStoryIdx, setActiveStoryIdx] = useState<number | null>(null)
-  const [storyShareMsg, setStoryShareMsg] = useState('')
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(searchInput.trim()), 350)
     return () => window.clearTimeout(timer)
   }, [searchInput])
 
-  const filtered = useMemo(() => {
-    const quick = QUICK_FILTERS.find((f) => f.id === quickFilter)
-    return allTrips.filter((t) => {
-      if (quick && !quick.match(t)) return false
-      if (selectedBucket) {
-        if (t.total_cost < selectedBucket.min || t.total_cost >= selectedBucket.max) return false
-      }
-      if (search) {
-        const q = search.toLowerCase()
-        const hay = [
-          t.title,
-          t.summary,
-          t.author.display_name,
-          t.author.username,
-          ...t.stops.map((s) => s.place_name),
-          ...t.stops.map((s) => s.region ?? ''),
-          ...t.countries.map(countryLabel),
-          ...t.tags,
-        ]
-          .join(' ')
-          .toLowerCase()
-        if (!hay.includes(q)) return false
-      }
-      return true
-    })
-  }, [allTrips, search, quickFilter, selectedBucket])
+  const feedQuery = useMemo(() => {
+    const params = new URLSearchParams()
+    if (search) params.set('q', search)
+    if (quickFilter === 'saved') params.set('saved', '1')
+    else if (quickFilter) params.set('mode', quickFilter)
+    if (selectedBucket) {
+      params.set('min_cost', String(selectedBucket.min))
+      if (Number.isFinite(selectedBucket.max)) params.set('max_cost', String(selectedBucket.max))
+    }
+    params.set('sort', sortMode)
+    return params.toString()
+  }, [search, quickFilter, selectedBucket, sortMode])
+
+  const needsAuth = Boolean(profile) || quickFilter === 'saved'
+
+  const {
+    data: apiJourneys = [],
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['journeys', 'feed', feedQuery, needsAuth],
+    queryFn: async () =>
+      asArray<ApiJourney>(
+        await apiFetch<ApiJourney[]>(`/api/journeys/?${feedQuery}`, { auth: needsAuth }),
+      ),
+  })
+
+  const allTrips = useMemo(() => apiJourneys.map(mapApiJourneyToTrip), [apiJourneys])
+  const engagement = useJourneyEngagement(allTrips)
+  // Backend already applied search/mode/budget/sort — keep engagement live on this payload.
+  const filtered = allTrips
 
   const hasFilters = !!(quickFilter || selectedBucket || search)
-  const showDiscoveryRails = !hasFilters
+  const showDiscoveryRails = !hasFilters && sortMode === 'recent' && !isLoading
 
   const recentStories = useMemo(() => filtered.slice(0, RECENT_STORY_COUNT), [filtered])
 
@@ -209,104 +143,18 @@ export function TripsList() {
     return { weekendRail, budgetRail }
   }, [filtered])
 
-  const mostSaved = useMemo(
-    () => [...allTrips].sort((a, b) => b.saves_count - a.saves_count)[0]?.saves_count ?? 0,
+  const activeCreators = useMemo(
+    () =>
+      [...new Map(allTrips.map((t) => [t.author.username, t.author])).values()].slice(0, 8),
     [allTrips],
   )
-
-  const newThisWeek = useMemo(() => {
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-    return allTrips.filter((t) => new Date(t.starts_on).getTime() >= weekAgo).length
-  }, [allTrips])
-
-  const activeCreators = useMemo(() => new Set(allTrips.map((t) => t.author.username)).size, [allTrips])
-
-  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
-    return [
-      {
-        id: 'popular-styles',
-        title: 'Popular journey styles',
-        type: 'links',
-        items: QUICK_FILTERS.map(({ id, label }) => ({
-          label,
-          active: quickFilter === id,
-          onClick: () => setQuickFilter(quickFilter === id ? '' : id),
-        })),
-      },
-      {
-        id: 'journey-pulse',
-        title: 'Journey pulse',
-        type: 'stats',
-        items: [
-          { value: allTrips.length, label: 'journeys shared' },
-          { value: newThisWeek || '—', label: 'new this week' },
-          { value: mostSaved || '—', label: 'most saved' },
-          { value: activeCreators, label: 'active creators' },
-        ],
-      },
-      {
-        id: 'top-destinations',
-        title: 'Top destinations',
-        type: 'links',
-        items: TOP_DESTINATIONS.map((dest) => ({
-          label: dest,
-          onClick: () => {
-            setSearchInput(dest)
-            setSearch(dest)
-          },
-        })),
-      },
-    ]
-  }, [allTrips.length, activeCreators, mostSaved, newThisWeek, quickFilter])
-
-  useEffect(() => {
-    if (activeStoryIdx == null) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setActiveStoryIdx(null)
-      if (e.key === 'ArrowRight')
-        setActiveStoryIdx((i) => (i == null ? 0 : (i + 1) % recentStories.length))
-      if (e.key === 'ArrowLeft')
-        setActiveStoryIdx((i) => (i == null ? 0 : (i - 1 + recentStories.length) % recentStories.length))
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [activeStoryIdx, recentStories.length])
-
-  useEffect(() => {
-    if (activeStoryIdx == null || recentStories.length === 0) return
-    const t = window.setTimeout(() => {
-      setActiveStoryIdx((i) => {
-        if (i == null) return null
-        return i >= recentStories.length - 1 ? null : i + 1
-      })
-    }, 12000)
-    return () => window.clearTimeout(t)
-  }, [activeStoryIdx, recentStories.length])
-
-  useEffect(() => {
-    if (!storyShareMsg) return
-    const t = window.setTimeout(() => setStoryShareMsg(''), 1600)
-    return () => window.clearTimeout(t)
-  }, [storyShareMsg])
-
-  const onShareStory = async (tripId: number) => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/journeys/${tripId}`)
-      setStoryShareMsg('Link copied')
-    } catch {
-      setStoryShareMsg('Copy failed')
-    }
-  }
 
   const clearAll = () => {
     setQuickFilter('')
     setSelectedBucket(null)
     setSearchInput('')
     setSearch('')
-  }
-
-  const handleQuickChip = (id: string) => {
-    setQuickFilter((v) => (v === id ? '' : id))
+    setSortMode('recent')
   }
 
   const hint = resultsHint(filtered.length, {
@@ -315,79 +163,105 @@ export function TripsList() {
     bucket: selectedBucket?.label ?? null,
   })
 
-  const quickChips = QUICK_FILTERS.map(({ id, label, Icon }) => ({
-    id,
-    label,
-    Icon,
-    active: quickFilter === id,
-  }))
-
   return (
-    <div className="jn-page ev-page disc-page mk-page">
-      <SearchPanel
-        id="jn-search"
-        label="Search journeys"
-        placeholder="Search Etosha, coast, weekend trip, food journey…"
-        value={searchInput}
-        onChange={setSearchInput}
-        onClear={() => setSearchInput('')}
-        className="jn-page__search-sync"
-      />
-
-      <QuickFilterChips
-        chips={quickChips}
-        onChipClick={handleQuickChip}
-        ariaLabel="Journey style filters"
-        className="jn-page__quick-chips"
-      />
-
-      <div className="jn-page__budget-sync" aria-hidden>
-        <div className="jn-page__budget-chips" role="group" aria-label="Budget range">
-          {BUDGET_BUCKETS.map((b) => {
-            const active = selectedBucket?.label === b.label
-            return (
-              <button
-                key={b.label}
-                type="button"
-                className={`acc-quick-chip ev-page__discover-chip${active ? ' acc-quick-chip--active' : ''}`}
-                aria-pressed={active}
-                onClick={() => setSelectedBucket(active ? null : b)}
-              >
-                <BadgeDollarSign className="jn-filter-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
-                {b.label}
-              </button>
-            )
-          })}
+    <div className="jn-page jn-page--social ev-page">
+      <header className="jn-social-top">
+        <div className="jn-social-top__copy">
+          <p className="jn-social-top__eyebrow">Journeys</p>
+          <h1 className="jn-social-top__title">What people are travelling</h1>
+          <p className="jn-social-top__sub">Real routes, costs, and tips from travellers on the road.</p>
         </div>
-      </div>
+        <button
+          type="button"
+          className={`jn-social-top__find${findOpen || search || selectedBucket ? ' is-active' : ''}`}
+          onClick={() => setFindOpen((v) => !v)}
+          aria-expanded={findOpen}
+        >
+          <Search size={16} strokeWidth={2.35} aria-hidden />
+          Find a route
+        </button>
+      </header>
 
-      {hasFilters && (
-        <div className="jn-page__active-filters" aria-label="Active filters">
-          {quickFilter && (
-            <span className="jn-page__active-filter">
-              {QUICK_FILTERS.find((f) => f.id === quickFilter)?.label}
-            </span>
-          )}
-          {selectedBucket && (
-            <span className="jn-page__active-filter">{selectedBucket.label}</span>
-          )}
-          {search && <span className="jn-page__active-filter">&ldquo;{search}&rdquo;</span>}
-          <button type="button" className="jn-page__clear-filters" onClick={clearAll}>
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {!hasFilters && recentStories.length === 0 ? (
-        <p className="jn-page__results-hint" role="status">
-          {hint}
-        </p>
+      {findOpen ? (
+        <section className="jn-find-sheet" aria-label="Find a route">
+          <label className="jn-find-sheet__field">
+            <span className="jn-find-sheet__label">Search</span>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Etosha, coast, weekend, food…"
+              autoComplete="off"
+            />
+          </label>
+          <div className="jn-find-sheet__budgets" role="group" aria-label="Budget range">
+            {BUDGET_BUCKETS.map((b) => {
+              const active = selectedBucket?.label === b.label
+              return (
+                <button
+                  key={b.label}
+                  type="button"
+                  className={`jn-find-sheet__chip${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => setSelectedBucket(active ? null : b)}
+                >
+                  {b.label}
+                </button>
+              )
+            })}
+          </div>
+          {TOP_DESTINATIONS.length > 0 ? (
+            <div className="jn-find-sheet__dests" aria-label="Popular places">
+              {TOP_DESTINATIONS.slice(0, 6).map((dest) => (
+                <button
+                  key={dest}
+                  type="button"
+                  className="jn-find-sheet__chip"
+                  onClick={() => {
+                    setSearchInput(dest)
+                    setSearch(dest)
+                  }}
+                >
+                  {dest}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
+      <div className="jn-modes" role="tablist" aria-label="Browse modes">
+        {SOCIAL_MODES.map(({ id, label, Icon }) => {
+          const active = quickFilter === id
+          return (
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`jn-modes__chip${active ? ' is-active' : ''}`}
+              onClick={() => {
+                if (id === 'saved' && !profile) {
+                  navigate('/login')
+                  return
+                }
+                setQuickFilter(active && id !== '' ? '' : id)
+              }}
+            >
+              <Icon size={15} strokeWidth={2.25} aria-hidden />
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
       {hasFilters ? (
-        <p className="jn-page__results-hint" role="status">
-          {hint}
-        </p>
+        <div className="jn-page__active-filters" aria-label="Active filters">
+          <span className="jn-page__results-hint">{hint}</span>
+          <button type="button" className="jn-page__clear-filters" onClick={clearAll}>
+            Clear
+          </button>
+        </div>
       ) : null}
 
       {engagement.shareMsg ? (
@@ -397,23 +271,23 @@ export function TripsList() {
       ) : null}
 
       {recentStories.length > 0 && (
-        <section className="ev-page__story-rings jn-page__story-rings" aria-labelledby="jn-rings-title">
-          <div className="ev-page__stories-head">
-            <h2 id="jn-rings-title" className="ev-page__stories-title">
-              {hasFilters ? 'Matching journeys' : 'Explore travel stories and itineraries'}
+        <section className="jn-page__story-rings" aria-labelledby="jn-rings-title">
+          <div className="jn-rings-head">
+            <h2 id="jn-rings-title" className="jn-rings-head__title">
+              Fresh from the road
             </h2>
-            <span className="ev-page__stories-sub">Tap to preview</span>
+            <span className="jn-rings-head__sub">Tap a traveller to preview</span>
           </div>
-          <div className="ev-page__story-rings-row">
+          <div className="jn-rings-row">
             {recentStories.map((t, i) => (
               <button
                 key={`jn-ring-${t.id}`}
                 type="button"
-                className="ev-story-ring"
+                className="jn-ring"
                 aria-label={`Open journey story: ${t.title}`}
                 onClick={() => setActiveStoryIdx(i)}
               >
-                <span className="ev-story-ring__avatar">
+                <span className="jn-ring__avatar">
                   {journeyCoverSrc(t.cover_image) ? (
                     <img
                       src={journeyCoverSrc(t.cover_image)}
@@ -421,41 +295,76 @@ export function TripsList() {
                       onError={onJourneyImgError}
                     />
                   ) : (
-                    <span className="ev-story-ring__placeholder" aria-hidden>
+                    <span className="jn-ring__placeholder" aria-hidden>
                       <Route size={18} strokeWidth={2.25} />
                     </span>
                   )}
                 </span>
-                <span className="ev-story-ring__label">{t.author.display_name}</span>
+                <span className="jn-ring__label">{t.author.display_name.split(' ')[0]}</span>
               </button>
             ))}
           </div>
         </section>
       )}
 
-      <div className="disc-page__layout jn-page__layout">
-        <main className="disc-page__main jn-page__main">
-          {allTrips.length === 0 ? (
+      {activeCreators.length > 0 && !hasFilters ? (
+        <section className="jn-creators" aria-labelledby="jn-creators-title">
+          <div className="jn-rings-head">
+            <h2 id="jn-creators-title" className="jn-rings-head__title">
+              Travellers active lately
+            </h2>
+          </div>
+          <div className="jn-creators__row">
+            {activeCreators.map((author) => (
+              <Link key={author.username} to={`/u/${author.username}`} className="jn-creators__item">
+                {author.avatar ? (
+                  <img src={author.avatar} alt="" loading="lazy" />
+                ) : (
+                  <span aria-hidden>
+                    <UserRound size={18} strokeWidth={2.25} />
+                  </span>
+                )}
+                <span>@{author.username}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <main className={`jn-page__main${isFetching && !isLoading ? ' jn-page__main--refreshing' : ''}`}>
+          {isLoading ? (
+            <ListSkeleton count={4} />
+          ) : isError ? (
             <EmptyState
-              iconElement={<Map size={28} strokeWidth={2} aria-hidden />}
-              title="No journeys shared yet"
-              sub="Travel stories, routes, and itineraries will appear here once travellers add them."
-              cta={profile ? { label: 'Create journey', to: '/journeys/new' } : undefined}
+              iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
+              title="Couldn’t load journeys"
+              sub="Check your connection and try again."
+              cta={{ label: 'Retry', onClick: () => void refetch() }}
             />
           ) : filtered.length === 0 ? (
             <EmptyState
-              iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
-              title="No journeys found"
-              sub="Try changing your destination, travel style, duration, or search term."
-              cta={{ label: 'Show all journeys', onClick: clearAll }}
+              iconElement={<MapIcon size={28} strokeWidth={2} aria-hidden />}
+              title={hasFilters ? 'Nothing in this mode' : 'No journeys shared yet'}
+              sub={
+                hasFilters
+                  ? 'Try another vibe, clear filters, or search a place.'
+                  : 'Travel stories, routes, and itineraries will appear here once travellers add them.'
+              }
+              cta={
+                hasFilters
+                  ? { label: 'Show everything', onClick: clearAll }
+                  : profile
+                    ? { label: 'Share your journey', to: '/journeys/new' }
+                    : undefined
+              }
             />
           ) : (
             <>
               {showDiscoveryRails && curated && curated.weekendRail.length > 0 && (
                 <JourneyRail
                   id="jn-weekend"
-                  title="Weekend trips"
-                  sub="Short loops and long weekends — easy inspiration for your next escape."
+                  title="Short escapes people loved"
+                  sub="Long weekends and tight loops from the community."
                   trips={curated.weekendRail}
                   engagement={engagement}
                 />
@@ -464,8 +373,8 @@ export function TripsList() {
               {showDiscoveryRails && curated && curated.budgetRail.length > 0 && (
                 <JourneyRail
                   id="jn-budget"
-                  title="Budget friendly"
-                  sub="Full cost breakdowns and practical routes under N$5k."
+                  title="Trips that won’t wreck the wallet"
+                  sub="Full cost breakdowns under N$5k."
                   trips={curated.budgetRail}
                   engagement={engagement}
                 />
@@ -474,24 +383,45 @@ export function TripsList() {
               <section className="jn-page__all" aria-labelledby="jn-all-title">
                 <JourneySectionHead
                   id="jn-all-title"
-                  title={hasFilters ? 'Matching journeys' : 'All journeys'}
-                  subtitle="Browse routes with photos, stops, travel tips, and creator notes."
+                  title={hasFilters ? 'Matching journeys' : 'On the feed'}
+                  subtitle={
+                    hasFilters
+                      ? hint
+                      : 'Double-tap a cover to like · save the ones you’ll actually do.'
+                  }
                   trailing={
-                    <span className="journey-section-head__meta">
-                      {filtered.length} {filtered.length === 1 ? 'journey' : 'journeys'}
-                    </span>
+                    <div className="jn-sort" role="group" aria-label="Sort journeys">
+                      <button
+                        type="button"
+                        className={sortMode === 'recent' ? 'is-active' : ''}
+                        onClick={() => setSortMode('recent')}
+                      >
+                        Recent
+                      </button>
+                      <button
+                        type="button"
+                        className={sortMode === 'popular' ? 'is-active' : ''}
+                        onClick={() => setSortMode('popular')}
+                      >
+                        Popular
+                      </button>
+                    </div>
                   }
                 />
-                <div className="jn-page__grid">
+                <div className="jn-page__feed">
                   {filtered.map((t) => (
                     <JourneyListingCard
                       key={t.id}
                       trip={t}
                       liked={engagement.isLiked(t)}
                       saved={engagement.isSaved(t)}
+                      likeCount={engagement.likeCount(t)}
+                      saveCount={engagement.saveCount(t)}
+                      likeBusy={engagement.isLikeBusy(t.id)}
+                      saveBusy={engagement.isSaveBusy(t.id)}
                       onLike={(event) => engagement.toggleLike(t, event)}
                       onSave={(event) => engagement.toggleSave(t, event)}
-                      onShare={(event) => engagement.shareJourney(t, event)}
+                      onShare={(event) => void engagement.shareJourney(t, event)}
                     />
                   ))}
                 </div>
@@ -503,127 +433,18 @@ export function TripsList() {
                   className="jn-bottom-cta__btn"
                 >
                   <Plus size={18} strokeWidth={2.5} aria-hidden />
-                  <span>Create journey</span>
+                  <span>Share your journey</span>
                 </Link>
               </section>
             </>
           )}
-        </main>
+      </main>
 
-        <DiscoverySidebar sections={sidebarSections} ariaLabel="Journey discovery" />
-      </div>
-
-      {activeStoryIdx != null && recentStories[activeStoryIdx] && (() => {
-        const trip = recentStories[activeStoryIdx]
-        return (
-          <div
-            className="ev-story-viewer"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Journey story"
-            onClick={() => setActiveStoryIdx(null)}
-          >
-            <div className="ev-story-viewer__card" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                className="ev-story-viewer__close"
-                aria-label="Close"
-                onClick={() => setActiveStoryIdx(null)}
-              >
-                <X size={20} strokeWidth={2.25} aria-hidden />
-              </button>
-
-              {journeyCoverSrc(trip.cover_image) ? (
-                <img
-                  className="ev-story-viewer__img"
-                  src={journeyCoverSrc(trip.cover_image)}
-                  alt={trip.title}
-                  onError={onJourneyImgError}
-                />
-              ) : (
-                <div className="ev-story-viewer__img ev-story-viewer__img--placeholder" aria-hidden>
-                  <Route size={48} strokeWidth={1.75} />
-                </div>
-              )}
-
-              <div className="ev-story-viewer__meta">
-                <div className="ev-story-viewer__progress" aria-hidden>
-                  <span
-                    key={trip.id}
-                    className="ev-story-viewer__progress-fill"
-                    style={{ animationDuration: '12s' }}
-                  />
-                </div>
-
-                <p className="ev-story-viewer__author-row">
-                  <UserRound size={14} strokeWidth={2.25} aria-hidden />
-                  <span className="ev-story-viewer__author">{trip.author.display_name}</span>
-                </p>
-
-                <p className="ev-story-viewer__title">{trip.title}</p>
-                <p className="ev-story-viewer__sub">
-                  {trip.countries.map(countryLabel).join(', ')}
-                  {' · '}
-                  {dayLabel(trip.days)}
-                  {' · '}
-                  {trip.stops.length} {trip.stops.length === 1 ? 'stop' : 'stops'}
-                </p>
-
-                <div className="ev-story-viewer__social" role="group" aria-label="Story actions">
-                  <button
-                    type="button"
-                    className="ev-story-viewer__share"
-                    onClick={() => onShareStory(trip.id)}
-                    aria-label="Share journey"
-                  >
-                    <Share2 size={15} strokeWidth={2.25} aria-hidden />
-                    {storyShareMsg || 'Share'}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-primary ev-story-viewer__cta"
-                  onClick={() => {
-                    setActiveStoryIdx(null)
-                    navigate(`/journeys/${trip.id}`)
-                  }}
-                >
-                  View journey
-                  <ArrowRight size={16} strokeWidth={2.25} aria-hidden />
-                </button>
-              </div>
-
-              {recentStories.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    className="ev-story-viewer__nav ev-story-viewer__nav--prev"
-                    aria-label="Previous story"
-                    onClick={() =>
-                      setActiveStoryIdx((i) =>
-                        i == null ? 0 : (i - 1 + recentStories.length) % recentStories.length,
-                      )
-                    }
-                  >
-                    <ChevronLeft size={22} strokeWidth={2.25} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    className="ev-story-viewer__nav ev-story-viewer__nav--next"
-                    aria-label="Next story"
-                    onClick={() =>
-                      setActiveStoryIdx((i) => (i == null ? 0 : (i + 1) % recentStories.length))
-                    }
-                  >
-                    <ChevronRight size={22} strokeWidth={2.25} aria-hidden />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )
-      })()}
+      <JourneyListDelversViewer
+        trips={recentStories}
+        activeIndex={activeStoryIdx}
+        onActiveIndex={setActiveStoryIdx}
+      />
     </div>
   )
 }
@@ -652,9 +473,13 @@ function JourneyRail({
             variant="rail"
             liked={engagement.isLiked(t)}
             saved={engagement.isSaved(t)}
+            likeCount={engagement.likeCount(t)}
+            saveCount={engagement.saveCount(t)}
+            likeBusy={engagement.isLikeBusy(t.id)}
+            saveBusy={engagement.isSaveBusy(t.id)}
             onLike={(event) => engagement.toggleLike(t, event)}
             onSave={(event) => engagement.toggleSave(t, event)}
-            onShare={(event) => engagement.shareJourney(t, event)}
+            onShare={(event) => void engagement.shareJourney(t, event)}
           />
         ))}
       </div>

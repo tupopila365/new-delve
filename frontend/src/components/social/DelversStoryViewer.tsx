@@ -35,12 +35,16 @@ type Props = {
   onLeaveToPrevRing?: () => void
   canSwipeToNextRing?: boolean
   onSwipeToNextRing?: () => void
-  signedIn: boolean
-  likeBusy: boolean
-  fireBusy: boolean
-  onLike: (post: DelversFeedPost) => void
-  onFire: (post: DelversFeedPost) => void
-  onCommented: (postId: number) => void
+  /** `view-only` = Delvers chrome without post like/fire/comments (journeys, listings). */
+  interactions?: 'full' | 'view-only'
+  explorePath?: string
+  ctaLabel?: string
+  signedIn?: boolean
+  likeBusy?: boolean
+  fireBusy?: boolean
+  onLike?: (post: DelversFeedPost) => void
+  onFire?: (post: DelversFeedPost) => void
+  onCommented?: (postId: number) => void
   onToggleTagFollow?: (tagSlug: string) => void
   tagFollowBusy?: boolean
 }
@@ -117,15 +121,19 @@ export function DelversStoryViewer({
   onLeaveToPrevRing,
   canSwipeToNextRing = false,
   onSwipeToNextRing,
-  signedIn,
-  likeBusy,
-  fireBusy,
+  interactions = 'full',
+  explorePath,
+  ctaLabel = 'View more',
+  signedIn = false,
+  likeBusy = false,
+  fireBusy = false,
   onLike,
   onFire,
   onCommented,
   onToggleTagFollow,
   tagFollowBusy = false,
 }: Props) {
+  const viewOnly = interactions === 'view-only'
   const post = target.posts[index]
   const image = mediaUrl(post?.image ?? null)
   const video = mediaUrl(post?.video ?? null)
@@ -165,23 +173,23 @@ export function DelversStoryViewer({
   }, [])
 
   const handleLikeWithFeedback = useCallback(() => {
-    if (!signedIn || !post) return
+    if (viewOnly || !signedIn || !post || !onLike) return
     const liking = !post.liked_by_me
     onLike(post)
     if (liking) {
       triggerHeartBurst()
       storyHaptic('like')
     }
-  }, [onLike, post, signedIn, triggerHeartBurst])
+  }, [onLike, post, signedIn, triggerHeartBurst, viewOnly])
 
   const handleDoubleTapLike = useCallback(() => {
-    if (!post) return
+    if (viewOnly || !post) return
     if (!post.liked_by_me) handleLikeWithFeedback()
     else {
       triggerHeartBurst()
       storyHaptic('like')
     }
-  }, [handleLikeWithFeedback, post, triggerHeartBurst])
+  }, [handleLikeWithFeedback, post, triggerHeartBurst, viewOnly])
 
   const handlePrev = useCallback(() => {
     if (index <= 0 && canLeaveToPrevRing && onLeaveToPrevRing) {
@@ -202,7 +210,7 @@ export function DelversStoryViewer({
     onTapPrev: handlePrev,
     onTapNext: goNext,
     onToggleTapPause: () => setTapPaused((paused) => !paused),
-    onDoubleTap: signedIn ? handleDoubleTapLike : undefined,
+    onDoubleTap: !viewOnly && signedIn ? handleDoubleTapLike : undefined,
     onDismiss: onClose,
     onPrevRing: () => onLeaveToPrevRing?.(),
     onNextRing: () => onSwipeToNextRing?.(),
@@ -303,12 +311,12 @@ export function DelversStoryViewer({
         <div
           className="ds-story-viewer__media"
           aria-label={
-            signedIn
+            !viewOnly && signedIn
               ? 'Highlight media. Tap center to pause. Double-tap to like. Swipe sideways between highlights.'
-              : 'Highlight media'
+              : 'Highlight media. Tap center to pause. Swipe sideways between highlights.'
           }
           onDoubleClick={() => {
-            if (signedIn) handleDoubleTapLike()
+            if (!viewOnly && signedIn) handleDoubleTapLike()
           }}
         >
           {post?.media && post.media.length > 1 ? (
@@ -348,86 +356,98 @@ export function DelversStoryViewer({
         <footer className="ds-story-viewer__footer">
           {caption ? <p className="ds-story-viewer__caption">{caption}</p> : null}
 
-          <div className="ds-story-viewer__actions" role="group" aria-label="Highlight reactions">
-            {signedIn ? (
-              <button
-                type="button"
-                className={`ds-story-viewer__react${post.liked_by_me ? ' ds-story-viewer__react--active ds-story-viewer__react--heart' : ''}`}
-                onClick={handleLikeWithFeedback}
-                disabled={likeBusy}
-                aria-label={post.liked_by_me ? 'Unlike highlight' : 'Like highlight'}
-                aria-pressed={post.liked_by_me}
-              >
-                <Heart size={18} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
-                {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
-              </button>
-            ) : (
-              <Link to="/login" className="ds-story-viewer__react" aria-label="Like highlight">
-                <Heart size={18} strokeWidth={2.25} aria-hidden />
-                {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
+          {viewOnly ? (
+            explorePath ? (
+              <Link to={explorePath} className="ds-story-viewer__signin" onClick={onClose}>
+                {ctaLabel}
               </Link>
-            )}
-            {signedIn ? (
-              <button
-                type="button"
-                className={`ds-story-viewer__react ds-story-viewer__react--fire${post.fired_by_me ? ' ds-story-viewer__react--active' : ''}`}
-                onClick={() => onFire(post)}
-                disabled={fireBusy}
-                aria-label={post.fired_by_me ? 'Remove fire reaction' : 'React with fire'}
-                aria-pressed={post.fired_by_me ?? false}
-              >
-                <Flame size={18} strokeWidth={2.25} fill={post.fired_by_me ? 'currentColor' : 'none'} aria-hidden />
-                {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
-              </button>
-            ) : (
-              <Link to="/login" className="ds-story-viewer__react ds-story-viewer__react--fire" aria-label="React with fire">
-                <Flame size={18} strokeWidth={2.25} aria-hidden />
-                {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
-              </Link>
-            )}
-            {signedIn ? (
-              <button
-                type="button"
-                className={`ds-story-viewer__react${commentsOpen ? ' ds-story-viewer__react--active' : ''}`}
-                onClick={() => setCommentsOpen((open) => !open)}
-                aria-label={commentsOpen ? 'Close comments' : 'View comments'}
-                aria-expanded={commentsOpen}
-              >
-                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-                {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
-              </button>
-            ) : (
-              <Link to="/login" className="ds-story-viewer__react" aria-label="View comments">
-                <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-                {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
-              </Link>
-            )}
-          </div>
-
-          {signedIn ? (
-            <div className="ds-story-viewer__reply">
-              <DelversCommentComposer
-                postId={post.id}
-                variant="compact"
-                placeholder={replyPlaceholder}
-                onCommented={() => onCommented(post.id)}
-              />
-            </div>
+            ) : null
           ) : (
-            <Link to="/login" className="ds-story-viewer__signin">
-              Sign in to comment
-            </Link>
+            <>
+              <div className="ds-story-viewer__actions" role="group" aria-label="Highlight reactions">
+                {signedIn ? (
+                  <button
+                    type="button"
+                    className={`ds-story-viewer__react${post.liked_by_me ? ' ds-story-viewer__react--active ds-story-viewer__react--heart' : ''}`}
+                    onClick={handleLikeWithFeedback}
+                    disabled={likeBusy}
+                    aria-label={post.liked_by_me ? 'Unlike highlight' : 'Like highlight'}
+                    aria-pressed={post.liked_by_me}
+                  >
+                    <Heart size={18} strokeWidth={2.25} fill={post.liked_by_me ? 'currentColor' : 'none'} aria-hidden />
+                    {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
+                  </button>
+                ) : (
+                  <Link to="/login" className="ds-story-viewer__react" aria-label="Like highlight">
+                    <Heart size={18} strokeWidth={2.25} aria-hidden />
+                    {likeCount > 0 ? <span>{formatCount(likeCount)}</span> : null}
+                  </Link>
+                )}
+                {signedIn ? (
+                  <button
+                    type="button"
+                    className={`ds-story-viewer__react ds-story-viewer__react--fire${post.fired_by_me ? ' ds-story-viewer__react--active' : ''}`}
+                    onClick={() => onFire?.(post)}
+                    disabled={fireBusy}
+                    aria-label={post.fired_by_me ? 'Remove fire reaction' : 'React with fire'}
+                    aria-pressed={post.fired_by_me ?? false}
+                  >
+                    <Flame size={18} strokeWidth={2.25} fill={post.fired_by_me ? 'currentColor' : 'none'} aria-hidden />
+                    {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
+                  </button>
+                ) : (
+                  <Link to="/login" className="ds-story-viewer__react ds-story-viewer__react--fire" aria-label="React with fire">
+                    <Flame size={18} strokeWidth={2.25} aria-hidden />
+                    {fireCount > 0 ? <span>{formatCount(fireCount)}</span> : null}
+                  </Link>
+                )}
+                {signedIn ? (
+                  <button
+                    type="button"
+                    className={`ds-story-viewer__react${commentsOpen ? ' ds-story-viewer__react--active' : ''}`}
+                    onClick={() => setCommentsOpen((open) => !open)}
+                    aria-label={commentsOpen ? 'Close comments' : 'View comments'}
+                    aria-expanded={commentsOpen}
+                  >
+                    <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+                    {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
+                  </button>
+                ) : (
+                  <Link to="/login" className="ds-story-viewer__react" aria-label="View comments">
+                    <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
+                    {commentCount > 0 ? <span>{formatCount(commentCount)}</span> : null}
+                  </Link>
+                )}
+              </div>
+
+              {signedIn ? (
+                <div className="ds-story-viewer__reply">
+                  <DelversCommentComposer
+                    postId={post.id}
+                    variant="compact"
+                    placeholder={replyPlaceholder}
+                    onCommented={() => onCommented?.(post.id)}
+                  />
+                </div>
+              ) : (
+                <Link to="/login" className="ds-story-viewer__signin">
+                  Sign in to comment
+                </Link>
+              )}
+            </>
           )}
         </footer>
 
-        <DelversCommentsPanel
-          postId={post.id}
-          open={commentsOpen}
-          count={commentCount}
-          signedIn={signedIn}
-          onClose={() => setCommentsOpen(false)}
-          onCommented={() => onCommented(post.id)}
-        />
+        {!viewOnly ? (
+          <DelversCommentsPanel
+            postId={post.id}
+            open={commentsOpen}
+            count={commentCount}
+            signedIn={signedIn}
+            onClose={() => setCommentsOpen(false)}
+            onCommented={() => onCommented?.(post.id)}
+          />
+        ) : null}
       </article>
     </div>,
     document.body,

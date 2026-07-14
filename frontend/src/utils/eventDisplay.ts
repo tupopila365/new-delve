@@ -8,6 +8,10 @@ import {
   Utensils,
 } from 'lucide-react'
 import { mediaUrl } from '../api/client'
+import {
+  isVideoUrl,
+  parseGalleryMediaList,
+} from '../components/listing/photos/listingGalleryMedia'
 
 export type EventListing = {
   id: number
@@ -19,6 +23,7 @@ export type EventListing = {
   region: string
   city?: string | null
   cover_image: string | null
+  cover_kind?: 'image' | 'video' | null
   gallery_images?: unknown[]
   business?: number | null
   business_name?: string | null
@@ -29,6 +34,7 @@ export type EventListing = {
   price?: string | null
   likes_count?: number
   saves_count?: number
+  comments_count?: number
   attending_by_me?: boolean
   rsvp_count?: number
   liked_by_me?: boolean
@@ -76,6 +82,64 @@ export function eventCoverSrc(coverImage: string | null | undefined, category: s
   const resolved = mediaUrl(coverImage)
   if (resolved) return resolved
   return EVENT_IMAGE_BY_CATEGORY[category] ?? EVENT_DEFAULT_IMAGE
+}
+
+export type EventPreviewMedia = {
+  kind: 'image' | 'video'
+  src: string
+}
+
+/** Prefer video (cover or gallery) for feed autoplay; otherwise a still image. */
+export function eventPreviewMedia(
+  event: Pick<EventListing, 'cover_image' | 'cover_kind' | 'gallery_images' | 'category'>,
+): EventPreviewMedia {
+  const coverRaw = mediaUrl(event.cover_image) ?? (event.cover_image?.trim() || '')
+  if (coverRaw && (event.cover_kind === 'video' || isVideoUrl(coverRaw))) {
+    return { kind: 'video', src: coverRaw }
+  }
+
+  const gallery = parseGalleryMediaList(event.gallery_images)
+  for (const item of gallery) {
+    const src = mediaUrl(item.url) ?? item.url
+    if (!src) continue
+    if (item.kind === 'video' || isVideoUrl(src)) {
+      return { kind: 'video', src }
+    }
+  }
+
+  if (coverRaw && !isVideoUrl(coverRaw)) {
+    return { kind: 'image', src: coverRaw }
+  }
+
+  for (const item of gallery) {
+    const src = mediaUrl(item.url) ?? item.url
+    if (src && !isVideoUrl(src)) {
+      return { kind: 'image', src }
+    }
+  }
+
+  return {
+    kind: 'image',
+    src: EVENT_IMAGE_BY_CATEGORY[event.category] ?? EVENT_DEFAULT_IMAGE,
+  }
+}
+
+/**
+ * Match API `when=weekend`: upcoming Sat 00:00 → Mon 00:00 (exclusive), local time.
+ * Backend uses Django localtime with weekday Mon=0 … Sun=6.
+ */
+export function isUpcomingWeekendEvent(startsAt: string, now = new Date()): boolean {
+  const start = new Date(startsAt)
+  if (Number.isNaN(start.getTime())) return false
+  const pyWeekday = (now.getDay() + 6) % 7 // Mon=0 … Sun=6
+  const daysUntilSat = (5 - pyWeekday + 7) % 7
+  const sat = new Date(now)
+  sat.setHours(0, 0, 0, 0)
+  sat.setDate(sat.getDate() + daysUntilSat)
+  const mon = new Date(sat)
+  mon.setDate(mon.getDate() + 2)
+  const t = start.getTime()
+  return t >= sat.getTime() && t < mon.getTime()
 }
 
 export function formatEventDate(iso: string): EventDateParts {

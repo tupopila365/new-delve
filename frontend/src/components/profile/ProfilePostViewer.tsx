@@ -54,7 +54,6 @@ function ProfilePostSlide({
   const { profile } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const videoRef = useRef<HTMLVideoElement>(null)
   const isQuestion = post.post_kind === 'question'
   const isQuestionAuthor = Boolean(profile && profile.username === post.author.username)
 
@@ -129,17 +128,6 @@ function ProfilePostSlide({
     enabled: active && showComments,
     retry: false,
   })
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-    if (active) {
-      void video.play().catch(() => {})
-    } else {
-      video.pause()
-      video.currentTime = 0
-    }
-  }, [active])
 
   const name = post.author.display_name || post.author.username
   const avatar = mediaUrl(post.author.avatar ?? null)
@@ -216,24 +204,14 @@ function ProfilePostSlide({
   return (
     <>
       <div className="ppv__media">
-        {post.video ? (
-          <div className="post-media-wrap post-media-wrap--detail">
-            <video
-              ref={videoRef}
-              className="ig-post__media"
-              src={mediaUrl(post.video) ?? undefined}
-              poster={post.image ? mediaUrl(post.image) ?? undefined : undefined}
-              playsInline
-              loop
-              muted
-              autoPlay={active}
-              controls={active}
-              preload={active ? 'auto' : 'metadata'}
-            />
-          </div>
-        ) : (
-          <PostMedia image={post.image} video={null} variant="detail" alt={preview} />
-        )}
+        <PostMedia
+          image={post.image}
+          video={post.video}
+          media={post.media}
+          variant="detail"
+          alt={preview}
+          playbackActive={active}
+        />
       </div>
 
       <div className="ppv__scrim" aria-hidden />

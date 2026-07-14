@@ -776,31 +776,6 @@ class PostViewSet(viewsets.ModelViewSet):
             for kind, pk in pending_bakes:
                 schedule_bake(kind, pk)
 
-
-class MediaSignView(APIView):
-    """Return a short-lived signed Cloudinary upload payload for the browser."""
-
-    permission_classes = [permissions.IsAuthenticated]
-    throttle_classes = [MediaSignThrottle]
-
-    def post(self, request):
-        if not remote_media_available():
-            return Response(
-                {"direct_upload": False, "detail": "Direct Cloudinary upload is not configured."},
-                status=status.HTTP_200_OK,
-            )
-        resource_type = (request.data.get("resource_type") or "image").strip().lower()
-        if resource_type not in ("image", "video"):
-            return Response(
-                {"detail": "resource_type must be image or video."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            payload = sign_upload(resource_type=resource_type)
-        except ValueError as exc:
-            return Response({"direct_upload": False, "detail": str(exc)}, status=status.HTTP_200_OK)
-        return Response(payload, status=status.HTTP_200_OK)
-
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
         post = self.get_object()
@@ -970,6 +945,31 @@ class MediaSignView(APIView):
         )
         ser = PostSerializer(delvers_post, context={"request": request})
         return Response(ser.data, status=status.HTTP_201_CREATED)
+
+
+class MediaSignView(APIView):
+    """Return a short-lived signed Cloudinary upload payload for the browser."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [MediaSignThrottle]
+
+    def post(self, request):
+        if not remote_media_available():
+            return Response(
+                {"direct_upload": False, "detail": "Direct Cloudinary upload is not configured."},
+                status=status.HTTP_200_OK,
+            )
+        resource_type = (request.data.get("resource_type") or "image").strip().lower()
+        if resource_type not in ("image", "video"):
+            return Response(
+                {"detail": "resource_type must be image or video."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            payload = sign_upload(resource_type=resource_type)
+        except ValueError as exc:
+            return Response({"direct_upload": False, "detail": str(exc)}, status=status.HTTP_200_OK)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class CommentAcceptView(APIView):

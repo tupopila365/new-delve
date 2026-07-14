@@ -49,12 +49,13 @@ function sortPostsNewestFirst(posts: DelversFeedPost[]): DelversFeedPost[] {
 }
 
 export function buildBoardRings(highlights: DelversFeedPost[]): BoardHighlightRing[] {
+  // Instagram-style: one ring per creator, labeled with their display name
+  // (not the old "Highlights" / hashtag board name).
   const map = new Map<string, DelversFeedPost[]>()
 
   for (const post of highlights) {
     if (!post.image && !post.video) continue
-    const board = normalizeHighlightBoard(post.delvers_board)
-    const key = `${post.author.username}\0${board.toLowerCase()}`
+    const key = post.author.username.toLowerCase()
     const list = map.get(key) ?? []
     list.push(post)
     map.set(key, list)
@@ -65,15 +66,16 @@ export function buildBoardRings(highlights: DelversFeedPost[]): BoardHighlightRi
     const sorted = sortPostsNewestFirst(posts)
     const latest = sorted[0]
     if (!latest) continue
-    const board = normalizeHighlightBoard(latest.delvers_board)
+    const displayName = latest.author.display_name?.trim() || latest.author.username
     rings.push({
-      id: `${latest.author.username}:${board.toLowerCase()}`,
-      ringKey: boardRingKey(latest.author.username, board),
-      label: board,
+      id: latest.author.username.toLowerCase(),
+      // Stable seen-key; UI label is the person, not the board string.
+      ringKey: boardRingKey(latest.author.username, 'Highlights'),
+      label: displayName,
       cover: highlightCoverFromPost(latest),
       avatar: latest.author.avatar ?? null,
       username: latest.author.username,
-      displayName: latest.author.display_name || latest.author.username,
+      displayName,
       isFollowing: Boolean(latest.is_author_followed),
       posts: sorted,
     })
@@ -194,7 +196,7 @@ export function storyTargetFromRing(entry: DelversStoryRing): {
     return {
       kind: 'board',
       title: ring.label,
-      subtitle: `@${ring.username} · ${ring.posts.length} ${ring.posts.length === 1 ? 'slide' : 'slides'}`,
+      subtitle: `@${ring.username}`,
       avatar: ring.avatar,
       username: ring.username,
       boardKey: ring.ringKey,

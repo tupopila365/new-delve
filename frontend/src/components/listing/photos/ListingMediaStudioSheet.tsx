@@ -14,8 +14,10 @@ import './listing-photos.css'
 
 type Props = {
   open: boolean
-  /** Cover slot accepts images only; gallery accepts photo or video. */
+  /** Cover slot accepts images only unless allowVideoCover; gallery always accepts both. */
   slot: 'cover' | 'gallery'
+  /** When true, cover can be a short video (events). */
+  allowVideoCover?: boolean
   title: string
   initial?: ListingPhotoDraft | null
   submitLabel?: string
@@ -26,6 +28,7 @@ type Props = {
 export function ListingMediaStudioSheet({
   open,
   slot,
+  allowVideoCover = false,
   title,
   initial = null,
   submitLabel = 'Add',
@@ -56,7 +59,8 @@ export function ListingMediaStudioSheet({
   if (!open) return null
 
   const isCover = slot === 'cover'
-  const isVideo = !isCover && mediaKind === 'video'
+  const coverImagesOnly = isCover && !allowVideoCover
+  const isVideo = !coverImagesOnly && mediaKind === 'video'
   const canSaveImage = Boolean(preview?.trim() && (file || preview.startsWith('http') || preview.startsWith('data:')))
   const canSaveVideo = Boolean(
     (file && videoDuration > 0) || (initial?.kind === 'video' && initial.src?.trim() && !file),
@@ -66,7 +70,8 @@ export function ListingMediaStudioSheet({
   function onPick(next: File | null) {
     if (!next) return
     setError('')
-    const kind: MediaKind = isCover || !next.type.startsWith('video/') ? 'image' : 'video'
+    const kind: MediaKind =
+      coverImagesOnly || !next.type.startsWith('video/') ? 'image' : 'video'
     setMediaKind(kind)
     setFile(next)
     setPreview(URL.createObjectURL(next))
@@ -180,7 +185,7 @@ export function ListingMediaStudioSheet({
               <MediaPicker mediaKind="video" onMediaKindChange={() => {}} onPick={onPick} />
             )}
           </div>
-        ) : isCover || preview || initial ? (
+        ) : coverImagesOnly || (isCover && mediaKind === 'image' && (preview || initial)) ? (
           <MediaCoverEditor
             label=""
             value={preview}
@@ -197,6 +202,7 @@ export function ListingMediaStudioSheet({
               setMediaKind(kind)
               setPreview(null)
               setFile(null)
+              setPosterSrc(null)
             }}
             onPick={onPick}
           />

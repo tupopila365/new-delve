@@ -4,6 +4,18 @@ from __future__ import annotations
 
 GALLERY_MEDIA_MAX_ITEMS = 12
 
+VIDEO_URL_SUFFIXES = (".mp4", ".webm", ".mov", ".m4v")
+
+
+def media_url_kind(url: str) -> str:
+    """Best-effort image/video detection from a URL or storage path."""
+    path = (url or "").strip().lower().split("?", 1)[0]
+    if any(path.endswith(suffix) for suffix in VIDEO_URL_SUFFIXES):
+        return "video"
+    if "/video/" in path or "/video/upload/" in path:
+        return "video"
+    return "image"
+
 
 def normalize_gallery_media_item(raw) -> dict | None:
     """Accept legacy URL strings or {url, kind} objects."""

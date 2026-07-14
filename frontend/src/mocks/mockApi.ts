@@ -17,14 +17,28 @@ import {
 
 type MockJourney = MockTrip & { starts_at: string; visibility?: string; is_hidden?: boolean; is_featured?: boolean }
 
+type MockJourneyQuestionAuthor = {
+  username: string
+  display_name?: string | null
+  avatar?: string | null
+}
+
 type MockJourneyQuestionRow = {
   id: number
   journey_id: number
-  author: string
+  parent_id: number | null
+  author: string | MockJourneyQuestionAuthor
   body: string
   is_hidden?: boolean
   created_at: string
-  answers: { id: number; author: string; body: string; is_official?: boolean; created_at: string }[]
+  /** @deprecated Legacy nested answers — folded into parent_id threads on load. */
+  answers?: {
+    id: number
+    author: string | MockJourneyQuestionAuthor
+    body: string
+    is_official?: boolean
+    created_at: string
+  }[]
 }
 
 type MockState = {
@@ -45,7 +59,7 @@ type MockState = {
   journeySaves: Record<string, number[]>
   journeyQuestions: MockJourneyQuestionRow[]
   nextJourneyQuestionId: number
-  nextJourneyAnswerId: number
+  journeyCommentHelpful: Record<string, string[]>
 }
 
 type MockComment = {
@@ -1458,7 +1472,33 @@ function ensureJourneyState(s: MockState): MockState {
   s.journeySaves = s.journeySaves ?? {}
   s.journeyQuestions = s.journeyQuestions ?? []
   if (!s.nextJourneyQuestionId) s.nextJourneyQuestionId = 1
-  if (!s.nextJourneyAnswerId) s.nextJourneyAnswerId = 1
+  s.journeyCommentHelpful = s.journeyCommentHelpful ?? {}
+  // Fold legacy answer rows into parent_id threads once.
+  const folded: MockJourneyQuestionRow[] = []
+  for (const q of s.journeyQuestions) {
+    const parentId = q.parent_id ?? null
+    folded.push({
+      id: q.id,
+      journey_id: q.journey_id,
+      parent_id: parentId,
+      author: q.author,
+      body: q.body,
+      is_hidden: q.is_hidden,
+      created_at: q.created_at,
+    })
+    for (const answer of q.answers ?? []) {
+      folded.push({
+        id: answer.id,
+        journey_id: q.journey_id,
+        parent_id: q.id,
+        author: answer.author,
+        body: answer.body,
+        created_at: answer.created_at,
+      })
+      if (answer.id >= s.nextJourneyQuestionId) s.nextJourneyQuestionId = answer.id + 1
+    }
+  }
+  s.journeyQuestions = folded
   return s
 }
 
@@ -1513,28 +1553,76 @@ function mockVisibleJourneys(s: MockState) {
   )
 }
 
-function mockJourneyQuestionsFor(s: MockState, journeyId: number) {
+function mockJourneyQuestionAuthor(
+  s: MockState,
+  author: string | MockJourneyQuestionAuthor,
+): MockJourneyQuestionAuthor {
+  if (typeof author !== 'string') {
+    return {
+      username: author.username,
+      display_name: author.display_name ?? author.username,
+      avatar: author.avatar ?? null,
+    }
+  }
+  const profile = s.profiles[author]
+  if (profile) {
+    return {
+      username: author,
+      display_name: profile.display_name?.trim() || author,
+      avatar: profile.avatar ?? null,
+    }
+  }
+  return { username: author, display_name: author, avatar: null }
+}
+
+function mockSerializeJourneyComment(
+  s: MockState,
+  journey: MockJourney,
+  q: MockJourneyQuestionRow,
+) {
+  const me = s.currentUser
+  const helpful = s.journeyCommentHelpful[String(q.id)] ?? []
+  const repliesCount = s.journeyQuestions.filter(
+    (row) => row.parent_id === q.id && !row.is_hidden,
+  ).length
+  return {
+    id: q.id,
+    listing: journey.id,
+    listing_title: journey.title,
+    journey_title: journey.title,
+    author: mockJourneyQuestionAuthor(s, q.author),
+    parent_id: q.parent_id,
+    body: q.body,
+    ago: 'Just now',
+    created_at: q.created_at,
+    replies_count: repliesCount,
+    helpful_count: helpful.length,
+    marked_helpful_by_me: Boolean(me && helpful.includes(me)),
+    is_official:
+      mockJourneyQuestionAuthor(s, q.author).username === journey.author.username,
+  }
+}
+
+function mockJourneyCommentsFor(
+  s: MockState,
+  journeyId: number,
+  parentId: number | null = null,
+) {
   const journey = s.journeys.find((row) => row.id === journeyId)
   if (!journey) return []
   return s.journeyQuestions
-    .filter((q) => q.journey_id === journeyId && !q.is_hidden)
-    .map((q) => ({
-      id: q.id,
-      listing: journeyId,
-      listing_title: journey.title,
-      journey_title: journey.title,
-      author: q.author,
-      body: q.body,
-      ago: 'Just now',
-      answers: q.answers.map((a) => ({
-        id: a.id,
-        author: a.author,
-        body: a.body,
-        ago: 'Just now',
-        is_official: a.is_official,
-      })),
-      created_at: q.created_at,
-    }))
+    .filter(
+      (q) =>
+        q.journey_id === journeyId &&
+        !q.is_hidden &&
+        (parentId == null ? q.parent_id == null : q.parent_id === parentId),
+    )
+    .map((q) => mockSerializeJourneyComment(s, journey, q))
+}
+
+/** @deprecated Use mockJourneyCommentsFor — kept for inbox callers. */
+function mockJourneyQuestionsFor(s: MockState, journeyId: number) {
+  return mockJourneyCommentsFor(s, journeyId, null)
 }
 
 function loadState(): MockState {
@@ -1572,7 +1660,7 @@ function loadState(): MockState {
     journeySaves: {},
     journeyQuestions: [],
     nextJourneyQuestionId: 1,
-    nextJourneyAnswerId: 1,
+    journeyCommentHelpful: {},
   }
   localStorage.setItem(KEY, JSON.stringify(seed))
   return seed
@@ -4867,19 +4955,69 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   // ---- Journeys ----
   if (pathname === '/api/journeys/' && method === 'GET') {
     const author = (q.get('author') || '').trim()
-    const featuredRaw = (q.get('featured') || '').trim().toLowerCase()
-    const featuredFirstRaw = (q.get('featured_first') || '').trim().toLowerCase()
     const limitRaw = Number(q.get('limit') || '0')
+    const searchQ = (q.get('q') || '').trim().toLowerCase()
+    const mode = (q.get('mode') || '').trim().toLowerCase()
+    const tag = (q.get('tag') || '').trim().toLowerCase()
+    const minCost = Number(q.get('min_cost') || '')
+    const maxCost = Number(q.get('max_cost') || '')
+    const savedOnly = ['1', 'true', 'yes'].includes((q.get('saved') || '').trim().toLowerCase())
+    const sort = (q.get('sort') || 'recent').trim().toLowerCase()
     let rows = mockVisibleJourneys(s)
     if (author) {
       rows = rows.filter((j) => textMatch(j.author.username, author))
     }
-    if (featuredRaw === '1' || featuredRaw === 'true' || featuredRaw === 'yes') {
-      rows = rows.filter((j) => j.is_featured)
-      rows = [...rows].sort((a, b) => (b.saves_count || 0) - (a.saves_count || 0) || b.id - a.id)
-    } else if (featuredFirstRaw === '1' || featuredFirstRaw === 'true' || featuredFirstRaw === 'yes') {
+    if (searchQ) {
+      rows = rows.filter((j) => {
+        const hay = [
+          j.title,
+          j.summary,
+          j.author.username,
+          j.author.display_name,
+          ...(j.tags || []),
+          ...(j.stops || []).map((s) => s.place_name),
+          ...(j.stops || []).map((s) => s.region || ''),
+        ]
+          .join(' ')
+          .toLowerCase()
+        return hay.includes(searchQ)
+      })
+    }
+    const modeTags: Record<string, string[]> = {
+      nature: ['wildlife', 'hiking', 'dunes', 'etosha'],
+      coast: ['coast', 'kayaking'],
+      culture: ['first-timer', 'culture'],
+      food: ['food'],
+      adventure: ['4x4', 'hiking', 'kayaking', 'cross-border', 'dunes'],
+      family: ['family'],
+    }
+    if (mode === 'weekend') {
+      rows = rows.filter((j) => j.days <= 4 || (j.tags || []).includes('weekend'))
+    } else if (mode === 'budget') {
+      rows = rows.filter((j) => Number(j.total_cost) < 5000 || (j.tags || []).includes('budget'))
+    } else if (modeTags[mode]) {
+      const wanted = new Set(modeTags[mode])
+      rows = rows.filter((j) => (j.tags || []).some((t) => wanted.has(t)))
+    }
+    if (tag) {
+      rows = rows.filter((j) => (j.tags || []).includes(tag))
+    }
+    if (Number.isFinite(minCost) && minCost > 0) {
+      rows = rows.filter((j) => Number(j.total_cost) >= minCost)
+    }
+    if (Number.isFinite(maxCost) && maxCost > 0) {
+      rows = rows.filter((j) => Number(j.total_cost) < maxCost)
+    }
+    if (savedOnly) {
+      requireAuth(s)
+      const me = s.currentUser as string
+      rows = rows.filter((j) => (s.journeySaves[j.id] || []).includes(me))
+    }
+    if (sort === 'popular') {
       rows = [...rows].sort(
-        (a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)) || b.id - a.id,
+        (a, b) =>
+          (b.likes_count || 0) + (b.saves_count || 0) - ((a.likes_count || 0) + (a.saves_count || 0)) ||
+          b.id - a.id,
       )
     } else {
       rows = [...rows].sort((a, b) => b.id - a.id)
@@ -5101,15 +5239,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return rows.map((row) => mockSerializeJourney(s, row))
   }
 
-  const journeyQuestionsMatch = pathname.match(/^\/api\/journeys\/(\d+)\/questions\/?$/)
-  if (journeyQuestionsMatch) {
-    const journeyId = Number(journeyQuestionsMatch[1])
+  const journeyCommentsMatch = pathname.match(/^\/api\/journeys\/(\d+)\/(comments|questions)\/?$/)
+  if (journeyCommentsMatch) {
+    const journeyId = Number(journeyCommentsMatch[1])
     const journey = s.journeys.find((row) => row.id === journeyId)
     if (!journey || journey.is_hidden) {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
     if (method === 'GET') {
-      return mockJourneyQuestionsFor(s, journeyId)
+      const parentRaw = q.get('parent')
+      let parentId: number | null = null
+      if (parentRaw && parentRaw !== 'root') {
+        parentId = Number(parentRaw)
+        if (!Number.isFinite(parentId)) {
+          throw new ApiError('Bad request', 400, { detail: 'Invalid parent id.' })
+        }
+        const parent = s.journeyQuestions.find(
+          (row) => row.id === parentId && row.journey_id === journeyId && !row.is_hidden,
+        )
+        if (!parent) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+      }
+      return mockJourneyCommentsFor(s, journeyId, parentId)
     }
     if (method === 'POST') {
       requireAuth(s)
@@ -5118,21 +5268,33 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (!isJsonBody(init.body)) {
         throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
       }
-      const body = JSON.parse(init.body) as { body?: string }
+      const body = JSON.parse(init.body) as { body?: string; parent_id?: number | null }
+      let parentId: number | null =
+        body.parent_id == null || body.parent_id === undefined ? null : Number(body.parent_id)
+      if (parentId != null) {
+        const parent = s.journeyQuestions.find(
+          (row) => row.id === parentId && row.journey_id === journeyId && !row.is_hidden,
+        )
+        if (!parent) throw new ApiError('Bad request', 400, { detail: 'Parent comment not found.' })
+      }
       const row: MockJourneyQuestionRow = {
         id: s.nextJourneyQuestionId++,
         journey_id: journeyId,
-        author: profile?.display_name?.trim() || me,
+        parent_id: parentId,
+        author: {
+          username: me,
+          display_name: profile?.display_name?.trim() || me,
+          avatar: profile?.avatar ?? null,
+        },
         body: (body.body || '').trim(),
         created_at: new Date().toISOString(),
-        answers: [],
       }
       s.journeyQuestions.push(row)
       journey.comments_count = s.journeyQuestions.filter(
-        (q) => q.journey_id === journeyId && !q.is_hidden,
+        (item) => item.journey_id === journeyId && !item.is_hidden && item.parent_id == null,
       ).length
       saveState(s)
-      return mockJourneyQuestionsFor(s, journeyId).find((q) => q.id === row.id)
+      return mockSerializeJourneyComment(s, journey, row)
     }
   }
 
@@ -5140,7 +5302,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (journeyAnswerMatch && method === 'POST') {
     requireAuth(s)
     const questionId = Number(journeyAnswerMatch[1])
-    const question = s.journeyQuestions.find((q) => q.id === questionId && !q.is_hidden)
+    const question = s.journeyQuestions.find((row) => row.id === questionId && !row.is_hidden)
     if (!question) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     const journey = s.journeys.find((row) => row.id === question.journey_id)
     if (!journey || journey.is_hidden) throw new ApiError('Not found', 404, { detail: 'Not found.' })
@@ -5150,23 +5312,38 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
     }
     const body = JSON.parse(init.body) as { body?: string }
-    const answer = {
-      id: s.nextJourneyAnswerId++,
-      author: profile?.display_name?.trim() || me,
+    const reply: MockJourneyQuestionRow = {
+      id: s.nextJourneyQuestionId++,
+      journey_id: question.journey_id,
+      parent_id: question.id,
+      author: {
+        username: me,
+        display_name: profile?.display_name?.trim() || me,
+        avatar: profile?.avatar ?? null,
+      },
       body: (body.body || '').trim(),
-      is_official: me === journey.author.username,
       created_at: new Date().toISOString(),
     }
-    question.answers.push(answer)
+    s.journeyQuestions.push(reply)
     saveState(s)
-    return {
-      id: answer.id,
-      author: answer.author,
-      body: answer.body,
-      is_official: answer.is_official,
-      ago: 'Just now',
-      created_at: answer.created_at,
-    }
+    return mockSerializeJourneyComment(s, journey, reply)
+  }
+
+  const journeyCommentHelpfulMatch = pathname.match(/^\/api\/journeys\/comments\/(\d+)\/helpful\/?$/)
+  if (journeyCommentHelpfulMatch && method === 'POST') {
+    requireAuth(s)
+    const commentId = Number(journeyCommentHelpfulMatch[1])
+    const comment = s.journeyQuestions.find((row) => row.id === commentId && !row.is_hidden)
+    if (!comment) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string
+    const key = String(commentId)
+    const voters = s.journeyCommentHelpful[key] ?? []
+    const idx = voters.indexOf(me)
+    if (idx >= 0) voters.splice(idx, 1)
+    else voters.push(me)
+    s.journeyCommentHelpful[key] = voters
+    saveState(s)
+    return { marked_helpful: idx < 0, helpful_count: voters.length }
   }
 
   if (pathname === '/api/accounts/me/journey-questions/' && method === 'GET') {

@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 
 import django_filters
-from django.db.models import Count, Exists, F, OuterRef, Q, Sum
+from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Sum, Value, When
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -21,18 +21,53 @@ from .booking_serializers import (
     ProviderEventBookingStatusSerializer,
 )
 from .booking_utils import apply_booking_status
-from .models import Event, EventAnswer, EventBooking, EventBookingStatus, EventLike, EventQuestion, EventReview, EventSave
+from .comment_queries import event_comment_queryset, recount_event_comments
+from .models import (
+    Event,
+    EventBooking,
+    EventBookingStatus,
+    EventCategory,
+    EventCategoryFollow,
+    EventLike,
+    EventQuestion,
+    EventQuestionHelpful,
+    EventRecurrenceTemplate,
+    EventReview,
+    EventSave,
+)
 from .qa_serializers import (
     EventAnswerCreateSerializer,
+    EventAnswerSerializer,
+    EventCommentSerializer,
     EventQuestionCreateSerializer,
-    EventQuestionSerializer,
     EventReviewCreateSerializer,
     EventReviewSerializer,
 )
 from .serializers import EventSerializer
 from .template_serializers import EventRecurrenceTemplateSerializer, EventTemplateSpawnSerializer
 from .analytics_services import provider_event_monetization_analytics
-from .models import EventRecurrenceTemplate
+
+
+def _comment_list_payload(request, qs):
+    limit_raw = request.query_params.get("limit")
+    if limit_raw is None:
+        rows = list(qs[:50])
+        return Response(EventCommentSerializer(rows, many=True, context={"request": request}).data)
+    try:
+        limit = max(1, min(int(limit_raw), 50))
+        offset = max(0, int(request.query_params.get("offset", 0)))
+    except (TypeError, ValueError):
+        limit, offset = 20, 0
+    total = qs.count()
+    rows = list(qs[offset : offset + limit])
+    next_offset = offset + limit if offset + limit < total else None
+    return Response(
+        {
+            "count": total,
+            "results": EventCommentSerializer(rows, many=True, context={"request": request}).data,
+            "next_offset": next_offset,
+        }
+    )
 
 
 class EventFilter(django_filters.FilterSet):
@@ -83,7 +118,7 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     filterset_class = EventFilter
     search_fields = ("title", "description", "venue", "region", "city")
-    ordering_fields = ("starts_at", "created_at")
+    ordering_fields = ("starts_at", "created_at", "likes_count")
     ordering = ["starts_at"]
 
     def get_permissions(self):
@@ -136,6 +171,11 @@ class EventViewSet(viewsets.ModelViewSet):
         qs = base.filter(is_published=True)
         return self._annotate_engagement(qs)
 
+    def filter_queryset(self, queryset):
+        # Run after OrderingFilter so subscribed categories still rank first on For you.
+        qs = super().filter_queryset(queryset)
+        return self._apply_interest_ranking(qs)
+
     def _annotate_engagement(self, queryset):
         user = self.request.user
         qs = queryset.annotate(
@@ -169,6 +209,33 @@ class EventViewSet(viewsets.ModelViewSet):
             )
         return qs
 
+    def _apply_interest_ranking(self, queryset):
+        """Boost events in categories the viewer has subscribed to (For you feed)."""
+        user = self.request.user
+        if self.action != "list" or not user.is_authenticated:
+            return queryset
+        if (self.request.query_params.get("category") or "").strip():
+            return queryset
+        # Explicit sorting / mine listings keep calendar order.
+        if (self.request.query_params.get("ordering") or "").strip():
+            return queryset
+        if self.request.query_params.get("mine", "").strip().lower() in ("1", "true", "yes"):
+            return queryset
+
+        followed = list(
+            EventCategoryFollow.objects.filter(user=user).values_list("category", flat=True)
+        )
+        if not followed:
+            return queryset
+
+        return queryset.annotate(
+            _interest_rank=Case(
+                When(category__in=followed, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            )
+        ).order_by("-_interest_rank", "starts_at")
+
     def perform_update(self, serializer):
         event = self.get_object()
         if not user_can_manage_event(self.request.user, event):
@@ -183,6 +250,43 @@ class EventViewSet(viewsets.ModelViewSet):
 
             raise PermissionDenied("You do not have permission to delete this event.")
         instance.delete()
+
+    @action(detail=True, methods=["get"])
+    def related(self, request, pk=None):
+        """Nearby-in-time events, preferring same category/city/region."""
+        event = self.get_object()
+        qs = self._annotate_engagement(
+            Event.objects.select_related(
+                "organizer",
+                "organizer__profile",
+                "business",
+            ).filter(is_published=True)
+        ).exclude(pk=event.pk)
+
+        scored: list[tuple[int, Event]] = []
+        for row in qs.order_by("starts_at")[:80]:
+            score = 0
+            if row.category and row.category == event.category:
+                score += 3
+            if event.city and row.city and row.city.lower() == event.city.lower():
+                score += 2
+            elif event.region and row.region and row.region.lower() == event.region.lower():
+                score += 1
+            if score > 0:
+                scored.append((score, row))
+        scored.sort(key=lambda item: (-item[0], item[1].starts_at, item[1].pk))
+        rows = [row for _, row in scored[:6]]
+        if len(rows) < 3:
+            # Fill with soonest remaining published events if scoring is thin.
+            have = {r.pk for r in rows}
+            for row in qs.order_by("starts_at")[:12]:
+                if row.pk in have:
+                    continue
+                rows.append(row)
+                have.add(row.pk)
+                if len(rows) >= 6:
+                    break
+        return Response(EventSerializer(rows, many=True, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def like(self, request, pk=None):
@@ -233,22 +337,50 @@ class EventViewSet(viewsets.ModelViewSet):
         return Response(ser.data)
 
     @action(detail=True, methods=["get", "post"])
-    def questions(self, request, pk=None):
+    def comments(self, request, pk=None):
+        """Threaded comments — same API design as journey/social comments."""
         event = self.get_object()
         if request.method == "GET":
-            qs = (
-                EventQuestion.objects.filter(event=event, is_hidden=False)
-                .select_related("author", "author__profile")
-                .prefetch_related("answers", "answers__author", "answers__author__profile")
-                .order_by("-created_at")[:50]
-            )
-            return Response(EventQuestionSerializer(qs, many=True).data)
+            parent_param = request.query_params.get("parent")
+            parent_id = None
+            if parent_param not in (None, "", "root"):
+                try:
+                    parent_id = int(parent_param)
+                except (TypeError, ValueError):
+                    return Response({"detail": "Invalid parent id."}, status=status.HTTP_400_BAD_REQUEST)
+                if not EventQuestion.objects.filter(
+                    pk=parent_id, event=event, is_hidden=False
+                ).exists():
+                    from rest_framework.exceptions import NotFound
+
+                    raise NotFound()
+            qs = event_comment_queryset(event, request.user, parent_id=parent_id)
+            return _comment_list_payload(request, qs)
+
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = EventQuestionCreateSerializer(data=request.data, context={"request": request, "event": event})
+        ser = EventQuestionCreateSerializer(
+            data=request.data,
+            context={"request": request, "event": event},
+        )
         ser.is_valid(raise_exception=True)
-        question = ser.save()
-        return Response(EventQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
+        comment = ser.save()
+        if comment.parent_id is None:
+            recount_event_comments(event)
+        annotated = (
+            event_comment_queryset(event, request.user, parent_id=comment.parent_id)
+            .filter(pk=comment.pk)
+            .first()
+        )
+        return Response(
+            EventCommentSerializer(annotated or comment, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["get", "post"])
+    def questions(self, request, pk=None):
+        """Back-compat alias for comments."""
+        return self.comments(request, pk=pk)
 
     @action(detail=True, methods=["get"])
     def reviews(self, request, pk=None):
@@ -300,12 +432,24 @@ class EventBookingViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return (
+        qs = (
             EventBooking.objects.filter(attendee=self.request.user)
             .select_related("event", "event__organizer", "event__organizer__profile")
             .prefetch_related("review")
             .order_by("-created_at")
         )
+        event_param = (self.request.query_params.get("event") or "").strip()
+        if event_param:
+            if event_param.isdigit():
+                qs = qs.filter(event_id=int(event_param))
+            else:
+                qs = qs.none()
+        status_param = (self.request.query_params.get("status") or "").strip().lower()
+        if status_param == "active":
+            qs = qs.exclude(
+                status__in=[EventBookingStatus.CANCELLED, EventBookingStatus.REFUNDED]
+            )
+        return qs
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
@@ -443,18 +587,101 @@ class EventProviderBookingViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class EventQuestionAnswerView(APIView):
+    """Back-compat: POST a reply as a nested comment (parent = question id)."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        question = EventQuestion.objects.select_related("event").filter(pk=pk, is_hidden=False).first()
+        question = (
+            EventQuestion.objects.select_related("event", "event__organizer")
+            .filter(pk=pk, is_hidden=False)
+            .first()
+        )
         if not question:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        ser = EventAnswerCreateSerializer(data=request.data, context={"request": request, "question": question})
+        ser = EventAnswerCreateSerializer(
+            data=request.data,
+            context={"request": request, "question": question},
+        )
         ser.is_valid(raise_exception=True)
-        answer = ser.save()
-        from .qa_serializers import EventAnswerSerializer
+        reply = ser.save()
+        annotated = (
+            event_comment_queryset(question.event, request.user, parent_id=question.pk)
+            .filter(pk=reply.pk)
+            .first()
+        )
+        return Response(
+            EventAnswerSerializer(annotated or reply, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
-        return Response(EventAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)
+
+class EventCommentHelpfulView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        comment = (
+            EventQuestion.objects.select_related("event")
+            .filter(pk=pk, is_hidden=False)
+            .first()
+        )
+        if not comment:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        row, created = EventQuestionHelpful.objects.get_or_create(
+            question=comment, user=request.user
+        )
+        if not created:
+            row.delete()
+            marked = False
+        else:
+            marked = True
+        helpful_count = EventQuestionHelpful.objects.filter(question=comment).count()
+        return Response({"marked_helpful": marked, "helpful_count": helpful_count})
+
+
+class EventCategoryFollowListView(APIView):
+    """GET categories the signed-in user has subscribed to."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        categories = list(
+            EventCategoryFollow.objects.filter(user=request.user)
+            .order_by("category")
+            .values_list("category", flat=True)
+        )
+        return Response({"categories": categories})
+
+
+class EventCategoryFollowToggleView(APIView):
+    """POST toggle subscribe/unsubscribe for an event category."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, category):
+        key = (category or "").strip().lower()
+        valid = {c.value for c in EventCategory}
+        if key not in valid:
+            return Response({"detail": "Unknown event category."}, status=status.HTTP_400_BAD_REQUEST)
+
+        follow, created = EventCategoryFollow.objects.get_or_create(
+            user=request.user,
+            category=key,
+        )
+        if not created:
+            follow.delete()
+            following = False
+        else:
+            following = True
+
+        followers_count = EventCategoryFollow.objects.filter(category=key).count()
+        return Response(
+            {
+                "following": following,
+                "followers_count": followers_count,
+                "category": key,
+            }
+        )
 
 
 class EventRecurrenceTemplateViewSet(viewsets.ModelViewSet):

@@ -38,10 +38,12 @@ export function ChipSelector({
             <button
               key={chip.value}
               type="button"
-              className={`chip ${active ? 'chip--active' : ''}`}
+              className={`chip${active ? ' chip--active active' : ''}`}
               onClick={() =>
                 onChange(
-                  active ? selected.filter((v) => v !== chip.value) : [...selected, chip.value],
+                  active
+                    ? selected.filter((v) => v !== chip.value)
+                    : [...selected, chip.value],
                 )
               }
               disabled={chip.disabled}

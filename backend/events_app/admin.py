@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from .models import Event, EventBooking, EventLike, EventSave, EventQuestion, EventAnswer, EventReview, EventRecurrenceTemplate
+from .models import (
+    Event,
+    EventAnswer,
+    EventBooking,
+    EventCategoryFollow,
+    EventLike,
+    EventQuestion,
+    EventRecurrenceTemplate,
+    EventReview,
+    EventSave,
+)
 
 
 @admin.register(Event)
@@ -28,6 +38,13 @@ class EventLikeAdmin(admin.ModelAdmin):
 class EventSaveAdmin(admin.ModelAdmin):
     list_display = ("event", "user", "created_at")
     raw_id_fields = ("event", "user")
+
+
+@admin.register(EventCategoryFollow)
+class EventCategoryFollowAdmin(admin.ModelAdmin):
+    list_display = ("user", "category", "created_at")
+    list_filter = ("category",)
+    raw_id_fields = ("user",)
 
 
 @admin.register(EventBooking)

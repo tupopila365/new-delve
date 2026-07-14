@@ -1,39 +1,38 @@
-"""Journey Q&A inbox for travellers who authored journeys."""
+"""Journey comment inbox for travellers who authored journeys."""
 
 from __future__ import annotations
 
-from django.db.models import Prefetch
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from journeys.models import JourneyAnswer, JourneyQuestion
-from journeys.qa_serializers import JourneyQuestionSerializer
+from journeys.comment_queries import journey_comment_queryset
+from journeys.models import Journey
+from journeys.qa_serializers import JourneyCommentSerializer
 
 
 class MeJourneyQuestionsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        visible_answers = JourneyAnswer.objects.filter(is_hidden=False).select_related(
-            "author", "author__profile"
-        )
-        qs = (
-            JourneyQuestion.objects.filter(journey__author=request.user, is_hidden=False)
-            .select_related("author", "author__profile", "journey")
-            .prefetch_related(Prefetch("answers", queryset=visible_answers))
-            .order_by("-created_at")[:50]
-        )
+        journeys = Journey.objects.filter(author=request.user, is_hidden=False).only("id", "title")
+        journey_by_id = {j.id: j for j in journeys}
+        if not journey_by_id:
+            return Response([])
+
         rows = []
-        for q in qs:
-            data = JourneyQuestionSerializer(q).data
-            rows.append(
-                {
-                    **data,
-                    "category": "journey",
-                    "listing_id": q.journey_id,
-                    "listing_title": q.journey.title,
-                    "journey_id": q.journey_id,
-                }
-            )
-        return Response(rows)
+        for journey_id, journey in journey_by_id.items():
+            qs = journey_comment_queryset(journey, request.user, parent_id=None)[:50]
+            for comment in qs:
+                data = JourneyCommentSerializer(comment, context={"request": request}).data
+                rows.append(
+                    {
+                        **data,
+                        "category": "journey",
+                        "listing_id": journey_id,
+                        "listing_title": journey.title,
+                        "journey_id": journey_id,
+                    }
+                )
+        rows.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+        return Response(rows[:50])

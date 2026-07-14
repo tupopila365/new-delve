@@ -108,11 +108,21 @@ class Event(models.Model):
     venue = models.CharField(max_length=200, blank=True)
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
-    cover_image = models.ImageField(upload_to="events/", blank=True, null=True)
+    cover_image = models.TextField(
+        blank=True,
+        default="",
+        help_text="Cover photo or video URL / storage path.",
+    )
+    cover_kind = models.CharField(
+        max_length=16,
+        choices=[("image", "Image"), ("video", "Video")],
+        default="image",
+        help_text="Whether cover_image is a still or a short video.",
+    )
     gallery_images = models.JSONField(
         default=list,
         blank=True,
-        help_text="Additional hero gallery image URLs (cover is separate).",
+        help_text="Additional hero gallery media (cover is separate).",
     )
     is_free = models.BooleanField(default=False)
     price = models.CharField(
@@ -135,6 +145,10 @@ class Event(models.Model):
         default=list,
         blank=True,
         help_text="Organizer highlight channels for story rings",
+    )
+    comments_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Cached count of top-level visible comments.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -181,6 +195,28 @@ class EventSave(models.Model):
         ]
 
 
+class EventCategoryFollow(models.Model):
+    """Subscribe to an event category so matching events rank higher in the feed."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_category_follows",
+    )
+    category = models.CharField(max_length=32, choices=EventCategory.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["user", "category"]]
+        indexes = [
+            models.Index(fields=["user", "created_at"], name="events_catf_user_created_idx"),
+            models.Index(fields=["category"], name="events_catf_category_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} → {self.category}"
+
+
 class EventBookingStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     CONFIRMED = "confirmed", "Confirmed"
@@ -224,7 +260,17 @@ class EventBooking(models.Model):
 
 
 class EventQuestion(models.Model):
+    """Threaded event comments — same shape as journey/social comments."""
+
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="questions")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+        help_text="Top-level comments have no parent; replies reference their parent comment.",
+    )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -232,13 +278,33 @@ class EventQuestion(models.Model):
     )
     body = models.TextField()
     is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["created_at"]
+
+
+class EventQuestionHelpful(models.Model):
+    question = models.ForeignKey(
+        EventQuestion,
+        on_delete=models.CASCADE,
+        related_name="helpful_votes",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="helpful_event_question_votes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["question", "user"]]
 
 
 class EventAnswer(models.Model):
+    """Legacy one-level reply table — retained briefly for migration compatibility."""
+
     question = models.ForeignKey(EventQuestion, on_delete=models.CASCADE, related_name="answers")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,

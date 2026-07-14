@@ -54,6 +54,7 @@
   background: #000;
 }
 
+.ppv__media .post-carousel,
 .ppv__media .post-media-wrap,
 .ppv__media .post-media-wrap--detail,
 .ppv__media .post-media-placeholder {
@@ -64,6 +65,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.ppv__media .post-carousel {
+  display: block;
+  position: relative;
+  z-index: 2;
+}
+
+.ppv__media .post-carousel__track {
+  height: 100%;
+}
+
+.ppv__media .post-carousel__slide {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ppv__media .post-carousel__dots {
+  bottom: 72px;
+}
+
+.ppv__media .post-carousel__counter {
+  top: 52px;
 }
 
 .ppv__media .ig-post__media,

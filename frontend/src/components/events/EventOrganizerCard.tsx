@@ -17,12 +17,16 @@ export function EventOrganizerCard({ event, className = '' }: Props) {
     ? `/u/${encodeURIComponent(event.organizer_username)}`
     : null
   const messageHref = event.organizer_username
-    ? messageProviderPath(event.organizer_username, {
-        type: 'event',
-        id: event.id,
-        label: event.title,
-      })
-    : '/messages'
+    ? messageProviderPath(
+        event.organizer_username,
+        {
+          type: 'event',
+          id: event.id,
+          label: event.title,
+        },
+        event.business ?? null,
+      )
+    : null
   const { primary: business } = usePrimaryBusiness(event.organizer_username)
   const businessHref = business ? `/business/${business.id}` : null
 
@@ -51,10 +55,12 @@ export function EventOrganizerCard({ event, className = '' }: Props) {
                 View profile
               </Link>
             ) : null}
-            <Link to={messageHref} className="btn btn-ghost btn-sm">
-              <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
-              Message organizer
-            </Link>
+            {messageHref ? (
+              <Link to={messageHref} className="btn btn-ghost btn-sm">
+                <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+                Message organizer
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>

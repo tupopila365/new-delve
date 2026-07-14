@@ -20,6 +20,11 @@ type Props = {
   /** Delvers feed: gradient overlay so video blocks do not look broken */
   showVideoPreview?: boolean
   onMediaError?: () => void
+  /**
+   * When false (e.g. off-screen in the vertical post viewer), pause playback.
+   * Defaults to true.
+   */
+  playbackActive?: boolean
 }
 
 /**
@@ -35,6 +40,7 @@ export function PostMedia({
   className = '',
   showVideoPreview = false,
   onMediaError,
+  playbackActive = true,
 }: Props) {
   const slides = normalizeSlides(media, image, video)
 
@@ -47,6 +53,7 @@ export function PostMedia({
         alt={alt}
         showVideoPreview={showVideoPreview}
         onMediaError={onMediaError}
+        playbackActive={playbackActive}
       />
     )
   }
@@ -60,7 +67,7 @@ export function PostMedia({
       alt={alt}
       showVideoPreview={showVideoPreview}
       onMediaError={onMediaError}
-      active
+      active={playbackActive}
     />
   )
 }
@@ -98,16 +105,16 @@ function PostMediaSlide({
   const videoRef = useRef<HTMLVideoElement>(null)
   const base = variant === 'pin' ? 'pin-card__media-el' : 'ig-post__media'
 
-  // Pause non-active carousel videos; play the active one (feed/pin variants).
+  // Pause non-active carousel videos; play the active slide (incl. detail viewer).
   useEffect(() => {
     const el = videoRef.current
     if (!el) return
-    if (variant === 'detail') return
     if (active) {
       const p = el.play()
       if (p && typeof p.catch === 'function') p.catch(() => {})
     } else {
       el.pause()
+      if (variant === 'detail') el.currentTime = 0
     }
   }, [active, variant])
 
@@ -163,6 +170,7 @@ function PostCarousel({
   alt,
   showVideoPreview,
   onMediaError,
+  playbackActive,
 }: {
   slides: PostMediaItem[]
   variant: 'feed' | 'pin' | 'detail'
@@ -170,6 +178,7 @@ function PostCarousel({
   alt: string
   showVideoPreview: boolean
   onMediaError?: () => void
+  playbackActive: boolean
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState(0)
@@ -200,7 +209,7 @@ function PostCarousel({
               alt={alt}
               showVideoPreview={showVideoPreview}
               onMediaError={onMediaError}
-              active={i === index}
+              active={playbackActive && i === index}
             />
           </div>
         ))}

@@ -19,6 +19,21 @@
   display: grid;
   justify-items: center;
   gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+
+.create-wizard__step.is-selectable {
+  cursor: pointer;
+}
+
+.create-wizard__step:disabled {
+  cursor: default;
 }
 
 .create-wizard__dot {
@@ -64,12 +79,27 @@
 
 .create-wizard__error {
   margin: 0 0 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 12px;
   background: rgba(220, 38, 38, 0.1);
   color: #b91c1c;
   font-size: 0.82rem;
   font-weight: 750;
+}
+
+.create-wizard__error-title {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.create-wizard__error-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 4px;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .create-wizard__nav {
@@ -148,6 +178,15 @@
 .create-wizard--dark .create-wizard__error {
   background: rgba(220, 38, 38, 0.16);
   color: #fca5a5;
+  border: 1px solid rgba(252, 165, 165, 0.28);
+}
+
+.create-wizard--dark .create-wizard__error-title {
+  color: #fecaca;
+}
+
+.create-wizard--dark .create-wizard__step.is-selectable:hover .create-wizard__label {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .create-wizard--dark .create-wizard__nav {

@@ -122,8 +122,7 @@ export function mergeJourneyFeeds(apiRows: ApiJourney[], fallback: MockTrip[]): 
   const apiTrips = apiRows.map(mapApiJourneyToTrip)
   const apiIds = new Set(apiTrips.map((t) => t.id))
   const extras = fallback.filter((t) => !apiIds.has(t.id))
-  // Keep admin-featured journeys ahead of organic/mock fill.
-  return [...apiTrips, ...extras].sort((a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)))
+  return [...apiTrips, ...extras].sort((a, b) => b.id - a.id)
 }
 
 export function buildJourneyPayload(input: {

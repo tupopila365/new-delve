@@ -37,6 +37,7 @@ export function useEventEngagement(events: EventListing[]) {
         return next
       })
       void qc.invalidateQueries({ queryKey: ['events'] })
+      void qc.invalidateQueries({ queryKey: ['event', String(eventId)] })
     },
   })
 
@@ -50,6 +51,7 @@ export function useEventEngagement(events: EventListing[]) {
         return next
       })
       void qc.invalidateQueries({ queryKey: ['events'] })
+      void qc.invalidateQueries({ queryKey: ['event', String(eventId)] })
     },
   })
 
@@ -68,29 +70,38 @@ export function useEventEngagement(events: EventListing[]) {
     [overrides],
   )
 
-  const toggleLike = useCallback(
-    (event: EventListing, clickEvent: MouseEvent) => {
-      clickEvent.preventDefault()
-      clickEvent.stopPropagation()
+  const saveCount = useCallback(
+    (event: EventListing) => overrides.get(event.id)?.savesCount ?? event.saves_count ?? 0,
+    [overrides],
+  )
+
+  const isLikeBusy = useCallback(
+    (eventId: number) => likeMut.isPending && likeMut.variables === eventId,
+    [likeMut.isPending, likeMut.variables],
+  )
+
+  const isSaveBusy = useCallback(
+    (eventId: number) => saveMut.isPending && saveMut.variables === eventId,
+    [saveMut.isPending, saveMut.variables],
+  )
+
+  const likeEvent = useCallback(
+    (event: EventListing) => {
       if (!profile) return
       likeMut.mutate(event.id)
     },
     [likeMut, profile],
   )
 
-  const toggleSave = useCallback(
-    (event: EventListing, clickEvent: MouseEvent) => {
-      clickEvent.preventDefault()
-      clickEvent.stopPropagation()
+  const saveEvent = useCallback(
+    (event: EventListing) => {
       if (!profile) return
       saveMut.mutate(event.id)
     },
     [profile, saveMut],
   )
 
-  const shareEvent = useCallback(async (event: EventListing, clickEvent: MouseEvent) => {
-    clickEvent.preventDefault()
-    clickEvent.stopPropagation()
+  const shareEventPlain = useCallback(async (event: EventListing) => {
     const url = `${window.location.origin}/events/${event.id}`
     const text = [event.title, event.venue].filter(Boolean).join(' · ')
     try {
@@ -106,6 +117,33 @@ export function useEventEngagement(events: EventListing[]) {
     }
   }, [])
 
+  const toggleLike = useCallback(
+    (event: EventListing, clickEvent: MouseEvent) => {
+      clickEvent.preventDefault()
+      clickEvent.stopPropagation()
+      likeEvent(event)
+    },
+    [likeEvent],
+  )
+
+  const toggleSave = useCallback(
+    (event: EventListing, clickEvent: MouseEvent) => {
+      clickEvent.preventDefault()
+      clickEvent.stopPropagation()
+      saveEvent(event)
+    },
+    [saveEvent],
+  )
+
+  const shareEvent = useCallback(
+    async (event: EventListing, clickEvent: MouseEvent) => {
+      clickEvent.preventDefault()
+      clickEvent.stopPropagation()
+      await shareEventPlain(event)
+    },
+    [shareEventPlain],
+  )
+
   const pendingIds = useMemo(
     () => new Set([...(likeMut.isPending && likeMut.variables ? [likeMut.variables] : []), ...(saveMut.isPending && saveMut.variables ? [saveMut.variables] : [])]),
     [likeMut.isPending, likeMut.variables, saveMut.isPending, saveMut.variables],
@@ -116,6 +154,12 @@ export function useEventEngagement(events: EventListing[]) {
     isSaved,
     isLiked,
     likeCount,
+    saveCount,
+    isLikeBusy,
+    isSaveBusy,
+    likeEvent,
+    saveEvent,
+    shareEventPlain,
     toggleLike,
     toggleSave,
     shareEvent,

@@ -290,8 +290,8 @@ export function Home() {
   })
 
   const { data: apiJourneys = [], isLoading: loadingJourneys } = useQuery({
-    queryKey: ['journeys', 'home', 'featured-first'],
-    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/?featured_first=1&limit=8', { auth: false }),
+    queryKey: ['journeys', 'home'],
+    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/?limit=8', { auth: false }),
   })
 
   const stayItems = stays.slice(0, 10)

@@ -83,6 +83,40 @@ class JourneyApiTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 1)
 
+    def test_feed_query_filters_search_mode_and_sort(self):
+        Journey.objects.create(
+            author=self.author,
+            title="Coastal Swakop loop",
+            summary="Seafood and dunes.",
+            starts_on=date(2026, 5, 1),
+            ends_on=date(2026, 5, 3),
+            days=3,
+            tags=["coast"],
+            total_cost=Decimal("2200"),
+        )
+        Journey.objects.create(
+            author=self.author,
+            title="Budget Fish River",
+            starts_on=date(2026, 6, 1),
+            ends_on=date(2026, 6, 4),
+            days=4,
+            tags=["budget"],
+            total_cost=Decimal("1800"),
+        )
+        searched = self.client.get("/api/journeys/?q=Swakop")
+        self.assertEqual(searched.status_code, 200)
+        self.assertEqual([j["title"] for j in searched.data], ["Coastal Swakop loop"])
+
+        coast = self.client.get("/api/journeys/?mode=coast")
+        self.assertEqual(coast.status_code, 200)
+        self.assertEqual([j["title"] for j in coast.data], ["Coastal Swakop loop"])
+
+        budget = self.client.get("/api/journeys/?mode=budget&sort=popular")
+        self.assertEqual(budget.status_code, 200)
+        titles = [j["title"] for j in budget.data]
+        self.assertIn("Budget Fish River", titles)
+        self.assertIn("Coastal Swakop loop", titles)
+
     def test_like_and_save_toggle_counts(self):
         journey = Journey.objects.create(
             author=self.author,

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Route } from 'lucide-react'
 import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import {
   findJourneyDemoTrip,
   mapApiJourneyToTrip,
@@ -15,11 +16,12 @@ import { EmptyState } from '../components/ui'
 
 export function TripDetail() {
   const { id } = useParams<{ id: string }>()
+  const { profile } = useAuth()
   const fallbackTrip = useMemo(() => findJourneyDemoTrip(Number(id)), [id])
 
   const { data: apiJourney, isLoading } = useQuery({
-    queryKey: ['journey', id],
-    queryFn: () => apiFetch<ApiJourney>(`/api/journeys/${id}/`, { auth: false }),
+    queryKey: ['journey', id, Boolean(profile)],
+    queryFn: () => apiFetch<ApiJourney>(`/api/journeys/${id}/`, { auth: Boolean(profile) }),
     enabled: Boolean(id),
     retry: false,
   })
@@ -29,11 +31,12 @@ export function TripDetail() {
     return fallbackTrip
   }, [apiJourney, fallbackTrip])
 
-  const engagement = useJourneyEngagement(trip ? [trip] : [])
+  const engagementTrips = useMemo(() => (trip ? [trip] : []), [trip])
+  const engagement = useJourneyEngagement(engagementTrips)
 
   const { data: similarApi = [] } = useQuery({
     queryKey: ['journey-similar', id],
-    queryFn: () => apiFetch<ApiJourney[]>(`/api/journeys/${id}/similar/`, { auth: false }),
+    queryFn: () => apiFetch<ApiJourney[]>(`/api/journeys/${id}/similar/`, { auth: Boolean(profile) }),
     enabled: Boolean(id) && Boolean(trip),
     retry: false,
   })
@@ -76,11 +79,14 @@ export function TripDetail() {
         trip={trip}
         journeyId={id}
         saved={engagement.isSaved(trip)}
+        saveCount={engagement.saveCount(trip)}
         onSave={() => engagement.saveTrip(trip)}
         onShare={() => void engagement.shareTrip(trip)}
         liked={engagement.isLiked(trip)}
         likeCount={engagement.likeCount(trip)}
         onLike={() => engagement.likeTrip(trip)}
+        likeBusy={engagement.isLikeBusy(trip.id)}
+        saveBusy={engagement.isSaveBusy(trip.id)}
         similarJourneys={similarJourneys}
       />
     </div>

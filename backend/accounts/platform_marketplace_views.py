@@ -12,7 +12,6 @@ from accounts.platform_marketplace import (
     list_platform_listings,
     list_unverified_email_users,
     set_listing_published,
-    set_journey_featured,
 )
 
 User = get_user_model()
@@ -39,7 +38,6 @@ class PlatformListingsView(APIView):
         listing_type = (request.data.get("listing_type") or "").strip()
         listing_id = request.data.get("listing_id")
         published = request.data.get("published")
-        featured = request.data.get("featured")
         reason = (request.data.get("reason") or "").strip()
 
         if not listing_type or listing_id is None:
@@ -48,28 +46,9 @@ class PlatformListingsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if featured is not None:
-            if listing_type.strip().lower() != "journey":
-                return Response(
-                    {"detail": "featured is only supported for journey listings."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            try:
-                row = set_journey_featured(int(listing_id), featured=bool(featured))
-            except ValueError as exc:
-                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-            log_admin_action(
-                actor=request.user,
-                action="listing_feature" if featured else "listing_unfeature",
-                target_type="listing",
-                target_id=f"{listing_type}:{listing_id}",
-                detail=row["title"],
-            )
-            return Response(row)
-
         if published is None:
             return Response(
-                {"detail": "published or featured is required."},
+                {"detail": "published is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

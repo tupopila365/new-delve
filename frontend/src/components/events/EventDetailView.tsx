@@ -1,39 +1,31 @@
-import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   BadgeDollarSign,
+  Bookmark,
   CalendarDays,
-  Clock,
+  Heart,
   MapPin,
   MessageCircle,
   Navigation,
   Pencil,
-  Sparkles,
+  Share2,
   Ticket,
-  UserRound,
   Users,
 } from 'lucide-react'
-import { DetailLayout } from '../detail'
-import {
-  ListingBookBar,
-  ListingDelversMoments,
-  ListingDetails,
-  ListingHeroGallery,
-  ListingHighlights,
-  ListingIdentityHeader,
-  ListingLocationCard,
-  ListingQuickInfo,
-  ListingReviews,
-} from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
-import type { ReviewItem } from '../GuestReviewCard'
+import { useAuth } from '../../auth/AuthContext'
+import { useEventCategoryFollows } from '../../hooks/useEventCategoryFollows'
+import { ReportButton } from '../report/ReportButton'
+import { JourneyHero } from '../journeys/JourneyHero'
+import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
+import { ListingDelversMoments, ListingReviews } from '../listing'
+import type { ReviewItem } from '../GuestReviewCard'
+import { messageProviderPath } from '../messages/messageProviderUtils'
 import {
   admissionLabel,
-  buildEventDetailRows,
   buildEventGalleryImages,
   buildEventHighlights,
-  buildEventTrustHighlights,
   buildGoogleCalendarUrl,
   categoryMeta,
   eventCountdownLabel,
@@ -45,15 +37,16 @@ import {
   type EventDetail,
   type EventListItem,
 } from '../../utils/eventListing'
-import { messageProviderPath } from '../messages/messageProviderUtils'
+import { eventAccentBadge } from '../../utils/eventDisplay'
 import { externalTicketHref, resolveTicketingMode } from '../../utils/eventTicketing'
 import { buildEventStoryChannels } from './eventStoriesUtils'
-import { EventAskSection } from './EventAskSection'
+import { EventCommentsSection } from './EventCommentsSection'
 import { EventDateShowcase } from './EventDateShowcase'
 import { EventOrganizerCard } from './EventOrganizerCard'
 import { EventRelatedSection } from './EventRelatedSection'
 import { EventReviewForm } from './EventReviewForm'
 import { EventTicketCard } from './EventTicketCard'
+import '../journeys/journey-detail.css'
 import './event-detail.css'
 
 type Props = {
@@ -61,12 +54,15 @@ type Props = {
   eventId: string
   editHref?: string
   saved: boolean
+  saveCount: number
   onSave: () => void
   onShare: () => void
+  liked: boolean
+  likeCount: number
+  onLike: () => void
+  likeBusy?: boolean
+  saveBusy?: boolean
   relatedEvents: EventListItem[]
-  questions?: ListingQuestionItem[]
-  questionsLoading?: boolean
-  canAnswerQuestions?: boolean
   reviews?: ReviewItem[]
   reviewRating?: string | number | null
   reviewCount?: number | null
@@ -91,12 +87,15 @@ export function EventDetailView({
   eventId,
   editHref,
   saved,
+  saveCount,
   onSave,
   onShare,
+  liked,
+  likeCount,
+  onLike,
+  likeBusy = false,
+  saveBusy = false,
   relatedEvents,
-  questions = [],
-  questionsLoading = false,
-  canAnswerQuestions = false,
   reviews = [],
   reviewRating,
   reviewCount,
@@ -115,201 +114,227 @@ export function EventDetailView({
   isOwner = false,
   onAddHighlight,
 }: Props) {
+  const navigate = useNavigate()
+  const { profile } = useAuth()
+  const categoryFollows = useEventCategoryFollows()
+  const commentsSectionRef = useRef<HTMLElement>(null)
+  const commentComposerRef = useRef<HTMLInputElement>(null)
+
   const cat = categoryMeta(event.category)
   const CatIcon = cat.Icon
   const start = formatEventDateLong(event.starts_at)
   const timeLabel = eventTimeRange(event)
   const organizerName = organizerLabel(event)
-  const organizerProfileHref = event.organizer_username
-    ? `/u/${encodeURIComponent(event.organizer_username)}`
-    : '/messages'
+  const organizerInitial = organizerName.charAt(0).toUpperCase() || '?'
   const locationLine = eventLocationLine(event)
   const cityLine = [event.city, event.region].filter(Boolean).join(', ')
   const hasLocation = Boolean(event.venue?.trim() || event.city || event.region)
   const ticketingMode = resolveTicketingMode(event)
   const priceLabel = admissionLabel(event)
   const countdown = eventCountdownLabel(event.starts_at)
+  const accent = eventAccentBadge(event)
+  const followingCategory = categoryFollows.isFollowing(event.category)
   const eventPath = `/events/${eventId}`
-  const detailBackTo = eventPath
   const galleryImages = buildEventGalleryImages(event)
-  const trustHighlights = buildEventTrustHighlights(event)
   const highlightLabels = buildEventHighlights(event)
-  const detailRows = buildEventDetailRows(event)
   const mapHref = openStreetMapSearchUrl(event.venue ?? '', event.city ?? '', event.region)
   const gcalUrl = buildGoogleCalendarUrl(event)
+  const commentsCount = event.comments_count ?? 0
 
   const storyChannels = useMemo(
     () => buildEventStoryChannels(event, { eventId, eventPath }),
     [event, eventId, eventPath],
   )
 
-  const highlightItems = highlightLabels.map((label) => ({
-    id: label,
-    label,
-    icon: <Sparkles size={16} strokeWidth={2.25} aria-hidden />,
-  }))
+  function openComments() {
+    commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.setTimeout(() => commentComposerRef.current?.focus(), 450)
+  }
 
-  const detailRowsWithIcons = detailRows.map((row) => {
-    if (row.id === 'date') return { ...row, icon: <CalendarDays size={14} strokeWidth={2.25} aria-hidden /> }
-    if (row.id === 'time') return { ...row, icon: <Clock size={14} strokeWidth={2.25} aria-hidden /> }
-    if (row.id === 'venue' || row.id === 'location') return { ...row, icon: <MapPin size={14} strokeWidth={2.25} aria-hidden /> }
-    if (row.id === 'price') return { ...row, icon: <BadgeDollarSign size={14} strokeWidth={2.25} aria-hidden /> }
-    if (row.id === 'organizer') return { ...row, icon: <UserRound size={14} strokeWidth={2.25} aria-hidden /> }
-    if (row.id === 'category') return { ...row, icon: <CatIcon size={14} strokeWidth={2.25} aria-hidden /> }
-    if (row.id === 'capacity') return { ...row, icon: <Users size={14} strokeWidth={2.25} aria-hidden /> }
-    return row
-  })
+  function guardEngage(action: () => void) {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    action()
+  }
 
-  const quickChips = [
-    {
-      id: 'category',
-      label: cat.label,
-      icon: <CatIcon size={15} strokeWidth={2.25} aria-hidden />,
-    },
-    {
-      id: 'date',
-      label: start.valid ? `${start.month} ${start.day}` : 'Date TBA',
-      icon: <CalendarDays size={15} strokeWidth={2.25} aria-hidden />,
-    },
-    {
-      id: 'price',
-      label: priceLabel,
-      accent: true,
-      icon: <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />,
-    },
-    ...(countdown
-      ? [{ id: 'countdown', label: countdown, icon: <Sparkles size={15} strokeWidth={2.25} aria-hidden /> }]
-      : []),
-  ]
-
-  const tagline = [
-    start.valid ? `${start.weekday}, ${timeLabel}` : null,
-    locationLine || null,
-    `Hosted by ${organizerName}`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-
-  const mobileTitle = start.valid ? `${start.weekday}, ${start.month} ${start.day}` : priceLabel
-  const mobileSubtitle = [event.venue || cityLine, !event.is_free && event.price ? `N$${event.price}` : null]
-    .filter(Boolean)
-    .join(' · ')
-
-  const bookAction = attending ? (
-    bookingStatus === 'pending' && onPay ? (
-      <button type="button" className="btn btn-primary" onClick={onPay}>
-        <Ticket size={16} strokeWidth={2.25} aria-hidden />
-        Pay now
-      </button>
-    ) : (
-      <Link to="#event-ticket-panel" className="btn btn-primary">
-        <Ticket size={16} strokeWidth={2.25} aria-hidden />
-        You're going
-      </Link>
-    )
-  ) : ticketingMode === 'external' ? (
-    <a href={externalTicketHref(eventId)} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-      <Ticket size={16} strokeWidth={2.25} aria-hidden />
-      Get tickets
-    </a>
-  ) : onRsvp ? (
-    <button type="button" className="btn btn-primary" onClick={onRsvp} disabled={rsvpPending}>
-      <Ticket size={16} strokeWidth={2.25} aria-hidden />
-      {resolveTicketingMode(event) === 'on_platform' ? `Reserve · N$${event.price}` : 'RSVP'}
-    </button>
-  ) : (
-    <Link to={organizerProfileHref} className="btn btn-primary">
-      <MessageCircle size={16} strokeWidth={2.25} aria-hidden />
-      Contact organizer
-    </Link>
-  )
-
-  const locationAddress = [
-    event.venue?.trim(),
-    event.address?.trim(),
-    cityLine,
-  ]
-    .filter(Boolean)
-    .join(' · ') || null
+  const mobileCtaLabel = attending
+    ? bookingStatus === 'pending'
+      ? 'Pay now'
+      : "You're going"
+    : ticketingMode === 'external'
+      ? 'Get tickets'
+      : ticketingMode === 'on_platform'
+        ? `Reserve · N$${event.price}`
+        : 'RSVP'
 
   return (
     <>
-      <ListingHeroGallery
-        className="ev-detail__gallery-wrap acc-detail__gallery-wrap"
+      <JourneyHero
         images={galleryImages}
-        listingType="event"
-        listingId={eventId}
         backTo="/events"
         backLabel="Events"
+        liked={liked}
         saved={saved}
-        onSave={onSave}
+        likeBusy={likeBusy}
+        saveBusy={saveBusy}
+        onLike={() => guardEngage(onLike)}
+        onSave={() => guardEngage(onSave)}
         onShare={onShare}
       />
 
-      <ListingIdentityHeader
-        name={event.title}
-        tagline={tagline}
-        categoryLabel={cat.label}
-        locationLabel={locationLine || null}
-        saved={saved}
-        onSave={onSave}
-        onShare={onShare}
-        reportTarget={{
-          target_type: 'listing',
-          target_id: `event:${eventId}`,
-          target_label: event.title,
-        }}
-        actions={[
-          ...(editHref
-            ? [
-                {
-                  id: 'edit',
-                  label: 'Edit event',
-                  icon: <Pencil size={14} strokeWidth={2.25} aria-hidden />,
-                  href: editHref,
-                },
-              ]
-            : []),
-          {
-            id: 'calendar',
-            label: 'Add to calendar',
-            icon: <CalendarDays size={14} strokeWidth={2.25} aria-hidden />,
-            href: gcalUrl,
-            accent: true,
-          },
-          ...(hasLocation
-            ? [
-                {
-                  id: 'directions',
-                  label: 'Directions',
-                  icon: <Navigation size={14} strokeWidth={2.25} aria-hidden />,
-                  href: mapHref,
-                },
-              ]
-            : []),
-          ...(event.organizer_username
-            ? [
-                {
-                  id: 'organizer',
-                  label: 'Message organizer',
-                  icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-                  href: messageProviderPath(event.organizer_username, {
-                    type: 'event' as const,
-                    id: eventId,
-                    label: event.title,
-                  }),
-                },
-              ]
-            : []),
-        ]}
-        className="ev-detail__identity acc-detail__identity"
-      />
+      <div className="jd-head">
+        {event.organizer_username ? (
+          <Link to={`/u/${encodeURIComponent(event.organizer_username)}`} className="jd-author">
+            <span className="jd-author__avatar jd-author__avatar--fallback" aria-hidden>
+              {organizerInitial}
+            </span>
+            <span className="jd-author__copy">
+              <span className="jd-author__name">{organizerName}</span>
+              <span className="jd-author__sub">
+                @{event.organizer_username}
+                {countdown ? ` · ${countdown}` : ''}
+              </span>
+            </span>
+          </Link>
+        ) : (
+          <div className="jd-author">
+            <span className="jd-author__avatar jd-author__avatar--fallback" aria-hidden>
+              {organizerInitial}
+            </span>
+            <span className="jd-author__copy">
+              <span className="jd-author__name">{organizerName}</span>
+              <span className="jd-author__sub">{countdown || 'Event host'}</span>
+            </span>
+          </div>
+        )}
 
-      <ListingQuickInfo
-        chips={quickChips}
-        highlights={trustHighlights}
-        className="ev-detail__quick-info acc-detail__quick-info"
-      />
+        <div className="jd-head__actions">
+          {editHref ? (
+            <Link to={editHref} className="jd-btn">
+              <Pencil size={14} strokeWidth={2.25} aria-hidden />
+              <span className="jd-btn--label">Edit</span>
+            </Link>
+          ) : event.organizer_username ? (
+            <Link
+              to={messageProviderPath(
+                event.organizer_username,
+                {
+                  type: 'event',
+                  id: eventId,
+                  label: event.title,
+                },
+                event.business ?? null,
+              )}
+              className="jd-btn jd-btn--primary"
+            >
+              <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+              <span className="jd-btn--label">Message</span>
+            </Link>
+          ) : null}
+          <ReportButton
+            className="jd-btn jd-btn--icon"
+            iconOnly
+            triggerLabel="Report event"
+            target={{ target_type: 'listing', target_id: `event:${eventId}`, target_label: event.title }}
+          />
+        </div>
+      </div>
+
+      <div className="jd-titleblock">
+        <div className="ev-detail__badges">
+          {accent ? <span className="jd-badge">{accent}</span> : null}
+          <button
+            type="button"
+            className={`ev-detail__follow-cat${followingCategory ? ' is-active' : ''}`}
+            disabled={categoryFollows.busyCategory === event.category}
+            onClick={() => categoryFollows.toggleFollow(event.category)}
+            aria-pressed={followingCategory}
+          >
+            {followingCategory ? `Following ${cat.label}` : `Follow ${cat.label}`}
+          </button>
+        </div>
+        <h1 className="jd-title">{event.title}</h1>
+        <p className="jd-route">
+          <CalendarDays size={17} strokeWidth={2.25} aria-hidden />
+          {start.valid ? `${start.weekday} · ${timeLabel}` : 'Date TBA'}
+        </p>
+        {locationLine ? (
+          <p className="jd-hook">
+            <MapPin size={15} strokeWidth={2.25} aria-hidden style={{ display: 'inline', verticalAlign: '-0.15em', marginRight: 6 }} />
+            {locationLine}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="jd-engage" aria-label="Event actions">
+        <div className="jd-engage__primary">
+          <button
+            type="button"
+            className={`jd-engage__btn jd-engage__btn--like${liked ? ' is-active' : ''}`}
+            onClick={() => guardEngage(onLike)}
+            disabled={likeBusy}
+            aria-label={liked ? 'Unlike event' : 'Like event'}
+            aria-pressed={liked}
+          >
+            <Heart size={22} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+            <span className="jd-engage__count">{likeCount}</span>
+          </button>
+          <button
+            type="button"
+            className="jd-engage__btn"
+            onClick={openComments}
+            aria-label={`${commentsCount} comments — view and write comments`}
+          >
+            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
+            <span className="jd-engage__count">{commentsCount}</span>
+          </button>
+          <button type="button" className="jd-engage__btn" onClick={onShare} aria-label="Share event">
+            <Share2 size={22} strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
+        <div className="jd-engage__secondary">
+          <button
+            type="button"
+            className={`jd-engage__btn jd-engage__btn--save${saved ? ' is-active' : ''}`}
+            onClick={() => guardEngage(onSave)}
+            disabled={saveBusy}
+            aria-label={saved ? 'Remove saved event' : 'Save event'}
+            aria-pressed={saved}
+          >
+            <Bookmark size={22} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+            <span className="jd-engage__count">{saveCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <ul className="jd-facts">
+        <li className="jd-fact">
+          <CatIcon size={15} strokeWidth={2.25} aria-hidden />
+          {cat.label}
+        </li>
+        <li className="jd-fact">
+          <CalendarDays size={15} strokeWidth={2.25} aria-hidden />
+          {start.valid ? `${start.month} ${start.day}` : 'TBA'}
+        </li>
+        <li className="jd-fact jd-fact--cost">
+          <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
+          {priceLabel}
+        </li>
+        {event.rsvp_count && event.rsvp_count > 0 ? (
+          <li className="jd-fact">
+            <Users size={15} strokeWidth={2.25} aria-hidden />
+            {event.rsvp_count} going
+          </li>
+        ) : null}
+        {hasLocation ? (
+          <li className="jd-fact">
+            <MapPin size={15} strokeWidth={2.25} aria-hidden />
+            {event.city || event.region || event.venue}
+          </li>
+        ) : null}
+      </ul>
 
       <HighlightStoriesSection
         channels={storyChannels}
@@ -318,110 +343,162 @@ export function EventDetailView({
         title="Feel the vibe"
         subtitle="Tap a highlight to watch"
         ctaLabel="View event"
-        className="ev-detail__stories acc-detail__section"
+        className="jd-stories"
         isOwner={isOwner}
         onAddHighlight={onAddHighlight}
       />
 
-      <DetailLayout
-        main={
-          <>
-            <EventDateShowcase event={event} className="acc-detail__section" />
+      <div className="ev-detail__ticket-block" id="event-ticket-panel">
+        <EventTicketCard
+          event={event}
+          attending={attending}
+          rsvpPending={rsvpPending}
+          bookingStatus={bookingStatus}
+          bookingTotal={bookingTotal}
+          mockPaymentRef={mockPaymentRef}
+          payPending={payPending}
+          onRsvp={onRsvp}
+          onCancelRsvp={onCancelRsvp}
+          onPay={onPay}
+          ticketQr={ticketQr}
+        />
+      </div>
 
-            <ListingHighlights
-              title="What to expect"
-              items={highlightItems}
-              className="ev-detail__highlights acc-detail__love"
-            />
+      <EventDateShowcase event={event} className="ev-detail__date-block" />
 
-            <ListingDetails
-              title="About this event"
-              description={event.description?.trim() || null}
-              rows={detailRowsWithIcons}
-              className="ev-detail__about acc-detail__about"
-            />
+      {event.description?.trim() || highlightLabels.length > 0 ? (
+        <JourneySection title="About this event">
+          {event.description?.trim() ? (
+            <p className="jd-story__lead">{event.description.trim()}</p>
+          ) : null}
+          {highlightLabels.length > 0 ? (
+            <ul className="jd-tips">
+              {highlightLabels.map((tip) => (
+                <li key={tip} className="jd-tip">
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </JourneySection>
+      ) : null}
 
-            <ListingLocationCard
-              title="Venue and location"
-              address={locationAddress || null}
-              mapUrl={mapHref || null}
-              approximateHint={
-                event.address?.trim()
-                  ? null
-                  : locationAddress
-                    ? 'Venue / area only — confirm the street address with the organizer.'
-                    : 'Exact venue details will be shared by the organizer.'
-              }
-              viewMapLabel="Open in maps"
-              className="ev-detail__map-card acc-detail__map-card"
-            />
+      {hasLocation ? (
+        <JourneySection title="Venue">
+          <p className="jd-story__lead">{[event.venue, cityLine].filter(Boolean).join(' · ')}</p>
+          <div className="ev-detail__venue-acts">
+            <a className="jd-btn" href={mapHref} target="_blank" rel="noopener noreferrer">
+              <Navigation size={14} strokeWidth={2.25} aria-hidden />
+              Directions
+            </a>
+            <a className="jd-btn" href={gcalUrl} target="_blank" rel="noopener noreferrer">
+              <CalendarDays size={14} strokeWidth={2.25} aria-hidden />
+              Add to calendar
+            </a>
+          </div>
+        </JourneySection>
+      ) : null}
 
-            <EventOrganizerCard event={event} className="acc-detail__section" />
+      <EventOrganizerCard event={event} className="ev-detail__organizer" />
 
-            <EventRelatedSection events={relatedEvents} className="acc-detail__section" />
+      <ListingDelversMoments
+        listingType="event"
+        listingId={eventId}
+        listingTitle={event.title}
+        title="Moments from this event"
+        className="ev-detail__moments"
+        showWhenEmpty
+        emptyMessage="Be the first to share a moment from this event."
+      />
+      <p className="ev-detail__moment-cta">
+        <Link to={`/create/post?event=${eventId}`} className="text-link">
+          Share your event moment
+        </Link>
+      </p>
 
-            <ListingDelversMoments
-              listingType="event"
-              listingId={eventId}
-              listingTitle={event.title}
-              title="Delvers moments from this event"
-              className="ev-detail__moments acc-detail__moments"
-              showWhenEmpty
-              emptyMessage="Be the first to share a moment from this event."
-            />
-            <p className="ev-detail__moment-cta">
-              <Link to={`/create/post?event=${eventId}`} className="text-link">
-                Share your event moment
-              </Link>
-            </p>
-
-            <ListingReviews
-              reviews={reviews}
-              listingType="event"
-              listingId={eventId}
-              rating={reviewRating}
-              count={reviewCount}
-              className="acc-detail__section"
-              emptyMessage="Reviews appear after attendees check in."
-            />
-
-            {showReviewForm && myBookingId ? (
-              <EventReviewForm bookingId={myBookingId} eventId={eventId} />
-            ) : null}
-
-            <EventAskSection
-              eventId={eventId}
-              className="ev-detail__comments acc-detail__comments"
-              title="Questions and local tips"
-              questions={questions}
-              isLoading={questionsLoading}
-              canAnswer={canAnswerQuestions}
-            />
-          </>
-        }
-        sidebar={
-          <EventTicketCard
-            event={event}
-            attending={attending}
-            rsvpPending={rsvpPending}
-            bookingStatus={bookingStatus}
-            bookingTotal={bookingTotal}
-            mockPaymentRef={mockPaymentRef}
-            payPending={payPending}
-            onRsvp={onRsvp}
-            onCancelRsvp={onCancelRsvp}
-            onPay={onPay}
-            ticketQr={ticketQr}
-          />
-        }
+      <ListingReviews
+        reviews={reviews}
+        listingType="event"
+        listingId={eventId}
+        rating={reviewRating}
+        count={reviewCount}
+        className="ev-detail__reviews"
+        emptyMessage="Reviews appear after attendees check in."
       />
 
-      <ListingBookBar
-        title={mobileTitle}
-        subtitle={mobileSubtitle || 'Event details'}
-        action={bookAction}
-        className="ev-detail__mobile-bar acc-detail__mobile-bar"
+      {showReviewForm && myBookingId ? (
+        <EventReviewForm bookingId={myBookingId} eventId={eventId} />
+      ) : null}
+
+      <EventCommentsSection
+        eventId={eventId}
+        commentsCount={commentsCount}
+        sectionRef={commentsSectionRef}
+        composerRef={commentComposerRef}
+        className="jn-detail__comments"
       />
+
+      <EventRelatedSection events={relatedEvents} className="ev-detail__related" />
+
+      <div className="jd-mobilebar">
+        <span className="jd-mobilebar__meta">
+          <span className="jd-mobilebar__title">{event.title}</span>
+          <span className="jd-mobilebar__sub">
+            {start.valid ? `${start.weekday}, ${start.month} ${start.day}` : priceLabel}
+          </span>
+        </span>
+        <div className="jd-mobilebar__actions">
+          <button
+            type="button"
+            className={`jd-mobilebar__icon jd-mobilebar__icon--like${liked ? ' is-active' : ''}`}
+            onClick={() => guardEngage(onLike)}
+            disabled={likeBusy}
+            aria-label={liked ? 'Unlike event' : 'Like event'}
+            aria-pressed={liked}
+          >
+            <Heart size={20} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+          <button type="button" className="jd-mobilebar__icon" onClick={onShare} aria-label="Share event">
+            <Share2 size={20} strokeWidth={2.25} aria-hidden />
+          </button>
+          {attending && bookingStatus === 'pending' && onPay ? (
+            <button type="button" className="jd-mobilebar__btn" onClick={onPay} disabled={payPending}>
+              <Ticket size={16} strokeWidth={2.25} aria-hidden />
+              Pay now
+            </button>
+          ) : attending ? (
+            <a href="#event-ticket-panel" className="jd-mobilebar__btn jd-mobilebar__btn--saved">
+              <Ticket size={16} strokeWidth={2.25} aria-hidden />
+              Going
+            </a>
+          ) : ticketingMode === 'external' ? (
+            <a
+              href={externalTicketHref(eventId)}
+              className="jd-mobilebar__btn"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Ticket size={16} strokeWidth={2.25} aria-hidden />
+              Tickets
+            </a>
+          ) : onRsvp ? (
+            <button type="button" className="jd-mobilebar__btn" onClick={onRsvp} disabled={rsvpPending}>
+              <Ticket size={16} strokeWidth={2.25} aria-hidden />
+              {mobileCtaLabel}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`jd-mobilebar__btn${saved ? ' jd-mobilebar__btn--saved' : ''}`}
+              onClick={() => guardEngage(onSave)}
+              disabled={saveBusy}
+            >
+              <Bookmark size={16} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+              {saved ? 'Saved' : 'Save'}
+            </button>
+          )}
+        </div>
+      </div>
     </>
   )
 }

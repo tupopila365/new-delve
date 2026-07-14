@@ -39,7 +39,7 @@ export function PublishProgressBar({ jobs, onRetry, onDismiss }: Props) {
       <div className="publish-progress__row">
         <p className="publish-progress__label">
           {failed ? primary.error || primary.message : primary.message}
-          {active.length > 1 ? ` · ${active.length} posts` : ''}
+          {active.length > 1 ? ` · ${active.length} in progress` : ''}
         </p>
         <div className="publish-progress__actions">
           {failed ? (

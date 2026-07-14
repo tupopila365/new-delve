@@ -36,7 +36,23 @@
 }
 
 .hl-stories__owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 12px;
+}
+
+.hl-stories__manage-btn {
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(124, 58, 237, 0.16);
+}
+
+.hl-stories__manage-btn:hover {
+  background: rgba(124, 58, 237, 0.28);
+}
+
+.hl-manage-sheet .hl-channel-editor {
+  margin-bottom: 8px;
 }
 
 .hl-owner-bar {

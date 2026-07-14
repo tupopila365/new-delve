@@ -43,9 +43,10 @@ import { JourneyRouteStops } from './JourneyRouteStops'
 import { JourneyDayByDay } from './JourneyDayByDay'
 import { JourneyBudgetBreakdown } from './JourneyBudgetBreakdown'
 import { buildJourneyStoryChannels } from './journeyStoriesUtils'
-import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
+import { JourneyDelversHighlightsSection } from './JourneyDelversHighlights'
 import { HighlightAddFlow } from '../highlights/HighlightAddFlow'
-import { normalizeHighlightsForSave } from '../highlights/highlightFormUtils'
+import { HighlightManageSheet } from '../highlights/HighlightManageSheet'
+import { MAX_HIGHLIGHT_CHANNELS, normalizeHighlightsForSave } from '../highlights/highlightFormUtils'
 import type { HighlightChannelInput } from '../highlights/types'
 import { journeyAccentBadge } from '../../utils/journeyDisplay'
 import { JourneyInspirationGrid } from './JourneyInspirationGrid'
@@ -88,11 +89,14 @@ type Props = {
   trip: MockTrip
   journeyId: string
   saved: boolean
+  saveCount: number
   onSave: () => void
   onShare: () => void
   liked: boolean
   likeCount: number
   onLike: () => void
+  likeBusy?: boolean
+  saveBusy?: boolean
   similarJourneys: MockTrip[]
 }
 
@@ -100,11 +104,14 @@ export function JourneyDetailView({
   trip,
   journeyId,
   saved,
+  saveCount,
   onSave,
   onShare,
   liked,
   likeCount,
   onLike,
+  likeBusy = false,
+  saveBusy = false,
   similarJourneys,
 }: Props) {
   const navigate = useNavigate()
@@ -113,7 +120,9 @@ export function JourneyDetailView({
   const isAuthor = profile?.username === trip.author.username
   const [authorErr, setAuthorErr] = useState<string | null>(null)
   const [addHighlightOpen, setAddHighlightOpen] = useState(false)
+  const [manageHighlightsOpen, setManageHighlightsOpen] = useState(false)
   const [savingHighlight, setSavingHighlight] = useState(false)
+  const customHighlightChannels = trip.journey_stories ?? []
   const commentsSectionRef = useRef<HTMLElement>(null)
   const commentComposerRef = useRef<HTMLInputElement>(null)
 
@@ -141,23 +150,37 @@ export function JourneyDetailView({
     return { id: m, label, Icon }
   })
 
-  async function saveJourneyHighlight(channel: HighlightChannelInput) {
+  async function patchJourneyStories(next: HighlightChannelInput[], close: 'add' | 'manage') {
     setSavingHighlight(true)
     setAuthorErr(null)
     try {
-      const next = normalizeHighlightsForSave([...(trip.journey_stories ?? []), channel])
       await apiFetch(`/api/journeys/${journeyId}/`, {
         method: 'PATCH',
         body: JSON.stringify({ journey_stories: next }),
       })
       void qc.invalidateQueries({ queryKey: ['journey', journeyId] })
       void qc.invalidateQueries({ queryKey: ['journeys'] })
-      setAddHighlightOpen(false)
+      if (close === 'add') setAddHighlightOpen(false)
+      if (close === 'manage') setManageHighlightsOpen(false)
     } catch (error) {
-      setAuthorErr(friendlyApiMessage(error, 'Could not save this highlight.'))
+      setAuthorErr(friendlyApiMessage(error, 'Could not save highlights.'))
     } finally {
       setSavingHighlight(false)
     }
+  }
+
+  async function saveJourneyHighlight(channel: HighlightChannelInput) {
+    const existing = trip.journey_stories ?? []
+    if (existing.length >= MAX_HIGHLIGHT_CHANNELS) {
+      setAuthorErr(`You can keep up to ${MAX_HIGHLIGHT_CHANNELS} highlight rings. Manage highlights to edit or remove one.`)
+      return
+    }
+    const next = normalizeHighlightsForSave([...existing, channel])
+    await patchJourneyStories(next, 'add')
+  }
+
+  async function saveManagedHighlights(channels: HighlightChannelInput[]) {
+    await patchJourneyStories(normalizeHighlightsForSave(channels), 'manage')
   }
 
   async function deleteJourney() {
@@ -197,7 +220,11 @@ export function JourneyDetailView({
         images={galleryImages}
         backTo="/journeys"
         backLabel="Journeys"
+        liked={liked}
         saved={saved}
+        likeBusy={likeBusy}
+        saveBusy={saveBusy}
+        onLike={onLike}
         onSave={onSave}
         onShare={onShare}
       />
@@ -258,40 +285,46 @@ export function JourneyDetailView({
         {hook ? <p className="jd-hook">{hook}</p> : null}
       </div>
 
-      {/* Social engagement bar */}
-      <div className="jd-engage">
-        <button
-          type="button"
-          className={`jd-engage__btn${liked ? ' jd-engage__btn--liked' : ''}`}
-          onClick={onLike}
-          aria-pressed={liked}
-        >
-          <Heart size={18} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
-          {likeCount}
-        </button>
-        <button
-          type="button"
-          className={`jd-engage__btn${saved ? ' jd-engage__btn--saved' : ''}`}
-          onClick={onSave}
-          aria-pressed={saved}
-        >
-          <Bookmark size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-          {saved ? 'Saved' : trip.saves_count}
-        </button>
-        <button
-          type="button"
-          className="jd-engage__btn jd-engage__btn--comments"
-          onClick={openComments}
-          aria-label={`${trip.comments_count} comments — view and write comments`}
-        >
-          <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-          {trip.comments_count}
-        </button>
-        <span className="jd-engage__spacer" />
-        <button type="button" className="jd-engage__btn" onClick={onShare}>
-          <Share2 size={17} strokeWidth={2.25} aria-hidden />
-          Share
-        </button>
+      {/* Social engagement bar — Delvers-style primary + save on the right */}
+      <div className="jd-engage" aria-label="Journey actions">
+        <div className="jd-engage__primary">
+          <button
+            type="button"
+            className={`jd-engage__btn jd-engage__btn--like${liked ? ' is-active' : ''}`}
+            onClick={onLike}
+            disabled={likeBusy}
+            aria-label={liked ? 'Unlike journey' : 'Like journey'}
+            aria-pressed={liked}
+          >
+            <Heart size={22} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+            <span className="jd-engage__count">{likeCount}</span>
+          </button>
+          <button
+            type="button"
+            className="jd-engage__btn"
+            onClick={openComments}
+            aria-label={`${trip.comments_count} comments — view and write comments`}
+          >
+            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
+            <span className="jd-engage__count">{trip.comments_count}</span>
+          </button>
+          <button type="button" className="jd-engage__btn" onClick={onShare} aria-label="Share journey">
+            <Share2 size={22} strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
+        <div className="jd-engage__secondary">
+          <button
+            type="button"
+            className={`jd-engage__btn jd-engage__btn--save${saved ? ' is-active' : ''}`}
+            onClick={onSave}
+            disabled={saveBusy}
+            aria-label={saved ? 'Remove saved journey' : 'Save journey'}
+            aria-pressed={saved}
+          >
+            <Bookmark size={22} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+            <span className="jd-engage__count">{saveCount}</span>
+          </button>
+        </div>
       </div>
 
       {authorErr ? (
@@ -324,22 +357,35 @@ export function JourneyDetailView({
       </ul>
 
       {/* Route highlights & moments */}
-      <HighlightStoriesSection
-        listingName={trip.title}
-        explorePath={`/journeys/${journeyId}`}
+      <JourneyDelversHighlightsSection
+        trip={trip}
         channels={storyChannels}
+        explorePath={`/journeys/${journeyId}`}
         title="Along the way"
         subtitle="Route highlights, moments & tips"
         ctaLabel="View journey"
         className="jd-stories"
         isOwner={isAuthor}
-        onAddHighlight={() => setAddHighlightOpen(true)}
+        onAddHighlight={
+          customHighlightChannels.length < MAX_HIGHLIGHT_CHANNELS
+            ? () => setAddHighlightOpen(true)
+            : undefined
+        }
+        onManageHighlights={() => setManageHighlightsOpen(true)}
       />
 
       <HighlightAddFlow
         open={addHighlightOpen}
         onClose={() => setAddHighlightOpen(false)}
         onSave={saveJourneyHighlight}
+        saving={savingHighlight}
+      />
+
+      <HighlightManageSheet
+        open={manageHighlightsOpen}
+        channels={customHighlightChannels}
+        onClose={() => setManageHighlightsOpen(false)}
+        onSave={saveManagedHighlights}
         saving={savingHighlight}
       />
 
@@ -413,10 +459,36 @@ export function JourneyDetailView({
           <span className="jd-mobilebar__title">{trip.title}</span>
           <span className="jd-mobilebar__sub">{route}</span>
         </span>
-        <button type="button" className="jd-mobilebar__btn" onClick={onSave}>
-          <Bookmark size={16} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-          {saved ? 'Saved' : 'Save journey'}
-        </button>
+        <div className="jd-mobilebar__actions">
+          <button
+            type="button"
+            className={`jd-mobilebar__icon jd-mobilebar__icon--like${liked ? ' is-active' : ''}`}
+            onClick={onLike}
+            disabled={likeBusy}
+            aria-label={liked ? 'Unlike journey' : 'Like journey'}
+            aria-pressed={liked}
+          >
+            <Heart size={20} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="jd-mobilebar__icon"
+            onClick={onShare}
+            aria-label="Share journey"
+          >
+            <Share2 size={20} strokeWidth={2.25} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className={`jd-mobilebar__btn${saved ? ' jd-mobilebar__btn--saved' : ''}`}
+            onClick={onSave}
+            disabled={saveBusy}
+            aria-pressed={saved}
+          >
+            <Bookmark size={16} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+            {saved ? 'Saved' : 'Save'}
+          </button>
+        </div>
       </div>
     </>
   )

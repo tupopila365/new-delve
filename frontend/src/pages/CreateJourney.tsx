@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { apiFetch } from '../api/client'
+import { usePublishQueue } from '../components/PublishQueueContext'
 import type { TripCost, TripStop } from '../data/mockTrips'
 import {
   CreateWizardShell,
@@ -16,7 +17,6 @@ import type { ListingPhotoDraft } from '../components/listing/photos/types'
 import { JourneyStopLinkPicker, type JourneyStopLink } from '../components/journeys/JourneyStopLinkPicker'
 import { PartyPicker, normalizePartyValue } from '../components/journeys/PartyPicker'
 import { EmptyState, ListSkeleton } from '../components/ui'
-import { friendlyApiMessage } from '../utils/friendlyError'
 import { buildJourneyPayload, mapApiJourneyToTrip, type ApiJourney } from '../utils/journeyApi'
 import { HighlightChannelEditor } from '../components/highlights/HighlightChannelEditor'
 import type { HighlightChannelInput } from '../components/highlights/types'
@@ -164,45 +164,44 @@ function stopLinkPayload(link: JourneyStopLink) {
 }
 
 async function buildStopsPayloadWithUploads(stops: FormStop[]): Promise<TripStop[]> {
-  const rows: TripStop[] = []
-  for (let i = 0; i < stops.length; i += 1) {
-    const s = stops[i]
-    let image: string | null = null
-    let video: string | null = null
-    if (s.moment.preview && s.moment.mediaKind) {
-      const url = await ensureHighlightMediaUrl(
-        s.moment.preview,
-        s.moment.mediaKind,
-        s.moment.uploadFile ?? null,
-      )
-      if (s.moment.mediaKind === 'video') video = url
-      else image = url
-    }
-    rows.push({
-      id: i + 1,
-      order: i,
-      place_name: s.place_name.trim(),
-      country_code: s.country_code,
-      arrived_on: s.arrived_on,
-      left_on: s.left_on,
-      notes: s.notes.trim(),
-      cost: Number(s.cost) || undefined,
-      ...stopLinkPayload(s.linked),
-      entries:
-        image || video
-          ? [
-              {
-                id: i + 1,
-                body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
-                image,
-                video,
-                happened_at: s.arrived_on,
-              },
-            ]
-          : [],
-    })
-  }
-  return rows
+  return Promise.all(
+    stops.map(async (s, i) => {
+      let image: string | null = null
+      let video: string | null = null
+      if (s.moment.preview && s.moment.mediaKind) {
+        const url = await ensureHighlightMediaUrl(
+          s.moment.preview,
+          s.moment.mediaKind,
+          s.moment.uploadFile ?? null,
+        )
+        if (s.moment.mediaKind === 'video') video = url
+        else image = url
+      }
+      return {
+        id: i + 1,
+        order: i,
+        place_name: s.place_name.trim(),
+        country_code: s.country_code,
+        arrived_on: s.arrived_on,
+        left_on: s.left_on,
+        notes: s.notes.trim(),
+        cost: Number(s.cost) || undefined,
+        ...stopLinkPayload(s.linked),
+        entries:
+          image || video
+            ? [
+                {
+                  id: i + 1,
+                  body: s.notes.trim() || `Moments from ${s.place_name.trim()}`,
+                  image,
+                  video,
+                  happened_at: s.arrived_on,
+                },
+              ]
+            : [],
+      } satisfies TripStop
+    }),
+  )
 }
 
 export function CreateJourney() {
@@ -213,7 +212,9 @@ export function CreateJourney() {
   const isEdit = Boolean(editId)
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { enqueueJourneyPublish } = usePublishQueue()
   const [step, setStep] = useState(1)
+  const [furthestStep, setFurthestStep] = useState(1)
 
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
@@ -231,7 +232,7 @@ export function CreateJourney() {
   const [journeyStories, setJourneyStories] = useState<HighlightChannelInput[]>([])
 
   const [err, setErr] = useState<string | null>(null)
-  const [publishing, setPublishing] = useState(false)
+  const [publishIssues, setPublishIssues] = useState<string[]>([])
   const [hydrated, setHydrated] = useState(!isEdit)
   const startedAt = useRef(startCreateSession())
 
@@ -311,42 +312,99 @@ export function CreateJourney() {
     )
   }
 
-  function validateStep(): string | null {
-    if (step === 1) {
-      if (!title.trim()) return 'Give your journey a title.'
-      if (!startsOn) return 'Add a start date.'
-      if (!endsOn) return 'Add an end date.'
-      if (new Date(endsOn) < new Date(startsOn)) return 'End date must be after start date.'
-    }
-    if (step === 2) {
-      for (const s of stops) {
-        if (!s.place_name.trim()) return 'Each stop needs a place name.'
-        if (!s.arrived_on) return `Add an arrival date for "${s.place_name || 'the stop'}".`
-        if (!s.left_on) return `Add a departure date for "${s.place_name || 'the stop'}".`
+  type StepIssue = { step: number; message: string }
+
+  function issuesForStep(stepId: number): StepIssue[] {
+    const issues: StepIssue[] = []
+    if (stepId === 1) {
+      if (!title.trim()) issues.push({ step: 1, message: 'Give your journey a title.' })
+      if (!startsOn) issues.push({ step: 1, message: 'Add a start date.' })
+      if (!endsOn) issues.push({ step: 1, message: 'Add an end date.' })
+      if (startsOn && endsOn && new Date(endsOn) < new Date(startsOn)) {
+        issues.push({ step: 1, message: 'End date must be on or after the start date.' })
       }
     }
-    if (step === 3) {
+    if (stepId === 2) {
+      if (stops.length === 0) {
+        issues.push({ step: 2, message: 'Add at least one stop on your route.' })
+      }
+      stops.forEach((s, index) => {
+        const label = s.place_name.trim() || `Stop ${index + 1}`
+        if (!s.place_name.trim()) {
+          issues.push({ step: 2, message: `${label}: add a place name.` })
+        }
+        if (!s.arrived_on) {
+          issues.push({ step: 2, message: `${label}: add an arrival date.` })
+        }
+        if (!s.left_on) {
+          issues.push({ step: 2, message: `${label}: add a departure date.` })
+        }
+        if (s.arrived_on && s.left_on && new Date(s.left_on) < new Date(s.arrived_on)) {
+          issues.push({ step: 2, message: `${label}: departure must be on or after arrival.` })
+        }
+      })
+    }
+    if (stepId === 3) {
       for (const c of costs) {
-        if (c.amount && isNaN(Number(c.amount))) return 'Amounts must be numbers.'
+        if (c.amount.trim() && Number.isNaN(Number(c.amount))) {
+          issues.push({ step: 3, message: 'Budget amounts must be numbers (e.g. 1200).' })
+          break
+        }
+        if (c.amount.trim() && !c.note.trim()) {
+          issues.push({
+            step: 3,
+            message: 'If you enter an amount, add a short description for that expense.',
+          })
+          break
+        }
       }
     }
-    if (step === 4) {
-      if (selectedCountries.length === 0) return 'Select at least one country.'
-      if (selectedTransport.length === 0) return 'Select at least one transport mode.'
+    if (stepId === 4) {
+      if (selectedCountries.length === 0) {
+        issues.push({ step: 4, message: 'Select at least one country you visited.' })
+      }
+      if (selectedTransport.length === 0) {
+        issues.push({ step: 4, message: 'Select how you got around (at least one transport).' })
+      }
     }
-    return null
+    return issues
+  }
+
+  function collectAllIssues(): StepIssue[] {
+    return [1, 2, 3, 4].flatMap((id) => issuesForStep(id))
+  }
+
+  function stepLabel(stepId: number) {
+    return STEPS.find((s) => s.id === stepId)?.label ?? `Step ${stepId}`
   }
 
   function next() {
-    const e = validateStep()
-    if (e) { setErr(e); return }
+    const issues = issuesForStep(step)
+    if (issues.length > 0) {
+      setErr(null)
+      setPublishIssues(issues.map((issue) => issue.message))
+      return
+    }
     setErr(null)
-    setStep((s) => s + 1)
+    setPublishIssues([])
+    setStep((s) => {
+      const nextStep = Math.min(STEPS.length, s + 1)
+      setFurthestStep((f) => Math.max(f, nextStep))
+      return nextStep
+    })
   }
 
   function back() {
     setErr(null)
-    setStep((s) => s - 1)
+    setPublishIssues([])
+    setStep((s) => Math.max(1, s - 1))
+  }
+
+  function goToStep(stepId: number) {
+    if (stepId < 1 || stepId > furthestStep) return
+    setErr(null)
+    setPublishIssues([])
+    setStep(stepId)
   }
 
   function updateStop(key: string, patch: Partial<FormStop>) {
@@ -375,74 +433,114 @@ export function CreateJourney() {
 
   async function publish() {
     if (!profile) {
-      setErr('You need to sign in to publish a journey.')
+      setErr(null)
+      setPublishIssues(['You need to sign in before you can publish a journey.'])
       navigate('/login')
       return
     }
-    const e = validateStep()
-    if (e) { setErr(e); return }
-    setErr(null)
 
-    const totalCost = costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
-    const days = daysBetween(startsOn, endsOn)
-    const builtStops = await buildStopsPayloadWithUploads(stops)
-    const resolvedMedia = await resolveListingGalleryMedia(listingPhotos)
-    const resolvedStories = await ensureHighlightChannelsMediaUrls(journeyStories)
-    const builtCosts: TripCost[] = costs
-      .filter((c) => c.amount && c.note)
-      .map((c) => ({ category: c.category, amount: Number(c.amount), note: c.note.trim() }))
-    const payload = buildJourneyPayload({
+    const allIssues = collectAllIssues()
+    if (allIssues.length > 0) {
+      const firstStep = allIssues[0].step
+      setFurthestStep((f) => Math.max(f, step, firstStep))
+      setStep(firstStep)
+      setErr(null)
+      setPublishIssues(
+        allIssues.map((issue) => {
+          if (issue.step === firstStep) return issue.message
+          return `${stepLabel(issue.step)}: ${issue.message}`
+        }),
+      )
+      return
+    }
+
+    setErr(null)
+    setPublishIssues([])
+
+    // Snapshot form state so background uploads keep working after we leave this page.
+    const snapshot = {
       title,
       summary,
-      coverImage: resolvedMedia.cover,
+      listingPhotos,
       startsOn,
       endsOn,
-      party: normalizePartyValue(party),
+      party,
       selectedCountries,
       selectedTransport,
       selectedTags,
-      stops: builtStops,
-      costs: builtCosts,
-      days,
-      totalCost,
-      journeyStories: resolvedStories,
-      galleryImages: serializeGalleryForApi(resolvedMedia.gallery),
-    })
+      stops,
+      costs,
+      journeyStories,
+      isEdit,
+      editId,
+      username: profile.username,
+      startedAt: startedAt.current,
+    }
 
-    setPublishing(true)
-    try {
-      if (isEdit && editId) {
-        const updated = await apiFetch<ApiJourney>(`/api/journeys/${editId}/`, {
-          method: 'PATCH',
+    enqueueJourneyPublish({
+      title: snapshot.title.trim() || 'Journey',
+      execute: async (onProgress) => {
+        onProgress({ status: 'uploading', progress: 0.08, message: 'Uploading photos & clips…' })
+        const totalCost = snapshot.costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
+        const days = daysBetween(snapshot.startsOn, snapshot.endsOn)
+
+        // Parallel media pipeline (Cloudinary direct when enabled) — same idea as Delvers.
+        const [builtStops, resolvedMedia, resolvedStories] = await Promise.all([
+          buildStopsPayloadWithUploads(snapshot.stops),
+          resolveListingGalleryMedia(snapshot.listingPhotos),
+          ensureHighlightChannelsMediaUrls(snapshot.journeyStories),
+        ])
+
+        onProgress({ status: 'posting', progress: 0.88, message: 'Publishing journey…' })
+        const builtCosts: TripCost[] = snapshot.costs
+          .filter((c) => c.amount.trim() && c.note.trim())
+          .map((c) => ({ category: c.category, amount: Number(c.amount), note: c.note.trim() }))
+        const payload = buildJourneyPayload({
+          title: snapshot.title,
+          summary: snapshot.summary,
+          coverImage: resolvedMedia.cover,
+          startsOn: snapshot.startsOn,
+          endsOn: snapshot.endsOn,
+          party: normalizePartyValue(snapshot.party),
+          selectedCountries: snapshot.selectedCountries,
+          selectedTransport: snapshot.selectedTransport,
+          selectedTags: snapshot.selectedTags,
+          stops: builtStops,
+          costs: builtCosts,
+          days,
+          totalCost,
+          journeyStories: resolvedStories,
+          galleryImages: serializeGalleryForApi(resolvedMedia.gallery),
+        })
+
+        if (snapshot.isEdit && snapshot.editId) {
+          await apiFetch<ApiJourney>(`/api/journeys/${snapshot.editId}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+          })
+          void qc.invalidateQueries({ queryKey: ['journeys'] })
+          void qc.invalidateQueries({ queryKey: ['journey', snapshot.editId] })
+          void qc.invalidateQueries({ queryKey: ['user-journeys', snapshot.username] })
+          return
+        }
+
+        const created = await apiFetch<ApiJourney>('/api/journeys/', {
+          method: 'POST',
           body: JSON.stringify(payload),
         })
+        trackCreatePublish({
+          format: 'journey',
+          has_place: builtStops.some((s) => Boolean(s.place_name?.trim() || s.linked_listing_id)),
+          startedAt: snapshot.startedAt,
+        })
         void qc.invalidateQueries({ queryKey: ['journeys'] })
-        void qc.invalidateQueries({ queryKey: ['journey', editId] })
-        void qc.invalidateQueries({ queryKey: ['user-journeys', profile.username] })
-        navigate(`/journeys/${updated.id}`)
-        return
-      }
-      const created = await apiFetch<ApiJourney>('/api/journeys/', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-      trackCreatePublish({
-        format: 'journey',
-        has_place: builtStops.some((s) => Boolean(s.place_name?.trim() || s.linked_listing_id)),
-        startedAt: startedAt.current,
-      })
-      void qc.invalidateQueries({ queryKey: ['journeys'] })
-      navigate(`/journeys/${created.id}`)
-    } catch (error) {
-      setErr(
-        friendlyApiMessage(
-          error,
-          isEdit ? 'Could not save your journey. Try again.' : 'Could not publish your journey. Try again.',
-        ),
-      )
-    } finally {
-      setPublishing(false)
-    }
+        void qc.invalidateQueries({ queryKey: ['user-journeys', snapshot.username] })
+        void qc.invalidateQueries({ queryKey: ['journey', String(created.id)] })
+      },
+    })
+
+    // Leave the publish wizard immediately — progress strip handles the rest.
+    navigate(isEdit && editId ? `/journeys/${editId}` : '/journeys')
   }
 
   const totalCostPreview = costs.reduce((s, c) => s + (Number(c.amount) || 0), 0)
@@ -464,11 +562,14 @@ export function CreateJourney() {
       onLeave={requestLeave}
       onStepBack={back}
       onStepNext={next}
+      onStepSelect={goToStep}
+      furthestStep={furthestStep}
       onPrimary={() => void publish()}
       primaryLabel={isEdit ? 'Save changes' : 'Publish journey'}
       primaryPendingLabel={isEdit ? 'Saving…' : 'Publishing…'}
-      primaryPending={publishing}
+      primaryPending={false}
       error={err}
+      errors={publishIssues}
     >
       <JourneyForm
         title={title}

@@ -1,7 +1,7 @@
 import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
 import type { HighlightChannelInput } from '../components/highlights/types'
 import { mediaUrl } from '../api/client'
-import { parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
+import { isVideoUrl, parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
 import {
   categoryMeta,
   eventCoverSrc,
@@ -104,14 +104,25 @@ export function eventCountdownLabel(startsAt: string): string | null {
 
 export function buildEventGalleryImages(event: EventDetail): ListingGalleryItem[] {
   const images: ListingGalleryItem[] = []
-  const cover = eventCoverSrc(event.cover_image, event.category)
-  if (cover) images.push({ id: 'cover', src: cover, alt: event.title, kind: 'image' })
+  const coverRaw = mediaUrl(event.cover_image) ?? (event.cover_image?.trim() || '')
+  if (coverRaw) {
+    images.push({
+      id: 'cover',
+      src: coverRaw,
+      alt: event.title,
+      kind: event.cover_kind === 'video' || isVideoUrl(coverRaw) ? 'video' : 'image',
+    })
+  } else {
+    const fallback = eventCoverSrc(null, event.category)
+    images.push({ id: 'cover', src: fallback, alt: event.title, kind: 'image' })
+  }
   for (const [i, item] of parseGalleryMediaList(event.gallery_images).entries()) {
     const src = mediaUrl(item.url) ?? item.url
     if (!src || images.some((img) => img.src === src)) continue
-    images.push({ id: `gallery-${i}`, src, alt: event.title, kind: item.kind })
+    const kind = item.kind === 'video' || isVideoUrl(src) ? 'video' : 'image'
+    images.push({ id: `gallery-${i}`, src, alt: event.title, kind })
   }
-  return images.length > 0 ? images : [{ id: 'cover', src: cover, alt: event.title, kind: 'image' }]
+  return images
 }
 
 export function buildEventTrustHighlights(event: EventDetail): string[] {

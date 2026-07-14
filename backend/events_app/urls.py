@@ -3,6 +3,9 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     EventBookingViewSet,
+    EventCategoryFollowListView,
+    EventCategoryFollowToggleView,
+    EventCommentHelpfulView,
     EventProviderBookingViewSet,
     EventQuestionAnswerView,
     EventRecurrenceTemplateViewSet,
@@ -17,5 +20,12 @@ router.register(r"", EventViewSet, basename="event")
 
 urlpatterns = [
     path("questions/<int:pk>/answers/", EventQuestionAnswerView.as_view(), name="event-question-answer"),
+    path("comments/<int:pk>/helpful/", EventCommentHelpfulView.as_view(), name="event-comment-helpful"),
+    path("category-follows/", EventCategoryFollowListView.as_view(), name="event-category-follows"),
+    path(
+        "categories/<str:category>/follow/",
+        EventCategoryFollowToggleView.as_view(),
+        name="event-category-follow-toggle",
+    ),
     path("", include(router.urls)),
 ]
