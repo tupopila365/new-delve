@@ -126,9 +126,15 @@ export function buildEventFormData(
         ? photoKind(photos[0])
         : 'image'
 
+  const gallery = [...resolved.gallery]
+  // Keep cover playable even if clients only read gallery_images.
+  if (cover && !gallery.some((item) => item.url === cover)) {
+    gallery.unshift({ url: cover, kind: coverKind })
+  }
+
   fd.append('cover_image', cover)
   fd.append('cover_kind', coverKind)
-  fd.append('gallery_images', JSON.stringify(serializeGalleryForApi(resolved.gallery)))
+  fd.append('gallery_images', JSON.stringify(serializeGalleryForApi(gallery)))
   if (businessId) fd.append('business', String(businessId))
   fd.append('event_stories', JSON.stringify(normalizeHighlightsForSave(resolvedStories)))
   return fd

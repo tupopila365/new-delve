@@ -105,6 +105,35 @@ class EventApiTests(TestCase):
         event = Event.objects.get(id=res.data["id"])
         self.assertEqual(event.cover_kind, "video")
 
+    def test_create_event_with_long_cloudinary_video_cover_url(self):
+        self.client.force_authenticate(self.organizer)
+        starts = (timezone.now() + timezone.timedelta(days=6)).isoformat()
+        long_url = (
+            "https://res.cloudinary.com/delve-production-cloud/video/upload/"
+            "c_limit,w_1080/v1712345678/posts/videos/"
+            + ("a" * 80)
+            + ".mp4"
+        )
+        self.assertGreater(len(long_url), 100)
+        res = self.client.post(
+            "/api/events/",
+            {
+                "title": "Long URL video cover",
+                "category": "music",
+                "starts_at": starts,
+                "is_free": "true",
+                "is_published": "true",
+                "cover_image": long_url,
+                "cover_kind": "video",
+                "gallery_images": "[]",
+                "event_stories": "[]",
+            },
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data["cover_kind"], "video")
+        self.assertEqual(res.data["cover_image"], long_url)
+
     def test_cover_kind_inferred_from_video_url(self):
         self.client.force_authenticate(self.organizer)
         starts = (timezone.now() + timezone.timedelta(days=5)).isoformat()

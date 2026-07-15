@@ -1,6 +1,7 @@
 import { mediaUrl } from '../../../api/client'
 import type { MediaKind } from '../../create/types'
 import { ensureHighlightMediaUrl } from '../../highlights/highlightMediaApi'
+import { prepareDelversVideoForUpload } from '../../../utils/delversVideoUtils'
 import { isVideoUrl, parseGalleryMediaList, serializeGalleryMediaList, type ListingGalleryMediaItem } from './listingGalleryMedia'
 import type { ListingPhotoDraft } from './types'
 
@@ -91,9 +92,14 @@ export async function resolveListingGalleryMedia(
     candidates.map(async (photo) => {
       const src = photo.src?.trim() ?? ''
       const kind = photoKind(photo)
-      const url = await ensureHighlightMediaUrl(src, kind, photo.file ?? null)
+      let file = photo.file ?? null
+      if (kind === 'video' && file) {
+        // Compress oversized clips; keep original codec when already web-friendly.
+        file = await prepareDelversVideoForUpload(file, { start: 0, end: 0 }, 0)
+      }
+      const url = await ensureHighlightMediaUrl(src, kind, file)
       if (!url) return null
-      return { ...photo, src: url, kind } satisfies ListingPhotoDraft
+      return { ...photo, src: url, kind, file } satisfies ListingPhotoDraft
     }),
   )
 

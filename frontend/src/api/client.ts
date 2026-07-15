@@ -54,6 +54,39 @@ export class ApiError extends Error {
   }
 }
 
+/** Flatten DRF `{field: ["…"]}` bodies into a readable message (not just statusText). */
+export function formatApiErrorMessage(body: unknown, fallback = 'Request failed'): string {
+  if (body == null) return fallback
+  if (typeof body === 'string') {
+    const text = body.trim()
+    return text || fallback
+  }
+  if (typeof body !== 'object') return fallback
+
+  const record = body as Record<string, unknown>
+  const detail = record.detail
+  if (typeof detail === 'string' && detail.trim()) return detail.trim()
+  if (Array.isArray(detail)) {
+    const joined = detail.map((item) => String(item)).filter(Boolean).join(' ')
+    if (joined) return joined
+  }
+
+  const parts: string[] = []
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'detail') continue
+    if (Array.isArray(value)) {
+      const text = value.map((item) => String(item)).filter(Boolean).join(', ')
+      if (text) parts.push(key === 'non_field_errors' ? text : `${key}: ${text}`)
+    } else if (typeof value === 'string' && value.trim()) {
+      parts.push(key === 'non_field_errors' ? value.trim() : `${key}: ${value.trim()}`)
+    } else if (value && typeof value === 'object') {
+      const nested = formatApiErrorMessage(value, '')
+      if (nested) parts.push(`${key}: ${nested}`)
+    }
+  }
+  return parts.join(' · ') || fallback
+}
+
 async function parseBody(res: Response): Promise<unknown> {
   const text = await res.text()
   if (!text) return null
@@ -104,11 +137,7 @@ export async function apiFetch<T = Json>(
 
   const body = await parseBody(res)
   if (!res.ok) {
-    const msg =
-      typeof body === 'object' && body && 'detail' in body
-        ? String((body as { detail: unknown }).detail)
-        : res.statusText
-    throw new ApiError(msg || 'Request failed', res.status, body)
+    throw new ApiError(formatApiErrorMessage(body, res.statusText || 'Request failed'), res.status, body)
   }
   return body as T
 }

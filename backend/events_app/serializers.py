@@ -39,6 +39,12 @@ class EventSerializer(serializers.ModelSerializer):
     saved_by_me = serializers.BooleanField(read_only=True, required=False)
     attending_by_me = serializers.BooleanField(read_only=True, required=False)
     ticketing_mode = serializers.SerializerMethodField()
+    # Explicit CharField: never treat cover as ImageField/file (video covers are Cloudinary URLs).
+    cover_image = serializers.CharField(required=False, allow_blank=True, max_length=2048)
+    cover_kind = serializers.ChoiceField(
+        choices=[("image", "Image"), ("video", "Video")],
+        required=False,
+    )
 
     class Meta:
         model = Event
@@ -98,7 +104,15 @@ class EventSerializer(serializers.ModelSerializer):
     def validate_cover_image(self, value):
         if value is None:
             return ""
-        return str(value).strip()
+        # Multipart can surface a bare UploadedFile if a client posts a file; reject clearly.
+        if hasattr(value, "read"):
+            raise serializers.ValidationError(
+                "Upload the cover via Cloudinary / highlights first, then send the media URL."
+            )
+        text = str(value).strip()
+        if len(text) > 2048:
+            raise serializers.ValidationError("Cover media URL is too long.")
+        return text
 
     def validate_cover_kind(self, value):
         if value in ("image", "video"):
@@ -130,8 +144,15 @@ class EventSerializer(serializers.ModelSerializer):
         cover = (cover or "").strip()
         if "cover_image" in attrs:
             attrs["cover_image"] = cover
-        if cover and "cover_kind" not in attrs:
-            attrs["cover_kind"] = media_url_kind(cover)
+
+        kind = attrs.get("cover_kind")
+        if cover:
+            inferred = media_url_kind(cover)
+            if kind not in ("image", "video"):
+                attrs["cover_kind"] = inferred
+            elif kind == "image" and inferred == "video":
+                # Client may forget cover_kind on Cloudinary video URLs.
+                attrs["cover_kind"] = "video"
         elif not cover and "cover_kind" not in attrs and self.instance is None:
             attrs["cover_kind"] = "image"
         return attrs

@@ -7,7 +7,7 @@ import { CreateToolDock } from '../../create/CreateToolDock'
 import { VideoTrimBar } from '../../create/VideoTrimBar'
 import type { MediaKind } from '../../create/types'
 import { videoPosterDataUrl } from '../../create/mediaUtils'
-import { prepareVideoForUpload } from '../../create/videoTrimUtils'
+import { MAX_TRIM_DURATION_SEC, prepareVideoForUpload } from '../../create/videoTrimUtils'
 import type { ListingPhotoDraft } from './types'
 import { newPhotoId } from './listingPhotoUtils'
 import './listing-photos.css'
@@ -86,6 +86,10 @@ export function ListingMediaStudioSheet({
     try {
       if (isVideo) {
         if (file) {
+          if (videoDuration > MAX_TRIM_DURATION_SEC) {
+            setError(`Keep clips to ${MAX_TRIM_DURATION_SEC} seconds or shorter.`)
+            return
+          }
           const uploadFile = await prepareVideoForUpload(file, videoTrim, videoDuration)
           const blobUrl = URL.createObjectURL(uploadFile)
           const poster = await videoPosterDataUrl(uploadFile, 0)
