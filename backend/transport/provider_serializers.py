@@ -8,7 +8,9 @@ from django.db import transaction
 from rest_framework import serializers
 
 from accounts.business_access import resolve_provider_listing_owner, user_can_manage_listing
+from common.gallery_media import media_url_kind
 
+from .cover_media import bus_cover_kind, vehicle_cover_kind, vehicle_cover_url
 from .models import (
     BusOperator,
     BusRoute,
@@ -19,23 +21,32 @@ from .models import (
 )
 
 
+def _apply_route_cover(route: BusRoute, cover_url: str, *, kind: str | None = None) -> None:
+    url = (cover_url or "").strip()
+    if not url:
+        route.cover_image = ""
+        route.cover_kind = "image"
+        return
+    resolved = kind if kind in ("image", "video") else media_url_kind(url)
+    route.cover_image = url
+    route.cover_kind = resolved
+
+
 def _cover_image_url(obj: VehicleRentalListing, request=None) -> str | None:
-    if obj.cover_image:
-        url = obj.cover_image.url
-        if request:
-            return request.build_absolute_uri(url)
-        return url
-    gallery = obj.gallery_images or []
-    return gallery[0] if gallery else None
+    return vehicle_cover_url(obj, request)
 
 
 class ProviderVehicleListingSerializer(serializers.ModelSerializer):
     """Matches frontend ProviderVehicleListing — includes inactive fleet rows."""
 
     cover_image = serializers.SerializerMethodField()
-    fuel_type = serializers.SerializerMethodField()
-    required_renter_documents = serializers.SerializerMethodField()
+    cover_kind = serializers.SerializerMethodField()
     cover_image_url = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    cover_kind_in = serializers.ChoiceField(
+        choices=[("image", "Image"), ("video", "Video")],
+        write_only=True,
+        required=False,
+    )
 
     class Meta:
         model = VehicleRentalListing
@@ -52,7 +63,9 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
             "region",
             "city",
             "cover_image",
+            "cover_kind",
             "cover_image_url",
+            "cover_kind_in",
             "description",
             "pickup_location",
             "fuel_type",
@@ -61,48 +74,71 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
             "required_renter_documents",
             "is_active",
         )
-        read_only_fields = ("id",)
+        read_only_fields = ("id", "cover_kind")
 
     def get_cover_image(self, obj):
         return _cover_image_url(obj, self.context.get("request"))
 
-    def get_fuel_type(self, obj):
-        return None
+    def get_cover_kind(self, obj):
+        return vehicle_cover_kind(obj)
 
-    def get_required_renter_documents(self, obj):
-        return []
-
-    def _apply_cover_url(self, instance, url: str):
+    def _apply_cover_url(self, instance, url: str, *, kind: str | None = None):
         url = (url or "").strip()
         if not url:
             return
+        resolved_kind = kind if kind in ("image", "video") else media_url_kind(url)
+        instance.cover_image = url
+        instance.cover_kind = resolved_kind
         gallery = list(instance.gallery_images or [])
-        if gallery and gallery[0] == url:
-            return
-        if gallery and gallery[0] != url:
-            gallery = [url, *gallery]
+        # Keep gallery in sync with cover as first media item.
+        cover_entry = url
+        if gallery and isinstance(gallery[0], dict):
+            gallery = [{"url": url, "kind": resolved_kind}, *[g for g in gallery[1:] if g]]
+        elif gallery and gallery[0] == url:
+            pass
+        elif gallery:
+            gallery = [cover_entry, *gallery]
         else:
-            gallery = [url]
+            gallery = [cover_entry]
         instance.gallery_images = gallery
 
     def create(self, validated_data):
         cover_url = validated_data.pop("cover_image_url", "")
+        cover_kind = validated_data.pop("cover_kind_in", None)
         user = self.context["request"].user
         validated_data["owner"] = user
+        # Avoid assigning ImageField-style file into TextField cover_image accidentally.
+        validated_data.pop("cover_image", None)
+        if not cover_url and "cover_image" in self.initial_data:
+            raw = self.initial_data.get("cover_image")
+            if isinstance(raw, str):
+                cover_url = raw
+        if cover_kind is None and "cover_kind" in self.initial_data:
+            raw_kind = self.initial_data.get("cover_kind")
+            if raw_kind in ("image", "video"):
+                cover_kind = raw_kind
         instance = super().create(validated_data)
         if cover_url:
-            self._apply_cover_url(instance, cover_url)
-            instance.save(update_fields=["gallery_images"])
+            self._apply_cover_url(instance, cover_url, kind=cover_kind)
+            instance.save(update_fields=["cover_image", "cover_kind", "gallery_images"])
         return instance
 
     def update(self, instance, validated_data):
         cover_url = validated_data.pop("cover_image_url", None)
-        if "cover_image" in validated_data:
-            cover_url = validated_data.pop("cover_image") or cover_url
+        cover_kind = validated_data.pop("cover_kind_in", None)
+        validated_data.pop("cover_image", None)
+        if cover_url is None and "cover_image" in self.initial_data:
+            raw = self.initial_data.get("cover_image")
+            if isinstance(raw, str):
+                cover_url = raw
+        if cover_kind is None and "cover_kind" in self.initial_data:
+            raw_kind = self.initial_data.get("cover_kind")
+            if raw_kind in ("image", "video"):
+                cover_kind = raw_kind
         instance = super().update(instance, validated_data)
         if cover_url is not None:
-            self._apply_cover_url(instance, cover_url)
-            instance.save(update_fields=["gallery_images"])
+            self._apply_cover_url(instance, cover_url, kind=cover_kind)
+            instance.save(update_fields=["cover_image", "cover_kind", "gallery_images"])
         return instance
 
     def validate(self, attrs):
@@ -111,7 +147,6 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
             if not user_can_manage_listing(request.user, self.instance.owner_id):
                 raise serializers.ValidationError("You cannot edit this listing.")
         return attrs
-
 
 class ProviderBusTripListingSerializer(serializers.ModelSerializer):
     """Flattened bus trip for provider admin — wraps route + operator."""
@@ -139,14 +174,16 @@ class ProviderBusTripListingSerializer(serializers.ModelSerializer):
     def get_route_detail(self, obj: BusTrip) -> dict:
         route = obj.route
         operator = route.operator
+        cover = (route.cover_image or "").strip() or None
         return {
             "origin": route.origin,
             "destination": route.destination,
             "operator_name": operator.name,
-            "cover_image": route.cover_image or None,
+            "cover_image": cover,
+            "cover_kind": bus_cover_kind(route),
             "gallery_images": route.gallery_images or [],
-            "distance_km": None,
-            "duration_minutes": None,
+            "distance_km": route.distance_km,
+            "duration_minutes": route.duration_minutes,
         }
 
     def get_available_seats(self, obj: BusTrip) -> int:
@@ -224,14 +261,38 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 operator=operator,
                 origin=origin,
                 destination=destination,
-                cover_image=(route_detail.get("cover_image") or "")[:500],
                 gallery_images=route_detail.get("gallery_images") or [],
+                distance_km=route_detail.get("distance_km"),
+                duration_minutes=route_detail.get("duration_minutes"),
             )
+            _apply_route_cover(
+                route,
+                route_detail.get("cover_image") or "",
+                kind=route_detail.get("cover_kind"),
+            )
+            route.save(update_fields=["cover_image", "cover_kind"])
         else:
-            route.cover_image = (route_detail.get("cover_image") or route.cover_image or "")[:500]
+            if "cover_image" in route_detail or "cover_kind" in route_detail:
+                _apply_route_cover(
+                    route,
+                    route_detail.get("cover_image") if "cover_image" in route_detail else route.cover_image,
+                    kind=route_detail.get("cover_kind"),
+                )
             if route_detail.get("gallery_images") is not None:
                 route.gallery_images = route_detail.get("gallery_images") or []
-            route.save(update_fields=["cover_image", "gallery_images"])
+            if "distance_km" in route_detail:
+                route.distance_km = route_detail.get("distance_km")
+            if "duration_minutes" in route_detail:
+                route.duration_minutes = route_detail.get("duration_minutes")
+            route.save(
+                update_fields=[
+                    "cover_image",
+                    "cover_kind",
+                    "gallery_images",
+                    "distance_km",
+                    "duration_minutes",
+                ]
+            )
 
         return BusTrip.objects.create(
             route=route,
@@ -263,11 +324,29 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
             if route_detail.get("operator_name"):
                 route.operator.name = route_detail["operator_name"].strip()
                 route.operator.save(update_fields=["name"])
-            if "cover_image" in route_detail:
-                route.cover_image = (route_detail.get("cover_image") or "")[:500]
+            if "cover_image" in route_detail or "cover_kind" in route_detail:
+                _apply_route_cover(
+                    route,
+                    route_detail.get("cover_image") if "cover_image" in route_detail else route.cover_image,
+                    kind=route_detail.get("cover_kind"),
+                )
             if route_detail.get("gallery_images") is not None:
                 route.gallery_images = route_detail.get("gallery_images") or []
-            route.save(update_fields=["origin", "destination", "cover_image", "gallery_images"])
+            if "distance_km" in route_detail:
+                route.distance_km = route_detail.get("distance_km")
+            if "duration_minutes" in route_detail:
+                route.duration_minutes = route_detail.get("duration_minutes")
+            route.save(
+                update_fields=[
+                    "origin",
+                    "destination",
+                    "cover_image",
+                    "cover_kind",
+                    "gallery_images",
+                    "distance_km",
+                    "duration_minutes",
+                ]
+            )
 
         for field in ("departs_at", "arrives_at", "price", "total_seats", "amenities", "is_active"):
             if field in validated_data:
@@ -313,7 +392,8 @@ class ProviderRentalBookingSerializer(serializers.ModelSerializer):
         return max(1, (end - start).days + 1)
 
     def get_renter_document_count(self, obj):
-        return 0
+        docs = obj.renter_documents or []
+        return len(docs) if isinstance(docs, list) else 0
 
 
 class ProviderSeatBookingSerializer(serializers.ModelSerializer):

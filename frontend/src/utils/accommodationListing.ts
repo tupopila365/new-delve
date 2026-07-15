@@ -61,6 +61,8 @@ export type AccommodationListing = {
   guest_reviews?: unknown
   room_types?: unknown
   owner_username: string
+  owner_display_name?: string | null
+  owner_avatar?: string | null
   property_type?: string
   pet_friendly?: boolean
   wifi?: boolean
@@ -197,6 +199,36 @@ export function loveItemIcon(item: string): LucideIcon {
   return LOVE_ICON_MAP[item] ?? BedDouble
 }
 
+const AMENITY_LABELS: Record<string, string> = {
+  wifi: 'Wi-Fi',
+  'wi-fi': 'Wi-Fi',
+  parking: 'Parking',
+  pool: 'Pool',
+  kitchen: 'Kitchen',
+  breakfast: 'Breakfast',
+  pet_friendly: 'Pet-friendly',
+  'pet-friendly': 'Pet-friendly',
+  pets: 'Pet-friendly',
+  ac: 'Air conditioning',
+  'air conditioning': 'Air conditioning',
+  laundry: 'Laundry',
+  garden: 'Garden',
+  workspace: 'Workspace',
+}
+
+/** Map amenity slugs / keys to traveller-facing labels. */
+export function amenityDisplayLabel(raw: string): string {
+  const key = raw.trim().toLowerCase().replace(/_/g, ' ')
+  const compact = key.replace(/\s+/g, '_')
+  if (AMENITY_LABELS[raw.trim().toLowerCase()]) return AMENITY_LABELS[raw.trim().toLowerCase()]
+  if (AMENITY_LABELS[compact]) return AMENITY_LABELS[compact]
+  if (AMENITY_LABELS[key]) return AMENITY_LABELS[key]
+  return raw
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export function amenityChipIcon(name: string): LucideIcon | null {
   const n = name.toLowerCase()
   if (n.includes('wifi') || n.includes('wi-fi')) return Wifi
@@ -246,22 +278,33 @@ export function buildRoomOffers(
   roomTypes: RoomTypeItem[],
   listingId: string | number,
 ): ListingRoomOption[] {
-  const fromTypes = roomTypes.map((room, i) => ({
-    id: `${i}-${room.name}`,
-    name: room.name,
-    description: room.description,
-    maxGuests: room.max_guests,
-    bedrooms: room.bedrooms,
-    bedSummary: room.bed_summary,
-    pricePerNight: room.price_per_night,
-    compareAtPrice: room.compare_at_price,
-    fallbackPrice: data.price_per_night,
-    image: room.images[0] ?? room.image,
-    images: toListingGalleryImages(room.images, room.name, `room-${i}`),
-    badge: room.badge,
-    featured: room.featured,
-    bookHref: `/accommodation/${listingId}/book?room=${encodeURIComponent(room.name)}`,
-  }))
+  const listingCover = data.cover_image ? mediaUrl(data.cover_image) || data.cover_image : null
+
+  const fromTypes = roomTypes.map((room, i) => {
+    const rawPrimary = room.images[0] ?? room.image
+    const primary = rawPrimary ? mediaUrl(rawPrimary) || rawPrimary : listingCover
+    const roomGallery = toListingGalleryImages(
+      room.images.length > 0 ? room.images : rawPrimary ? [rawPrimary] : data.cover_image ? [data.cover_image] : [],
+      room.name,
+      `room-${i}`,
+    )
+    return {
+      id: `${i}-${room.name}`,
+      name: room.name,
+      description: room.description,
+      maxGuests: room.max_guests,
+      bedrooms: room.bedrooms,
+      bedSummary: room.bed_summary,
+      pricePerNight: room.price_per_night,
+      compareAtPrice: room.compare_at_price,
+      fallbackPrice: data.price_per_night,
+      image: primary,
+      images: roomGallery,
+      badge: room.badge,
+      featured: room.featured,
+      bookHref: `/accommodation/${listingId}/book?room=${encodeURIComponent(room.name)}`,
+    }
+  })
 
   if (fromTypes.length > 0) return fromTypes
 
@@ -277,7 +320,7 @@ export function buildRoomOffers(
       pricePerNight: data.price_per_night,
       compareAtPrice: null,
       fallbackPrice: data.price_per_night,
-      image: data.cover_image ? mediaUrl(data.cover_image) || data.cover_image : null,
+      image: listingCover,
       images: toListingGalleryImages(coverSources, data.title, 'default'),
       badge: null,
       featured: true,

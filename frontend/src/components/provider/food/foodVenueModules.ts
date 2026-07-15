@@ -43,7 +43,7 @@ export const FOOD_VENUE_MODULES: FoodVenueModuleDef[] = [
   { id: 'hours', label: 'Hours', hint: 'When you are open each week', Icon: Clock },
   { id: 'contact', label: 'Contact', hint: 'Phone and website', Icon: Phone },
   { id: 'service', label: 'Service', hint: 'Dine-in, delivery, and amenities', Icon: UtensilsCrossed },
-  { id: 'photos', label: 'Photos', hint: 'Cover image and gallery', Icon: Camera },
+  { id: 'photos', label: 'Photos', hint: 'Cover image or video and gallery', Icon: Camera },
   { id: 'stories', label: 'Stories', hint: 'Optional highlight reels', Icon: Clapperboard },
 ]
 
@@ -149,7 +149,7 @@ export function publishRequirements(venue: ProviderFoodVenueRecord): PublishRequ
   return [
     { id: 'name', label: 'Venue name', met: Boolean(venue.name?.trim()), module: 'identity' },
     { id: 'location', label: 'Location (map pin or city & region)', met: hasLocation, module: 'location' },
-    { id: 'photo', label: 'Cover photo', met: hasCover, module: 'photos' },
+    { id: 'photo', label: 'Cover photo or video', met: hasCover, module: 'photos' },
   ]
 }
 

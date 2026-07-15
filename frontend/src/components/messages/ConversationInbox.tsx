@@ -72,11 +72,9 @@ const COPY: Record<MessagingContext, Copy> = {
 
 type Props = {
   context?: MessagingContext
-  /** User inbox hides search in DOM for AppLayout header sync */
-  hideSearchPanel?: boolean
 }
 
-export function ConversationInbox({ context = 'user', hideSearchPanel = false }: Props) {
+export function ConversationInbox({ context = 'user' }: Props) {
   const { profile } = useAuth()
   const outletCtx = useOutletContext<ProviderOutletContext>()
   const { canManageSettings } = useBusinessAccess(
@@ -196,7 +194,7 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
         value={query}
         onChange={setQuery}
         onClear={() => setQuery('')}
-        className={hideSearchPanel ? 'msg-page__search-sync' : context === 'provider' ? 'prov-msg-inbox__search' : undefined}
+        className={context === 'provider' ? 'prov-msg-inbox__search' : 'msg-page__search'}
       />
 
       {context === 'provider' ? (
@@ -217,11 +215,19 @@ export function ConversationInbox({ context = 'user', hideSearchPanel = false }:
           </button>
         </div>
       ) : (
-        <div className="msg-page__filter-sync" aria-hidden>
-          <button type="button" onClick={() => setWhenFilter('all')}>
+        <div className="msg-page__filters" role="group" aria-label="Filter conversations">
+          <button
+            type="button"
+            className={`msg-page__chip${whenFilter === 'all' ? ' msg-page__chip--active' : ''}`}
+            onClick={() => setWhenFilter('all')}
+          >
             All
           </button>
-          <button type="button" onClick={() => setWhenFilter('today')}>
+          <button
+            type="button"
+            className={`msg-page__chip${whenFilter === 'today' ? ' msg-page__chip--active' : ''}`}
+            onClick={() => setWhenFilter('today')}
+          >
             Today
           </button>
         </div>

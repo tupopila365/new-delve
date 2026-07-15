@@ -1,5 +1,5 @@
 import django_filters
-from django.db.models import Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
-from .models import FoodAnswer, FoodQuestion, FoodVenue, FoodVenueReview, FoodVenueSave
+from .models import FoodAnswer, FoodQuestion, FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
 from .qa_serializers import (
     FoodAnswerCreateSerializer,
     FoodAnswerSerializer,
@@ -51,7 +51,7 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [permissions.IsAuthenticated(), IsServiceProvider()]
-        if self.action == "save":
+        if self.action in ("save", "like"):
             return [permissions.IsAuthenticated()]
         if self.action == "saved":
             return [permissions.IsAuthenticated()]
@@ -62,10 +62,20 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
 
     def _annotate_engagement(self, qs, user):
+        qs = qs.annotate(
+            likes_count=Count("user_likes", distinct=True),
+            saves_count=Count("user_saves", distinct=True),
+        )
         if user.is_authenticated:
             qs = qs.annotate(
                 saved_by_me=Exists(
                     FoodVenueSave.objects.filter(
+                        venue_id=OuterRef("pk"),
+                        user_id=user.id,
+                    )
+                ),
+                liked_by_me=Exists(
+                    FoodVenueLike.objects.filter(
                         venue_id=OuterRef("pk"),
                         user_id=user.id,
                     )
@@ -86,7 +96,7 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
                 .distinct()
             )
             return self._annotate_engagement(qs, user)
-        if self.action in ("moments", "questions", "reviews", "review", "save"):
+        if self.action in ("moments", "questions", "reviews", "review", "save", "like"):
             qs = FoodVenue.objects.filter(is_active=True).select_related("owner", "owner__profile")
             return self._annotate_engagement(qs, user)
         qs = super().get_queryset()
@@ -141,6 +151,21 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
             saved = True
         saves_count = FoodVenueSave.objects.filter(venue=venue).count()
         return Response({"saved": saved, "saves_count": saves_count})
+
+    @action(detail=True, methods=["post"])
+    def like(self, request, pk=None):
+        venue = self.get_object()
+        like_obj, created = FoodVenueLike.objects.get_or_create(
+            venue=venue,
+            user=request.user,
+        )
+        if not created:
+            like_obj.delete()
+            liked = False
+        else:
+            liked = True
+        likes_count = FoodVenueLike.objects.filter(venue=venue).count()
+        return Response({"liked": liked, "likes_count": likes_count})
 
     @action(detail=False, methods=["get"])
     def saved(self, request):

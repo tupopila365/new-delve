@@ -169,11 +169,22 @@ class VehicleRentalBookingViewSet(viewsets.ModelViewSet):
         booking = self.get_object()
         if booking.renter_id != request.user.id:
             return Response({"detail": "Forbidden"}, status=403)
-        if booking.status != BookingStatus.PENDING:
-            return Response({"detail": "Not payable."}, status=400)
-        booking.status = BookingStatus.CONFIRMED
+        # Stay-aligned: provider must confirm before traveller demo-pay.
+        if booking.status != BookingStatus.CONFIRMED:
+            return Response(
+                {"detail": "Waiting for the provider to confirm this request."},
+                status=400,
+            )
+        if booking.mock_payment_ref:
+            return Response(
+                {
+                    "detail": "Already paid (mock).",
+                    "status": booking.status,
+                    "mock_payment_ref": booking.mock_payment_ref,
+                }
+            )
         booking.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        booking.save(update_fields=["status", "mock_payment_ref"])
+        booking.save(update_fields=["mock_payment_ref"])
         return Response(
             {
                 "detail": "Payment successful (mock).",
@@ -203,6 +214,7 @@ class BusTripViewSet(viewsets.ModelViewSet):
     queryset = BusTrip.objects.select_related("route", "route__operator").order_by("departs_at")
     serializer_class = BusTripSerializer
     filterset_class = BusTripFilter
+    search_fields = ("route__origin", "route__destination", "route__operator__name")
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
@@ -403,12 +415,12 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
             SeatReservation.objects.filter(
                 id__in=uniq,
                 passenger=request.user,
-                status=BookingStatus.PENDING,
+                status=BookingStatus.CONFIRMED,
             ).select_related("trip")
         )
         if len(reservations) != len(uniq):
             return Response(
-                {"detail": "Invalid or non-pending reservations."},
+                {"detail": "Waiting for the operator to confirm these seats."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         trip_ids = {r.trip_id for r in reservations}
@@ -417,11 +429,21 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
                 {"detail": "All reservations must be for the same trip."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if any(r.mock_payment_ref for r in reservations):
+            ref = next((r.mock_payment_ref for r in reservations if r.mock_payment_ref), "")
+            ser = SeatReservationSerializer(reservations, many=True, context={"request": request})
+            return Response(
+                {
+                    "detail": "Already paid (mock).",
+                    "status": BookingStatus.CONFIRMED,
+                    "mock_payment_ref": ref,
+                    "reservations": ser.data,
+                }
+            )
         ref = f"mock_{uuid.uuid4().hex[:16]}"
         for r in reservations:
-            r.status = BookingStatus.CONFIRMED
             r.mock_payment_ref = ref
-            r.save(update_fields=["status", "mock_payment_ref"])
+            r.save(update_fields=["mock_payment_ref"])
         ser = SeatReservationSerializer(reservations, many=True, context={"request": request})
         return Response(
             {
@@ -437,11 +459,21 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
         res = self.get_object()
         if res.passenger_id != request.user.id:
             return Response({"detail": "Forbidden"}, status=403)
-        if res.status != BookingStatus.PENDING:
-            return Response({"detail": "Not payable."}, status=400)
-        res.status = BookingStatus.CONFIRMED
+        if res.status != BookingStatus.CONFIRMED:
+            return Response(
+                {"detail": "Waiting for the operator to confirm this seat."},
+                status=400,
+            )
+        if res.mock_payment_ref:
+            return Response(
+                {
+                    "detail": "Already paid (mock).",
+                    "status": res.status,
+                    "mock_payment_ref": res.mock_payment_ref,
+                }
+            )
         res.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        res.save(update_fields=["status", "mock_payment_ref"])
+        res.save(update_fields=["mock_payment_ref"])
         return Response(
             {
                 "detail": "Payment successful (mock).",

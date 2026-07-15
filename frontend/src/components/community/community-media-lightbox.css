@@ -106,7 +106,7 @@
 }
 
 .cm-media-open:focus-visible {
-  outline: 2px solid rgba(124, 58, 237, 0.65);
+  outline: 2px solid rgba(26, 21, 16, 0.65);
   outline-offset: 2px;
   border-radius: 12px;
 }

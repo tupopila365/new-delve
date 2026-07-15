@@ -16,7 +16,6 @@ PROVIDER_PLACEMENT_VALUES = {
     PromotionPlacement.HOMEPAGE_GUIDES,
     PromotionPlacement.HOMEPAGE_FOOD,
     PromotionPlacement.HOMEPAGE_EVENTS,
-    PromotionPlacement.HOMEPAGE_TRANSPORT,
     PromotionPlacement.DELVERS_FEED,
 }
 

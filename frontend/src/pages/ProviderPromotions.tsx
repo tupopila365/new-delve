@@ -110,12 +110,7 @@ const PLACEMENT_TARGET: Record<string, string> = {
   homepage_guides: 'guide',
   homepage_food: 'food',
   homepage_events: 'event',
-  homepage_transport: 'vehicle',
   delvers_feed: 'post',
-}
-
-const PLACEMENT_TARGET_TYPES: Record<string, string[]> = {
-  homepage_transport: ['vehicle', 'bus_trip'],
 }
 
 function toLocalDatetimeValue(iso: string) {
@@ -191,9 +186,8 @@ export function ProviderPromotions() {
     if (isFeedProduct) {
       return listings.filter((l) => l.target_type === formTargetType)
     }
-    const types =
-      PLACEMENT_TARGET_TYPES[selectedProduct.placement] ?? [PLACEMENT_TARGET[selectedProduct.placement]]
-    return listings.filter((l) => types.includes(l.target_type))
+    const type = PLACEMENT_TARGET[selectedProduct.placement]
+    return listings.filter((l) => l.target_type === type)
   }, [listings, selectedProduct, formTargetType, isFeedProduct])
 
   useEffect(() => {

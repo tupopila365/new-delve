@@ -361,24 +361,42 @@ def _events_slides(*, region: str, user) -> list[dict]:
 
 
 def _transport_slides(*, region: str, user) -> list[dict]:
-    rows = featured_for_placement(
-        PromotionPlacement.HOMEPAGE_TRANSPORT,
-        region=region,
-        user=user,
-        limit=MAX_SLIDES,
+    """Organic vehicle + bus trip fills for home Transport channel (no featured rail)."""
+    from django.db.models import Q
+    from django.utils import timezone
+
+    from transport.models import BusTrip, VehicleRentalListing
+    from transport.serializers import BusTripSerializer, VehicleRentalListingSerializer
+
+    now = timezone.now()
+    context = {"request": None}
+    vehicle_qs = VehicleRentalListing.objects.filter(is_active=True).select_related("owner").order_by("-created_at")
+    trip_qs = (
+        BusTrip.objects.filter(is_active=True, departs_at__gte=now)
+        .select_related("route", "route__operator")
+        .order_by("departs_at")
     )
+    if region:
+        vehicle_qs = vehicle_qs.filter(Q(region__icontains=region) | Q(city__icontains=region))
+        trip_qs = trip_qs.filter(
+            Q(route__operator__region__icontains=region)
+            | Q(route__origin__icontains=region)
+            | Q(route__destination__icontains=region)
+        )
+
+    half = max(1, MAX_SLIDES // 2)
+    rows = list(VehicleRentalListingSerializer(vehicle_qs[:half], many=True, context=context).data) + list(
+        BusTripSerializer(trip_qs[: MAX_SLIDES - half], many=True, context=context).data
+    )
+
     slides: list[dict] = []
     for row in rows:
         src = _listing_cover(row)
         if not src:
             continue
         row_id = row.get("id")
-        is_bus = "route" in row or "route_detail" in row or "departs_at" in row
+        is_bus = "route_detail" in row or "departs_at" in row
         if row.get("vehicle_type") is not None or row.get("price_per_day") is not None:
-            is_bus = False
-        if row.get("_pin_target_type") == "bus_trip":
-            is_bus = True
-        elif row.get("_pin_target_type") == "vehicle":
             is_bus = False
 
         route = row.get("route_detail") if isinstance(row.get("route_detail"), dict) else {}

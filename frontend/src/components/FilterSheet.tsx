@@ -6,16 +6,18 @@ type Props = {
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
+  className?: string
 }
 
-export function FilterSheet({ open, title, onClose, children, footer }: Props) {
+export function FilterSheet({ open, title, onClose, children, footer, className }: Props) {
   if (!open) return null
   const titleId = 'filter-sheet-title'
+  const sheetClass = ['sheet', 'sheet--filters', className].filter(Boolean).join(' ')
   return (
     <>
       <div className="sheet-backdrop" role="presentation" onClick={onClose} />
       <div
-        className="sheet sheet--filters"
+        className={sheetClass}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

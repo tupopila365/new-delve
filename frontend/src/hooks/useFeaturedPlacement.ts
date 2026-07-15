@@ -26,6 +26,5 @@ export const FEATURED_API = {
   guides: '/api/promotions/featured/guides/',
   food: '/api/promotions/featured/food/',
   events: '/api/promotions/featured/events/',
-  transport: '/api/promotions/featured/transport/',
   spotlight: (category: string) => `/api/promotions/spotlight/${category}/`,
 } as const

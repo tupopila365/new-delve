@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowRight, Lock } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch, mediaUrl } from '../api/client'
 import { AvatarPhotoField, clearProfileAvatar, invalidateAvatarCaches, useAvatarPhotoEditor } from '../components/avatar'
@@ -12,9 +13,10 @@ import {
   CURRENCY_OPTIONS,
   defaultCurrencyForCountry,
 } from '../lib/countryCurrencyPreferences'
-import { EmptyState } from '../components/ui'
 import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
 import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
+import { HOME_ATMOSPHERE_BG } from '../data/homeDefaults'
+import '../components/settings/SettingsPageEnhancer.css'
 
 type SettingsTab = 'profile' | 'privacy' | 'preferences' | 'account'
 
@@ -205,19 +207,51 @@ export function Settings() {
 
   if (!profile) {
     return (
-      <div className="settings-page">
-        <EmptyState
-          icon="⚙️"
-          title="Sign in to manage settings"
-          sub="Edit your profile, privacy, and preferences after you sign in."
-          cta={{ label: 'Sign in', to: '/login' }}
-        />
-      </div>
+      <main className="settings-trail settings-trail--auth">
+        <header className="settings-trail__hero">
+          <div
+            className="settings-trail__hero-photo"
+            style={{ backgroundImage: `url(${HOME_ATMOSPHERE_BG})` }}
+            aria-hidden
+          />
+          <div className="settings-trail__hero-veil" aria-hidden />
+          <div className="settings-trail__hero-copy">
+            <p className="settings-trail__kicker">Preferences</p>
+            <h1 className="settings-trail__title">Settings</h1>
+          </div>
+        </header>
+        <section className="settings-trail__auth">
+          <span className="settings-trail__auth-icon" aria-hidden>
+            <Lock size={22} strokeWidth={2.25} />
+          </span>
+          <h2>Sign in to manage settings</h2>
+          <p>Edit your profile, privacy, and preferences after you sign in.</p>
+          <Link to="/login" className="settings-trail__auth-btn">
+            Sign in
+            <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
+          </Link>
+        </section>
+      </main>
     )
   }
 
   return (
-    <div className="settings-page">
+    <main className="settings-trail">
+      <header className="settings-trail__hero">
+        <div
+          className="settings-trail__hero-photo"
+          style={{ backgroundImage: `url(${HOME_ATMOSPHERE_BG})` }}
+          aria-hidden
+        />
+        <div className="settings-trail__hero-veil" aria-hidden />
+        <div className="settings-trail__hero-copy">
+          <p className="settings-trail__kicker">Preferences</p>
+          <h1 className="settings-trail__title">Settings</h1>
+          <p className="settings-trail__lead">Profile, privacy, region, and account controls.</p>
+        </div>
+      </header>
+
+      <div className="settings-trail__desk settings-page">
       <div className="settings-page__top-links">
         <Link to={`/u/${profile.username}`}>View profile</Link>
         <Link to="/account">Account hub</Link>
@@ -693,6 +727,7 @@ export function Settings() {
           </div>
         </section>
       )}
-    </div>
+      </div>
+    </main>
   )
 }

@@ -13,7 +13,7 @@ import {
 } from '../../utils/communityVideoUtils'
 import './community-video-editor.css'
 
-const DRAW_COLORS = ['#ffffff', '#a78bfa', '#ff3040', '#7dcea0']
+const DRAW_COLORS = ['#ffffff', '#c4a574', '#ff3040', '#7dcea0']
 
 type Props = {
   file: File

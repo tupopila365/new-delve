@@ -1,0 +1,79 @@
+/* Home region picker — charcoal trail, flat cream chips. */
+
+.home-region {
+  display: grid;
+  gap: 8px;
+}
+
+.home-region--locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: rgba(255, 250, 242, 0.68);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.home-region--locked strong {
+  color: #fffaf2;
+  font-weight: 800;
+}
+
+.home-region__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: rgba(255, 250, 242, 0.55);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-region__chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-inline: -16px;
+  padding: 0 16px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-region__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.home-region__chip {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 250, 242, 0.14);
+  border-radius: 999px;
+  background: #1c1814;
+  color: rgba(255, 250, 242, 0.78);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.home-region__chip:hover {
+  border-color: rgba(255, 250, 242, 0.28);
+  color: #fffaf2;
+}
+
+.home-region__chip--active {
+  border-color: #fffaf2;
+  background: #fffaf2;
+  color: #1a1510;
+}
+
+.home-region__chip--active:hover {
+  background: #f3ebe0;
+  color: #1a1510;
+}

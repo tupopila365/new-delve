@@ -60,11 +60,11 @@
   color: rgba(255, 250, 242, 0.48);
 }
 
-.settings-page .avatar-field__hint,
-.settings-page .avatar-field__remove {
+.settings-trail .avatar-field__hint,
+.settings-trail .avatar-field__remove {
   color: var(--text-secondary, rgba(28, 20, 16, 0.55));
 }
 
-.settings-page .avatar-field__remove {
-  color: #c2410c;
+.settings-trail .avatar-field__remove {
+  color: #9f2d2d;
 }

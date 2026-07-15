@@ -50,7 +50,7 @@
   height: 40px;
   border-radius: 999px;
   overflow: hidden;
-  background: linear-gradient(135deg, #a78bfa, #c13584);
+  background: #1a1510;
   padding: 2px;
 }
 
@@ -162,8 +162,8 @@
 
 .group-chat__bubble--mine {
   justify-self: end;
-  background: rgba(124, 58, 237, 0.22);
-  border: 1px solid rgba(124, 58, 237, 0.35);
+  background: rgba(26, 21, 16, 0.22);
+  border: 1px solid rgba(26, 21, 16, 0.35);
 }
 
 .group-chat__bubble--theirs {
@@ -244,10 +244,10 @@
   justify-content: center;
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid rgba(124, 58, 237, 0.35);
+  border: 1px solid rgba(26, 21, 16, 0.35);
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.18);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.18);
+  color: #5c534c;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
@@ -368,8 +368,8 @@
 }
 
 .group-chat__reaction.is-mine {
-  border-color: rgba(124, 58, 237, 0.45);
-  background: rgba(124, 58, 237, 0.18);
+  border-color: rgba(26, 21, 16, 0.45);
+  background: rgba(26, 21, 16, 0.18);
 }
 
 .group-chat__reaction--more {
@@ -434,7 +434,7 @@
 }
 
 .group-chat__emoji-btn:hover {
-  background: rgba(124, 58, 237, 0.2);
+  background: rgba(26, 21, 16, 0.2);
 }
 
 .group-chat__action-reply,

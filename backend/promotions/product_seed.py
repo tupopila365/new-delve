@@ -7,7 +7,6 @@ PLACEMENT_VERTICAL = {
     PromotionPlacement.HOMEPAGE_GUIDES: "Guides",
     PromotionPlacement.HOMEPAGE_FOOD: "Food",
     PromotionPlacement.HOMEPAGE_EVENTS: "Events",
-    PromotionPlacement.HOMEPAGE_TRANSPORT: "Transport",
     PromotionPlacement.DELVERS_FEED: "Delvers feed",
 }
 
@@ -17,7 +16,6 @@ PLACEMENT_PRICE_CENTS = {
     PromotionPlacement.HOMEPAGE_GUIDES: 200_000,
     PromotionPlacement.HOMEPAGE_FOOD: 180_000,
     PromotionPlacement.HOMEPAGE_EVENTS: 150_000,
-    PromotionPlacement.HOMEPAGE_TRANSPORT: 180_000,
     PromotionPlacement.DELVERS_FEED: 120_000,
 }
 
@@ -26,7 +24,6 @@ PROVIDER_PRODUCT_PLACEMENTS = [
     PromotionPlacement.HOMEPAGE_GUIDES,
     PromotionPlacement.HOMEPAGE_FOOD,
     PromotionPlacement.HOMEPAGE_EVENTS,
-    PromotionPlacement.HOMEPAGE_TRANSPORT,
     PromotionPlacement.DELVERS_FEED,
 ]
 

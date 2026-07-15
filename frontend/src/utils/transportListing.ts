@@ -2,7 +2,10 @@ import type { LucideIcon } from 'lucide-react'
 import { Car, Truck, Bus } from 'lucide-react'
 import { mediaUrl } from '../api/client'
 import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
-import { toListingGalleryImages } from '../components/listing/listingUtils'
+import {
+  isVideoUrl,
+  parseGalleryMediaList,
+} from '../components/listing/photos/listingGalleryMedia'
 import {
   DEFAULT_PASSENGER_BUS_TIPS,
   DEFAULT_PASSENGER_RENTAL_RULES,
@@ -18,6 +21,7 @@ export type VehicleListing = {
   region: string
   city?: string | null
   cover_image: string | null
+  cover_kind?: 'image' | 'video' | string | null
   description?: string | null
   vehicle_type?: string | null
   seats?: number | null
@@ -30,7 +34,7 @@ export type VehicleListing = {
   pickup_location?: string | null
   included_features?: string[] | null
   required_renter_documents?: string[] | null
-  gallery_images?: string[] | null
+  gallery_images?: Array<string | { url?: string; kind?: string }> | null
   owner_display_name?: string | null
   owner_bio?: string | null
   owner_region?: string | null
@@ -44,7 +48,8 @@ export type BusRouteDetail = {
   operator_name: string
   operator_owner_username?: string
   cover_image?: string | null
-  gallery_images?: string[] | null
+  cover_kind?: 'image' | 'video' | string | null
+  gallery_images?: Array<string | { url?: string; kind?: string }> | null
   distance_km?: number | null
   duration_minutes?: number | null
 }
@@ -59,6 +64,8 @@ export type BusTripListing = {
   available_seats: number
   occupied_seats: number[]
   amenities?: string[] | null
+  rating_avg?: string | null
+  rating_count?: number | null
 }
 
 export const DEFAULT_RENTAL_RULES = DEFAULT_PASSENGER_RENTAL_RULES
@@ -119,7 +126,9 @@ export function collectVehiclePhotoSources(v: VehicleListing): string[] {
     out.push(s)
   }
   add(v.cover_image)
-  for (const src of v.gallery_images ?? []) add(src)
+  for (const item of parseGalleryMediaList(v.gallery_images as unknown[] | null | undefined)) {
+    add(item.url)
+  }
   return out
 }
 
@@ -133,16 +142,71 @@ export function collectBusPhotoSources(trip: BusTripListing): string[] {
     out.push(s)
   }
   add(trip.route_detail.cover_image)
-  for (const src of trip.route_detail.gallery_images ?? []) add(src)
+  for (const item of parseGalleryMediaList(trip.route_detail.gallery_images as unknown[] | null | undefined)) {
+    add(item.url)
+  }
   return out
 }
 
+function transportCoverKind(
+  cover: string | null | undefined,
+  kind?: string | null,
+): 'image' | 'video' {
+  const src = (cover || '').trim()
+  if (kind === 'video' || (src && isVideoUrl(src))) return 'video'
+  return 'image'
+}
+
 export function buildVehicleGalleryImages(v: VehicleListing): ListingGalleryItem[] {
-  return toListingGalleryImages(collectVehiclePhotoSources(v), v.title, 'veh')
+  const images: ListingGalleryItem[] = []
+  const coverRaw = mediaUrl(v.cover_image) ?? (v.cover_image?.trim() || '')
+  if (coverRaw) {
+    images.push({
+      id: 'cover',
+      src: coverRaw,
+      alt: v.title,
+      kind: transportCoverKind(coverRaw, v.cover_kind),
+    })
+  }
+  for (const [i, item] of parseGalleryMediaList(v.gallery_images as unknown[] | null | undefined).entries()) {
+    const src = mediaUrl(item.url) ?? item.url
+    if (!src || images.some((img) => img.src === src)) continue
+    images.push({
+      id: `gallery-${i}`,
+      src,
+      alt: v.title,
+      kind: item.kind === 'video' || isVideoUrl(src) ? 'video' : 'image',
+    })
+  }
+  return images
 }
 
 export function buildBusGalleryImages(trip: BusTripListing): ListingGalleryItem[] {
-  return toListingGalleryImages(collectBusPhotoSources(trip), busRouteTitle(trip), 'bus')
+  const title = busRouteTitle(trip)
+  const images: ListingGalleryItem[] = []
+  const coverRaw =
+    mediaUrl(trip.route_detail.cover_image) ?? (trip.route_detail.cover_image?.trim() || '')
+  if (coverRaw) {
+    images.push({
+      id: 'cover',
+      src: coverRaw,
+      alt: title,
+      kind: transportCoverKind(coverRaw, trip.route_detail.cover_kind),
+    })
+  }
+  for (const [i, item] of parseGalleryMediaList(
+    trip.route_detail.gallery_images as unknown[] | null | undefined,
+  ).entries()) {
+    const src = mediaUrl(item.url) ?? item.url
+    if (!src || images.some((img) => img.src === src)) continue
+    images.push({
+      id: `gallery-${i}`,
+      src,
+      alt: title,
+      kind: item.kind === 'video' || isVideoUrl(src) ? 'video' : 'image',
+    })
+  }
+  return images
 }
 
 export function buildVehicleHighlights(v: VehicleListing): string[] {

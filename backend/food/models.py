@@ -83,7 +83,17 @@ class FoodVenue(models.Model):
         blank=True,
         help_text="Provider highlight channels for story rings",
     )
-    cover_image = models.ImageField(upload_to="food/", blank=True, null=True)
+    cover_image = models.TextField(
+        blank=True,
+        default="",
+        help_text="Cover photo or video URL / storage path.",
+    )
+    cover_kind = models.CharField(
+        max_length=16,
+        choices=[("image", "Image"), ("video", "Video")],
+        default="image",
+        help_text="Whether cover_image is a still or a short video.",
+    )
     rating_avg = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -198,6 +208,30 @@ class FoodVenueSave(models.Model):
             models.UniqueConstraint(
                 fields=("venue", "user"),
                 name="food_venue_save_venue_user_uniq",
+            ),
+        ]
+
+
+class FoodVenueLike(models.Model):
+    """Traveller like on a food venue."""
+
+    venue = models.ForeignKey(
+        FoodVenue,
+        on_delete=models.CASCADE,
+        related_name="user_likes",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="food_venue_likes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("venue", "user"),
+                name="food_venue_like_venue_user_uniq",
             ),
         ]
 

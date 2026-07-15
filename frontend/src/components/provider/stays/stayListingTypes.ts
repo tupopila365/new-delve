@@ -33,6 +33,7 @@ export type StayRoomForm = {
   bedrooms: number
   bed_summary: string
   price_per_night: string
+  image: string
 }
 
 export type StayListingFormValues = {
@@ -168,6 +169,9 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
         bedrooms: Number(r.bedrooms ?? 1),
         bed_summary: String(r.bed_summary ?? ''),
         price_per_night: String(r.price_per_night ?? ''),
+        image: String(
+          r.image ?? (Array.isArray(r.images) && r.images[0] != null ? r.images[0] : '') ?? '',
+        ),
       }))
     : []
 
@@ -233,14 +237,18 @@ export function formToApiPayload(form: StayListingFormValues) {
     faqs: form.faqs.filter((f) => f.question.trim() && f.answer.trim()),
     room_types: form.room_types
       .filter((r) => r.name.trim())
-      .map((r) => ({
-        name: r.name.trim(),
-        description: r.description.trim(),
-        max_guests: Number(r.max_guests),
-        bedrooms: Number(r.bedrooms),
-        bed_summary: r.bed_summary.trim(),
-        price_per_night: r.price_per_night || form.price_per_night,
-      })),
+      .map((r) => {
+        const image = r.image.trim()
+        return {
+          name: r.name.trim(),
+          description: r.description.trim(),
+          max_guests: Number(r.max_guests),
+          bedrooms: Number(r.bedrooms),
+          bed_summary: r.bed_summary.trim(),
+          price_per_night: r.price_per_night || form.price_per_night,
+          ...(image ? { image } : {}),
+        }
+      }),
   }
 }
 

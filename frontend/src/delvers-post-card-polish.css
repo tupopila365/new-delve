@@ -107,7 +107,6 @@
 .ds-post__text-media {
   min-height: 100%;
   background:
-    radial-gradient(circle at 30% 20%, rgba(124, 58, 237, 0.22), transparent 36%),
     linear-gradient(145deg, #1d1713, #050505);
 }
 
@@ -189,8 +188,8 @@
 }
 
 .ds-post__actions .is-active:not(.ds-post__action--like):not(.ds-post__action--save) {
-  color: var(--accent);
-  background: rgba(124, 58, 237, 0.12);
+  color: var(--ds-accent, var(--accent, #fffaf2));
+  background: rgba(255, 250, 242, 0.12);
 }
 
 .ds-post__copy {
@@ -236,9 +235,9 @@
   margin-top: 8px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.14);
-  border: 1px solid rgba(124, 58, 237, 0.28);
-  color: #a78bfa;
+  background: rgba(255, 250, 242, 0.14);
+  border: 1px solid rgba(255, 250, 242, 0.28);
+  color: #fffaf2;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -246,7 +245,7 @@
 }
 
 .ds-post__place-chip:hover {
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(255, 250, 242, 0.22);
 }
 
 .ds-post__comments {

@@ -1,12 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { ApiError } from '../api/client'
 import { fetchTagDetail, fetchTagTrending } from '../api/tags'
 import { CommunityFeedView } from '../components/community/CommunityFeedView'
-import { useCommunityHeaderSearch } from '../hooks/useCommunityHeaderSearch'
-import { communityTagPath } from '../utils/communityTags'
+import { CommunityTrailShell } from '../components/community/CommunityTrailShell'
+import { communityTagPath, parseTagFromSearch } from '../utils/communityTags'
 import { normalizeTag } from '../utils/hashtags'
 import './CommunityPage.css'
 
@@ -14,7 +14,7 @@ export function CommunityTag() {
   const navigate = useNavigate()
   const { slug: rawSlug } = useParams()
   const tagSlug = normalizeTag(rawSlug ?? '')
-  const searchQuery = useCommunityHeaderSearch()
+  const [searchQuery, setSearchQuery] = useState('')
 
   const tagQuery = useQuery({
     queryKey: ['tag-detail', tagSlug],
@@ -36,23 +36,39 @@ export function CommunityTag() {
     return <Navigate to="/community" replace />
   }
 
+  const shellProps = {
+    title: `#${tagSlug}`,
+    kicker: 'Tag',
+    lead: tagQuery.isLoading
+      ? 'Loading tag…'
+      : tagQuery.data
+        ? `${tagQuery.data.post_count === 1 ? '1 post' : `${tagQuery.data.post_count} posts`} on this tag.`
+        : 'Browse posts for this tag.',
+    searchValue: searchQuery,
+    onSearchChange: setSearchQuery,
+    onSearchEnter: (value: string) => {
+      const slug = parseTagFromSearch(value)
+      if (slug) navigate(communityTagPath(slug))
+    },
+  }
+
   if (tagQuery.isError && tagQuery.error instanceof ApiError && tagQuery.error.status === 404) {
     return (
-      <div className="cm-simple">
+      <CommunityTrailShell {...shellProps} showSearch={false} lead="This tag isn’t available.">
         <div className="cm-tag-page">
           <button type="button" className="cm-tag-page__back" onClick={() => navigate('/community')}>
             <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
             Community
           </button>
           <div className="cm-tag-page__empty">
-            <h1>Tag not found</h1>
+            <h2>Tag not found</h2>
             <p>#{rawSlug} doesn&apos;t exist or isn&apos;t available.</p>
-            <Link to="/community" className="btn btn-primary">
+            <Link to="/community" className="cm-trail-btn">
               Back to feed
             </Link>
           </div>
         </div>
-      </div>
+      </CommunityTrailShell>
     )
   }
 
@@ -60,7 +76,7 @@ export function CommunityTag() {
   const postLabel = tag?.post_count === 1 ? '1 post' : `${tag?.post_count ?? 0} posts`
 
   return (
-    <div className="cm-simple">
+    <CommunityTrailShell {...shellProps}>
       <div className="cm-tag-page">
         <button type="button" className="cm-tag-page__back" onClick={() => navigate('/community')}>
           <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
@@ -68,7 +84,6 @@ export function CommunityTag() {
         </button>
 
         <header className="cm-tag-page__header">
-          <h1 className="cm-tag-page__title">#{tagSlug}</h1>
           <p className="cm-tag-page__meta">
             {tagQuery.isLoading ? 'Loading…' : postLabel}
             {tag?.use_count ? ` · used ${tag.use_count.toLocaleString()} times` : null}
@@ -87,6 +102,6 @@ export function CommunityTag() {
 
         <CommunityFeedView searchQuery={searchQuery} tagSlug={tagSlug} />
       </div>
-    </div>
+    </CommunityTrailShell>
   )
 }

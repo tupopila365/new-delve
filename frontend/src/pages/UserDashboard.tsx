@@ -26,6 +26,7 @@ import { UserBookingCard, bookingNextStep } from '../components/booking'
 import { useMySeatBookingGroups, useMyVehicleBookings } from '../hooks/useMyTransportBookings'
 import { useMyFoodReservations } from '../hooks/useMyFoodReservations'
 import type { BookingServiceType } from '../components/booking'
+import { HOME_ATMOSPHERE_BG } from '../data/homeDefaults'
 import '../components/dashboard/user-dashboard.css'
 
 type StayBooking = {
@@ -446,62 +447,79 @@ export function UserDashboard() {
 
   const displayName = profile.display_name?.trim() || profile.username
   const where = locationLine(profile.city, profile.region)
+  const savedCount = savedStays.length + savedFood.length + savedGuides.length
 
   return (
     <div className="t-dash">
-      <div className="t-dash__welcome">
-        <UserAvatar
-          src={profile.avatar}
-          name={displayName}
-          shape="rounded"
-          size="lg"
-          className="t-dash__avatar"
+      <header className="t-dash__hero">
+        <div
+          className="t-dash__hero-photo"
+          style={{ backgroundImage: `url(${HOME_ATMOSPHERE_BG})` }}
+          aria-hidden
         />
-        <div className="t-dash__welcome-body">
-          <p className="t-dash__welcome-name">Hi, {displayName}</p>
-          {where ? <p className="t-dash__welcome-meta">{where}</p> : null}
-          <div className="t-dash__welcome-links">
-            <Link to={`/u/${profile.username}`}>Public profile</Link>
-            <Link to="/settings">Settings</Link>
+        <div className="t-dash__hero-veil" aria-hidden />
+        <div className="t-dash__hero-copy">
+          <p className="t-dash__kicker">Travel desk</p>
+          <h1 className="t-dash__title">Your trip, in one place</h1>
+          <p className="t-dash__lead">Bookings, saved finds, and quick routes for wherever you’re headed next.</p>
+        </div>
+      </header>
+
+      <div className="t-dash__passport">
+        <div className="t-dash__welcome">
+          <UserAvatar
+            src={profile.avatar}
+            name={displayName}
+            shape="circle"
+            size="lg"
+            className="t-dash__avatar"
+          />
+          <div className="t-dash__welcome-body">
+            <p className="t-dash__welcome-name">Hi, {displayName}</p>
+            {where ? <p className="t-dash__welcome-meta">{where}</p> : null}
+            <div className="t-dash__welcome-links">
+              <Link to={`/u/${profile.username}`}>Public profile</Link>
+              <Link to="/settings">Settings</Link>
+            </div>
           </div>
         </div>
-      </div>
 
-      <nav className="t-dash__nav" aria-label="Dashboard shortcuts">
-        <Link
-          to="#bookings"
-          className={`t-dash__nav-item${pendingBookings > 0 ? ' t-dash__nav-item--accent' : ''}`}
-        >
-          <span className="t-dash__nav-icon" aria-hidden>
-            <CalendarDays size={20} strokeWidth={2.25} />
-          </span>
-          <span className="t-dash__nav-value">{activeBookings}</span>
-          <span className="t-dash__nav-label">Bookings</span>
-        </Link>
-        <Link to="/messages" className="t-dash__nav-item">
-          <span className="t-dash__nav-icon" aria-hidden>
-            <MessageCircle size={20} strokeWidth={2.25} />
-          </span>
-          <span className="t-dash__nav-value t-dash__nav-value--text">Open</span>
-          <span className="t-dash__nav-label">Inbox</span>
-        </Link>
-        <Link to="#saved" className="t-dash__nav-item">
-          <span className="t-dash__nav-icon" aria-hidden>
-            <Bookmark size={20} strokeWidth={2.25} />
-          </span>
-          <span className="t-dash__nav-value">0</span>
-          <span className="t-dash__nav-label">Saved</span>
-        </Link>
-        <Link to="/account" className="t-dash__nav-item">
-          <span className="t-dash__nav-icon" aria-hidden>
-            <User size={20} strokeWidth={2.25} />
-          </span>
-          <span className="t-dash__nav-value">
-            <Settings size={18} strokeWidth={2.25} />
-          </span>
-          <span className="t-dash__nav-label">Account</span>
-        </Link>
-      </nav>
+        <nav className="t-dash__nav" aria-label="Dashboard shortcuts">
+          <Link
+            to="#bookings"
+            className={`t-dash__nav-item${pendingBookings > 0 ? ' t-dash__nav-item--accent' : ''}`}
+          >
+            <span className="t-dash__nav-icon" aria-hidden>
+              <CalendarDays size={18} strokeWidth={2.25} />
+            </span>
+            <span className="t-dash__nav-value">{activeBookings}</span>
+            <span className="t-dash__nav-label">Bookings</span>
+          </Link>
+          <Link to="/messages" className="t-dash__nav-item">
+            <span className="t-dash__nav-icon" aria-hidden>
+              <MessageCircle size={18} strokeWidth={2.25} />
+            </span>
+            <span className="t-dash__nav-value t-dash__nav-value--text">Open</span>
+            <span className="t-dash__nav-label">Inbox</span>
+          </Link>
+          <Link to="#saved" className="t-dash__nav-item">
+            <span className="t-dash__nav-icon" aria-hidden>
+              <Bookmark size={18} strokeWidth={2.25} />
+            </span>
+            <span className="t-dash__nav-value">{savedCount}</span>
+            <span className="t-dash__nav-label">Saved</span>
+          </Link>
+          <Link to="/account" className="t-dash__nav-item">
+            <span className="t-dash__nav-icon" aria-hidden>
+              <User size={18} strokeWidth={2.25} />
+            </span>
+            <span className="t-dash__nav-value">
+              <Settings size={16} strokeWidth={2.25} />
+            </span>
+            <span className="t-dash__nav-label">Account</span>
+          </Link>
+        </nav>
+      </div>
 
       {isProvider ? (
         <section className="t-dash__section">
@@ -532,9 +550,9 @@ export function UserDashboard() {
         </section>
       ) : null}
 
-      <section className="t-dash__section" id="bookings">
+      <section className="t-dash__section t-dash__section--cream" id="bookings">
         <div className="t-dash__section-head">
-          <h2 className="t-dash__section-title">My bookings & requests</h2>
+          <h2 className="t-dash__section-title">Bookings & requests</h2>
         </div>
 
         {loadingBookings ? (
@@ -659,7 +677,7 @@ export function UserDashboard() {
       </section>
 
       <div className="t-dash__split">
-        <section className="t-dash__section" id="saved">
+        <section className="t-dash__section t-dash__section--cream" id="saved">
           <h2 className="t-dash__section-title">Saved</h2>
           {loadingSavedStays || loadingSavedFood || loadingSavedGuides ? (
             <p className="t-dash__hint">Loading saved places…</p>

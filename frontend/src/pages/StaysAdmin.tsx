@@ -180,6 +180,8 @@ export function StaysAdmin() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['provider-stays'] })
+      void qc.invalidateQueries({ queryKey: ['accommodation'] })
+      void qc.invalidateQueries({ queryKey: ['acc'] })
       setShowForm(false)
       setEditId(null)
       setForm(EMPTY_STAY_LISTING_FORM)

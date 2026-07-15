@@ -254,8 +254,77 @@ class ProviderFoodVenueApiTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.venue.refresh_from_db()
         self.assertTrue(self.venue.cover_image)
+        self.assertEqual(self.venue.cover_kind, "image")
         self.assertTrue(self.venue.photos)
         self.assertTrue(self.venue.photos[0].get("is_cover"))
+        self.assertEqual(res.data.get("cover_kind"), "image")
+
+    def test_provider_can_set_video_cover_url(self):
+        self.client.force_authenticate(user=self.owner)
+        video_url = "https://res.cloudinary.com/demo/video/upload/sample.mp4"
+        res = self.client.patch(
+            f"/api/food/provider-venues/{self.venue.pk}/",
+            {"cover_image_url": video_url, "cover_kind": "video"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.venue.refresh_from_db()
+        self.assertIn("sample.mp4", self.venue.cover_image)
+        self.assertEqual(self.venue.cover_kind, "video")
+        self.assertEqual(res.data.get("cover_kind"), "video")
+        self.assertEqual(self.venue.photos[0].get("kind"), "video")
+
+    def test_provider_json_photos_payload_sets_cover_kind(self):
+        """Delvers-style JSON save: remote cover URL + photos list (no multipart)."""
+        self.client.force_authenticate(user=self.owner)
+        cover = "https://res.cloudinary.com/demo/image/upload/v1/posts/food-cover.jpg"
+        res = self.client.patch(
+            f"/api/food/provider-venues/{self.venue.pk}/",
+            {
+                "cover_image_url": cover,
+                "cover_kind": "image",
+                "photos": [
+                    {
+                        "id": 1,
+                        "image": cover,
+                        "kind": "image",
+                        "caption": "Cover",
+                        "category": "food",
+                        "is_cover": True,
+                    },
+                    {
+                        "id": 2,
+                        "image": "https://res.cloudinary.com/demo/video/upload/v1/posts/videos/clip.mp4",
+                        "kind": "video",
+                        "caption": "",
+                        "category": "food",
+                        "is_cover": False,
+                    },
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.venue.refresh_from_db()
+        self.assertEqual(self.venue.cover_kind, "image")
+        self.assertTrue(any(p.get("kind") == "video" for p in self.venue.photos))
+        self.assertEqual(res.data.get("cover_kind"), "image")
+
+    def test_provider_can_upload_video_cover_file(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        video = SimpleUploadedFile("cover.mp4", b"\x00\x00fake", content_type="video/mp4")
+        self.client.force_authenticate(user=self.owner)
+        res = self.client.patch(
+            f"/api/food/provider-venues/{self.venue.pk}/",
+            {"cover_image": video},
+            format="multipart",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.venue.refresh_from_db()
+        self.assertTrue(self.venue.cover_image)
+        self.assertEqual(self.venue.cover_kind, "video")
+        self.assertEqual(res.data.get("cover_kind"), "video")
 
     def test_provider_can_upload_gallery_images(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

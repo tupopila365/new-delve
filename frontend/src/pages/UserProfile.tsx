@@ -80,7 +80,7 @@ type UserEvent = { id: number; title: string; cover_image: string | null; starts
 type Tab = 'posts' | 'photos' | 'journeys' | 'community' | 'bookings' | 'saved' | 'events'
 
 const TABS: { id: Tab; label: string; Icon: LucideIcon; ownerOnly?: boolean }[] = [
-  { id: 'posts', label: 'Posts', Icon: Camera },
+  { id: 'posts', label: 'Moments', Icon: Camera },
   { id: 'photos', label: 'Photos', Icon: ImageIcon },
   { id: 'journeys', label: 'Journeys', Icon: Route },
   { id: 'community', label: 'Tips', Icon: MessageCircle },
@@ -488,8 +488,9 @@ export function UserProfile() {
           {!isPrivateGated && (
             <section className="up__explore detail-section">
               <Link to="/delvers" className="up__explore-link">
-                <Users size={16} strokeWidth={2.25} aria-hidden />
-                Explore Delvers
+                <span>
+                  <Users size={16} strokeWidth={2.25} aria-hidden /> Find more travellers
+                </span>
                 <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
               </Link>
             </section>
@@ -533,9 +534,9 @@ function PostsTab({
     <>
       {isMe && (
         <div className="up__panel-actions">
-          <Link to="/create" className="btn btn-primary">
+          <Link to="/create" className="up__ghost-cta">
             <Plus size={15} strokeWidth={2.5} aria-hidden />
-            New post
+            New moment
           </Link>
         </div>
       )}
@@ -817,11 +818,11 @@ function JourneysTab({
     <>
       {isMe && (
         <div className="up__panel-actions">
-          <Link to="/journeys/new" className="btn btn-primary">
+          <Link to="/journeys/new" className="up__ghost-cta">
             <Plus size={15} strokeWidth={2.5} aria-hidden />
             New journey
           </Link>
-          <Link to="/journeys" className="btn btn-ghost">
+          <Link to="/journeys" className="up__ghost-cta">
             Browse all
           </Link>
         </div>
@@ -1030,7 +1031,7 @@ function EventsTab({
     <>
       {isMe && (
         <div className="up__panel-actions">
-          <Link to="/events/new" className="btn btn-primary">
+          <Link to="/events/new" className="up__ghost-cta">
             <Plus size={15} strokeWidth={2.5} aria-hidden />
             Create event
           </Link>

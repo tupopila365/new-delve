@@ -18,8 +18,8 @@
 }
 
 .profile-identity__item:hover {
-  border-color: rgba(255, 154, 82, 0.45);
-  background: rgba(255, 154, 82, 0.08);
+  border-color: rgba(255, 250, 242, 0.28);
+  background: rgba(255, 250, 242, 0.08);
 }
 
 .profile-identity__item strong {
@@ -40,7 +40,6 @@
   opacity: 0.9;
 }
 
-.settings-page .profile-identity__item,
 .prov-settings__panel .profile-identity__item {
   background: rgba(0, 0, 0, 0.18);
 }

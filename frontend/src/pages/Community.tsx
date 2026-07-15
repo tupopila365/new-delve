@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CommunityFeedView } from '../components/community/CommunityFeedView'
 import { CommunityGroupsView } from '../components/community/CommunityGroupsView'
 import { CommunityHubTabs, type CommunityHubView } from '../components/community/CommunityHubTabs'
-import { useCommunityHeaderSearch } from '../hooks/useCommunityHeaderSearch'
-import { communityTagPath } from '../utils/communityTags'
+import { CommunityTrailShell } from '../components/community/CommunityTrailShell'
+import { communityTagPath, parseTagFromSearch } from '../utils/communityTags'
 import { normalizeTag } from '../utils/hashtags'
 import '../components/community/communityHub.css'
 import './CommunityPage.css'
@@ -20,8 +20,8 @@ function parseHubView(raw: string | null): CommunityHubView {
 export function Community({ embedded = false }: CommunityProps = {}) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const [searchQuery, setSearchQuery] = useState('')
   const hubView = parseHubView(searchParams.get('view'))
-  const searchQuery = useCommunityHeaderSearch()
 
   useEffect(() => {
     const legacyTag = searchParams.get('tag')
@@ -32,15 +32,28 @@ export function Community({ embedded = false }: CommunityProps = {}) {
   }, [navigate, searchParams])
 
   const setHubView = (view: CommunityHubView) => {
-    setSearchParams((params) => {
-      const next = new URLSearchParams(params)
-      if (view === 'feed') next.delete('view')
-      else next.set('view', view)
-      return next
-    }, { replace: true })
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params)
+        if (view === 'feed') next.delete('view')
+        else next.set('view', view)
+        return next
+      },
+      { replace: true },
+    )
   }
 
-  return (
+  const onSearchEnter = (value: string) => {
+    const slug = parseTagFromSearch(value)
+    if (!slug) return
+    if (hubView === 'groups') {
+      navigate(`/community?view=groups&tag=${encodeURIComponent(slug)}`)
+      return
+    }
+    navigate(communityTagPath(slug))
+  }
+
+  const body = (
     <div className={`cm-simple${embedded ? ' cm-simple--embedded' : ''}`}>
       <div className="cm-simple__panel">
         <CommunityHubTabs view={hubView} onChange={setHubView} />
@@ -52,5 +65,19 @@ export function Community({ embedded = false }: CommunityProps = {}) {
         )}
       </div>
     </div>
+  )
+
+  if (embedded) {
+    return <CommunityTrailShell embedded>{body}</CommunityTrailShell>
+  }
+
+  return (
+    <CommunityTrailShell
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      onSearchEnter={onSearchEnter}
+    >
+      {body}
+    </CommunityTrailShell>
   )
 }

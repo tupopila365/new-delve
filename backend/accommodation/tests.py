@@ -365,6 +365,7 @@ class AccommodationPhase6HardeningTests(TestCase):
 
     def test_provider_listing_crud(self):
         self.client.force_authenticate(user=self.host)
+        cover = "https://cdn.example/stay-cover.jpg"
         create = self.client.post(
             "/api/accommodation/provider-listings/",
             {
@@ -373,11 +374,19 @@ class AccommodationPhase6HardeningTests(TestCase):
                 "city": "Swakopmund",
                 "price_per_night": "750.00",
                 "property_type": "lodge",
+                "cover_image": cover,
             },
             format="json",
         )
         self.assertEqual(create.status_code, 201)
         listing_id = create.data["id"]
+        self.assertEqual(create.data["cover_image"], cover)
+        self.assertIn("owner_display_name", create.data)
+        self.assertIn("owner_avatar", create.data)
+
+        public = self.client.get(f"/api/accommodation/listings/{listing_id}/")
+        self.assertEqual(public.status_code, 200)
+        self.assertEqual(public.data["cover_image"], cover)
 
         update = self.client.patch(
             f"/api/accommodation/provider-listings/{listing_id}/",

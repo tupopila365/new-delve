@@ -456,10 +456,19 @@ function busTripOccupied(tripId: number): number[] {
 function busTripDetailForApi(t: (typeof mockBusTrips)[number]) {
   const occ = busTripOccupied(t.id)
   const available = Math.max(0, t.total_seats - occ.length)
+  const cover = t.route_detail?.cover_image || ''
+  const coverKind =
+    (t.route_detail as { cover_kind?: string } | undefined)?.cover_kind ??
+    (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(cover)) || /\/video\//i.test(String(cover))
+      ? 'video'
+      : 'image')
   return {
     id: t.id,
     route: t.id,
-    route_detail: t.route_detail,
+    route_detail: {
+      ...t.route_detail,
+      cover_kind: coverKind,
+    },
     departs_at: t.departs_at,
     arrives_at: t.arrives_at,
     price: t.price,
@@ -497,6 +506,7 @@ function nowIso() {
 const mockListingLikes = new Map<number, Set<string>>()
 const mockListingSaves = new Map<number, Set<string>>()
 const mockFoodVenueSaves = new Map<number, Set<string>>()
+const mockFoodVenueLikes = new Map<number, Set<string>>()
 const mockGuideSaves = new Map<number, Set<string>>()
 const mockGuideQuestions = new Map<number, { id: number; author: string; body: string; ago: string; answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[] }[]>()
 const mockGuideReviews = new Map<number, { id: number; name: string; place: string; rating: number; body: string; source: string }[]>()
@@ -521,7 +531,6 @@ const PLACEMENT_MAX_SLOTS: Record<string, number> = {
   homepage_guides: 2,
   homepage_food: 2,
   homepage_events: 2,
-  homepage_transport: 2,
   delvers_feed: 2,
   community_feed: 2,
 }
@@ -618,7 +627,6 @@ const PROMOTION_PRICING = [
   { placement: 'homepage_guides', label: 'Homepage — Featured guides', price_label: 'N$2,000 / week', note: 'Up to 2 slots' },
   { placement: 'homepage_food', label: 'Homepage — Featured food', price_label: 'N$1,800 / week', note: 'Up to 2 slots' },
   { placement: 'homepage_events', label: 'Homepage — Featured events', price_label: 'N$1,500 / week', note: 'Up to 2 slots' },
-  { placement: 'homepage_transport', label: 'Homepage — Featured transport', price_label: 'N$1,800 / week', note: 'Up to 2 slots' },
   { placement: 'delvers_feed', label: 'Delvers feed — Sponsored', price_label: 'N$1,200 / week', note: 'Positions 3 & 8 in feed' },
 ]
 
@@ -627,7 +635,6 @@ const PLACEMENT_LABELS: Record<string, string> = {
   homepage_guides: 'Homepage — Featured guides',
   homepage_food: 'Homepage — Featured food',
   homepage_events: 'Homepage — Featured events',
-  homepage_transport: 'Homepage — Featured transport',
   delvers_feed: 'Delvers feed — Sponsored',
 }
 
@@ -811,78 +818,6 @@ function mergeFeaturedRail<T extends { id: number }>(
   return [...promoted, ...organicRows]
 }
 
-function mergeFeaturedTransport(region: string, limit = 8) {
-  const placement = 'homepage_transport'
-  const max = PLACEMENT_MAX_SLOTS[placement] ?? 2
-  const campaigns = activeFeaturedCampaigns(placement, region).slice(0, max)
-  const promotedVehicleIds = new Set<number>()
-  const promotedTripIds = new Set<number>()
-  const promoted: Record<string, unknown>[] = []
-
-  for (const campaign of campaigns) {
-    if (campaign.target_type === 'bus_trip') {
-      if (promotedTripIds.has(campaign.target_id)) continue
-      const row = mockBusTrips.find((x) => x.id === campaign.target_id && x.is_active)
-      if (!row) continue
-      promotedTripIds.add(campaign.target_id)
-      promoted.push({
-        ...busTripDetailForApi(row),
-        is_featured_partner: true,
-        partner_label: campaign.label,
-        promotion_id: campaign.id,
-      })
-      continue
-    }
-    if (campaign.target_type === 'vehicle') {
-      if (promotedVehicleIds.has(campaign.target_id)) continue
-      const row = mockVehicles.find((x) => x.id === campaign.target_id)
-      if (!row) continue
-      promotedVehicleIds.add(campaign.target_id)
-      promoted.push({
-        ...row,
-        is_featured_partner: true,
-        partner_label: campaign.label,
-        promotion_id: campaign.id,
-      })
-    }
-  }
-
-  const remaining = Math.max(0, limit - promoted.length)
-  const r = region.trim().toLowerCase()
-
-  let organicVehicles = mockVehicles.filter((row) => !promotedVehicleIds.has(row.id))
-  if (r) {
-    organicVehicles = organicVehicles.filter(
-      (row) => row.region.toLowerCase().includes(r) || (row.city || '').toLowerCase().includes(r),
-    )
-  }
-  const vehicleRows = organicVehicles.slice(0, remaining).map((row) => ({
-    ...row,
-    is_featured_partner: false,
-    partner_label: '',
-  }))
-
-  const tripRemaining = Math.max(0, remaining - vehicleRows.length)
-  const now = Date.now()
-  let organicTrips = mockBusTrips.filter(
-    (row) => row.is_active && !promotedTripIds.has(row.id) && new Date(row.departs_at).getTime() >= now,
-  )
-  if (r) {
-    organicTrips = organicTrips.filter((row) => {
-      const origin = row.route_detail.origin.toLowerCase()
-      const dest = row.route_detail.destination.toLowerCase()
-      return origin.includes(r) || dest.includes(r)
-    })
-  }
-  const tripRows = organicTrips.slice(0, tripRemaining).map((row) => ({
-    ...busTripDetailForApi(row),
-    is_featured_partner: false,
-    partner_label: '',
-  }))
-
-  return [...promoted, ...vehicleRows, ...tripRows].slice(0, limit)
-}
-
 function categorySpotlightMock(s: MockState, region: string, category: string) {
   const targetMap: Record<string, string> = {
     stays: 'accommodation',
@@ -1029,8 +964,12 @@ function injectMockFeedPromotions(
 function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[number]) {
   const likers = mockListingLikes.get(row.id)
   const savers = mockListingSaves.get(row.id)
+  const profile = s.profiles[row.owner_username]
   return {
     ...row,
+    is_active: row.is_active !== false,
+    owner_display_name: row.owner_display_name ?? profile?.display_name ?? null,
+    owner_avatar: row.owner_avatar ?? profile?.avatar ?? null,
     likes_count: likers?.size ?? 0,
     liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
     saves_count: savers?.size ?? 0,
@@ -1040,8 +979,15 @@ function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[num
 
 function enrichFoodVenueRow(s: MockState, row: (typeof mockFood)[number]) {
   const savers = mockFoodVenueSaves.get(row.id)
+  const likers = mockFoodVenueLikes.get(row.id)
+  const coverKind =
+    (row as { cover_kind?: string }).cover_kind ??
+    (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(row.cover_image || '')) ? 'video' : 'image')
   return {
     ...row,
+    cover_kind: coverKind,
+    likes_count: likers?.size ?? 0,
+    liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
     saves_count: savers?.size ?? 0,
     saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
   }
@@ -1049,10 +995,24 @@ function enrichFoodVenueRow(s: MockState, row: (typeof mockFood)[number]) {
 
 function enrichGuideRow(s: MockState, row: (typeof mockGuides)[number]) {
   const savers = mockGuideSaves.get(row.id)
+  const me = s.currentUser as string | undefined
+  const travelerRows = mockGuideReviews.get(row.id) ?? []
+  const hasReviewed = Boolean(
+    me && travelerRows.some((r) => r.name === (s.profiles[me]?.display_name || me)),
+  )
+  const completed = Boolean(
+    me &&
+      [...mockGuideBookings.values()].some(
+        (b) => b.guide === row.id && b.client === me && b.status === 'completed',
+      ),
+  )
+  const canReview = Boolean(me && !hasReviewed && completed && row.username !== me)
   return {
     ...row,
     saves_count: savers?.size ?? 0,
-    saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
+    saved_by_me: Boolean(me && savers?.has(me)),
+    has_reviewed: hasReviewed,
+    can_review: canReview,
   }
 }
 
@@ -2373,7 +2333,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         breakfast: st.breakfast,
         rating_avg: st.rating_avg,
         rating_count: st.rating_count,
-        is_active: true,
+        is_active: st.is_active !== false,
         guest_reviews: st.guest_reviews ?? [],
         likes_count: mockListingLikes.get(st.id)?.size ?? 0,
         saves_count: mockListingSaves.get(st.id)?.size ?? 0,
@@ -2432,6 +2392,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       owner_username: me,
       rating_avg: '4.5',
       rating_count: 0,
+      is_active: data.is_active !== false,
       ...data,
       amenities: data.amenities ?? [],
     }
@@ -3264,9 +3225,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (featuredPromotionPath(pathname, 'events') && method === 'GET') {
     return mergeFeaturedRail(s, 'homepage_events', (q.get('region') || '').trim(), mockEvents, (row) => ({ ...row }))
   }
-  if (featuredPromotionPath(pathname, 'transport') && method === 'GET') {
-    return mergeFeaturedTransport((q.get('region') || '').trim())
-  }
   const spotlightMatch = pathname.match(/^\/api\/promotions\/spotlight\/([^/]+)\/?$/)
   if (spotlightMatch && method === 'GET') {
     return categorySpotlightMock(s, (q.get('region') || '').trim(), spotlightMatch[1])
@@ -3689,6 +3647,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const ordering = (q.get('ordering') || '').trim()
 
     let list = mockStays
+      .filter((s2) => s2.is_active !== false)
       .filter((s2) => (region ? textMatch(s2.region, region) || textMatch(s2.city, region) : true))
       .filter((s2) => (cityQ ? textMatch(s2.city, cityQ) : true))
       .filter((s2) =>
@@ -3923,7 +3882,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   const stayMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/$/)
   if (stayMatch && method === 'GET') {
     const id = Number(stayMatch[1])
-    const s2 = mockStays.find((x) => x.id === id)
+    const s2 = mockStays.find((x) => x.id === id && x.is_active !== false)
     return s2 ? enrichAccommodationListingRow(s, s2) : { detail: 'Not found' }
   }
 
@@ -4389,20 +4348,51 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/transport/vehicles/' && method === 'GET') {
     const region = (q.get('region') || '').trim()
+    const city = (q.get('city') || '').trim()
+    const searchQ = (q.get('search') || '').trim()
     const min = Number(q.get('min_price') || '0')
     const max = Number(q.get('max_price') || '999999')
     const minSeats = Number(q.get('min_seats') || '0')
     const types = q.getAll('vehicle_type').filter(Boolean)
     return mockVehicles
       .filter((v) => (region ? textMatch(v.region, region) || textMatch(v.city, region) : true))
+      .filter((v) => (city ? textMatch(v.city, city) : true))
+      .filter((v) =>
+        searchQ
+          ? textMatch(v.title, searchQ) ||
+            textMatch(v.make, searchQ) ||
+            textMatch(v.model, searchQ) ||
+            textMatch(v.region, searchQ) ||
+            textMatch(v.city, searchQ)
+          : true,
+      )
       .filter((v) => Number(v.price_per_day) >= min && Number(v.price_per_day) <= max)
       .filter((v) => (minSeats > 0 ? v.seats >= minSeats : true))
       .filter((v) => (types.length ? types.includes(v.vehicle_type) : true))
+      .map((v) => ({
+        ...v,
+        cover_kind:
+          (v as { cover_kind?: string }).cover_kind ??
+          (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(v.cover_image || '')) ||
+          /\/video\//i.test(String(v.cover_image || ''))
+            ? 'video'
+            : 'image'),
+      }))
   }
   const vehMatch = pathname.match(/^\/api\/transport\/vehicles\/(\d+)\/$/)
   if (vehMatch && method === 'GET') {
     const id = Number(vehMatch[1])
-    return mockVehicles.find((v) => v.id === id) || { detail: 'Not found' }
+    const v = mockVehicles.find((row) => row.id === id)
+    if (!v) return { detail: 'Not found' }
+    return {
+      ...v,
+      cover_kind:
+        (v as { cover_kind?: string }).cover_kind ??
+        (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(v.cover_image || '')) ||
+        /\/video\//i.test(String(v.cover_image || ''))
+          ? 'video'
+          : 'image'),
+    }
   }
   const vehMomentsMatch = pathname.match(/^\/api\/transport\/vehicles\/(\d+)\/moments\/$/)
   if (vehMomentsMatch && method === 'GET') {
@@ -4443,6 +4433,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const o = (q.get('route_origin') || '').trim()
     const d = (q.get('route_destination') || '').trim()
     const travelDate = (q.get('travel_date') || '').trim()
+    const searchQ = (q.get('search') || '').trim()
+    const min = Number(q.get('min_price') || '0')
+    const max = Number(q.get('max_price') || '999999')
     return mockBusTrips
       .filter((t) => (o ? textMatch(t.route_detail.origin, o) : true))
       .filter((t) => (d ? textMatch(t.route_detail.destination, d) : true))
@@ -4454,6 +4447,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         const day = String(dep.getDate()).padStart(2, '0')
         return `${y}-${m}-${day}` === travelDate
       })
+      .filter((t) => Number(t.price) >= min && Number(t.price) <= max)
+      .filter((t) =>
+        searchQ
+          ? textMatch(t.route_detail.origin, searchQ) ||
+            textMatch(t.route_detail.destination, searchQ) ||
+            textMatch(t.route_detail.operator_name, searchQ)
+          : true,
+      )
       .map((t) => busTripDetailForApi(t))
   }
   const tripMatch = pathname.match(/^\/api\/transport\/bus\/trips\/(\d+)\/$/)
@@ -4577,11 +4578,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     for (const raw of ids) {
       const id = Number(raw)
       const row = mockBusReservationRows.get(id)
-      if (!row || row.status !== 'pending') {
-        throw new ApiError('Invalid or non-pending reservation.', 400, null)
+      if (!row || row.status !== 'confirmed') {
+        throw new ApiError('Waiting for the operator to confirm these seats.', 400, null)
       }
-      row.status = 'confirmed'
-      row.mock_payment_ref = ref
+      if (!row.mock_payment_ref) row.mock_payment_ref = ref
       if (tripIdForBatch == null) {
         tripIdForBatch = row.trip
       } else if (tripIdForBatch !== row.trip) {
@@ -4625,11 +4625,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const rid = Number(busResMockPay[1])
     const row = mockBusReservationRows.get(rid)
-    if (!row || row.status !== 'pending') {
-      throw new ApiError('Not payable.', 400, null)
+    if (!row || row.status !== 'confirmed') {
+      throw new ApiError('Waiting for the operator to confirm this seat.', 400, null)
+    }
+    if (row.mock_payment_ref) {
+      return {
+        detail: 'Already paid (mock).',
+        status: 'confirmed',
+        mock_payment_ref: row.mock_payment_ref,
+      }
     }
     const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
-    row.status = 'confirmed'
     row.mock_payment_ref = ref
     return {
       detail: 'Payment successful (mock).',
@@ -4777,11 +4783,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const bid = Number(vehBookMockPay[1])
     const row = mockVehicleBookings.get(bid)
-    if (!row || row.status !== 'pending') {
-      throw new ApiError('Not payable.', 400, null)
+    if (!row || row.status !== 'confirmed') {
+      throw new ApiError('Waiting for the provider to confirm this request.', 400, null)
+    }
+    if (row.mock_payment_ref) {
+      return {
+        detail: 'Already paid (mock).',
+        status: 'confirmed',
+        mock_payment_ref: row.mock_payment_ref,
+      }
     }
     const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
-    row.status = 'confirmed'
     row.mock_payment_ref = ref
     return {
       detail: 'Payment successful (mock).',
@@ -5584,6 +5596,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   // ---- Food ----
+  const foodLikeMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/like\/$/)
+  if (foodLikeMatch && method === 'POST') {
+    requireAuth(s)
+    const vid = Number(foodLikeMatch[1])
+    if (!mockFood.some((x) => x.id === vid)) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    const me = s.currentUser as string
+    let likers = mockFoodVenueLikes.get(vid)
+    if (!likers) {
+      likers = new Set<string>()
+      mockFoodVenueLikes.set(vid, likers)
+    }
+    if (likers.has(me)) {
+      likers.delete(me)
+      return { liked: false, likes_count: likers.size }
+    }
+    likers.add(me)
+    return { liked: true, likes_count: likers.size }
+  }
+
   const foodSaveMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/save\/$/)
   if (foodSaveMatch && method === 'POST') {
     requireAuth(s)
@@ -5699,12 +5732,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         (!reservationsEnabled || seatedVisit),
     )
     const savers = mockFoodVenueSaves.get(id)
+    const likers = mockFoodVenueLikes.get(id)
     return {
       ...detail,
       has_reviewed: hasReviewed,
       can_review: canReview,
+      likes_count: likers?.size ?? 0,
+      liked_by_me: Boolean(me && likers?.has(me)),
       saves_count: savers?.size ?? 0,
       saved_by_me: Boolean(me && savers?.has(me)),
+      cover_kind:
+        (venue as { cover_kind?: string }).cover_kind ??
+        (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(venue.cover_image || '')) ? 'video' : 'image'),
     }
   }
 
@@ -5844,7 +5883,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return answer
   }
 
+  function foodCoverKindFromUrl(url: string, fileType?: string) {
+    if ((fileType || '').startsWith('video/')) return 'video'
+    if (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url) || /\/video\//i.test(url)) return 'video'
+    return 'image'
+  }
+
   function serializeProviderFoodVenue(row: (typeof mockFood)[number]) {
+    const cover = String(row.cover_image || '')
     return {
       id: row.id,
       owner_username: row.owner_username,
@@ -5875,6 +5921,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       photos: (row as { photos?: unknown[] }).photos ?? [],
       venue_stories: row.venue_stories ?? [],
       cover_image: row.cover_image,
+      cover_kind: (row as { cover_kind?: string }).cover_kind ?? foodCoverKindFromUrl(cover),
       rating_avg: row.rating_avg,
       rating_count: row.rating_count,
       is_active: (row as { is_active?: boolean }).is_active === true,
@@ -5901,11 +5948,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         }
       }
       let coverUrl = get('cover_image_url')
+      let coverKind: string | undefined
       const coverFile = body.get('cover_image')
       if (coverFile instanceof File) {
         const buf = await coverFile.arrayBuffer()
         const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
         coverUrl = `data:${coverFile.type || 'image/jpeg'};base64,${b64}`
+        coverKind = foodCoverKindFromUrl(coverUrl, coverFile.type)
+      } else if (coverUrl) {
+        coverKind = foodCoverKindFromUrl(coverUrl)
       }
       const photosRaw = parseJsonField('photos')
       const photos = Array.isArray(photosRaw) ? [...photosRaw] : []
@@ -5949,6 +6000,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         photos,
         venue_stories: parseJsonField('venue_stories') ?? [],
         cover_image_url: coverUrl,
+        cover_kind: coverKind,
       }
     }
     if (isJsonBody(body)) return JSON.parse(body) as Record<string, unknown>
@@ -5963,11 +6015,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const data = await parseProviderFoodVenueBody(init.body)
     const id = Math.max(0, ...mockFood.map((f) => f.id)) + 1
     const coverUrl = String(data.cover_image_url || data.cover_image || '').trim()
+    const coverKind =
+      String(data.cover_kind || '').trim() || (coverUrl ? foodCoverKindFromUrl(coverUrl) : 'image')
     const photos = Array.isArray(data.photos) ? data.photos : []
     if (coverUrl) {
       photos.unshift({
         id: id * 100 + 1,
         image: coverUrl,
+        kind: coverKind,
         caption: `${data.name || 'Venue'} cover`,
         category: 'food',
         is_cover: true,
@@ -6003,6 +6058,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       photos,
       venue_stories: data.venue_stories ?? [],
       cover_image: coverUrl || null,
+      cover_kind: coverKind,
       rating_avg: '0',
       rating_count: 0,
       is_active: data.is_active === true,
@@ -6029,19 +6085,30 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const coverUrl = data.cover_image_url ?? data.cover_image
     if (coverUrl !== undefined) {
       const url = String(coverUrl || '').trim()
+      const coverKind =
+        String(data.cover_kind || '').trim() || (url ? foodCoverKindFromUrl(url) : 'image')
       ;(venue as { cover_image?: string | null }).cover_image = url || null
+      ;(venue as { cover_kind?: string }).cover_kind = coverKind
       if (url) {
         const photos = Array.isArray((venue as { photos?: unknown[] }).photos)
           ? [...((venue as { photos?: unknown[] }).photos as unknown[])]
           : []
         const rest = photos.filter((p) => !(p as { is_cover?: boolean }).is_cover)
         ;(venue as { photos?: unknown[] }).photos = [
-          { id: venue.id * 100 + 1, image: url, caption: `${venue.name} cover`, category: 'food', is_cover: true },
+          {
+            id: venue.id * 100 + 1,
+            image: url,
+            kind: coverKind,
+            caption: `${venue.name} cover`,
+            category: 'food',
+            is_cover: true,
+          },
           ...rest,
         ]
       }
       delete data.cover_image_url
       delete data.cover_image
+      delete data.cover_kind
     }
     if (Array.isArray(data.opening_hours_json)) {
       const schedule = data.opening_hours_json as { day?: string; open?: boolean; opens?: string; closes?: string }[]
@@ -6370,35 +6437,50 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       {
         id: 9001,
         package_title: 'Dunes & deadvlei half-day',
+        package_id: 'dunes-half',
         guest_display_name: 'Sarah M.',
         guest_username: 'demo_user',
         date: '2026-05-12',
+        start_time: '09:00:00',
         guests: 2,
         duration_hours: 4,
+        meeting_point: 'Lodge lobby',
+        notes: 'Preferred language: English',
         total_price: '3600.00',
         status: 'confirmed',
+        mock_payment_ref: 'mock_demo',
       },
       {
         id: 9002,
         package_title: 'Full Namib loop & picnic',
+        package_id: 'namib-loop',
         guest_display_name: 'Jonas K.',
         guest_username: 'anna',
         date: '2026-05-18',
+        start_time: '07:30:00',
         guests: 4,
         duration_hours: 8,
+        meeting_point: 'Hotel pickup',
+        notes: '',
         total_price: '12800.00',
         status: 'pending',
+        mock_payment_ref: '',
       },
       {
         id: 9003,
         package_title: 'Dunes & deadvlei half-day',
+        package_id: 'dunes-half',
         guest_display_name: 'Marta V.',
         guest_username: 'demo_user',
         date: '2026-06-02',
+        start_time: null,
         guests: 3,
         duration_hours: 4,
+        meeting_point: '',
+        notes: 'Preferred language: German',
         total_price: '5400.00',
         status: 'confirmed',
+        mock_payment_ref: '',
       },
     ]
     const sessionRows = [...mockGuideBookings.values()]
@@ -6410,13 +6492,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         return {
           id: row.id,
           package_title: pkg?.title ?? (row.package_id ? String(row.package_id) : 'Custom tour'),
+          package_id: String(row.package_id ?? ''),
           guest_display_name: clientProf?.display_name ?? (clientKey || 'Guest'),
           guest_username: clientKey,
           date: String(row.date ?? ''),
+          start_time: row.start_time ?? null,
           guests: Number(row.group_size ?? 1),
           duration_hours: Number(row.duration_hours ?? 4),
+          meeting_point: String(row.meeting_point ?? ''),
+          notes: String(row.notes ?? ''),
           total_price: String(row.total_price ?? '0'),
           status: String(row.status ?? 'pending'),
+          mock_payment_ref: String(row.mock_payment_ref ?? ''),
         }
       })
     const all = guide.username === 'guide_pro' ? [...staticRows, ...sessionRows] : sessionRows
@@ -6523,12 +6610,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const langQ = (q.get('language') || '').trim()
     const regionQ = (q.get('region') || '').trim()
     const searchQ = (q.get('search') || '').trim()
+    const licensedQ = (q.get('licensed') || '').trim().toLowerCase()
+    const ordering = (q.get('ordering') || '').trim()
     let list = [...mockGuides]
     if (langQ) {
       list = list.filter((g) => (g.languages || []).some((l) => textMatch(l, langQ)))
     }
     if (regionQ) {
       list = list.filter((g) => (g.regions || []).some((r) => textMatch(r, regionQ)))
+    }
+    if (licensedQ === '1' || licensedQ === 'true' || licensedQ === 'yes') {
+      list = list.filter((g) => g.licensed_guide === true)
     }
     if (searchQ) {
       list = list.filter(
@@ -6537,8 +6629,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           textMatch(g.bio, searchQ) ||
           textMatch(g.username, searchQ) ||
           (g.languages || []).some((l) => textMatch(l, searchQ)) ||
-          (g.regions || []).some((r) => textMatch(r, searchQ)),
+          (g.regions || []).some((r) => textMatch(r, searchQ)) ||
+          (g.specialities || []).some((sp) => textMatch(sp, searchQ)),
       )
+    }
+    if (ordering === 'hourly_rate' || ordering === '-hourly_rate') {
+      const desc = ordering.startsWith('-')
+      list.sort((a, b) => {
+        const ar = parseFloat(String(a.hourly_rate ?? '')) || (desc ? -Infinity : Infinity)
+        const br = parseFloat(String(b.hourly_rate ?? '')) || (desc ? -Infinity : Infinity)
+        return desc ? br - ar : ar - br
+      })
+    } else if (ordering === 'rating_avg' || ordering === '-rating_avg') {
+      const desc = ordering.startsWith('-')
+      list.sort((a, b) => {
+        const ar = parseFloat(String(a.rating_avg ?? '0')) || 0
+        const br = parseFloat(String(b.rating_avg ?? '0')) || 0
+        return desc ? br - ar : ar - br
+      })
+    } else if (ordering === 'created_at' || ordering === '-created_at') {
+      // Mock rows lack created_at; keep insertion order for ascending, reverse for desc.
+      if (ordering.startsWith('-')) list = list.slice().reverse()
     }
     return list.map((row) => enrichGuideRow(s, row))
   }

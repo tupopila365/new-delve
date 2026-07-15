@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { AdminListing, HomePin } from '../api/types'
-import { HOME_PIN_PLACEMENTS, MAX_HOME_PINS, TRANSPORT_TARGET_TYPES } from '../api/types'
+import { HOME_PIN_PLACEMENTS, MAX_HOME_PINS } from '../api/types'
 import {
   DelveAdminDataRow,
   DelveAdminEmpty,
@@ -16,7 +16,7 @@ import {
   DelveAdminStatusBadge,
 } from '../components'
 
-type PinTargetType = (typeof HOME_PIN_PLACEMENTS)[number]['targetType'] | 'bus_trip'
+type PinTargetType = (typeof HOME_PIN_PLACEMENTS)[number]['targetType']
 
 export function HomePinsPage() {
   const qc = useQueryClient()
@@ -29,7 +29,6 @@ export function HomePinsPage() {
   const [formActive, setFormActive] = useState(true)
 
   const selected = HOME_PIN_PLACEMENTS.find((p) => p.value === placement) ?? HOME_PIN_PLACEMENTS[0]
-  const isTransport = placement === 'homepage_transport'
 
   const { data: pins = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['home-pins', placement],
@@ -43,27 +42,16 @@ export function HomePinsPage() {
   })
 
   useEffect(() => {
-    if (isTransport) {
-      setFormTargetType('vehicle')
-    } else {
-      setFormTargetType(selected.targetType)
-    }
+    setFormTargetType(selected.targetType)
     setFormTargetId('')
-  }, [placement, selected.targetType, isTransport])
+  }, [placement, selected.targetType])
 
-  const listingOptions = useMemo(() => {
-    if (isTransport) {
-      return listings.filter(
-        (l) => (l.listing_type === 'vehicle' || l.listing_type === 'bus_trip') && l.status === 'published',
-      )
-    }
-    return listings.filter((l) => l.listing_type === selected.listingType && l.status === 'published')
-  }, [listings, selected.listingType, isTransport])
+  const listingOptions = useMemo(
+    () => listings.filter((l) => l.listing_type === selected.listingType && l.status === 'published'),
+    [listings, selected.listingType],
+  )
 
-  const filteredListings = useMemo(() => {
-    if (!isTransport) return listingOptions
-    return listingOptions.filter((l) => l.listing_type === formTargetType)
-  }, [listingOptions, isTransport, formTargetType])
+  const filteredListings = listingOptions
 
   const orderedPins = useMemo(
     () => [...pins].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id),
@@ -275,21 +263,6 @@ export function HomePinsPage() {
             })
           }}
         >
-          {isTransport ? (
-            <label className="da-field">
-              <span>Listing type</span>
-              <select
-                value={formTargetType}
-                onChange={(e) => setFormTargetType(e.target.value as PinTargetType)}
-              >
-                {TRANSPORT_TARGET_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <label className="da-field">
             <span>Listing</span>
             <select

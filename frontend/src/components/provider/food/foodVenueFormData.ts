@@ -5,7 +5,7 @@ function appendBool(fd: FormData, key: string, value: boolean) {
   fd.append(key, value ? 'true' : 'false')
 }
 
-/** Build multipart body for photos module save only. */
+/** Build multipart body for photos module save only (legacy fallback; prefer Cloudinary JSON). */
 export function buildFoodVenuePhotosFormData(values: FoodVenueFormValues): FormData {
   const fd = new FormData()
   const gallery = parseGalleryUrlsField(values.gallery_urls)
@@ -22,6 +22,8 @@ export function buildFoodVenuePhotosFormData(values: FoodVenueFormValues): FormD
     fd.append('cover_image', values.cover_image_file)
   } else if (values.cover_image_url.trim()) {
     fd.append('cover_image_url', values.cover_image_url.trim())
+    const kind = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(values.cover_image_url) ? 'video' : 'image'
+    fd.append('cover_kind', kind)
   }
   for (const file of values.gallery_files) {
     fd.append('gallery_images', file)

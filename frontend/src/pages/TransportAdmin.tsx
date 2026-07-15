@@ -191,7 +191,18 @@ export function TransportAdmin() {
 
   const saveVehicleMut = useMutation({
     mutationFn: async () => {
-      const body = formToVehiclePayload(vehicleForm)
+      const { resolveTransportPhotosForSave } = await import(
+        '../components/provider/transport/transportPhotosCloudinary'
+      )
+      const media = await resolveTransportPhotosForSave(vehicleForm)
+      const body = {
+        ...formToVehiclePayload(vehicleForm),
+        cover_image: media.cover_image_url || null,
+        cover_image_url: media.cover_image_url,
+        cover_kind: media.cover_kind,
+        cover_kind_in: media.cover_kind,
+        gallery_images: media.gallery_images,
+      }
       if (editVehicleId) {
         return apiFetch<ProviderVehicleListing>(`/api/transport/provider-vehicles/${editVehicleId}/`, {
           method: 'PATCH',
@@ -215,7 +226,20 @@ export function TransportAdmin() {
 
   const saveBusMut = useMutation({
     mutationFn: async () => {
-      const body = formToBusTripPayload(busForm)
+      const { resolveTransportPhotosForSave } = await import(
+        '../components/provider/transport/transportPhotosCloudinary'
+      )
+      const media = await resolveTransportPhotosForSave(busForm)
+      const base = formToBusTripPayload(busForm)
+      const body = {
+        ...base,
+        route_detail: {
+          ...base.route_detail,
+          cover_image: media.cover_image_url || null,
+          cover_kind: media.cover_kind,
+          gallery_images: media.gallery_images,
+        },
+      }
       if (editBusId) {
         return apiFetch<ProviderBusTripListing>(`/api/transport/provider-bus-trips/${editBusId}/`, {
           method: 'PATCH',

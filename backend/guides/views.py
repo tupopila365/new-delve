@@ -1,6 +1,6 @@
 import uuid
 
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -33,7 +33,8 @@ def _guide_questions_qs(guide):
 class TourGuideProfileViewSet(viewsets.ModelViewSet):
     queryset = TourGuideProfile.objects.filter(is_active=True).select_related("user", "user__profile")
     serializer_class = TourGuideProfileSerializer
-    search_fields = ("headline", "bio", "regions")
+    search_fields = ("headline", "bio", "regions", "specialities", "languages")
+    ordering_fields = ("rating_avg", "hourly_rate", "created_at")
     ordering = ["-created_at"]
 
     def get_permissions(self):
@@ -60,6 +61,24 @@ class TourGuideProfileViewSet(viewsets.ModelViewSet):
             )
         return qs
 
+    def _apply_list_filters(self, qs):
+        """Findability filters: region / language / licensed (JSON-friendly icontains)."""
+        region = (self.request.query_params.get("region") or "").strip()
+        if region:
+            qs = qs.filter(regions__icontains=region)
+
+        language = (self.request.query_params.get("language") or "").strip()
+        if language:
+            qs = qs.filter(
+                Q(languages__icontains=language) | Q(languages_detail__icontains=language)
+            )
+
+        licensed = (self.request.query_params.get("licensed") or "").strip().lower()
+        if licensed in ("1", "true", "yes"):
+            qs = qs.filter(licensed_guide=True)
+
+        return qs
+
     def get_queryset(self):
         user = self.request.user
         if self.action in ("update", "partial_update", "destroy"):
@@ -77,6 +96,8 @@ class TourGuideProfileViewSet(viewsets.ModelViewSet):
             qs = TourGuideProfile.objects.filter(is_active=True).select_related("user", "user__profile")
             return self._annotate_engagement(qs, user)
         qs = super().get_queryset()
+        if self.action == "list":
+            qs = self._apply_list_filters(qs)
         return self._annotate_engagement(qs, user)
 
     @action(detail=True, methods=["post"])

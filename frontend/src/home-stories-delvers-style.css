@@ -1,18 +1,18 @@
+/* Home highlights — soft trail rings (not Instagram purple gradients). */
+.page-home .stories-row,
 .stories-row.stories-row,
 .page-home__inset .stories-row {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 18px;
-  padding-top: 14px;
-  padding-bottom: 12px;
+  gap: 12px;
+  margin: 0;
+  padding: 4px 2px 2px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  background: linear-gradient(180deg, rgba(20, 20, 20, 0.96), rgba(12, 12, 12, 0.96));
-  border-top: 1px solid rgba(255, 255, 255, 0.11);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+  background: transparent;
+  border: 0;
 }
 
 .stories-row::-webkit-scrollbar {
@@ -20,74 +20,93 @@
 }
 
 .story-bubble.story-bubble--btn {
-  flex: 0 0 72px;
+  flex: 0 0 74px;
   display: grid;
   justify-items: center;
-  gap: 7px;
+  gap: 8px;
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 250, 242, 0.9);
   text-align: center;
   cursor: pointer;
   scroll-snap-align: start;
+  transition: transform 0.18s ease;
+}
+
+.story-bubble:hover {
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .story-bubble__ring {
   display: grid;
   place-items: center;
-  width: 66px;
-  height: 66px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
-  padding: 3px;
-  background: conic-gradient(from 210deg, #7c3aed, #ffb16f, #7c3aed, #7a6d43, #7c3aed);
-  box-shadow: 0 0 0 2px #050505, 0 10px 22px rgba(0, 0, 0, 0.36);
+  padding: 2px;
+  background: rgba(255, 250, 242, 0.35);
+  box-shadow: none;
 }
 
 .story-bubble__inner {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
   overflow: hidden;
-  border: 2px solid #050505;
+  border: 2px solid #14110e;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.18), transparent 32%),
-    linear-gradient(135deg, #191919, #0b0b0b);
-  color: #fff;
-  font-size: 1.05rem;
-  font-weight: 900;
+  background: #2a241e;
+  color: #fffaf2;
+  font-family: var(--font-display, 'Syne', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 750;
   letter-spacing: -0.02em;
 }
 
-.story-bubble:nth-child(1) .story-bubble__inner { background: linear-gradient(135deg, #7b4a2d, #12100e); }
-.story-bubble:nth-child(2) .story-bubble__inner { background: linear-gradient(135deg, #334b5b, #111111); }
-.story-bubble:nth-child(3) .story-bubble__inner { background: linear-gradient(135deg, #6d4a77, #140d16); }
-.story-bubble:nth-child(4) .story-bubble__inner { background: linear-gradient(135deg, #7a5034, #17110d); }
-.story-bubble:nth-child(5) .story-bubble__inner { background: linear-gradient(135deg, #3f5f43, #0f140f); }
-.story-bubble:nth-child(6) .story-bubble__inner { background: linear-gradient(135deg, #5a5a62, #101010); }
+.story-bubble:nth-child(1) .story-bubble__inner {
+  background: #4a3d32;
+}
+.story-bubble:nth-child(2) .story-bubble__inner {
+  background: #2f3d42;
+}
+.story-bubble:nth-child(3) .story-bubble__inner {
+  background: #3d3530;
+}
+.story-bubble:nth-child(4) .story-bubble__inner {
+  background: #453628;
+}
+.story-bubble:nth-child(5) .story-bubble__inner {
+  background: #334238;
+}
+.story-bubble:nth-child(6) .story-bubble__inner {
+  background: #3a3836;
+}
+
+.story-bubble__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .story-bubble__label {
   display: block;
   width: 100%;
-  max-width: 72px;
+  max-width: 74px;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 10.5px;
-  font-weight: 850;
-  line-height: 1.1;
+  color: rgba(255, 250, 242, 0.72);
+  font-family: var(--font-sans, 'DM Sans', sans-serif);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.story-bubble:hover {
-  opacity: 1;
-  transform: translateY(-1px);
-}
-
 .story-bubble:focus-visible .story-bubble__ring {
-  outline: 2px solid rgba(255, 255, 255, 0.88);
-  outline-offset: 4px;
+  outline: 2px solid rgba(255, 250, 242, 0.75);
+  outline-offset: 3px;
 }
 
 @media (min-width: 900px) {
@@ -95,3 +114,28 @@
     border-radius: 0;
   }
 }
+
+.story-bubble--sk {
+  pointer-events: none;
+  cursor: default;
+}
+
+.story-bubble--sk .story-bubble__inner {
+  background: rgba(255, 250, 242, 0.08);
+  animation: story-bubble-pulse 1.2s ease-in-out infinite;
+}
+
+.story-bubble--sk .story-bubble__label {
+  color: rgba(255, 250, 242, 0.28);
+}
+
+@keyframes story-bubble-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+

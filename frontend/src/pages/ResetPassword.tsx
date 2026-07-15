@@ -48,43 +48,58 @@ export function ResetPassword() {
       subtitle="Choose a new password for your account."
       footer={
         <>
-          Back to <Link to="/login">Log in</Link>
+          Back to <Link to="/login">Sign in</Link>
         </>
       }
     >
       {err ? <p className="auth-page__error">{err}</p> : null}
       {msg ? <p className="auth-page__success">{msg}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
-        <input
-          type="text"
-          className="auth-page__input"
-          placeholder="Reset token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          autoComplete="one-time-code"
-          aria-label="Reset token"
-          required
-        />
-        <input
-          type="password"
-          className="auth-page__input"
-          placeholder="New password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="new-password"
-          aria-label="New password"
-          required
-        />
-        <input
-          type="password"
-          className="auth-page__input"
-          placeholder="Confirm new password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          autoComplete="new-password"
-          aria-label="Confirm new password"
-          required
-        />
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-reset-token">
+            Reset token
+          </label>
+          <input
+            id="auth-reset-token"
+            type="text"
+            className="auth-page__input"
+            placeholder="Paste token from email"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            autoComplete="one-time-code"
+            required
+          />
+        </div>
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-reset-password">
+            New password
+          </label>
+          <input
+            id="auth-reset-password"
+            type="password"
+            className="auth-page__input"
+            placeholder="At least 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+        </div>
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-reset-confirm">
+            Confirm password
+          </label>
+          <input
+            id="auth-reset-confirm"
+            type="password"
+            className="auth-page__input"
+            placeholder="Repeat new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+        </div>
         <button
           type="submit"
           className="auth-page__submit"

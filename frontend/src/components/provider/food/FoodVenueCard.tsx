@@ -14,6 +14,7 @@ type Props = {
 export function FoodVenueCard({ venue, onEdit, canManage = true }: Props) {
   const { percent, missing } = venueCompleteness(venue)
   const cover = venue.cover_image ? mediaUrl(venue.cover_image) : null
+  const isVideo = venue.cover_kind === 'video' || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(cover || '')
   const openLabel =
     venue.is_open === true ? 'Open' : venue.is_open === false ? 'Closed' : venue.is_active ? 'Published' : 'Draft'
 
@@ -21,7 +22,11 @@ export function FoodVenueCard({ venue, onEdit, canManage = true }: Props) {
     <article className="adm-listing-card">
       <div className="adm-listing-card__img">
         {cover ? (
-          <img src={cover} alt="" />
+          isVideo ? (
+            <video src={cover} muted playsInline preload="metadata" aria-hidden />
+          ) : (
+            <img src={cover} alt="" />
+          )
         ) : (
           <UtensilsCrossed size={28} strokeWidth={1.75} aria-hidden className="adm-listing-card__placeholder-icon" />
         )}

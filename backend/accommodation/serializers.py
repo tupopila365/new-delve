@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from .booking_services import (
@@ -17,8 +18,65 @@ from .models import (
 )
 
 
+def _owner_display_name(user) -> str | None:
+    profile = getattr(user, "profile", None)
+    if profile and getattr(profile, "display_name", None):
+        name = (profile.display_name or "").strip()
+        return name or None
+    return None
+
+
+def _owner_avatar_url(user, request=None) -> str | None:
+    profile = getattr(user, "profile", None)
+    avatar = getattr(profile, "avatar", None) if profile else None
+    if not avatar:
+        return None
+    try:
+        url = avatar.url
+    except Exception:
+        return None
+    if request and url.startswith("/"):
+        return request.build_absolute_uri(url)
+    return url
+
+
+def _absolute_media_url(url: str, request=None) -> str:
+    text = (url or "").strip()
+    if not text:
+        return ""
+    if text.startswith(("http://", "https://", "data:", "blob:")):
+        return text
+    if text.startswith("/") and request:
+        return request.build_absolute_uri(text)
+    try:
+        storage_url = default_storage.url(text)
+    except Exception:
+        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
+    if request and storage_url.startswith("/"):
+        return request.build_absolute_uri(storage_url)
+    return storage_url
+
+
+def _listing_cover_url(obj: AccommodationListing, request=None) -> str | None:
+    raw = (getattr(obj, "cover_image", None) or "").strip()
+    if raw:
+        url = _absolute_media_url(raw, request)
+        if url:
+            return url
+    for item in obj.media_gallery or []:
+        if not isinstance(item, dict):
+            continue
+        src = str(item.get("src") or "").strip()
+        if src:
+            return _absolute_media_url(src, request) or src
+    return None
+
+
 class AccommodationListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
+    owner_display_name = serializers.SerializerMethodField()
+    owner_avatar = serializers.SerializerMethodField()
+    cover_image = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     likes_count = serializers.SerializerMethodField()
     liked_by_me = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
@@ -30,6 +88,8 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "id",
             "owner",
             "owner_username",
+            "owner_display_name",
+            "owner_avatar",
             "title",
             "description",
             "property_type",
@@ -70,7 +130,27 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "liked_by_me",
             "saves_count",
             "saved_by_me",
+            "owner_display_name",
+            "owner_avatar",
         )
+
+    def get_owner_display_name(self, obj):
+        return _owner_display_name(obj.owner)
+
+    def get_owner_avatar(self, obj):
+        return _owner_avatar_url(obj.owner, self.context.get("request"))
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        cover = _listing_cover_url(instance, request)
+        data["cover_image"] = cover
+        return data
+
+    def validate_cover_image(self, value):
+        if value is None:
+            return ""
+        return str(value).strip()
 
     def get_likes_count(self, obj):
         v = getattr(obj, "likes_count", None)
@@ -107,7 +187,14 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         if not hasattr(user, "profile") or user.profile.user_type != "service_provider":
             raise serializers.ValidationError("Only service providers can create listings.")
         validated_data["owner"] = user
+        if validated_data.get("cover_image") is None:
+            validated_data["cover_image"] = ""
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "cover_image" in validated_data and validated_data["cover_image"] is None:
+            validated_data["cover_image"] = ""
+        return super().update(instance, validated_data)
 
 
 class AccommodationBookingSerializer(serializers.ModelSerializer):

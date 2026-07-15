@@ -84,9 +84,9 @@
 }
 
 .cm-video-editor__audio button.is-active {
-  border-color: rgba(124, 58, 237, 0.35);
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--accent, #7c3aed);
+  border-color: rgba(26, 21, 16, 0.35);
+  background: rgba(26, 21, 16, 0.1);
+  color: var(--accent, #1a1510);
 }
 
 .cm-video-editor__audio button:disabled {
@@ -122,9 +122,9 @@
 }
 
 .cm-video-editor__tools button.is-active {
-  border-color: rgba(124, 58, 237, 0.35);
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--accent, #7c3aed);
+  border-color: rgba(26, 21, 16, 0.35);
+  background: rgba(26, 21, 16, 0.1);
+  color: var(--accent, #1a1510);
 }
 
 .cm-video-editor__draw-tools {
@@ -146,7 +146,7 @@
 }
 
 .cm-video-editor__colors button.is-active {
-  outline: 2px solid var(--accent, #7c3aed);
+  outline: 2px solid var(--accent, #1a1510);
   outline-offset: 2px;
 }
 

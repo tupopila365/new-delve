@@ -114,7 +114,7 @@ export function FoodReserveCard({
       : null
 
   return (
-    <div className={`rental-reserve ${className}`.trim()} id="food-reserve-panel">
+    <div className={`rental-reserve fd-reserve ${className}`.trim()}>
       <p className="rental-reserve__kicker">Request a table</p>
 
       <div className="rental-reserve__head">

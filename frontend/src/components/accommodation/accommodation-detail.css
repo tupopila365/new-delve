@@ -1,0 +1,636 @@
+/* Stay detail — journey shell with rosewood / soft coral accent */
+
+.acc-detail-page {
+  --accent: #c97b6b;
+  --accent-hover: #e09a8c;
+  --accent-soft: rgba(201, 123, 107, 0.18);
+  --accent-ring: rgba(224, 154, 140, 0.38);
+  --listing-accent: #e09a8c;
+  --stay-cost: #e8b4a8;
+  --stay-cost-soft: rgba(232, 180, 168, 0.14);
+}
+
+.acc-detail-page .jd-badge {
+  color: #e09a8c;
+  border-color: rgba(224, 154, 140, 0.35);
+  background: rgba(201, 123, 107, 0.16);
+}
+
+.acc-detail-page .jd-title {
+  font-size: clamp(1.85rem, 6.5vw, 2.55rem);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  animation: acc-rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.acc-detail-page .jd-titleblock {
+  animation: acc-rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+}
+
+@keyframes acc-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.acc-detail-page .jd-fact--cost {
+  color: var(--stay-cost);
+  border-color: rgba(232, 180, 168, 0.45);
+  background: var(--stay-cost-soft);
+}
+
+.acc-detail-page .jd-fact--cost svg {
+  color: var(--stay-cost);
+}
+
+.acc-detail-page .jd-facts {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.acc-detail-page .jd-facts::-webkit-scrollbar {
+  display: none;
+}
+
+.acc-detail-page .jd-fact {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-width: max-content;
+}
+
+.acc-detail-page .jd-engage__btn--save.is-active,
+.acc-detail-page .jd-mobilebar__icon.is-active {
+  color: #ffc107;
+}
+
+.acc-detail-page a.jd-engage__btn {
+  text-decoration: none;
+  color: inherit;
+}
+
+.acc-detail-page a.jd-mobilebar__btn {
+  text-decoration: none;
+}
+
+.acc-detail-page .jd-mobilebar__btn {
+  background: var(--accent);
+  color: #1a0e0c;
+  border: 0;
+}
+
+.acc-detail-page .jd-mobilebar__btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.acc-detail-page .jd-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a0e0c;
+}
+
+.acc-detail-page .jd-btn--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.acc-detail__reserve-block {
+  margin: 8px 0 20px;
+  max-width: 24rem;
+  animation: acc-rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+.acc-detail__rooms {
+  margin: 12px 0 8px;
+  scroll-margin-bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 96px);
+}
+
+.acc-detail__venue-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.acc-detail__provider,
+.acc-detail__moments,
+.acc-detail__reviews,
+.acc-detail__questions,
+.acc-detail__faq {
+  margin-bottom: 12px;
+}
+
+.acc-detail__moment-cta {
+  margin: -4px 0 16px;
+  font-size: 0.82rem;
+}
+
+.acc-detail__moment-cta a {
+  color: var(--accent-hover);
+}
+
+.acc-detail-page .listing-section,
+.acc-detail-page .listing-reviews,
+.acc-detail-page .listing-faq,
+.acc-detail-page .listing-amenities,
+.acc-detail-page .listing-rules {
+  color: var(--text);
+}
+
+/* Stay room ticket strip */
+.stay-rooms__sub {
+  margin: -2px 0 14px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.55));
+  font-size: 0.8rem;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.stay-rooms__strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 2px 4px 18px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.stay-rooms__strip::-webkit-scrollbar {
+  display: none;
+}
+
+.stay-rooms__card {
+  flex: 0 0 min(210px, 72vw);
+  scroll-snap-align: start;
+  display: grid;
+  gap: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.stay-rooms__card:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.stay-rooms__card--featured {
+  border-color: rgba(224, 154, 140, 0.28);
+}
+
+.stay-rooms__card--active {
+  border-color: rgba(224, 154, 140, 0.8);
+  box-shadow:
+    0 0 0 1px rgba(224, 154, 140, 0.4),
+    0 10px 28px rgba(0, 0, 0, 0.28);
+  transform: scale(1.02);
+}
+
+.stay-rooms__media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: #0a0a0a;
+  text-decoration: none;
+}
+
+.stay-rooms__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.stay-rooms__media:hover img {
+  transform: scale(1.04);
+}
+
+.stay-rooms__media-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: rgba(224, 154, 140, 0.45);
+  background: linear-gradient(145deg, #2a1814, #080808);
+}
+
+.stay-rooms__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: rgba(26, 14, 12, 0.78);
+  border: 1px solid rgba(224, 154, 140, 0.4);
+  color: #e09a8c;
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+}
+
+.stay-rooms__count {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: rgba(8, 8, 8, 0.78);
+  color: #fff;
+  font-size: 0.64rem;
+  font-weight: 800;
+  backdrop-filter: blur(6px);
+}
+
+.stay-rooms__body {
+  display: grid;
+  gap: 6px;
+  padding: 12px 12px 14px;
+  cursor: pointer;
+}
+
+.stay-rooms__name {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text, #fff);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.stay-rooms__name:hover {
+  color: var(--text, #fff);
+}
+
+.stay-rooms__price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+}
+
+.stay-rooms__was {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: line-through;
+}
+
+.stay-rooms__price-value {
+  color: var(--stay-cost);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.stay-rooms__price-unit {
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.42));
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.stay-rooms__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.stay-rooms__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.stay-rooms__select {
+  min-height: 36px;
+  min-width: 72px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #fff);
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.stay-rooms__select:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.stay-rooms__select--on {
+  background: rgba(201, 123, 107, 0.28);
+  border-color: rgba(224, 154, 140, 0.65);
+  color: #e09a8c;
+  transform: scale(1.03);
+}
+
+.stay-rooms__view {
+  color: var(--text-secondary, rgba(255, 255, 255, 0.55));
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  touch-action: manipulation;
+}
+
+.stay-rooms__view:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+@media (min-width: 860px) {
+  .stay-rooms__card {
+    flex: 0 0 230px;
+  }
+}
+
+/* Lite reserve panel */
+.stay-reserve {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.stay-reserve__kicker {
+  margin: 0 0 8px;
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-hover);
+}
+
+.stay-reserve__price {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--stay-cost);
+}
+
+.stay-reserve__price small {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.stay-reserve__meta {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.stay-reserve__hint {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.5);
+}
+
+.stay-reserve .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a0e0c;
+  font-weight: 850;
+}
+
+.stay-reserve .btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.stay-reserve__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Host provider card */
+.acc-host-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.acc-host-card__avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #e09a8c, #c97b6b);
+  color: #1a0e0c;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.acc-host-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.acc-host-card__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.acc-host-card__kicker {
+  margin: 0 0 2px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 242, 0.48);
+}
+
+.acc-host-card__name {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 850;
+  color: var(--text, #fff);
+}
+
+.acc-host-card__loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.acc-host-card__bio {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-weight: 550;
+  color: rgba(255, 250, 242, 0.62);
+}
+
+.acc-host-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Amenity / tips chips on journey surface */
+.acc-detail-page .jd-tips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-detail-page .jd-tip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.85);
+}
+
+.acc-detail-page .jd-amenity-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-detail-page .jd-amenity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.85);
+}
+
+.acc-detail-page .jd-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.acc-detail-page .jd-rules li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.78);
+}
+
+.acc-detail-page .jd-hero--empty .jd-hero__slide-empty,
+.acc-detail-page .jd-hero__slide-empty {
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(201, 123, 107, 0.28), transparent 55%),
+    radial-gradient(ellipse at 78% 70%, rgba(232, 180, 168, 0.12), transparent 50%),
+    linear-gradient(145deg, #2a1814, #080808);
+}
+
+.acc-detail-page .jd-hero {
+  min-height: 220px;
+  background: linear-gradient(145deg, #2a1814, #080808);
+}
+
+@keyframes acc-bar-up {
+  from {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Align with guide shell (≤640px) — sit ABOVE Primary bottom nav */
+@media (max-width: 640px) {
+  .acc-detail-page .jd-mobilebar {
+    display: flex;
+    bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 8px);
+    z-index: 35;
+    animation: acc-bar-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .acc-detail-page {
+    padding-bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 88px);
+  }
+}
+
+@media (min-width: 641px) {
+  .acc-detail-page .jd-mobilebar {
+    display: none;
+  }
+}

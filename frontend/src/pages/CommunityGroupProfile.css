@@ -51,7 +51,7 @@
   height: 96px;
   border-radius: 999px;
   overflow: hidden;
-  background: linear-gradient(135deg, #a78bfa, #c13584);
+  background: #1a1510;
   padding: 3px;
 }
 
@@ -135,10 +135,10 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border: 1px solid rgba(124, 58, 237, 0.45);
+  border: 1px solid rgba(26, 21, 16, 0.45);
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.12);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.12);
+  color: #5c534c;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 800;
@@ -184,8 +184,8 @@
 }
 
 .group-profile__pending-btn--approve {
-  border-color: rgba(124, 58, 237, 0.45);
-  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(26, 21, 16, 0.45);
+  background: rgba(26, 21, 16, 0.2);
   color: #e9d5ff;
 }
 
@@ -217,10 +217,10 @@
 .group-profile__member-role-btn {
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid rgba(124, 58, 237, 0.45);
+  border: 1px solid rgba(26, 21, 16, 0.45);
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.12);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.12);
+  color: #5c534c;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 750;
@@ -256,7 +256,7 @@
 
 .group-profile__member-pill:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(124, 58, 237, 0.28);
+  border-color: rgba(26, 21, 16, 0.28);
 }
 
 .group-profile__member-pill-avatar {
@@ -266,8 +266,8 @@
 .group-profile__member-pill-badge {
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.2);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.2);
+  color: #5c534c;
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -302,9 +302,9 @@
 }
 
 .group-profile__action--primary {
-  background: rgba(124, 58, 237, 0.2);
-  border-color: rgba(124, 58, 237, 0.35);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.2);
+  border-color: rgba(26, 21, 16, 0.35);
+  color: #5c534c;
 }
 
 .group-profile__action--danger {

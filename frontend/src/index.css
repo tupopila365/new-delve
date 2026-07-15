@@ -155,8 +155,7 @@ button {
 
 .page-home {
   width: 100%;
-  /* Slightly warmer page canvas â€” premium = calm, not loud */
-  background: linear-gradient(180deg, rgba(240, 232, 220, 0.55) 0%, transparent 28rem);
+  background: #12100e;
 }
 
 .page-home__inset {
@@ -22470,12 +22469,7 @@ a.chip.chip--accent:hover {
 }
 
 .page-home .ta-hero--home .ta-hero__scrim {
-  background: linear-gradient(
-    165deg,
-    rgba(0, 0, 0, 0.48) 0%,
-    rgba(0, 0, 0, 0.56) 50%,
-    rgba(0, 0, 0, 0.66) 100%
-  );
+  background: rgba(8, 6, 4, 0.46);
 }
 
 .page-home .ta-hero__inner--home {

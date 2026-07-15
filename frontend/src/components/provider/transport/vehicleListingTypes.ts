@@ -1,3 +1,9 @@
+import {
+  formatGalleryUrlsField,
+  isVideoUrl,
+  parseGalleryUrlsField,
+  serializeGalleryMediaList,
+} from '../../listing/photos/listingGalleryMedia'
 import { RENTER_DOCUMENT_OPTIONS } from '../../../data/renterDocuments'
 
 export { RENTER_DOCUMENT_OPTIONS }
@@ -39,7 +45,9 @@ export type VehicleListingFormValues = {
   description: string
   included_features: string[]
   cover_image_url: string
+  cover_image_file: File | null
   gallery_urls: string
+  gallery_files: File[]
   required_renter_documents: string[]
   is_active: boolean
 }
@@ -60,7 +68,9 @@ export const EMPTY_VEHICLE_LISTING_FORM: VehicleListingFormValues = {
   description: '',
   included_features: [],
   cover_image_url: '',
+  cover_image_file: null,
   gallery_urls: '',
+  gallery_files: [],
   required_renter_documents: ['driver_license_front', 'driver_license_back', 'national_id'],
   is_active: true,
 }
@@ -78,16 +88,34 @@ export type ProviderVehicleListing = {
   region: string
   city: string
   cover_image: string | null
+  cover_kind?: 'image' | 'video' | string | null
   description?: string | null
   pickup_location?: string | null
   fuel_type?: string | null
   included_features?: string[]
-  gallery_images?: string[]
+  gallery_images?: Array<string | { url?: string; kind?: string }>
   required_renter_documents?: string[]
   is_active?: boolean
 }
 
 export function vehicleToForm(v: ProviderVehicleListing): VehicleListingFormValues {
+  const gallery = parseGalleryUrlsField(
+    Array.isArray(v.gallery_images)
+      ? formatGalleryUrlsField(
+          v.gallery_images
+            .map((item) => {
+              if (typeof item === 'string') return { url: item, kind: 'image' as const }
+              const url = String(item?.url || '').trim()
+              if (!url) return null
+              return {
+                url,
+                kind: (item?.kind === 'video' || isVideoUrl(url) ? 'video' : 'image') as 'image' | 'video',
+              }
+            })
+            .filter((item): item is { url: string; kind: 'image' | 'video' } => Boolean(item)),
+        )
+      : '',
+  )
   return {
     title: v.title,
     make: v.make,
@@ -104,17 +132,19 @@ export function vehicleToForm(v: ProviderVehicleListing): VehicleListingFormValu
     description: v.description ?? '',
     included_features: v.included_features ?? [],
     cover_image_url: v.cover_image ?? '',
-    gallery_urls: (v.gallery_images ?? []).join('\n'),
+    cover_image_file: null,
+    gallery_urls: formatGalleryUrlsField(gallery),
+    gallery_files: [],
     required_renter_documents: v.required_renter_documents ?? [],
     is_active: v.is_active !== false,
   }
 }
 
 export function formToVehiclePayload(form: VehicleListingFormValues) {
-  const gallery = form.gallery_urls
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
+  const gallery = parseGalleryUrlsField(form.gallery_urls)
+  const cover = form.cover_image_url.trim()
+  const coverKind: 'image' | 'video' =
+    cover && (isVideoUrl(cover) || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(cover)) ? 'video' : 'image'
   return {
     title: form.title.trim(),
     make: form.make.trim(),
@@ -130,8 +160,11 @@ export function formToVehiclePayload(form: VehicleListingFormValues) {
     pickup_location: form.pickup_location.trim(),
     description: form.description.trim(),
     included_features: form.included_features,
-    cover_image: form.cover_image_url.trim() || null,
-    gallery_images: gallery,
+    cover_image: cover || null,
+    cover_image_url: cover || '',
+    cover_kind: coverKind,
+    cover_kind_in: coverKind,
+    gallery_images: serializeGalleryMediaList(gallery),
     required_renter_documents: form.required_renter_documents,
     is_active: form.is_active,
   }

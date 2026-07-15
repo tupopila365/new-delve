@@ -99,7 +99,7 @@ export function VerifyEmail() {
       }
       footer={
         <>
-          Already verified? <Link to="/login">Log in</Link>
+          Already verified? <Link to="/login">Sign in</Link>
         </>
       }
     >
@@ -109,9 +109,9 @@ export function VerifyEmail() {
           {msg}{' '}
           {!msg.includes('signing you in') ? (
             isProvider ? (
-              <Link to="/login?next=%2Fprovider%2Fonboarding">Log in to continue setup →</Link>
+              <Link to="/login?next=%2Fprovider%2Fonboarding">Sign in to continue setup →</Link>
             ) : (
-              <Link to="/login">Log in →</Link>
+              <Link to="/login">Sign in →</Link>
             )
           ) : null}
         </p>

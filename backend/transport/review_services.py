@@ -27,6 +27,19 @@ def sync_vehicle_listing_rating(listing: VehicleRentalListing) -> None:
     listing.save(update_fields=["rating_avg", "rating_count"])
 
 
+def sync_bus_trip_rating(trip: BusTrip) -> None:
+    ratings = list(
+        SeatReservationReview.objects.filter(trip=trip).values_list("rating", flat=True)
+    )
+    if not ratings:
+        trip.rating_avg = Decimal("0")
+        trip.rating_count = 0
+    else:
+        trip.rating_avg = round(sum(ratings) / len(ratings), 2)
+        trip.rating_count = len(ratings)
+    trip.save(update_fields=["rating_avg", "rating_count"])
+
+
 def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
     rows = []
     for review in (
@@ -67,7 +80,5 @@ def bus_trip_reviews_payload(trip: BusTrip) -> dict:
                 "created_at": review.created_at.isoformat(),
             }
         )
-    if not rows:
-        return {"reviews": [], "rating_avg": None, "rating_count": 0}
-    avg = round(sum(r["rating"] for r in rows) / len(rows), 2)
-    return {"reviews": rows, "rating_avg": str(avg), "rating_count": len(rows)}
+    avg = str(trip.rating_avg) if trip.rating_count else None
+    return {"reviews": rows, "rating_avg": avg, "rating_count": trip.rating_count}

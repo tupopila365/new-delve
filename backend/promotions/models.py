@@ -189,7 +189,6 @@ HOMEPAGE_PIN_PLACEMENTS = frozenset(
         PromotionPlacement.HOMEPAGE_GUIDES,
         PromotionPlacement.HOMEPAGE_FOOD,
         PromotionPlacement.HOMEPAGE_EVENTS,
-        PromotionPlacement.HOMEPAGE_TRANSPORT,
     }
 )
 

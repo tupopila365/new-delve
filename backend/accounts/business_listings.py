@@ -18,7 +18,15 @@ from .models import BusinessProfile, BusinessType
 def _media_url(request, field) -> str | None:
     if not field:
         return None
-    url = field.url
+    if isinstance(field, str):
+        url = field.strip()
+        if not url:
+            return None
+        return _absolute_url(request, url if url.startswith(("/", "http://", "https://")) else f"/media/{url.lstrip('/')}")
+    try:
+        url = field.url
+    except (ValueError, AttributeError):
+        return None
     if request is not None:
         return request.build_absolute_uri(url)
     return url
@@ -138,7 +146,7 @@ def business_listings(business: BusinessProfile, request=None) -> list[dict]:
                 "id": stay.pk,
                 "title": stay.title,
                 "subtitle": subtitle,
-                "image": _media_url(request, stay.cover_image),
+                "image": _absolute_url(request, str(stay.cover_image).strip()) if stay.cover_image else None,
                 "href": f"/accommodation/{stay.pk}",
                 "meta": f"N${stay.price_per_night}/night" if stay.price_per_night is not None else None,
             }

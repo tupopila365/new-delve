@@ -69,7 +69,7 @@ export function EditableProfileAvatar({ avatar, displayName, username }: Props) 
             src={editor.previewSrc ?? avatar}
             name={displayName}
             size="xl"
-            shape="rounded"
+            shape="circle"
             className="profile-bio__avatar"
             fill
           />

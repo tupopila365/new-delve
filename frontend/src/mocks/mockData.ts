@@ -103,6 +103,8 @@ export type MockStay = {
   /** Distinct bookable room or unit types the host offers. */
   room_types?: MockRoomType[]
   owner_username: string
+  owner_display_name?: string | null
+  owner_avatar?: string | null
   rating_avg: string
   rating_count: number
   property_type: string
@@ -112,6 +114,7 @@ export type MockStay = {
   pool: boolean
   kitchen: boolean
   breakfast: boolean
+  is_active?: boolean
 }
 
 export type MockVehicle = {

@@ -557,7 +557,6 @@ export const PLACEMENT_OPTIONS = [
   { value: 'homepage_guides', label: 'Homepage — Featured guides', targetType: 'guide', listingType: 'guide', maxSlots: 2, defaultLabel: 'Featured Partner' },
   { value: 'homepage_food', label: 'Homepage — Featured food', targetType: 'food', listingType: 'food', maxSlots: 2, defaultLabel: 'Featured Partner' },
   { value: 'homepage_events', label: 'Homepage — Featured events', targetType: 'event', listingType: 'event', maxSlots: 2, defaultLabel: 'Featured Partner' },
-  { value: 'homepage_transport', label: 'Homepage — Featured transport', targetType: 'vehicle', listingType: 'vehicle', maxSlots: 2, defaultLabel: 'Featured Partner' },
   { value: 'category_spotlight', label: 'Category list — Hero spotlight', targetType: 'food', listingType: 'food', maxSlots: 1, defaultLabel: 'Featured Partner' },
   { value: 'delvers_feed', label: 'Delvers feed — Sponsored', targetType: 'post', listingType: 'post', maxSlots: 2, defaultLabel: 'Sponsored' },
   { value: 'community_feed', label: 'Community feed — Sponsored', targetType: 'post', listingType: 'community', maxSlots: 2, defaultLabel: 'Sponsored' },
@@ -574,11 +573,6 @@ export const FEED_TARGET_TYPES = [
   { value: 'guide', label: 'Guide profile' },
   { value: 'food', label: 'Food venue' },
   { value: 'event', label: 'Event' },
-  { value: 'vehicle', label: 'Vehicle rental' },
-  { value: 'bus_trip', label: 'Bus trip' },
-] as const
-
-export const TRANSPORT_TARGET_TYPES = [
   { value: 'vehicle', label: 'Vehicle rental' },
   { value: 'bus_trip', label: 'Bus trip' },
 ] as const

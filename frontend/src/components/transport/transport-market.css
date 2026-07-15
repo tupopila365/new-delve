@@ -1,0 +1,388 @@
+/* Transport marketplace cards — photo/video-led rental discovery */
+
+.tm-card {
+  --tm-accent: #5a9b7a;
+  --tm-accent-bright: #8fd4b0;
+  --tm-gold: #ffc107;
+  --tm-surface: rgba(255, 255, 255, 0.045);
+  --tm-border: rgba(255, 255, 255, 0.1);
+  --tm-text: #fffaf2;
+  --tm-muted: rgba(255, 250, 242, 0.62);
+
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--tm-text);
+  background: var(--tm-surface);
+  border: 1px solid var(--tm-border);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.tm-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(143, 212, 176, 0.35);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.tm-card:focus-visible {
+  outline: 2px solid var(--tm-accent-bright);
+  outline-offset: 3px;
+}
+
+.tm-card__media {
+  position: relative;
+  overflow: hidden;
+  background: #0e1210;
+}
+
+.tm-card__img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.tm-card__video {
+  background: #000;
+}
+
+.tm-card__placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--tm-accent-bright);
+  background:
+    radial-gradient(ellipse 70% 60% at 70% 20%, rgba(90, 155, 122, 0.28), transparent 55%),
+    linear-gradient(160deg, #141a16, #0c100e);
+}
+
+.tm-card__type {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0c100e;
+  background: rgba(255, 250, 242, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.tm-card__type--bus {
+  background: rgba(143, 212, 176, 0.95);
+}
+
+.tm-card__actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.tm-card__act {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(8, 10, 9, 0.55);
+  color: #fffaf2;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.tm-card__act:hover {
+  background: rgba(8, 10, 9, 0.75);
+  transform: scale(1.04);
+}
+
+.tm-card__act--save.is-active {
+  color: var(--tm-gold);
+  background: rgba(8, 10, 9, 0.72);
+}
+
+.tm-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 13px 14px;
+  flex: 1;
+}
+
+.tm-card__eyebrow {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tm-muted);
+}
+
+.tm-card__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--tm-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tm-card__location,
+.tm-card__operator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--tm-muted);
+}
+
+.tm-card__location svg,
+.tm-card__operator svg {
+  flex-shrink: 0;
+  color: var(--tm-accent-bright);
+}
+
+.tm-card__specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tm-card__spec {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--tm-text);
+}
+
+.tm-card__foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.tm-card__price-block {
+  min-width: 0;
+}
+
+.tm-card__price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  color: var(--tm-accent-bright);
+}
+
+.tm-card__price svg {
+  align-self: center;
+}
+
+.tm-card__per {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tm-muted);
+}
+
+.tm-card__est {
+  margin: 2px 0 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--tm-muted);
+}
+
+.tm-card__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 850;
+  color: var(--tm-text);
+  flex-shrink: 0;
+}
+
+.tm-card__rating--muted {
+  color: var(--tm-muted);
+  font-weight: 700;
+}
+
+.tm-card__rating svg {
+  color: var(--tm-gold);
+}
+
+/* Trip cards — horizontal on larger screens */
+.tm-card--trip {
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .tm-card--trip {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .tm-card--trip .tm-card__media--trip {
+    flex: 0 0 42%;
+    max-width: 280px;
+  }
+
+  .tm-card--trip .tm-card__img {
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: 168px;
+  }
+}
+
+.tm-card__body--trip {
+  gap: 8px;
+}
+
+.tm-card__route {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.tm-card__city {
+  font-size: 1.05rem;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  color: var(--tm-text);
+}
+
+.tm-card__route-arrow {
+  color: var(--tm-accent-bright);
+  flex-shrink: 0;
+}
+
+.tm-card__trip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.tm-card__when {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--tm-muted);
+}
+
+.tm-card__when span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tm-card__duration {
+  font-weight: 800;
+  color: var(--tm-accent-bright);
+}
+
+.tm-card__fare {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.tm-card__price--fare {
+  font-size: 1.1rem;
+}
+
+.tm-card__seats {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.tm-card__seats--low {
+  background: rgba(90, 155, 122, 0.2);
+  color: var(--tm-accent-bright);
+}
+
+.tm-card__seats--mid {
+  background: rgba(255, 193, 7, 0.16);
+  color: #ffd54f;
+}
+
+.tm-card__seats--high {
+  background: rgba(255, 48, 64, 0.18);
+  color: #ff8a94;
+}
+
+.tm-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 850;
+  color: var(--tm-accent-bright);
+}
+
+.tm-card--trip:hover .tm-card__cta {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Grid helpers used on the transport list page */
+.tp-page__car-grid .tm-card,
+.tp-page__trip-list .tm-card {
+  height: 100%;
+}
+
+.tp-page__trip-list {
+  display: grid;
+  gap: 12px;
+}
+
+/* Featured rail media video support */
+.tp-page__featured-card .ev-story__img-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

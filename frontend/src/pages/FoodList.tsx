@@ -1,41 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import type { LucideIcon } from 'lucide-react'
-import {
-  BadgeDollarSign,
-  Clock,
-  Coffee,
-  Croissant,
-  Fish,
-  Flame,
-  MapPin,
-  Moon,
-  Sandwich,
-  SlidersHorizontal,
-  Soup,
-  Star,
-  Truck,
-  Users,
-  Utensils,
-  Wine,
-  X,
-} from 'lucide-react'
+import { MapPin, Search, Utensils, X } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { useToggleFoodSave } from '../hooks/useFoodSave'
-import { CategorySpotlightHero } from '../components/CategorySpotlightHero'
-import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
+import { useFoodEngagement } from '../hooks/useFoodEngagement'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
-import { MarketplaceHero, QuickFilterChips, SearchPanel } from '../components/marketplace'
 import { FoodListingCard, VenueSpotlightStories } from '../components/food'
-import '../components/Featured.css'
 import type { VenueStoryChannelInput } from '../components/food/stories/types'
 import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
 import { EmptyState, ListSkeleton } from '../components/ui'
-import { foodCoverSrc, foodOpenBadge } from '../utils/foodDisplay'
+import { foodCoverSrc } from '../utils/foodDisplay'
+import '../components/food/food-list.css'
 
 type Venue = {
   id: number
@@ -48,57 +26,64 @@ type Venue = {
   owner_display_name?: string | null
   price_level: number
   cover_image: string | null
+  cover_kind?: 'image' | 'video' | string | null
   rating_avg?: string | null
   rating_count?: number | null
   saved_by_me?: boolean
+  saves_count?: number
+  liked_by_me?: boolean
+  likes_count?: number
   is_open?: boolean | null
   tagline?: string | null
   popular_dish?: string | null
   closes_at?: string | null
+  takeaway?: boolean | null
+  delivery?: boolean | null
+  reservations?: boolean | null
+  dine_in?: boolean | null
   venue_stories?: VenueStoryChannelInput[]
   is_featured_partner?: boolean
   partner_label?: string
   promotion_id?: number
 }
 
-const CUISINE_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
-  { value: 'local', label: 'Local', Icon: Utensils },
-  { value: 'grill', label: 'Grill', Icon: Flame },
-  { value: 'seafood', label: 'Seafood', Icon: Fish },
-  { value: 'cafe', label: 'Café', Icon: Coffee },
-  { value: 'bakery', label: 'Bakery', Icon: Croissant },
-  { value: 'pizza', label: 'Pizza', Icon: Utensils },
-  { value: 'asian', label: 'Asian', Icon: Soup },
-  { value: 'fast_food', label: 'Fast food', Icon: Sandwich },
-  { value: 'bar', label: 'Bar', Icon: Wine },
-  { value: 'vegan', label: 'Vegan', Icon: Utensils },
-  { value: 'international', label: 'International', Icon: Utensils },
-  { value: 'other', label: 'Other', Icon: Utensils },
+const CUISINE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'local', label: 'Local' },
+  { value: 'grill', label: 'Grill' },
+  { value: 'seafood', label: 'Seafood' },
+  { value: 'cafe', label: 'Café' },
+  { value: 'bakery', label: 'Bakery' },
+  { value: 'pizza', label: 'Pizza' },
+  { value: 'asian', label: 'Asian' },
+  { value: 'fast_food', label: 'Fast food' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'vegan', label: 'Vegan' },
+  { value: 'international', label: 'International' },
+  { value: 'other', label: 'Other' },
 ]
 
-const MOOD_FILTERS: { id: string; label: string; Icon: LucideIcon }[] = [
-  { id: 'open', label: 'Open now', Icon: Clock },
-  { id: 'favourites', label: 'Local favourite', Icon: Star },
-  { id: 'cheap', label: 'Cheap eats', Icon: BadgeDollarSign },
-  { id: 'date', label: 'Date night', Icon: Moon },
-  { id: 'family', label: 'Family friendly', Icon: Users },
-  { id: 'takeaway', label: 'Takeaway', Icon: Truck },
-]
-
-const SIDEBAR_CUISINES: { label: string; value: string }[] = [
-  { label: 'Café', value: 'cafe' },
-  { label: 'Grill', value: 'grill' },
-  { label: 'Seafood', value: 'seafood' },
-  { label: 'Local food', value: 'local' },
-  { label: 'Bakery', value: 'bakery' },
-  { label: 'Vegetarian', value: 'other' },
-  { label: 'Fast food', value: 'fast_food' },
+const MOOD_FILTERS: { id: string; label: string }[] = [
+  { id: 'open', label: 'Open now' },
+  { id: 'favourites', label: 'Top rated' },
+  { id: 'cheap', label: 'Cheap eats' },
+  { id: 'date', label: 'Date night' },
+  { id: 'family', label: 'Family' },
+  { id: 'takeaway', label: 'Takeaway' },
+  { id: 'delivery', label: 'Delivery' },
+  { id: 'reserve', label: 'Reservations' },
 ]
 
 const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva', 'Lüderitz'] as const
 
+type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'name'
+
 function cuisineMeta(value: string) {
-  return CUISINE_OPTIONS.find((c) => c.value === value) ?? { label: value, Icon: Utensils }
+  return CUISINE_OPTIONS.find((c) => c.value === value) ?? { label: value }
+}
+
+function ratingValue(v: Venue): number {
+  const n = v.rating_avg != null && v.rating_avg !== '' ? Number(v.rating_avg) : 0
+  return Number.isFinite(n) ? n : 0
 }
 
 function onFoodImgError(e: React.SyntheticEvent<HTMLImageElement>, cuisine: string) {
@@ -107,26 +92,15 @@ function onFoodImgError(e: React.SyntheticEvent<HTMLImageElement>, cuisine: stri
   if (img.src !== fallback) img.src = fallback
 }
 
-function resultsSummary(count: number, hasFilters: boolean, search: string) {
-  const noun = count === 1 ? 'food spot' : 'food spots'
-  if (!hasFilters && !search) {
-    return count > 0 ? `${count} ${noun} available` : 'Explore restaurants, cafés, and local food spots.'
-  }
-  if (search && hasFilters) return `${count} ${noun} for “${search}” match your filters`
-  if (search) return `${count} results for “${search}”`
-  if (hasFilters) return `${count} ${noun} match your filters`
-  return `${count} ${noun} available`
-}
-
 export function FoodList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const saveMut = useToggleFoodSave()
   const [cuisine, setCuisine] = useState('')
+  const [city, setCity] = useState('')
   const [mood, setMood] = useState('')
+  const [sort, setSort] = useState<SortId>('recommended')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -136,335 +110,373 @@ export function FoodList() {
   const qs = useMemo(() => {
     const p = new URLSearchParams()
     if (cuisine) p.set('cuisine', cuisine)
+    if (city) p.set('city', city)
     if (search) p.set('search', search)
+    if (mood === 'cheap') p.set('max_price_level', '1')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [cuisine, search])
+  }, [cuisine, city, search, mood])
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['food', qs, profile?.username ?? 'anon'],
     queryFn: () => apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: Boolean(profile) }),
   })
 
-  const { data: spotlight = [] } = useFeaturedPlacement<Venue>('food-spotlight', FEATURED_API.spotlight('food'))
   const { data: featuredFood = [] } = useFeaturedPlacement<Venue>('food-featured-rail', FEATURED_API.food)
 
-  const spotlightVenue = spotlight[0]
-
-  useEffect(() => {
-    if (spotlightVenue?.promotion_id) {
-      trackPromotion(spotlightVenue.promotion_id, 'impression')
-    }
-  }, [spotlightVenue?.promotion_id])
-
   const venues = useMemo(() => {
-    let list = data ?? []
+    let list = [...(data ?? [])]
     if (mood === 'open') list = list.filter((v) => v.is_open === true)
-    if (mood === 'cheap') list = list.filter((v) => (v.price_level || 1) <= 1)
     if (mood === 'date') list = list.filter((v) => (v.price_level || 1) >= 3 || v.cuisine === 'bar')
-    if (mood === 'family') list = list.filter((v) => (v.price_level || 2) <= 2)
-    if (mood === 'favourites') list = list.filter((v) => (v.rating_count ?? 0) >= 80)
-    if (mood === 'takeaway') list = list.filter((v) => v.cuisine === 'fast_food' || v.cuisine === 'bakery')
-    return list
-  }, [data, mood])
+    if (mood === 'family') list = list.filter((v) => (v.price_level || 2) <= 2 && v.cuisine !== 'bar')
+    if (mood === 'favourites') list = list.filter((v) => ratingValue(v) >= 4 || (v.rating_count ?? 0) >= 10)
+    if (mood === 'takeaway') list = list.filter((v) => v.takeaway || v.cuisine === 'fast_food' || v.cuisine === 'bakery')
+    if (mood === 'delivery') list = list.filter((v) => Boolean(v.delivery))
+    if (mood === 'reserve') list = list.filter((v) => Boolean(v.reservations))
 
-  const featured = useMemo(() => featuredFood.slice(0, 5), [featuredFood])
-  const showRichSections = featured.length >= 4
-  const openNowCount = useMemo(() => (data ?? []).filter((v) => v.is_open === true).length, [data])
-  const favouritesCount = useMemo(
-    () => (data ?? []).filter((v) => (v.rating_count ?? 0) >= 80).length,
+    list.sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name)
+      if (sort === 'price_asc') return (a.price_level || 1) - (b.price_level || 1)
+      if (sort === 'price_desc') return (b.price_level || 1) - (a.price_level || 1)
+      if (sort === 'rating') {
+        const diff = ratingValue(b) - ratingValue(a)
+        if (diff !== 0) return diff
+        return (b.rating_count ?? 0) - (a.rating_count ?? 0)
+      }
+      // recommended: open + rated + partner-ish signals
+      const score = (v: Venue) =>
+        (v.is_open === true ? 3 : 0) +
+        ratingValue(v) * 2 +
+        Math.min(v.rating_count ?? 0, 40) / 20 +
+        (v.is_featured_partner ? 4 : 0) +
+        (v.popular_dish ? 0.5 : 0)
+      return score(b) - score(a)
+    })
+    return list
+  }, [data, mood, sort])
+
+  const engagement = useFoodEngagement(venues)
+
+  const featured = useMemo(() => featuredFood.slice(0, 8), [featuredFood])
+  const openNowRail = useMemo(
+    () => (data ?? []).filter((v) => v.is_open === true).slice(0, 8),
     [data],
   )
-
-  const hasFilters = !!(cuisine || search || mood)
+  const hasFilters = Boolean(cuisine || city || search || mood)
 
   const clearAll = () => {
     setCuisine('')
+    setCity('')
     setMood('')
     setSearchInput('')
     setSearch('')
+    setSort('recommended')
+  }
+
+  const requireAuth = () => {
+    if (!profile) {
+      navigate('/login')
+      return false
+    }
+    return true
+  }
+
+  const toggleLiked = (id: number, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!requireAuth()) return
+    const venue = venues.find((v) => v.id === id) ?? (data ?? []).find((v) => v.id === id)
+    if (!venue) return
+    engagement.likeVenue(venue)
   }
 
   const toggleSaved = (id: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!profile) {
-      navigate('/login')
-      return
-    }
-    saveMut.mutate(id)
+    if (!requireAuth()) return
+    const venue = venues.find((v) => v.id === id) ?? (data ?? []).find((v) => v.id === id)
+    if (!venue) return
+    engagement.saveVenue(venue)
   }
 
-  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
-    return [
-      {
-        id: 'popular-cuisines',
-        title: 'Popular cuisines',
-        type: 'links',
-        items: SIDEBAR_CUISINES.map(({ label, value }) => ({
-          label,
-          active: cuisine === value,
-          onClick: () => setCuisine(cuisine === value ? '' : value),
-        })),
-      },
-      {
-        id: 'food-pulse',
-        title: 'Food pulse',
-        type: 'stats',
-        items: [
-          { value: data?.length ? data.length : '—', label: 'food spots listed' },
-          { value: openNowCount ? openNowCount : '—', label: 'open now' },
-          { value: favouritesCount ? favouritesCount : '—', label: 'local favourites' },
-        ],
-      },
-      {
-        id: 'top-areas',
-        title: 'Top areas',
-        type: 'links',
-        items: TOP_AREAS.map((city) => ({
-          label: city,
-          onClick: () => {
-            setSearchInput(city)
-            setSearch(city)
-          },
-        })),
-      },
-    ]
-  }, [cuisine, data?.length, favouritesCount, openNowCount])
+  const shareVenue = (id: number, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const venue = venues.find((v) => v.id === id) ?? (data ?? []).find((v) => v.id === id)
+    if (!venue) return
+    void engagement.shareVenuePlain(venue)
+  }
+
+  const moodLabel = MOOD_FILTERS.find((m) => m.id === mood)?.label
 
   return (
-    <div className="ev-page fd-page acc-page disc-page mk-page">
-      <MarketplaceHero
-        title="Eat & drink"
-        subtitle="Find restaurants, cafés, grills, bars, and local food spots travellers recommend."
-        support="Search by cuisine, venue, city, price, or mood."
-        action={
-          <button
-            type="button"
-            className={`fd-filter-toggle acc-page__filter-btn btn btn-ghost${showFilters ? ' acc-page__filter-btn--active' : ''}${hasFilters ? ' acc-page__filter-btn--has-filters' : ''}`}
-            onClick={() => setShowFilters((v) => !v)}
-            aria-expanded={showFilters}
-          >
-            <SlidersHorizontal size={16} strokeWidth={2.25} aria-hidden />
-            {showFilters ? 'Hide filters' : 'Filters'}
-          </button>
-        }
-      />
+    <div className="fd-market">
+      {engagement.shareMsg ? (
+        <p className="jn-detail-page__toast" role="status">
+          {engagement.shareMsg}
+        </p>
+      ) : null}
+      <header className="fd-market__hero">
+        <p className="fd-market__kicker">Food marketplace</p>
+        <h1 className="fd-market__title">Find your next bite</h1>
+        <p className="fd-market__sub">
+          Browse restaurants, cafés, grills, and bars by cuisine, city, price, and what’s open now —
+          built for food lovers who know what they want.
+        </p>
 
-      <SearchPanel
-        id="fd-search"
-        label="Search food venues"
-        placeholder="Search sushi, coffee, Windhoek, grill, café…"
-        value={searchInput}
-        onChange={setSearchInput}
-        onClear={() => setSearchInput('')}
-        className="fd-page__search"
-      />
-
-      <QuickFilterChips
-        ariaLabel="Food mood filters"
-        className="fd-page__quick-chips"
-        chips={MOOD_FILTERS.map((m) => ({
-          id: m.id,
-          label: m.label,
-          Icon: m.Icon,
-          active: mood === m.id,
-        }))}
-        onChipClick={(id) => setMood(mood === id ? '' : id)}
-      />
-
-      {(cuisine || mood) && (
-        <div className="fd-active-filters" role="group" aria-label="Active filters">
-          {cuisine ? (
-            <button type="button" className="fd-active-filter" onClick={() => setCuisine('')}>
-              {cuisineMeta(cuisine).label}
-              <X size={14} strokeWidth={2.25} aria-hidden />
-            </button>
-          ) : null}
-          {mood ? (
-            <button type="button" className="fd-active-filter" onClick={() => setMood('')}>
-              {MOOD_FILTERS.find((m) => m.id === mood)?.label ?? mood}
-              <X size={14} strokeWidth={2.25} aria-hidden />
-            </button>
-          ) : null}
-        </div>
-      )}
-
-      {showFilters && (
-        <section className="ev-page__discover card fd-filters-panel fd-page__discover" aria-labelledby="fd-discover-title">
-          <h2 id="fd-discover-title" className="ev-page__discover-title">
-            Match your taste
-          </h2>
-          <p className="ev-page__discover-sub">Filter by cuisine — combine with mood chips above.</p>
-          <div className="ev-page__discover-chips fd-page__cuisine-chips" role="group" aria-label="Cuisines">
-            {CUISINE_OPTIONS.map(({ value, label, Icon }) => (
+        <div className="fd-market__find">
+          <label className="fd-market__search">
+            <Search size={18} strokeWidth={2.25} aria-hidden />
+            <input
+              id="fd-market-search"
+              type="search"
+              placeholder="Search coffee, sushi, braai, Windhoek…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              aria-label="Search food venues"
+            />
+            {searchInput ? (
               <button
-                key={`fd-discover-${value}`}
                 type="button"
-                className={`acc-quick-chip ev-page__discover-chip fd-page__cuisine-chip${cuisine === value ? ' acc-quick-chip--active' : ''}`}
-                onClick={() => setCuisine(cuisine === value ? '' : value)}
-                aria-pressed={cuisine === value}
+                className="fd-market__search-clear"
+                onClick={() => setSearchInput('')}
+                aria-label="Clear search"
               >
-                <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
-                {label}
+                <X size={14} strokeWidth={2.5} aria-hidden />
               </button>
+            ) : null}
+          </label>
+
+          <div className="fd-market__find-row">
+            <select
+              className="fd-market__select"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              aria-label="City"
+            >
+              <option value="">All cities</option>
+              {TOP_AREAS.map((area) => (
+                <option key={area} value={area}>
+                  {area}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="fd-market__select"
+              value={cuisine}
+              onChange={(e) => setCuisine(e.target.value)}
+              aria-label="Cuisine"
+            >
+              <option value="">All cuisines</option>
+              {CUISINE_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="fd-market__select"
+              value={mood}
+              onChange={(e) => setMood(e.target.value)}
+              aria-label="Mood"
+            >
+              <option value="">Any mood</option>
+              {MOOD_FILTERS.map(({ id, label }) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="fd-market__sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortId)}
+              aria-label="Sort venues"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="rating">Top rated</option>
+              <option value="price_asc">Price: low to high</option>
+              <option value="price_desc">Price: high to low</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      {hasFilters ? (
+        <div className="fd-market__active" aria-label="Active filters">
+          {search ? (
+            <button type="button" className="fd-market__active-pill" onClick={() => { setSearch(''); setSearchInput('') }}>
+              “{search}” <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {cuisine ? (
+            <button type="button" className="fd-market__active-pill" onClick={() => setCuisine('')}>
+              {cuisineMeta(cuisine).label} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {city ? (
+            <button type="button" className="fd-market__active-pill" onClick={() => setCity('')}>
+              {city} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {mood && moodLabel ? (
+            <button type="button" className="fd-market__active-pill" onClick={() => setMood('')}>
+              {moodLabel} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          <button type="button" className="fd-market__clear" onClick={clearAll}>
+            Clear all
+          </button>
+        </div>
+      ) : null}
+
+      {!isLoading && !hasFilters && featured.length > 0 ? (
+        <section className="fd-market__section" aria-labelledby="fd-featured-title">
+          <div className="fd-market__section-head">
+            <div>
+              <h2 id="fd-featured-title" className="fd-market__section-title">
+                Popular right now
+              </h2>
+              <p className="fd-market__section-sub">Spots travellers and locals are checking out</p>
+            </div>
+          </div>
+          <div className="fd-market__featured-rail">
+            {featured.map((f) => {
+              const partner = partnerBadgeFields(f, cuisineLabel(f.cuisine))
+              const href = promotionHref(`/food/${f.id}`, f.promotion_id)
+              const location = f.city ? `${f.city}, ${f.region}` : f.region
+              return (
+                <Link
+                  key={`fd-feat-${f.id}`}
+                  to={href}
+                  className="fd-market__featured"
+                  onClick={() => {
+                    if (f.promotion_id) trackPromotion(f.promotion_id, 'click')
+                  }}
+                >
+                  <div className="fd-market__featured-media">
+                    <img
+                      src={foodCoverSrc(f.cover_image, f.cuisine)}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => onFoodImgError(e, f.cuisine)}
+                    />
+                  </div>
+                  <div className="fd-market__featured-body">
+                    <span className="fd-market__featured-type">
+                      {partner.eyebrow ?? cuisineLabel(f.cuisine)}
+                    </span>
+                    <p className="fd-market__featured-title">{f.name}</p>
+                    <p className="fd-market__featured-meta">
+                      <MapPin size={12} strokeWidth={2.25} aria-hidden />
+                      {location}
+                      <span aria-hidden>·</span>
+                      From {priceLevelLabel(f.price_level)}
+                    </p>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {!isLoading && !hasFilters && featured.length >= 3 ? (
+        <VenueSpotlightStories venues={featured} />
+      ) : null}
+
+      {!isLoading && !hasFilters && openNowRail.length > 0 ? (
+        <section className="fd-market__section" aria-labelledby="fd-open-title">
+          <div className="fd-market__section-head">
+            <div>
+              <h2 id="fd-open-title" className="fd-market__section-title">
+                Open now
+              </h2>
+              <p className="fd-market__section-sub">Hungry? These kitchens are serving</p>
+            </div>
+            <button type="button" className="fd-market__clear" onClick={() => setMood('open')}>
+              See all open
+            </button>
+          </div>
+          <div className="fd-market__grid">
+            {openNowRail.slice(0, 3).map((v) => (
+              <FoodListingCard
+                key={`open-${v.id}`}
+                venue={v}
+                liked={engagement.isLiked(v)}
+                saved={engagement.isSaved(v)}
+                likeCount={engagement.likeCount(v)}
+                likeBusy={engagement.isLikeBusy(v.id)}
+                saveBusy={engagement.isSaveBusy(v.id)}
+                onToggleLike={toggleLiked}
+                onToggleSave={toggleSaved}
+                onShare={shareVenue}
+              />
             ))}
           </div>
         </section>
-      )}
+      ) : null}
 
-      <div className="fd-page__layout disc-page__layout">
-        <main className="fd-page__main disc-page__main">
-          {spotlightVenue?.is_featured_partner ? (
-            <CategorySpotlightHero
-              title={spotlightVenue.name}
-              subtitle={spotlightVenue.tagline || spotlightVenue.popular_dish || cuisineLabel(spotlightVenue.cuisine)}
-              href={promotionHref(`/food/${spotlightVenue.id}`, spotlightVenue.promotion_id)}
-              image={foodCoverSrc(spotlightVenue.cover_image, spotlightVenue.cuisine)}
-              fallbackImage={foodCoverSrc(null, spotlightVenue.cuisine)}
-              partnerLabel={spotlightVenue.partner_label || 'Featured Partner'}
-              location={spotlightVenue.city ? `${spotlightVenue.city}, ${spotlightVenue.region}` : spotlightVenue.region}
-              meta={`From ${priceLevelLabel(spotlightVenue.price_level)} / person`}
-              rating={spotlightVenue.rating_avg ? Number.parseFloat(spotlightVenue.rating_avg).toFixed(1) : null}
-            />
-          ) : null}
-
-          {!isLoading && showRichSections && (
-            <VenueSpotlightStories venues={featured} />
+      <div className="fd-market__results-bar">
+        <p className="fd-market__count" role="status">
+          {isLoading ? (
+            'Loading food spots…'
+          ) : (
+            <>
+              <strong>{venues.length}</strong>{' '}
+              {venues.length === 1 ? 'place' : 'places'}
+              {hasFilters ? ' match' : ' to explore'}
+            </>
           )}
-
-          {!isLoading && featured.length > 0 && (
-            <section className="acc-featured fd-featured-section" aria-labelledby="fd-featured-title">
-              <div className="acc-featured__head">
-                <div>
-                  <h2 id="fd-featured-title" className="acc-featured__title">
-                    Popular food spots
-                  </h2>
-                  <p className="acc-featured__sub">
-                    Restaurants, cafés, and local favourites people are checking out.
-                  </p>
-                </div>
-              </div>
-              <div className="acc-featured__rail">
-                {featured.map((f) => {
-                  const location = f.city ? `${f.city}, ${f.region}` : f.region
-                  const openLabel = foodOpenBadge(f.is_open, f.closes_at)
-                  const partner = partnerBadgeFields(f, cuisineLabel(f.cuisine))
-                  const href = promotionHref(`/food/${f.id}`, f.promotion_id)
-                  return (
-                    <Link
-                      key={`fd-featured-${f.id}`}
-                      to={href}
-                      className="acc-featured-card"
-                      onClick={() => {
-                        if (f.promotion_id) trackPromotion(f.promotion_id, 'click')
-                      }}
-                    >
-                      <div className="acc-featured-card__media">
-                        <img
-                          className="acc-featured-card__img"
-                          src={foodCoverSrc(f.cover_image, f.cuisine)}
-                          alt={f.name}
-                          loading="lazy"
-                          onError={(e) => onFoodImgError(e, f.cuisine)}
-                        />
-                        {partner.isFeaturedPartner && partner.partnerLabel ? (
-                          <span className="featured-card__partner" style={{ position: 'absolute', left: 10, top: 10, zIndex: 2 }}>
-                            {partner.partnerLabel}
-                          </span>
-                        ) : openLabel ? (
-                          <span
-                            className={`fd-card__open-badge${f.is_open === false ? ' fd-card__open-badge--closed' : ''}`}
-                            style={{ position: 'absolute', left: 10, bottom: 10, zIndex: 2 }}
-                          >
-                            {openLabel}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="acc-featured-card__body">
-                        <span className="acc-featured-card__type">{partner.eyebrow ?? cuisineLabel(f.cuisine)}</span>
-                        <p className="acc-featured-card__title">{f.name}</p>
-                        <p className="acc-featured-card__meta">
-                          <MapPin size={12} strokeWidth={2.25} aria-hidden />
-                          {location}
-                        </p>
-                        <p className="acc-featured-card__price">
-                          From {priceLevelLabel(f.price_level)}
-                          <span> / person</span>
-                        </p>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          {hasFilters && (
-            <div className="ev-page__filter-summary acc-page__filter-summary">
-              <span className="ev-page__filter-summary-text acc-page__filter-summary-text">
-                Filtered
-                {cuisine ? ` · ${cuisineMeta(cuisine).label}` : ''}
-                {mood ? ` · ${MOOD_FILTERS.find((m) => m.id === mood)?.label}` : ''}
-                {search ? ` · “${search}”` : ''}
-              </span>
-              <button type="button" className="ev-page__filter-clear acc-page__filter-clear" onClick={clearAll}>
-                Clear all
-              </button>
-            </div>
-          )}
-
-          {isError && (
-            <EmptyState
-              iconElement={<Utensils size={28} strokeWidth={1.75} />}
-              title="We couldn't load food spots"
-              sub="Please check your connection and try again."
-              cta={{ label: 'Try again', onClick: () => void refetch() }}
-              className="fd-page__empty"
-            />
-          )}
-
-          {isLoading && !isError && (
-            <div className="fd-page__skeleton-wrap">
-              <ListSkeleton count={4} />
-            </div>
-          )}
-
-          {!isLoading && !isError && venues.length > 0 && (
-            <p className="acc-page__results-summary fd-page__results-summary" role="status">
-              {resultsSummary(venues.length, hasFilters, search)}
-            </p>
-          )}
-
-          <div className="acc-page__grid ev-page__grid fd-page__grid">
-            {venues.map((f) => (
-              <FoodListingCard key={f.id} venue={f} saved={Boolean(f.saved_by_me)} onToggleSave={toggleSaved} />
-            ))}
-          </div>
-
-          {!isLoading && !isError && venues.length === 0 && (
-            <EmptyState
-              iconElement={<Utensils size={28} strokeWidth={1.75} />}
-              title={
-                hasFilters || search
-                  ? 'No food spots found'
-                  : (data?.length ?? 0) > 0
-                    ? 'No food spots found'
-                    : 'No food spots listed yet'
-              }
-              sub={
-                hasFilters || search
-                  ? 'Try changing your cuisine, city, price, or filters.'
-                  : 'Restaurants, cafés, bars, and local food places will appear here once added.'
-              }
-              cta={hasFilters || search ? { label: 'Show all food spots', onClick: clearAll } : undefined}
-              className="fd-page__empty"
-            />
-          )}
-        </main>
-
-        <DiscoverySidebar sections={sidebarSections} ariaLabel="Food discovery" />
+        </p>
       </div>
+
+      {isError ? (
+        <EmptyState
+          iconElement={<Utensils size={28} strokeWidth={1.75} />}
+          title="We couldn't load food spots"
+          sub="Please check your connection and try again."
+          cta={{ label: 'Try again', onClick: () => void refetch() }}
+        />
+      ) : null}
+
+      {isLoading && !isError ? <ListSkeleton count={6} /> : null}
+
+      {!isLoading && !isError && venues.length > 0 ? (
+        <div className="fd-market__grid">
+          {venues.map((v) => (
+            <FoodListingCard
+              key={v.id}
+              venue={v}
+              liked={engagement.isLiked(v)}
+              saved={engagement.isSaved(v)}
+              likeCount={engagement.likeCount(v)}
+              likeBusy={engagement.isLikeBusy(v.id)}
+              saveBusy={engagement.isSaveBusy(v.id)}
+              onToggleLike={toggleLiked}
+              onToggleSave={toggleSaved}
+              onShare={shareVenue}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {!isLoading && !isError && venues.length === 0 ? (
+        <EmptyState
+          iconElement={<Utensils size={28} strokeWidth={1.75} />}
+          title={hasFilters ? 'No matches for that craving' : 'No food spots listed yet'}
+          sub={
+            hasFilters
+              ? 'Try another cuisine, city, or clear filters to see more places.'
+              : 'Restaurants, cafés, bars, and local kitchens will appear here once added.'
+          }
+          cta={hasFilters ? { label: 'Clear filters', onClick: clearAll } : undefined}
+        />
+      ) : null}
     </div>
   )
 }

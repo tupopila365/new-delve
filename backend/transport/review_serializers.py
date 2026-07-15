@@ -8,7 +8,7 @@ from .models import (
     VehicleRentalBooking,
     VehicleRentalReview,
 )
-from .review_services import sync_vehicle_listing_rating
+from .review_services import sync_bus_trip_rating, sync_vehicle_listing_rating
 
 
 class VehicleRentalReviewSerializer(serializers.ModelSerializer):
@@ -85,4 +85,5 @@ class SeatReservationReviewCreateSerializer(serializers.Serializer):
             rating=validated_data["rating"],
             body=validated_data.get("body", ""),
         )
+        sync_bus_trip_rating(reservation.trip)
         return review

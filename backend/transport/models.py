@@ -39,9 +39,30 @@ class VehicleRentalListing(models.Model):
     gallery_images = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of image URLs or relative media paths",
+        help_text='List of media URLs or {"url","kind"} objects (image/video)',
     )
-    cover_image = models.ImageField(upload_to="vehicles/", blank=True, null=True)
+    cover_image = models.TextField(
+        blank=True,
+        default="",
+        help_text="Cover photo or video URL / storage path.",
+    )
+    cover_kind = models.CharField(
+        max_length=16,
+        choices=[("image", "Image"), ("video", "Video")],
+        default="image",
+        help_text="Whether cover_image is a still or a short video.",
+    )
+    fuel_type = models.CharField(
+        max_length=40,
+        blank=True,
+        default="",
+        help_text="e.g. diesel, petrol, hybrid, electric",
+    )
+    required_renter_documents = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Document type ids required at booking, e.g. ["driver_license_front"]',
+    )
     is_active = models.BooleanField(default=True)
     rating_avg = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     rating_count = models.PositiveIntegerField(default=0)
@@ -64,6 +85,17 @@ class VehicleRentalBooking(models.Model):
     )
     start_date = models.DateField()
     end_date = models.DateField()
+    pickup_area = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Preferred pickup area chosen by the renter.",
+    )
+    renter_documents = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Uploaded document metadata from the renter at booking time.",
+    )
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(
         max_length=20,
@@ -145,15 +177,31 @@ class BusRoute(models.Model):
     origin = models.CharField(max_length=120)
     destination = models.CharField(max_length=120)
     description = models.TextField(blank=True)
-    cover_image = models.URLField(
-        max_length=500,
+    cover_image = models.TextField(
         blank=True,
-        help_text="Optional coach or route photo URL for listings.",
+        default="",
+        help_text="Optional coach or route photo/video URL for listings.",
+    )
+    cover_kind = models.CharField(
+        max_length=16,
+        choices=[("image", "Image"), ("video", "Video")],
+        default="image",
+        help_text="Whether cover_image is a still or a short video.",
     )
     gallery_images = models.JSONField(
         default=list,
         blank=True,
-        help_text="Optional list of interior/route image URLs for trip detail gallery.",
+        help_text='Optional list of interior/route media URLs or {"url","kind"} objects.',
+    )
+    distance_km = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Approximate road distance for this corridor.",
+    )
+    duration_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Typical travel duration in minutes.",
     )
 
     def __str__(self):
@@ -176,6 +224,8 @@ class BusTrip(models.Model):
         help_text='e.g. ["Air conditioning", "Onboard toilet", "WiFi"]',
     )
     is_active = models.BooleanField(default=True)
+    rating_avg = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+    rating_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["departs_at"]

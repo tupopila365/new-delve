@@ -6,6 +6,7 @@ import {
   VEHICLE_TYPE_OPTIONS,
   type VehicleListingFormValues,
 } from './vehicleListingTypes'
+import { TransportPhotoEditor } from './TransportPhotoEditor'
 
 type Props = {
   values: VehicleListingFormValues
@@ -23,7 +24,7 @@ const SECTIONS = [
   { id: 'pricing', label: 'Rate & pickup' },
   { id: 'details', label: 'Description' },
   { id: 'renter_docs', label: 'Renter docs' },
-  { id: 'photos', label: 'Photos' },
+  { id: 'photos', label: 'Media' },
 ] as const
 
 export function VehicleListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
@@ -226,17 +227,12 @@ export function VehicleListingForm({ values, onChange, error, saving, onSubmit, 
           )}
 
           {section === 'photos' && (
-            <div className="transport-form__section">
-              <label className="transport-form__field">
-                Cover photo URL
-                <input value={values.cover_image_url} onChange={(e) => patch({ cover_image_url: e.target.value })} placeholder="https://…" />
-              </label>
-              {values.cover_image_url ? <img src={values.cover_image_url} alt="" className="transport-form__preview" /> : null}
-              <label className="transport-form__field">
-                Gallery URLs
-                <textarea rows={4} value={values.gallery_urls} onChange={(e) => patch({ gallery_urls: e.target.value })} placeholder="One image URL per line" />
-              </label>
-            </div>
+            <TransportPhotoEditor
+              values={values}
+              onChange={(partial) => patch(partial)}
+              title="Vehicle media"
+              hint="Lead with a clean exterior shot or a short walk-around video. Gallery photos help renters compare seats, cargo room, and condition."
+            />
           )}
         </div>
 

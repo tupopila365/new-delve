@@ -29,7 +29,15 @@ const SECTIONS = [
 ] as const
 
 function emptyRoom(): StayRoomForm {
-  return { name: '', description: '', max_guests: 2, bedrooms: 1, bed_summary: '', price_per_night: '' }
+  return {
+    name: '',
+    description: '',
+    max_guests: 2,
+    bedrooms: 1,
+    bed_summary: '',
+    price_per_night: '',
+    image: '',
+  }
 }
 
 export function StayListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
@@ -341,6 +349,19 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                       placeholder="1 king bed"
                     />
                   </label>
+                  <label className="stay-form__field">
+                    <span>Room photo URL</span>
+                    <input
+                      value={room.image}
+                      onChange={(e) => {
+                        const room_types = [...values.room_types]
+                        room_types[i] = { ...room, image: e.target.value }
+                        patch({ room_types })
+                      }}
+                      placeholder="https://…"
+                    />
+                  </label>
+                  {room.image ? <img src={room.image} alt="" className="stay-form__preview" /> : null}
                 </div>
               ))}
               <button

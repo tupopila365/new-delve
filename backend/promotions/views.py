@@ -814,14 +814,6 @@ class FeaturedEventsView(FeaturedPlacementView):
 
 
 
-class FeaturedTransportView(FeaturedPlacementView):
-
-    placement = PromotionPlacement.HOMEPAGE_TRANSPORT
-
-
-
-
-
 class CategorySpotlightView(APIView):
 
     permission_classes = [permissions.AllowAny]

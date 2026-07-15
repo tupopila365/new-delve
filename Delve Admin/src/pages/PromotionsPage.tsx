@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { AdminListing, PromotionCampaign, PromotionConflictSummary } from '../api/types'
-import { FEED_TARGET_TYPES, PLACEMENT_OPTIONS, TRANSPORT_TARGET_TYPES } from '../api/types'
+import { FEED_TARGET_TYPES, PLACEMENT_OPTIONS } from '../api/types'
 import {
   DelveAdminDataRow,
   DelveAdminEmpty,
@@ -85,7 +85,7 @@ export function PromotionsPage() {
       ends_at: new Date(formEndsAt).toISOString(),
       region: formRegion.trim(),
     })
-    if (formPlacement === 'category_spotlight' || formPlacement === 'homepage_transport') {
+    if (formPlacement === 'category_spotlight') {
       p.set('target_type', formTargetType)
     }
     return p.toString()
@@ -99,10 +99,9 @@ export function PromotionsPage() {
 
   const isFeedPlacement = formPlacement === 'delvers_feed' || formPlacement === 'community_feed'
   const isCategorySpotlight = formPlacement === 'category_spotlight'
-  const isHomepageTransport = formPlacement === 'homepage_transport'
 
   const listingOptions = useMemo(() => {
-    if (isFeedPlacement || isCategorySpotlight || isHomepageTransport) {
+    if (isFeedPlacement || isCategorySpotlight) {
       if (formTargetType === 'post') {
         const postType = formPlacement === 'community_feed' ? 'community' : 'post'
         return listings.filter((l) => l.listing_type === postType && l.status === 'published')
@@ -110,15 +109,13 @@ export function PromotionsPage() {
       return listings.filter((l) => l.listing_type === formTargetType && l.status === 'published')
     }
     return listings.filter((l) => l.listing_type === selectedPlacement.listingType && l.status === 'published')
-  }, [listings, formPlacement, formTargetType, selectedPlacement.listingType, isFeedPlacement, isCategorySpotlight, isHomepageTransport])
+  }, [listings, formPlacement, formTargetType, selectedPlacement.listingType, isFeedPlacement, isCategorySpotlight])
 
   useEffect(() => {
-    if (!isCategorySpotlight && !isFeedPlacement && !isHomepageTransport) {
+    if (!isCategorySpotlight && !isFeedPlacement) {
       setFormTargetType(selectedPlacement.targetType)
-    } else if (isHomepageTransport) {
-      setFormTargetType('vehicle')
     }
-  }, [formPlacement, selectedPlacement.targetType, isCategorySpotlight, isFeedPlacement, isHomepageTransport])
+  }, [formPlacement, selectedPlacement.targetType, isCategorySpotlight, isFeedPlacement])
 
   const createMut = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -361,22 +358,15 @@ export function PromotionsPage() {
             </select>
           </label>
 
-          {(isCategorySpotlight || isFeedPlacement || isHomepageTransport) ? (
+          {(isCategorySpotlight || isFeedPlacement) ? (
             <label className="da-field">
-              <span>
-                {isFeedPlacement ? 'Promote' : isHomepageTransport ? 'Transport listing type' : 'Category vertical'}
-              </span>
+              <span>{isFeedPlacement ? 'Promote' : 'Category vertical'}</span>
               <select
                 value={formTargetType}
                 onChange={(e) => setFormTargetType(e.target.value)}
                 required
               >
-                {(isFeedPlacement
-                  ? FEED_TARGET_TYPES
-                  : isHomepageTransport
-                    ? TRANSPORT_TARGET_TYPES
-                    : SPOTLIGHT_TARGET_TYPES
-                ).map((t) => (
+                {(isFeedPlacement ? FEED_TARGET_TYPES : SPOTLIGHT_TARGET_TYPES).map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>

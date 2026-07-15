@@ -22,6 +22,7 @@ import { EmptyState } from '../components/ui'
 import { communityPostPermalinkPath, postPermalinkPath } from '../utils/postPermalink'
 import type { FeedPost } from '../components/IgPostCard'
 import { isDelversPost } from '../utils/postFilters'
+import { HOME_ATMOSPHERE_BG, HOME_HERO_BG } from '../data/homeDefaults'
 import {
   buildSearchApiPath,
   isSearchType,
@@ -41,6 +42,16 @@ const SEARCH_CATEGORIES = [
   { id: 'guides', label: 'Guides', Icon: Compass },
   { id: 'journeys', label: 'Journeys', Icon: Route },
   { id: 'transport', label: 'Transport', Icon: Car },
+] as const
+
+/** Quick routes that feel like trip planning, not a generic filter UI. */
+const TRAIL_PROMPTS = [
+  { label: 'Weekend away', q: 'weekend' },
+  { label: 'Coast', q: 'beach' },
+  { label: 'Mountains', q: 'mountains' },
+  { label: 'City walk', q: 'city' },
+  { label: 'First night', q: 'lodge' },
+  { label: 'Local food', q: 'food' },
 ] as const
 
 type SearchUser = {
@@ -109,15 +120,15 @@ type SearchResults = {
 }
 
 const PLACEHOLDERS: Record<SearchType, string> = {
-  profile: 'Search people and profiles…',
-  ask_locals: 'Search ask-locals questions…',
-  delvers: 'Search Delvers posts and moments…',
-  food: 'Search restaurants, cafés, and bars…',
-  stay: 'Search hotels, lodges, and stays…',
-  events: 'Search events and tickets…',
-  guides: 'Search local guides and tours…',
-  journeys: 'Search travel routes and diaries…',
-  transport: 'Search rentals, routes, and trips…',
+  profile: 'Who are you looking for?',
+  ask_locals: 'What do you need to know on the ground?',
+  delvers: 'Find moments from the road…',
+  food: 'Where should we eat?',
+  stay: 'Where will you sleep tonight?',
+  events: 'What’s on nearby?',
+  guides: 'Who knows this place?',
+  journeys: 'Whose route should you follow?',
+  transport: 'How will you get there?',
 }
 
 function listingTitle(item: NamedListing): string {
@@ -125,7 +136,7 @@ function listingTitle(item: NamedListing): string {
 }
 
 function placeLine(item: { city?: string; region?: string }): string {
-  return [item.city, item.region].filter(Boolean).join(', ') || 'Namibia'
+  return [item.city, item.region].filter(Boolean).join(', ') || 'Somewhere out there'
 }
 
 function priceLabel(value: string | number | null | undefined, suffix: string): string | undefined {
@@ -159,7 +170,6 @@ export function SearchPage() {
     setType(urlType)
   }, [urlType])
 
-  // Live search: debounce input into the URL (source of truth for the query).
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const nextQ = input.trim()
@@ -178,7 +188,7 @@ export function SearchPage() {
 
   const placeholder = useMemo(() => {
     if (type && isSearchType(type)) return PLACEHOLDERS[type]
-    return 'Search DELVE…'
+    return 'Where are you going?'
   }, [type])
 
   const showAll = !type
@@ -249,342 +259,372 @@ export function SearchPage() {
     setSearchParams(writeSearchParams(input.trim(), type), { replace: true })
   }
 
+  function onTrailPrompt(q: string) {
+    setInput(q)
+    setSearchParams(writeSearchParams(q, type), { replace: true })
+  }
+
   const searching = urlQ.length >= 2 && (isLoading || isFetching)
   const activeCategoryLabel = type ? (SEARCH_CATEGORIES.find((c) => c.id === type)?.label ?? type) : ''
+  const hasQuery = urlQ.length >= 2
+  const sceneBg = hasQuery ? HOME_ATMOSPHERE_BG : HOME_HERO_BG
 
   return (
-    <div className={`search-page-simple${urlQ.length >= 2 ? ' search-page-simple--results' : ''}`}>
-      <div className="search-page-simple__panel">
-        <form className="search-page-simple__form" onSubmit={onSubmit} role="search" aria-label="Search DELVE">
-          <label className="visually-hidden" htmlFor="global-search-q">
-            Search DELVE
-          </label>
-          <div className="search-page-simple__field">
-            <Search size={18} strokeWidth={2.25} aria-hidden />
-            <input
-              id="global-search-q"
-              type="search"
-              placeholder={placeholder}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              autoComplete="off"
-              enterKeyHint="search"
-              autoFocus
-            />
-            {input ? (
-              <button type="button" className="search-page-simple__clear" onClick={onClear} aria-label="Clear search">
-                <X size={16} strokeWidth={2.25} aria-hidden />
-              </button>
-            ) : null}
-          </div>
-        </form>
-
-        <QuickFilterChips
-          ariaLabel="Search category"
-          className="search-page-simple__categories"
-          chips={SEARCH_CATEGORIES.map((item) => ({
-            id: item.id,
-            label: item.label,
-            Icon: item.Icon,
-            active: type === item.id,
-          }))}
-          onChipClick={onTypeClick}
-        />
+    <div className={`search-trail${hasQuery ? ' search-trail--results' : ' search-trail--idle'}`}>
+      <div className="search-trail__scene" aria-hidden>
+        <div className="search-trail__scene-photo" style={{ backgroundImage: `url(${sceneBg})` }} />
+        <div className="search-trail__scene-veil" />
       </div>
 
-      {urlQ.length < 2 ? (
-        <p className="search-page-simple__hint">Type at least 2 characters to search across DELVE.</p>
-      ) : searching ? (
-        <p className="search-page-simple__hint" aria-live="polite">
-          Searching for “{urlQ}”…
-        </p>
-      ) : isError ? (
-        <EmptyState
-          compact
-          className="search-page-simple__empty"
-          iconElement={<Search size={22} strokeWidth={1.75} />}
-          title="Search isn't available right now"
-          sub="Check your connection and try again."
-          cta={{ label: 'Retry', onClick: () => void refetch() }}
-        />
-      ) : resultCount === 0 ? (
-        <p className="search-page-simple__hint">
-          No results for “{urlQ}”
-          {activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}. Try another term or category.
-        </p>
-      ) : (
-        <div className="search-page-simple__results" aria-live="polite">
-          <p className="search-page-simple__summary">
-            {resultCount} result{resultCount === 1 ? '' : 's'} for “{urlQ}”
-          </p>
+      <div className="search-trail__stage">
+        {!hasQuery ? (
+          <header className="search-trail__hero">
+            <p className="search-trail__kicker">On the road</p>
+            <h1 className="search-trail__title">Where to next?</h1>
+            <p className="search-trail__lead">
+              Name a place, a mood, or a need — stays, food, guides, and people who’ve already been.
+            </p>
+          </header>
+        ) : (
+          <header className="search-trail__hero search-trail__hero--compact">
+            <p className="search-trail__kicker">Looking around</p>
+            <h1 className="search-trail__title">Finding “{urlQ}”</h1>
+          </header>
+        )}
 
-          {showProfile && data!.users.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>People</h2>
-              <ul>
-                {data!.users.map((user) => {
-                  const showMessage =
-                    profile &&
-                    user.username.toLowerCase() !== profile.username.toLowerCase() &&
-                    user.can_message === true
-                  return (
-                    <li key={user.id} className="search-page-simple__person">
-                      <SearchHit
-                        to={`/u/${user.username}`}
-                        title={user.display_name || user.username}
-                        subtitle={`@${user.username}`}
-                        meta={[user.city, user.region].filter(Boolean).join(', ') || undefined}
-                        imageUrl={user.avatar}
-                        imageVariant="avatar"
-                        fallbackIcon={<UserRound size={18} />}
-                      />
-                      {showMessage ? (
-                        <Link
-                          to={messagingPaths('user').user(user.username)}
-                          className="search-page-simple__message-link"
-                        >
-                          Message
-                        </Link>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          ) : null}
+        <div className="search-trail__panel">
+          <form className="search-trail__form" onSubmit={onSubmit} role="search" aria-label="Search DELVE">
+            <label className="visually-hidden" htmlFor="global-search-q">
+              Search DELVE
+            </label>
+            <div className="search-trail__field">
+              <Search size={18} strokeWidth={2.25} aria-hidden />
+              <input
+                id="global-search-q"
+                type="search"
+                placeholder={placeholder}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                autoComplete="off"
+                enterKeyHint="search"
+                autoFocus
+              />
+              {input ? (
+                <button type="button" className="search-trail__clear" onClick={onClear} aria-label="Clear search">
+                  <X size={16} strokeWidth={2.25} aria-hidden />
+                </button>
+              ) : null}
+            </div>
+          </form>
 
-          {showStay && data!.accommodation.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Stays</h2>
-              <ul>
-                {data!.accommodation.map((item) => (
-                  <li key={`stay-${item.id}`}>
-                    <SearchHit
-                      to={`/accommodation/${item.id}`}
-                      title={listingTitle(item)}
-                      subtitle={placeLine(item)}
-                      meta={
-                        [priceLabel(item.price_per_night, ' / night'), ratingLabel(item.rating_avg)]
-                          .filter(Boolean)
-                          .join(' · ') || undefined
-                      }
-                      imageUrl={item.cover_image}
-                      fallbackIcon={<BedDouble size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          <QuickFilterChips
+            ariaLabel="What are you looking for"
+            className="search-trail__categories"
+            chips={SEARCH_CATEGORIES.map((item) => ({
+              id: item.id,
+              label: item.label,
+              Icon: item.Icon,
+              active: type === item.id,
+            }))}
+            onChipClick={onTypeClick}
+          />
 
-          {showFood && data!.food.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Food</h2>
-              <ul>
-                {data!.food.map((item) => (
-                  <li key={`food-${item.id}`}>
-                    <SearchHit
-                      to={`/food/${item.id}`}
-                      title={listingTitle(item)}
-                      subtitle={placeLine(item)}
-                      meta={ratingLabel(item.rating_avg)}
-                      imageUrl={item.cover_image}
-                      fallbackIcon={<Utensils size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showEvents && data!.events.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Events</h2>
-              <ul>
-                {data!.events.map((item) => (
-                  <li key={`event-${item.id}`}>
-                    <SearchHit
-                      to={`/events/${item.id}`}
-                      title={listingTitle(item)}
-                      subtitle={placeLine(item)}
-                      imageUrl={item.cover_image}
-                      fallbackIcon={<Ticket size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showGuides && data!.guides.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Guides</h2>
-              <ul>
-                {data!.guides.map((item) => (
-                  <li key={`guide-${item.id}`}>
-                    <SearchHit
-                      to={`/guides/${item.id}`}
-                      title={item.headline || listingTitle(item)}
-                      subtitle={item.username ? `@${item.username}` : 'Tour guide'}
-                      meta={ratingLabel(item.rating_avg)}
-                      imageUrl={item.photo}
-                      imageVariant="avatar"
-                      fallbackIcon={<Compass size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showJourneys && data!.journeys.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Journeys</h2>
-              <ul>
-                {data!.journeys.map((item) => (
-                  <li key={`journey-${item.id}`}>
-                    <SearchHit
-                      to={`/journeys/${item.id}`}
-                      title={item.title}
-                      subtitle={
-                        item.author?.username
-                          ? `@${item.author.username}`
-                          : 'Traveller'
-                      }
-                      meta={
-                        [
-                          item.days ? `${item.days} ${item.days === 1 ? 'day' : 'days'}` : '',
-                          item.summary?.slice(0, 60),
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') || undefined
-                      }
-                      imageUrl={item.cover_image}
-                      fallbackIcon={<Route size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showTransport && data!.vehicles.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Vehicle rentals</h2>
-              <ul>
-                {data!.vehicles.map((item) => (
-                  <li key={`vehicle-${item.id}`}>
-                    <SearchHit
-                      to={`/transport/vehicle/${item.id}`}
-                      title={listingTitle(item)}
-                      subtitle={placeLine(item)}
-                      meta={priceLabel(item.price_per_day, ' / day')}
-                      imageUrl={item.cover_image}
-                      fallbackIcon={<Car size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showTransport && data!.bus_trips.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Bus trips</h2>
-              <ul>
-                {data!.bus_trips.map((item) => (
-                  <li key={`bus-${item.id}`}>
-                    <SearchHit
-                      to={`/transport/bus/${item.id}`}
-                      title={`${item.route_detail?.origin ?? '?'} → ${item.route_detail?.destination ?? '?'}`}
-                      subtitle="Bus trip"
-                      imageUrl={item.cover_image}
-                      fallbackIcon={<Car size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showDelvers && delversPosts.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Delvers</h2>
-              <ul>
-                {delversPosts.map((post) => (
-                  <li key={`delvers-${post.id}`}>
-                    <SearchHit
-                      to={postPermalinkPath(post.id)}
-                      title={post.body.slice(0, 80) || 'Delvers post'}
-                      subtitle={
-                        post.author?.username ? `@${post.author.username}` : 'Delvers'
-                      }
-                      meta={post.region || undefined}
-                      imageUrl={post.image}
-                      fallbackIcon={<Compass size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showAll && generalPosts.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Posts</h2>
-              <ul>
-                {generalPosts.map((post) => (
-                  <li key={`post-${post.id}`}>
-                    <SearchHit
-                      to={postPermalinkPath(post.id)}
-                      title={post.body.slice(0, 80) || 'Post'}
-                      subtitle={
-                        post.author?.username ? `@${post.author.username}` : 'Community'
-                      }
-                      meta={post.region || undefined}
-                      imageUrl={post.image}
-                      fallbackIcon={<Compass size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {showAskLocals && data!.questions.length > 0 ? (
-            <section className="search-page-simple__section">
-              <h2>Ask locals</h2>
-              <ul>
-                {data!.questions.map((question) => (
-                  <li key={`question-${question.id}`}>
-                    <SearchHit
-                      to={communityPostPermalinkPath(question.id)}
-                      title={question.body.slice(0, 100) || 'Question'}
-                      subtitle={
-                        question.author?.username
-                          ? `@${question.author.username}`
-                          : 'Ask locals'
-                      }
-                      meta={
-                        [
-                          question.place_label || question.region || '',
-                          (question.comments_count ?? 0) > 0
-                            ? `${question.comments_count} ${question.comments_count === 1 ? 'answer' : 'answers'}`
-                            : 'Needs answer',
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') || undefined
-                      }
-                      imageVariant="avatar"
-                      fallbackIcon={<MessageCircleQuestion size={18} />}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
+          {!hasQuery ? (
+            <div className="search-trail__prompts" role="list" aria-label="Trip ideas">
+              {TRAIL_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt.q}
+                  type="button"
+                  className="search-trail__prompt"
+                  role="listitem"
+                  onClick={() => onTrailPrompt(prompt.q)}
+                >
+                  {prompt.label}
+                </button>
+              ))}
+            </div>
           ) : null}
         </div>
-      )}
+
+        {!hasQuery ? (
+          <p className="search-trail__hint">Start typing a place or vibe — two letters and you’re moving.</p>
+        ) : searching ? (
+          <p className="search-trail__hint" aria-live="polite">
+            Scanning the map for “{urlQ}”…
+          </p>
+        ) : isError ? (
+          <EmptyState
+            compact
+            className="search-trail__empty"
+            iconElement={<Search size={22} strokeWidth={1.75} />}
+            title="The trail went quiet"
+            sub="Check your connection and try again."
+            cta={{ label: 'Retry', onClick: () => void refetch() }}
+          />
+        ) : resultCount === 0 ? (
+          <p className="search-trail__hint">
+            Nothing turned up for “{urlQ}”
+            {activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}. Try another spelling, place, or category.
+          </p>
+        ) : (
+          <div className="search-trail__results" aria-live="polite">
+            <p className="search-trail__summary">
+              {resultCount} find{resultCount === 1 ? '' : 's'} on this trail
+            </p>
+
+            {showStay && data!.accommodation.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Where the night goes</h2>
+                <ul>
+                  {data!.accommodation.map((item) => (
+                    <li key={`stay-${item.id}`}>
+                      <SearchHit
+                        to={`/accommodation/${item.id}`}
+                        title={listingTitle(item)}
+                        subtitle={placeLine(item)}
+                        meta={
+                          [priceLabel(item.price_per_night, ' / night'), ratingLabel(item.rating_avg)]
+                            .filter(Boolean)
+                            .join(' · ') || undefined
+                        }
+                        imageUrl={item.cover_image}
+                        fallbackIcon={<BedDouble size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showFood && data!.food.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Tables worth finding</h2>
+                <ul>
+                  {data!.food.map((item) => (
+                    <li key={`food-${item.id}`}>
+                      <SearchHit
+                        to={`/food/${item.id}`}
+                        title={listingTitle(item)}
+                        subtitle={placeLine(item)}
+                        meta={ratingLabel(item.rating_avg)}
+                        imageUrl={item.cover_image}
+                        fallbackIcon={<Utensils size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showGuides && data!.guides.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>People who know the way</h2>
+                <ul>
+                  {data!.guides.map((item) => (
+                    <li key={`guide-${item.id}`}>
+                      <SearchHit
+                        to={`/guides/${item.id}`}
+                        title={item.headline || listingTitle(item)}
+                        subtitle={item.username ? `@${item.username}` : 'Tour guide'}
+                        meta={ratingLabel(item.rating_avg)}
+                        imageUrl={item.photo}
+                        imageVariant="avatar"
+                        fallbackIcon={<Compass size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showJourneys && data!.journeys.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Routes already walked</h2>
+                <ul>
+                  {data!.journeys.map((item) => (
+                    <li key={`journey-${item.id}`}>
+                      <SearchHit
+                        to={`/journeys/${item.id}`}
+                        title={item.title}
+                        subtitle={item.author?.username ? `@${item.author.username}` : 'Traveller'}
+                        meta={
+                          [
+                            item.days ? `${item.days} ${item.days === 1 ? 'day' : 'days'}` : '',
+                            item.summary?.slice(0, 60),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || undefined
+                        }
+                        imageUrl={item.cover_image}
+                        fallbackIcon={<Route size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showEvents && data!.events.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>What’s happening</h2>
+                <ul>
+                  {data!.events.map((item) => (
+                    <li key={`event-${item.id}`}>
+                      <SearchHit
+                        to={`/events/${item.id}`}
+                        title={listingTitle(item)}
+                        subtitle={placeLine(item)}
+                        imageUrl={item.cover_image}
+                        fallbackIcon={<Ticket size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showTransport && data!.vehicles.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Wheels for the stretch</h2>
+                <ul>
+                  {data!.vehicles.map((item) => (
+                    <li key={`vehicle-${item.id}`}>
+                      <SearchHit
+                        to={`/transport/vehicle/${item.id}`}
+                        title={listingTitle(item)}
+                        subtitle={placeLine(item)}
+                        meta={priceLabel(item.price_per_day, ' / day')}
+                        imageUrl={item.cover_image}
+                        fallbackIcon={<Car size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showTransport && data!.bus_trips.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Bus routes</h2>
+                <ul>
+                  {data!.bus_trips.map((item) => (
+                    <li key={`bus-${item.id}`}>
+                      <SearchHit
+                        to={`/transport/bus/${item.id}`}
+                        title={`${item.route_detail?.origin ?? '?'} → ${item.route_detail?.destination ?? '?'}`}
+                        subtitle="Bus trip"
+                        imageUrl={item.cover_image}
+                        fallbackIcon={<Car size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showProfile && data!.users.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Travellers & hosts</h2>
+                <ul>
+                  {data!.users.map((user) => {
+                    const showMessage =
+                      profile &&
+                      user.username.toLowerCase() !== profile.username.toLowerCase() &&
+                      user.can_message === true
+                    return (
+                      <li key={user.id} className="search-trail__person">
+                        <SearchHit
+                          to={`/u/${user.username}`}
+                          title={user.display_name || user.username}
+                          subtitle={`@${user.username}`}
+                          meta={[user.city, user.region].filter(Boolean).join(', ') || undefined}
+                          imageUrl={user.avatar}
+                          imageVariant="avatar"
+                          fallbackIcon={<UserRound size={18} />}
+                        />
+                        {showMessage ? (
+                          <Link to={messagingPaths('user').user(user.username)} className="search-trail__message">
+                            Message
+                          </Link>
+                        ) : null}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            ) : null}
+
+            {showAskLocals && data!.questions.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Ask people on the ground</h2>
+                <ul>
+                  {data!.questions.map((question) => (
+                    <li key={`question-${question.id}`}>
+                      <SearchHit
+                        to={communityPostPermalinkPath(question.id)}
+                        title={question.body.slice(0, 100) || 'Question'}
+                        subtitle={question.author?.username ? `@${question.author.username}` : 'Ask locals'}
+                        meta={
+                          [
+                            question.place_label || question.region || '',
+                            (question.comments_count ?? 0) > 0
+                              ? `${question.comments_count} ${question.comments_count === 1 ? 'answer' : 'answers'}`
+                              : 'Needs answer',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || undefined
+                        }
+                        imageVariant="avatar"
+                        fallbackIcon={<MessageCircleQuestion size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showDelvers && delversPosts.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Moments from the road</h2>
+                <ul>
+                  {delversPosts.map((post) => (
+                    <li key={`delvers-${post.id}`}>
+                      <SearchHit
+                        to={postPermalinkPath(post.id)}
+                        title={post.body.slice(0, 80) || 'Delvers post'}
+                        subtitle={post.author?.username ? `@${post.author.username}` : 'Delvers'}
+                        meta={post.region || undefined}
+                        imageUrl={post.image}
+                        fallbackIcon={<Compass size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {showAll && generalPosts.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Along the way</h2>
+                <ul>
+                  {generalPosts.map((post) => (
+                    <li key={`post-${post.id}`}>
+                      <SearchHit
+                        to={postPermalinkPath(post.id)}
+                        title={post.body.slice(0, 80) || 'Post'}
+                        subtitle={post.author?.username ? `@${post.author.username}` : 'Community'}
+                        meta={post.region || undefined}
+                        imageUrl={post.image}
+                        fallbackIcon={<Compass size={18} />}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

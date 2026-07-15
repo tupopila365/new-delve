@@ -23,6 +23,8 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
     owner_region = serializers.SerializerMethodField()
     owner_city = serializers.SerializerMethodField()
     owner_avatar = serializers.SerializerMethodField()
+    cover_image = serializers.SerializerMethodField()
+    cover_kind = serializers.SerializerMethodField()
 
     class Meta:
         model = VehicleRentalListing
@@ -50,12 +52,25 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "region",
             "city",
             "cover_image",
+            "cover_kind",
+            "fuel_type",
+            "required_renter_documents",
             "is_active",
             "rating_avg",
             "rating_count",
             "created_at",
         )
-        read_only_fields = ("owner", "created_at")
+        read_only_fields = ("owner", "created_at", "cover_kind")
+
+    def get_cover_image(self, obj):
+        from .cover_media import vehicle_cover_url
+
+        return vehicle_cover_url(obj, self.context.get("request"))
+
+    def get_cover_kind(self, obj):
+        from .cover_media import vehicle_cover_kind
+
+        return vehicle_cover_kind(obj)
 
     def get_owner_display_name(self, obj):
         profile = getattr(obj.owner, "profile", None)
@@ -116,6 +131,8 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
             "renter",
             "start_date",
             "end_date",
+            "pickup_area",
+            "renter_documents",
             "total_price",
             "status",
             "mock_payment_ref",
@@ -143,6 +160,23 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
         end: date = attrs["end_date"]
         if end < start:
             raise serializers.ValidationError("end_date must be on or after start_date.")
+        required = list(listing.required_renter_documents or [])
+        if required:
+            docs = attrs.get("renter_documents")
+            if docs is None and self.initial_data is not None:
+                docs = self.initial_data.get("renter_documents")
+            uploaded_types = set()
+            if isinstance(docs, list):
+                for row in docs:
+                    if isinstance(row, dict) and row.get("doc_type"):
+                        uploaded_types.add(str(row["doc_type"]))
+                    elif isinstance(row, dict) and row.get("type"):
+                        uploaded_types.add(str(row["type"]))
+            missing = [d for d in required if d not in uploaded_types]
+            if missing:
+                raise serializers.ValidationError(
+                    {"renter_documents": f"Missing required documents: {', '.join(missing)}"}
+                )
         return attrs
 
     def create(self, validated_data):
@@ -155,6 +189,12 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
         days = (end - start).days + 1
         if days < 1:
             days = 1
+        # Persist optional extras from the request body
+        if "pickup_area" not in validated_data and self.initial_data is not None:
+            validated_data["pickup_area"] = (self.initial_data.get("pickup_area") or "")[:200]
+        if "renter_documents" not in validated_data and self.initial_data is not None:
+            docs = self.initial_data.get("renter_documents")
+            validated_data["renter_documents"] = docs if isinstance(docs, list) else []
         validated_data["renter"] = request.user
         validated_data["total_price"] = listing.price_per_day * days
         validated_data["status"] = BookingStatus.PENDING
@@ -178,6 +218,7 @@ class BusOperatorSerializer(serializers.ModelSerializer):
 class BusRouteSerializer(serializers.ModelSerializer):
     operator_name = serializers.CharField(source="operator.name", read_only=True)
     operator_owner_username = serializers.CharField(source="operator.owner.username", read_only=True)
+    cover_kind = serializers.SerializerMethodField()
 
     class Meta:
         model = BusRoute
@@ -190,8 +231,16 @@ class BusRouteSerializer(serializers.ModelSerializer):
             "destination",
             "description",
             "cover_image",
+            "cover_kind",
             "gallery_images",
+            "distance_km",
+            "duration_minutes",
         )
+
+    def get_cover_kind(self, obj):
+        from .cover_media import bus_cover_kind
+
+        return bus_cover_kind(obj)
 
 
 class BusTripSerializer(serializers.ModelSerializer):
@@ -211,6 +260,8 @@ class BusTripSerializer(serializers.ModelSerializer):
             "total_seats",
             "amenities",
             "is_active",
+            "rating_avg",
+            "rating_count",
             "available_seats",
             "occupied_seats",
         )

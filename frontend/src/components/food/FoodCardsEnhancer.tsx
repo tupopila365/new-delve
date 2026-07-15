@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import './FoodCardsEnhancer.css'
 
+/** Keep share polish for legacy featured/card layouts that lack React action rows. */
 function shareIcon() {
   return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.59 13.51l6.83 3.98"></path><path d="M15.41 6.51L8.59 10.49"></path></svg>'
 }
@@ -11,7 +12,10 @@ function venueIdFromHref(href: string) {
 }
 
 function addFoodActionRow(card: HTMLAnchorElement) {
-  const media = card.querySelector<HTMLElement>('.fd-card__img-wrap, .fd-featured__media')
+  // New React cards already have Delvers-style like/share/save.
+  if (card.querySelector('.fd-spot__actions')) return
+
+  const media = card.querySelector<HTMLElement>('.fd-spot__media, .fd-card__img-wrap, .fd-featured__media')
   if (!media) return
 
   let row = media.querySelector<HTMLDivElement>('.food-card-image-actions')
@@ -21,7 +25,7 @@ function addFoodActionRow(card: HTMLAnchorElement) {
     media.appendChild(row)
   }
 
-  const saveButton = media.querySelector<HTMLButtonElement>('.fd-card__save, .fd-featured__save')
+  const saveButton = media.querySelector<HTMLButtonElement>('.fd-spot__save, .fd-card__save, .fd-featured__save')
   if (saveButton && saveButton.parentElement !== row) {
     saveButton.classList.add('food-card-image-actions__save')
     row.appendChild(saveButton)
@@ -43,7 +47,7 @@ function addFoodActionRow(card: HTMLAnchorElement) {
 export function FoodCardsEnhancer() {
   useEffect(() => {
     const enhance = () => {
-      document.querySelectorAll<HTMLAnchorElement>('.fd-card, .fd-featured').forEach((card) => {
+      document.querySelectorAll<HTMLAnchorElement>('.fd-spot, .fd-card, .fd-featured').forEach((card) => {
         addFoodActionRow(card)
         card.dataset.enhancedFoodCard = 'true'
       })
@@ -61,9 +65,11 @@ export function FoodCardsEnhancer() {
       event.preventDefault()
       event.stopPropagation()
 
-      const card = shareButton.closest<HTMLAnchorElement>('.fd-card, .fd-featured')
+      const card = shareButton.closest<HTMLAnchorElement>('.fd-spot, .fd-card, .fd-featured')
       const href = card?.getAttribute('href') || ''
-      const title = card?.querySelector('.fd-card__name, .fd-featured__name')?.textContent?.trim() || 'DELVE food spot'
+      const title =
+        card?.querySelector('.fd-spot__title, .fd-card__name, .fd-featured__name')?.textContent?.trim() ||
+        'DELVE food spot'
       const url = `${window.location.origin}${href}`
 
       try {

@@ -93,7 +93,7 @@
 }
 
 .ds-comments-panel__notice a {
-  color: #a78bfa;
+  color: #fffaf2;
   font-weight: 800;
   text-decoration: none;
 }
@@ -124,7 +124,7 @@
   height: 34px;
   border-radius: 50%;
   background: #171717;
-  color: var(--accent, #7c3aed);
+  color: var(--accent, #fffaf2);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -212,7 +212,7 @@
 }
 
 .ds-comments-panel__composer-hint a {
-  color: #a78bfa;
+  color: #fffaf2;
   font-weight: 800;
   text-decoration: none;
 }

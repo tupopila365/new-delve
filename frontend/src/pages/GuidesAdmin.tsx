@@ -104,7 +104,25 @@ export function GuidesAdmin() {
 
   const packages = guide?.tour_packages ?? []
 
+  const { data: travelerReviewsPayload } = useQuery({
+    queryKey: ['guide-reviews', guide?.id],
+    enabled: Boolean(guide?.id),
+    queryFn: () =>
+      apiFetch<{ reviews: Array<{ name?: string; place?: string; rating?: number; body?: string; source?: string }> }>(
+        `/api/guides/profiles/${guide!.id}/reviews/`,
+        { auth: false },
+      ),
+  })
+
   const reviews = useMemo(() => {
+    const traveler = (travelerReviewsPayload?.reviews ?? []).map((r, i) => ({
+      id: `traveler-${i}-${r.name ?? 'guest'}`,
+      source: r.source === 'traveler' || !r.source ? 'Traveller' : String(r.source),
+      guest: r.name || 'Guest',
+      place: r.place || '',
+      rating: Number(r.rating ?? 0),
+      body: r.body || '',
+    }))
     const profileReviews = (guide?.guest_reviews ?? []).map((r, i) => ({
       id: `profile-${i}`,
       source: 'Profile',
@@ -123,8 +141,9 @@ export function GuidesAdmin() {
         body: r.body,
       })),
     )
-    return [...profileReviews, ...packageReviews]
-  }, [guide, packages])
+    // Prefer traveler reviews first; dedupe profile/package seeds by body+name if needed later
+    return [...traveler, ...profileReviews, ...packageReviews]
+  }, [guide, packages, travelerReviewsPayload])
 
   const saveProfileMut = useMutation({
     mutationFn: async () => {
@@ -193,6 +212,25 @@ export function GuidesAdmin() {
       setShowPackageForm(false)
       setEditPackageId(null)
       setPackageForm(EMPTY_GUIDE_PACKAGE_FORM)
+      setPackageErr('')
+    },
+    onError: (e: Error) => setPackageErr(friendlyApiMessage(e)),
+  })
+
+  const deletePackageMut = useMutation({
+    mutationFn: async (packageId: string) => {
+      if (!guide) throw new Error('Create your guide profile first.')
+      const nextPackages = packages.filter((p) => p.id !== packageId)
+      const profileValues = profileToForm(guide)
+      return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
+        method: 'PATCH',
+        body: JSON.stringify(formToProfilePayload(profileValues, nextPackages)),
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['provider-guide-profile'] })
+      void qc.invalidateQueries({ queryKey: ['guides'] })
+      void qc.invalidateQueries({ queryKey: ['guide'] })
       setPackageErr('')
     },
     onError: (e: Error) => setPackageErr(friendlyApiMessage(e)),
@@ -394,6 +432,7 @@ export function GuidesAdmin() {
 
       {tab === 'packages' && (
         <section id="packages">
+          {packageErr ? <p className="guide-hint" role="alert">{packageErr}</p> : null}
           {!guide ? (
             <ProviderUiEmpty
               title="Create your profile first"
@@ -422,6 +461,8 @@ export function GuidesAdmin() {
                   guideId={guide.id}
                   canEdit={canManageListings}
                   onEdit={() => openEditPackage(pkg)}
+                  onDelete={() => deletePackageMut.mutate(pkg.id)}
+                  deletePending={deletePackageMut.isPending}
                 />
               ))}
             </div>
@@ -475,7 +516,7 @@ export function GuidesAdmin() {
       {tab === 'reviews' && (
         <section id="reviews">
           {reviews.length === 0 ? (
-            <ProviderUiEmpty title="No reviews yet" message="Guest reviews from your profile and packages appear here." />
+            <ProviderUiEmpty title="No reviews yet" message="Traveller reviews from completed tours appear here, plus any profile or package highlights." />
           ) : (
             <div className="prov-ui__list">
               {reviews.map((r) => (

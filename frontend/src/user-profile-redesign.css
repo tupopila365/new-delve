@@ -1,10 +1,76 @@
-/* User profile — Instagram / TikTok inspired (style only) */
+/* User profile — traveller passport (not Instagram purple) */
 .up.up--premium {
   width: min(100%, 640px);
   margin: 0 auto;
-  padding: 0 0 calc(var(--page-bottom-clearance, 96px));
+  padding: 12px 14px calc(var(--page-bottom-clearance, 96px));
   color: #fffaf2;
   background: transparent;
+}
+
+/* Empty states + primary buttons on profile — charcoal/cream, no purple glow */
+.up.up--premium .ui-empty {
+  border: 1px solid rgba(255, 250, 242, 0.1);
+  border-radius: 16px;
+  background: #161310;
+  box-shadow: none;
+  padding: 28px 16px;
+}
+
+.up.up--premium .ui-empty::before,
+.up.up--premium .ui-empty__icon-glow {
+  display: none !important;
+}
+
+.up.up--premium .ui-empty__icon--graphic {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 250, 242, 0.14);
+  background: #1c1814;
+  color: #fffaf2;
+  box-shadow: none;
+}
+
+.up.up--premium .ui-empty__title {
+  font-family: var(--font-display, 'Syne', sans-serif);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.up.up--premium .ui-empty__cta.btn,
+.up.up--premium .ui-empty__cta.btn-primary,
+.up.up--premium .btn-primary,
+.up.up--premium a.btn-primary {
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: #fffaf2 !important;
+  color: #1a1510 !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.up.up--premium .ui-empty__cta.btn:hover,
+.up.up--premium .ui-empty__cta.btn-primary:hover,
+.up.up--premium .btn-primary:hover,
+.up.up--premium a.btn-primary:hover {
+  background: #f3ebe0 !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+.up.up--premium .up__panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.up.up--premium .up__panel-actions .btn {
+  min-height: 36px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 0.8rem;
 }
 
 .up.up--premium .detail-section {
@@ -95,11 +161,12 @@
 
 .up__businesses-title {
   margin: 0;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
+  font-family: var(--font-display, 'Syne', sans-serif);
+  font-size: 0.95rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: #fffaf2;
 }
 
 .up__businesses-grid,
@@ -121,8 +188,10 @@
 }
 
 .up__businesses-empty a {
-  color: #a78bfa;
-  font-weight: 700;
+  color: #fffaf2;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .up__business-card,
@@ -159,7 +228,7 @@
   height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  color: #a78bfa;
+  color: #fffaf2;
 }
 
 .up__business-card strong,
@@ -228,7 +297,28 @@
 }
 
 .up__stat--link .up__stat-l {
-  color: #a78bfa;
+  color: #fffaf2;
+}
+
+.up__ghost-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 250, 242, 0.18);
+  border-radius: 11px;
+  background: transparent;
+  color: #fffaf2;
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.up__ghost-cta:hover {
+  background: rgba(255, 250, 242, 0.08);
+  border-color: rgba(255, 250, 242, 0.28);
 }
 
 .up__tabs {
@@ -237,13 +327,13 @@
   z-index: 20;
   display: flex;
   gap: 0;
-  margin-bottom: 0;
-  padding: 0;
+  margin: 0 0 12px;
+  padding: 4px;
   overflow-x: auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 250, 242, 0.1);
+  border-radius: 14px;
+  background: #161310;
+  backdrop-filter: none;
   scrollbar-width: none;
 }
 
@@ -282,7 +372,7 @@
 }
 
 .up__tab--active::after {
-  background: #7c3aed;
+  background: #fffaf2;
 }
 
 .up__panel {
@@ -291,8 +381,11 @@
 }
 
 .up__panel-actions {
-  margin-bottom: 8px;
-  padding: 0 2px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .up__post-filters {
@@ -316,9 +409,9 @@
 }
 
 .up__post-filter--active {
-  border-color: rgba(124, 58, 237, 0.45);
-  background: rgba(124, 58, 237, 0.14);
-  color: #a78bfa;
+  border-color: #fffaf2;
+  background: #fffaf2;
+  color: #1a1510;
 }
 
 .up__panel-actions .btn {
@@ -461,20 +554,35 @@ button.up__post-card--btn {
   height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  color: #a78bfa;
+  color: #fffaf2;
 }
 
 .up__explore {
-  margin-top: 14px;
+  margin-top: 16px;
   padding: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 0;
 }
 
 .up__explore-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-height: 48px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.8rem;
-  font-weight: 850;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 250, 242, 0.12);
+  border-radius: 14px;
+  background: rgba(22, 19, 16, 0.88);
+  color: #fffaf2;
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.up__explore-link span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .up__private-gate {
@@ -526,7 +634,7 @@ button.up__post-card--btn {
 .up__sk-av {
   width: 80px;
   height: 80px;
-  border-radius: 12px;
+  border-radius: 50%;
 }
 
 .up__sk-lines {

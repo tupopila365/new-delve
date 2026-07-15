@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { MessageCircle } from 'lucide-react'
 import { apiFetch, asArray } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { useExploreRegion } from '../../hooks/useExploreRegion'
 import type { FeedPost } from '../IgPostCard'
 import { parseTagFromSearch } from '../../utils/communityTags'
 import { communityPostPermalinkPath } from '../../utils/postPermalink'
@@ -41,8 +42,8 @@ type Props = {
 
 export function CommunityFeedView({ searchQuery, tagSlug = '' }: Props) {
   const { profile } = useAuth()
+  const { region } = useExploreRegion()
   const navigate = useNavigate()
-  const region = profile?.region?.trim()
   const [searchParams, setSearchParams] = useSearchParams()
   const [kind, setKind] = useState<FeedKind>('question')
   const [composeModal, setComposeModal] = useState<ComposeModal>(null)
@@ -53,12 +54,14 @@ export function CommunityFeedView({ searchQuery, tagSlug = '' }: Props) {
   const postedTipId = searchParams.get('postedTip')
   const openId = searchParams.get('open')
   const activeTag = tagSlug
-  const feedQueryKey = ['feed', region ?? '', kind, activeTag] as const
+  const feedQueryKey = ['feed', region, kind, activeTag] as const
 
   const { data: feedRaw, isLoading } = useQuery({
     queryKey: feedQueryKey,
     queryFn: () =>
-      apiFetch<FeedPost[]>(feedQueryPath(region, kind, activeTag || undefined), { auth: Boolean(profile) }),
+      apiFetch<FeedPost[]>(feedQueryPath(region || undefined, kind, activeTag || undefined), {
+        auth: Boolean(profile),
+      }),
   })
 
   const posts = useMemo(() => {

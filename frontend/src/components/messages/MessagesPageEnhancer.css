@@ -1,8 +1,9 @@
-.msg-page,
-.msg-page.mk-page {
-  background: transparent !important;
+/* Messages page canvas — charcoal base; cream desk lives in messages-redesign.css */
+
+.app-main:has(.msg-trail) {
+  background: #12100e;
 }
 
-.msg-page .msg-page__search-sync {
-  display: none !important;
+.udash {
+  display: none;
 }

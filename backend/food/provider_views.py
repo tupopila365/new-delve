@@ -62,6 +62,8 @@ def _prepare_provider_venue_data(request):
             data["cover_image_upload"] = cover_file
         if "cover_image" in data:
             data.pop("cover_image")
+        if "cover_kind" in data and "cover_kind_in" not in data:
+            data["cover_kind_in"] = data.get("cover_kind")
         return data
 
     data = dict(request.data)
@@ -69,6 +71,8 @@ def _prepare_provider_venue_data(request):
         cover = data.get("cover_image")
         if isinstance(cover, str):
             data["cover_image_url"] = data.pop("cover_image")
+    if "cover_kind" in data and "cover_kind_in" not in data:
+        data["cover_kind_in"] = data.pop("cover_kind")
     return data
 
 

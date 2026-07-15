@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import './GuidesCardsEnhancer.css'
 
+/** Keep share polish for legacy featured/card layouts that lack React action rows. */
 function shareIcon() {
   return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.59 13.51l6.83 3.98"></path><path d="M15.41 6.51L8.59 10.49"></path></svg>'
 }
@@ -11,7 +12,10 @@ function guideIdFromHref(href: string) {
 }
 
 function addGuideActionRow(card: HTMLAnchorElement) {
-  const media = card.querySelector<HTMLElement>('.gd-card__photo-wrap, .gd-featured__media')
+  // New React cards already have share/save actions.
+  if (card.querySelector('.gl-spot__actions')) return
+
+  const media = card.querySelector<HTMLElement>('.gl-spot__media, .gd-card__photo-wrap, .gd-featured__media')
   if (!media) return
 
   let row = media.querySelector<HTMLDivElement>('.guide-card-image-actions')
@@ -21,7 +25,9 @@ function addGuideActionRow(card: HTMLAnchorElement) {
     media.appendChild(row)
   }
 
-  const saveButton = media.querySelector<HTMLButtonElement>('.gd-card__save, .gd-featured__save')
+  const saveButton = media.querySelector<HTMLButtonElement>(
+    '.gl-spot__act--save, .gd-card__save, .gd-featured__save',
+  )
   if (saveButton && saveButton.parentElement !== row) {
     saveButton.classList.add('guide-card-image-actions__save')
     row.appendChild(saveButton)
@@ -43,10 +49,12 @@ function addGuideActionRow(card: HTMLAnchorElement) {
 export function GuidesCardsEnhancer() {
   useEffect(() => {
     const enhance = () => {
-      document.querySelectorAll<HTMLAnchorElement>('.gd-card, .gd-featured').forEach((card) => {
-        addGuideActionRow(card)
-        card.dataset.enhancedGuideCard = 'true'
-      })
+      document
+        .querySelectorAll<HTMLAnchorElement>('.gl-spot, .gd-card, .gd-featured')
+        .forEach((card) => {
+          addGuideActionRow(card)
+          card.dataset.enhancedGuideCard = 'true'
+        })
     }
 
     enhance()
@@ -61,9 +69,11 @@ export function GuidesCardsEnhancer() {
       event.preventDefault()
       event.stopPropagation()
 
-      const card = shareButton.closest<HTMLAnchorElement>('.gd-card, .gd-featured')
+      const card = shareButton.closest<HTMLAnchorElement>('.gl-spot, .gd-card, .gd-featured')
       const href = card?.getAttribute('href') || ''
-      const title = card?.querySelector('.gd-card__headline, .gd-featured__name')?.textContent?.trim() || 'DELVE guide'
+      const title =
+        card?.querySelector('.gl-spot__title, .gd-card__headline, .gd-featured__name')?.textContent?.trim() ||
+        'DELVE guide'
       const url = `${window.location.origin}${href}`
 
       try {

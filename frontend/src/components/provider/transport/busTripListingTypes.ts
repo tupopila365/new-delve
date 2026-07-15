@@ -1,3 +1,10 @@
+import {
+  formatGalleryUrlsField,
+  isVideoUrl,
+  parseGalleryUrlsField,
+  serializeGalleryMediaList,
+} from '../../listing/photos/listingGalleryMedia'
+
 export const BUS_AMENITY_OPTIONS = [
   'Air conditioning',
   'Onboard toilet',
@@ -20,7 +27,9 @@ export type BusTripListingFormValues = {
   price: string
   amenities: string[]
   cover_image_url: string
+  cover_image_file: File | null
   gallery_urls: string
+  gallery_files: File[]
   is_active: boolean
 }
 
@@ -36,7 +45,9 @@ export const EMPTY_BUS_TRIP_FORM: BusTripListingFormValues = {
   price: '',
   amenities: [],
   cover_image_url: '',
+  cover_image_file: null,
   gallery_urls: '',
+  gallery_files: [],
   is_active: true,
 }
 
@@ -47,7 +58,8 @@ export type ProviderBusTripListing = {
     destination: string
     operator_name: string
     cover_image?: string | null
-    gallery_images?: string[]
+    cover_kind?: 'image' | 'video' | string | null
+    gallery_images?: Array<string | { url?: string; kind?: string }>
     distance_km?: number | null
     duration_minutes?: number | null
   }
@@ -64,6 +76,23 @@ export type ProviderBusTripListing = {
 export function busTripToForm(t: ProviderBusTripListing): BusTripListingFormValues {
   const dep = t.departs_at ? toLocalInputValue(t.departs_at) : ''
   const arr = t.arrives_at ? toLocalInputValue(t.arrives_at) : ''
+  const gallery = parseGalleryUrlsField(
+    Array.isArray(t.route_detail.gallery_images)
+      ? formatGalleryUrlsField(
+          t.route_detail.gallery_images
+            .map((item) => {
+              if (typeof item === 'string') return { url: item, kind: 'image' as const }
+              const url = String(item?.url || '').trim()
+              if (!url) return null
+              return {
+                url,
+                kind: (item?.kind === 'video' || isVideoUrl(url) ? 'video' : 'image') as 'image' | 'video',
+              }
+            })
+            .filter((item): item is { url: string; kind: 'image' | 'video' } => Boolean(item)),
+        )
+      : '',
+  )
   return {
     origin: t.route_detail.origin,
     destination: t.route_detail.destination,
@@ -76,23 +105,26 @@ export function busTripToForm(t: ProviderBusTripListing): BusTripListingFormValu
     price: t.price,
     amenities: t.amenities ?? [],
     cover_image_url: t.route_detail.cover_image ?? '',
-    gallery_urls: (t.route_detail.gallery_images ?? []).join('\n'),
+    cover_image_file: null,
+    gallery_urls: formatGalleryUrlsField(gallery),
+    gallery_files: [],
     is_active: t.is_active,
   }
 }
 
 export function formToBusTripPayload(form: BusTripListingFormValues) {
-  const gallery = form.gallery_urls
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
+  const gallery = parseGalleryUrlsField(form.gallery_urls)
+  const cover = form.cover_image_url.trim()
+  const coverKind: 'image' | 'video' =
+    cover && (isVideoUrl(cover) || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(cover)) ? 'video' : 'image'
   return {
     route_detail: {
       origin: form.origin.trim(),
       destination: form.destination.trim(),
       operator_name: form.operator_name.trim(),
-      cover_image: form.cover_image_url.trim() || null,
-      gallery_images: gallery,
+      cover_image: cover || null,
+      cover_kind: coverKind,
+      gallery_images: serializeGalleryMediaList(gallery),
       distance_km: form.distance_km.trim() ? Number(form.distance_km) : null,
       duration_minutes: Number(form.duration_minutes) || null,
     },

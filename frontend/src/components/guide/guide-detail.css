@@ -1,0 +1,362 @@
+/* Guide detail — rides the journey/event detail system.
+   Accent only: trail sage + sand-amber cost facts. */
+
+.gd-detail-page {
+  --accent: #5a9b7a;
+  --accent-hover: #8fd4b0;
+  --accent-soft: rgba(143, 212, 176, 0.16);
+  --accent-ring: rgba(143, 212, 176, 0.38);
+  --listing-accent: #8fd4b0;
+  --guide-cost: #e8c9a0;
+  --guide-cost-soft: rgba(232, 201, 160, 0.14);
+}
+
+.gd-detail-page .jd-badge {
+  color: #8fd4b0;
+  border-color: rgba(143, 212, 176, 0.35);
+  background: rgba(90, 155, 122, 0.16);
+}
+
+/* Sports roster: oversized player-name treatment */
+.gd-detail-page .jd-title {
+  font-size: clamp(1.85rem, 6.5vw, 2.55rem);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  animation: gd-rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gd-detail-page .jd-titleblock {
+  animation: gd-rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+}
+
+.gd-detail-page:has(.gd-roster-hero) .jd-title--roster-follow {
+  font-size: clamp(1.05rem, 3.5vw, 1.25rem);
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+.gd-detail-page .jd-fact--cost {
+  color: var(--guide-cost);
+  border-color: rgba(232, 201, 160, 0.45);
+  background: var(--guide-cost-soft);
+}
+
+.gd-detail-page .jd-fact--cost svg {
+  color: var(--guide-cost);
+}
+
+/* Roster fact strip — horizontal snap, cost first & sticky-feel */
+.gd-detail-page .jd-facts {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.gd-detail-page .jd-facts::-webkit-scrollbar {
+  display: none;
+}
+
+.gd-detail-page .jd-fact {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-width: max-content;
+}
+
+.gd-detail-page .jd-engage__btn--save.is-active,
+.gd-detail-page .jd-mobilebar__icon.is-active {
+  color: #ffc107;
+}
+
+.gd-detail__reserve-block {
+  margin: 8px 0 20px;
+  max-width: 24rem;
+}
+
+.gd-detail__experiences {
+  margin: 12px 0 4px;
+}
+
+.gd-detail__venue-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gd-detail__provider {
+  margin: 8px 0 16px;
+}
+
+.gd-detail__moments,
+.gd-detail__reviews,
+.gd-detail__questions,
+.gd-detail__credentials,
+.gd-detail__similar,
+.gd-detail__review-form {
+  margin-bottom: 12px;
+}
+
+/* Compact roster hero — portrait monogram when gallery is empty */
+.gd-roster-hero {
+  aspect-ratio: auto;
+  min-height: 0;
+  background:
+    radial-gradient(ellipse 80% 70% at 18% 40%, rgba(143, 212, 176, 0.28), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 88% 70%, rgba(232, 201, 160, 0.12), transparent 50%),
+    linear-gradient(155deg, #14201a 0%, #0a100e 48%, #080808 100%);
+}
+
+.gd-roster-hero .gd-roster-hero__stage {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 148px;
+  max-height: 180px;
+  padding: 52px 18px 20px;
+}
+
+.gd-roster-hero__monogram {
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0c1612;
+  background: linear-gradient(145deg, #8fd4b0, #5a9b7a);
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.gd-roster-hero__copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gd-roster-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(90, 155, 122, 0.22);
+  border: 1px solid rgba(143, 212, 176, 0.35);
+  color: #8fd4b0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gd-roster-hero__name {
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 5vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #fff;
+}
+
+/* JourneyHero empty slide (shared safety net) */
+.jd-hero--empty .jd-hero__slide {
+  aspect-ratio: 2.4 / 1;
+  max-height: 180px;
+}
+
+.jd-hero__slide-empty {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(143, 212, 176, 0.18), transparent 55%),
+    linear-gradient(145deg, #14201a, #080808);
+}
+
+/* Provider card on dark journey surface */
+.gd-provider-section .gd-provider-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gd-provider-card__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.gd-provider-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gd-provider-card__kicker {
+  margin: 0 0 2px;
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-hover);
+}
+
+.gd-provider-card__name {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.gd-provider-card__loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+
+.gd-provider-card__bio {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.gd-provider-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gd-detail-page .gd-provider-card__actions .jd-btn {
+  text-decoration: none;
+}
+
+/* Keep reused listing / provider blocks legible on dark */
+.gd-detail-page .listing-section,
+.gd-detail-page .gd-provider-section,
+.gd-detail-page .guide-cred,
+.gd-detail-page .gd-detail__similar {
+  color: var(--text);
+}
+
+.gd-detail-page .guide-cred__highlight strong,
+.gd-detail-page .guide-cred__certs li svg {
+  color: #8fd4b0;
+}
+
+.gd-detail-page .gd-detail__section-title {
+  color: var(--text);
+}
+
+.gd-detail-page .gd-detail__similar-sub {
+  color: var(--text-secondary);
+}
+
+.gd-detail-page .gd-detail__similar-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.gd-detail-page .gd-detail__similar-name {
+  color: var(--text);
+}
+
+.gd-detail-page .gd-detail__similar-headline {
+  color: var(--text-secondary);
+}
+
+.gd-detail-page a.jd-engage__btn {
+  text-decoration: none;
+}
+
+.gd-detail-page .jd-mobilebar__btn {
+  background: var(--accent-hover);
+  color: #0c1612;
+  border: 0;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gd-detail-page .jd-mobilebar__btn:hover:not(:disabled) {
+  background: #a8e0c4;
+}
+
+.gd-detail-page .jd-btn--primary {
+  background: var(--accent);
+  color: #0c1612;
+  border-color: transparent;
+}
+
+.gd-detail-page .jd-btn--primary:hover {
+  background: var(--accent-hover);
+}
+
+@keyframes gd-bar-up {
+  from {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes gd-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Align with journey shell (≤640px) and sit ABOVE Primary bottom nav */
+@media (max-width: 640px) {
+  .gd-detail-page .jd-mobilebar {
+    display: flex;
+    bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 8px);
+    z-index: 35;
+    animation: gd-bar-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .gd-detail-page {
+    padding-bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 88px);
+  }
+}
+
+@media (min-width: 641px) {
+  .gd-detail-page .jd-mobilebar {
+    display: none;
+  }
+}

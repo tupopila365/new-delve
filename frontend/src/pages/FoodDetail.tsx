@@ -8,11 +8,12 @@ import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { FoodDetailView } from '../components/food'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 import type { MyFoodReservation } from '../hooks/useMyFoodReservations'
-import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import type { FoodVenueListing } from '../utils/foodListing'
-import { useToggleFoodSave } from '../hooks/useFoodSave'
+import { useFoodEngagement } from '../hooks/useFoodEngagement'
+import '../components/journeys/journey-detail.css'
+import '../components/food/food-detail.css'
 
 function combineDateTime(date: string, time: string) {
   if (!date || !time) return ''
@@ -25,7 +26,6 @@ export function FoodDetail() {
   const qc = useQueryClient()
   const { profile } = useAuth()
   const { canManageListings, activeBusiness } = useBusinessAccess()
-  const saveMut = useToggleFoodSave()
   const [shareMsg, setShareMsg] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('19:00')
@@ -39,6 +39,9 @@ export function FoodDetail() {
     enabled: !!id,
     queryFn: () => apiFetch<FoodVenueListing>(`/api/food/venues/${id}/`, { auth: Boolean(profile) }),
   })
+
+  const engagementVenues = useMemo(() => (data ? [data] : []), [data])
+  const engagement = useFoodEngagement(engagementVenues)
 
   const { data: myReservations = [] } = useQuery({
     queryKey: ['my-bookings', 'food'],
@@ -78,6 +81,12 @@ export function FoodDetail() {
 
   const onShare = async (venueName: string) => {
     try {
+      if (navigator.share) {
+        await navigator.share({ title: venueName, url: window.location.href })
+        setShareMsg('Shared')
+        window.setTimeout(() => setShareMsg(''), 1600)
+        return
+      }
       await navigator.clipboard.writeText(window.location.href)
       setShareMsg(`Link to ${venueName} copied`)
       window.setTimeout(() => setShareMsg(''), 1600)
@@ -115,37 +124,37 @@ export function FoodDetail() {
 
   if (isLoading) {
     return (
-      <DetailPage prefix="fd-detail" className="td acc-detail-page">
-        <DetailSkeleton className="acc-page__detail-skeleton" />
-      </DetailPage>
+      <div className="jn-detail-page fd-detail-page">
+        <div className="skeleton" style={{ height: 280, borderRadius: 16, marginTop: 12 }} aria-hidden />
+        <div className="skeleton" style={{ height: 120, borderRadius: 16, marginTop: 14 }} aria-hidden />
+        <div className="skeleton" style={{ height: 200, borderRadius: 16, marginTop: 14 }} aria-hidden />
+      </div>
     )
   }
 
   if (isError) {
     return (
-      <DetailPage prefix="fd-detail" className="td acc-detail-page">
+      <div className="jn-detail-page fd-detail-page">
         <EmptyState
           iconElement={<Utensils size={28} strokeWidth={1.75} />}
           title="We couldn't load this venue"
           sub="Please check your connection and try again."
           cta={{ label: 'Try again', onClick: () => void refetch() }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
   if (!data || !id) {
     return (
-      <DetailPage prefix="fd-detail" className="td acc-detail-page">
+      <div className="jn-detail-page fd-detail-page">
         <EmptyState
           iconElement={<Utensils size={28} strokeWidth={1.75} />}
           title="Venue not found"
           sub="This listing may have been removed or the link is incorrect."
           cta={{ label: 'Browse food & drink', to: '/food' }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
@@ -155,23 +164,43 @@ export function FoodDetail() {
       (canManageListings && activeBusiness?.owner_username === data.owner_username))
 
   const canReserve = Boolean(data.reservations)
+  const editHref = canAnswer ? `/provider/food/${id}` : undefined
 
   const onSave = () => {
     if (!profile) {
       navigate('/login')
       return
     }
-    if (!id) return
-    saveMut.mutate(Number(id))
+    engagement.saveVenue(data)
+  }
+
+  const onLike = () => {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    engagement.likeVenue(data)
   }
 
   return (
-    <DetailPage prefix="fd-detail" className="td acc-detail-page" toast={shareMsg || null}>
+    <div className="jn-detail-page fd-detail-page">
       <PromotionOpenTracker />
+      {shareMsg || engagement.shareMsg ? (
+        <p className="jn-detail-page__toast" role="status">
+          {shareMsg || engagement.shareMsg}
+        </p>
+      ) : null}
       <FoodDetailView
         data={data}
         venueId={id}
-        saved={Boolean(data.saved_by_me)}
+        editHref={editHref}
+        liked={engagement.isLiked(data)}
+        saved={engagement.isSaved(data)}
+        likeBusy={engagement.isLikeBusy(data.id)}
+        saveBusy={engagement.isSaveBusy(data.id)}
+        likeCount={engagement.likeCount(data)}
+        saveCount={engagement.saveCount(data)}
+        onLike={onLike}
         onSave={onSave}
         onShare={() => onShare(data.name)}
         canAnswer={canAnswer}
@@ -195,6 +224,6 @@ export function FoodDetail() {
           profile: profile ?? null,
         }}
       />
-    </DetailPage>
+    </div>
   )
 }

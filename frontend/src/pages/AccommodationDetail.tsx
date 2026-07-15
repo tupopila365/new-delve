@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { AccommodationDetailView } from '../components/accommodation'
-import { DetailPage, DetailSkeleton } from '../components/detail'
 import { EmptyState } from '../components/ui'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
 import { useToggleStaySave } from '../hooks/useStaySave'
 import type { AccommodationListing } from '../utils/accommodationListing'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
+import '../components/journeys/journey-detail.css'
+import '../components/accommodation/accommodation-detail.css'
 
 type StayQuestionApi = {
   id: number
@@ -35,6 +36,18 @@ export function AccommodationDetail() {
   const { canManageListings, activeBusiness } = useBusinessAccess()
   const [shareMsg, setShareMsg] = useState('')
   const saveMut = useToggleStaySave()
+  const queryClient = useQueryClient()
+
+  const likeMut = useMutation({
+    mutationFn: (listingId: number) =>
+      apiFetch<{ liked: boolean; likes_count: number }>(`/api/accommodation/listings/${listingId}/like/`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['acc', id] })
+      void queryClient.invalidateQueries({ queryKey: ['accommodation'] })
+    },
+  })
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['acc', id, profile?.username ?? 'anon'],
@@ -105,17 +118,26 @@ export function AccommodationDetail() {
     saveMut.mutate(Number(id))
   }
 
+  const onLike = () => {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    if (!id) return
+    likeMut.mutate(Number(id))
+  }
+
   if (isLoading) {
     return (
-      <DetailPage prefix="acc-detail-page" className="td">
-        <DetailSkeleton className="acc-page__detail-skeleton" />
-      </DetailPage>
+      <div className="jn-detail-page acc-detail-page">
+        <div className="skeleton" style={{ height: 320, borderRadius: 24, marginTop: 12 }} aria-busy="true" />
+      </div>
     )
   }
 
   if (isError) {
     return (
-      <DetailPage prefix="acc-detail-page" className="td">
+      <div className="jn-detail-page acc-detail-page">
         <EmptyState
           iconElement={<Building2 size={28} strokeWidth={1.75} />}
           title="We couldn't load this stay"
@@ -123,13 +145,13 @@ export function AccommodationDetail() {
           cta={{ label: 'Try again', onClick: () => void refetch() }}
           className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
   if (!data || !id) {
     return (
-      <DetailPage prefix="acc-detail-page" className="td">
+      <div className="jn-detail-page acc-detail-page">
         <EmptyState
           iconElement={<Building2 size={28} strokeWidth={1.75} />}
           title="Stay not found"
@@ -137,7 +159,7 @@ export function AccommodationDetail() {
           cta={{ label: 'Browse stays', to: '/accommodation' }}
           className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
@@ -145,13 +167,21 @@ export function AccommodationDetail() {
   const ratingCount = reviewsData?.rating_count ?? data.rating_count
 
   return (
-    <DetailPage prefix="acc-detail-page" className="td" toast={shareMsg || null}>
+    <div className="jn-detail-page acc-detail-page">
+      {shareMsg ? (
+        <p className="jn-detail-page__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
       <PromotionOpenTracker />
       <AccommodationDetailView
         data={data}
         listingId={id}
         saved={Boolean(data.saved_by_me)}
+        liked={Boolean(data.liked_by_me)}
+        likeCount={data.likes_count}
         onSave={onSave}
+        onLike={onLike}
         onShare={() => onShare(data.title)}
         questions={questions}
         loadingQuestions={loadingQuestions}
@@ -160,6 +190,6 @@ export function AccommodationDetail() {
         ratingAvg={ratingAvg != null ? String(ratingAvg) : undefined}
         ratingCount={ratingCount}
       />
-    </DetailPage>
+    </div>
   )
 }

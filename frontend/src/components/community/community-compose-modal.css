@@ -23,9 +23,9 @@
   flex-direction: column;
   width: min(100%, 440px);
   max-height: min(92dvh, 720px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(26, 21, 16, 0.12);
   border-radius: 18px;
-  background: #0a0a0a;
+  background: #fffaf2;
   overflow: hidden;
 }
 
@@ -42,7 +42,7 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
-  color: #fffaf2;
+  color: #1a1510;
 }
 
 .cm-compose-modal__close {
@@ -50,8 +50,8 @@
   height: 34px;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: rgba(26, 21, 16, 0.08);
+  color: #1a1510;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -71,7 +71,7 @@
 }
 
 .cm-compose-modal__field > span {
-  color: rgba(255, 250, 242, 0.52);
+  color: rgba(26, 21, 16, 0.52);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -81,12 +81,12 @@
   gap: 8px;
   padding: 12px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(26, 21, 16, 0.12);
+  background: rgba(26, 21, 16, 0.04);
 }
 
 .cm-compose-modal__composer-block > span {
-  color: rgba(255, 250, 242, 0.52);
+  color: rgba(26, 21, 16, 0.52);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -100,10 +100,10 @@
 .cm-compose-modal__tag {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(26, 21, 16, 0.12);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.62);
+  background: rgba(26, 21, 16, 0.04);
+  color: rgba(26, 21, 16, 0.62);
   font: inherit;
   font-size: 0.76rem;
   font-weight: 800;
@@ -111,8 +111,8 @@
 }
 
 .cm-compose-modal__tag:hover {
-  border-color: rgba(124, 58, 237, 0.35);
-  color: #c4b5fd;
+  border-color: rgba(26, 21, 16, 0.35);
+  color: #5c534c;
 }
 
 .cm-compose-modal__error {
@@ -127,7 +127,7 @@
 
 .cm-compose-modal__note {
   margin: 0;
-  color: rgba(255, 250, 242, 0.42);
+  color: rgba(26, 21, 16, 0.42);
   font-size: 0.76rem;
   line-height: 1.4;
 }
@@ -138,8 +138,8 @@
   padding: 0 18px;
   border: none;
   border-radius: 999px;
-  background: #7c3aed;
-  color: #fff;
+  background: #1a1510;
+  color: #fffaf2;
   font: inherit;
   font-size: 0.86rem;
   font-weight: 800;
@@ -167,9 +167,9 @@
 .cm-compose-modal__select {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(26, 21, 16, 0.18);
   background: transparent;
-  color: #fffaf2;
+  color: #1a1510;
   font: inherit;
   font-size: 0.9rem;
   line-height: 1.45;
@@ -182,24 +182,24 @@
 }
 
 .cm-compose-modal__textarea::placeholder {
-  color: rgba(255, 250, 242, 0.38);
+  color: rgba(26, 21, 16, 0.38);
 }
 
 .cm-compose-modal__textarea:focus,
 .cm-compose-modal__select:focus {
   outline: none;
-  border-color: #fff;
+  border-color: #1a1510;
 }
 
 .cm-compose-modal__select {
   border-radius: 14px;
   cursor: pointer;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 .cm-compose-modal__select option {
-  background: #14110f;
-  color: #fffaf2;
+  background: #fffaf2;
+  color: #1a1510;
 }
 
 .cm-compose-modal__pill-row {
@@ -220,10 +220,10 @@
 .cm-compose-modal__pill-row button {
   min-height: 36px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(26, 21, 16, 0.12);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.58);
+  background: rgba(26, 21, 16, 0.04);
+  color: rgba(26, 21, 16, 0.58);
   font: inherit;
   font-size: 0.84rem;
   font-weight: 700;
@@ -231,16 +231,16 @@
 }
 
 .cm-compose-modal__pill-row button.is-active {
-  border-color: rgba(124, 58, 237, 0.55);
-  background: rgba(124, 58, 237, 0.22);
-  color: #fffaf2;
+  border-color: rgba(26, 21, 16, 0.55);
+  background: rgba(26, 21, 16, 0.22);
+  color: #1a1510;
 }
 
 .cm-compose-modal__hint {
   margin: 0;
   font-size: 0.74rem;
   line-height: 1.4;
-  color: rgba(255, 250, 242, 0.42);
+  color: rgba(26, 21, 16, 0.42);
 }
 
 .cm-compose-modal__cover {
@@ -256,10 +256,10 @@
   width: fit-content;
   min-height: 36px;
   padding: 0 14px;
-  border: 1px solid rgba(124, 58, 237, 0.35);
+  border: 1px solid rgba(26, 21, 16, 0.35);
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.12);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.12);
+  color: #5c534c;
   font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
@@ -288,7 +288,7 @@
   border: none;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.72);
-  color: #fff;
+  color: #1a1510;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -321,7 +321,7 @@
 }
 
 .cm-invite-picker__label {
-  color: rgba(255, 250, 242, 0.52);
+  color: rgba(26, 21, 16, 0.52);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -329,7 +329,7 @@
 .cm-invite-picker__count {
   font-size: 0.72rem;
   font-weight: 800;
-  color: rgba(124, 58, 237, 0.85);
+  color: rgba(26, 21, 16, 0.85);
 }
 
 .cm-invite-picker__panel {
@@ -337,8 +337,8 @@
   gap: 12px;
   padding: 12px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(26, 21, 16, 0.12);
+  background: rgba(26, 21, 16, 0.03);
 }
 
 .cm-invite-picker__selected {
@@ -372,8 +372,8 @@
 .cm-invite-picker__avatar {
   width: 52px !important;
   height: 52px !important;
-  border: 2px solid rgba(124, 58, 237, 0.55);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+  border: 2px solid rgba(26, 21, 16, 0.55);
+  box-shadow: 0 0 0 3px rgba(26, 21, 16, 0.12);
 }
 
 .cm-invite-picker__remove {
@@ -384,8 +384,8 @@
   height: 20px;
   border: 2px solid #0a0a0a;
   border-radius: 999px;
-  background: #7c3aed;
-  color: #fff;
+  background: #1a1510;
+  color: #1a1510;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -399,17 +399,17 @@
   white-space: nowrap;
   font-size: 0.68rem;
   font-weight: 700;
-  color: rgba(255, 250, 242, 0.62);
+  color: rgba(26, 21, 16, 0.62);
   text-align: center;
 }
 
 .cm-invite-picker__add-slot {
   width: 52px;
   height: 52px;
-  border: 2px dashed rgba(124, 58, 237, 0.45);
+  border: 2px dashed rgba(26, 21, 16, 0.45);
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.08);
-  color: #c4b5fd;
+  background: rgba(26, 21, 16, 0.08);
+  color: #5c534c;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -423,15 +423,15 @@
   min-height: 44px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(26, 21, 16, 0.12);
   background: rgba(0, 0, 0, 0.28);
-  color: rgba(255, 250, 242, 0.45);
+  color: rgba(26, 21, 16, 0.45);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cm-invite-picker__search.is-focused {
-  border-color: rgba(124, 58, 237, 0.55);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+  border-color: rgba(26, 21, 16, 0.55);
+  box-shadow: 0 0 0 3px rgba(26, 21, 16, 0.14);
 }
 
 .cm-invite-picker__search input {
@@ -440,14 +440,14 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: #fffaf2;
+  color: #1a1510;
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
 }
 
 .cm-invite-picker__search input::placeholder {
-  color: rgba(255, 250, 242, 0.34);
+  color: rgba(26, 21, 16, 0.34);
 }
 
 .cm-invite-picker__clear {
@@ -457,8 +457,8 @@
   height: 24px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 250, 242, 0.65);
+  background: rgba(26, 21, 16, 0.08);
+  color: rgba(26, 21, 16, 0.65);
   cursor: pointer;
   padding: 0;
 }
@@ -493,7 +493,7 @@
 }
 
 .cm-invite-picker__result:hover {
-  background: rgba(124, 58, 237, 0.14);
+  background: rgba(26, 21, 16, 0.14);
 }
 
 .cm-invite-picker__result-copy {
@@ -513,14 +513,14 @@
 
 .cm-invite-picker__result-copy span {
   font-size: 0.74rem;
-  color: rgba(255, 250, 242, 0.48);
+  color: rgba(26, 21, 16, 0.48);
 }
 
 .cm-invite-picker__add-btn {
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(26, 21, 16, 0.22);
   color: #ddd6fe;
   display: grid;
   place-items: center;
@@ -534,7 +534,7 @@
   gap: 8px;
   padding: 14px 10px;
   font-size: 0.8rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: rgba(26, 21, 16, 0.45);
 }
 
 .cm-invite-picker__spinner {
@@ -555,5 +555,5 @@
   margin: 0;
   padding: 4px 0 2px;
   font-size: 0.76rem;
-  color: rgba(255, 250, 242, 0.38);
+  color: rgba(26, 21, 16, 0.38);
 }

@@ -4,7 +4,6 @@ import {
   Bus,
   CalendarDays,
   Clock,
-  MessageCircle,
 } from 'lucide-react'
 import { BookingGuestSelector, BookingPriceSummary, UserBookingErrorState } from '../index'
 import { formatTripWhen, type BusTripListing } from '../../../utils/transportListing'
@@ -166,20 +165,20 @@ export function BusTripReserveCard({
 
       {err ? <UserBookingErrorState message={err} onDismiss={onDismissErr} /> : null}
 
-      <button
-        type="button"
-        className="btn btn-primary btn-block"
-        onClick={onBook}
-        disabled={isPending || !seats.blockValid}
-      >
-        <Bus size={16} strokeWidth={2.25} aria-hidden />
-        {isPending ? 'Sending…' : seats.blockValid ? 'Request seat' : 'Select seats first'}
-      </button>
+      <div className="shared-reserve__foot">
+        <button
+          type="button"
+          className="shared-reserve__cta"
+          onClick={onBook}
+          disabled={isPending || !seats.blockValid}
+        >
+          {isPending ? 'Sending…' : seats.blockValid ? 'Request' : 'Select seats'}
+        </button>
+      </div>
 
-      <Link to="/messages" className="shared-reserve__secondary">
-        <MessageCircle size={15} strokeWidth={2.25} aria-hidden />
-        Contact operator
-      </Link>
+      <nav className="shared-reserve__links" aria-label="Operator">
+        <Link to="/messages">Contact operator</Link>
+      </nav>
 
       {authHint ? (
         <p className="shared-reserve__hint">
@@ -228,11 +227,27 @@ export function BusTripBookingStatus({
           Seats {seatList} · <strong>{payLabel}</strong>
         </p>
         <p className="tp-transport-status__text">
-          This demo includes a practice payment step — your card is never charged.
+          The operator will confirm your seats. Practice payment unlocks after they accept.
+        </p>
+      </section>
+    )
+  }
+
+  if (firstRes?.status === 'confirmed' && !firstRes.mock_payment_ref) {
+    return (
+      <section className="detail-section tp-transport-status acc-detail__section">
+        <Bus className="tp-transport-status__icon" size={40} strokeWidth={2} aria-hidden />
+        <h2 className="tp-transport-status__title">Operator confirmed</h2>
+        <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
+        <p className="tp-transport-status__total">
+          Seats {seatList} · <strong>{payLabel}</strong>
+        </p>
+        <p className="tp-transport-status__text">
+          Complete the practice payment step — your card is never charged.
         </p>
         <div className="tp-transport-status__actions">
-          <button type="button" className="btn btn-primary btn-block" onClick={onPay} disabled={isPayPending}>
-            {isPayPending ? 'Processing…' : 'Complete demo step'}
+          <button type="button" className="shared-reserve__cta" onClick={onPay} disabled={isPayPending}>
+            {isPayPending ? 'Processing…' : 'Complete demo payment'}
           </button>
         </div>
       </section>
@@ -252,7 +267,7 @@ export function BusTripBookingStatus({
           Reference: <code>{firstRes.mock_payment_ref}</code>
         </p>
         <div className="tp-transport-status__actions">
-          <Link to="/transport" className="btn btn-primary btn-block">
+          <Link to="/transport" className="shared-reserve__cta">
             Browse transport
           </Link>
         </div>

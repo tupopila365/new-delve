@@ -14,8 +14,6 @@ from promotions.views import (
 
     FeaturedStaysView,
 
-    FeaturedTransportView,
-
     PromotionPricingView,
 
     PromotionProductsView,
@@ -49,8 +47,6 @@ urlpatterns = [
     path("featured/food/", FeaturedFoodView.as_view(), name="featured-food"),
 
     path("featured/events/", FeaturedEventsView.as_view(), name="featured-events"),
-
-    path("featured/transport/", FeaturedTransportView.as_view(), name="featured-transport"),
 
     path("spotlight/<str:category>/", CategorySpotlightView.as_view(), name="category-spotlight"),
 

@@ -4,28 +4,29 @@
   gap: 12px;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #151515;
+  border: 1px solid rgba(255, 250, 242, 0.1);
+  background: rgba(22, 19, 16, 0.92);
   color: inherit;
   text-decoration: none;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .search-hit:hover {
-  border-color: rgba(124, 58, 237, 0.35);
-  background: #1a1a1a;
+  border-color: rgba(255, 250, 242, 0.28);
+  background: #1c1814;
+  transform: translateY(-1px);
 }
 
 .search-hit__media {
   flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   object-fit: cover;
-  background: rgba(255, 255, 255, 0.06);
+  background: #2a241e;
 }
 
 .search-hit__media--thumb {
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .search-hit__media--avatar {
@@ -35,18 +36,18 @@
 .search-hit__media--empty {
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 250, 242, 0.45);
 }
 
 .search-hit__copy {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
 .search-hit__copy strong {
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: 0.94rem;
+  font-weight: 750;
   color: #fffaf2;
   white-space: nowrap;
   overflow: hidden;
@@ -55,7 +56,8 @@
 
 .search-hit__copy span {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+  color: rgba(255, 250, 242, 0.58);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

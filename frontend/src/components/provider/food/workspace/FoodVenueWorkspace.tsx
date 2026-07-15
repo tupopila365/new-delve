@@ -19,7 +19,9 @@ import {
 import {
   buildFoodVenueModuleSaveBody,
   foodVenueModuleAutoSaveKey,
+  resolveFoodVenuePhotosSaveBody,
 } from '../foodVenueModuleSave'
+import { formatGalleryUrlsField } from '../../../listing/photos/listingGalleryMedia'
 import { FoodVenuePhotoEditor } from '../FoodVenuePhotoEditor'
 import { FoodVenueStoriesEditor } from '../FoodVenueStoriesEditor'
 import type { FoodVenueFormValues, ProviderFoodVenue } from '../foodVenueTypes'
@@ -144,13 +146,40 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
 
   const runSave = useCallback(
     (module: FoodVenueModuleId, silent = false) => {
-      const built = buildFoodVenueModuleSaveBody(module, form, hours)
-      if (!built.ok) {
-        if (!silent) setError(built.error)
-        return
-      }
-      setError('')
-      saveMut.mutate({ body: built.body, module, silent })
+      void (async () => {
+        let built =
+          module === 'photos'
+            ? await resolveFoodVenuePhotosSaveBody(form)
+            : buildFoodVenueModuleSaveBody(module, form, hours)
+        if (!built.ok) {
+          if (!silent) setError(built.error)
+          return
+        }
+        // After Cloudinary resolve, also sync local form so files are cleared.
+        if (module === 'photos' && typeof built.body === 'string') {
+          try {
+            const parsed = JSON.parse(built.body) as {
+              cover_image_url?: string
+              cover_kind?: string
+              photos?: { image: string; kind?: string; is_cover?: boolean }[]
+            }
+            const gallery = (parsed.photos ?? [])
+              .filter((p) => !p.is_cover)
+              .map((p) => ({ url: p.image, kind: (p.kind === 'video' ? 'video' : 'image') as 'image' | 'video' }))
+            setForm((prev) => ({
+              ...prev,
+              cover_image_url: parsed.cover_image_url ?? prev.cover_image_url,
+              cover_image_file: null,
+              gallery_files: [],
+              gallery_urls: formatGalleryUrlsField(gallery),
+            }))
+          } catch {
+            // Keep going with resolved body.
+          }
+        }
+        setError('')
+        saveMut.mutate({ body: built.body, module, silent })
+      })()
     },
     [form, hours, saveMut],
   )
@@ -309,9 +338,10 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
               {activeModule === 'photos' ? (
                 <div className="fv-module fv-module--photos">
                   <FoodVenuePhotoEditor values={form} onChange={patchForm} />
-                  {form.cover_image_file || form.gallery_files.length > 0 ? (
-                    <p className="fv-module__note">Uploads save when you tap Save photos.</p>
-                  ) : null}
+                  <p className="fv-module__note">
+                    Photos and clips upload in the background (same Cloudinary path as Delvers). Save applies the
+                    remote URLs to your listing.
+                  </p>
                 </div>
               ) : null}
               {activeModule === 'stories' ? (

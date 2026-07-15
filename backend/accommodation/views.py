@@ -44,7 +44,9 @@ from .serializers import (
 
 
 class AccommodationListingViewSet(viewsets.ModelViewSet):
-    queryset = AccommodationListing.objects.filter(is_active=True).select_related("owner")
+    queryset = AccommodationListing.objects.filter(is_active=True).select_related(
+        "owner", "owner__profile"
+    )
     serializer_class = AccommodationListingSerializer
     filterset_class = AccommodationListingFilter
     search_fields = ("title", "description", "region", "city")
@@ -93,7 +95,7 @@ class AccommodationListingViewSet(viewsets.ModelViewSet):
                 return AccommodationListing.objects.none()
             return (
                 AccommodationListing.objects.filter(owner=user)
-                .select_related("owner")
+                .select_related("owner", "owner__profile")
                 .order_by("-created_at")
             )
 
@@ -102,12 +104,14 @@ class AccommodationListingViewSet(viewsets.ModelViewSet):
                 return AccommodationListing.objects.none()
             qs = (
                 AccommodationListing.objects.filter(is_active=True, user_saves__user=user)
-                .select_related("owner")
+                .select_related("owner", "owner__profile")
                 .distinct()
             )
             return self._annotate_engagement(qs, user)
 
-        qs = AccommodationListing.objects.filter(is_active=True).select_related("owner")
+        qs = AccommodationListing.objects.filter(is_active=True).select_related(
+            "owner", "owner__profile"
+        )
         qs = self._annotate_engagement(qs, user)
         if self.action in ("update", "partial_update", "destroy"):
             return qs.filter(owner=user)
@@ -392,7 +396,7 @@ class AccommodationProviderListingViewSet(viewsets.ModelViewSet):
         owner_ids = provider_listing_owner_ids(self.request.user)
         return (
             AccommodationListing.objects.filter(owner_id__in=owner_ids)
-            .select_related("owner")
+            .select_related("owner", "owner__profile")
             .annotate(
                 likes_count=Count("user_likes", distinct=True),
                 saves_count=Count("user_saves", distinct=True),

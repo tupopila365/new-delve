@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiFetch, ApiError } from '../api/client'
 import { AuthScreen } from '../components/auth'
 
@@ -11,6 +11,7 @@ function usernameFromEmail(email: string): string {
 
 export function Register() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
@@ -20,6 +21,10 @@ export function Register() {
   const [checking, setChecking] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const returnQs = searchParams.toString()
+  const registerTo = returnQs ? `/register?${returnQs}` : '/register'
+  const loginTo = returnQs ? `/login?${returnQs}` : '/login'
 
   useEffect(() => {
     if (!usernameTouched && email.includes('@')) {
@@ -86,90 +91,137 @@ export function Register() {
       })
       nav('/verify-email', { state: { emailHint: em, isProvider } })
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Registration failed')
+      setErr(e2 instanceof ApiError ? e2.message : 'Could not create your account. Try again.')
     } finally {
       setBusy(false)
     }
   }
 
+  const usernameHint =
+    username.trim().length < 2
+      ? null
+      : checking
+        ? 'Checking username…'
+        : avail === true
+          ? 'Username is available'
+          : avail === false
+            ? 'Username is taken'
+            : null
+
   return (
     <AuthScreen
-      title="Sign up"
-      subtitle="Create your Delve account. You will verify your email next — browsing works before that; bookings need a verified email."
+      mode="register"
+      loginTo={loginTo}
+      registerTo={registerTo}
+      title="Create your account"
+      subtitle="New to DELVE? Create an account to book, save, and ask locals. Already joined? Sign in instead."
       footer={
         <>
-          Already have an account? <Link to="/login">Log in</Link>
+          Already have an account? <Link to={loginTo}>Sign in</Link>
         </>
       }
     >
       {err ? <p className="auth-page__error">{err}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
-        <input
-          type="email"
-          className="auth-page__input"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          inputMode="email"
-          aria-label="Email"
-          required
-        />
-        <input
-          type="password"
-          className="auth-page__input"
-          placeholder="Password (8+ characters)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="new-password"
-          minLength={8}
-          aria-label="Password"
-          required
-        />
-        <input
-          type="text"
-          className="auth-page__input"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => {
-            setUsernameTouched(true)
-            setUsername(e.target.value)
-          }}
-          autoComplete="username"
-          aria-label="Username"
-          required
-        />
-        {username.trim().length >= 2 ? (
-          <p className="auth-page__field-hint" aria-live="polite">
-            {checking
-              ? 'Checking username…'
-              : avail === true
-                ? 'Username is available'
-                : avail === false
-                  ? 'Username is taken'
-                  : null}
-          </p>
-        ) : null}
-        <label className="auth-page__check">
-          <input type="checkbox" checked={isProvider} onChange={(e) => setIsProvider(e.target.checked)} />
-          <span>
-            I&apos;m registering as a <strong>service provider</strong>
-          </span>
-        </label>
-        {isProvider ? (
+        <div className="auth-page__choice" role="group" aria-label="Account type">
+          <p className="auth-page__choice-label">I want to</p>
+          <div className="auth-page__choice-grid">
+            <button
+              type="button"
+              className={`auth-page__choice-card${!isProvider ? ' is-active' : ''}`}
+              onClick={() => setIsProvider(false)}
+              aria-pressed={!isProvider}
+            >
+              <strong>Travel & explore</strong>
+              <span>Book stays, food, guides, and join the community.</span>
+            </button>
+            <button
+              type="button"
+              className={`auth-page__choice-card${isProvider ? ' is-active' : ''}`}
+              onClick={() => setIsProvider(true)}
+              aria-pressed={isProvider}
+            >
+              <strong>List my business</strong>
+              <span>Host stays, food, transport, or tours after setup.</span>
+            </button>
+          </div>
           <p className="auth-page__field-hint">
-            Provider accounts can list stays, transport, food, events, and more after email verification and business
-            onboarding. You can also upgrade from a traveller account later in Settings.
+            {isProvider
+              ? 'You’ll verify email, then finish business onboarding. You can also upgrade later in Settings.'
+              : 'You can become a provider later from Settings — no need to decide forever now.'}
           </p>
-        ) : (
-          <p className="auth-page__field-hint">
-            Traveller accounts can book, post, and explore. You can become a service provider anytime from Settings.
-          </p>
-        )}
+        </div>
+
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-register-email">
+            Email
+          </label>
+          <input
+            id="auth-register-email"
+            type="email"
+            className="auth-page__input"
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            inputMode="email"
+            required
+          />
+        </div>
+
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-register-password">
+            Password
+          </label>
+          <input
+            id="auth-register-password"
+            type="password"
+            className="auth-page__input"
+            placeholder="At least 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </div>
+
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-register-username">
+            Username
+          </label>
+          <input
+            id="auth-register-username"
+            type="text"
+            className="auth-page__input"
+            placeholder="How others will find you"
+            value={username}
+            onChange={(e) => {
+              setUsernameTouched(true)
+              setUsername(e.target.value)
+            }}
+            autoComplete="username"
+            required
+          />
+          {usernameHint ? (
+            <p
+              className={`auth-page__field-hint${
+                avail === true ? ' auth-page__field-hint--ok' : avail === false ? ' auth-page__field-hint--bad' : ''
+              }`}
+              aria-live="polite"
+            >
+              {usernameHint}
+            </p>
+          ) : null}
+        </div>
+
         <button type="submit" className="auth-page__submit" disabled={busy || avail === false || checking}>
-          {busy ? 'Creating account…' : 'Sign up'}
+          {busy ? 'Creating account…' : 'Create account'}
         </button>
       </form>
+      <p className="auth-page__assist">
+        Already registered? Switch to <Link to={loginTo}>Sign in</Link>.
+      </p>
     </AuthScreen>
   )
 }

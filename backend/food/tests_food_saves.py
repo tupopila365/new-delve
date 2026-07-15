@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from food.models import CuisineType, FoodVenue, FoodVenueSave
+from food.models import CuisineType, FoodVenue, FoodVenueLike, FoodVenueSave
 
 User = get_user_model()
 
@@ -61,4 +61,54 @@ class FoodVenueSaveTests(TestCase):
 
     def test_save_requires_auth(self):
         res = self.client.post(f"/api/food/venues/{self.venue.pk}/save/")
+        self.assertEqual(res.status_code, 401)
+
+
+class FoodVenueLikeTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            username="food_like_owner",
+            email="food_like_owner@test.local",
+            password="pass12345",
+        )
+        self.traveler = User.objects.create_user(
+            username="food_like_traveler",
+            email="food_like_traveler@test.local",
+            password="pass12345",
+        )
+        self.venue = FoodVenue.objects.create(
+            owner=self.owner,
+            name="Braai Spot",
+            cuisine=CuisineType.GRILL,
+            region="Khomas",
+            city="Windhoek",
+            is_active=True,
+        )
+
+    def test_like_toggle_and_detail_fields(self):
+        self.client.force_authenticate(user=self.traveler)
+        like_url = f"/api/food/venues/{self.venue.pk}/like/"
+
+        res = self.client.post(like_url)
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.data["liked"])
+        self.assertEqual(res.data["likes_count"], 1)
+        self.assertTrue(
+            FoodVenueLike.objects.filter(venue=self.venue, user=self.traveler).exists()
+        )
+
+        detail = self.client.get(f"/api/food/venues/{self.venue.pk}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertTrue(detail.data["liked_by_me"])
+        self.assertEqual(detail.data["likes_count"], 1)
+        self.assertEqual(detail.data.get("cover_kind"), "image")
+
+        unlike = self.client.post(like_url)
+        self.assertEqual(unlike.status_code, 200)
+        self.assertFalse(unlike.data["liked"])
+        self.assertEqual(unlike.data["likes_count"], 0)
+
+    def test_like_requires_auth(self):
+        res = self.client.post(f"/api/food/venues/{self.venue.pk}/like/")
         self.assertEqual(res.status_code, 401)

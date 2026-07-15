@@ -72,7 +72,7 @@ class BusTripPromotionTests(TestCase):
         )
         now = timezone.now()
         PromotionCampaign.objects.create(
-            placement=PromotionPlacement.HOMEPAGE_TRANSPORT,
+            placement=PromotionPlacement.DELVERS_FEED,
             target_type=PromotionTargetType.BUS_TRIP,
             target_id=str(self.trip.pk),
             target_label=f"{self.route.origin} → {self.route.destination}",
@@ -110,17 +110,6 @@ class BusTripPromotionTests(TestCase):
         self.assertIn("Windhoek", label)
         self.assertEqual(err, "")
 
-    def test_featured_transport_includes_promoted_bus_trip(self):
+    def test_featured_transport_endpoint_removed(self):
         res = self.client.get("/api/promotions/featured/transport/")
-        self.assertEqual(res.status_code, 200)
-        trip_ids = [row["id"] for row in res.data if row.get("route_detail")]
-        self.assertIn(self.trip.pk, trip_ids)
-        promoted = next(row for row in res.data if row.get("id") == self.trip.pk)
-        self.assertTrue(promoted.get("is_featured_partner"))
-
-    def test_homepage_transport_allows_bus_trip_target_type(self):
-        from promotions.services import allowed_target_types_for_placement
-
-        types = allowed_target_types_for_placement(PromotionPlacement.HOMEPAGE_TRANSPORT)
-        self.assertIn(PromotionTargetType.BUS_TRIP, types)
-        self.assertIn(PromotionTargetType.VEHICLE, types)
+        self.assertEqual(res.status_code, 404)

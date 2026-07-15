@@ -4,6 +4,7 @@ import {
   EMPTY_BUS_TRIP_FORM,
   type BusTripListingFormValues,
 } from './busTripListingTypes'
+import { TransportPhotoEditor } from './TransportPhotoEditor'
 
 type Props = {
   values: BusTripListingFormValues
@@ -20,7 +21,7 @@ const SECTIONS = [
   { id: 'schedule', label: 'Schedule' },
   { id: 'capacity', label: 'Seats & fare' },
   { id: 'amenities', label: 'Amenities' },
-  { id: 'photos', label: 'Photos' },
+  { id: 'photos', label: 'Media' },
 ] as const
 
 export function BusTripListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
@@ -151,17 +152,12 @@ export function BusTripListingForm({ values, onChange, error, saving, onSubmit, 
           )}
 
           {section === 'photos' && (
-            <div className="transport-form__section">
-              <label className="transport-form__field">
-                Route cover photo URL
-                <input value={values.cover_image_url} onChange={(e) => patch({ cover_image_url: e.target.value })} placeholder="https://…" />
-              </label>
-              {values.cover_image_url ? <img src={values.cover_image_url} alt="" className="transport-form__preview" /> : null}
-              <label className="transport-form__field">
-                Gallery URLs
-                <textarea rows={4} value={values.gallery_urls} onChange={(e) => patch({ gallery_urls: e.target.value })} placeholder="One image URL per line" />
-              </label>
-            </div>
+            <TransportPhotoEditor
+              values={values}
+              onChange={(partial) => patch(partial)}
+              title="Route media"
+              hint="Show the coach or route highlight — a cover photo or short boarding video helps travellers pick with confidence."
+            />
           )}
         </div>
 

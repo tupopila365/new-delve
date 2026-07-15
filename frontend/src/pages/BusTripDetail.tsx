@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Bus } from 'lucide-react'
 import { apiFetch } from '../api/client'
-import { DetailPage, DetailSkeleton } from '../components/detail'
 import { BusTripDetailView } from '../components/transport'
 import type { GroupReserveResponse, Reservation } from '../components/booking/transport/BusTripReserveCard'
 import { EmptyState } from '../components/ui'
@@ -12,6 +11,8 @@ import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { isSeatBlockValid, seatBlockForStart } from '../utils/transportSeatBlock'
 import type { BusTripListing } from '../utils/transportListing'
+import '../components/journeys/journey-detail.css'
+import '../components/transport/transport-detail.css'
 
 export function BusTripDetail() {
   const { id } = useParams()
@@ -146,37 +147,35 @@ export function BusTripDetail() {
 
   if (isLoading) {
     return (
-      <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page">
-        <DetailSkeleton className="acc-page__detail-skeleton" />
-      </DetailPage>
+      <div className="jn-detail-page tp-detail-page">
+        <div className="skeleton" style={{ height: 320, borderRadius: 24, marginTop: 12 }} aria-busy="true" />
+      </div>
     )
   }
 
   if (isError) {
     return (
-      <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page">
+      <div className="jn-detail-page tp-detail-page">
         <EmptyState
           iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
           title="We couldn't load this bus trip"
           sub="Please check your connection and try again."
           cta={{ label: 'Try again', onClick: () => void refetch() }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
   if (!trip || !id) {
     return (
-      <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page">
+      <div className="jn-detail-page tp-detail-page">
         <EmptyState
           iconElement={<Bus size={28} strokeWidth={2} aria-hidden />}
           title="Bus trip not found"
           sub="This route may have been removed or the link is incorrect."
           cta={{ label: 'Browse transport', to: '/transport' }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
@@ -187,7 +186,17 @@ export function BusTripDetail() {
     canManageListingForOwner(operatorOwner)
 
   return (
-    <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page" toast={shareMsg || null}>
+    <div className="jn-detail-page tp-detail-page">
+      {shareMsg ? (
+        <p className="jn-detail-page__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
+      {err ? (
+        <p className="jn-detail-page__toast" role="alert">
+          {err}
+        </p>
+      ) : null}
       <BusTripDetailView
         trip={trip}
         tripId={id}
@@ -222,6 +231,6 @@ export function BusTripDetail() {
           },
         }}
       />
-    </DetailPage>
+    </div>
   )
 }

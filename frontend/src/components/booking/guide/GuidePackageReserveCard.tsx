@@ -57,7 +57,7 @@ export function GuidePackageReserveCard({
   const loginHref = loginHrefWithReturn(bookPath)
 
   return (
-    <div className={`guide-reserve ${className}`.trim()} id="guide-request-panel">
+    <div className={`guide-reserve ${className}`.trim()}>
       <p className="guide-reserve__kicker">Request this experience</p>
       <p className="guide-reserve__price">
         ${pkg.price}

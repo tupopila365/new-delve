@@ -1,6 +1,6 @@
 """Phase 1 — provider guide profile and booking APIs."""
 
-from datetime import timedelta
+from datetime import time, timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -346,6 +346,9 @@ class ProviderGuideBookingApiTests(TestCase):
             package_id="half-day",
             total_price="3600.00",
             status="pending",
+            notes="Preferred language: English\nWe want an early start.",
+            meeting_point="Lodge lobby",
+            start_time=time(9, 30),
         )
 
     def test_provider_lists_bookings(self):
@@ -359,6 +362,10 @@ class ProviderGuideBookingApiTests(TestCase):
         self.assertEqual(row["guest_username"], "traveler")
         self.assertEqual(row["guests"], 2)
         self.assertEqual(row["status"], "pending")
+        self.assertEqual(row["notes"], "Preferred language: English\nWe want an early start.")
+        self.assertEqual(row["meeting_point"], "Lodge lobby")
+        self.assertEqual(row["start_time"], "09:30:00")
+        self.assertEqual(row["package_id"], "half-day")
 
     def test_provider_filters_bookings_by_status(self):
         self.client.force_authenticate(user=self.owner)

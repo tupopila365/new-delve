@@ -598,11 +598,11 @@
   color: var(--guide-text);
 }
 
-/* Detail page reserve card */
+/* Detail page reserve card — sage trail on journey surfaces */
 .guide-reserve {
   padding: 16px;
   border-radius: 16px;
-  background: #111;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -612,14 +612,26 @@
   font-weight: 850;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 138, 61, 0.9);
+  color: var(--accent-hover, #8fd4b0);
 }
 
 .guide-reserve__price {
   margin: 0 0 4px;
   font-size: 1.35rem;
   font-weight: 900;
-  color: #fffaf2;
+  color: var(--guide-cost, #e8c9a0);
+}
+
+.gd-detail-page .guide-reserve .btn-primary {
+  background: var(--accent, #5a9b7a);
+  border-color: var(--accent, #5a9b7a);
+  color: #0c1612;
+  font-weight: 850;
+}
+
+.gd-detail-page .guide-reserve .btn-primary:hover {
+  background: var(--accent-hover, #8fd4b0);
+  border-color: var(--accent-hover, #8fd4b0);
 }
 
 .guide-reserve__price small {
@@ -677,7 +689,7 @@
 }
 
 .guide-reserve .input:focus {
-  border-color: #ff8a3d;
+  border-color: var(--accent-hover, #8fd4b0);
   outline: none;
   box-shadow: none;
 }
@@ -695,12 +707,12 @@
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  color: #ff8a3d;
+  color: var(--accent-hover, #8fd4b0);
   background: transparent;
 }
 
 .guide-reserve .bk-guests__btn:not(:disabled):hover {
-  background: rgba(255, 138, 61, 0.12);
+  background: var(--accent-soft, rgba(143, 212, 176, 0.16));
 }
 
 .guide-reserve .bk-guests__btn:disabled {

@@ -610,7 +610,6 @@ const PLACEMENT_LABELS: Record<string, string> = {
   homepage_guides: 'Homepage — Featured guides',
   homepage_food: 'Homepage — Featured food',
   homepage_events: 'Homepage — Featured events',
-  homepage_transport: 'Homepage — Featured transport',
   delvers_feed: 'Delvers feed — Sponsored',
   community_feed: 'Community feed — Sponsored',
 }
@@ -620,7 +619,6 @@ const PLACEMENT_MAX: Record<string, number> = {
   homepage_guides: 2,
   homepage_food: 2,
   homepage_events: 2,
-  homepage_transport: 2,
   category_spotlight: 1,
   delvers_feed: 2,
   community_feed: 2,

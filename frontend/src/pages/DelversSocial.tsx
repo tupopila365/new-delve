@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, Hash, MapPin, MessageCircle, Play, Plus, Search, Share2, UserRound, Volume2, VolumeX, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useExploreRegion } from '../hooks/useExploreRegion'
 import { UserAvatar } from '../components/UserAvatar'
 import { DelversCommentsPanel } from '../components/DelversCommentsPanel'
 import { ReportButton } from '../components/report/ReportButton'
@@ -105,6 +106,7 @@ function postEntry(profile: ReturnType<typeof useAuth>['profile']) {
 
 export function DelversSocial() {
   const { profile } = useAuth()
+  const { region: exploreRegion } = useExploreRegion()
   const [tab, setTab] = useState<FeedTab>('foryou')
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -119,16 +121,14 @@ export function DelversSocial() {
   const storiesRowRef = useRef<HTMLElement>(null)
   const lastScrollTopRef = useRef(0)
   const qc = useQueryClient()
-  const qk = ['delvers-social', profile?.region, profile?.username] as const
-  const highlightsQk = ['delvers-highlights', profile?.region, profile?.username] as const
+  const regionQuery = exploreRegion ? `?region=${encodeURIComponent(exploreRegion)}` : ''
+  const qk = ['delvers-social', exploreRegion, profile?.username] as const
+  const highlightsQk = ['delvers-highlights', exploreRegion, profile?.username] as const
   const hashtagRingsQk = ['delvers-hashtag-rings', profile?.username] as const
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: qk,
-    queryFn: () =>
-      apiFetch<DelversFeedItem[]>(
-        `/api/social/delvers/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
-      ),
+    queryFn: () => apiFetch<DelversFeedItem[]>(`/api/social/delvers/${regionQuery}`),
   })
 
   // Poll posts that are still finalizing video effects (Phase 2 deferred bake).
@@ -179,10 +179,7 @@ export function DelversSocial() {
 
   const { data: highlights = [] } = useQuery({
     queryKey: highlightsQk,
-    queryFn: () =>
-      apiFetch<DelversFeedPost[]>(
-        `/api/social/delvers/highlights/${profile?.region ? `?region=${encodeURIComponent(profile.region)}` : ''}`,
-      ),
+    queryFn: () => apiFetch<DelversFeedPost[]>(`/api/social/delvers/highlights/${regionQuery}`),
   })
 
   const { data: hashtagRingsResp } = useQuery({
@@ -470,7 +467,7 @@ export function DelversSocial() {
 
   const posts = useMemo(() => {
     let list = [...(data ?? [])].filter((item) => !isFeedPost(item) || isDelversPin(item))
-    const homeRegion = profile?.region?.trim().toLowerCase()
+    const homeRegion = exploreRegion?.trim().toLowerCase()
 
     if (tab === 'nearby' && homeRegion) {
       list = list.filter((p) => {
@@ -508,7 +505,7 @@ export function DelversSocial() {
     }
 
     return list
-  }, [data, profile?.region, query, tab])
+  }, [data, exploreRegion, query, tab])
 
   const onShare = async (postId: number) => {
     try {

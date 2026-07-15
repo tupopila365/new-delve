@@ -33,7 +33,7 @@ export function ForgotPassword() {
   return (
     <AuthScreen
       title="Forgot password"
-      subtitle="Enter your account email and we will send reset instructions."
+      subtitle="Enter the email on your account. If it exists, we’ll send reset instructions."
       hint={
         import.meta.env.DEV ? (
           <>
@@ -41,30 +41,35 @@ export function ForgotPassword() {
           </>
         ) : (
           <>
-            Check your inbox and spam folder for an email from DELVE with a reset link or token.
+            Check your inbox and spam folder for an email from DELVE with a reset link.
           </>
         )
       }
       footer={
         <>
-          Remember your password? <Link to="/login">Log in</Link>
+          Remember your password? <Link to="/login">Sign in</Link>
         </>
       }
     >
       {err ? <p className="auth-page__error">{err}</p> : null}
       {msg ? <p className="auth-page__success">{msg}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
-        <input
-          type="email"
-          className="auth-page__input"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
-          inputMode="email"
-          aria-label="Email"
-          required
-        />
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-forgot-email">
+            Email
+          </label>
+          <input
+            id="auth-forgot-email"
+            type="email"
+            className="auth-page__input"
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            inputMode="email"
+            required
+          />
+        </div>
         <button type="submit" className="auth-page__submit" disabled={busy || !email.trim()}>
           {busy ? 'Sending…' : 'Send reset link'}
         </button>

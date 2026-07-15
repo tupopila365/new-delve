@@ -162,8 +162,11 @@ export function GuidePackageBook() {
   }, [guide, pkg, date, phase, availStatus, runAvailabilityCheck])
 
   const createMut = useMutation({
-    mutationFn: () =>
-      apiFetch<GuideBookingRecord>('/api/guides/bookings/', {
+    mutationFn: () => {
+      const noteParts: string[] = []
+      if (languagePref.trim()) noteParts.push(`Preferred language: ${languagePref.trim()}`)
+      if (notes.trim()) noteParts.push(notes.trim())
+      return apiFetch<GuideBookingRecord>('/api/guides/bookings/', {
         method: 'POST',
         body: JSON.stringify({
           guide: guide!.id,
@@ -173,9 +176,10 @@ export function GuidePackageBook() {
           package_id: pkg!.id,
           start_time: startTime && /^\d{2}:\d{2}$/.test(startTime) ? `${startTime}:00` : null,
           meeting_point: meetingPoint.trim(),
-          notes: notes.trim(),
+          notes: noteParts.join('\n'),
         }),
-      }),
+      })
+    },
     onSuccess: (b) => {
       setBooking(b)
       setPhase('sent')

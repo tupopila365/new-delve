@@ -33,9 +33,22 @@ export function JourneyHero({
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
+  const [failedSrcs, setFailedSrcs] = useState<Set<string>>(() => new Set())
 
-  const slides = images.length > 0 ? images : [{ src: '', alt: '', kind: 'image' as const }]
-  const multi = slides.length > 1
+  const candidates =
+    images.filter((item) => Boolean(item.src?.trim())).length > 0
+      ? images.filter((item) => Boolean(item.src?.trim()))
+      : [{ id: 'empty', src: '', alt: '', kind: 'image' as const }]
+
+  const slides = candidates.map((item) => {
+    if (!item.src?.trim()) return item
+    if (failedSrcs.has(item.src)) return { ...item, src: '', kind: 'image' as const }
+    return item
+  })
+
+  const visibleSrcCount = slides.filter((s) => s.src?.trim()).length
+  const multi = slides.length > 1 && visibleSrcCount > 0
+  const isEmptyHero = visibleSrcCount === 0
 
   const onScroll = () => {
     const el = trackRef.current
@@ -52,8 +65,18 @@ export function JourneyHero({
     setActive(next)
   }
 
+  const markFailed = (src: string) => {
+    if (!src) return
+    setFailedSrcs((prev) => {
+      if (prev.has(src)) return prev
+      const next = new Set(prev)
+      next.add(src)
+      return next
+    })
+  }
+
   return (
-    <div className="jd-hero">
+    <div className={`jd-hero${isEmptyHero ? ' jd-hero--empty' : ''}`}>
       <Link to={backTo} className="jd-hero__back">
         <ChevronLeft size={16} strokeWidth={2.5} aria-hidden />
         {backLabel}
@@ -93,22 +116,34 @@ export function JourneyHero({
 
       <div className="jd-hero__carousel" ref={trackRef} onScroll={onScroll}>
         {slides.map((item, index) => (
-          <div key={item.id ?? `${item.src}-${index}`} className="jd-hero__slide">
-            {item.kind === 'video' ? (
-              <video src={item.src} playsInline muted loop autoPlay preload="metadata" aria-label={item.alt ?? ''} />
-            ) : (
+          <div key={item.id ?? `${candidates[index]?.src ?? index}-${index}`} className="jd-hero__slide">
+            {item.kind === 'video' && item.src?.trim() ? (
+              <video
+                src={item.src}
+                playsInline
+                muted
+                loop
+                autoPlay
+                preload="metadata"
+                aria-label={item.alt ?? ''}
+                onError={() => markFailed(candidates[index]?.src || item.src)}
+              />
+            ) : item.src?.trim() ? (
               <img
                 src={item.src}
                 alt={item.alt ?? ''}
                 loading={index === 0 ? 'eager' : 'lazy'}
                 decoding="async"
+                onError={() => markFailed(candidates[index]?.src || item.src)}
               />
+            ) : (
+              <div className="jd-hero__slide-empty" aria-hidden />
             )}
           </div>
         ))}
       </div>
 
-      {multi ? (
+      {multi && visibleSrcCount > 1 ? (
         <>
           {active > 0 ? (
             <button

@@ -1,12 +1,7 @@
 import { Link } from 'react-router-dom'
-import {
-  Building2,
-  Car,
-  MapPin,
-  Users,
-} from 'lucide-react'
-import { BookingDateFields, BookingPriceSummary, UserBookingErrorState } from '../index'
-import { MessageProviderLink } from '../../messages'
+import { MapPin, Users } from 'lucide-react'
+import { BookingDateFields, UserBookingErrorState } from '../index'
+import { messageProviderPath } from '../../messages/messageProviderUtils'
 import { RenterDocumentUploads } from './RenterDocumentUploads'
 import type { RenterDocumentUpload } from '../../../data/renterDocuments'
 import {
@@ -67,10 +62,8 @@ export function VehicleReserveCard({
   if (booking && booking.status !== 'pending') return null
 
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
-  const TypeIcon = typeMeta.Icon
   const locationLine = vehicleLocationLine(vehicle)
   const providerName = vehicleProviderName(vehicle)
-  const providerProfileHref = vehicle.owner_username ? `/u/${encodeURIComponent(vehicle.owner_username)}` : null
   const todayStr = new Date().toISOString().split('T')[0]
   const days = rentalDaysInclusive(start, end)
   const estimatedTotal =
@@ -79,48 +72,56 @@ export function VehicleReserveCard({
       : null
 
   const pickupOptions = [...new Set([vehicle.city, 'Airport', 'Provider location'].filter(Boolean) as string[])]
-
   const requiredDocs = vehicle.required_renter_documents ?? []
+  const messageHref = vehicle.owner_username
+    ? messageProviderPath(vehicle.owner_username, {
+        type: 'transport',
+        id: vehicle.id,
+        label: vehicle.title,
+      })
+    : '/messages'
 
   const authHint = !profile
-    ? 'Sign in to send a vehicle request.'
+    ? (
+        <>
+          <Link to="/login">Sign in</Link> to request this vehicle.
+        </>
+      )
     : !profile.email_verified
-      ? 'Verify your email to request this vehicle.'
+      ? (
+          <>
+            <Link to="/verify-email">Verify your email</Link> to request this vehicle.
+          </>
+        )
       : null
 
   return (
-    <div className={`rental-reserve ${className}`.trim()} id="vehicle-reserve-panel">
-      <p className="rental-reserve__kicker">Reserve this vehicle</p>
+    <aside className={`rental-reserve ${className}`.trim()} id="vehicle-reserve-panel">
+      <header className="rental-reserve__top">
+        <div>
+          <p className="rental-reserve__kicker">{typeMeta.label}</p>
+          <p className="rental-reserve__price">
+            N${vehicle.price_per_day}
+            <span>/ day</span>
+          </p>
+        </div>
+        <p className="rental-reserve__host">{providerName}</p>
+      </header>
 
-      <div className="rental-reserve__head">
-        <p className="rental-reserve__price">
-          N${vehicle.price_per_day}
-          <small> / day</small>
-        </p>
-        <span className="rental-reserve__type">
-          <TypeIcon size={12} strokeWidth={2.25} aria-hidden />
-          {typeMeta.label}
-        </span>
-      </div>
-
-      <ul className="rental-reserve__facts">
-        {vehicle.seats != null && (
-          <li className="rental-reserve__fact">
-            <Users size={14} strokeWidth={2.25} aria-hidden />
+      <p className="rental-reserve__meta">
+        {vehicle.seats != null ? (
+          <span>
+            <Users size={13} strokeWidth={2.25} aria-hidden />
             {vehicle.seats} seats
-          </li>
-        )}
-        {locationLine ? (
-          <li className="rental-reserve__fact">
-            <MapPin size={14} strokeWidth={2.25} aria-hidden />
-            {locationLine}
-          </li>
+          </span>
         ) : null}
-        <li className="rental-reserve__fact">
-          <Building2 size={14} strokeWidth={2.25} aria-hidden />
-          {providerName}
-        </li>
-      </ul>
+        {locationLine ? (
+          <span>
+            <MapPin size={13} strokeWidth={2.25} aria-hidden />
+            {locationLine}
+          </span>
+        ) : null}
+      </p>
 
       <div className="rental-reserve__fields">
         <BookingDateFields
@@ -140,13 +141,10 @@ export function VehicleReserveCard({
             onChange: onEndChange,
           }}
         />
-        <div className="field">
-          <label className="label" htmlFor="veh-pickup-area">
-            Pick-up area
-          </label>
+        <label className="rental-reserve__field">
+          <span>Area</span>
           <select
             id="veh-pickup-area"
-            className="input"
             value={pickupArea || pickupOptions[0] || ''}
             onChange={(e) => onPickupAreaChange(e.target.value)}
           >
@@ -156,7 +154,7 @@ export function VehicleReserveCard({
               </option>
             ))}
           </select>
-        </div>
+        </label>
       </div>
 
       {requiredDocs.length > 0 && onRenterDocUpload && onRenterDocRemove ? (
@@ -169,61 +167,39 @@ export function VehicleReserveCard({
         />
       ) : null}
 
-      <BookingPriceSummary
-        lines={
-          days != null && estimatedTotal
-            ? [{ label: `${days} ${days === 1 ? 'day' : 'days'} × N$${vehicle.price_per_day}`, value: `N$${estimatedTotal}` }]
-            : [{ label: 'Daily rate', value: `N$${vehicle.price_per_day} / day`, muted: true }]
-        }
-        total={estimatedTotal ? { label: 'Estimated total', value: `N$${estimatedTotal}` } : undefined}
-        estimateNote={estimatedTotal ? 'Provider confirms the final amount' : 'Choose dates to see an estimate'}
-      />
-
       {err ? <UserBookingErrorState message={err} onDismiss={onDismissErr} /> : null}
 
-      <button
-        type="button"
-        className="btn btn-primary btn-block"
-        onClick={onReserve}
-        disabled={isPending}
-      >
-        <Car size={16} strokeWidth={2.25} aria-hidden />
-        {isPending ? 'Sending…' : 'Request vehicle'}
-      </button>
-
-      {vehicle.owner_username ? (
-        <MessageProviderLink username={vehicle.owner_username} variant="ghost" className="rental-reserve__secondary" />
-      ) : providerProfileHref ? (
-        <Link to={providerProfileHref} className="rental-reserve__secondary">
-          Message provider
-        </Link>
-      ) : (
-        <MessageProviderLink variant="ghost" className="rental-reserve__secondary" fallbackToInbox />
-      )}
-
-      {authHint ? (
-        <p className="rental-reserve__hint">
-          {!profile ? (
+      <div className="rental-reserve__foot">
+        <div className="rental-reserve__total">
+          {estimatedTotal ? (
             <>
-              {authHint}{' '}
-              <Link to="/login">Sign in</Link>
-            </>
-          ) : !profile.email_verified ? (
-            <>
-              Verify your email to request this vehicle.{' '}
-              <Link to="/verify-email">Verify now</Link>
+              <strong>N${estimatedTotal}</strong>
+              <span>
+                {days} {days === 1 ? 'day' : 'days'}
+              </span>
             </>
           ) : (
-            authHint
+            <>
+              <strong>N${vehicle.price_per_day}</strong>
+              <span>per day</span>
+            </>
           )}
-        </p>
-      ) : null}
+        </div>
+        <button type="button" className="rental-reserve__cta" onClick={onReserve} disabled={isPending}>
+          {isPending ? 'Sending…' : 'Request'}
+        </button>
+      </div>
 
-      <p className="rental-reserve__trust">
-        The provider confirms availability, pickup, deposit, and rental terms before anything is final. No charge
-        until approved.
-      </p>
-    </div>
+      <nav className="rental-reserve__links" aria-label="Provider">
+        <Link to={messageHref}>Message</Link>
+        {vehicle.owner_username ? (
+          <Link to={`/u/${encodeURIComponent(vehicle.owner_username)}`}>Profile</Link>
+        ) : null}
+      </nav>
+
+      {authHint ? <p className="rental-reserve__hint">{authHint}</p> : null}
+      <p className="rental-reserve__trust">No charge until the provider confirms.</p>
+    </aside>
   )
 }
 
@@ -238,19 +214,33 @@ export function VehicleBookingStatus({
 }) {
   if (booking.status === 'pending') {
     return (
-      <section className="detail-section tp-transport-status acc-detail__section">
-        <Car className="tp-transport-status__icon tp-transport-status__icon--pending" size={40} strokeWidth={2} aria-hidden />
+      <section className="detail-section tp-transport-status">
         <h2 className="tp-transport-status__title">Request received</h2>
         <span className="tp-transport-status__badge">Awaiting provider</span>
         <p className="tp-transport-status__total">
           Estimated total: <strong>N${booking.total_price}</strong>
         </p>
         <p className="tp-transport-status__text">
-          This demo includes a practice payment step — your card is never charged.
+          The provider will confirm your dates. Practice payment unlocks after they accept.
+        </p>
+      </section>
+    )
+  }
+
+  if (booking.status === 'confirmed' && !booking.mock_payment_ref) {
+    return (
+      <section className="detail-section tp-transport-status">
+        <h2 className="tp-transport-status__title">Provider confirmed</h2>
+        <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
+        <p className="tp-transport-status__total">
+          Total: <strong>N${booking.total_price}</strong>
+        </p>
+        <p className="tp-transport-status__text">
+          Complete the practice payment step — your card is never charged.
         </p>
         <div className="tp-transport-status__actions">
-          <button type="button" className="btn btn-primary btn-block" onClick={onPay} disabled={isPayPending}>
-            {isPayPending ? 'Processing…' : 'Complete demo step'}
+          <button type="button" className="rental-reserve__cta" onClick={onPay} disabled={isPayPending}>
+            {isPayPending ? 'Processing…' : 'Complete demo payment'}
           </button>
         </div>
       </section>
@@ -259,8 +249,7 @@ export function VehicleBookingStatus({
 
   if (booking.status === 'confirmed') {
     return (
-      <section className="detail-section tp-transport-status tp-transport-status--success acc-detail__section">
-        <Car className="tp-transport-status__icon" size={40} strokeWidth={2} aria-hidden />
+      <section className="detail-section tp-transport-status tp-transport-status--success">
         <h2 className="tp-transport-status__title">Request confirmed</h2>
         <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
         <p className="tp-transport-status__text">
@@ -270,7 +259,7 @@ export function VehicleBookingStatus({
           Reference: <code>{booking.mock_payment_ref}</code>
         </p>
         <div className="tp-transport-status__actions">
-          <Link to="/transport" className="btn btn-primary btn-block">
+          <Link to="/transport" className="rental-reserve__cta">
             Browse transport
           </Link>
         </div>

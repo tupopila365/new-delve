@@ -2,30 +2,43 @@
   display: grid;
   justify-items: center;
   gap: 4px;
-  padding: 40px 18px;
+  padding: 32px 16px;
   text-align: center;
+}
+
+.msg-trail .msg-empty {
+  border: 1px dashed var(--msg-line, rgba(26, 21, 16, 0.12));
+  border-radius: 14px;
+  background: var(--msg-soft, #f3ebe0);
 }
 
 .msg-empty__icon {
   display: grid;
   place-items: center;
+  width: 44px;
+  height: 44px;
   margin-bottom: 6px;
-  color: rgba(255, 255, 255, 0.32);
+  border-radius: 12px;
+  border: 1px solid var(--msg-line, rgba(26, 21, 16, 0.12));
+  background: var(--msg-cream, #fffaf2);
+  color: var(--msg-muted, #5c534c);
 }
 
 .msg-empty__title {
   margin: 0;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.86rem;
-  font-weight: 850;
+  font-family: var(--font-display, 'Syne', sans-serif);
+  color: var(--msg-ink, #1a1510);
+  font-size: 0.92rem;
+  font-weight: 800;
   line-height: 1.3;
+  letter-spacing: -0.02em;
 }
 
 .msg-empty__subtitle {
   margin: 0;
-  max-width: 26ch;
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 0.74rem;
+  max-width: 28ch;
+  color: var(--msg-muted, #5c534c);
+  font-size: 0.78rem;
   font-weight: 650;
   line-height: 1.45;
 }
@@ -35,15 +48,47 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #a78bfa;
+  color: var(--msg-ink, #1a1510);
   font: inherit;
   font-size: 0.76rem;
-  font-weight: 850;
-  text-decoration: none;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
 .msg-empty__action:hover {
-  color: #c4b5fd;
+  color: var(--msg-muted, #5c534c);
   opacity: 1;
+}
+
+/* Provider inbox keeps dark empty states */
+.prov-msg-inbox .msg-empty {
+  border: 0;
+  background: transparent;
+}
+
+.prov-msg-inbox .msg-empty__icon {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.prov-msg-inbox .msg-empty__title {
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--font-sans);
+  font-weight: 850;
+}
+
+.prov-msg-inbox .msg-empty__subtitle {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.prov-msg-inbox .msg-empty__action {
+  color: #a78bfa;
+  text-decoration: none;
+}
+
+.prov-msg-inbox .msg-empty__action:hover {
+  color: #c4b5fd;
 }

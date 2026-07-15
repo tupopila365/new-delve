@@ -1,183 +1,334 @@
-.account-page {
-  width: min(100%, 640px);
-  margin: 0 auto;
-  padding: 0 16px calc(var(--page-bottom-clearance, 96px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  color: #fffaf2;
-  background: transparent !important;
+/* Account — landscape strip + cream desk. Flat color only (no purple). */
+
+.app-main:has(.account-trail) {
+  background: #12100e;
 }
 
-.account-page__profile {
+.account-trail {
+  --acct-ink: #1a1510;
+  --acct-muted: #5c534c;
+  --acct-cream: #fffaf2;
+  --acct-soft: #f3ebe0;
+  --acct-line: rgba(26, 21, 16, 0.12);
+  --acct-panel: #161310;
+  --acct-ok: #1f6b45;
+  --acct-warn: #9a5b18;
+
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 12px 14px calc(var(--page-bottom-clearance, 96px));
+  color: var(--acct-cream);
+}
+
+.account-trail__hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 250, 242, 0.08);
+  background: var(--acct-panel);
+  min-height: 132px;
+}
+
+.account-trail__hero-photo {
+  position: absolute;
+  inset: 0;
+  background-position: center 42%;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.account-trail__hero-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 6, 4, 0.52);
+}
+
+.account-trail__hero-copy {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 6px;
+  padding: 20px 18px 26px;
+}
+
+.account-trail__kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.account-trail__title {
+  margin: 0;
+  font-family: var(--font-display, 'Syne', sans-serif);
+  font-size: clamp(1.55rem, 6vw, 2rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: var(--acct-cream);
+}
+
+.account-trail__lead {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.72);
+}
+
+.account-trail__desk {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  margin-top: -18px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--acct-line);
+  background: var(--acct-cream);
+  color: var(--acct-ink);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+  position: relative;
+  z-index: 2;
+}
+
+.account-trail--auth {
+  display: grid;
+  gap: 14px;
+}
+
+.account-trail__auth {
+  display: grid;
+  gap: 10px;
+  padding: 20px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--acct-line);
+  background: var(--acct-cream);
+  color: var(--acct-ink);
+  text-align: center;
+}
+
+.account-trail__auth-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 1px solid var(--acct-line);
+  background: var(--acct-soft);
+  color: var(--acct-ink);
+}
+
+.account-trail__auth h2 {
+  margin: 0;
+  font-family: var(--font-display, 'Syne', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.account-trail__auth p {
+  margin: 0;
+  color: var(--acct-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.account-trail__auth-btn {
+  display: inline-flex;
   align-items: center;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  justify-content: center;
+  gap: 6px;
+  justify-self: center;
+  min-height: 40px;
+  margin-top: 4px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--acct-ink);
+  color: var(--acct-cream);
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.account-trail__auth-btn:hover {
+  background: #2a241e;
+}
+
+.account-trail .account-page__profile {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 0 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
-.account-page__avatar {
-  width: 56px;
-  height: 56px;
+.account-trail .account-page__avatar {
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid var(--acct-cream);
+  box-shadow: 0 0 0 1px var(--acct-line);
+  background: #2a241e;
 }
 
-.account-page__avatar--init {
-  display: grid;
-  place-items: center;
-  font-size: 1.1rem;
-  font-weight: 900;
-  background: rgba(124, 58, 237, 0.22);
-  color: #a78bfa;
-}
-
-.account-page__name {
+.account-trail .account-page__name {
   margin: 0;
-  color: #fffaf2;
-  font-size: 0.95rem;
-  font-weight: 900;
+  font-family: var(--font-display, 'Syne', sans-serif);
+  color: var(--acct-ink);
+  font-size: 1.05rem;
+  font-weight: 800;
   line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
-.account-page__handle {
-  margin: 2px 0 8px;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.76rem;
+.account-trail .account-page__handle {
+  margin: 3px 0 10px;
+  color: var(--acct-muted);
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
-.account-page__badges {
+.account-trail .account-page__badges {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.account-page .pill {
-  padding: 3px 8px;
+.account-trail .pill {
+  padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--acct-line);
+  background: var(--acct-soft);
+  color: var(--acct-muted);
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
-.account-page .pill--staff {
-  background: rgba(59, 130, 246, 0.16);
-  color: #93c5fd;
+.account-trail .pill--staff {
+  border-color: rgba(26, 21, 16, 0.18);
+  background: #ebe2d6;
+  color: var(--acct-ink);
 }
 
-.account-page .pill--ok {
-  background: rgba(22, 163, 74, 0.16);
-  color: #86efac;
+.account-trail .pill--ok {
+  border-color: rgba(31, 107, 69, 0.22);
+  background: rgba(31, 107, 69, 0.1);
+  color: var(--acct-ok);
 }
 
-.account-page .pill--warn {
-  background: rgba(124, 58, 237, 0.16);
-  color: #a78bfa;
+.account-trail .pill--warn {
+  border-color: rgba(154, 91, 24, 0.28);
+  background: rgba(154, 91, 24, 0.1);
+  color: var(--acct-warn);
 }
 
-.account-page__hint {
-  margin: 8px 0 0;
-  font-size: 0.74rem;
-  color: rgba(255, 255, 255, 0.45);
+.account-trail .account-page__hint {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  color: var(--acct-muted);
+  line-height: 1.45;
 }
 
-.account-page__hint a {
-  color: #a78bfa;
+.account-trail .account-page__hint a {
+  color: var(--acct-ink);
   font-weight: 800;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.account-page__group {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+.account-trail .account-page__group {
+  border: 1px solid var(--acct-line);
+  border-radius: 14px;
+  background: var(--acct-soft);
   overflow: hidden;
 }
 
-.account-page__group-title {
+.account-trail .account-page__group-title {
   margin: 0;
   padding: 12px 14px 8px;
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--acct-muted);
   font-size: 0.68rem;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.account-page__group-sub {
+.account-trail .account-page__group-sub {
   margin: -4px 0 0;
   padding: 0 14px 10px;
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 0.72rem;
+  color: var(--acct-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
 }
 
-.account-page__row {
+.account-trail .account-page__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 44px;
+  min-height: 46px;
   padding: 0 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  color: #fffaf2;
-  font-size: 0.82rem;
-  font-weight: 800;
+  border-top: 1px solid var(--acct-line);
+  color: var(--acct-ink);
+  font-size: 0.84rem;
+  font-weight: 750;
   text-decoration: none;
 }
 
-.account-page__row:first-of-type {
+.account-trail .account-page__row:first-of-type {
   border-top: 0;
 }
 
-.account-page__row:hover {
-  background: rgba(255, 255, 255, 0.04);
+.account-trail .account-page__row:hover {
+  background: #ebe2d6;
   opacity: 1;
 }
 
-.account-page__row--accent span {
-  color: #a78bfa;
+.account-trail .account-page__row--accent span {
+  color: var(--acct-ink);
+  font-weight: 800;
 }
 
-.account-page__row svg {
+.account-trail .account-page__row svg {
   flex: 0 0 auto;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--acct-muted);
 }
 
-.account-page__logout {
+.account-trail .account-page__logout {
   width: 100%;
   min-height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--acct-line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  color: #a78bfa;
+  background: var(--acct-cream);
+  color: var(--acct-muted);
   font: inherit;
-  font-size: 0.82rem;
-  font-weight: 900;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
 }
 
-.account-page__logout:hover {
-  border-color: rgba(124, 58, 237, 0.35);
-  background: rgba(124, 58, 237, 0.08);
+.account-trail .account-page__logout:hover {
+  border-color: rgba(26, 21, 16, 0.28);
+  background: var(--acct-soft);
+  color: var(--acct-ink);
 }
 
-.account-page .ui-empty {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
-}
+@media (min-width: 900px) {
+  .account-trail {
+    width: min(100%, 720px);
+  }
 
-.account-page .ui-empty__title {
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.account-page .ui-empty__sub {
-  color: rgba(255, 255, 255, 0.42);
+  .account-trail__hero {
+    min-height: 148px;
+  }
 }

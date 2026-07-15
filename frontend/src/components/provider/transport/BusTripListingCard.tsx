@@ -29,7 +29,11 @@ export function BusTripListingCard({ trip, canEdit, onEdit }: Props) {
             <Bus size={22} strokeWidth={2} />
           </span>
         )}
-        {percent < 100 ? <span className="transport-list-card__badge transport-list-card__badge--draft">{percent}%</span> : null}
+        {percent < 100 ? (
+          <span className="transport-list-card__badge transport-list-card__badge--draft" title="Listing checklist incomplete">
+            Needs info · {percent}%
+          </span>
+        ) : null}
       </div>
 
       <div className="transport-list-card__body">

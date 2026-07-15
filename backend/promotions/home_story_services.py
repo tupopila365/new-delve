@@ -37,15 +37,27 @@ def models_q_starts_ends(now):
 
 
 def _media_url(file_field, request=None) -> str | None:
+    """Resolve ImageField/.url or plain TextField / absolute URL strings."""
     if not file_field:
         return None
+    if isinstance(file_field, str):
+        url = file_field.strip()
+        if not url:
+            return None
+        if url.startswith(("http://", "https://", "data:", "blob:")):
+            return url
+        if request is not None and url.startswith("/"):
+            return request.build_absolute_uri(url)
+        if request is not None and not url.startswith("/"):
+            return request.build_absolute_uri(f"/media/{url.lstrip('/')}")
+        return url if url.startswith("/") else f"/media/{url.lstrip('/')}"
     try:
         url = file_field.url
-    except ValueError:
+    except (ValueError, AttributeError):
         return None
     if not url:
         return None
-    if request is not None:
+    if request is not None and url.startswith("/"):
         return request.build_absolute_uri(url)
     return url
 

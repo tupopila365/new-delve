@@ -61,6 +61,7 @@ export type FoodVenueListing = {
   address?: string | null
   price_level: number
   cover_image: string | null
+  cover_kind?: 'image' | 'video' | string | null
   owner_username: string
   owner_display_name?: string | null
   rating_avg?: string | null
@@ -69,6 +70,8 @@ export type FoodVenueListing = {
   can_review?: boolean
   saved_by_me?: boolean
   saves_count?: number
+  liked_by_me?: boolean
+  likes_count?: number
   phone?: string | null
   website?: string | null
   opening_hours?: string | null
@@ -113,13 +116,21 @@ export function buildFoodGalleryImages(venue: FoodVenueListing): ListingGalleryI
   const photos = resolveVenuePhotos(venue.photos, venue.cover_image, venue.cuisine)
   if (photos.length === 0) {
     const fallback = foodCoverSrc(venue.cover_image, venue.cuisine)
-    return [{ src: fallback, alt: venue.name }]
+    const kind = venue.cover_kind === 'video' ? 'video' : 'image'
+    return [{ src: fallback, alt: venue.name, kind }]
   }
-  return photos.map((p) => ({
-    src: mediaUrl(p.image) || p.image,
-    alt: p.caption || venue.name,
-    kind: p.kind === 'video' ? 'video' : 'image',
-  }))
+  return photos.map((p, index) => {
+    const fromPhoto = p.kind === 'video' ? 'video' : 'image'
+    const kind =
+      index === 0 && venue.cover_kind === 'video' && (p.is_cover || !venue.photos?.length)
+        ? 'video'
+        : fromPhoto
+    return {
+      src: mediaUrl(p.image) || p.image,
+      alt: p.caption || venue.name,
+      kind,
+    }
+  })
 }
 
 export function buildFoodHighlights(venue: FoodVenueListing): string[] {

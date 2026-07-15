@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Car } from 'lucide-react'
 import { apiFetch } from '../api/client'
-import { DetailPage, DetailSkeleton } from '../components/detail'
 import { VehicleDetailView, type VehicleBooking } from '../components/transport'
 import { renterUploadFromFile } from '../components/booking/transport/RenterDocumentUploads'
 import { EmptyState } from '../components/ui'
@@ -12,6 +11,8 @@ import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { missingRenterDocuments, type RenterDocumentUpload } from '../data/renterDocuments'
 import type { VehicleListing } from '../utils/transportListing'
+import '../components/journeys/journey-detail.css'
+import '../components/transport/transport-detail.css'
 
 export function VehicleDetail() {
   const { id } = useParams()
@@ -127,37 +128,35 @@ export function VehicleDetail() {
 
   if (isLoading) {
     return (
-      <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page">
-        <DetailSkeleton className="acc-page__detail-skeleton" />
-      </DetailPage>
+      <div className="jn-detail-page tp-detail-page">
+        <div className="skeleton" style={{ height: 320, borderRadius: 24, marginTop: 12 }} aria-busy="true" />
+      </div>
     )
   }
 
   if (isError) {
     return (
-      <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page">
+      <div className="jn-detail-page tp-detail-page">
         <EmptyState
           iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
           title="We couldn't load this vehicle"
           sub="Please check your connection and try again."
           cta={{ label: 'Try again', onClick: () => void refetch() }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
   if (!vehicle || !id) {
     return (
-      <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page">
+      <div className="jn-detail-page tp-detail-page">
         <EmptyState
           iconElement={<Car size={28} strokeWidth={2} aria-hidden />}
           title="Vehicle not found"
           sub="This vehicle may have been removed or the link is incorrect."
           cta={{ label: 'Browse transport', to: '/transport' }}
-          className="acc-detail__empty"
         />
-      </DetailPage>
+      </div>
     )
   }
 
@@ -167,7 +166,17 @@ export function VehicleDetail() {
     canManageListingForOwner(vehicle.owner_username)
 
   return (
-    <DetailPage prefix="tp-detail" className="tp-detail--premium td acc-detail-page" toast={shareMsg || null}>
+    <div className="jn-detail-page tp-detail-page">
+      {shareMsg ? (
+        <p className="jn-detail-page__toast" role="status">
+          {shareMsg}
+        </p>
+      ) : null}
+      {err ? (
+        <p className="jn-detail-page__toast" role="alert">
+          {err}
+        </p>
+      ) : null}
       <VehicleDetailView
         vehicle={vehicle}
         vehicleId={id}
@@ -195,6 +204,6 @@ export function VehicleDetail() {
           onRenterDocRemove: handleRenterDocRemove,
         }}
       />
-    </DetailPage>
+    </div>
   )
 }

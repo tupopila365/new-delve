@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Clock, Images, Route, Sparkles } from 'lucide-react'
+import { Clock, Images, Route } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
-import { ListingSection } from '../listing/ListingSection'
+import { JourneySection } from '../journeys/JourneySection'
 import type { TourPackage } from './types'
 import './guide-experience-picker.css'
 
@@ -21,15 +21,15 @@ export function GuideExperiencePicker({
   guideId,
   selectedId,
   onSelect,
-  title = 'Experiences & packages',
-  subtitle = 'Tap a card to preview, then select one for your request.',
+  title = 'Programs & experiences',
+  subtitle = 'Pick a program to request a date — or open full details.',
   currency = '$',
   className = '',
 }: Props) {
   if (packages.length === 0) return null
 
   return (
-    <ListingSection title={title} className={`guide-xp ${className}`.trim()}>
+    <JourneySection title={title} className={`guide-xp ${className}`.trim()} flush>
       {subtitle ? <p className="guide-xp__sub">{subtitle}</p> : null}
       <div className="guide-xp__strip" role="list">
         {packages.map((pkg, index) => {
@@ -46,17 +46,8 @@ export function GuideExperiencePicker({
               role="listitem"
               className={`guide-xp__card${active ? ' guide-xp__card--active' : ''}${featured ? ' guide-xp__card--featured' : ''}`}
             >
-              <Link
-                className="guide-xp__preview"
-                to={detailHref}
-                aria-label={`View ${pkg.title}`}
-              >
-                {featured ? (
-                  <span className="guide-xp__badge">
-                    <Sparkles size={10} strokeWidth={2.5} aria-hidden />
-                    Popular
-                  </span>
-                ) : null}
+              <Link className="guide-xp__media" to={detailHref} aria-label={`View ${pkg.title}`}>
+                {featured ? <span className="guide-xp__badge">Featured</span> : null}
                 {photoCount > 1 ? (
                   <span className="guide-xp__count">
                     <Images size={11} strokeWidth={2.25} aria-hidden />
@@ -64,10 +55,10 @@ export function GuideExperiencePicker({
                   </span>
                 ) : null}
                 {cover ? (
-                  <img src={cover} alt={pkg.title} loading="lazy" decoding="async" />
+                  <img src={cover} alt="" loading="lazy" decoding="async" />
                 ) : (
-                  <span className="guide-xp__preview-empty" aria-hidden>
-                    <Route size={24} strokeWidth={1.75} />
+                  <span className="guide-xp__media-empty" aria-hidden>
+                    <Route size={28} strokeWidth={1.75} />
                   </span>
                 )}
               </Link>
@@ -76,16 +67,16 @@ export function GuideExperiencePicker({
                 <Link className="guide-xp__name" to={detailHref}>
                   {pkg.title}
                 </Link>
-                <p className="guide-xp__meta">
-                  <Clock size={11} strokeWidth={2.25} aria-hidden />
-                  {pkg.hours} {pkg.hours === 1 ? 'hour' : 'hours'}
-                </p>
                 <p className="guide-xp__price">
                   <span className="guide-xp__price-value">
                     {currency}
                     {pkg.price}
                   </span>
                   <span className="guide-xp__price-unit">total</span>
+                </p>
+                <p className="guide-xp__meta">
+                  <Clock size={12} strokeWidth={2.25} aria-hidden />
+                  {pkg.hours} {pkg.hours === 1 ? 'hour' : 'hours'}
                 </p>
                 <div className="guide-xp__actions">
                   <button
@@ -97,7 +88,7 @@ export function GuideExperiencePicker({
                     {active ? 'Selected' : 'Select'}
                   </button>
                   <Link className="guide-xp__view" to={detailHref}>
-                    View
+                    View details
                   </Link>
                 </div>
               </div>
@@ -105,6 +96,6 @@ export function GuideExperiencePicker({
           )
         })}
       </div>
-    </ListingSection>
+    </JourneySection>
   )
 }

@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BedDouble, Users } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
-import { BookingDateFields, BookingGuestSelector, buildBookingSearchParams, nightsBetween, todayIsoDate } from '../booking'
+import {
+  BookingDateFields,
+  BookingGuestSelector,
+  buildBookingSearchParams,
+  nightsBetween,
+  todayIsoDate,
+} from '../booking'
 import type { ListingRoomOption } from '../listing/types'
 import './accommodation-room.css'
 
@@ -24,8 +30,10 @@ function roomPricing(room: ListingRoomOption) {
   const price = parsePrice(room.pricePerNight) ?? parsePrice(room.fallbackPrice)
   const compareAt = parsePrice(room.compareAtPrice)
   const onSale = compareAt != null && price != null && compareAt > price + 0.001
-  const discountPct = onSale && compareAt && price ? Math.round((1 - price / compareAt) * 100) : null
-  const badge = room.badge?.trim() || (onSale && discountPct ? `${discountPct}% off` : room.featured ? 'Special' : null)
+  const discountPct =
+    onSale && compareAt && price ? Math.round((1 - price / compareAt) * 100) : null
+  const badge =
+    room.badge?.trim() || (onSale && discountPct ? `${discountPct}% off` : room.featured ? 'Special' : null)
   return { price, compareAt, onSale, discountPct, badge }
 }
 
@@ -42,7 +50,8 @@ export function AccommodationRoomBooking({
   const [guests, setGuests] = useState(1)
   const [err, setErr] = useState<string | null>(null)
 
-  const maxGuests = room.maxGuests != null ? Math.min(maxListingGuests, room.maxGuests) : maxListingGuests
+  const maxGuests =
+    room.maxGuests != null ? Math.min(maxListingGuests, room.maxGuests) : maxListingGuests
   const pricing = useMemo(() => roomPricing(room), [room])
   const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut])
   const today = todayIsoDate()
@@ -84,7 +93,7 @@ export function AccommodationRoomBooking({
 
   return (
     <div className={`acc-room-booking ${className}`.trim()}>
-      <p className="acc-room-booking__kicker">Book this room</p>
+      <p className="acc-room-booking__kicker">Request this room</p>
 
       <div className="acc-room-booking__price-block">
         {pricing.badge ? <span className="acc-room-booking__badge">{pricing.badge}</span> : null}
@@ -100,11 +109,20 @@ export function AccommodationRoomBooking({
           ) : null}
         </div>
         {total ? (
-          <p className="acc-room-booking__total">
-            <strong>N${total}</strong> for {nights} {nights === 1 ? 'night' : 'nights'}
-          </p>
+          <div className="acc-room-booking__fees">
+            <div className="acc-room-booking__fee-row">
+              <span>
+                N${pricing.price} × {nights} {nights === 1 ? 'night' : 'nights'}
+              </span>
+              <span>N${total}</span>
+            </div>
+            <div className="acc-room-booking__fee-row acc-room-booking__fee-row--total">
+              <span>Stay total</span>
+              <strong>N${total}</strong>
+            </div>
+          </div>
         ) : (
-          <p className="acc-room-booking__hint">Select dates to see your total</p>
+          <p className="acc-room-booking__hint">Select dates to see your nightly total</p>
         )}
       </div>
 
@@ -137,7 +155,11 @@ export function AccommodationRoomBooking({
         />
       </div>
 
-      {err ? <p className="acc-room-booking__error">{err}</p> : null}
+      {err ? (
+        <p className="acc-room-booking__error" role="alert">
+          {err}
+        </p>
+      ) : null}
 
       {profile && profile.email_verified ? (
         <Link
@@ -150,7 +172,10 @@ export function AccommodationRoomBooking({
           {ctaLabel}
         </Link>
       ) : (
-        <Link to={profile ? '/verify-email' : '/login'} className="btn btn-primary btn-block acc-room-booking__cta">
+        <Link
+          to={profile ? '/verify-email' : '/login'}
+          className="btn btn-primary btn-block acc-room-booking__cta"
+        >
           {profile ? 'Verify email to reserve' : 'Sign in to reserve'}
         </Link>
       )}
@@ -166,7 +191,8 @@ export function AccommodationRoomMeta({ room }: { room: ListingRoomOption }) {
   const items: string[] = []
   if (room.maxGuests != null) items.push(`${room.maxGuests} guests`)
   if (room.bedSummary?.trim()) items.push(room.bedSummary.trim())
-  else if (room.bedrooms != null) items.push(`${room.bedrooms} ${room.bedrooms === 1 ? 'bed' : 'beds'}`)
+  else if (room.bedrooms != null)
+    items.push(`${room.bedrooms} ${room.bedrooms === 1 ? 'bed' : 'beds'}`)
 
   if (items.length === 0) return null
 
@@ -181,7 +207,8 @@ export function AccommodationRoomMeta({ room }: { room: ListingRoomOption }) {
       {room.bedSummary?.trim() || room.bedrooms != null ? (
         <li>
           <BedDouble size={14} strokeWidth={2.25} aria-hidden />
-          {room.bedSummary?.trim() || `${room.bedrooms} ${room.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`}
+          {room.bedSummary?.trim() ||
+            `${room.bedrooms} ${room.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`}
         </li>
       ) : null}
     </ul>

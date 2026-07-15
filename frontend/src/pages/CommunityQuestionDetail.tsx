@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { useParams } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Compass } from 'lucide-react'
 import { apiFetch } from '../api/client'
@@ -22,42 +22,40 @@ export function CommunityQuestionDetail() {
 
   const isQuestion = post?.post_kind === 'question'
 
+  const wrap = (body: ReactNode) => (
+    <main className="cm-question-page">
+      <div className="cm-question-page__desk">{body}</div>
+    </main>
+  )
+
   if (!Number.isFinite(postId) || postId <= 0) {
-    return (
-      <main className="cm-question-page">
-        <EmptyState
-          iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
-          title="Invalid post link"
-          sub="This link does not point to a valid community post."
-          cta={{ label: 'Back to Community', to: '/community' }}
-        />
-      </main>
+    return wrap(
+      <EmptyState
+        iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
+        title="Invalid post link"
+        sub="This link does not point to a valid community post."
+        cta={{ label: 'Back to Community', to: '/community' }}
+      />,
     )
   }
 
   if (isLoading) {
-    return (
-      <main className="cm-question-page">
-        <p role="status">Loading…</p>
-      </main>
-    )
+    return wrap(<p role="status">Loading…</p>)
   }
 
   if (isError || !post) {
-    return (
-      <main className="cm-question-page">
-        <EmptyState
-          iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
-          title="Post not found"
-          sub="It may have been removed or you do not have permission to view it."
-          cta={{ label: 'Back to Community', to: '/community' }}
-        />
-      </main>
+    return wrap(
+      <EmptyState
+        iconElement={<Compass size={28} strokeWidth={2} aria-hidden />}
+        title="Post not found"
+        sub="It may have been removed or you do not have permission to view it."
+        cta={{ label: 'Back to Community', to: '/community' }}
+      />,
     )
   }
 
-  return (
-    <main className="cm-question-page">
+  return wrap(
+    <>
       <Link to="/community" className="cm-question-page__back">
         <ArrowLeft size={18} strokeWidth={2.25} aria-hidden />
         Community
@@ -68,6 +66,6 @@ export function CommunityQuestionDetail() {
       ) : (
         <CommunityTipCard post={post} queryKey={feedQueryKey} defaultOpen highlighted />
       )}
-    </main>
+    </>,
   )
 }

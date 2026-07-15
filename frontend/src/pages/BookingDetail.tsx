@@ -453,7 +453,8 @@ export function BookingDetail() {
 
   const canPayVehicle =
     Boolean(vehicle) &&
-    normalizeBookingStatus(vehicle!.status) === 'pending' &&
+    normalizeBookingStatus(vehicle!.status) === 'confirmed' &&
+    !vehicle!.mock_payment_ref?.trim() &&
     !payVehicleMut.isPending
 
   const canCancelVehicle =
@@ -463,7 +464,8 @@ export function BookingDetail() {
 
   const canPayBus =
     Boolean(busGroup) &&
-    normalizeBookingStatus(busGroup!.status) === 'pending' &&
+    normalizeBookingStatus(busGroup!.status) === 'confirmed' &&
+    !busGroup!.mock_payment_ref?.trim() &&
     !payBusMut.isPending
 
   const canCancelBus =
@@ -506,7 +508,7 @@ export function BookingDetail() {
     : vehicle
       ? `/transport/vehicle/${vehicle.listing}`
       : busGroup
-        ? `/transport/bus/trips/${busGroup.trip}`
+        ? `/transport/bus/${busGroup.trip}`
         : food
           ? `/food/${food.venue}`
           : guide

@@ -71,7 +71,7 @@
 
 .ds-place-bubble span {
   background: rgba(255, 255, 255, 0.07);
-  color: var(--accent);
+  color: var(--ds-accent, var(--accent, #fffaf2));
   border-radius: 20px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 22px rgba(0, 0, 0, 0.32);
 }
@@ -98,7 +98,7 @@
 .ds-creator-bubble--active .ds-creator-bubble__avatar {
   box-shadow:
     0 0 0 2px var(--accent),
-    0 0 0 4px rgba(124, 58, 237, 0.35),
+    0 0 0 4px rgba(255, 250, 242, 0.35),
     0 10px 22px rgba(0, 0, 0, 0.36);
   transform: scale(1.04);
 }

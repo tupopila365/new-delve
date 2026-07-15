@@ -196,45 +196,7 @@
   }
 }
 
-/* Remove the old accommodation listing header area, old filter UI, and old background from /accommodation. */
-.acc-page.ev-page,
-.acc-page.disc-page,
-.acc-page.mk-page,
-.acc-page {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-.acc-page::before,
-.acc-page::after,
-.acc-page > .mk-hero,
-.acc-page > .acc-page__search,
-.acc-page > .acc-page__quick-chips,
-.acc-page > .acc-page__discover,
-.acc-page > .acc-page__filter-panel,
-.acc-page .mk-hero,
-.acc-page .acc-page__quick-chips,
-.acc-page .acc-page__discover,
-.acc-page .acc-page__search,
-.acc-page .acc-page__filter-panel,
-.acc-page .discovery-sidebar,
-.acc-page .disc-page__aside,
-.acc-page .disc-page__layout > aside,
-.acc-page .disc-page__layout > nav {
-  display: none !important;
-}
-
-.acc-page .disc-page__layout {
-  display: block !important;
-  max-width: 980px;
-  margin-inline: auto;
-}
-
-.acc-page .disc-page__main {
-  width: 100% !important;
-  max-width: none !important;
-}
+/* Stays market chrome lives on `.st-market` (page-owned). Do not hide discovery UI. */
 
 @media (min-width: 760px) {
   .sp-header {

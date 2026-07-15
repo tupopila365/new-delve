@@ -26,7 +26,11 @@ export function VehicleListingCard({ vehicle, canEdit, onEdit }: Props) {
           </span>
         )}
         {!vehicle.is_active ? <span className="transport-list-card__badge">Hidden</span> : null}
-        {percent < 100 ? <span className="transport-list-card__badge transport-list-card__badge--draft">{percent}%</span> : null}
+        {percent < 100 ? (
+          <span className="transport-list-card__badge transport-list-card__badge--draft" title="Listing checklist incomplete">
+            Needs info · {percent}%
+          </span>
+        ) : null}
       </div>
 
       <div className="transport-list-card__body">

@@ -103,7 +103,7 @@ def _resolve_sponsored_listing(campaign, target_type: str) -> dict | None:
             lid,
             title=listing.title,
             subtitle=location,
-            image=listing.cover_image.name if listing.cover_image else None,
+            image=str(listing.cover_image).strip() if listing.cover_image else None,
             meta=listing.property_type or "Stay",
             price=f"From ${listing.price_per_night}/night",
         )

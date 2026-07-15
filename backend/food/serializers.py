@@ -1,6 +1,9 @@
+from django.core.files.storage import default_storage
 from rest_framework import serializers
 
-from .models import FoodVenue, FoodVenueReview, FoodVenueSave
+from common.gallery_media import media_url_kind
+
+from .models import FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
 from .review_services import user_can_review_food_venue
 
 
@@ -11,29 +14,72 @@ def _owner_display_name(user) -> str | None:
     return None
 
 
+def _absolute_media_url(url: str, request=None) -> str:
+    text = (url or "").strip()
+    if not text:
+        return ""
+    if text.startswith(("http://", "https://")):
+        return text
+    if text.startswith("/") and request:
+        return request.build_absolute_uri(text)
+    try:
+        storage_url = default_storage.url(text)
+    except Exception:
+        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
+    if request and storage_url.startswith("/"):
+        return request.build_absolute_uri(storage_url)
+    return storage_url
+
+
 def _cover_image_url(obj: FoodVenue, request=None) -> str | None:
-    if obj.cover_image:
-        url = obj.cover_image.url
-        if request:
-            return request.build_absolute_uri(url)
-        return url
+    raw = getattr(obj, "cover_image", None)
+    if raw:
+        url = _absolute_media_url(str(raw), request)
+        if url:
+            return url
     photos = obj.photos or []
     for photo in photos:
         if isinstance(photo, dict) and photo.get("is_cover") and photo.get("image"):
-            return photo["image"]
+            return _absolute_media_url(str(photo["image"]), request) or photo["image"]
     if photos and isinstance(photos[0], dict) and photos[0].get("image"):
-        return photos[0]["image"]
+        return _absolute_media_url(str(photos[0]["image"]), request) or photos[0]["image"]
     return None
+
+
+def _cover_kind_for(obj: FoodVenue) -> str:
+    kind = getattr(obj, "cover_kind", None)
+    if kind in ("image", "video"):
+        cover = (getattr(obj, "cover_image", None) or "").strip()
+        if cover:
+            inferred = media_url_kind(cover)
+            if kind == "image" and inferred == "video":
+                return "video"
+            return kind
+        return kind
+    cover = _cover_image_url(obj)
+    if cover:
+        return media_url_kind(cover)
+    photos = obj.photos or []
+    for photo in photos:
+        if isinstance(photo, dict) and photo.get("is_cover"):
+            photo_kind = photo.get("kind")
+            if photo_kind in ("image", "video"):
+                return photo_kind
+            return media_url_kind(str(photo.get("image") or ""))
+    return "image"
 
 
 class FoodVenueSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     owner_display_name = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
+    cover_kind = serializers.SerializerMethodField()
     has_reviewed = serializers.SerializerMethodField()
     can_review = serializers.SerializerMethodField()
     saved_by_me = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodVenue
@@ -69,12 +115,15 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "photos",
             "venue_stories",
             "cover_image",
+            "cover_kind",
             "rating_avg",
             "rating_count",
             "has_reviewed",
             "can_review",
             "saved_by_me",
             "saves_count",
+            "liked_by_me",
+            "likes_count",
             "is_active",
             "created_at",
         )
@@ -86,6 +135,9 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "can_review",
             "saved_by_me",
             "saves_count",
+            "liked_by_me",
+            "likes_count",
+            "cover_kind",
             "created_at",
         )
 
@@ -94,6 +146,9 @@ class FoodVenueSerializer(serializers.ModelSerializer):
 
     def get_cover_image(self, obj):
         return _cover_image_url(obj, self.context.get("request"))
+
+    def get_cover_kind(self, obj):
+        return _cover_kind_for(obj)
 
     def get_has_reviewed(self, obj):
         request = self.context.get("request")
@@ -117,7 +172,25 @@ class FoodVenueSerializer(serializers.ModelSerializer):
         return FoodVenueSave.objects.filter(venue=obj, user=request.user).exists()
 
     def get_saves_count(self, obj):
+        annotated = getattr(obj, "saves_count", None)
+        if isinstance(annotated, int):
+            return annotated
         return FoodVenueSave.objects.filter(venue=obj).count()
+
+    def get_liked_by_me(self, obj):
+        annotated = getattr(obj, "liked_by_me", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return FoodVenueLike.objects.filter(venue=obj, user=request.user).exists()
+
+    def get_likes_count(self, obj):
+        annotated = getattr(obj, "likes_count", None)
+        if isinstance(annotated, int):
+            return annotated
+        return FoodVenueLike.objects.filter(venue=obj).count()
 
     def create(self, validated_data):
         user = self.context["request"].user

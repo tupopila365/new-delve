@@ -116,6 +116,7 @@ export type ProviderFoodVenue = {
   photos?: { id?: number; image: string; caption?: string; category?: string; is_cover?: boolean; kind?: 'image' | 'video' }[]
   venue_stories?: VenueStoryChannelInput[]
   cover_image?: string | null
+  cover_kind?: 'image' | 'video' | string | null
   rating_avg?: string | null
   rating_count?: number | null
   is_active: boolean
@@ -233,7 +234,7 @@ export function venueCompleteness(venue: ProviderFoodVenue): { percent: number; 
     location: 'Location',
     hours: 'Opening hours',
     contact: 'Contact info',
-    photos: 'Cover photo',
+    photos: 'Cover photo or video',
     stories: 'Stories',
   }
   for (const [id, label] of Object.entries(labels)) {

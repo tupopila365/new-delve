@@ -8,9 +8,11 @@ type Props = {
   guideId: number
   canEdit?: boolean
   onEdit: () => void
+  onDelete?: () => void
+  deletePending?: boolean
 }
 
-export function GuidePackageCard({ pkg, guideId, canEdit, onEdit }: Props) {
+export function GuidePackageCard({ pkg, guideId, canEdit, onEdit, onDelete, deletePending }: Props) {
   const { percent, missing } = packageCompleteness(pkg)
   const reviewCount = pkg.reviews?.length ?? 0
   const avgRating =
@@ -65,6 +67,18 @@ export function GuidePackageCard({ pkg, guideId, canEdit, onEdit }: Props) {
         {canEdit ? (
           <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>
             Edit package
+          </button>
+        ) : null}
+        {canEdit && onDelete ? (
+          <button
+            type="button"
+            className="prov-ui__btn prov-ui__btn--ghost"
+            disabled={deletePending}
+            onClick={() => {
+              if (window.confirm(`Remove “${pkg.title}”? This unpublishes the package.`)) onDelete()
+            }}
+          >
+            Delete
           </button>
         ) : null}
       </div>

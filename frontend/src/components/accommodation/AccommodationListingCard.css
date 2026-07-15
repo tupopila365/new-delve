@@ -1,10 +1,29 @@
 .stay-card-v2 {
+  display: grid;
+  grid-template-rows: 1fr auto;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  background: #101010;
+  border-radius: 18px;
+  background: #151515;
   color: #fffaf2;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.stay-card-v2:hover {
+  border-color: rgba(224, 154, 140, 0.35);
+  transform: translateY(-1px);
+}
+
+.stay-card-v2__link {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.stay-card-v2__link:visited {
+  color: inherit;
 }
 
 .stay-card-v2__media {
@@ -12,7 +31,7 @@
   display: block;
   overflow: hidden;
   aspect-ratio: 1.18 / 1;
-  background: #191919;
+  background: #1d1d1d;
 }
 
 .stay-card-v2__media img {
@@ -52,12 +71,13 @@
 .stay-card-v2__rating {
   right: 10px;
   top: 10px;
+  color: #e8b4a8;
 }
 
 .stay-card-v2__body {
   display: grid;
   gap: 11px;
-  padding: 13px;
+  padding: 13px 13px 4px;
 }
 
 .stay-card-v2__topline {
@@ -68,6 +88,7 @@
 }
 
 .stay-card-v2__title {
+  margin: 0;
   display: -webkit-box;
   overflow: hidden;
   color: #fffaf2;
@@ -89,11 +110,30 @@
   font-weight: 720;
 }
 
+.stay-card-v2__trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stay-card-v2__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(201, 123, 107, 0.18);
+  color: #e09a8c;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
 .stay-card-v2__price {
   display: grid;
   justify-items: end;
   margin: 0;
-  color: #fffaf2;
+  color: #e8b4a8;
   font-size: 1rem;
   font-weight: 950;
   line-height: 1.05;
@@ -139,12 +179,12 @@
 }
 
 .stay-card-v2__tags span {
-  background: rgba(124, 58, 237, 0.14);
-  color: #ffb16f;
+  background: rgba(201, 123, 107, 0.16);
+  color: #e09a8c;
 }
 
 .stay-card-v2__actions {
-  padding-top: 2px;
+  padding: 8px 13px 13px;
 }
 
 .stay-card-v2__actions button {
@@ -162,12 +202,13 @@
   font: inherit;
   font-size: 0.8rem;
   font-weight: 900;
+  cursor: pointer;
 }
 
 .stay-card-v2__actions button.is-active {
-  border-color: rgba(124, 58, 237, 0.5);
-  background: rgba(124, 58, 237, 0.18);
-  color: #a78bfa;
+  border-color: rgba(224, 154, 140, 0.5);
+  background: rgba(201, 123, 107, 0.22);
+  color: #e09a8c;
 }
 
 .stay-card-v2__actions button:disabled {
@@ -175,9 +216,14 @@
   opacity: 0.55;
 }
 
+.stay-card-v2__actions button:focus-visible {
+  outline: 2px solid rgba(224, 154, 140, 0.85);
+  outline-offset: 2px;
+}
+
 @media (min-width: 760px) {
   .stay-card-v2 {
-    border-radius: 26px;
+    border-radius: 20px;
   }
 
   .stay-card-v2__media {

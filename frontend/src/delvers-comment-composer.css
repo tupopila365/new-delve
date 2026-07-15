@@ -69,9 +69,9 @@
 
 .ds-comment-composer__send {
   padding: 0 13px;
-  color: #fff;
-  background: var(--accent);
-  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.28);
+  color: #1a1510;
+  background: var(--ds-accent, #fffaf2);
+  box-shadow: none;
 }
 
 .ds-comment-composer__send:disabled {

@@ -273,84 +273,6 @@ def _merge_promoted_with_organic(
     return promoted + [_annotate_organic(dict(row)) for row in organic]
 
 
-def _featured_transport_rail(
-    *,
-    campaigns: list[PromotionCampaign],
-    user=None,
-    limit: int = FEATURED_RAIL_LIMIT,
-    region: str = "",
-    editorial: list[dict] | None = None,
-) -> list[dict]:
-    from transport.models import BusTrip, VehicleRentalListing
-    from transport.serializers import BusTripSerializer, VehicleRentalListingSerializer
-
-    transport_types = {PromotionTargetType.VEHICLE, PromotionTargetType.BUS_TRIP}
-    promoted: list[dict] = list(editorial or [])
-    promoted_vehicle_ids: set[int] = set()
-    promoted_trip_ids: set[int] = set()
-    for row in promoted:
-        row_id = row.get("id")
-        if not isinstance(row_id, int):
-            continue
-        if row.get("_pin_target_type") == PromotionTargetType.BUS_TRIP:
-            promoted_trip_ids.add(row_id)
-        else:
-            promoted_vehicle_ids.add(row_id)
-
-    for campaign in campaigns:
-        if campaign.target_type not in transport_types:
-            continue
-        row = _resolve_by_target_type(campaign, campaign.target_type, user)
-        if not row:
-            continue
-        row_id = row.get("id")
-        if campaign.target_type == PromotionTargetType.VEHICLE:
-            if row_id in promoted_vehicle_ids:
-                continue
-            promoted_vehicle_ids.add(row_id)
-        elif row_id in promoted_trip_ids:
-            continue
-        else:
-            promoted_trip_ids.add(row_id)
-        promoted.append(_annotate_partner(row, campaign))
-
-    now = timezone.now()
-    remaining = max(0, limit - len(promoted))
-    context = {"request": None}
-
-    vehicle_qs = (
-        VehicleRentalListing.objects.filter(is_active=True)
-        .exclude(pk__in=promoted_vehicle_ids)
-        .select_related("owner")
-        .order_by("-created_at")
-    )
-    if region:
-        vehicle_qs = vehicle_qs.filter(Q(region__icontains=region) | Q(city__icontains=region))
-
-    trip_qs = (
-        BusTrip.objects.filter(is_active=True, departs_at__gte=now)
-        .exclude(pk__in=promoted_trip_ids)
-        .select_related("route", "route__operator")
-        .order_by("departs_at")
-    )
-    if region:
-        trip_qs = trip_qs.filter(
-            Q(route__operator__region__icontains=region)
-            | Q(route__origin__icontains=region)
-            | Q(route__destination__icontains=region)
-        )
-
-    organic_vehicles = VehicleRentalListingSerializer(vehicle_qs[:remaining], many=True, context=context).data
-    trip_remaining = max(0, remaining - len(organic_vehicles))
-    organic_trips = (
-        BusTripSerializer(trip_qs[:trip_remaining], many=True, context=context).data if trip_remaining else []
-    )
-    organic = [_annotate_organic(dict(row)) for row in organic_vehicles] + [
-        _annotate_organic(dict(row)) for row in organic_trips
-    ]
-    return promoted + organic[:remaining]
-
-
 def _resolve_region(user=None, region: str = "") -> str:
     region = (region or "").strip()
     if not region and user and getattr(user, "is_authenticated", False):
@@ -540,15 +462,6 @@ def featured_for_placement(
             resolve_listing=lambda c: _resolve_by_target_type(c, PromotionTargetType.EVENT, user),
             organic_qs=Event.objects.filter(is_published=True).select_related("organizer").order_by("starts_at"),
             serializer_class=EventSerializer,
-            user=user,
-            limit=limit,
-            region=region,
-            editorial=editorial,
-        )
-
-    if placement == PromotionPlacement.HOMEPAGE_TRANSPORT:
-        return _featured_transport_rail(
-            campaigns=campaigns,
             user=user,
             limit=limit,
             region=region,

@@ -601,7 +601,68 @@ class Command(BaseCommand):
                 ],
             )
 
-        if not TourGuideProfile.objects.filter(user=u2).exists():
+        DEMO_GUIDE_PACKAGES = [
+            {
+                "id": "dunes-half",
+                "title": "Dunes & deadvlei half-day",
+                "hours": 4,
+                "price": "1800",
+                "photo": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                "description": (
+                    "Morning run toward Sossusvlei with time on the pans, Deadvlei on foot, "
+                    "and a shaded refreshment stop — pace tuned to heat and group fitness."
+                ),
+                "photos": [
+                    "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
+                    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=70",
+                ],
+                "reviews": [
+                    {
+                        "name": "Marta V.",
+                        "place": "Johannesburg",
+                        "rating": 5,
+                        "body": (
+                            "Deadvlei timing was ideal for photography and the guide paced water "
+                            "breaks thoughtfully."
+                        ),
+                    },
+                    {
+                        "name": "Chris D.",
+                        "place": "Chicago",
+                        "rating": 4.9,
+                        "body": "Briefing the evening before matched exactly what we did on the dunes — no surprises.",
+                    },
+                ],
+            },
+            {
+                "id": "dunes-full",
+                "title": "Full Namib loop & picnic",
+                "hours": 8,
+                "price": "3200",
+                "photo": "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
+                "photos": [
+                    "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=70",
+                ],
+                "reviews": [
+                    {
+                        "name": "Elena R.",
+                        "place": "Valencia",
+                        "rating": 5,
+                        "body": "Long day done right — picnic stop and pacing made the mileage feel manageable.",
+                    }
+                ],
+            },
+        ]
+        DEMO_GUIDE_PORTFOLIO = [
+            {
+                "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                "caption": "Sossusvlei at sunrise",
+            }
+        ]
+
+        demo_provider_guide = TourGuideProfile.objects.filter(user=u2).first()
+        if not demo_provider_guide:
             TourGuideProfile.objects.create(
                 user=u2,
                 headline="Sossusvlei & Namib tours",
@@ -625,68 +686,29 @@ class Command(BaseCommand):
                         "body": "Unforgettable dunes at golden hour — our guide knew every viewpoint.",
                     }
                 ],
-                tour_packages=[
-                    {
-                        "id": "dunes-half",
-                        "title": "Dunes & deadvlei half-day",
-                        "hours": 4,
-                        "price": "1800",
-                        "photo": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
-                        "description": (
-                            "Morning run toward Sossusvlei with time on the pans, Deadvlei on foot, "
-                            "and a shaded refreshment stop — pace tuned to heat and group fitness."
-                        ),
-                        "photos": [
-                            "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
-                            "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=70",
-                        ],
-                        "reviews": [
-                            {
-                                "name": "Marta V.",
-                                "place": "Johannesburg",
-                                "rating": 5,
-                                "body": (
-                                    "Deadvlei timing was ideal for photography and the guide paced water "
-                                    "breaks thoughtfully."
-                                ),
-                            },
-                            {
-                                "name": "Chris D.",
-                                "place": "Chicago",
-                                "rating": 4.9,
-                                "body": "Briefing the evening before matched exactly what we did on the dunes — no surprises.",
-                            },
-                        ],
-                    },
-                    {
-                        "id": "dunes-full",
-                        "title": "Full Namib loop & picnic",
-                        "hours": 8,
-                        "price": "3200",
-                        "photo": "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
-                        "photos": [
-                            "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
-                            "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=70",
-                        ],
-                        "reviews": [
-                            {
-                                "name": "Elena R.",
-                                "place": "Valencia",
-                                "rating": 5,
-                                "body": "Long day done right — picnic stop and pacing made the mileage feel manageable.",
-                            }
-                        ],
-                    },
-                ],
-                portfolio_gallery=[
-                    {
-                        "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
-                        "caption": "Sossusvlei at sunrise",
-                    }
-                ],
+                tour_packages=DEMO_GUIDE_PACKAGES,
+                portfolio_gallery=DEMO_GUIDE_PORTFOLIO,
                 default_meeting_point="Sesriem gate visitor parking — look for the silver Land Cruiser.",
                 specialities=["Photography", "Family-friendly", "Nature"],
             )
+        else:
+            # Re-seed demo richness so /guides/:id QA always has packages + gallery media
+            dirty = []
+            pkgs = list(demo_provider_guide.tour_packages or [])
+            if len(pkgs) < 2:
+                demo_provider_guide.tour_packages = DEMO_GUIDE_PACKAGES
+                dirty.append("tour_packages")
+            if not demo_provider_guide.portfolio_gallery:
+                demo_provider_guide.portfolio_gallery = DEMO_GUIDE_PORTFOLIO
+                dirty.append("portfolio_gallery")
+            if not demo_provider_guide.years_guiding:
+                demo_provider_guide.years_guiding = 12
+                dirty.append("years_guiding")
+            if not demo_provider_guide.specialities:
+                demo_provider_guide.specialities = ["Photography", "Family-friendly", "Nature"]
+                dirty.append("specialities")
+            if dirty:
+                demo_provider_guide.save(update_fields=dirty)
 
         feed_posts = [
             (u1, "Weekend craft fair at Grove Mall — local ceramics and coffee.", "Windhoek"),
@@ -1101,6 +1123,30 @@ class Command(BaseCommand):
             )
 
         desert_footprints = TourGuideProfile.objects.filter(user=guide_u).first()
+        FOOTPRINTS_PACKAGES = [
+            {
+                "id": "dune-half-day",
+                "title": "Dune half-day",
+                "hours": 4,
+                "price": "2800",
+                "photo": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                "description": "Morning dunes and lagoon viewpoints.",
+                "photos": [
+                    "https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=800&q=70",
+                ],
+            },
+            {
+                "id": "lagoon-walk",
+                "title": "Lagoon & jetty walk",
+                "hours": 2,
+                "price": "950",
+                "photo": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=70",
+                "description": "Easy coastal walk with birdlife and salt air.",
+                "photos": [
+                    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=800&q=70",
+                ],
+            },
+        ]
         if not desert_footprints:
             desert_footprints = TourGuideProfile.objects.create(
                 user=guide_u,
@@ -1119,17 +1165,34 @@ class Command(BaseCommand):
                 ],
                 specialities=["Wildlife", "Photography", "City walks"],
                 default_meeting_point="Swakopmund Jetty",
-                tour_packages=[
+                tour_packages=FOOTPRINTS_PACKAGES,
+                portfolio_gallery=[
                     {
-                        "id": "dune-half-day",
-                        "title": "Dune half-day",
-                        "hours": 4,
-                        "price": "2800",
-                        "description": "Morning dunes and lagoon viewpoints.",
+                        "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                        "caption": "Coastal dunes",
                     }
                 ],
                 is_active=True,
             )
+        else:
+            fp_dirty = []
+            pkgs = list(desert_footprints.tour_packages or [])
+            if len(pkgs) < 2:
+                desert_footprints.tour_packages = FOOTPRINTS_PACKAGES
+                fp_dirty.append("tour_packages")
+            if not desert_footprints.portfolio_gallery:
+                desert_footprints.portfolio_gallery = [
+                    {
+                        "src": "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=800&q=70",
+                        "caption": "Coastal dunes",
+                    }
+                ]
+                fp_dirty.append("portfolio_gallery")
+            if not desert_footprints.years_guiding:
+                desert_footprints.years_guiding = 6
+                fp_dirty.append("years_guiding")
+            if fp_dirty:
+                desert_footprints.save(update_fields=fp_dirty)
 
         if not GuideBooking.objects.filter(guide=desert_footprints, client=u1).exists():
             from datetime import time as dt_time

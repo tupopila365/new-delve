@@ -42,7 +42,11 @@ class AccommodationListing(models.Model):
     max_guests = models.PositiveSmallIntegerField(default=2)
     bedrooms = models.PositiveSmallIntegerField(default=1)
     amenities = models.JSONField(default=list, blank=True)
-    cover_image = models.ImageField(upload_to="accommodation/", blank=True, null=True)
+    cover_image = models.TextField(
+        blank=True,
+        default="",
+        help_text="Cover photo URL or /media/ relative path (provider URL-friendly).",
+    )
     media_gallery = models.JSONField(
         default=list,
         blank=True,

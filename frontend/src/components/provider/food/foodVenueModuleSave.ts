@@ -1,4 +1,4 @@
-import { buildFoodVenuePhotosFormData } from './foodVenueFormData'
+import type { FoodVenueModuleId } from './foodVenueModules'
 import {
   canSaveIdentity,
   contactPayload,
@@ -7,10 +7,10 @@ import {
   locationPayload,
   servicePayload,
   storiesPayload,
-  type FoodVenueModuleId,
 } from './foodVenueModules'
 import type { FoodVenueFormValues } from './foodVenueTypes'
 import type { OpeningHoursSchedule } from './openingHoursUtils'
+import { resolveFoodVenuePhotosForSave } from './foodVenuePhotosCloudinary'
 
 export type SaveBuildResult =
   | { ok: true; body: FormData | string }
@@ -41,13 +41,17 @@ export function buildFoodVenueModuleSaveBody(
       if (!hasUploads && !hasUrls) {
         return { ok: false, error: 'Add a cover photo or gallery image to save.' }
       }
+      // Sync URL-only saves stay JSON; file uploads go through resolveFoodVenuePhotosSaveBody (async).
       if (hasUploads) {
-        return { ok: true, body: buildFoodVenuePhotosFormData(form) }
+        return { ok: false, error: 'Uploading media…' }
       }
       return {
         ok: true,
         body: JSON.stringify({
           cover_image_url: form.cover_image_url.trim(),
+          cover_kind: /\.(mp4|webm|mov|m4v)(\?|$)/i.test(form.cover_image_url)
+            ? 'video'
+            : 'image',
           photos: form.gallery_urls
             .split(/[\n,]+/)
             .map((s) => s.trim())
@@ -55,6 +59,7 @@ export function buildFoodVenueModuleSaveBody(
             .map((image, index) => ({
               id: index + 2,
               image,
+              kind: /\.(mp4|webm|mov|m4v)(\?|$)/i.test(image) ? 'video' : 'image',
               caption: '',
               category: 'food',
               is_cover: false,
@@ -69,7 +74,24 @@ export function buildFoodVenueModuleSaveBody(
   }
 }
 
-/** Modules that support debounced auto-save (photos only when no pending file uploads). */
+/**
+ * Photos save: Cloudinary-direct (Delvers path) then JSON PATCH — no multipart through the API.
+ */
+export async function resolveFoodVenuePhotosSaveBody(
+  form: FoodVenueFormValues,
+): Promise<SaveBuildResult> {
+  try {
+    const payload = await resolveFoodVenuePhotosForSave(form)
+    return { ok: true, body: JSON.stringify(payload) }
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Could not upload photos.',
+    }
+  }
+}
+
+/** Modules that support debounced auto-save (photos only when media is already remote). */
 export function foodVenueModuleAutoSaveKey(
   module: FoodVenueModuleId,
   form: FoodVenueFormValues,

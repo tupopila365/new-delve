@@ -423,19 +423,29 @@ class ProviderGuideBookingSerializer(serializers.ModelSerializer):
     duration_hours = serializers.IntegerField(read_only=True)
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     status = serializers.CharField(read_only=True)
+    start_time = serializers.TimeField(read_only=True, allow_null=True)
+    meeting_point = serializers.CharField(read_only=True)
+    notes = serializers.CharField(read_only=True)
+    package_id = serializers.CharField(read_only=True)
+    mock_payment_ref = serializers.CharField(read_only=True)
 
     class Meta:
         model = GuideBooking
         fields = (
             "id",
             "package_title",
+            "package_id",
             "guest_display_name",
             "guest_username",
             "date",
+            "start_time",
             "guests",
             "duration_hours",
+            "meeting_point",
+            "notes",
             "total_price",
             "status",
+            "mock_payment_ref",
         )
 
     def get_package_title(self, obj):

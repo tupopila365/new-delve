@@ -5,18 +5,29 @@
 
 /* ── CSS Custom Properties ───────────────────────────────── */
 :root {
-  --ds-accent: #7c3aed;
-  --ds-accent-glow: rgba(124, 58, 237, 0.35);
-  --ds-surface: #0f0f0f;
-  --ds-surface-raised: #141414;
-  --ds-border: rgba(255, 255, 255, 0.1);
-  --ds-border-strong: rgba(255, 255, 255, 0.16);
-  --ds-text: #f8f3ee;
-  --ds-text-muted: rgba(255, 255, 255, 0.52);
-  --ds-text-dim: rgba(255, 255, 255, 0.38);
+  --ds-accent: #fffaf2;
+  --ds-accent-glow: rgba(255, 250, 242, 0.28);
+  --ds-ink: #1a1510;
+  --ds-surface: #12100e;
+  --ds-surface-raised: #161310;
+  --ds-border: rgba(255, 250, 242, 0.1);
+  --ds-border-strong: rgba(255, 250, 242, 0.16);
+  --ds-text: #fffaf2;
+  --ds-text-muted: rgba(255, 250, 242, 0.58);
+  --ds-text-dim: rgba(255, 250, 242, 0.4);
   --ds-heart: #ff3040;
   --ds-gold: #ffc107;
   --ds-fire: #ff9f1a;
+}
+
+/* Delvers overrides global marketplace purple --accent */
+.app-shell--delvers,
+.app-main--delvers,
+.ds-page {
+  --accent: #fffaf2;
+  --accent-hover: #e8dfd0;
+  --ds-accent: #fffaf2;
+  --ds-accent-glow: rgba(255, 250, 242, 0.28);
 }
 
 /* ── Base / Reset (from ds.css) ─────────────────────────────── */
@@ -31,7 +42,7 @@ html, body, #root {
   height: auto;
   min-height: 100vh;
   overflow: visible !important;
-  background: #000 !important;
+  background: #12100e !important;
 }
 
 .app-main--delvers {
@@ -44,7 +55,7 @@ html, body, #root {
   width: min(100%, 760px);
   margin: 0 auto;
   padding-bottom: 96px;
-  color: #f8f3ee;
+  color: var(--ds-text);
 }
 
 /* ── Section Headers for Feed ──────────────────────────────── */
@@ -78,8 +89,8 @@ html, body, #root {
   gap: 4px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.15);
-  color: #a78bfa;
+  background: rgba(255, 250, 242, 0.15);
+  color: #fffaf2;
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -198,12 +209,12 @@ html, body, #root {
   padding: 8px 14px;
   margin: 0 auto 16px;
   border-radius: 0 0 18px 18px;
-  background: rgba(14, 14, 14, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 16, 14, 0.96);
+  border: 1px solid rgba(255, 250, 242, 0.08);
   border-top: none;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(16px) saturate(1.3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.24s ease;
   will-change: transform;
   isolation: isolate;
@@ -349,7 +360,7 @@ html, body, #root {
   font-size: 17px;
   font-weight: 900;
   color: #fff;
-  background: linear-gradient(135deg, var(--accent), #c44e08);
+  background: #161310;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
@@ -400,7 +411,7 @@ html, body, #root {
 }
 
 .dsr-rail__btn--active {
-  color: var(--accent, #7c3aed);
+  color: var(--accent, #fffaf2);
 }
 
 .dsr-meta {
@@ -537,18 +548,20 @@ html, body, #root {
 .ds-brand {
   display: grid;
   min-width: 108px;
-  color: #fff;
+  color: var(--ds-text);
+  font-family: var(--font-display, 'Syne', sans-serif);
   font-size: 20px;
-  font-weight: 950;
+  font-weight: 800;
   letter-spacing: -0.04em;
   text-decoration: none;
 }
 
 .ds-brand span {
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--ds-text-muted);
+  font-family: inherit;
   font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0.08em;
+  font-weight: 750;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -573,7 +586,7 @@ html, body, #root {
   border-bottom: 0;
   background: transparent;
   padding: 12px 2px 10px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--ds-text-muted);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -583,7 +596,7 @@ html, body, #root {
 }
 
 .ds-tab:hover {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 250, 242, 0.9);
 }
 
 .ds-tab::after {
@@ -594,7 +607,7 @@ html, body, #root {
   bottom: 4px;
   height: 2.5px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--ds-accent);
   opacity: 0;
   transition: left 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), right 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s ease;
 }
@@ -606,7 +619,7 @@ html, body, #root {
 }
 
 .ds-tab--active {
-  color: #fff;
+  color: var(--ds-text);
   font-weight: 800;
 }
 
@@ -627,8 +640,8 @@ html, body, #root {
   padding: 0 16px 0 12px;
   border: none;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--ds-accent);
+  color: var(--ds-ink);
   font: inherit;
   text-decoration: none;
   cursor: pointer;
@@ -636,7 +649,7 @@ html, body, #root {
 }
 
 .ds-post-entry:hover {
-  color: #fff;
+  color: var(--ds-ink);
   background: var(--accent-hover);
   transform: translateY(-1px);
 }
@@ -650,7 +663,7 @@ html, body, #root {
   height: auto;
   border: none;
   background: transparent;
-  color: #fff;
+  color: var(--ds-ink);
 }
 
 .ds-post-entry .cm-feed-toolbar__label {
@@ -658,7 +671,7 @@ html, body, #root {
   font-size: 0.84rem;
   font-weight: 800;
   line-height: 1;
-  color: #fff;
+  color: var(--ds-ink);
 }
 
 /* ── Topbar Animated Search ───────────────────────────────── */
@@ -732,8 +745,8 @@ html, body, #root {
   gap: 7px;
   padding: 10px 16px;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--ds-accent);
+  color: var(--ds-ink);
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
@@ -743,7 +756,7 @@ html, body, #root {
 .ds-create:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 /* ============================================================
@@ -765,8 +778,8 @@ html, body, #root {
   padding: 14px 14px 12px;
   margin-bottom: 18px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(20, 20, 20, 0.96), rgba(12, 12, 12, 0.96));
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: #161310;
+  border: 1px solid rgba(255, 250, 242, 0.1);
 }
 
 .ds-stories::-webkit-scrollbar {
@@ -867,7 +880,7 @@ html, body, #root {
 .ds-creator-bubble--active .ds-creator-bubble__avatar {
   box-shadow:
     0 0 0 2px var(--accent),
-    0 0 0 4px rgba(124, 58, 237, 0.35),
+    0 0 0 4px rgba(255, 250, 242, 0.35),
     0 10px 22px rgba(0, 0, 0, 0.36);
   transform: scale(1.04);
 }
@@ -971,13 +984,13 @@ html, body, #root {
 }
 
 .ds-post--sponsored {
-  border-color: rgba(124, 58, 237, 0.25);
+  border-color: rgba(255, 250, 242, 0.25);
 }
 
 .ds-post__sponsored {
   display: block;
   padding: 8px 16px 0;
-  color: rgba(124, 58, 237, 0.72);
+  color: rgba(255, 250, 242, 0.72);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -1228,7 +1241,6 @@ html, body, #root {
   place-items: center;
   gap: 8px;
   background:
-    radial-gradient(circle at 30% 20%, rgba(124, 58, 237, 0.22), transparent 36%),
     linear-gradient(145deg, #1d1713, #050505);
   color: rgba(255, 255, 255, 0.78);
   font-weight: 900;
@@ -1340,7 +1352,7 @@ html, body, #root {
 
 .ds-post__actions .is-active:not(.ds-post__action--like):not(.ds-post__action--save) {
   color: var(--accent);
-  background: rgba(124, 58, 237, 0.12);
+  background: rgba(255, 250, 242, 0.12);
 }
 
 .ds-post__actions .is-active svg {
@@ -1398,9 +1410,9 @@ html, body, #root {
   margin-top: 8px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.14);
-  border: 1px solid rgba(124, 58, 237, 0.28);
-  color: #a78bfa;
+  background: rgba(255, 250, 242, 0.14);
+  border: 1px solid rgba(255, 250, 242, 0.28);
+  color: #fffaf2;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -1409,7 +1421,7 @@ html, body, #root {
 }
 
 .ds-post__place-chip:hover {
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(255, 250, 242, 0.22);
 }
 
 .ds-post__comments {
@@ -1669,7 +1681,6 @@ html, body, #root {
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 45% 25%, rgba(124, 58, 237, 0.18), transparent 36%),
     linear-gradient(145deg, #201812, #050505);
 }
 
@@ -2105,10 +2116,8 @@ html, body, #root {
   padding: 44px 20px;
   border-radius: 26px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.2), transparent 42%),
-    linear-gradient(180deg, rgba(18, 18, 18, 0.98), rgba(10, 10, 10, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: var(--ds-surface-raised);
+  border: 1px solid var(--ds-border);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
   text-align: center;
 }
@@ -2162,22 +2171,24 @@ html, body, #root {
   place-items: center;
   margin: 0 auto 18px;
   border-radius: 24px;
-  background: rgba(124, 58, 237, 0.12);
+  background: rgba(255, 250, 242, 0.12);
   color: var(--accent);
-  border: 1px solid rgba(124, 58, 237, 0.3);
+  border: 1px solid rgba(255, 250, 242, 0.3);
 }
 
 .ds-empty-social h2 {
   margin: 0;
-  color: #fff;
+  color: var(--ds-text);
+  font-family: var(--font-display, 'Syne', sans-serif);
   font-size: clamp(26px, 6vw, 38px);
+  font-weight: 800;
   letter-spacing: -0.05em;
 }
 
 .ds-empty-social p {
   max-width: 320px;
   margin: 10px auto 22px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ds-text-muted);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -2210,14 +2221,15 @@ html, body, #root {
 }
 
 .ds-empty-social__primary {
-  background: var(--accent);
-  color: #fff;
+  background: var(--ds-accent);
+  color: var(--ds-ink);
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(124, 58, 237, 0.32);
+  box-shadow: none;
 }
 
 .ds-empty-social__primary:hover {
-  box-shadow: 0 14px 32px rgba(124, 58, 237, 0.44);
+  background: var(--accent-hover);
+  box-shadow: none;
 }
 
 .ds-empty-social__secondary {
@@ -2450,13 +2462,17 @@ html, body, #root {
   .ds-mobile-action--create .cm-feed-toolbar__circle {
     width: 40px;
     height: 40px;
+    border: 1px solid rgba(255, 250, 242, 0.22);
+    background: #fffaf2;
+    color: #1a1510;
+    box-shadow: none;
   }
 
   .ds-mobile-action--create .cm-feed-toolbar__label {
     font-size: 9.5px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1;
-    color: rgba(255, 250, 242, 0.52);
+    color: rgba(255, 250, 242, 0.72);
   }
 
   .ds-page--chrome-hidden .ds-mobile-actions {

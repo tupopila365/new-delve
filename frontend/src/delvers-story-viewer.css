@@ -102,7 +102,7 @@
   overflow: hidden;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
-  color: var(--accent);
+  color: var(--ds-accent, var(--accent, #fffaf2));
   border: 1px solid rgba(255, 255, 255, 0.18);
   font-weight: 950;
 }
@@ -193,7 +193,6 @@
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 45% 25%, rgba(124, 58, 237, 0.18), transparent 36%),
     linear-gradient(145deg, #201812, #050505);
 }
 
@@ -285,7 +284,7 @@
 }
 
 .ds-story-viewer__note svg {
-  color: var(--accent);
+  color: var(--ds-accent, var(--accent, #fffaf2));
 }
 
 .ds-story-viewer__note p {

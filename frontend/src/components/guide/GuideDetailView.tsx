@@ -3,43 +3,41 @@ import {
   BadgeDollarSign,
   Clock,
   Languages,
+  MapPin,
   MessageCircle,
+  Navigation,
+  Share2,
+  Bookmark,
+  Star,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { GuidePackageReserveCard } from '../booking/guide'
-import { guidePackageBookPath } from '../booking/bookingUtils'
 import '../booking/guide/guide-booking.css'
-import { DetailLayout } from '../detail'
-import {
-  ListingBookBar,
-  ListingDetails,
-  ListingHeroGallery,
-  ListingHighlights,
-  ListingIdentityHeader,
-  ListingLocationCard,
-  ListingQuickInfo,
-  ListingReviews,
-} from '../listing'
+import { ListingReviews } from '../listing'
 import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
 import { messageProviderPath } from '../messages/messageProviderUtils'
-import { loginHrefWithReturn } from '../../utils/authRedirect'
 import { openStreetMapSearchUrl } from '../../utils/foodListing'
+import { mediaUrl } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
+import { JourneyHero } from '../journeys/JourneyHero'
+import { JourneySection } from '../journeys/JourneySection'
+import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
+import { ReportButton } from '../report/ReportButton'
 import type { ReviewItem } from '../GuestReviewCard'
 import type { TourPackage } from './types'
 import { GuideAskSection } from './GuideAskSection'
 import { GuideCredentialsCard } from './GuideCredentialsCard'
 import { GuideExperiencePicker } from './GuideExperiencePicker'
+import { GuideProviderCard } from './GuideProviderCard'
 import { GuideReviewForm } from './GuideReviewForm'
+import { GuideRosterHero } from './GuideRosterHero'
 import { buildGuideStoryChannels } from './guideStoriesUtils'
 import { GuideSimilarGuides, type SimilarGuide } from './GuideSimilarGuides'
-import { VenueStoriesSection } from '../food/stories'
 import {
   buildGuideDetailRows,
   buildGuideGallery,
   buildGuideHighlightItems,
-  buildGuideTrustHighlights,
   guideBioText,
   guideDisplayName,
   guideHasCredentials,
@@ -50,6 +48,8 @@ import {
   type LanguageRow,
   type PortfolioItem,
 } from '../../utils/guideListing'
+import '../journeys/journey-detail.css'
+import './guide-detail.css'
 
 type RequestProfile = {
   email_verified: boolean
@@ -91,20 +91,24 @@ export function GuideDetailView({
   similarGuides,
   selectedPackage,
   onSelectPackage,
-  profile,
+  profile: _profileProp,
   questions = [],
   questionsLoading = false,
   canAnswerQuestions = false,
   canReview = false,
   onScrollToExperiences,
 }: Props) {
+  const navigate = useNavigate()
+  const { profile } = useAuth()
   const displayName = guideDisplayName(guide)
   const regionLine = guideRegionLine(guide)
   const rateLabel = guideRateLabel(guide)
   const specialityLabel = guideSpecialityLabel(guide)
-  const galleryImages = buildGuideGallery(guide, portfolio, packages)
+  const galleryImages = buildGuideGallery(guide, portfolio, packages).filter((img) =>
+    Boolean(img.src?.trim()),
+  )
+  const hasGallery = galleryImages.length > 0
   const highlightItems = buildGuideHighlightItems(guide)
-  const trustHighlights = buildGuideTrustHighlights(guide)
   const detailRows = buildGuideDetailRows(guide)
   const bio = guideBioText(guide)
   const responseH = guide.response_hours_typical ?? 0
@@ -116,269 +120,411 @@ export function GuideDetailView({
     : ''
 
   const guidePath = `/guides/${guideId}`
+  const profileHref = `/u/${encodeURIComponent(guide.username)}`
   const storyChannels = useMemo(
     () => buildGuideStoryChannels(guide, { guideId, guidePath, portfolio, packages }),
     [guide, guideId, guidePath, portfolio, packages],
   )
 
-  const mobileSubtitle = [guide.hourly_rate ? `From $${guide.hourly_rate}/hr` : null, regionLine || null]
-    .filter(Boolean)
-    .join(' · ')
+  const avatarSrc = guide.photo
+    ? /^https?:\/\//i.test(guide.photo)
+      ? guide.photo
+      : mediaUrl(guide.photo) || guide.photo
+    : null
+  const initial = displayName.charAt(0).toUpperCase() || 'G'
 
-  const quickChips = [
-    guide.hourly_rate
-      ? {
-          id: 'rate',
-          label: `From $${guide.hourly_rate}/hr`,
-          icon: <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />,
-          accent: true,
-        }
-      : null,
-    guide.languages?.length
-      ? {
-          id: 'languages',
-          label: guide.languages.slice(0, 3).join(', '),
-          icon: <Languages size={15} strokeWidth={2.25} aria-hidden />,
-        }
-      : null,
-    responseH > 0
-      ? {
-          id: 'response',
-          label: `Responds in ${responseH}h`,
-          icon: <Clock size={15} strokeWidth={2.25} aria-hidden />,
-        }
-      : null,
-    guide.years_guiding != null && guide.years_guiding > 0
-      ? {
-          id: 'years',
-          label: `${guide.years_guiding} ${guide.years_guiding === 1 ? 'year' : 'years'} guiding`,
-          icon: <BadgeCheck size={15} strokeWidth={2.25} aria-hidden />,
-        }
-      : null,
-  ].filter((chip): chip is NonNullable<typeof chip> => chip != null)
+  const ratingRaw = guide.rating_avg
+  const ratingNum = ratingRaw != null && ratingRaw !== '' ? Number(ratingRaw) : null
+  const ratingLabel =
+    ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0 ? ratingNum.toFixed(1) : null
 
-  const sidebar: ReactNode = (
-    <div id="guide-request-panel">
-      {selectedPackage ? (
-        <GuidePackageReserveCard
-          guideId={guideId}
-          packageSlug={selectedPackage.id}
-          pkg={selectedPackage}
-          guideDisplayName={displayName}
-          maxGroupSize={20}
-        />
-      ) : (
-        <div className="guide-reserve">
-          <p className="guide-reserve__kicker">Book with this guide</p>
-          <p className="guide-reserve__price">{rateLabel}</p>
-          {regionLine ? <p className="guide-reserve__meta">{regionLine}</p> : null}
-          {packages.length > 0 ? (
-            <p className="guide-reserve__hint">
-              Select an experience below, then check availability to request a booking.
-            </p>
-          ) : (
-            <>
-              <p className="guide-reserve__hint">
-                Message the guide to discuss custom routes and hourly bookings.
-              </p>
-              <Link
-                to={messageProviderPath(guide.username, {
-                  type: 'guide',
-                  id: guideId,
-                  label: guide.headline,
-                })}
-                className="btn btn-primary btn-block"
-                style={{ marginTop: 12 }}
-              >
-                Message guide
-              </Link>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
+  function guardEngage(action: () => void) {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    action()
+  }
+
+  const scrollToReserve = () => {
+    const el =
+      document.getElementById('guide-reserve-panel') ||
+      document.getElementById('guide-experiences')
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const mobilePrice = selectedPackage
+    ? `$${selectedPackage.price}`
+    : guide.hourly_rate
+      ? `From $${guide.hourly_rate}/hr`
+      : rateLabel
+
+  const mobileSub = selectedPackage
+    ? `${selectedPackage.hours} ${selectedPackage.hours === 1 ? 'hour' : 'hours'} · ${selectedPackage.title}`
+    : regionLine || displayName
+
+  const mobileCtaLabel = selectedPackage
+    ? 'Request date'
+    : packages.length > 0
+      ? 'Select experience'
+      : 'Message guide'
+
+  const handleMobileCta = () => {
+    if (selectedPackage) {
+      scrollToReserve()
+      return
+    }
+    if (packages.length > 0) {
+      onScrollToExperiences()
+      return
+    }
+    window.location.href = messageProviderPath(guide.username, {
+      type: 'guide',
+      id: guideId,
+      label: guide.headline,
+    })
+  }
 
   return (
     <>
-      <ListingHeroGallery
-        className="gd-detail__gallery-wrap acc-detail__gallery-wrap"
-        images={galleryImages}
-        listingType="guide"
-        listingId={guideId}
-        backTo="/guides"
-        backLabel="Guides"
-        saved={saved}
-        onSave={onSave}
-        onShare={onShare}
-      />
+      {hasGallery ? (
+        <JourneyHero
+          images={galleryImages}
+          backTo="/guides"
+          backLabel="Guides"
+          saved={saved}
+          onSave={() => guardEngage(onSave)}
+          onShare={onShare}
+        />
+      ) : (
+        <GuideRosterHero
+          displayName={displayName}
+          specialityLabel={specialityLabel}
+          backTo="/guides"
+          backLabel="Guides"
+          saved={saved}
+          onSave={() => guardEngage(onSave)}
+          onShare={onShare}
+        />
+      )}
 
-      <ListingIdentityHeader
-        name={guide.headline}
-        tagline={`${displayName} · @${guide.username}`}
-        categoryLabel={specialityLabel}
-        rating={guide.rating_avg}
-        reviewCount={guide.rating_count}
-        locationLabel={regionLine || null}
-        saved={saved}
-        onSave={onSave}
-        onShare={onShare}
-        reportTarget={{
-          target_type: 'listing',
-          target_id: `guide:${guideId}`,
-          target_label: guide.headline,
-        }}
-        actions={[
-          {
-            id: 'message-guide',
-            label: 'Message guide',
-            icon: <MessageCircle size={14} strokeWidth={2.25} aria-hidden />,
-            href: messageProviderPath(guide.username, {
+      <div className="jd-head">
+        <Link to={profileHref} className="jd-author">
+          {avatarSrc ? (
+            <img className="jd-author__avatar" src={avatarSrc} alt="" />
+          ) : (
+            <span className="jd-author__avatar jd-author__avatar--fallback" aria-hidden>
+              {initial}
+            </span>
+          )}
+          <span className="jd-author__copy">
+            <span className="jd-author__name">{displayName}</span>
+            <span className="jd-author__sub">
+              @{guide.username}
+              {ratingLabel ? ` · ★ ${ratingLabel}` : ''}
+            </span>
+          </span>
+        </Link>
+
+        <div className="jd-head__actions">
+          <Link
+            to={messageProviderPath(guide.username, {
               type: 'guide',
               id: guideId,
               label: guide.headline,
-            }),
-            accent: true,
-          },
-        ]}
-        className="gd-detail__identity acc-detail__identity"
-      />
+            })}
+            className="jd-btn jd-btn--primary"
+          >
+            <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
+            <span className="jd-btn--label">Message</span>
+          </Link>
+          <ReportButton
+            className="jd-btn jd-btn--icon"
+            iconOnly
+            triggerLabel="Report guide"
+            target={{
+              target_type: 'listing',
+              target_id: `guide:${guideId}`,
+              target_label: guide.headline,
+            }}
+          />
+        </div>
+      </div>
 
-      <ListingQuickInfo
-        chips={quickChips}
-        highlights={trustHighlights}
-        className="gd-detail__quick-info acc-detail__quick-info"
-      />
+      <div className="jd-titleblock">
+        {hasGallery ? (
+          <>
+            <span className="jd-badge">{specialityLabel}</span>
+            <h1 className="jd-title">{displayName}</h1>
+          </>
+        ) : (
+          <h1 className="jd-title jd-title--roster-follow">{guide.headline?.trim() || specialityLabel}</h1>
+        )}
+        {hasGallery && guide.headline?.trim() ? (
+          <p className="jd-route">{guide.headline.trim()}</p>
+        ) : null}
+        {regionLine ? (
+          <p className="jd-hook">
+            <MapPin
+              size={15}
+              strokeWidth={2.25}
+              aria-hidden
+              style={{ display: 'inline', verticalAlign: '-0.15em', marginRight: 6 }}
+            />
+            {regionLine}
+          </p>
+        ) : null}
+      </div>
 
-      <VenueStoriesSection
-        listingName={guide.headline}
-        explorePath={guidePath}
+      <div className="jd-engage" aria-label="Guide actions">
+        <div className="jd-engage__primary">
+          <button type="button" className="jd-engage__btn" onClick={onShare} aria-label="Share guide">
+            <Share2 size={22} strokeWidth={2.25} aria-hidden />
+          </button>
+          {mapHref ? (
+            <a
+              href={mapHref}
+              className="jd-engage__btn"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open meeting area in maps"
+            >
+              <Navigation size={22} strokeWidth={2.25} aria-hidden />
+            </a>
+          ) : null}
+        </div>
+        <div className="jd-engage__secondary">
+          <button
+            type="button"
+            className={`jd-engage__btn jd-engage__btn--save${saved ? ' is-active' : ''}`}
+            onClick={() => guardEngage(onSave)}
+            aria-label={saved ? 'Remove saved guide' : 'Save guide'}
+            aria-pressed={saved}
+          >
+            <Bookmark size={22} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+        </div>
+      </div>
+
+      <ul className="jd-facts">
+        {guide.hourly_rate ? (
+          <li className="jd-fact jd-fact--cost">
+            <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
+            From ${guide.hourly_rate}/hr
+          </li>
+        ) : null}
+        {guide.years_guiding != null && guide.years_guiding > 0 ? (
+          <li className="jd-fact">
+            <BadgeCheck size={15} strokeWidth={2.25} aria-hidden />
+            {guide.years_guiding} {guide.years_guiding === 1 ? 'year' : 'years'} guiding
+          </li>
+        ) : null}
+        {guide.languages?.length ? (
+          <li className="jd-fact">
+            <Languages size={15} strokeWidth={2.25} aria-hidden />
+            {guide.languages.length <= 2
+              ? guide.languages.join(', ')
+              : `${guide.languages.slice(0, 2).join(', ')} +${guide.languages.length - 2}`}
+          </li>
+        ) : null}
+        {responseH > 0 ? (
+          <li className="jd-fact">
+            <Clock size={15} strokeWidth={2.25} aria-hidden />
+            Responds in {responseH}h
+          </li>
+        ) : null}
+        {ratingLabel ? (
+          <li className="jd-fact">
+            <Star size={15} strokeWidth={2.25} aria-hidden />
+            {ratingLabel}
+            {guide.rating_count ? ` (${guide.rating_count})` : ''}
+          </li>
+        ) : null}
+      </ul>
+
+      <HighlightStoriesSection
         channels={storyChannels}
+        listingName={guide.headline || displayName}
+        explorePath={guidePath}
         title="Guide moments"
         subtitle="Experiences, portfolio & highlights — tap to watch"
         ctaLabel="View guide"
-        className="gd-detail__stories acc-detail__section"
+        className="jd-stories"
       />
 
-      <DetailLayout
-        main={
-          <>
-            {highlightItems.length > 0 ? (
-              <ListingHighlights
-                title="Why book this guide"
-                items={highlightItems}
-                className="gd-detail__highlights acc-detail__love"
-              />
-            ) : null}
+      {packages.length > 0 ? (
+        <div id="guide-experiences" className="gd-detail__experiences">
+          <GuideExperiencePicker
+            packages={packages}
+            guideId={guideId}
+            selectedId={selectedPackage?.id ?? null}
+            onSelect={onSelectPackage}
+          />
+        </div>
+      ) : null}
 
-            <ListingDetails
-              title="About this guide"
-              description={bio}
-              rows={detailRows}
-              className="gd-detail__about acc-detail__about"
-            />
-
+      <div className="gd-detail__reserve-block" id="guide-reserve-panel">
+        {selectedPackage ? (
+          <GuidePackageReserveCard
+            guideId={guideId}
+            packageSlug={selectedPackage.id}
+            pkg={selectedPackage}
+            guideDisplayName={displayName}
+            maxGroupSize={20}
+          />
+        ) : (
+          <div className="guide-reserve">
+            <p className="guide-reserve__kicker">Book with this guide</p>
+            <p className="guide-reserve__price">{rateLabel}</p>
+            {regionLine ? <p className="guide-reserve__meta">{regionLine}</p> : null}
             {packages.length > 0 ? (
-              <div id="guide-experiences">
-                <GuideExperiencePicker
-                  packages={packages}
-                  guideId={guideId}
-                  selectedId={selectedPackage?.id ?? null}
-                  onSelect={onSelectPackage}
-                  className="gd-detail__packages acc-detail__section"
-                />
-              </div>
-            ) : null}
-
-            {showCredentials ? (
-              <GuideCredentialsCard
-                yearsGuiding={guide.years_guiding}
-                licensed={guide.licensed_guide}
-                certifications={certifications}
-                languagesDetail={langsDetail}
-                fallbackLanguages={guide.languages || []}
-                className="gd-detail__credentials acc-detail__section"
-              />
-            ) : null}
-
-            {canReview ? (
-              <section className="detail-section gd-detail__review-form acc-detail__section">
-                <GuideReviewForm guideId={guideId} />
-              </section>
-            ) : null}
-
-            <ListingReviews
-              title="Guest reviews"
-              reviews={reviews}
-              listingType="guide"
-              listingId={guide.id}
-              rating={guide.rating_avg}
-              count={guide.rating_count}
-              emptyMessage="Reviews will appear here after travellers complete experiences with this guide."
-              className="gd-detail__reviews acc-detail__comments"
-            />
-
-            <ListingLocationCard
-              title="Meeting area"
-              address={meetingPoint || regionLine || null}
-              mapUrl={mapHref || null}
-              approximateHint={
-                meetingPoint?.trim()
-                  ? null
-                  : 'Meeting area only — exact point is confirmed with your guide.'
-              }
-              viewMapLabel="Open in maps"
-              className="gd-detail__location acc-detail__section"
-            />
-
-            <GuideAskSection
-              guideId={guideId}
-              title="Ask this guide"
-              placeholder="Routes, availability, languages, pickup, group size, or what to bring…"
-              questions={questions}
-              isLoading={questionsLoading}
-              canAnswer={canAnswerQuestions}
-              className="gd-detail__questions acc-detail__comments"
-            />
-
-            {similarGuides.length > 0 ? (
-              <section className="detail-section gd-detail__similar-block acc-detail__section">
-                <GuideSimilarGuides guides={similarGuides} />
-              </section>
-            ) : null}
-          </>
-        }
-        sidebar={sidebar}
-      />
-
-      <ListingBookBar
-        title={guide.headline}
-        subtitle={mobileSubtitle || displayName}
-        action={
-          selectedPackage ? (
-            profile ? (
-              <Link
-                to={guidePackageBookPath(guideId, selectedPackage.id)}
-                className="btn btn-primary"
-              >
-                Request experience
-              </Link>
+              <p className="guide-reserve__hint">
+                Select an experience above, then check availability to request a date.
+              </p>
             ) : (
-              <a
-                href={loginHrefWithReturn(guidePackageBookPath(guideId, selectedPackage.id))}
-                className="btn btn-primary"
-              >
-                Sign in to request
-              </a>
-            )
-          ) : (
-            <button type="button" className="btn btn-primary" onClick={onScrollToExperiences}>
-              {packages.length > 0 ? 'Pick experience' : 'Message guide'}
-            </button>
-          )
-        }
-        className="gd-detail__mobile-bar"
+              <>
+                <p className="guide-reserve__hint">
+                  Message the guide to discuss custom routes and hourly bookings.
+                </p>
+                <Link
+                  to={messageProviderPath(guide.username, {
+                    type: 'guide',
+                    id: guideId,
+                    label: guide.headline,
+                  })}
+                  className="btn btn-primary btn-block"
+                  style={{ marginTop: 12 }}
+                >
+                  Message guide
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {(bio || highlightItems.length > 0 || detailRows.length > 0) && (
+        <JourneySection title="About this guide">
+          {bio ? <p className="jd-story__lead">{bio}</p> : null}
+          {highlightItems.length > 0 ? (
+            <ul className="jd-tips" style={{ marginTop: bio ? 14 : 0 }}>
+              {highlightItems.map((item) => (
+                <li key={item.id} className="jd-tip">
+                  {item.icon ? <span style={{ marginRight: 6 }}>{item.icon}</span> : null}
+                  {item.label}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {detailRows.length > 0 ? (
+            <ul className="jd-story__rows">
+              {detailRows.map((row) => (
+                <li key={row.id} className="jd-story__row">
+                  <span className="jd-story__row-label">
+                    {row.icon}
+                    {row.label}
+                  </span>
+                  <span className="jd-story__row-value">{row.value}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </JourneySection>
+      )}
+
+      {showCredentials ? (
+        <GuideCredentialsCard
+          yearsGuiding={guide.years_guiding}
+          licensed={guide.licensed_guide}
+          certifications={certifications}
+          languagesDetail={langsDetail}
+          fallbackLanguages={guide.languages || []}
+          className="gd-detail__credentials"
+        />
+      ) : null}
+
+      {canReview ? (
+        <section className="jd-section gd-detail__review-form">
+          <GuideReviewForm guideId={guideId} />
+        </section>
+      ) : null}
+
+      <ListingReviews
+        title="Guest reviews"
+        reviews={reviews}
+        listingType="guide"
+        listingId={guide.id}
+        rating={guide.rating_avg}
+        count={guide.rating_count}
+        emptyMessage="Reviews will appear here after travellers complete experiences with this guide."
+        className="gd-detail__reviews"
       />
+
+      <JourneySection title="Meeting area">
+        <p className="jd-story__lead">
+          {meetingPoint || regionLine || 'Exact meeting point is confirmed with your guide.'}
+        </p>
+        {!meetingPoint?.trim() ? (
+          <p className="jd-hook" style={{ marginTop: 8 }}>
+            Meeting area only — exact point is confirmed with your guide.
+          </p>
+        ) : null}
+        {mapHref ? (
+          <div className="gd-detail__venue-acts">
+            <a className="jd-btn" href={mapHref} target="_blank" rel="noopener noreferrer">
+              <Navigation size={14} strokeWidth={2.25} aria-hidden />
+              Open in maps
+            </a>
+          </div>
+        ) : null}
+      </JourneySection>
+
+      <GuideAskSection
+        guideId={guideId}
+        title="Ask this guide"
+        placeholder="Routes, availability, languages, pickup, group size, or what to bring…"
+        questions={questions}
+        isLoading={questionsLoading}
+        canAnswer={canAnswerQuestions}
+        className="gd-detail__questions"
+      />
+
+      <GuideProviderCard
+        displayName={displayName}
+        username={guide.username}
+        bio={guide.bio}
+        regionLine={regionLine}
+        photo={guide.photo}
+        guideId={guideId}
+        headline={guide.headline}
+        className="gd-detail__provider"
+      />
+
+      {similarGuides.length > 0 ? (
+        <div className="gd-detail__similar">
+          <GuideSimilarGuides guides={similarGuides} />
+        </div>
+      ) : null}
+
+      <div className="jd-mobilebar">
+        <span className="jd-mobilebar__meta">
+          <span className="jd-mobilebar__title">{mobilePrice}</span>
+          <span className="jd-mobilebar__sub">{mobileSub}</span>
+        </span>
+        <div className="jd-mobilebar__actions">
+          <button
+            type="button"
+            className={`jd-mobilebar__icon${saved ? ' is-active' : ''}`}
+            onClick={() => guardEngage(onSave)}
+            aria-label={saved ? 'Unsave' : 'Save'}
+          >
+            <Bookmark size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
+          </button>
+          <button type="button" className="jd-mobilebar__btn" onClick={handleMobileCta}>
+            {mobileCtaLabel}
+          </button>
+        </div>
+      </div>
     </>
   )
 }

@@ -1,43 +1,51 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import type { LucideIcon } from 'lucide-react'
 import {
   AlertCircle,
-  ArrowLeftRight,
-  ArrowRight,
-  BadgeDollarSign,
-  Bookmark,
-  Building2,
   Bus,
-  CalendarDays,
   Car,
-  Clock,
   MapPin,
   Route,
   Search,
   SlidersHorizontal,
-  Truck,
-  Users,
   X,
 } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../api/client'
-import { DiscoverySidebar, type DiscoverySidebarSection } from '../components/DiscoverySidebar'
-import { FilterSheet } from '../components/FilterSheet'
-import { MarketplaceHero, QuickFilterChips } from '../components/marketplace'
+import { apiFetch, asArray, mediaUrl } from '../api/client'
+import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
+import { TransportTripCard } from '../components/transport/TransportTripCard'
+import { TransportVehicleCard } from '../components/transport/TransportVehicleCard'
 import { EmptyState, ListSkeleton } from '../components/ui'
-import { mockBusTrips } from '../mocks/mockData'
+import { isVideoUrl } from '../components/listing/photos/listingGalleryMedia'
+import { vehicleTypeMeta } from '../utils/transportListing'
+import '../components/transport/transport-list.css'
 
-type TransportTab = 'all' | 'car' | 'bus'
+type TransportMode = 'all' | 'rent' | 'share'
+type SortId = 'recommended' | 'price_asc' | 'price_desc' | 'seats' | 'name'
 
-const VEHICLE_TYPE_OPTIONS: { value: string; label: string; Icon: LucideIcon }[] = [
-  { value: '4x4', label: '4×4 / SUV', Icon: Car },
-  { value: 'sedan', label: 'Sedan', Icon: Car },
-  { value: 'hatchback', label: 'Hatchback', Icon: Car },
-  { value: 'van', label: 'Van / Minibus', Icon: Bus },
-  { value: 'pickup', label: 'Pickup', Icon: Truck },
-  { value: 'luxury', label: 'Luxury', Icon: Car },
+const NEED_FILTERS: { id: string; label: string }[] = [
+  { id: 'family', label: 'Family' },
+  { id: 'budget', label: 'Budget' },
+  { id: 'luxury', label: 'Luxury' },
+  { id: '4x4', label: '4×4 / gravel' },
+  { id: 'airport', label: 'Airport pickup' },
+  { id: 'solo', label: 'Solo' },
+  { id: 'week', label: 'This week' },
+  { id: 'coast', label: 'Coast' },
 ]
+
+const REGIONS = ['Khomas', 'Erongo', 'Oshana', 'Otjozondjupa', 'Hardap', 'Karas'] as const
+
+const TOP_AREAS = [
+  'Windhoek',
+  'Swakopmund',
+  'Walvis Bay',
+  'Ongwediva',
+  'Hosea Kutako Airport',
+] as const
+
+/** Areas that map cleanly to VehicleFilter `city=` (exact). */
+const API_CITY_AREAS = new Set<string>(['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva'])
 
 const POPULAR_ROUTES: { origin: string; destination: string }[] = [
   { origin: 'Windhoek', destination: 'Swakopmund' },
@@ -45,138 +53,16 @@ const POPULAR_ROUTES: { origin: string; destination: string }[] = [
   { origin: 'Windhoek', destination: 'Oshakati' },
 ]
 
-const TOP_PICKUP_AREAS = [
-  'Windhoek',
-  'Hosea Kutako Airport',
-  'Swakopmund',
-  'Walvis Bay',
-  'Ongwediva',
-] as const
-
-const POPULAR_REGIONS = ['Khomas', 'Erongo', 'Oshana'] as const
-
-const EXTRA_TRANSPORT_PLACES = [
-  'Walvis Bay',
-  'Otjiwarongo',
-  'Tsumeb',
-  'Rundu',
-  'Katima Mulilo',
-  'Lüderitz',
-  'Mariental',
-  'Keetmanshoop',
-  'Grootfontein',
-  'Gobabis',
-  'Outapi',
-  'Okahandja',
-  'Rehoboth',
-  'Ongwediva',
-  'Ondangwa',
-]
-
-const TRANSPORT_PLACE_OPTIONS: string[] = (() => {
-  const set = new Set<string>()
-  for (const t of mockBusTrips) {
-    set.add(t.route_detail.origin.trim())
-    set.add(t.route_detail.destination.trim())
-  }
-  EXTRA_TRANSPORT_PLACES.forEach((p) => set.add(p))
-  return [...set].sort((a, b) => a.localeCompare(b))
-})()
-
-function vehicleTypeIcon(type: string | null | undefined): LucideIcon {
-  const key = (type || '').toLowerCase()
-  if (key === 'van') return Bus
-  if (key === 'pickup') return Truck
-  return Car
-}
-
-function PlaceAutocomplete({
-  id,
-  label,
-  value,
-  onChange,
-  places,
-}: {
+const COLLECTIONS: {
   id: string
   label: string
-  value: string
-  onChange: (next: string) => void
-  places: readonly string[]
-}) {
-  const [open, setOpen] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
-
-  const filtered = useMemo(() => {
-    const needle = value.trim().toLowerCase()
-    const list = needle ? places.filter((p) => p.toLowerCase().includes(needle)) : [...places]
-    return list.slice(0, 100)
-  }, [places, value])
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  return (
-    <div className="tp-bus-search__field tp-place-combo" ref={wrapRef}>
-      <label className="tp-bus-search__label" htmlFor={id}>
-        {label}
-      </label>
-      <div className="tp-place-combo__shell">
-        <input
-          id={id}
-          type="text"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={open}
-          aria-controls={`${id}-listbox`}
-          className="input tp-bus-search__input tp-place-combo__input"
-          placeholder="Search place…"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value)
-            setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-        />
-        {open && (
-          <ul className="tp-place-combo__list" role="listbox" id={`${id}-listbox`}>
-            {filtered.length === 0 ? (
-              <li className="tp-place-combo__empty" role="presentation">
-                No places match — pick from the list or clear the field.
-              </li>
-            ) : (
-              filtered.map((p) => (
-                <li key={p} role="presentation">
-                  <button
-                    type="button"
-                    role="option"
-                    className="tp-place-combo__option"
-                    aria-selected={value === p}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      onChange(p)
-                      setOpen(false)
-                    }}
-                  >
-                    {p}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        )}
-      </div>
-    </div>
-  )
-}
+  need: string
+  mode?: TransportMode
+}[] = [
+  { id: 'family-vans', label: 'Family vans', need: 'family', mode: 'rent' },
+  { id: 'budget-wheels', label: 'Budget wheels', need: 'budget', mode: 'rent' },
+  { id: 'coastal', label: 'Coastal weekenders', need: 'coast' },
+]
 
 type Vehicle = {
   id: number
@@ -188,9 +74,12 @@ type Vehicle = {
   region: string
   city?: string | null
   cover_image: string | null
+  cover_kind?: 'image' | 'video' | string | null
   vehicle_type?: string | null
   seats?: number | null
   transmission?: string | null
+  rating_avg?: string | null
+  rating_count?: number | null
 }
 
 type Trip = {
@@ -200,119 +89,145 @@ type Trip = {
     destination: string
     operator_name: string
     cover_image?: string | null
+    cover_kind?: 'image' | 'video' | string | null
+    distance_km?: number | null
+    duration_minutes?: number | null
   }
   departs_at: string
   arrives_at: string
   price: string
   available_seats: number
   total_seats?: number | null
+  rating_avg?: string | null
+  rating_count?: number | null
 }
 
-function formatDeparture(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) {
-    return { date: 'Date TBA', time: 'Time TBA' }
+function dayRate(v: Vehicle): number {
+  const n = Number(v.price_per_day)
+  return Number.isFinite(n) ? n : Infinity
+}
+
+function seatCount(v: Vehicle): number {
+  return v.seats != null && Number.isFinite(v.seats) ? v.seats : 0
+}
+
+function tripPrice(t: Trip): number {
+  const n = Number(t.price)
+  return Number.isFinite(n) ? n : Infinity
+}
+
+function ratingValue(v: Vehicle): number {
+  const n = v.rating_avg != null && v.rating_avg !== '' ? Number(v.rating_avg) : 0
+  return Number.isFinite(n) ? n : 0
+}
+
+function matchesVehicleArea(v: Vehicle, area: string): boolean {
+  if (!area) return true
+  if (area === 'Hosea Kutako Airport') {
+    return (
+      /airport|kutako/i.test(`${v.title} ${v.region} ${v.city ?? ''}`) ||
+      v.region === 'Khomas' ||
+      /windhoek/i.test(`${v.city ?? ''} ${v.region}`)
+    )
   }
-  return {
-    date: d.toLocaleDateString('en-NA', { weekday: 'short', day: 'numeric', month: 'short' }),
-    time: d.toLocaleTimeString('en-NA', { hour: '2-digit', minute: '2-digit' }),
+  const needle = area.toLowerCase()
+  return [v.city, v.region, v.title].filter(Boolean).some((s) => String(s).toLowerCase().includes(needle))
+}
+
+function matchesTripArea(t: Trip, area: string): boolean {
+  if (!area) return true
+  if (area === 'Hosea Kutako Airport') {
+    return /windhoek|kutako|airport/i.test(
+      `${t.route_detail.origin} ${t.route_detail.destination}`,
+    )
   }
+  const needle = area.toLowerCase()
+  return (
+    t.route_detail.origin.toLowerCase().includes(needle) ||
+    t.route_detail.destination.toLowerCase().includes(needle)
+  )
 }
 
-function formatArrival(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return 'Time TBA'
-  return d.toLocaleTimeString('en-NA', { hour: '2-digit', minute: '2-digit' })
+function isCoastalVehicle(v: Vehicle): boolean {
+  return (
+    /erongo|swakop|walvis|coast/i.test(`${v.region} ${v.city ?? ''} ${v.title}`) ||
+    v.region === 'Erongo'
+  )
 }
 
-function tripDurationLabel(depIso: string, arrIso: string): string {
-  const ms = new Date(arrIso).getTime() - new Date(depIso).getTime()
-  if (ms <= 0) return ''
-  const h = Math.floor(ms / 3600000)
-  const m = Math.round((ms % 3600000) / 60000)
-  if (h <= 0) return `${m} min`
-  return m ? `${h}h ${m}m` : `${h}h`
+function isCoastalTrip(t: Trip): boolean {
+  return /swakop|walvis|lüderitz|luderitz/i.test(
+    `${t.route_detail.origin} ${t.route_detail.destination}`,
+  )
 }
 
-function rentalDayCount(pickup: string, dropoff: string): number | null {
-  if (!pickup || !dropoff) return null
-  const a = new Date(`${pickup}T12:00:00`)
-  const b = new Date(`${dropoff}T12:00:00`)
-  const diff = Math.round((b.getTime() - a.getTime()) / 86400000) + 1
-  return diff > 0 ? diff : null
+function departsThisWeek(iso: string): boolean {
+  const dep = new Date(iso).getTime()
+  if (Number.isNaN(dep)) return false
+  const now = Date.now()
+  return dep >= now && dep <= now + 7 * 24 * 60 * 60 * 1000
 }
 
-function seatsUrgency(n: number): 'low' | 'mid' | 'high' {
-  if (n <= 3) return 'high'
-  if (n <= 8) return 'mid'
-  return 'low'
+function modeHelper(mode: TransportMode): string | null {
+  if (mode === 'rent') {
+    return 'You set the schedule — ideal for day trips, luggage, and privacy.'
+  }
+  if (mode === 'share') {
+    return 'Fixed routes and lower per-seat fares — no driving required.'
+  }
+  return null
 }
 
-function isAutoTransmission(t: string | null | undefined): boolean {
-  if (!t) return true
-  return /auto/i.test(t)
-}
-
-function matchesVehicleSearch(v: Vehicle, q: string): boolean {
-  const needle = q.toLowerCase()
-  return [v.title, v.make, v.model, v.region, v.city, v.vehicle_type]
-    .filter(Boolean)
-    .some((s) => String(s).toLowerCase().includes(needle))
-}
-
-function matchesTripSearch(t: Trip, q: string): boolean {
-  const needle = q.toLowerCase()
-  return [
-    t.route_detail.origin,
-    t.route_detail.destination,
-    t.route_detail.operator_name,
-  ].some((s) => s.toLowerCase().includes(needle))
-}
-
-function resultsHint(
+function resultsCountLabel(
   vehicleCount: number,
   tripCount: number,
-  tab: TransportTab,
-  search: string,
+  mode: TransportMode,
+  loading: boolean,
   hasFilters: boolean,
-): string {
-  if (search) {
-    const total = tab === 'all' ? vehicleCount + tripCount : tab === 'car' ? vehicleCount : tripCount
-    return `${total} result${total === 1 ? '' : 's'} for "${search}"`
+): ReactNode {
+  if (loading) return 'Loading transport…'
+  if (mode === 'rent') {
+    return (
+      <>
+        <strong>{vehicleCount}</strong> {vehicleCount === 1 ? 'vehicle' : 'vehicles'}
+        {hasFilters ? ' match' : ' to rent'}
+      </>
+    )
   }
-  if (tab === 'all') {
-    if (hasFilters) {
-      return `${vehicleCount} vehicle rental${vehicleCount === 1 ? '' : 's'} and ${tripCount} bus trip${tripCount === 1 ? '' : 's'}`
-    }
-    const total = vehicleCount + tripCount
-    return `${total} transport option${total === 1 ? '' : 's'} available`
+  if (mode === 'share') {
+    return (
+      <>
+        <strong>{tripCount}</strong> shared {tripCount === 1 ? 'ride' : 'rides'}
+        {hasFilters ? ' match' : ' leaving'}
+      </>
+    )
   }
-  if (tab === 'car') {
-    return hasFilters
-      ? `${vehicleCount} vehicle${vehicleCount === 1 ? '' : 's'} match your filters`
-      : `${vehicleCount} vehicle rental${vehicleCount === 1 ? '' : 's'} available`
-  }
-  return hasFilters
-    ? `${tripCount} bus trip${tripCount === 1 ? '' : 's'} match your filters`
-    : `${tripCount} bus trip${tripCount === 1 ? '' : 's'} available`
+  return (
+    <>
+      <strong>{vehicleCount}</strong> {vehicleCount === 1 ? 'vehicle' : 'vehicles'}
+      <span aria-hidden> · </span>
+      <strong>{tripCount}</strong> shared {tripCount === 1 ? 'ride' : 'rides'}
+      {hasFilters ? ' match' : ' to compare'}
+    </>
+  )
 }
 
 export function Transport() {
-  const [tab, setTab] = useState<TransportTab>('all')
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [mode, setMode] = useState<TransportMode>('all')
+  const [need, setNeed] = useState('')
+  const [sort, setSort] = useState<SortId>('recommended')
+  const [area, setArea] = useState('')
   const [region, setRegion] = useState('')
   const [minP, setMinP] = useState('')
   const [maxP, setMaxP] = useState('')
   const [minSeats, setMinSeats] = useState('')
-  const [vehicleTypes, setVehicleTypes] = useState<string[]>([])
-  const [pickupDate, setPickupDate] = useState('')
-  const [dropoffDate, setDropoffDate] = useState('')
+  const [vehicleType, setVehicleType] = useState('')
   const [origin, setOrigin] = useState('')
   const [dest, setDest] = useState('')
   const [travelDate, setTravelDate] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [quickFilter, setQuickFilter] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
@@ -322,81 +237,207 @@ export function Transport() {
 
   const vQs = useMemo(() => {
     const p = new URLSearchParams()
+    if (search) p.set('search', search)
     if (region) p.set('region', region)
+    if (area && API_CITY_AREAS.has(area)) p.set('city', area)
     if (minP) p.set('min_price', minP)
     if (maxP) p.set('max_price', maxP)
     if (minSeats) p.set('min_seats', minSeats)
-    vehicleTypes.forEach((t) => p.append('vehicle_type', t))
+    if (vehicleType) p.append('vehicle_type', vehicleType)
+    if (need === '4x4') p.append('vehicle_type', '4x4')
+    if (need === 'luxury') p.append('vehicle_type', 'luxury')
+    if (need === 'family') p.set('min_seats', minSeats || '5')
+    if (need === 'solo') {
+      p.append('vehicle_type', 'hatchback')
+      p.append('vehicle_type', 'sedan')
+      if (!minSeats) p.set('max_seats', '5')
+    }
+    if (need === 'budget' && !maxP) p.set('max_price', '500')
+    if (need === 'airport' && !region) p.set('region', 'Khomas')
+    if (need === 'coast' && !region) p.set('region', 'Erongo')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [region, minP, maxP, minSeats, vehicleTypes])
+  }, [search, region, area, minP, maxP, minSeats, vehicleType, need])
 
   const bQs = useMemo(() => {
     const p = new URLSearchParams()
-    if (origin) p.set('route_origin', origin)
-    if (dest) p.set('route_destination', dest)
+    let o = origin
+    let d = dest
+    if (need === 'coast' && !origin && !dest) {
+      o = 'Windhoek'
+      d = 'Swakopmund'
+    }
+    if (search) p.set('search', search)
+    if (o) p.set('route_origin', o)
+    if (d) p.set('route_destination', d)
     if (travelDate) p.set('travel_date', travelDate)
+    if (minP) p.set('min_price', minP)
+    if (maxP) p.set('max_price', maxP)
+    else if (need === 'budget') p.set('max_price', '350')
+    if (need === 'week') p.set('departing_within_days', '7')
+    if (need === 'airport' && !o && !d) p.set('search', search || 'Windhoek')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [origin, dest, travelDate])
+  }, [search, origin, dest, travelDate, minP, maxP, need])
 
-  const showVehicles = tab === 'all' || tab === 'car'
-  const showTrips = tab === 'all' || tab === 'bus'
+  const showVehicles = mode === 'all' || mode === 'rent'
+  const showTrips = mode === 'all' || mode === 'share'
 
-  const { data: vehicles, isLoading: vLoading, isError: vError, refetch: refetchVehicles } = useQuery({
+  const {
+    data: vehicles,
+    isLoading: vLoading,
+    isError: vError,
+    refetch: refetchVehicles,
+  } = useQuery({
     queryKey: ['veh', vQs],
     enabled: showVehicles,
-    queryFn: () => apiFetch<Vehicle[]>(`/api/transport/vehicles/${vQs}`, { auth: false }),
+    queryFn: async () =>
+      asArray<Vehicle>(await apiFetch(`/api/transport/vehicles/${vQs}`, { auth: false })),
   })
 
-  const { data: trips, isLoading: bLoading, isError: bError, refetch: refetchTrips } = useQuery({
+  const {
+    data: trips,
+    isLoading: bLoading,
+    isError: bError,
+    refetch: refetchTrips,
+  } = useQuery({
     queryKey: ['bus', bQs],
     enabled: showTrips,
-    queryFn: () => apiFetch<Trip[]>(`/api/transport/bus/trips/${bQs}`, { auth: false }),
+    queryFn: async () =>
+      asArray<Trip>(await apiFetch(`/api/transport/bus/trips/${bQs}`, { auth: false })),
   })
 
-  const rentalDays = useMemo(() => rentalDayCount(pickupDate, dropoffDate), [pickupDate, dropoffDate])
-  const todayStr = new Date().toISOString().split('T')[0]
-
   const displayVehicles = useMemo(() => {
-    let list = vehicles ?? []
-    if (search) list = list.filter((v) => matchesVehicleSearch(v, search))
-    if (quickFilter === 'airport') {
+    let list = [...(vehicles ?? [])]
+    // Airport (and any non-API city chip) still needs client matching
+    if (area && !API_CITY_AREAS.has(area)) {
+      list = list.filter((v) => matchesVehicleArea(v, area))
+    }
+
+    if (need === 'luxury') {
       list = list.filter(
-        (v) =>
-          /airport|kutako/i.test(`${v.title} ${v.region} ${v.city ?? ''}`) || v.region === 'Khomas',
+        (v) => (v.vehicle_type || '').toLowerCase() === 'luxury' || dayRate(v) >= 1200,
       )
     }
-    if (quickFilter === 'budget') {
-      list = list.filter((v) => {
-        const rate = Number(v.price_per_day)
-        return !Number.isNaN(rate) && rate <= 500
-      })
+    if (need === '4x4') {
+      list = list.filter((v) => /4x4|suv/i.test(v.vehicle_type || ''))
     }
+    if (need === 'airport') {
+      list = list.filter(
+        (v) =>
+          /airport|kutako/i.test(`${v.title} ${v.region} ${v.city ?? ''}`) ||
+          v.region === 'Khomas',
+      )
+    }
+    if (need === 'coast') {
+      list = list.filter(isCoastalVehicle)
+    }
+
+    list.sort((a, b) => {
+      if (sort === 'name') return a.title.localeCompare(b.title)
+      if (sort === 'price_asc') return dayRate(a) - dayRate(b)
+      if (sort === 'price_desc') return dayRate(b) - dayRate(a)
+      if (sort === 'seats') return seatCount(b) - seatCount(a)
+      const score = (v: Vehicle) =>
+        ratingValue(v) * 2 +
+        Math.min(v.rating_count ?? 0, 40) / 20 +
+        (dayRate(v) < Infinity ? Math.max(0, 3 - dayRate(v) / 800) : 0) +
+        (v.cover_image ? 0.5 : 0)
+      return score(b) - score(a)
+    })
     return list
-  }, [vehicles, search, quickFilter])
+  }, [vehicles, area, need, sort])
 
   const displayTrips = useMemo(() => {
-    let list = trips ?? []
-    if (search) list = list.filter((t) => matchesTripSearch(t, search))
-    if (quickFilter === 'week') {
-      const now = Date.now()
-      const weekMs = 7 * 24 * 60 * 60 * 1000
-      list = list.filter((t) => {
-        const dep = new Date(t.departs_at).getTime()
-        return !Number.isNaN(dep) && dep >= now && dep <= now + weekMs
-      })
+    let list = [...(trips ?? [])]
+    if (area) list = list.filter((t) => matchesTripArea(t, area))
+
+    if (need === 'solo') {
+      list = list.filter((t) => t.available_seats >= 1)
     }
+    if (need === 'family') {
+      list = list.filter((t) => t.available_seats >= 3)
+    }
+    if (need === 'coast') {
+      list = list.filter(isCoastalTrip)
+    }
+    if (need === 'airport') {
+      list = list.filter((t) =>
+        /windhoek|kutako|airport/i.test(`${t.route_detail.origin} ${t.route_detail.destination}`),
+      )
+    }
+
+    list.sort((a, b) => {
+      if (sort === 'name') {
+        return `${a.route_detail.origin}${a.route_detail.destination}`.localeCompare(
+          `${b.route_detail.origin}${b.route_detail.destination}`,
+        )
+      }
+      if (sort === 'price_asc') return tripPrice(a) - tripPrice(b)
+      if (sort === 'price_desc') return tripPrice(b) - tripPrice(a)
+      if (sort === 'seats') return b.available_seats - a.available_seats
+      return new Date(a.departs_at).getTime() - new Date(b.departs_at).getTime()
+    })
     return list
-  }, [trips, search, quickFilter])
+  }, [trips, area, need, sort])
 
-  const featuredVehicles = useMemo(() => displayVehicles.slice(0, 3), [displayVehicles])
-  const featuredTrips = useMemo(() => displayTrips.slice(0, 3), [displayTrips])
+  const collectionRail = useMemo(() => {
+    const family = (vehicles ?? [])
+      .filter((v) => seatCount(v) >= 5 || (v.vehicle_type || '').toLowerCase() === 'van')
+      .slice(0, 4)
+    const budget = (vehicles ?? []).filter((v) => dayRate(v) <= 500).slice(0, 4)
+    const coast = (vehicles ?? []).filter(isCoastalVehicle).slice(0, 3)
+    const coastTrips = (trips ?? []).filter(isCoastalTrip).slice(0, 2)
+    return { family, budget, coast, coastTrips }
+  }, [vehicles, trips])
 
-  const toggleType = (value: string) =>
-    setVehicleTypes((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
-    )
+  const leavingSoon = useMemo(
+    () => (trips ?? []).filter((t) => departsThisWeek(t.departs_at)).slice(0, 4),
+    [trips],
+  )
+
+  const moreFilterCount =
+    [region, minP, maxP, minSeats, vehicleType, origin, dest, travelDate].filter(Boolean)
+      .length
+
+  const hasFilters = Boolean(
+    search ||
+      need ||
+      area ||
+      region ||
+      minP ||
+      maxP ||
+      minSeats ||
+      vehicleType ||
+      origin ||
+      dest ||
+      travelDate,
+  )
+  const hasActiveChrome = hasFilters || mode !== 'all'
+
+  const isLoading = (showVehicles && vLoading) || (showTrips && bLoading)
+  const isError =
+    (showVehicles && vError && !vehicles) || (showTrips && bError && !trips)
+
+  // Heavy filters hide discovery; mode-only still shows rails for browsing
+  const showDiscovery = !isLoading && !hasFilters
+
+  const clearAll = () => {
+    setMode('all')
+    setNeed('')
+    setSort('recommended')
+    setArea('')
+    setRegion('')
+    setMinP('')
+    setMaxP('')
+    setMinSeats('')
+    setVehicleType('')
+    setOrigin('')
+    setDest('')
+    setTravelDate('')
+    setSearchInput('')
+    setSearch('')
+  }
 
   const toggleSaved = (id: number, e: React.MouseEvent) => {
     e.preventDefault()
@@ -409,648 +450,468 @@ export function Transport() {
     })
   }
 
-  const clearCarFilters = () => {
-    setRegion('')
-    setMinP('')
-    setMaxP('')
-    setMinSeats('')
-    setVehicleTypes([])
-    setPickupDate('')
-    setDropoffDate('')
-  }
-
-  const clearBusFilters = () => {
-    setOrigin('')
-    setDest('')
-    setTravelDate('')
-  }
-
-  const clearAllFilters = () => {
-    clearCarFilters()
-    clearBusFilters()
-    setSearchInput('')
-    setSearch('')
-    setQuickFilter('')
-  }
-
-  const swapRoute = () => {
-    const o = origin
-    setOrigin(dest)
-    setDest(o)
-  }
-
-  const carFilterCount =
-    [region, minP, maxP, minSeats].filter(Boolean).length + vehicleTypes.length
-  const busFilterCount = [origin, dest, travelDate].filter(Boolean).length
-  const hasFilters =
-    carFilterCount > 0 || busFilterCount > 0 || !!search || !!quickFilter
-
-  const isLoading = (showVehicles && vLoading) || (showTrips && bLoading)
-  const isError =
-    (showVehicles && vError && !vehicles) || (showTrips && bError && !trips)
-
-  const handleQuickChip = (id: string) => {
-    if (id === 'bus-trips') {
-      setTab('bus')
-      setQuickFilter('')
-      return
+  const setNeedWithHints = (id: string) => {
+    setNeed(id)
+    if (id === 'week') setMode((m) => (m === 'rent' ? 'share' : m))
+    if (id === '4x4' || id === 'luxury' || id === 'airport') {
+      setMode((m) => (m === 'share' ? 'rent' : m))
     }
-    if (id === 'today') {
-      setTravelDate((d) => (d === todayStr ? '' : todayStr))
-      setTab((t) => (t === 'car' ? 'bus' : t === 'all' ? 'all' : 'bus'))
-      return
-    }
-    if (id === 'week') {
-      setQuickFilter((v) => (v === 'week' ? '' : 'week'))
-      return
-    }
-    setQuickFilter((v) => (v === id ? '' : id))
   }
 
-  const sidebarSections = useMemo((): DiscoverySidebarSection[] => {
-    const vehicleCount = vehicles?.length ?? 0
-    const tripCount = trips?.length ?? 0
-    const providerNames = new Set([
-      ...(vehicles ?? []).map(() => 'rental'),
-      ...(trips ?? []).map((t) => t.route_detail.operator_name),
-    ])
-    return [
-      {
-        id: 'popular-routes',
-        title: 'Popular routes',
-        type: 'links',
-        items: [
-          ...POPULAR_ROUTES.map((r) => {
-            const label = `${r.origin} to ${r.destination}`
-            const active = origin === r.origin && dest === r.destination
-            return {
-              label,
-              active,
-              onClick: () => {
-                setTab('bus')
+  const applyNeed = (id: string) => {
+    setNeedWithHints(need === id ? '' : id)
+  }
+
+  const applyCollection = (c: (typeof COLLECTIONS)[number]) => {
+    setNeed(c.need)
+    if (c.mode) setMode(c.mode)
+    if (c.need === 'coast') {
+      setOrigin('Windhoek')
+      setDest('Swakopmund')
+    }
+  }
+
+  const applyRoute = (r: { origin: string; destination: string }) => {
+    setMode('share')
                 setOrigin(r.origin)
                 setDest(r.destination)
-              },
-            }
-          }),
-          {
-            label: 'Airport pickup',
-            onClick: () => {
-              setTab('car')
-              setRegion('Khomas')
-            },
-          },
-          {
-            label: 'City transfers',
-            onClick: () => {
-              setTab('car')
-              setRegion('Khomas')
-            },
-          },
-        ],
-      },
-      {
-        id: 'transport-pulse',
-        title: 'Transport pulse',
-        type: 'stats',
-        items: [
-          { value: vehicleCount || '—', label: 'vehicle rentals' },
-          { value: tripCount || '—', label: 'bus trips' },
-          { value: providerNames.size || '—', label: 'providers' },
-        ],
-      },
-      {
-        id: 'top-pickup',
-        title: 'Top pickup areas',
-        type: 'links',
-        items: TOP_PICKUP_AREAS.map((area) => ({
-          label: area,
-          active: region === area || origin === area,
-          onClick: () => {
-            if (tab === 'bus' || tab === 'all') {
-              setOrigin(area === 'Hosea Kutako Airport' ? 'Windhoek' : area)
-            }
-            if (tab === 'car' || tab === 'all') {
-              setRegion(area === 'Hosea Kutako Airport' ? 'Khomas' : area)
-            }
-          },
-        })),
-      },
-    ]
-  }, [vehicles, trips, origin, dest, region, tab])
-
-  const renderVehicleCard = (v: Vehicle) => {
-    const rate = parseFloat(v.price_per_day)
-    const totalEst =
-      rentalDays != null && !Number.isNaN(rate) ? (rate * rentalDays).toFixed(0) : null
-    const TypeIcon = vehicleTypeIcon(v.vehicle_type)
-    const saved = savedIds.has(v.id)
-    return (
-      <Link key={v.id} to={`/transport/vehicle/${v.id}`} className="media-card tp-vehicle-card">
-        <div className="tp-vehicle-card__img-wrap">
-          {v.cover_image ? (
-            <img
-              className="media-card__img tp-vehicle-card__img"
-              src={mediaUrl(v.cover_image) || ''}
-              alt={`${v.title} rental vehicle`}
-              loading="lazy"
-            />
-          ) : (
-            <div className="media-card__img tp-vehicle-card__img tp-vehicle-card__placeholder" aria-hidden>
-              <TypeIcon size={40} strokeWidth={1.5} />
-            </div>
-          )}
-          <button
-            type="button"
-            className={`acc-media-card__save${saved ? ' acc-media-card__save--saved' : ''}`}
-            aria-label={saved ? 'Remove from saved' : 'Save vehicle'}
-            onClick={(e) => toggleSaved(v.id, e)}
-          >
-            <Bookmark size={17} strokeWidth={2} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-          </button>
-          {v.vehicle_type ? (
-            <span className="tp-vehicle-card__type-badge">
-              <TypeIcon size={11} strokeWidth={2.5} aria-hidden />
-              {v.vehicle_type}
-            </span>
-          ) : null}
-        </div>
-        <div className="media-card__body tp-vehicle-card__body">
-          <p className="tp-vehicle-card__make">
-            {v.make} {v.model}
-            {v.year ? ` · ${v.year}` : ''}
-          </p>
-          <h3 className="media-card__title">{v.title}</h3>
-          <p className="tp-vehicle-card__region">
-            <MapPin size={12} strokeWidth={2.25} aria-hidden />
-            <span>{v.city || v.region}</span>
-          </p>
-          {(v.seats != null || v.transmission) && (
-            <p className="tp-vehicle-card__specs">
-              {v.seats != null ? (
-                <span className="tp-vehicle-card__spec-pill">
-                  <Users size={12} strokeWidth={2.25} aria-hidden />
-                  {v.seats} seats
-                </span>
-              ) : null}
-              {v.transmission ? (
-                <span
-                  className={`tp-vehicle-card__trans-badge tp-vehicle-card__trans-badge--${
-                    isAutoTransmission(v.transmission) ? 'auto' : 'manual'
-                  }`}
-                  title={v.transmission}
-                >
-                  {isAutoTransmission(v.transmission) ? 'Automatic' : 'Manual'}
-                </span>
-              ) : null}
-            </p>
-          )}
-          <p className="media-card__price tp-vehicle-card__price">
-            <BadgeDollarSign size={13} strokeWidth={2.25} aria-hidden />
-            N${v.price_per_day}
-            <span className="tp-vehicle-card__per"> / day</span>
-          </p>
-          {totalEst ? (
-            <p className="tp-vehicle-card__total-est">
-              Est. N${totalEst} for {rentalDays} {rentalDays === 1 ? 'day' : 'days'}
-            </p>
-          ) : null}
-          <span className="tp-page__card-cta">
-            View vehicle
-            <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
-          </span>
-        </div>
-      </Link>
-    )
   }
 
-  const renderTripCard = (t: Trip) => {
-    const { date, time } = formatDeparture(t.departs_at)
-    const arrival = formatArrival(t.arrives_at)
-    const urgency = seatsUrgency(t.available_seats)
-    const dur = tripDurationLabel(t.departs_at, t.arrives_at)
-    return (
-      <Link key={t.id} to={`/transport/bus/${t.id}`} className="tp-trip-card card">
-        <div className="tp-trip-card__media">
-          {t.route_detail.cover_image ? (
-            <img
-              className="tp-trip-card__img"
-              src={mediaUrl(t.route_detail.cover_image) || ''}
-              alt={`${t.route_detail.origin} to ${t.route_detail.destination} bus route`}
-              loading="lazy"
-            />
-          ) : (
-            <div className="tp-trip-card__media-placeholder" aria-hidden>
-              <Bus size={32} strokeWidth={1.5} />
-            </div>
-          )}
-        </div>
-        <div className="tp-trip-card__body">
-          <div className="tp-trip-card__route">
-            <span className="tp-trip-card__city">{t.route_detail.origin}</span>
-            <ArrowRight size={14} strokeWidth={2.5} className="tp-trip-card__route-arrow" aria-hidden />
-            <span className="tp-trip-card__city">{t.route_detail.destination}</span>
-          </div>
-          <p className="tp-trip-card__operator">
-            <Building2 size={12} strokeWidth={2.25} aria-hidden />
-            {t.route_detail.operator_name}
-          </p>
-          <div className="tp-trip-card__meta">
-            <div className="tp-trip-card__time-block">
-              <span className="tp-trip-card__time-date">
-                <CalendarDays size={12} strokeWidth={2.25} aria-hidden />
-                {date}
-              </span>
-              <span className="tp-trip-card__time-clock">
-                <Clock size={12} strokeWidth={2.25} aria-hidden />
-                {time}
-                {arrival !== 'Time TBA' ? ` – ${arrival}` : ''}
-              </span>
-              {dur ? <span className="tp-trip-card__duration">Journey ~ {dur}</span> : null}
-            </div>
-            <div className="tp-trip-card__right">
-              <span className="tp-trip-card__price">
-                <BadgeDollarSign size={12} strokeWidth={2.25} aria-hidden />
-                N${t.price}
-              </span>
-              <span className={`tp-trip-card__seats tp-trip-card__seats--${urgency}`}>
-                <Users size={11} strokeWidth={2.25} aria-hidden />
-                {t.available_seats} {t.available_seats === 1 ? 'seat' : 'seats'} left
-              </span>
-            </div>
-          </div>
-          <span className="tp-page__card-cta tp-page__card-cta--trip">
-            View trip
-            <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
-          </span>
-        </div>
-      </Link>
-    )
-  }
+  const needLabel = NEED_FILTERS.find((n) => n.id === need)?.label
+  const helper = modeHelper(mode)
 
-  const renderFeaturedStory = (item: { kind: 'vehicle' | 'trip'; data: Vehicle | Trip }) => {
-    if (item.kind === 'vehicle') {
-      const v = item.data as Vehicle
-      const TypeIcon = vehicleTypeIcon(v.vehicle_type)
-      return (
-        <Link key={`feat-v-${v.id}`} to={`/transport/vehicle/${v.id}`} className="ev-story tp-page__featured-card">
-          <div className="ev-story__img-wrap">
-            {v.cover_image ? (
-              <img
-                className="ev-story__img"
-                src={mediaUrl(v.cover_image) || ''}
-                alt={`${v.title} rental vehicle`}
-              />
-            ) : (
-              <div className="ev-story__img ev-story__img--placeholder" aria-hidden>
-                <TypeIcon size={32} strokeWidth={1.5} />
-              </div>
-            )}
-          </div>
-          <div className="ev-story__meta">
-            <p className="ev-story__title">{v.title}</p>
-            <p className="ev-story__sub">
-              <Car size={12} strokeWidth={2.5} aria-hidden />
-              {v.region} · N${v.price_per_day}/day
-            </p>
-          </div>
-        </Link>
-      )
+  const featuredCollectionItems = useMemo(() => {
+    const items: { kind: 'vehicle' | 'trip'; data: Vehicle | Trip; tag: string }[] = []
+    const seenVehicles = new Set<number>()
+    const seenTrips = new Set<number>()
+
+    const pushVehicle = (v: Vehicle, tag: string) => {
+      if (mode === 'share' || seenVehicles.has(v.id)) return
+      seenVehicles.add(v.id)
+      items.push({ kind: 'vehicle', data: v, tag })
     }
-    const t = item.data as Trip
-    const { date, time } = formatDeparture(t.departs_at)
-    return (
-      <Link key={`feat-t-${t.id}`} to={`/transport/bus/${t.id}`} className="ev-story tp-page__featured-card">
-        <div className="ev-story__img-wrap">
-          {t.route_detail.cover_image ? (
-            <img
-              className="ev-story__img"
-              src={mediaUrl(t.route_detail.cover_image) || ''}
-              alt={`${t.route_detail.origin} to ${t.route_detail.destination} bus route`}
-            />
-          ) : (
-            <div className="ev-story__img ev-story__img--placeholder" aria-hidden>
-              <Bus size={32} strokeWidth={1.5} />
-            </div>
-          )}
-        </div>
-        <div className="ev-story__meta">
-          <p className="ev-story__title">
-            {t.route_detail.origin} to {t.route_detail.destination}
-          </p>
-          <p className="ev-story__sub">
-            <Bus size={12} strokeWidth={2.5} aria-hidden />
-            {t.route_detail.operator_name} · {date} {time}
-          </p>
-        </div>
-      </Link>
-    )
-  }
-
-  const featuredItems = useMemo(() => {
-    const items: { kind: 'vehicle' | 'trip'; data: Vehicle | Trip }[] = []
-    if (tab === 'all') {
-      featuredVehicles.slice(0, 2).forEach((v) => items.push({ kind: 'vehicle', data: v }))
-      featuredTrips.slice(0, 2).forEach((t) => items.push({ kind: 'trip', data: t }))
-    } else if (tab === 'car') {
-      featuredVehicles.forEach((v) => items.push({ kind: 'vehicle', data: v }))
-    } else {
-      featuredTrips.forEach((t) => items.push({ kind: 'trip', data: t }))
+    const pushTrip = (t: Trip, tag: string) => {
+      if (mode === 'rent' || seenTrips.has(t.id)) return
+      seenTrips.add(t.id)
+      items.push({ kind: 'trip', data: t, tag })
     }
-    return items
-  }, [tab, featuredVehicles, featuredTrips])
 
-  return (
-    <div className="tp-page ev-page acc-page disc-page mk-page">
-      <MarketplaceHero
-        title="Find transport"
-        subtitle="Passenger rentals, bus seats, and local trips — compare routes, pickup points, and trusted operators."
-        support="Choose how you want to move around Namibia and beyond."
-        action={
-          tab === 'car' || tab === 'all' ? (
-            <button
-              type="button"
-              className={`btn acc-page__filter-btn${carFilterCount > 0 ? ' btn-primary' : ' btn-ghost'}`}
-              onClick={() => setFiltersOpen(true)}
-            >
-              <SlidersHorizontal size={16} strokeWidth={2.25} aria-hidden />
-              {carFilterCount > 0 ? `Filters (${carFilterCount})` : 'Filters'}
-            </button>
-          ) : null
-        }
-      >
-        <div className="tp-page__hero-actions" role="group" aria-label="Transport options">
-          <button
-            type="button"
-            className={`tp-page__hero-chip${tab === 'car' ? ' tp-page__hero-chip--active' : ''}`}
-            onClick={() => setTab('car')}
-          >
-            <Car size={18} strokeWidth={2.25} aria-hidden />
-            Rent a vehicle
-          </button>
-          <button
-            type="button"
-            className={`tp-page__hero-chip${tab === 'bus' ? ' tp-page__hero-chip--active' : ''}`}
-            onClick={() => setTab('bus')}
-          >
-            <Bus size={18} strokeWidth={2.25} aria-hidden />
-            Find a bus trip
-          </button>
-        </div>
-      </MarketplaceHero>
+    collectionRail.family.slice(0, 2).forEach((v) => pushVehicle(v, 'Family'))
+    collectionRail.budget.slice(0, 2).forEach((v) => pushVehicle(v, 'Budget'))
+    collectionRail.coast.slice(0, 2).forEach((v) => pushVehicle(v, 'Coast'))
+    collectionRail.coastTrips.slice(0, 2).forEach((t) => pushTrip(t, 'Coast'))
+    return items.slice(0, 8)
+  }, [collectionRail, mode])
 
-      <div className="tp-page__mode-bar" role="tablist" aria-label="Transport mode">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'all'}
-          className={`tp-mode-btn${tab === 'all' ? ' tp-mode-btn--active' : ''}`}
-          onClick={() => setTab('all')}
-        >
-          <Route size={16} strokeWidth={2.25} aria-hidden />
-          All transport
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'car'}
-          className={`tp-mode-btn${tab === 'car' ? ' tp-mode-btn--active' : ''}`}
-          onClick={() => setTab('car')}
-        >
-          <Car size={16} strokeWidth={2.25} aria-hidden />
-          Vehicle rentals
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'bus'}
-          className={`tp-mode-btn${tab === 'bus' ? ' tp-mode-btn--active' : ''}`}
-          onClick={() => setTab('bus')}
-        >
-          <Bus size={16} strokeWidth={2.25} aria-hidden />
-          Bus trips
-        </button>
-      </div>
+  const glanceVehicles = useMemo(() => {
+    if (!showVehicles || mode === 'all') return [] as Vehicle[]
+    return displayVehicles.slice(0, 3)
+  }, [displayVehicles, mode, showVehicles])
 
-      <QuickFilterChips
-        ariaLabel="Transport quick filters"
-        chips={[
-          { id: 'airport', label: 'Airport pickup', Icon: MapPin, active: quickFilter === 'airport' },
-          { id: 'self-drive', label: 'Self-drive', Icon: Car, active: quickFilter === 'self-drive' },
-          { id: 'budget', label: 'Budget friendly', Icon: BadgeDollarSign, active: quickFilter === 'budget' },
-          { id: 'bus-trips', label: 'Bus trips', Icon: Bus, active: tab === 'bus' },
-          { id: 'today', label: 'Today', Icon: CalendarDays, active: travelDate === todayStr },
-          { id: 'week', label: 'This week', Icon: CalendarDays, active: quickFilter === 'week' },
-        ]}
-        onChipClick={handleQuickChip}
-      />
+  const glanceTrips = useMemo(() => {
+    if (!showTrips) return [] as Trip[]
+    return leavingSoon.slice(0, 2)
+  }, [leavingSoon, showTrips])
 
-      <div className="acc-page__search">
-        <label className="visually-hidden" htmlFor="tp-search">
-          Search transport
-        </label>
-        <div className="acc-page__search-inner">
-          <span className="acc-page__search-icon acc-page__search-icon--graphic" aria-hidden>
-            <Search size={18} strokeWidth={2.25} />
-          </span>
-          <input
-            id="tp-search"
-            type="search"
-            className="acc-page__search-input input"
-            placeholder="Search Windhoek, airport pickup, Etosha, bus route…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-          {searchInput ? (
-            <button
-              type="button"
-              className="acc-page__search-clear"
-              onClick={() => setSearchInput('')}
-              aria-label="Clear search"
-            >
-              <X size={18} strokeWidth={2.25} aria-hidden />
-            </button>
-          ) : null}
-        </div>
-      </div>
+  const emptyTitle = hasFilters ? 'No matches for that trip' : 'No transport listed yet'
+  const emptySub = hasFilters
+    ? 'Try another city, need, or clear filters to see more options.'
+    : 'Vehicle rentals and shared rides will appear here once providers add them.'
 
-      <section className="ev-page__discover card" aria-labelledby="tp-discover-title">
-        <h2 id="tp-discover-title" className="ev-page__discover-title">
-          {tab === 'bus' ? 'Popular routes' : tab === 'car' ? 'Vehicle types' : 'Browse transport'}
-        </h2>
-        <p className="ev-page__discover-sub">
-          {tab === 'bus'
-            ? 'Jump to a corridor, then set your travel date and browse departures.'
-            : tab === 'car'
-              ? 'Filter by vehicle type, pickup area, dates, and price.'
-              : 'Explore rentals and bus routes by type, area, or corridor.'}
+    return (
+    <div className="tp-market">
+      <header className="tp-market__hero">
+        <p className="tp-market__kicker">Transport marketplace</p>
+        <h1 className="tp-market__title">Pick how you move</h1>
+        <p className="tp-market__sub">
+          Rent privately or take a shared seat — compare what’s better for this trip across Windhoek,
+          the coast, and beyond.
         </p>
-        <div
-          className="ev-page__discover-chips"
-          role="group"
-          aria-label={tab === 'bus' ? 'Popular bus routes' : 'Vehicle types'}
+
+        <div className="tp-market__find">
+          <label className="tp-market__search">
+            <Search size={18} strokeWidth={2.25} aria-hidden />
+            <input
+              id="tp-search"
+              type="search"
+              placeholder="Search Windhoek, airport, Swakop bus, 4×4…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              aria-label="Search vehicles and trips"
+            />
+            {searchInput ? (
+          <button
+            type="button"
+                className="tp-market__search-clear"
+                onClick={() => setSearchInput('')}
+                aria-label="Clear search"
+              >
+                <X size={14} strokeWidth={2.5} aria-hidden />
+          </button>
+          ) : null}
+          </label>
+
+          <div className="tp-market__find-row">
+            <select
+              className="tp-market__select"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              aria-label="City or area"
+            >
+              <option value="">All cities</option>
+              {TOP_AREAS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="tp-market__select"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as TransportMode)}
+              aria-label="Mode"
+            >
+              <option value="all">All modes</option>
+              <option value="rent">Rent a car</option>
+              <option value="share">Shared rides</option>
+            </select>
+
+            <select
+              className="tp-market__select"
+              value={need}
+              onChange={(e) => setNeedWithHints(e.target.value)}
+              aria-label="Trip need"
+            >
+              <option value="">Any need</option>
+              {NEED_FILTERS.map(({ id, label }) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="tp-market__sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortId)}
+              aria-label="Sort results"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="price_asc">Price: low to high</option>
+              <option value="price_desc">Price: high to low</option>
+              <option value="seats">Most seats</option>
+              <option value="name">Name A–Z</option>
+            </select>
+              </div>
+          </div>
+      </header>
+
+      <div className="tp-market__compare" role="group" aria-label="Rent or share">
+            <button
+              type="button"
+          className={`tp-market__compare-card${mode === 'rent' ? ' is-active' : ''}`}
+          aria-pressed={mode === 'rent'}
+          onClick={() => setMode((m) => (m === 'rent' ? 'all' : 'rent'))}
         >
-          {tab === 'bus' || tab === 'all'
-            ? POPULAR_ROUTES.map((r) => {
+          <span className="tp-market__compare-icon" aria-hidden>
+            <Car size={18} strokeWidth={2.25} />
+          </span>
+          <p className="tp-market__compare-title">Rent a car</p>
+          <p className="tp-market__compare-sub">Your schedule, day trips, luggage, privacy</p>
+            </button>
+          <button
+            type="button"
+          className={`tp-market__compare-card${mode === 'share' ? ' is-active' : ''}`}
+          aria-pressed={mode === 'share'}
+          onClick={() => setMode((m) => (m === 'share' ? 'all' : 'share'))}
+        >
+          <span className="tp-market__compare-icon" aria-hidden>
+            <Bus size={18} strokeWidth={2.25} />
+          </span>
+          <p className="tp-market__compare-title">Shared ride</p>
+          <p className="tp-market__compare-sub">Fixed routes, lower per seat, no driving</p>
+          </button>
+      </div>
+      {helper ? (
+        <p className="tp-market__compare-help">
+          <strong>{mode === 'rent' ? 'Renting:' : 'Sharing:'}</strong> {helper}
+        </p>
+      ) : (
+        <p className="tp-market__compare-help">
+          Not sure? Browse both — rentals for flexibility, seats for cheaper point-to-point.
+        </p>
+      )}
+
+      <section className="tp-market__section" aria-label="Trip needs">
+        <div className="tp-market__rail" role="group" aria-label="Need filters">
+          {NEED_FILTERS.map(({ id, label }) => (
+          <button
+              key={id}
+            type="button"
+              className={`tp-market__chip${need === id ? ' is-active' : ''}`}
+              aria-pressed={need === id}
+              onClick={() => applyNeed(id)}
+          >
+              {label}
+          </button>
+          ))}
+        <button
+          type="button"
+            className={`tp-market__more${moreFilterCount > 0 ? ' is-active' : ''}`}
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal size={14} strokeWidth={2.25} aria-hidden />
+            More filters{moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}
+        </button>
+        </div>
+      </section>
+
+      {hasActiveChrome ? (
+        <div className="tp-market__active" aria-label="Active filters">
+          {search ? (
+        <button
+          type="button"
+              className="tp-market__active-pill"
+              onClick={() => {
+                setSearch('')
+                setSearchInput('')
+              }}
+            >
+              “{search}” <X size={13} strokeWidth={2.5} aria-hidden />
+        </button>
+          ) : null}
+          {area ? (
+            <button type="button" className="tp-market__active-pill" onClick={() => setArea('')}>
+              {area} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {mode !== 'all' ? (
+            <button type="button" className="tp-market__active-pill" onClick={() => setMode('all')}>
+              {mode === 'rent' ? 'Rent a car' : 'Shared rides'}{' '}
+              <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {need && needLabel ? (
+            <button type="button" className="tp-market__active-pill" onClick={() => setNeed('')}>
+              {needLabel} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {origin || dest ? (
+        <button
+          type="button"
+              className="tp-market__active-pill"
+              onClick={() => {
+                setOrigin('')
+                setDest('')
+              }}
+            >
+              {origin || '…'} → {dest || '…'} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {region ? (
+            <button type="button" className="tp-market__active-pill" onClick={() => setRegion('')}>
+              {region} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          <button type="button" className="tp-market__clear" onClick={clearAll}>
+            Clear all
+        </button>
+      </div>
+      ) : null}
+
+      {showDiscovery && featuredCollectionItems.length > 0 ? (
+        <section className="tp-market__section" aria-labelledby="tp-collections-title">
+          <div className="tp-market__section-head">
+            <div>
+              <h2 id="tp-collections-title" className="tp-market__section-title">
+                Collections
+              </h2>
+              <p className="tp-market__section-sub">Family vans · Budget wheels · Coastal weekenders</p>
+            </div>
+          </div>
+          <div className="tp-market__rail" style={{ marginBottom: 12 }}>
+            {COLLECTIONS.map((c) => (
+            <button
+                key={c.id}
+              type="button"
+                className="tp-market__chip"
+                onClick={() => applyCollection(c)}
+            >
+                {c.label}
+            </button>
+            ))}
+        </div>
+          <div className="tp-market__featured-rail">
+            {featuredCollectionItems.map((item) => {
+              if (item.kind === 'vehicle') {
+                const v = item.data as Vehicle
+                const coverSrc = mediaUrl(v.cover_image) || v.cover_image
+                const isVideo = v.cover_kind === 'video' || (coverSrc ? isVideoUrl(coverSrc) : false)
+                const typeLabel = vehicleTypeMeta(v.vehicle_type).label
+                return (
+                  <Link
+                    key={`feat-v-${v.id}`}
+                    to={`/transport/vehicle/${v.id}`}
+                    className="tp-market__featured"
+                  >
+                    <div className={`tp-market__featured-media${coverSrc ? '' : ' tp-market__featured-media--empty'}`}>
+                      {isVideo && coverSrc ? (
+                        <video src={coverSrc} muted loop playsInline preload="metadata" aria-label={v.title} />
+                      ) : coverSrc ? (
+                        <img src={coverSrc} alt="" loading="lazy" />
+                      ) : (
+                        <Car size={32} strokeWidth={1.5} aria-hidden />
+                      )}
+      </div>
+                    <div className="tp-market__featured-body">
+                      <span className="tp-market__featured-type">
+                        {item.tag} · {typeLabel}
+                      </span>
+                      <p className="tp-market__featured-title">{v.title}</p>
+                      <p className="tp-market__featured-meta">
+                        <MapPin size={12} strokeWidth={2.25} aria-hidden />
+                        {v.city || v.region}
+                        <span aria-hidden>·</span>
+                        N${v.price_per_day}/day
+                      </p>
+                    </div>
+                  </Link>
+                )
+              }
+              const t = item.data as Trip
+              const coverSrc =
+                mediaUrl(t.route_detail.cover_image) || t.route_detail.cover_image || null
+              const isVideo =
+                t.route_detail.cover_kind === 'video' || (coverSrc ? isVideoUrl(coverSrc) : false)
+              return (
+                <Link
+                  key={`feat-t-${t.id}`}
+                  to={`/transport/bus/${t.id}`}
+                  className="tp-market__featured"
+                >
+                  <div className={`tp-market__featured-media${coverSrc ? '' : ' tp-market__featured-media--empty'}`}>
+                    {isVideo && coverSrc ? (
+                      <video
+                        src={coverSrc}
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        aria-label={`${t.route_detail.origin} to ${t.route_detail.destination}`}
+                      />
+                    ) : coverSrc ? (
+                      <img src={coverSrc} alt="" loading="lazy" />
+                    ) : (
+                      <Bus size={32} strokeWidth={1.5} aria-hidden />
+                    )}
+                  </div>
+                  <div className="tp-market__featured-body">
+                    <span className="tp-market__featured-type">{item.tag} · Shared</span>
+                    <p className="tp-market__featured-title">
+                      {t.route_detail.origin} → {t.route_detail.destination}
+                    </p>
+                    <p className="tp-market__featured-meta">
+                      <Route size={12} strokeWidth={2.25} aria-hidden />
+                      {t.route_detail.operator_name}
+                      <span aria-hidden>·</span>
+                      N${t.price}
+                    </p>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {showDiscovery && (mode === 'all' || mode === 'share') ? (
+        <section className="tp-market__section" aria-labelledby="tp-routes-title">
+          <div className="tp-market__section-head">
+            <div>
+              <h2 id="tp-routes-title" className="tp-market__section-title">
+                Popular routes
+              </h2>
+              <p className="tp-market__section-sub">Jump a corridor, then compare seats</p>
+            </div>
+          </div>
+          <div className="tp-market__rail" role="group" aria-label="Popular bus routes">
+            {POPULAR_ROUTES.map((r) => {
                 const active = origin === r.origin && dest === r.destination
                 return (
                   <button
                     key={`${r.origin}-${r.destination}`}
                     type="button"
-                    className={`acc-quick-chip ev-page__discover-chip${active ? ' acc-quick-chip--active' : ''}`}
+                  className={`tp-market__chip${active ? ' is-active' : ''}`}
                     aria-pressed={active}
-                    onClick={() => {
-                      setTab(tab === 'all' ? 'bus' : tab)
-                      setOrigin(r.origin)
-                      setDest(r.destination)
-                    }}
-                  >
-                    <Route size={15} strokeWidth={2.25} aria-hidden />
-                    {r.origin} to {r.destination}
+                  onClick={() => applyRoute(r)}
+                >
+                  <Route size={14} strokeWidth={2.25} aria-hidden />
+                  {r.origin} → {r.destination}
                   </button>
                 )
-              })
-            : null}
-          {tab === 'car' || tab === 'all'
-            ? VEHICLE_TYPE_OPTIONS.map(({ value, label, Icon }) => (
-                <button
-                  key={`tp-disc-${value}`}
-                  type="button"
-                  className={`acc-quick-chip ev-page__discover-chip${
-                    vehicleTypes.includes(value) ? ' acc-quick-chip--active' : ''
-                  }`}
-                  aria-pressed={vehicleTypes.includes(value)}
-                  onClick={() => toggleType(value)}
-                >
-                  <Icon className="acc-quick-chip__icon" size={15} strokeWidth={2.25} aria-hidden />
-                  {label}
-                </button>
-              ))
-            : null}
+            })}
         </div>
       </section>
+      ) : null}
 
-      {(showVehicles && (tab === 'car' || tab === 'all')) && (
-        <div className="tp-page__rental-dates card">
-          <p className="tp-page__rental-dates-label">
-            <CalendarDays size={13} strokeWidth={2.25} aria-hidden />
-            Plan your rental (optional)
-          </p>
-          <div className="tp-page__rental-dates-row">
-            <div className="field tp-page__rental-field">
-              <label className="label" htmlFor="tp-pickup">
-                Pick-up
-              </label>
-              <input
-                id="tp-pickup"
-                className="input"
-                type="date"
-                min={todayStr}
-                value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
-              />
+      {showDiscovery && (glanceVehicles.length > 0 || glanceTrips.length > 0) ? (
+        <section className="tp-market__section" aria-labelledby="tp-glance-title">
+          <div className="tp-market__section-head">
+            <div>
+              <h2 id="tp-glance-title" className="tp-market__section-title">
+                {mode === 'share' ? 'Seats leaving soon' : mode === 'rent' ? 'Worth a look' : 'Leaving soon'}
+              </h2>
+              <p className="tp-market__section-sub">
+                {mode === 'rent'
+                  ? 'A quick sample of rentals that match the browse'
+                  : 'Shared rides departing within the week'}
+              </p>
             </div>
-            <div className="field tp-page__rental-field">
-              <label className="label" htmlFor="tp-dropoff">
-                Drop-off
-              </label>
-              <input
-                id="tp-dropoff"
-                className="input"
-                type="date"
-                min={pickupDate || todayStr}
-                value={dropoffDate}
-                onChange={(e) => setDropoffDate(e.target.value)}
-              />
-            </div>
-          </div>
-          {rentalDays != null && pickupDate && dropoffDate ? (
-            <p className="tp-page__rental-hint">
-              {rentalDays} {rentalDays === 1 ? 'day' : 'days'} — estimates on cards use this range when set.
-            </p>
-          ) : (
-            <p className="tp-page__rental-hint tp-page__rental-hint--muted">
-              Add dates to see an estimated trip total on each vehicle card.
-            </p>
-          )}
-        </div>
-      )}
-
-      {(showTrips && (tab === 'bus' || tab === 'all')) && (
-        <>
-          <div className="tp-page__bus-travel-date field">
-            <label className="label" htmlFor="tp-bus-date">
-              <CalendarDays size={14} strokeWidth={2.25} aria-hidden />
-              Travel date
-            </label>
-            <input
-              id="tp-bus-date"
-              className="input tp-page__bus-date-input"
-              type="date"
-              min={todayStr}
-              value={travelDate}
-              onChange={(e) => setTravelDate(e.target.value)}
-            />
-            <p className="tp-page__bus-date-hint">
-              Show departures on this day only — leave empty to see all upcoming trips.
-            </p>
-          </div>
-
-          <div className="tp-page__bus-search">
-            <div className="tp-bus-search__row">
-              <PlaceAutocomplete
-                id="tp-bus-origin"
-                label="From"
-                value={origin}
-                onChange={setOrigin}
-                places={TRANSPORT_PLACE_OPTIONS}
-              />
-              <button
-                type="button"
-                className="tp-bus-search__swap"
-                onClick={swapRoute}
-                aria-label="Swap origin and destination"
-                title="Swap from / to"
-              >
-                <ArrowLeftRight size={18} strokeWidth={2.25} aria-hidden />
+            {glanceTrips.length > 0 ? (
+              <button type="button" className="tp-market__clear" onClick={() => applyNeed('week')}>
+                This week
               </button>
-              <PlaceAutocomplete
-                id="tp-bus-dest"
-                label="To"
-                value={dest}
-                onChange={setDest}
-                places={TRANSPORT_PLACE_OPTIONS}
-              />
-            </div>
+            ) : null}
           </div>
-        </>
-      )}
+          {glanceVehicles.length > 0 ? (
+            <div className="tp-market__grid" style={{ marginBottom: glanceTrips.length > 0 ? 14 : 0 }}>
+              {glanceVehicles.map((v) => (
+                <TransportVehicleCard
+                  key={`glance-v-${v.id}`}
+                  vehicle={v}
+                  saved={savedIds.has(v.id)}
+                  onToggleSave={toggleSaved}
+                />
+              ))}
+            </div>
+          ) : null}
+          {glanceTrips.length > 0 ? (
+            <div className="tp-market__trip-list">
+              {glanceTrips.map((t) => (
+                <TransportTripCard key={`glance-t-${t.id}`} trip={t} />
+              ))}
+          </div>
+          ) : null}
+        </section>
+      ) : null}
 
-      {hasFilters && (
-        <div className="ev-page__filter-summary">
-          <span className="ev-page__filter-summary-text">
-            Filtered
-            {search ? ` · "${search}"` : ''}
-            {region ? ` · ${region}` : ''}
-            {origin ? ` · From ${origin}` : ''}
-            {dest ? ` · To ${dest}` : ''}
-            {travelDate ? ` · ${travelDate}` : ''}
-            {vehicleTypes.length > 0 ? ` · ${vehicleTypes.join(', ')}` : ''}
-          </span>
-          <button type="button" className="ev-page__filter-clear" onClick={clearAllFilters}>
-            Clear all
-          </button>
-        </div>
-      )}
+      <div className="tp-market__results-bar">
+        <p className="tp-market__count" role="status">
+          {resultsCountLabel(
+            displayVehicles.length,
+            displayTrips.length,
+            mode,
+            isLoading,
+            hasFilters,
+          )}
+            </p>
+          </div>
 
-      <div className="disc-page__layout">
-        <main className="disc-page__main">
-          {isError && (
+      {isError ? (
             <EmptyState
-              iconElement={<AlertCircle size={28} strokeWidth={2} aria-hidden />}
-              title="We couldn't load transport options"
+          iconElement={<AlertCircle size={28} strokeWidth={1.75} />}
+          title="We couldn't load transport"
               sub="Please check your connection and try again."
               cta={{
                 label: 'Try again',
@@ -1060,239 +921,207 @@ export function Transport() {
                 },
               }}
             />
-          )}
+      ) : null}
 
-          {isLoading && !isError && <ListSkeleton count={tab === 'all' ? 4 : 3} />}
+      {isLoading && !isError ? <ListSkeleton count={6} /> : null}
 
-          {!isLoading && !isError && featuredItems.length > 0 && (
-            <section className="ev-page__stories tp-page__featured" aria-labelledby="tp-featured-title">
-              <div className="ev-page__stories-head">
-                <h2 id="tp-featured-title" className="ev-page__stories-title">
-                  Popular transport options
-                </h2>
-                <span className="ev-page__stories-sub">Vehicle rentals and routes travellers are checking out</span>
-              </div>
-              <div className="ev-page__stories-row">
-                {featuredItems.map((item) => renderFeaturedStory(item))}
-              </div>
-            </section>
-          )}
-
-          {!isLoading && !isError && (displayVehicles.length > 0 || displayTrips.length > 0) && (
-            <p className="tp-page__results-hint ev-page__results-hint" role="status">
-              {resultsHint(displayVehicles.length, displayTrips.length, tab, search, hasFilters)}
-            </p>
-          )}
-
-          {showVehicles && !isLoading && !isError && (
-            <section className="tp-page__section" aria-labelledby="tp-vehicles-title">
-              {(tab === 'all' || displayVehicles.length > 0 || displayTrips.length === 0) && (
-                <div className="tp-page__section-head">
-                  <div>
-                    <h2 id="tp-vehicles-title" className="tp-page__section-title">
-                      Vehicle rentals
-                    </h2>
-                    <p className="tp-page__section-sub">
-                      Cars, SUVs, vans, and local rental options for flexible trips.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {displayVehicles.length > 0 ? (
-                <div className="tp-page__car-grid">{displayVehicles.map(renderVehicleCard)}</div>
-              ) : tab !== 'all' ? (
-                <EmptyState
-                  iconElement={<Car size={28} strokeWidth={2} aria-hidden />}
-                  title={hasFilters ? 'No transport options found' : 'No transport options listed yet'}
-                  sub={
-                    hasFilters
-                      ? 'Try changing your route, pickup area, date, price, or filters.'
-                      : 'Vehicle rentals, transfers, and bus trips will appear here once providers add them.'
-                  }
-                  action={
-                    hasFilters ? (
-                      <div className="tp-page__empty-chips">
-                        {POPULAR_REGIONS.map((r) => (
-                          <button
-                            key={r}
-                            type="button"
-                            className="acc-quick-chip"
-                            onClick={() => {
-                              clearCarFilters()
-                              setRegion(r)
-                            }}
-                          >
-                            <MapPin size={14} strokeWidth={2.25} aria-hidden />
-                            {r}
-                          </button>
+      {!isLoading && !isError && showVehicles && displayVehicles.length > 0 ? (
+        <div className={mode === 'all' ? 'tp-market__group' : undefined}>
+          {mode === 'all' ? <p className="tp-market__group-label">For rent</p> : null}
+          <div className="tp-market__grid">
+            {displayVehicles.map((v) => (
+              <TransportVehicleCard
+                key={v.id}
+                vehicle={v}
+                saved={savedIds.has(v.id)}
+                onToggleSave={toggleSaved}
+              />
                         ))}
                       </div>
-                    ) : undefined
-                  }
-                  cta={
-                    hasFilters
-                      ? { label: 'Show all transport', onClick: clearAllFilters }
-                      : undefined
-                  }
-                />
+        </div>
               ) : null}
-            </section>
-          )}
 
-          {showTrips && !isLoading && !isError && (
-            <section className="tp-page__section" aria-labelledby="tp-trips-title">
-              {(tab === 'all' || displayTrips.length > 0 || displayVehicles.length === 0) && (
-                <div className="tp-page__section-head">
-                  <div>
-                    <h2 id="tp-trips-title" className="tp-page__section-title">
-                      Bus trips
-                    </h2>
-                    <p className="tp-page__section-sub">
-                      Scheduled routes, departure times, operators, and fares.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {displayTrips.length > 0 ? (
-                <div className="tp-page__trip-list">{displayTrips.map(renderTripCard)}</div>
-              ) : tab !== 'all' ? (
-                <EmptyState
-                  iconElement={<Bus size={28} strokeWidth={2} aria-hidden />}
-                  title={hasFilters ? 'No transport options found' : 'No transport options listed yet'}
-                  sub={
-                    hasFilters
-                      ? 'Try changing your route, pickup area, date, price, or filters.'
-                      : 'Vehicle rentals, transfers, and bus trips will appear here once providers add them.'
-                  }
-                  action={
-                    hasFilters ? (
-                      <div className="tp-page__empty-chips tp-page__empty-chips--routes">
-                        {POPULAR_ROUTES.map((r) => (
-                          <button
-                            key={`${r.origin}-${r.destination}`}
-                            type="button"
-                            className="acc-quick-chip"
-                            onClick={() => {
-                              clearBusFilters()
-                              setOrigin(r.origin)
-                              setDest(r.destination)
-                            }}
-                          >
-                            <Route size={14} strokeWidth={2.25} aria-hidden />
-                            {r.origin} to {r.destination}
-                          </button>
+      {!isLoading && !isError && showTrips && displayTrips.length > 0 ? (
+        <div className={mode === 'all' ? 'tp-market__group' : undefined}>
+          {mode === 'all' ? <p className="tp-market__group-label">Shared seats</p> : null}
+          <div className="tp-market__trip-list">
+            {displayTrips.map((t) => (
+              <TransportTripCard key={t.id} trip={t} />
                         ))}
                       </div>
-                    ) : undefined
-                  }
-                  cta={
-                    hasFilters
-                      ? { label: 'Show all transport', onClick: clearAllFilters }
-                      : undefined
-                  }
-                />
+        </div>
               ) : null}
-            </section>
-          )}
 
           {!isLoading &&
             !isError &&
-            tab === 'all' &&
-            displayVehicles.length === 0 &&
-            displayTrips.length === 0 && (
+      ((showVehicles && displayVehicles.length === 0) || !showVehicles) &&
+      ((showTrips && displayTrips.length === 0) || !showTrips) ? (
               <EmptyState
-                iconElement={<Route size={28} strokeWidth={2} aria-hidden />}
-                title={hasFilters ? 'No transport options found' : 'No transport options listed yet'}
-                sub={
-                  hasFilters
-                    ? 'Try changing your route, pickup area, date, price, or filters.'
-                    : 'Vehicle rentals, transfers, and bus trips will appear here once providers add them.'
-                }
-                cta={
-                  hasFilters
-                    ? { label: 'Show all transport', onClick: clearAllFilters }
-                    : undefined
-                }
+          iconElement={<Route size={28} strokeWidth={1.75} />}
+          title={emptyTitle}
+          sub={emptySub}
+          cta={hasFilters ? { label: 'Clear filters', onClick: clearAll } : undefined}
+        />
+      ) : null}
+
+      <CommunityComposeModalShell
+        open={filtersOpen}
+        title="More filters"
+        titleId="tp-filter-modal-title"
+        onClose={() => setFiltersOpen(false)}
+      >
+        <p className="cm-compose-modal__note">Refine rentals and shared rides for this trip.</p>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Vehicle</span>
+          <div className="tp-filter-modal__row">
+            <label className="tp-filter-modal__field">
+              <span>Pickup region</span>
+              <select
+                id="tp-filter-region"
+                className="cm-compose-modal__select"
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
+              >
+                <option value="">Any region</option>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="tp-filter-modal__field">
+              <span>Vehicle type</span>
+              <select
+                id="tp-filter-type"
+                className="cm-compose-modal__select"
+                value={vehicleType}
+                onChange={(e) => setVehicleType(e.target.value)}
+              >
+                <option value="">Any type</option>
+                <option value="4x4">4×4 / SUV</option>
+                <option value="sedan">Sedan</option>
+                <option value="hatchback">Hatchback</option>
+                <option value="van">Van / Minibus</option>
+                <option value="pickup">Pickup</option>
+                <option value="luxury">Luxury</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Price / day (N$)</span>
+          <div className="tp-filter-modal__row">
+            <label className="tp-filter-modal__field">
+              <span>From</span>
+              <input
+                id="tp-filter-min"
+                className="tp-filter-modal__input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minP}
+                onChange={(e) => setMinP(e.target.value)}
+                placeholder="No min"
               />
-            )}
-        </main>
+            </label>
+            <label className="tp-filter-modal__field">
+              <span>Up to</span>
+              <input
+                id="tp-filter-max"
+                className="tp-filter-modal__input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={maxP}
+                onChange={(e) => setMaxP(e.target.value)}
+                placeholder="No max"
+              />
+            </label>
+          </div>
+          <label className="tp-filter-modal__field">
+            <span>Minimum seats</span>
+            <input
+              id="tp-filter-seats"
+              className="tp-filter-modal__input"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={20}
+              value={minSeats}
+              onChange={(e) => setMinSeats(e.target.value)}
+              placeholder="e.g. 7 for a family van"
+            />
+          </label>
+        </div>
 
-        <DiscoverySidebar sections={sidebarSections} ariaLabel="Transport discovery" />
-      </div>
+        <div className="cm-compose-modal__composer-block">
+          <span>Shared route</span>
+          <div className="tp-filter-modal__row">
+            <label className="tp-filter-modal__field">
+              <span>From</span>
+              <input
+                id="tp-filter-origin"
+                className="tp-filter-modal__input"
+                value={origin}
+                onChange={(e) => setOrigin(e.target.value)}
+                placeholder="Windhoek"
+              />
+            </label>
+            <label className="tp-filter-modal__field">
+              <span>To</span>
+              <input
+                id="tp-filter-dest"
+                className="tp-filter-modal__input"
+                value={dest}
+                onChange={(e) => setDest(e.target.value)}
+                placeholder="Swakopmund"
+              />
+            </label>
+          </div>
+          <label className="tp-filter-modal__field">
+            <span>Travel date</span>
+            <input
+              id="tp-filter-date"
+              className="tp-filter-modal__input"
+              type="date"
+              value={travelDate}
+              onChange={(e) => setTravelDate(e.target.value)}
+            />
+          </label>
+        </div>
 
-      <FilterSheet open={filtersOpen} title="Vehicle rental filters" onClose={() => setFiltersOpen(false)}>
-        <div className="field">
-          <label className="label" htmlFor="tp-filter-region">
-            Pickup region
-          </label>
-          <input
-            id="tp-filter-region"
-            className="input"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            placeholder="e.g. Khomas, Erongo"
-          />
-        </div>
-        <div className="field">
-          <label className="label" htmlFor="tp-filter-min">
-            Min price / day (N$)
-          </label>
-          <input
-            id="tp-filter-min"
-            className="input"
-            type="number"
-            min={0}
-            value={minP}
-            onChange={(e) => setMinP(e.target.value)}
-            placeholder="No minimum"
-          />
-        </div>
-        <div className="field">
-          <label className="label" htmlFor="tp-filter-max">
-            Max price / day (N$)
-          </label>
-          <input
-            id="tp-filter-max"
-            className="input"
-            type="number"
-            min={0}
-            value={maxP}
-            onChange={(e) => setMaxP(e.target.value)}
-            placeholder="No maximum"
-          />
-        </div>
-        <div className="field">
-          <label className="label" htmlFor="tp-filter-seats">
-            Minimum seats
-          </label>
-          <input
-            id="tp-filter-seats"
-            className="input"
-            type="number"
-            min={1}
-            max={20}
-            value={minSeats}
-            onChange={(e) => setMinSeats(e.target.value)}
-            placeholder="e.g. 7 for a full family van"
-          />
-        </div>
-        <button type="button" className="btn btn-primary btn-block" onClick={() => setFiltersOpen(false)}>
-          Apply
-        </button>
-        {carFilterCount > 0 && (
+        <div className="tp-filter-modal__actions">
           <button
             type="button"
-            className="btn btn-ghost btn-block"
-            style={{ marginTop: 8 }}
-            onClick={() => {
-              clearCarFilters()
-              setFiltersOpen(false)
-            }}
+            className="cm-compose-modal__submit tp-filter-modal__apply"
+            onClick={() => setFiltersOpen(false)}
           >
-            Clear all
+            Apply
           </button>
-        )}
-      </FilterSheet>
+          {moreFilterCount > 0 ? (
+            <button
+              type="button"
+              className="tp-filter-modal__clear"
+              onClick={() => {
+                setRegion('')
+                setMinP('')
+                setMaxP('')
+                setMinSeats('')
+                setVehicleType('')
+                setOrigin('')
+                setDest('')
+                setTravelDate('')
+                setFiltersOpen(false)
+              }}
+            >
+              Clear advanced
+            </button>
+          ) : null}
+        </div>
+      </CommunityComposeModalShell>
     </div>
   )
 }
