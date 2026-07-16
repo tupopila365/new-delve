@@ -14,6 +14,7 @@ type InvalidateSocialOptions = {
   vehicleListingId?: number
   busTripId?: number
   foodVenueId?: number
+  guideProfileId?: number
   /**
    * Skip invalidating the main feed keys the user is looking at. Use after an
    * optimistic prepend / reconcile so we don't flash a refetch.
@@ -184,6 +185,13 @@ export async function invalidateSocialCaches(
     tasks.push(qc.invalidateQueries({ queryKey: ['listing-see-all', 'food', String(options.foodVenueId)] }))
     tasks.push(qc.invalidateQueries({ queryKey: ['food', String(options.foodVenueId)] }))
     tasks.push(qc.invalidateQueries({ queryKey: ['food-reviews', options.foodVenueId] }))
+  }
+
+  if (options.guideProfileId) {
+    tasks.push(qc.invalidateQueries({ queryKey: ['listing-moments', 'guide', String(options.guideProfileId)] }))
+    tasks.push(qc.invalidateQueries({ queryKey: ['listing-see-all', 'guide', String(options.guideProfileId)] }))
+    tasks.push(qc.invalidateQueries({ queryKey: ['guide', String(options.guideProfileId)] }))
+    tasks.push(qc.invalidateQueries({ queryKey: ['guide-reviews', String(options.guideProfileId)] }))
   }
 
   if (options.username) {

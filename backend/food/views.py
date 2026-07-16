@@ -1,19 +1,12 @@
 import django_filters
-from django.db.models import Count, Exists, OuterRef, Prefetch
+from django.db.models import Count, Exists, OuterRef
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
-from .models import FoodAnswer, FoodQuestion, FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
-from .qa_serializers import (
-    FoodAnswerCreateSerializer,
-    FoodAnswerSerializer,
-    FoodQuestionCreateSerializer,
-    FoodQuestionSerializer,
-)
+from .models import FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
 from .review_serializers import FoodVenueReviewCreateSerializer, FoodVenueReviewSerializer
 from .review_services import food_venue_reviews_payload
 from .serializers import FoodVenueSerializer
@@ -26,18 +19,6 @@ class FoodVenueFilter(django_filters.FilterSet):
     class Meta:
         model = FoodVenue
         fields = ["cuisine", "region", "city", "is_active"]
-
-
-def _food_questions_qs(venue):
-    visible_answers = FoodAnswer.objects.filter(is_hidden=False).select_related(
-        "author", "author__profile"
-    )
-    return (
-        FoodQuestion.objects.filter(venue=venue, is_hidden=False)
-        .select_related("author", "author__profile", "venue")
-        .prefetch_related(Prefetch("answers", queryset=visible_answers))
-        .order_by("-created_at")[:50]
-    )
 
 
 class FoodVenueViewSet(viewsets.ModelViewSet):
@@ -57,8 +38,6 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         if self.action == "review":
             return [permissions.IsAuthenticated(), IsEmailVerified()]
-        if self.action == "questions" and self.request.method == "POST":
-            return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
     def _annotate_engagement(self, qs, user):
@@ -96,7 +75,7 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
                 .distinct()
             )
             return self._annotate_engagement(qs, user)
-        if self.action in ("moments", "questions", "reviews", "review", "save", "like"):
+        if self.action in ("moments", "reviews", "review", "save", "like"):
             qs = FoodVenue.objects.filter(is_active=True).select_related("owner", "owner__profile")
             return self._annotate_engagement(qs, user)
         qs = super().get_queryset()
@@ -172,39 +151,3 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
         qs = self.get_queryset()
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
-
-    @action(detail=True, methods=["get", "post"])
-    def questions(self, request, pk=None):
-        venue = self.get_object()
-        if request.method == "GET":
-            qs = _food_questions_qs(venue)
-            return Response(FoodQuestionSerializer(qs, many=True).data)
-        if not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = FoodQuestionCreateSerializer(
-            data=request.data,
-            context={"request": request, "venue": venue},
-        )
-        ser.is_valid(raise_exception=True)
-        question = ser.save()
-        return Response(FoodQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
-
-
-class FoodQuestionAnswerView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        question = (
-            FoodQuestion.objects.select_related("venue")
-            .filter(pk=pk, is_hidden=False)
-            .first()
-        )
-        if not question:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        ser = FoodAnswerCreateSerializer(
-            data=request.data,
-            context={"request": request, "question": question},
-        )
-        ser.is_valid(raise_exception=True)
-        answer = ser.save()
-        return Response(FoodAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)

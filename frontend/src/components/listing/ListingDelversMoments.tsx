@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Camera } from 'lucide-react'
+import { Camera, Copy, Play } from 'lucide-react'
 import { useListingMoments } from '../../hooks/useListingMoments'
 import { isRealPostId } from '../../utils/postPermalink'
 import { listingSeeAllPath } from '../../utils/listingSeeAll'
@@ -61,7 +61,11 @@ export function ListingDelversMoments({
         {visible.length > 0 ? (
           <div className="listing-moments__strip">
             {visible.map((moment) => {
-              const canOpen = Boolean(moment.image) || isRealPostId(moment.id)
+              const hasMedia =
+                Boolean(moment.image) || Boolean(moment.video) || (moment.media?.length ?? 0) > 0
+              const canOpen = hasMedia || isRealPostId(moment.id)
+              const isVideoThumb = moment.kind === 'video'
+              const isCarousel = (moment.media?.length ?? 0) > 1
               return (
                 <article key={moment.id} className="listing-moments__card">
                   {canOpen ? (
@@ -72,12 +76,32 @@ export function ListingDelversMoments({
                       aria-label={`View moment by @${moment.author}`}
                     >
                       {moment.image ? (
-                        <img src={moment.image} alt="" loading="lazy" decoding="async" />
+                        isVideoThumb ? (
+                          <video
+                            className="listing-moments__video"
+                            src={`${moment.image}#t=0.1`}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            tabIndex={-1}
+                          />
+                        ) : (
+                          <img src={moment.image} alt="" loading="lazy" decoding="async" />
+                        )
                       ) : (
                         <div className="listing-moments__placeholder" aria-hidden>
                           <Camera size={22} strokeWidth={1.75} />
                         </div>
                       )}
+                      {isCarousel ? (
+                        <span className="listing-moments__badge" aria-hidden>
+                          <Copy size={14} strokeWidth={2.25} />
+                        </span>
+                      ) : isVideoThumb ? (
+                        <span className="listing-moments__badge listing-moments__badge--play" aria-hidden>
+                          <Play size={14} strokeWidth={2.5} fill="currentColor" />
+                        </span>
+                      ) : null}
                     </button>
                   ) : (
                     <div className="listing-moments__thumb">

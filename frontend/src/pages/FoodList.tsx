@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, Search, Utensils, X } from 'lucide-react'
+import { Bookmark, MapPin, Search, Utensils, X } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useFoodEngagement } from '../hooks/useFoodEngagement'
@@ -101,6 +101,7 @@ export function FoodList() {
   const [sort, setSort] = useState<SortId>('recommended')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
+  const [savedOnly, setSavedOnly] = useState(false)
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -118,8 +119,12 @@ export function FoodList() {
   }, [cuisine, city, search, mood])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['food', qs, profile?.username ?? 'anon'],
-    queryFn: () => apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: Boolean(profile) }),
+    queryKey: ['food', savedOnly ? 'saved' : qs, profile?.username ?? 'anon'],
+    queryFn: () =>
+      savedOnly
+        ? apiFetch<Venue[]>('/api/food/venues/saved/', { auth: true })
+        : apiFetch<Venue[]>(`/api/food/venues/${qs}`, { auth: Boolean(profile) }),
+    enabled: savedOnly ? Boolean(profile) : true,
   })
 
   const { data: featuredFood = [] } = useFeaturedPlacement<Venue>('food-featured-rail', FEATURED_API.food)
@@ -162,7 +167,7 @@ export function FoodList() {
     () => (data ?? []).filter((v) => v.is_open === true).slice(0, 8),
     [data],
   )
-  const hasFilters = Boolean(cuisine || city || search || mood)
+  const hasFilters = Boolean(cuisine || city || search || mood || savedOnly)
 
   const clearAll = () => {
     setCuisine('')
@@ -171,6 +176,26 @@ export function FoodList() {
     setSearchInput('')
     setSearch('')
     setSort('recommended')
+    setSavedOnly(false)
+  }
+
+  const toggleSavedOnly = () => {
+    if (!profile) {
+      navigate('/login')
+      return
+    }
+    setSavedOnly((prev) => {
+      const next = !prev
+      if (next) {
+        // Saved is a standalone view — clear the other filters.
+        setCuisine('')
+        setCity('')
+        setMood('')
+        setSearchInput('')
+        setSearch('')
+      }
+      return next
+    })
   }
 
   const requireAuth = () => {
@@ -219,10 +244,6 @@ export function FoodList() {
       <header className="fd-market__hero">
         <p className="fd-market__kicker">Food marketplace</p>
         <h1 className="fd-market__title">Find your next bite</h1>
-        <p className="fd-market__sub">
-          Browse restaurants, cafés, grills, and bars by cuisine, city, price, and what’s open now —
-          built for food lovers who know what they want.
-        </p>
 
         <div className="fd-market__find">
           <label className="fd-market__search">
@@ -306,7 +327,7 @@ export function FoodList() {
         </div>
       </header>
 
-      {hasFilters ? (
+      {hasFilters && !savedOnly ? (
         <div className="fd-market__active" aria-label="Active filters">
           {search ? (
             <button type="button" className="fd-market__active-pill" onClick={() => { setSearch(''); setSearchInput('') }}>
@@ -341,7 +362,6 @@ export function FoodList() {
               <h2 id="fd-featured-title" className="fd-market__section-title">
                 Popular right now
               </h2>
-              <p className="fd-market__section-sub">Spots travellers and locals are checking out</p>
             </div>
           </div>
           <div className="fd-market__featured-rail">
@@ -396,7 +416,6 @@ export function FoodList() {
               <h2 id="fd-open-title" className="fd-market__section-title">
                 Open now
               </h2>
-              <p className="fd-market__section-sub">Hungry? These kitchens are serving</p>
             </div>
             <button type="button" className="fd-market__clear" onClick={() => setMood('open')}>
               See all open
@@ -424,15 +443,29 @@ export function FoodList() {
       <div className="fd-market__results-bar">
         <p className="fd-market__count" role="status">
           {isLoading ? (
-            'Loading food spots…'
+            savedOnly ? 'Loading saved food…' : 'Loading food spots…'
           ) : (
             <>
               <strong>{venues.length}</strong>{' '}
               {venues.length === 1 ? 'place' : 'places'}
-              {hasFilters ? ' match' : ' to explore'}
+              {savedOnly ? ' saved' : hasFilters ? ' match' : ' to explore'}
             </>
           )}
         </p>
+        <button
+          type="button"
+          className={`fd-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
+          aria-pressed={savedOnly}
+          onClick={toggleSavedOnly}
+        >
+          <Bookmark
+            size={15}
+            strokeWidth={2.25}
+            fill={savedOnly ? 'currentColor' : 'none'}
+            aria-hidden
+          />
+          {savedOnly ? 'Saved' : 'Saved food'}
+        </button>
       </div>
 
       {isError ? (
@@ -466,16 +499,25 @@ export function FoodList() {
       ) : null}
 
       {!isLoading && !isError && venues.length === 0 ? (
-        <EmptyState
-          iconElement={<Utensils size={28} strokeWidth={1.75} />}
-          title={hasFilters ? 'No matches for that craving' : 'No food spots listed yet'}
-          sub={
-            hasFilters
-              ? 'Try another cuisine, city, or clear filters to see more places.'
-              : 'Restaurants, cafés, bars, and local kitchens will appear here once added.'
-          }
-          cta={hasFilters ? { label: 'Clear filters', onClick: clearAll } : undefined}
-        />
+        savedOnly ? (
+          <EmptyState
+            iconElement={<Bookmark size={28} strokeWidth={1.75} />}
+            title="No saved food spots yet"
+            sub="Tap the bookmark on any place to save it here for later."
+            cta={{ label: 'Browse food spots', onClick: clearAll }}
+          />
+        ) : (
+          <EmptyState
+            iconElement={<Utensils size={28} strokeWidth={1.75} />}
+            title={hasFilters ? 'No matches for that craving' : 'No food spots listed yet'}
+            sub={
+              hasFilters
+                ? 'Try another cuisine, city, or clear filters to see more places.'
+                : 'Restaurants, cafés, bars, and local kitchens will appear here once added.'
+            }
+            cta={hasFilters ? { label: 'Clear filters', onClick: clearAll } : undefined}
+          />
+        )
       ) : null}
     </div>
   )

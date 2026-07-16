@@ -102,6 +102,16 @@
   margin-bottom: 12px;
 }
 
+.gd-detail__moment-cta {
+  margin: 0 0 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.gd-detail__moment-cta .text-link {
+  color: #fbbf24;
+}
+
 /* Compact roster hero — portrait monogram when gallery is empty */
 .gd-roster-hero {
   aspect-ratio: auto;

@@ -33,7 +33,11 @@ export type StayRoomForm = {
   bedrooms: number
   bed_summary: string
   price_per_night: string
+  compare_at_price: string
+  badge: string
+  featured: boolean
   image: string
+  images: string
 }
 
 export type StayListingFormValues = {
@@ -162,17 +166,26 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
   const gallery = (stay.media_gallery ?? []).map((m) => m.src).join('\n')
   const faqs = Array.isArray(stay.faqs) ? stay.faqs : []
   const rooms = Array.isArray(stay.room_types)
-    ? (stay.room_types as Record<string, unknown>[]).map((r) => ({
-        name: String(r.name ?? ''),
-        description: String(r.description ?? ''),
-        max_guests: Number(r.max_guests ?? 2),
-        bedrooms: Number(r.bedrooms ?? 1),
-        bed_summary: String(r.bed_summary ?? ''),
-        price_per_night: String(r.price_per_night ?? ''),
-        image: String(
-          r.image ?? (Array.isArray(r.images) && r.images[0] != null ? r.images[0] : '') ?? '',
-        ),
-      }))
+    ? (stay.room_types as Record<string, unknown>[]).map((r) => {
+        const galleryImgs = Array.isArray(r.images)
+          ? (r.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+          : []
+        const cover = String(r.image ?? (galleryImgs[0] ?? '') ?? '')
+        const extraImgs = galleryImgs.filter((x) => x !== cover)
+        return {
+          name: String(r.name ?? ''),
+          description: String(r.description ?? ''),
+          max_guests: Number(r.max_guests ?? 2),
+          bedrooms: Number(r.bedrooms ?? 1),
+          bed_summary: String(r.bed_summary ?? ''),
+          price_per_night: String(r.price_per_night ?? ''),
+          compare_at_price: String(r.compare_at_price ?? r.was_price ?? r.original_price ?? ''),
+          badge: String(r.badge ?? r.special_label ?? ''),
+          featured: r.featured === true || r.is_featured === true,
+          image: cover,
+          images: extraImgs.join('\n'),
+        }
+      })
     : []
 
   return {
@@ -239,6 +252,13 @@ export function formToApiPayload(form: StayListingFormValues) {
       .filter((r) => r.name.trim())
       .map((r) => {
         const image = r.image.trim()
+        const galleryImgs = r.images
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+        const images = [...new Set([image, ...galleryImgs].filter(Boolean))]
+        const compareAt = r.compare_at_price.trim()
+        const badge = r.badge.trim()
         return {
           name: r.name.trim(),
           description: r.description.trim(),
@@ -246,7 +266,11 @@ export function formToApiPayload(form: StayListingFormValues) {
           bedrooms: Number(r.bedrooms),
           bed_summary: r.bed_summary.trim(),
           price_per_night: r.price_per_night || form.price_per_night,
+          featured: r.featured,
+          ...(compareAt ? { compare_at_price: compareAt } : {}),
+          ...(badge ? { badge } : {}),
           ...(image ? { image } : {}),
+          ...(images.length ? { images } : {}),
         }
       }),
   }

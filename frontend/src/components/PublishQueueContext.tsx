@@ -175,6 +175,9 @@ async function buildPostFormData(
   if (input.postsToDelvers && placeLink.kind === 'food' && placeLink.id > 0) {
     fd.append('food_venue', String(placeLink.id))
   }
+  if (input.postsToDelvers && placeLink.kind === 'guide' && placeLink.id > 0) {
+    fd.append('guide_profile', String(placeLink.id))
+  }
 
   let publishSlides: PublishSlideSnapshot[] = slides
   const useDirectUpload = await getDirectUploadEnabled()
@@ -313,6 +316,8 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
             data.bus_trip?.id ?? (input.placeLink.kind === 'bus_trip' ? input.placeLink.id : undefined),
           foodVenueId:
             data.food_venue?.id ?? (input.placeLink.kind === 'food' ? input.placeLink.id : undefined),
+          guideProfileId:
+            data.guide_profile?.id ?? (input.placeLink.kind === 'guide' ? input.placeLink.id : undefined),
           skipFeeds: input.postsToDelvers,
         })
         if (input.publishAsHighlight) {

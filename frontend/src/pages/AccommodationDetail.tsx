@@ -2,26 +2,16 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { apiFetch, asArray } from '../api/client'
+import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { AccommodationDetailView } from '../components/accommodation'
 import { EmptyState } from '../components/ui'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
-import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
 import { useToggleStaySave } from '../hooks/useStaySave'
 import type { AccommodationListing } from '../utils/accommodationListing'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 import '../components/journeys/journey-detail.css'
 import '../components/accommodation/accommodation-detail.css'
-
-type StayQuestionApi = {
-  id: number
-  author: string
-  body: string
-  ago: string
-  answers?: { id: number; author: string; body: string; ago: string; is_official?: boolean }[]
-}
 
 type StayReviewsResponse = {
   reviews: ReviewItem[]
@@ -33,7 +23,6 @@ export function AccommodationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { canManageListings, activeBusiness } = useBusinessAccess()
   const [shareMsg, setShareMsg] = useState('')
   const saveMut = useToggleStaySave()
   const queryClient = useQueryClient()
@@ -58,45 +47,16 @@ export function AccommodationDetail() {
       }),
   })
 
-  const { data: questionsRaw, isLoading: loadingQuestions } = useQuery({
-    queryKey: ['stay-questions', id],
-    queryFn: () => apiFetch<StayQuestionApi[]>(`/api/accommodation/listings/${id}/questions/`, { auth: false }),
-    enabled: Boolean(id),
-  })
-  const questionRows = asArray<StayQuestionApi>(questionsRaw)
-
   const { data: reviewsData } = useQuery({
     queryKey: ['stay-reviews', id],
     queryFn: () => apiFetch<StayReviewsResponse>(`/api/accommodation/listings/${id}/reviews/`, { auth: false }),
     enabled: Boolean(id),
   })
 
-  const questions = useMemo((): ListingQuestionItem[] => {
-    return questionRows.map((q) => ({
-      id: q.id,
-      author: q.author,
-      body: q.body,
-      ago: q.ago,
-      answers: (q.answers ?? []).map((a) => ({
-        id: a.id,
-        author: a.author,
-        body: a.body,
-        ago: a.ago,
-        isOfficial: a.is_official,
-      })),
-    }))
-  }, [questionRows])
-
   const reviews = useMemo(
     () => normalizeReviews(reviewsData?.reviews ?? []),
     [reviewsData?.reviews],
   )
-
-  const canAnswer =
-    Boolean(profile) &&
-    Boolean(data) &&
-    (profile?.username === data?.owner_username ||
-      (canManageListings && activeBusiness?.owner_username === data?.owner_username))
 
   const onShare = async (title: string) => {
     try {
@@ -183,9 +143,6 @@ export function AccommodationDetail() {
         onSave={onSave}
         onLike={onLike}
         onShare={() => onShare(data.title)}
-        questions={questions}
-        loadingQuestions={loadingQuestions}
-        canAnswerQuestions={canAnswer}
         reviews={reviews}
         ratingAvg={ratingAvg != null ? String(ratingAvg) : undefined}
         ratingCount={ratingCount}

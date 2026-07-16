@@ -283,10 +283,6 @@ export function GuidesList() {
     }
   }
 
-  const applyNeed = (id: string) => {
-    setNeed(need === id ? '' : id)
-  }
-
   const applyCollection = (c: (typeof COLLECTIONS)[number]) => {
     setNeed(c.need)
   }
@@ -308,7 +304,6 @@ export function GuidesList() {
         <div className="gl-market__hero-head">
           <p className="gl-market__kicker">Local guides & experiences</p>
           <h1 className="gl-market__title">Find a guide</h1>
-          <p className="gl-market__sub">Compare packages, rates, and trust by area.</p>
         </div>
 
         <div className="gl-market__find">
@@ -364,6 +359,20 @@ export function GuidesList() {
             </select>
 
             <select
+              className="gl-market__select"
+              value={need}
+              onChange={(e) => setNeed(e.target.value)}
+              aria-label="Need"
+            >
+              <option value="">Any need</option>
+              {NEED_CHIPS.map(({ id, label }) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
               className="gl-market__sort"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortId)}
@@ -374,22 +383,6 @@ export function GuidesList() {
               <option value="price_asc">Price: low to high</option>
               <option value="price_desc">Price: high to low</option>
             </select>
-          </div>
-        </div>
-
-        <div className="gl-market__needs" role="group" aria-label="Need filters">
-          <div className="gl-market__rail">
-            {NEED_CHIPS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                className={`gl-market__chip${need === id ? ' is-active' : ''}`}
-                aria-pressed={need === id}
-                onClick={() => applyNeed(id)}
-              >
-                {label}
-              </button>
-            ))}
           </div>
         </div>
       </header>

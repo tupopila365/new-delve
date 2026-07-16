@@ -429,6 +429,7 @@ export function SocialCreateComposer({ mode }: Props) {
     const vehicle = searchParams.get('vehicle')
     const busTrip = searchParams.get('bus_trip')
     const food = searchParams.get('food')
+    const guide = searchParams.get('guide')
     if (listing && Number.isFinite(Number(listing)) && Number(listing) > 0) {
       if (!hostStory) setDestination('delvers')
       setPlaceLink({ kind: 'accommodation', id: Number(listing), title: '' })
@@ -452,6 +453,11 @@ export function SocialCreateComposer({ mode }: Props) {
     if (food && Number.isFinite(Number(food)) && Number(food) > 0) {
       setDestination('delvers')
       setPlaceLink({ kind: 'food', id: Number(food), title: '' })
+      return
+    }
+    if (guide && Number.isFinite(Number(guide)) && Number(guide) > 0) {
+      setDestination('delvers')
+      setPlaceLink({ kind: 'guide', id: Number(guide), title: '' })
     }
   }, [hostStory, searchParams])
 

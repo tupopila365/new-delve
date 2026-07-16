@@ -20,15 +20,10 @@ from .models import (
     AccommodationListing,
     AccommodationListingLike,
     AccommodationListingSave,
-    AccommodationQuestion,
     AccommodationReview,
     BookingStatus,
 )
 from .qa_serializers import (
-    AccommodationAnswerCreateSerializer,
-    AccommodationAnswerSerializer,
-    AccommodationQuestionCreateSerializer,
-    AccommodationQuestionSerializer,
     AccommodationReviewCreateSerializer,
     AccommodationReviewSerializer,
 )
@@ -177,27 +172,6 @@ class AccommodationListingViewSet(viewsets.ModelViewSet):
         )
         ser = PostSerializer(posts, many=True, context={"request": request})
         return Response(ser.data)
-
-    @action(detail=True, methods=["get", "post"])
-    def questions(self, request, pk=None):
-        listing = self.get_object()
-        if request.method == "GET":
-            qs = (
-                AccommodationQuestion.objects.filter(listing=listing, is_hidden=False)
-                .select_related("author", "author__profile")
-                .prefetch_related("answers", "answers__author", "answers__author__profile")
-                .order_by("-created_at")[:50]
-            )
-            return Response(AccommodationQuestionSerializer(qs, many=True).data)
-        if not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = AccommodationQuestionCreateSerializer(
-            data=request.data,
-            context={"request": request, "listing": listing},
-        )
-        ser.is_valid(raise_exception=True)
-        question = ser.save()
-        return Response(AccommodationQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def reviews(self, request, pk=None):
@@ -426,40 +400,3 @@ class AccommodationProviderAnalyticsView(APIView):
             days = 30
         owner_ids = provider_listing_owner_ids(request.user)
         return Response(provider_stay_monetization_analytics(owner_ids=owner_ids, days=days))
-
-
-class AccommodationQuestionAnswerView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        question = (
-            AccommodationQuestion.objects.select_related("listing")
-            .filter(pk=pk, is_hidden=False)
-            .first()
-        )
-        if not question:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        ser = AccommodationAnswerCreateSerializer(
-            data=request.data,
-            context={"request": request, "question": question},
-        )
-        ser.is_valid(raise_exception=True)
-        answer = ser.save()
-        return Response(AccommodationAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)
-
-
-class AccommodationProviderQuestionsView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsProviderOrBusinessMember]
-
-    def get(self, request):
-        owner_ids = provider_listing_owner_ids(request.user)
-        listing_ids = AccommodationListing.objects.filter(owner_id__in=owner_ids).values_list(
-            "pk", flat=True
-        )
-        qs = (
-            AccommodationQuestion.objects.filter(listing_id__in=listing_ids, is_hidden=False)
-            .select_related("author", "author__profile", "listing")
-            .prefetch_related("answers", "answers__author", "answers__author__profile")
-            .order_by("-created_at")[:100]
-        )
-        return Response(AccommodationQuestionSerializer(qs, many=True).data)

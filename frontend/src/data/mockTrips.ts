@@ -52,12 +52,26 @@ export type TripStop = {
   entries: TripEntry[]
 }
 
+export type TripMediaItem = {
+  kind: 'image' | 'video'
+  src: string
+  poster?: string | null
+}
+
 export type TripEntry = {
   id: number
   body: string
   image: string | null
   video: string | null
+  media?: TripMediaItem[]
   happened_at?: string
+}
+
+export type TripReflections = {
+  highs: string[]
+  lows: string[]
+  would_change: string
+  takeaway: string
 }
 
 export type TripCost = {
@@ -95,6 +109,8 @@ export type MockTrip = {
   is_featured?: boolean
   journey_stories?: VenueStoryChannelInput[]
   gallery_images?: unknown[]
+  reflections?: TripReflections
+  views_count?: number
 }
 
 export const mockTrips: MockTrip[] = [
@@ -124,6 +140,7 @@ export const mockTrips: MockTrip[] = [
         arrived_on: '2026-03-10', left_on: '2026-03-11',
         notes: 'Arrived late, grabbed a room near the city centre. Picked up the 4×4 in the morning — they threw in a cooler box which was a lifesaver.',
         cost: 1200,
+        linked_listing: { kind: 'accommodation', id: 1, title: 'Hotel Heinitzburg', href: '/accommodation/1' },
         entries: [
           { id: 1, body: 'First night in Windhoek — Joe\'s Beerhouse for dinner. Oryx steak, 10/10.', image: IMG.food, video: null },
           { id: 2, body: 'Packed the car and hit the B1 south by 7am.', image: IMG.road, video: null },
@@ -134,8 +151,19 @@ export const mockTrips: MockTrip[] = [
         arrived_on: '2026-03-12', left_on: '2026-03-13',
         notes: 'Stayed at a small camp just outside the park gate. We did Dune 45 at sunrise — woke up at 4am, 100% worth it.',
         cost: 2800,
+        linked_listing: { kind: 'accommodation', id: 2, title: 'Sossus Dune Camp', href: '/accommodation/2' },
         entries: [
-          { id: 3, body: 'Dune 45 at first light. Barely anyone there. Absolute silence.', image: IMG.dunes, video: null },
+          {
+            id: 3,
+            body: 'Dune 45 at first light. Barely anyone there. Absolute silence.',
+            image: IMG.dunes,
+            video: null,
+            media: [
+              { kind: 'image', src: IMG.dunes },
+              { kind: 'image', src: IMG.sunset },
+              { kind: 'image', src: IMG.canyon },
+            ],
+          },
           { id: 4, body: 'Dead Vlei — these ancient camelthorn trees are over 900 years old and still standing.', image: IMG.sunset, video: null },
           { id: 5, body: 'Stargazing from the camp at night. No light pollution whatsoever.', image: IMG.stars, video: null },
         ],
@@ -145,9 +173,23 @@ export const mockTrips: MockTrip[] = [
         arrived_on: '2026-03-13', left_on: '2026-03-15',
         notes: 'Coastal vibes after the dust and heat of the desert. Amazing contrast. Did sandboarding on day two.',
         cost: 2800,
+        linked_listing: { kind: 'food', id: 1, title: 'The Tug Restaurant', href: '/food/1' },
         entries: [
           { id: 6, body: 'Fish and chips at the jetty. Cold Atlantic breeze, warm coffee.', image: IMG.coast, video: null },
-          { id: 7, body: 'Sandboarding down Dune 7 — faces full of sand, zero regrets.', image: IMG.hike, video: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' },
+          {
+            id: 7,
+            body: 'Sandboarding down Dune 7 — faces full of sand, zero regrets.',
+            image: IMG.hike,
+            video: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+            media: [
+              {
+                kind: 'video',
+                src: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+                poster: IMG.hike,
+              },
+              { kind: 'image', src: IMG.coast },
+            ],
+          },
           { id: 8, body: 'Cape Cross seal colony on the way back — thousands of seals, incredible noise.', image: IMG.seal, video: null },
         ],
       },
@@ -159,6 +201,22 @@ export const mockTrips: MockTrip[] = [
       { category: 'activity', amount: 900, note: 'Sandboarding, park entry, Cape Cross' },
       { category: 'other', amount: 400, note: 'Groceries and supplies' },
     ],
+    views_count: 1240,
+    reflections: {
+      highs: [
+        'Dune 45 at sunrise with nobody else around',
+        'The silence and stars at the desert camp',
+        'Sandboarding down Dune 7',
+      ],
+      lows: [
+        'The midday heat at Sossusvlei was brutal — carry more water than you think',
+        'Long gravel stretches shook a few things loose in the car',
+      ],
+      would_change:
+        'I\'d add one more night in Swakopmund to slow down — we rushed the coast a little after the desert.',
+      takeaway:
+        'A rented 4×4 and a rough plan is all you need for the classic Namibian loop. Go slow, wake up early, and let the desert do the rest.',
+    },
   },
   {
     id: 1002,
@@ -661,5 +719,69 @@ export const mockTrips: MockTrip[] = [
       { category: 'activity', amount: 1200, note: 'Permits and park fees' },
       { category: 'other', amount: 400, note: 'Supplies' },
     ],
+  },
+  {
+    id: 1013,
+    author: { username: 'kaoko_explorer', display_name: 'Kaoko Explorer', avatar: AV.k },
+    title: 'Kaokoland & the Kunene — remote north',
+    summary: 'The wildest drive we\'ve done yet. Sand rivers, Himba villages, and the Kunene River on the Angola border. You need two vehicles and real prep for this one.',
+    cover_image: IMG.village,
+    starts_on: '2026-05-04',
+    ends_on: '2026-05-11',
+    countries: ['NA'],
+    transport_modes: ['car'],
+    party: 'group',
+    tags: ['4x4', 'remote', 'culture', 'camping'],
+    total_cost: 14200,
+    currency: 'NAD',
+    days: 8,
+    likes_count: 63,
+    saves_count: 41,
+    comments_count: 11,
+    liked_by_me: false,
+    saved_by_me: false,
+    stops: [
+      {
+        id: 40, order: 0, place_name: 'Opuwo', country_code: 'NA', region: 'Kunene',
+        arrived_on: '2026-05-04', left_on: '2026-05-05',
+        notes: 'Last real town to stock up on fuel, water and food. Do not skip this — nothing beyond here.',
+        cost: 2200,
+        linked_listing: { kind: 'accommodation', id: 3, title: 'Opuwo Country Lodge', href: '/accommodation/3' },
+        entries: [{ id: 40, body: 'Loaded both trucks to the roof. Long road ahead.', image: IMG.road, video: null }],
+      },
+      {
+        id: 41, order: 1, place_name: 'Epupa Falls', country_code: 'NA', region: 'Kunene',
+        arrived_on: '2026-05-06', left_on: '2026-05-09',
+        notes: 'Camped right by the falls under the palms. The sound at night is unreal.',
+        cost: 6400,
+        entries: [
+          {
+            id: 41,
+            body: 'Epupa at golden hour — the Kunene splitting into a dozen channels.',
+            image: IMG.sunset,
+            video: null,
+            media: [
+              { kind: 'image', src: IMG.sunset },
+              { kind: 'image', src: IMG.village },
+              { kind: 'image', src: IMG.road },
+            ],
+          },
+        ],
+      },
+    ],
+    costs: [
+      { category: 'transport', amount: 6800, note: '4×4 + fuel (two vehicles)' },
+      { category: 'stay', amount: 3400, note: 'Lodges and wild camping' },
+      { category: 'food', amount: 2400, note: 'Self-catered, 8 days' },
+      { category: 'activity', amount: 1000, note: 'Village visits, guide fees' },
+      { category: 'other', amount: 600, note: 'Recovery gear, supplies' },
+    ],
+    views_count: 720,
+    reflections: {
+      highs: ['Camping beside Epupa Falls', 'Meeting Himba families on their terms'],
+      lows: ['One puncture a day on the sand-river sections'],
+      would_change: 'Bring a third spare tyre and more drinking water.',
+      takeaway: 'This is expedition territory, not a weekend trip. Go in a convoy, respect the communities, and leave no trace.',
+    },
   },
 ]

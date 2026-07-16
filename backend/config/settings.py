@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "transport",
     "events_app",
     "food",
+    "shop",
+    "coin_toss",
     "guides",
     "messaging",
     "reports",

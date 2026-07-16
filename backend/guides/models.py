@@ -117,50 +117,6 @@ class GuideBooking(models.Model):
         ordering = ["-created_at"]
 
 
-class GuideQuestion(models.Model):
-    guide = models.ForeignKey(
-        TourGuideProfile,
-        on_delete=models.CASCADE,
-        related_name="questions",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="guide_questions",
-    )
-    body = models.TextField()
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    moderation_reason = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-
-class GuideAnswer(models.Model):
-    question = models.ForeignKey(
-        GuideQuestion,
-        on_delete=models.CASCADE,
-        related_name="answers",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="guide_answers",
-    )
-    body = models.TextField()
-    is_official = models.BooleanField(
-        default=False,
-        help_text="Reply from the guide or business team.",
-    )
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    moderation_reason = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
-
-
 class GuideReview(models.Model):
     guide = models.ForeignKey(
         TourGuideProfile,

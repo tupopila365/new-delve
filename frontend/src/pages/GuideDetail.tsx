@@ -5,13 +5,11 @@ import { Compass } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useToggleGuideSave } from '../hooks/useGuideSave'
-import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 import { normalizeReviews } from '../components/GuestReviewCard'
 import { GuideDetailView } from '../components/guide'
 import type { TourPackage } from '../components/guide/types'
 import { EmptyState } from '../components/ui'
-import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
 import { messageProviderPath } from '../components/messages/messageProviderUtils'
 import { normalizeTourPackages } from '../utils/tourPackages'
 import {
@@ -29,7 +27,6 @@ export function GuideDetail() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { profile } = useAuth()
-  const { canManageListings, activeBusiness } = useBusinessAccess()
   const saveMut = useToggleGuideSave()
   const [shareMsg, setShareMsg] = useState('')
   const [selectedPackage, setSelectedPackage] = useState<TourPackage | null>(null)
@@ -44,12 +41,6 @@ export function GuideDetail() {
     queryKey: ['guides', 'all-for-similar'],
     queryFn: () => apiFetch<GuideProfile[]>('/api/guides/profiles/', { auth: false }),
     staleTime: 60_000,
-  })
-
-  const { data: questions = [], isLoading: questionsLoading } = useQuery({
-    queryKey: ['guide-questions', id],
-    enabled: !!id,
-    queryFn: () => apiFetch<ListingQuestionItem[]>(`/api/guides/profiles/${id}/questions/`, { auth: false }),
   })
 
   const { data: reviewsPayload } = useQuery({
@@ -164,13 +155,6 @@ export function GuideDetail() {
         selectedPackage={selectedPackage}
         onSelectPackage={setSelectedPackage}
         profile={profile}
-        questions={questions}
-        questionsLoading={questionsLoading}
-        canAnswerQuestions={
-          Boolean(profile) &&
-          (profile?.username === g.username ||
-            (canManageListings && activeBusiness?.owner_username === g.username))
-        }
         canReview={Boolean(g.can_review)}
         onScrollToExperiences={scrollToExperiences}
       />

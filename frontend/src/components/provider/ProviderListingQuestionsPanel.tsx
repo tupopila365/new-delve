@@ -5,7 +5,7 @@ import { ListingQuestionThread, type ListingQuestionItem } from '../listing/List
 
 type ProviderListingQuestion = {
   id: number
-  category: 'stay' | 'food' | 'guide' | 'vehicle' | 'bus_trip' | 'event'
+  category: 'vehicle' | 'bus_trip' | 'event'
   listing_id: number
   listing_title: string
   author: string
@@ -15,9 +15,6 @@ type ProviderListingQuestion = {
 }
 
 const CATEGORY_LABEL: Record<ProviderListingQuestion['category'], string> = {
-  stay: 'Stay',
-  food: 'Food & drink',
-  guide: 'Guide',
   vehicle: 'Vehicle',
   bus_trip: 'Bus trip',
   event: 'Event',
@@ -25,12 +22,6 @@ const CATEGORY_LABEL: Record<ProviderListingQuestion['category'], string> = {
 
 function answerPath(category: ProviderListingQuestion['category'], questionId: number) {
   switch (category) {
-    case 'stay':
-      return `/api/accommodation/questions/${questionId}/answers/`
-    case 'food':
-      return `/api/food/questions/${questionId}/answers/`
-    case 'guide':
-      return `/api/guides/questions/${questionId}/answers/`
     case 'vehicle':
       return `/api/transport/questions/${questionId}/answers/`
     case 'bus_trip':
@@ -41,10 +32,7 @@ function answerPath(category: ProviderListingQuestion['category'], questionId: n
 }
 
 function officialLabel(category: ProviderListingQuestion['category']) {
-  if (category === 'stay') return 'Host'
   if (category === 'event') return 'Organizer'
-  if (category === 'food') return 'Venue'
-  if (category === 'guide') return 'Guide'
   if (category === 'bus_trip') return 'Operator'
   return 'Provider'
 }

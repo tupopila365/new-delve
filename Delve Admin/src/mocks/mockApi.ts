@@ -1016,7 +1016,6 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       rating_count: 42,
       saves_count: 18,
       reviews_count: 12,
-      questions_count: 3,
       reservations_by_status: { pending: 2, confirmed: 5, checked_in: 1 },
       recent_reservations: [
         {

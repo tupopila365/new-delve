@@ -19,8 +19,9 @@ export function listingMomentToFeedPost(moment: ListingMomentItem, index: number
     },
     body: moment.body,
     region: '',
-    image: moment.image ?? null,
-    video: null,
+    image: moment.media && moment.media.length > 0 ? null : moment.kind === 'video' ? null : moment.image ?? null,
+    video: moment.media && moment.media.length > 0 ? null : moment.video ?? null,
+    media: moment.media,
     likes_count: 0,
     saves_count: 0,
     liked_by_me: false,
@@ -30,14 +31,19 @@ export function listingMomentToFeedPost(moment: ListingMomentItem, index: number
 }
 
 /** Open viewer at one moment; scroll shows other photos from the same Delver. */
+/** True when a moment has any renderable media (image, video, or carousel). */
+function hasMedia(moment: ListingMomentItem): boolean {
+  return Boolean(moment.image || moment.video || (moment.media && moment.media.length > 0))
+}
+
 export function buildMomentsViewerState(
   moments: ListingMomentItem[],
   momentId: string | number,
 ): { posts: FeedPost[]; index: number } | null {
   const clicked = moments.find((m) => m.id === momentId)
-  if (!clicked?.image) return null
+  if (!clicked || !hasMedia(clicked)) return null
 
-  const authorMoments = moments.filter((m) => m.author === clicked.author && m.image)
+  const authorMoments = moments.filter((m) => m.author === clicked.author && hasMedia(m))
   if (authorMoments.length === 0) return null
 
   const posts = authorMoments.map((m, i) => listingMomentToFeedPost(m, i))

@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
+import { useNoFace } from './hooks/useNoFace'
 import { ProfileMessageLinkInterceptor } from './components/ProfileMessageLinkInterceptor'
 import { Account } from './pages/Account'
 import { AccommodationBook } from './pages/AccommodationBook'
@@ -27,6 +29,12 @@ import { EventDetail } from './pages/EventDetail'
 import { EventsList } from './pages/EventsList'
 import { FoodDetail } from './pages/FoodDetail'
 import { FoodList } from './pages/FoodList'
+import { ShopList } from './pages/ShopList'
+import { ShopDetail } from './pages/ShopDetail'
+import { ShopAdmin } from './pages/ShopAdmin'
+import { ShopProductForm } from './pages/ShopProductForm'
+import { CoinToss } from './pages/CoinToss'
+import { AddGem } from './pages/AddGem'
 import { GuideDetail } from './pages/GuideDetail'
 import { TourPackageDetail } from './pages/TourPackageDetail'
 import { GuidePackageBook } from './pages/GuidePackageBook'
@@ -85,6 +93,13 @@ function LegacyPostRedirect() {
   return <Navigate to={`/delvers/posts/${encodeURIComponent(id)}`} replace />
 }
 
+/** Redirect social surfaces to Explore when the user is in No Face mode. */
+function NoFaceGuard({ children }: { children: ReactNode }) {
+  const { enabled: noFace } = useNoFace()
+  if (noFace) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 function LegacyGuidePackageBookRedirect() {
   const { guideId, packageSlug } = useParams<{ guideId: string; packageSlug: string }>()
   const [searchParams] = useSearchParams()
@@ -118,12 +133,54 @@ export default function App() {
           <Route path="/accommodation/:id" element={<AccommodationDetail />} />
           <Route path="/accommodation/:id/room/:roomSlug" element={<AccommodationRoomDetail />} />
           <Route path="/accommodation/:id/book" element={<AccommodationBook />} />
-          <Route path="/journeys" element={<TripsList />} />
-          <Route path="/journeys/new" element={<CreateJourney />} />
-          <Route path="/journeys/:id/edit" element={<CreateJourney />} />
-          <Route path="/journeys/:id" element={<TripDetail />} />
-          <Route path="/delvers" element={<DelversSocial />} />
-          <Route path="/delvers/posts/:id" element={<DelversPostDetail />} />
+          <Route
+            path="/journeys"
+            element={
+              <NoFaceGuard>
+                <TripsList />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/journeys/new"
+            element={
+              <NoFaceGuard>
+                <CreateJourney />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/journeys/:id/edit"
+            element={
+              <NoFaceGuard>
+                <CreateJourney />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/journeys/:id"
+            element={
+              <NoFaceGuard>
+                <TripDetail />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/delvers"
+            element={
+              <NoFaceGuard>
+                <DelversSocial />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/delvers/posts/:id"
+            element={
+              <NoFaceGuard>
+                <DelversPostDetail />
+              </NoFaceGuard>
+            }
+          />
           <Route path="/delvers/pin/new" element={<Navigate to="/create/post" replace />} />
           <Route path="/community" element={<CommunityLayout />}>
             <Route index element={<Community />} />
@@ -143,6 +200,10 @@ export default function App() {
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/food" element={<FoodList />} />
           <Route path="/food/:id" element={<FoodDetail />} />
+          <Route path="/shop" element={<ShopList />} />
+          <Route path="/shop/:id" element={<ShopDetail />} />
+          <Route path="/coin-toss" element={<CoinToss />} />
+          <Route path="/coin-toss/add" element={<AddGem />} />
           <Route path="/listing/:type/:id/gallery" element={<ListingGalleryPage />} />
           <Route path="/listing/:type/:id/reviews" element={<ListingReviewsPage />} />
           <Route path="/listing/:type/:id/moments" element={<ListingMomentsPage />} />
@@ -178,6 +239,9 @@ export default function App() {
             <Route path="transport" element={<TransportAdmin />} />
             <Route path="food" element={<FoodAdmin />} />
             <Route path="food/:venueId" element={<FoodVenueWorkspacePage />} />
+            <Route path="shop" element={<ShopAdmin />} />
+            <Route path="shop/new" element={<ShopProductForm />} />
+            <Route path="shop/:productId/edit" element={<ShopProductForm />} />
             <Route path="events" element={<EventsAdmin />} />
           </Route>
         </Route>

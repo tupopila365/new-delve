@@ -14,8 +14,7 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { GuidePackageReserveCard } from '../booking/guide'
 import '../booking/guide/guide-booking.css'
-import { ListingReviews } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
+import { ListingDelversMoments, ListingReviews } from '../listing'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { openStreetMapSearchUrl } from '../../utils/foodListing'
 import { mediaUrl } from '../../api/client'
@@ -26,7 +25,6 @@ import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ReportButton } from '../report/ReportButton'
 import type { ReviewItem } from '../GuestReviewCard'
 import type { TourPackage } from './types'
-import { GuideAskSection } from './GuideAskSection'
 import { GuideCredentialsCard } from './GuideCredentialsCard'
 import { GuideExperiencePicker } from './GuideExperiencePicker'
 import { GuideProviderCard } from './GuideProviderCard'
@@ -70,9 +68,6 @@ type Props = {
   selectedPackage: TourPackage | null
   onSelectPackage: (pkg: TourPackage | null) => void
   profile: RequestProfile
-  questions?: ListingQuestionItem[]
-  questionsLoading?: boolean
-  canAnswerQuestions?: boolean
   canReview?: boolean
   onScrollToExperiences: () => void
 }
@@ -92,9 +87,6 @@ export function GuideDetailView({
   selectedPackage,
   onSelectPackage,
   profile: _profileProp,
-  questions = [],
-  questionsLoading = false,
-  canAnswerQuestions = false,
   canReview = false,
   onScrollToExperiences,
 }: Props) {
@@ -347,7 +339,7 @@ export function GuideDetailView({
         listingName={guide.headline || displayName}
         explorePath={guidePath}
         title="Guide moments"
-        subtitle="Experiences, portfolio & highlights — tap to watch"
+        subtitle=""
         ctaLabel="View guide"
         className="jd-stories"
       />
@@ -479,15 +471,22 @@ export function GuideDetailView({
         ) : null}
       </JourneySection>
 
-      <GuideAskSection
-        guideId={guideId}
-        title="Ask this guide"
-        placeholder="Routes, availability, languages, pickup, group size, or what to bring…"
-        questions={questions}
-        isLoading={questionsLoading}
-        canAnswer={canAnswerQuestions}
-        className="gd-detail__questions"
+      <ListingDelversMoments
+        listingType="guide"
+        listingId={guideId}
+        listingTitle={guide.headline || displayName}
+        title="From Delvers"
+        className="gd-detail__moments"
+        showWhenEmpty
+        emptyMessage="No traveller moments yet — only travellers who completed a tour can post here."
       />
+      {guide.attended ? (
+        <p className="gd-detail__moment-cta">
+          <Link to={`/create/post?guide=${guideId}`} className="text-link">
+            Share a moment from this guide
+          </Link>
+        </p>
+      ) : null}
 
       <GuideProviderCard
         displayName={displayName}

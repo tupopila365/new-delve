@@ -174,15 +174,13 @@ export function normalizeRoomTypes(raw: unknown): RoomTypeItem[] {
 
 export function whyGuestsLove(data: AccommodationListing): string[] {
   const items = [
-    'Comfortable stay',
     data.wifi ? 'Wi-Fi included' : null,
     data.parking ? 'Easy parking' : null,
     data.breakfast ? 'Breakfast available' : null,
     data.pet_friendly ? 'Pet-friendly' : null,
     data.kitchen ? 'Kitchen access' : null,
     data.pool ? 'Pool on site' : null,
-    data.city ? `Close to ${data.city}` : 'Quiet location',
-    'Great for families',
+    data.city ? `Close to ${data.city}` : null,
   ].filter(Boolean) as string[]
 
   const unique: string[] = []
@@ -270,6 +268,7 @@ export function buildListingImages(data: AccommodationListing): ListingGalleryIt
     id: index,
     src: mediaUrl(item.src) || item.src,
     alt: data.title,
+    kind: item.kind === 'video' ? 'video' : 'image',
   }))
 }
 

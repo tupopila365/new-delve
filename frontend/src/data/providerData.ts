@@ -6,7 +6,7 @@ import type { TourPackage } from '../components/guide/types'
 import { mocksEnabled } from '../utils/useMocks'
 import type { EventListing } from '../utils/eventDisplay'
 
-export type ListingCategory = 'Stay' | 'Guide' | 'Transport' | 'Food' | 'Event'
+export type ListingCategory = 'Stay' | 'Guide' | 'Transport' | 'Food' | 'Event' | 'Shop'
 export type ListingStatus = 'published' | 'draft' | 'needs_update' | 'pending_review' | 'suspended'
 
 export type ProviderListing = {

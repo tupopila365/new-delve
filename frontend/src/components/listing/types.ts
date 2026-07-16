@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ReviewItem } from '../GuestReviewCard'
+import type { PostMediaItem } from '../PostMedia'
 
 export type ListingLabelItem = {
   id?: string | number
@@ -54,7 +55,14 @@ export type ListingFaqItem = {
 
 export type ListingMomentItem = {
   id: string | number
+  /** Thumbnail source for the strip (first image, or video poster/URL). */
   image?: string | null
+  /** Whether this shared post's primary media is a video or an image. */
+  kind?: 'image' | 'video'
+  /** Single video source (when the post is a lone clip). */
+  video?: string | null
+  /** Carousel slides when the shared post has multiple images/videos. */
+  media?: PostMediaItem[]
   author: string
   body: string
   taggedListing?: string

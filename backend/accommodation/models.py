@@ -80,15 +80,17 @@ class AccommodationListing(models.Model):
         default=list,
         blank=True,
         help_text=(
-            "Room/unit categories: name, optional description, max_guests, bedrooms, "
-            'bed_summary, optional price_per_night, optional image URL.'
+            "Room/unit categories. Each item supports: name (required), description, "
+            "max_guests, bedrooms, bed_summary, price_per_night, compare_at_price "
+            "(strike-through 'was' price for a sale), badge (short sale/special label), "
+            "featured (bool), image (cover URL), images (gallery URLs)."
         ),
     )
     rating_avg = models.DecimalField(
         max_digits=3,
         decimal_places=2,
-        default=Decimal("4.50"),
-        help_text="Average guest rating 0–5",
+        default=Decimal("0.00"),
+        help_text="Average guest rating 0–5 (0 until the stay has reviews).",
     )
     rating_count = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -201,48 +203,6 @@ class AccommodationBooking(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-
-
-class AccommodationQuestion(models.Model):
-    listing = models.ForeignKey(
-        AccommodationListing,
-        on_delete=models.CASCADE,
-        related_name="questions",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="accommodation_questions",
-    )
-    body = models.TextField()
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-
-class AccommodationAnswer(models.Model):
-    question = models.ForeignKey(
-        AccommodationQuestion,
-        on_delete=models.CASCADE,
-        related_name="answers",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="accommodation_answers",
-    )
-    body = models.TextField()
-    is_official = models.BooleanField(
-        default=False,
-        help_text="Reply from the listing host or business team.",
-    )
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
 
 
 class AccommodationReview(models.Model):

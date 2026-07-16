@@ -64,6 +64,13 @@ class Profile(models.Model):
         default=True,
         help_text="Appear in search results and user discovery.",
     )
+    no_face_mode = models.BooleanField(
+        default=False,
+        help_text=(
+            "No Face mode hides social surfaces (feeds, stories, other people's faces) "
+            "and keeps only discovery/utility. Opt-in; default is the full social app."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -111,6 +118,7 @@ class BusinessType(models.TextChoices):
     TRANSPORT = "transport", "Transport"
     EVENT_ORGANISER = "event_organiser", "Event organiser"
     FOOD_DRINK = "food_drink", "Food & drink"
+    RETAIL_SHOP = "retail_shop", "Retail & shop"
     GUIDE = "guide", "Guide"
     JOURNEYS = "journeys", "Journeys"
     ASK_LOCALS = "ask_locals", "Ask locals"

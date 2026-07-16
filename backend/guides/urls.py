@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .analytics_views import GuideProviderAnalyticsView
 from .provider_booking_views import ProviderGuideBookingViewSet
 from .provider_views import ProviderGuideProfileView
-from .views import GuideBookingViewSet, GuideQuestionAnswerView, TourGuideProfileViewSet
+from .views import GuideBookingViewSet, TourGuideProfileViewSet
 
 router = DefaultRouter()
 router.register(r"profiles", TourGuideProfileViewSet, basename="guide-profile")
@@ -14,6 +14,5 @@ router.register(r"provider-bookings", ProviderGuideBookingViewSet, basename="pro
 urlpatterns = [
     path("provider-profile/", ProviderGuideProfileView.as_view(), name="provider-guide-profile"),
     path("provider-analytics/", GuideProviderAnalyticsView.as_view(), name="guide-provider-analytics"),
-    path("questions/<int:pk>/answers/", GuideQuestionAnswerView.as_view(), name="guide-question-answer"),
     path("", include(router.urls)),
 ]

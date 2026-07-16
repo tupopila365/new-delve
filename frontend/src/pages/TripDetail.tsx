@@ -5,6 +5,7 @@ import { Route } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
+  authorJourneyDemoFallback,
   findJourneyDemoTrip,
   mapApiJourneyToTrip,
   similarJourneyDemoFallback,
@@ -47,6 +48,26 @@ export function TripDetail() {
     return similarJourneyDemoFallback(trip, trip.id)
   }, [trip, similarApi])
 
+  const authorUsername = trip?.author.username
+  const { data: authorApi = [] } = useQuery({
+    queryKey: ['journey-author', authorUsername],
+    queryFn: () =>
+      apiFetch<ApiJourney[]>(`/api/journeys/?author=${encodeURIComponent(authorUsername ?? '')}`).catch(
+        () => [] as ApiJourney[],
+      ),
+    enabled: Boolean(authorUsername),
+    retry: false,
+  })
+
+  const creatorJourneys = useMemo(() => {
+    if (!trip) return []
+    const rows =
+      authorApi.length > 0
+        ? authorApi.map(mapApiJourneyToTrip)
+        : authorJourneyDemoFallback(trip.author.username, trip.id)
+    return rows.filter((t) => t.id !== trip.id).slice(0, 8)
+  }, [trip, authorApi])
+
   if (isLoading && !fallbackTrip) {
     return (
       <div className="jn-detail-page">
@@ -88,6 +109,7 @@ export function TripDetail() {
         likeBusy={engagement.isLikeBusy(trip.id)}
         saveBusy={engagement.isSaveBusy(trip.id)}
         similarJourneys={similarJourneys}
+        creatorJourneys={creatorJourneys}
       />
     </div>
   )

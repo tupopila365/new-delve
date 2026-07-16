@@ -2,7 +2,7 @@
 
 from django.db.models import Count
 
-from .models import CuisineType, FoodQuestion, FoodReservation, FoodVenue, FoodVenueReview, FoodVenueSave
+from .models import CuisineType, FoodReservation, FoodVenue, FoodVenueReview, FoodVenueSave
 
 
 def food_venue_inspector_payload(venue_id: int) -> dict | None:
@@ -17,7 +17,6 @@ def food_venue_inspector_payload(venue_id: int) -> dict | None:
     cuisine_labels = dict(CuisineType.choices)
     saves_count = FoodVenueSave.objects.filter(venue=venue).count()
     reviews_count = FoodVenueReview.objects.filter(venue=venue).count()
-    questions_count = FoodQuestion.objects.filter(venue=venue, is_hidden=False).count()
 
     reservation_stats = (
         FoodReservation.objects.filter(venue=venue)
@@ -64,7 +63,6 @@ def food_venue_inspector_payload(venue_id: int) -> dict | None:
         "rating_count": venue.rating_count,
         "saves_count": saves_count,
         "reviews_count": reviews_count,
-        "questions_count": questions_count,
         "reservations_by_status": by_status,
         "recent_reservations": [
             {

@@ -18,6 +18,7 @@ export type MockProfile = {
   posts_visibility: 'public' | 'only_me'
   allow_messages: boolean
   show_in_search: boolean
+  no_face_mode?: boolean
 }
 
 export type MockPostMediaItem = {
@@ -47,6 +48,7 @@ export type MockPost = {
   vehicle_listing?: { id: number; title: string } | null
   bus_trip?: { id: number; title: string } | null
   food_venue?: { id: number; title: string } | null
+  guide_profile?: { id: number; title: string } | null
   created_at: string
   likes_count: number
   saves_count: number
@@ -79,6 +81,8 @@ export type MockRoomType = {
   /** Nightly rate for this category; omit to mean "same as listing from price". */
   price_per_night?: string
   image?: string | null
+  /** Multiple photos / clips for the room gallery (images and videos). */
+  images?: string[]
 }
 
 export type MockStay = {
@@ -846,7 +850,12 @@ export const mockStays: MockStay[] = [
         bedrooms: 1,
         bed_summary: '1 king bed',
         price_per_night: '1400',
-        image: 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=900&q=70',
+        image: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=900&q=70',
+        images: [
+          'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=70',
+          'https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=1200&q=70',
+          'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+        ],
       },
       {
         name: 'Garden bungalow',
@@ -2237,6 +2246,102 @@ export const mockPosts: MockPost[] = [
     likes_count: 8,
     saves_count: 2,
     comments_count: 0,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 860,
+    author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
+    body: 'Stayed here last weekend — the dune-view deck at sunset is unreal. Swipe through 👉',
+    region: 'Hardap',
+    image: null,
+    video: null,
+    media: [
+      { order: 0, kind: 'image', image: STAY.roomView, video: null },
+      { order: 1, kind: 'image', image: STAY.pool, video: null },
+      { order: 2, kind: 'video', image: null, video: V.flower },
+      { order: 3, kind: 'image', image: STAY.bathroom, video: null },
+    ],
+    delvers_board: '',
+    is_delvers: true,
+    listing: { id: 103, title: 'Dune View Lodge' },
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
+    likes_count: 143,
+    saves_count: 61,
+    comments_count: 12,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 861,
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
+    body: 'Morning walk clip from the lodge — worth waking up early for.',
+    region: 'Hardap',
+    image: null,
+    video: V.escapes,
+    delvers_board: '',
+    is_delvers: true,
+    listing: { id: 103, title: 'Dune View Lodge' },
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
+    likes_count: 88,
+    saves_count: 33,
+    comments_count: 5,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 862,
+    author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
+    body: 'Golden hour from the private chalet deck.',
+    region: 'Hardap',
+    image: STAY.bathroom,
+    video: null,
+    delvers_board: '',
+    is_delvers: true,
+    listing: { id: 103, title: 'Dune View Lodge' },
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
+    likes_count: 54,
+    saves_count: 19,
+    comments_count: 3,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 870,
+    author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
+    body: 'Sunrise over Sossusvlei with our guide — every stop was perfectly timed. Swipe 👉',
+    region: 'Hardap',
+    image: null,
+    video: null,
+    media: [
+      { order: 0, kind: 'image', image: STAY.roomView, video: null },
+      { order: 1, kind: 'video', image: null, video: V.escapes },
+      { order: 2, kind: 'image', image: STAY.pool, video: null },
+    ],
+    delvers_board: '',
+    is_delvers: true,
+    guide_profile: { id: 601, title: 'Sossusvlei & Namib desert' },
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 34).toISOString(),
+    likes_count: 96,
+    saves_count: 41,
+    comments_count: 7,
+    liked_by_me: false,
+    saved_by_me: false,
+  },
+  {
+    id: 871,
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
+    body: 'Dune 45 climb clip — our guide knew exactly where to catch the light.',
+    region: 'Hardap',
+    image: null,
+    video: V.flower,
+    delvers_board: '',
+    is_delvers: true,
+    guide_profile: { id: 601, title: 'Sossusvlei & Namib desert' },
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 58).toISOString(),
+    likes_count: 63,
+    saves_count: 24,
+    comments_count: 4,
     liked_by_me: false,
     saved_by_me: false,
   },

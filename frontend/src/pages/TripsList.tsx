@@ -50,7 +50,8 @@ const BUDGET_BUCKETS = [
   { label: 'N$12k+', min: 12000, max: Infinity },
 ]
 
-const TOP_DESTINATIONS = [
+/** Fallback shown only when the live feed has too few stops to rank places. */
+const FALLBACK_DESTINATIONS = [
   'Etosha',
   'Swakopmund',
   'Sossusvlei',
@@ -58,6 +59,27 @@ const TOP_DESTINATIONS = [
   'Walvis Bay',
   'Lüderitz',
 ] as const
+
+/** Rank the most-visited places from real journey stops (each place counted
+ *  once per journey). Falls back to a static list when data is thin. */
+function popularDestinations(trips: MockTrip[]): string[] {
+  const counts = new Map<string, { label: string; n: number }>()
+  for (const trip of trips) {
+    const seen = new Set<string>()
+    for (const stop of trip.stops) {
+      const label = stop.place_name?.trim()
+      if (!label) continue
+      const key = label.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      const current = counts.get(key)
+      if (current) current.n += 1
+      else counts.set(key, { label, n: 1 })
+    }
+  }
+  const ranked = [...counts.values()].sort((a, b) => b.n - a.n).map((c) => c.label)
+  return ranked.length >= 3 ? ranked.slice(0, 6) : [...FALLBACK_DESTINATIONS]
+}
 
 function onJourneyImgError(e: React.SyntheticEvent<HTMLImageElement>) {
   e.currentTarget.onerror = null
@@ -149,6 +171,8 @@ export function TripsList() {
     [allTrips],
   )
 
+  const topDestinations = useMemo(() => popularDestinations(allTrips), [allTrips])
+
   const clearAll = () => {
     setQuickFilter('')
     setSelectedBucket(null)
@@ -169,7 +193,6 @@ export function TripsList() {
         <div className="jn-social-top__copy">
           <p className="jn-social-top__eyebrow">Journeys</p>
           <h1 className="jn-social-top__title">What people are travelling</h1>
-          <p className="jn-social-top__sub">Real routes, costs, and tips from travellers on the road.</p>
         </div>
         <button
           type="button"
@@ -210,9 +233,9 @@ export function TripsList() {
               )
             })}
           </div>
-          {TOP_DESTINATIONS.length > 0 ? (
+          {topDestinations.length > 0 ? (
             <div className="jn-find-sheet__dests" aria-label="Popular places">
-              {TOP_DESTINATIONS.slice(0, 6).map((dest) => (
+              {topDestinations.map((dest) => (
                 <button
                   key={dest}
                   type="button"
@@ -276,7 +299,6 @@ export function TripsList() {
             <h2 id="jn-rings-title" className="jn-rings-head__title">
               Fresh from the road
             </h2>
-            <span className="jn-rings-head__sub">Tap a traveller to preview</span>
           </div>
           <div className="jn-rings-row">
             {recentStories.map((t, i) => (
@@ -364,7 +386,6 @@ export function TripsList() {
                 <JourneyRail
                   id="jn-weekend"
                   title="Short escapes people loved"
-                  sub="Long weekends and tight loops from the community."
                   trips={curated.weekendRail}
                   engagement={engagement}
                 />
@@ -384,11 +405,7 @@ export function TripsList() {
                 <JourneySectionHead
                   id="jn-all-title"
                   title={hasFilters ? 'Matching journeys' : 'On the feed'}
-                  subtitle={
-                    hasFilters
-                      ? hint
-                      : 'Double-tap a cover to like · save the ones you’ll actually do.'
-                  }
+                  subtitle={hasFilters ? hint : undefined}
                   trailing={
                     <div className="jn-sort" role="group" aria-label="Sort journeys">
                       <button
@@ -458,7 +475,7 @@ function JourneyRail({
 }: {
   id: string
   title: string
-  sub: string
+  sub?: string
   trips: MockTrip[]
   engagement: ReturnType<typeof useJourneyEngagement>
 }) {

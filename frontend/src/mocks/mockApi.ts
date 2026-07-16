@@ -1,7 +1,6 @@
 import { ApiError } from '../api/client'
 import { mockTrips, type MockTrip } from '../data/mockTrips'
 import { mockBusinessProfiles } from '../data/businessProfiles'
-import { enrichFoodVenueDetail } from '../data/foodVenueSocial'
 import {
   mockBusTrips,
   mockEvents,
@@ -106,32 +105,6 @@ function createMockVerificationToken(username: string) {
   return token
 }
 
-type MockAccQuestionRow = {
-  id: number
-  listing: number
-  listing_title: string
-  author: string
-  body: string
-  ago: string
-  answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[]
-}
-const mockAccQuestions: MockAccQuestionRow[] = []
-let mockAccNextQuestionId = 1
-let mockAccNextAnswerId = 1
-
-type MockFoodQuestionRow = {
-  id: number
-  listing: number
-  listing_title: string
-  author: string
-  body: string
-  ago: string
-  answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[]
-}
-const mockFoodQuestions: MockFoodQuestionRow[] = []
-let mockFoodNextQuestionId = 1
-let mockFoodNextAnswerId = 1
-
 type MockAccReviewRow = {
   listing: number
   booking: number
@@ -224,6 +197,82 @@ type MockFoodReservationRow = {
 }
 let nextFoodReservationId = 8000
 const mockFoodReservationRows = new Map<number, MockFoodReservationRow>()
+
+type MockShopProductRow = {
+  id: number
+  owner_username: string
+  name: string
+  description: string
+  tagline: string
+  category: string
+  region: string
+  city: string
+  pickup_address: string
+  price: string
+  price_note: string
+  in_stock: boolean
+  pickup_available: boolean
+  lodge_delivery: boolean
+  made_in_namibia: boolean
+  artisan_name: string
+  phone: string
+  cover_image: string | null
+  photos: { image?: string; caption?: string; is_cover?: boolean }[]
+  is_active: boolean
+  created_at: string
+}
+
+const mockShopProducts: MockShopProductRow[] = [
+  {
+    id: 901,
+    owner_username: 'demo_provider',
+    name: 'Etosha hand-carved bowl',
+    description: 'Locally carved hardwood bowl with a smooth food-safe finish.',
+    tagline: 'Carved by local artisans',
+    category: 'crafts',
+    region: 'Khomas',
+    city: 'Windhoek',
+    pickup_address: 'Old Breweries Craft Market, Windhoek',
+    price: '450.00',
+    price_note: 'per item',
+    in_stock: true,
+    pickup_available: true,
+    lodge_delivery: true,
+    made_in_namibia: true,
+    artisan_name: 'M. Kandume',
+    phone: '+264 81 000 1111',
+    cover_image:
+      'https://images.unsplash.com/photo-1452860606245-08befc0ff4db?auto=format&fit=crop&w=1200&q=80',
+    photos: [],
+    is_active: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+  },
+  {
+    id: 902,
+    owner_username: 'food_mgr',
+    name: 'Namib desert spice set',
+    description: 'Travel-safe spice tins inspired by Namibian grill flavors.',
+    tagline: 'Take the taste home',
+    category: 'local_food',
+    region: 'Erongo',
+    city: 'Swakopmund',
+    pickup_address: 'Mole Mall pickup counter',
+    price: '220.00',
+    price_note: 'set',
+    in_stock: true,
+    pickup_available: true,
+    lodge_delivery: false,
+    made_in_namibia: true,
+    artisan_name: '',
+    phone: '+264 81 222 3333',
+    cover_image:
+      'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+    photos: [],
+    is_active: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+  },
+]
+let nextShopProductId = Math.max(0, ...mockShopProducts.map((p) => p.id)) + 1
 
 type MockVehicleBookingRow = {
   id: number
@@ -508,9 +557,7 @@ const mockListingSaves = new Map<number, Set<string>>()
 const mockFoodVenueSaves = new Map<number, Set<string>>()
 const mockFoodVenueLikes = new Map<number, Set<string>>()
 const mockGuideSaves = new Map<number, Set<string>>()
-const mockGuideQuestions = new Map<number, { id: number; author: string; body: string; ago: string; answers: { id: number; author: string; body: string; ago: string; is_official?: boolean }[] }[]>()
 const mockGuideReviews = new Map<number, { id: number; name: string; place: string; rating: number; body: string; source: string }[]>()
-let mockGuideQuestionNextId = 1
 let mockGuideReviewNextId = 1
 
 type MockFeaturedCampaign = {
@@ -1013,6 +1060,7 @@ function enrichGuideRow(s: MockState, row: (typeof mockGuides)[number]) {
     saved_by_me: Boolean(me && savers?.has(me)),
     has_reviewed: hasReviewed,
     can_review: canReview,
+    attended: completed,
   }
 }
 
@@ -1870,7 +1918,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           (data as Record<string, unknown>)['avatar'] = dataUrl
         } else if (typeof val === 'string') {
           const strVal = val
-          if (key === 'is_private' || key === 'allow_messages' || key === 'show_in_search') {
+          if (
+            key === 'is_private' ||
+            key === 'allow_messages' ||
+            key === 'show_in_search' ||
+            key === 'no_face_mode'
+          ) {
             (data as Record<string, unknown>)[key] = strVal === 'true'
           } else {
             (data as Record<string, unknown>)[key] = strVal
@@ -1883,6 +1936,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if ('is_private' in raw) raw['is_private'] = raw['is_private'] === true || raw['is_private'] === 'true'
       if ('allow_messages' in raw) raw['allow_messages'] = raw['allow_messages'] === true || raw['allow_messages'] === 'true'
       if ('show_in_search' in raw) raw['show_in_search'] = raw['show_in_search'] === true || raw['show_in_search'] === 'true'
+      if ('no_face_mode' in raw) raw['no_face_mode'] = raw['no_face_mode'] === true || raw['no_face_mode'] === 'true'
       if ('avatar' in raw && (raw.avatar === null || raw.avatar === '')) raw.avatar = null
       data = raw as Partial<MockProfile>
     }
@@ -2390,7 +2444,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const row = {
       id,
       owner_username: me,
-      rating_avg: '4.5',
+      rating_avg: '0.00',
       rating_count: 0,
       is_active: data.is_active !== false,
       ...data,
@@ -2410,7 +2464,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       id: Number(providerListingMatch[1]),
       ...st,
       ...data,
-      rating_avg: st?.rating_avg ?? '4.5',
+      rating_avg: st?.rating_avg ?? '0.00',
       rating_count: st?.rating_count ?? 0,
     }
   }
@@ -3014,6 +3068,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       vehicle_listing: null,
       bus_trip: null,
       food_venue: null,
+      guide_profile: null,
       created_at: nowIso(),
       likes_count: 0,
       saves_count: 0,
@@ -3037,6 +3092,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const vehicleRaw = String(init.body.get('vehicle_listing') || '').trim()
       const busTripRaw = String(init.body.get('bus_trip') || '').trim()
       const foodVenueRaw = String(init.body.get('food_venue') || '').trim()
+      const guideProfileRaw = String(init.body.get('guide_profile') || '').trim()
       base.body = body
       base.region = region
       base.is_delvers = is_delvers
@@ -3128,6 +3184,22 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         base.food_venue = venue
           ? { id: venue.id, title: venue.name }
           : { id: fid, title: 'Food venue' }
+        base.is_delvers = true
+      }
+      if (guideProfileRaw) {
+        const gpid = Number(guideProfileRaw)
+        const guide = mockGuides.find((row) => row.id === gpid)
+        const attendedGuide = [...mockGuideBookings.values()].some(
+          (b) => b.guide === gpid && b.client === me && b.status === 'completed',
+        )
+        if (!attendedGuide) {
+          throw new ApiError('Bad request', 400, {
+            detail: 'You can share a moment only after a completed tour with this guide.',
+          })
+        }
+        base.guide_profile = guide
+          ? { id: guide.id, title: guide.headline }
+          : { id: gpid, title: 'Guide' }
         base.is_delvers = true
       }
       if (is_accommodation_story && profile.user_type !== 'service_provider') {
@@ -3742,29 +3814,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         blocked_ranges,
       }
     }
-    if (action === 'questions' && method === 'GET') {
-      return mockAccQuestions
-        .filter((q) => q.listing === id)
-        .map(({ listing_title: _lt, ...q }) => q)
-    }
-    if (action === 'questions' && method === 'POST') {
-      requireAuth(s)
-      if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
-      const body = JSON.parse(init.body) as { body?: string }
-      const prof = s.profiles[s.currentUser as string]
-      const row: MockAccQuestionRow = {
-        id: mockAccNextQuestionId++,
-        listing: id,
-        listing_title: stay?.title || '',
-        author: prof?.display_name || (s.currentUser as string),
-        body: (body.body || '').trim(),
-        ago: 'Just now',
-        answers: [],
-      }
-      mockAccQuestions.unshift(row)
-      const { listing_title: _lt, ...out } = row
-      return out
-    }
     if (action === 'moments' && method === 'GET') {
       return visiblePosts(s.posts)
         .filter(
@@ -3779,6 +3828,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           body: p.body,
           image: p.image,
           video: p.video,
+          media: p.media,
           author: { username: p.author.username, display_name: p.author.display_name },
           listing: p.listing,
         }))
@@ -3821,62 +3871,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accounts/provider/listing-questions/' && method === 'GET') {
     requireAuth(s)
-    const me = s.currentUser as string
-    const ownedIds = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.id))
-    return mockAccQuestions
-      .filter((q) => ownedIds.has(q.listing))
-      .map((q) => ({
-        id: q.id,
-        category: 'stay',
-        listing_id: q.listing,
-        listing: q.listing,
-        listing_title: q.listing_title,
-        author: q.author,
-        body: q.body,
-        ago: q.ago,
-        answers: q.answers,
-        created_at: new Date().toISOString(),
-      }))
-  }
-
-  if (pathname === '/api/accommodation/provider-questions/' && method === 'GET') {
-    requireAuth(s)
-    const me = s.currentUser as string
-    const ownedIds = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.id))
-    return mockAccQuestions
-      .filter((q) => ownedIds.has(q.listing))
-      .map((q) => ({
-        id: q.id,
-        listing: q.listing,
-        listing_title: q.listing_title,
-        author: q.author,
-        body: q.body,
-        ago: q.ago,
-        answers: q.answers,
-      }))
-  }
-
-  const stayQuestionAnswerMatch = pathname.match(/^\/api\/accommodation\/questions\/(\d+)\/answers\/?$/)
-  if (stayQuestionAnswerMatch && method === 'POST') {
-    requireAuth(s)
-    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
-    const qid = Number(stayQuestionAnswerMatch[1])
-    const question = mockAccQuestions.find((q) => q.id === qid)
-    if (!question) throw new ApiError('Not found', 404, { detail: 'Not found.' })
-    const body = JSON.parse(init.body) as { body?: string }
-    const me = s.currentUser as string
-    const prof = s.profiles[me]
-    const stay = mockStays.find((st) => st.id === question.listing)
-    const isOfficial = stay?.owner_username === me
-    const answer = {
-      id: mockAccNextAnswerId++,
-      author: prof?.display_name || me,
-      body: (body.body || '').trim(),
-      ago: 'Just now',
-      is_official: isOfficial,
-    }
-    question.answers.push(answer)
-    return answer
+    return []
   }
 
   const stayMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/$/)
@@ -5519,6 +5514,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           body: p.body,
           image: p.image,
           video: p.video,
+          media: p.media,
           author: { username: p.author.username, display_name: p.author.display_name },
           event: p.event,
         }))
@@ -5712,7 +5708,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const id = Number(foodMatch[1])
     const venue = mockFood.find((f) => f.id === id)
     if (!venue) return { detail: 'Not found' }
-    const detail = enrichFoodVenueDetail(venue)
     const me = s.currentUser as string | undefined
     const reviewedKey = me ? `${me}:${id}` : ''
     const hasReviewed = reviewedKey ? mockFoodReviewedVenues.has(reviewedKey) : false
@@ -5734,7 +5729,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const savers = mockFoodVenueSaves.get(id)
     const likers = mockFoodVenueLikes.get(id)
     return {
-      ...detail,
+      ...venue,
       has_reviewed: hasReviewed,
       can_review: canReview,
       likes_count: likers?.size ?? 0,
@@ -5830,57 +5825,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return s.posts.filter(
       (p) => p.is_delvers && !p.is_hidden && p.food_venue?.id === id,
     )
-  }
-
-  const foodQuestionsMatch = pathname.match(/^\/api\/food\/venues\/(\d+)\/questions\/$/)
-  if (foodQuestionsMatch && method === 'GET') {
-    const id = Number(foodQuestionsMatch[1])
-    return mockFoodQuestions
-      .filter((q) => q.listing === id)
-      .map(({ listing_title: _lt, ...q }) => q)
-  }
-  if (foodQuestionsMatch && method === 'POST') {
-    requireAuth(s)
-    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
-    const id = Number(foodQuestionsMatch[1])
-    const venue = mockFood.find((f) => f.id === id)
-    if (!venue) throw new ApiError('Not found', 404, { detail: 'Not found.' })
-    const body = JSON.parse(init.body) as { body?: string }
-    const prof = s.profiles[s.currentUser as string]
-    const row: MockFoodQuestionRow = {
-      id: mockFoodNextQuestionId++,
-      listing: id,
-      listing_title: venue.name,
-      author: prof?.display_name || (s.currentUser as string),
-      body: (body.body || '').trim(),
-      ago: 'Just now',
-      answers: [],
-    }
-    mockFoodQuestions.unshift(row)
-    const { listing_title: _lt, ...out } = row
-    return out
-  }
-
-  const foodAnswerMatch = pathname.match(/^\/api\/food\/questions\/(\d+)\/answers\/$/)
-  if (foodAnswerMatch && method === 'POST') {
-    requireAuth(s)
-    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
-    const qid = Number(foodAnswerMatch[1])
-    const question = mockFoodQuestions.find((q) => q.id === qid)
-    if (!question) throw new ApiError('Not found', 404, { detail: 'Not found.' })
-    const venue = mockFood.find((f) => f.id === question.listing)
-    const body = JSON.parse(init.body) as { body?: string }
-    const prof = s.profiles[s.currentUser as string]
-    const me = s.currentUser as string
-    const answer = {
-      id: mockFoodNextAnswerId++,
-      author: prof?.display_name || me,
-      body: (body.body || '').trim(),
-      ago: 'Just now',
-      is_official: Boolean(venue && venue.owner_username === me),
-    }
-    question.answers.push(answer)
-    return answer
   }
 
   function foodCoverKindFromUrl(url: string, fileType?: string) {
@@ -6264,6 +6208,176 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!next) throw new ApiError('Bad request', 400, { detail: 'Invalid status transition.' })
     row.status = next as MockFoodReservationRow['status']
     return serializeProviderFoodReservation(row, s)
+  }
+
+  // ---- Shop ----
+  function asBool(raw: FormDataEntryValue | string | null | undefined, fallback = false): boolean {
+    const text = String(raw ?? '').trim().toLowerCase()
+    if (!text) return fallback
+    return text === 'true' || text === '1' || text === 'yes' || text === 'on'
+  }
+
+  function serializeShopProduct(row: MockShopProductRow) {
+    const owner = s.profiles[row.owner_username]
+    const categoryLabel =
+      {
+        souvenirs: 'Souvenirs & gifts',
+        crafts: 'Handmade crafts',
+        jewellery: 'Jewellery',
+        clothing: 'Clothing & textiles',
+        art: 'Art & prints',
+        books_maps: 'Books & maps',
+        local_food: 'Local food & pantry',
+        gear: 'Safari & travel gear',
+        other: 'Other',
+      }[row.category] ?? row.category
+    const priceNum = Number(row.price)
+    const base = Number.isFinite(priceNum) ? `N$${priceNum.toFixed(2).replace(/\.00$/, '')}` : `N$${row.price}`
+    return {
+      ...row,
+      owner_display_name: owner?.display_name ?? row.owner_username,
+      category_label: categoryLabel,
+      price_label: row.price_note ? `${base} ${row.price_note}` : base,
+    }
+  }
+
+  if (pathname === '/api/shop/products/' && method === 'GET') {
+    const regionQ = (q.get('region') || '').trim()
+    const categoryQ = (q.get('category') || '').trim()
+    const ownerUsernameQ = (q.get('owner_username') || '').trim()
+    const searchQ = (q.get('search') || '').trim()
+    const inStockQ = q.get('in_stock')
+    const madeQ = q.get('made_in_namibia')
+    return mockShopProducts
+      .filter((p) => p.is_active)
+      .filter((p) => (ownerUsernameQ ? textMatch(p.owner_username, ownerUsernameQ) : true))
+      .filter((p) =>
+        regionQ ? textMatch(p.region, regionQ) || textMatch(p.city, regionQ) || textMatch(p.pickup_address, regionQ) : true,
+      )
+      .filter((p) => (categoryQ ? textMatch(p.category, categoryQ) : true))
+      .filter((p) =>
+        searchQ
+          ? textMatch(p.name, searchQ) ||
+            textMatch(p.description, searchQ) ||
+            textMatch(p.tagline, searchQ) ||
+            textMatch(p.artisan_name, searchQ) ||
+            textMatch(p.pickup_address, searchQ) ||
+            textMatch(p.city, searchQ) ||
+            textMatch(p.region, searchQ)
+          : true,
+      )
+      .filter((p) => (inStockQ == null ? true : p.in_stock === asBool(inStockQ)))
+      .filter((p) => (madeQ == null ? true : p.made_in_namibia === asBool(madeQ)))
+      .map((p) => serializeShopProduct(p))
+  }
+
+  const shopPublicMatch = pathname.match(/^\/api\/shop\/products\/(\d+)\/?$/)
+  if (shopPublicMatch && method === 'GET') {
+    const id = Number(shopPublicMatch[1])
+    const row = mockShopProducts.find((p) => p.id === id)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string | null
+    if (!row.is_active && row.owner_username !== me) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    return serializeShopProduct(row)
+  }
+
+  if (pathname === '/api/shop/provider-products/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockShopProducts.filter((p) => p.owner_username === me).map((p) => serializeShopProduct(p))
+  }
+
+  async function parseProviderShopBody(body: BodyInit | null | undefined) {
+    if (body instanceof FormData) {
+      const get = (key: string) => String(body.get(key) ?? '').trim()
+      let cover = get('cover_image') || get('cover_image_url')
+      const upload = body.get('cover_image_upload')
+      if (upload instanceof File) {
+        const bytes = new Uint8Array(await upload.arrayBuffer())
+        let binary = ''
+        for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i])
+        cover = `data:${upload.type || 'image/jpeg'};base64,${btoa(binary)}`
+      }
+      return {
+        name: get('name'),
+        tagline: get('tagline'),
+        description: get('description'),
+        category: get('category') || 'souvenirs',
+        region: get('region'),
+        city: get('city'),
+        pickup_address: get('pickup_address'),
+        price: get('price') || '0',
+        price_note: get('price_note'),
+        phone: get('phone'),
+        artisan_name: get('artisan_name'),
+        in_stock: asBool(body.get('in_stock'), true),
+        pickup_available: asBool(body.get('pickup_available'), true),
+        lodge_delivery: asBool(body.get('lodge_delivery'), false),
+        made_in_namibia: asBool(body.get('made_in_namibia'), false),
+        is_active: asBool(body.get('is_active'), false),
+        cover_image: cover || null,
+      }
+    }
+    if (isJsonBody(body)) return JSON.parse(body) as Record<string, unknown>
+    return {}
+  }
+
+  if (pathname === '/api/shop/provider-products/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const prof = s.profiles[me]
+    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const data = await parseProviderShopBody(init.body)
+    const row: MockShopProductRow = {
+      id: nextShopProductId++,
+      owner_username: me,
+      name: String(data.name || 'New product'),
+      description: String(data.description || ''),
+      tagline: String(data.tagline || ''),
+      category: String(data.category || 'souvenirs'),
+      region: String(data.region || ''),
+      city: String(data.city || ''),
+      pickup_address: String(data.pickup_address || ''),
+      price: String(data.price || '0'),
+      price_note: String(data.price_note || ''),
+      in_stock: Boolean(data.in_stock),
+      pickup_available: Boolean(data.pickup_available),
+      lodge_delivery: Boolean(data.lodge_delivery),
+      made_in_namibia: Boolean(data.made_in_namibia),
+      artisan_name: String(data.artisan_name || ''),
+      phone: String(data.phone || ''),
+      cover_image: (data.cover_image as string | null) ?? null,
+      photos: [],
+      is_active: Boolean(data.is_active),
+      created_at: nowIso(),
+    }
+    mockShopProducts.unshift(row)
+    return serializeShopProduct(row)
+  }
+
+  const providerShopMatch = pathname.match(/^\/api\/shop\/provider-products\/(\d+)\/?$/)
+  if (providerShopMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockShopProducts.find((p) => p.id === Number(providerShopMatch[1]) && p.owner_username === me)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return serializeShopProduct(row)
+  }
+
+  if (providerShopMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockShopProducts.find((p) => p.id === Number(providerShopMatch[1]) && p.owner_username === me)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const data = await parseProviderShopBody(init.body)
+    Object.assign(row, {
+      ...data,
+      cover_image:
+        data.cover_image === undefined ? row.cover_image : ((data.cover_image as string | null) ?? null),
+    })
+    return serializeShopProduct(row)
   }
 
   // ---- Guides ----
@@ -6682,33 +6796,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { saved: true, saves_count: savers.size }
   }
 
-  const guideQuestionsMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/questions\/?$/)
-  if (guideQuestionsMatch && method === 'GET') {
-    const gid = Number(guideQuestionsMatch[1])
-    return mockGuideQuestions.get(gid) ?? []
-  }
-  if (guideQuestionsMatch && method === 'POST') {
-    requireAuth(s)
-    const gid = Number(guideQuestionsMatch[1])
-    const guide = mockGuides.find((g) => g.id === gid)
-    if (!guide) throw new ApiError('Not found', 404, { detail: 'Not found.' })
-    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
-    const body = JSON.parse(init.body) as { body?: string }
-    const me = s.currentUser as string
-    const prof = s.profiles[me]
-    const row = {
-      id: mockGuideQuestionNextId++,
-      author: prof?.display_name || me,
-      body: (body.body || '').trim(),
-      ago: 'Just now',
-      answers: [] as { id: number; author: string; body: string; ago: string; is_official?: boolean }[],
-      listing: gid,
-      listing_title: guide.headline,
-    }
-    const rows = mockGuideQuestions.get(gid) ?? []
-    rows.unshift(row)
-    mockGuideQuestions.set(gid, rows)
-    return row
+  const guideMomentsMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/moments\/?$/)
+  if (guideMomentsMatch && method === 'GET') {
+    const gid = Number(guideMomentsMatch[1])
+    return s.posts.filter(
+      (p) => p.is_delvers && !p.is_hidden && p.guide_profile?.id === gid,
+    )
   }
 
   const guideReviewsMatch = pathname.match(/^\/api\/guides\/profiles\/(\d+)\/reviews\/?$/)
@@ -6766,31 +6859,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     rows.unshift(review)
     mockGuideReviews.set(gid, rows)
     return review
-  }
-
-  const guideAnswerMatch = pathname.match(/^\/api\/guides\/questions\/(\d+)\/answers\/?$/)
-  if (guideAnswerMatch && method === 'POST') {
-    requireAuth(s)
-    const qid = Number(guideAnswerMatch[1])
-    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
-    const body = JSON.parse(init.body) as { body?: string }
-    const me = s.currentUser as string
-    const prof = s.profiles[me]
-    for (const [gid, rows] of mockGuideQuestions.entries()) {
-      const question = rows.find((q) => q.id === qid)
-      if (!question) continue
-      const guide = mockGuides.find((g) => g.id === gid)
-      const answer = {
-        id: Date.now(),
-        author: prof?.display_name || me,
-        body: (body.body || '').trim(),
-        ago: 'Just now',
-        is_official: guide?.username === me,
-      }
-      question.answers.push(answer)
-      return answer
-    }
-    throw new ApiError('Not found', 404, { detail: 'Not found.' })
   }
 
   if (pathname === '/api/guides/bookings/' && method === 'POST') {
@@ -7482,7 +7550,319 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
+  // ---- Coin toss (unbiased nearby randomizer) ----
+  type MockTossLocation = {
+    id: number
+    name: string
+    category: string
+    category_label: string
+    description: string
+    /** Offset from the toss origin so mocks work wherever the user is */
+    dLat: number
+    dLng: number
+    region: string
+    city: string
+    open_source_ref: string
+    is_excluded: boolean
+    upvote_count: number
+    commercial_flag_count: number
+    voters: Set<string>
+    flaggers: Set<string>
+  }
+
+  function milesBetween(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const toRad = (d: number) => (d * Math.PI) / 180
+    const r = 3958.7613
+    const dLat = toRad(lat2 - lat1)
+    const dLon = toRad(lon2 - lon1)
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+    return 2 * r * Math.asin(Math.min(1, Math.sqrt(a)))
+  }
+
+  if (!mockCoinTossLocations.length) {
+    mockCoinTossLocations.push(
+      {
+        id: 1,
+        name: 'Hilltop sundowner rock',
+        category: 'viewpoint',
+        category_label: 'Viewpoint',
+        description: 'A quiet ledge locals use for golden hour — community favourite.',
+        dLat: 0.012,
+        dLng: -0.008,
+        region: 'Nearby',
+        city: 'Near you',
+        open_source_ref: 'osm:node/mock-hilltop',
+        is_excluded: false,
+        upvote_count: 5,
+        commercial_flag_count: 0,
+        voters: new Set(['alice', 'bob', 'cara', 'dan', 'eve']),
+        flaggers: new Set(),
+      },
+      {
+        id: 2,
+        name: 'Market lane bakers',
+        category: 'market',
+        category_label: 'Market',
+        description: 'Weekend stalls and fresh bread — organic discovery pick.',
+        dLat: -0.01,
+        dLng: 0.015,
+        region: 'Nearby',
+        city: 'Near you',
+        open_source_ref: 'osm:node/mock-market',
+        is_excluded: false,
+        upvote_count: 4,
+        commercial_flag_count: 0,
+        voters: new Set(['alice', 'bob', 'cara', 'dan']),
+        flaggers: new Set(),
+      },
+      {
+        id: 3,
+        name: 'River path picnic bend',
+        category: 'hike',
+        category_label: 'Hike / trail',
+        description: 'Shaded walk ending at a flat rock perfect for a thermos.',
+        dLat: 0.006,
+        dLng: 0.018,
+        region: 'Nearby',
+        city: 'Near you',
+        open_source_ref: 'osm:way/mock-river',
+        is_excluded: false,
+        upvote_count: 6,
+        commercial_flag_count: 1,
+        voters: new Set(['alice', 'bob', 'cara', 'dan', 'eve', 'frank']),
+        flaggers: new Set(['alice']),
+      },
+      {
+        id: 4,
+        name: 'Heritage courtyard café',
+        category: 'cafe',
+        category_label: 'Café / spot to linger',
+        description: 'Courtyard seating under an old tree — slow afternoon energy.',
+        dLat: -0.015,
+        dLng: -0.012,
+        region: 'Nearby',
+        city: 'Near you',
+        open_source_ref: 'osm:node/mock-courtyard',
+        is_excluded: false,
+        upvote_count: 3,
+        commercial_flag_count: 0,
+        voters: new Set(['alice', 'bob', 'cara']),
+        flaggers: new Set(),
+      },
+      {
+        id: 5,
+        name: 'Hidden mural alley',
+        category: 'hidden',
+        category_label: 'Hidden gem',
+        description: 'Side street covered in local murals — easy to miss on purpose.',
+        dLat: 0.02,
+        dLng: 0.004,
+        region: 'Nearby',
+        city: 'Near you',
+        open_source_ref: 'osm:node/mock-mural',
+        is_excluded: false,
+        upvote_count: 7,
+        commercial_flag_count: 0,
+        voters: new Set(['alice', 'bob', 'cara', 'dan', 'eve', 'frank', 'gina']),
+        flaggers: new Set(),
+      },
+    )
+  }
+
+  function serializeMockToss(loc: MockTossLocation, originLat: number, originLng: number) {
+    return {
+      id: loc.id,
+      name: loc.name,
+      category: loc.category,
+      category_label: loc.category_label,
+      description: loc.description,
+      latitude: originLat + loc.dLat,
+      longitude: originLng + loc.dLng,
+      region: loc.region,
+      city: loc.city,
+      open_source_ref: loc.open_source_ref,
+      is_excluded: loc.is_excluded,
+      upvote_count: loc.upvote_count,
+      commercial_flag_count: loc.commercial_flag_count,
+    }
+  }
+
+  if (pathname === '/api/coin-toss/locations/' && method === 'GET') {
+    const originLat = Number(q.get('latitude') ?? -22.56)
+    const originLng = Number(q.get('longitude') ?? 17.08)
+    return mockCoinTossLocations
+      .filter((l) => !l.is_excluded)
+      .map((l) => serializeMockToss(l, originLat, originLng))
+  }
+
+  if (pathname === '/api/coin-toss/locations/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as {
+      name?: string
+      category?: string
+      description?: string
+      latitude?: number
+      longitude?: number
+      accuracy_m?: number | null
+    }
+    const name = (body.name || '').trim()
+    if (!name) throw new ApiError('Bad request', 400, { detail: 'Give your gem a name.' })
+    const lat = Number(body.latitude)
+    const lng = Number(body.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new ApiError('Bad request', 400, { detail: 'We need your location to add a spot.' })
+    }
+    const accuracy = body.accuracy_m == null ? null : Number(body.accuracy_m)
+    if (accuracy != null && accuracy > 150) {
+      throw new ApiError('Bad request', 400, {
+        detail: `We couldn't confirm you're at the spot — GPS is weak (±${Math.round(accuracy)} m). Walk closer and try again.`,
+      })
+    }
+    const me = s.currentUser as string
+    const category = body.category || 'other'
+    const label = ['viewpoint', 'hike', 'beach', 'market', 'cafe', 'culture', 'wildlife', 'hidden', 'other'].includes(
+      category,
+    )
+      ? category.charAt(0).toUpperCase() + category.slice(1)
+      : 'Other'
+    const newId = (mockCoinTossLocations.reduce((max, l) => Math.max(max, l.id), 0) || 0) + 1
+    const created = {
+      id: newId,
+      name,
+      category,
+      category_label: label,
+      description: (body.description || '').trim(),
+      // Stamped at the user's live location → zero offset from any toss origin.
+      dLat: 0,
+      dLng: 0,
+      region: 'Nearby',
+      city: 'Near you',
+      open_source_ref: '',
+      is_excluded: false,
+      upvote_count: 1,
+      commercial_flag_count: 0,
+      voters: new Set<string>([me]),
+      flaggers: new Set<string>(),
+    }
+    mockCoinTossLocations.push(created)
+    return {
+      ...serializeMockToss(created, lat, lng),
+      merged: false,
+      detail: 'Thanks! Your gem is on the map. It joins the toss once it reaches 3 on-site upvotes.',
+    }
+  }
+
+  if (pathname === '/api/coin-toss/toss/' && method === 'POST') {
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as {
+      latitude?: number
+      longitude?: number
+      radius_miles?: number
+      min_upvotes?: number
+    }
+    const lat = Number(body.latitude)
+    const lng = Number(body.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new ApiError('Bad request', 400, { detail: 'latitude and longitude are required.' })
+    }
+    const radius = Number(body.radius_miles ?? 5)
+    const minUpvotes = Number(body.min_upvotes ?? 3)
+    const nearby = mockCoinTossLocations.filter((loc) => {
+      if (loc.is_excluded) return false
+      if (loc.upvote_count < minUpvotes) return false
+      const la = lat + loc.dLat
+      const lo = lng + loc.dLng
+      return milesBetween(lat, lng, la, lo) <= radius
+    })
+    if (!nearby.length) {
+      throw new ApiError('Not found', 404, {
+        detail: 'No eligible spots nearby. Try a wider radius or explore and upvote places.',
+        candidate_count: 0,
+      })
+    }
+    const winner = nearby[Math.floor(Math.random() * nearby.length)]
+    return {
+      ...serializeMockToss(winner, lat, lng),
+      candidate_count: nearby.length,
+    }
+  }
+
+  const coinVoteMatch = pathname.match(/^\/api\/coin-toss\/locations\/(\d+)\/vote\/?$/)
+  if (coinVoteMatch && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as { latitude?: number; longitude?: number }
+    const voterLat = Number(body.latitude)
+    const voterLng = Number(body.longitude)
+    if (!Number.isFinite(voterLat) || !Number.isFinite(voterLng)) {
+      throw new ApiError('Bad request', 400, { detail: 'latitude and longitude are required.' })
+    }
+    const loc = mockCoinTossLocations.find((l) => l.id === Number(coinVoteMatch[1]))
+    if (!loc) throw new ApiError('Not found', 404, { detail: 'Location not found.' })
+    if (loc.is_excluded) {
+      throw new ApiError('Bad request', 400, { detail: 'This location is excluded from the randomizer.' })
+    }
+    // Production API enforces physical proximity; mocks only require coords present.
+    const me = s.currentUser as string
+    if (loc.voters.has(me)) {
+      return { detail: 'You already upvoted this spot.', upvote_count: loc.upvote_count }
+    }
+    loc.voters.add(me)
+    loc.upvote_count = loc.voters.size
+    return { detail: 'Upvote recorded.', id: Date.now(), upvote_count: loc.upvote_count }
+  }
+
+  const coinFlagMatch = pathname.match(/^\/api\/coin-toss\/locations\/(\d+)\/flag\/?$/)
+  if (coinFlagMatch && method === 'POST') {
+    requireAuth(s)
+    const loc = mockCoinTossLocations.find((l) => l.id === Number(coinFlagMatch[1]))
+    if (!loc) throw new ApiError('Not found', 404, { detail: 'Location not found.' })
+    const me = s.currentUser as string
+    const created = !loc.flaggers.has(me)
+    if (created) {
+      loc.flaggers.add(me)
+      loc.commercial_flag_count = loc.flaggers.size
+    }
+    if (loc.commercial_flag_count >= 3) loc.is_excluded = true
+    return {
+      detail: created ? 'Flag recorded.' : 'You already flagged this spot.',
+      id: Date.now(),
+      commercial_flag_count: loc.commercial_flag_count,
+      is_excluded: loc.is_excluded,
+      created,
+    }
+  }
+
   // Default: return something safe to keep UI from exploding in mock mode
   return { detail: `Mock: unhandled ${method} ${pathname}` }
 }
+
+/** Session-scoped mock coin-toss locations (offsets relative to toss origin). */
+const mockCoinTossLocations: {
+  id: number
+  name: string
+  category: string
+  category_label: string
+  description: string
+  dLat: number
+  dLng: number
+  region: string
+  city: string
+  open_source_ref: string
+  is_excluded: boolean
+  upvote_count: number
+  commercial_flag_count: number
+  voters: Set<string>
+  flaggers: Set<string>
+}[] = []
+
 

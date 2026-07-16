@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BedDouble, Building2, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
+import { BedDouble, Bookmark, Building2, MapPin, Search, X } from 'lucide-react'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
   AccommodationListingCard,
   type AccommodationCardListing,
 } from '../components/accommodation/AccommodationListingCard'
-import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { useToggleStaySave } from '../hooks/useStaySave'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
@@ -29,17 +28,32 @@ type AccListing = AccommodationCardListing & {
 type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc'
 
 type AmenityId = 'pool' | 'wifi' | 'parking' | 'kitchen' | 'breakfast' | 'pets'
+type GoodForId = 'budget' | 'family' | 'coast'
 
-const NEED_CHIPS: { id: AmenityId | 'budget' | 'family' | 'coast'; label: string }[] = [
-  { id: 'pool', label: 'Pool' },
-  { id: 'wifi', label: 'Wifi' },
-  { id: 'parking', label: 'Parking' },
-  { id: 'kitchen', label: 'Kitchen' },
-  { id: 'breakfast', label: 'Breakfast' },
-  { id: 'pets', label: 'Pets' },
-  { id: 'budget', label: 'Budget' },
-  { id: 'family', label: 'Family' },
-  { id: 'coast', label: 'Coast' },
+const AMENITY_OPTIONS: { value: AmenityId; label: string }[] = [
+  { value: 'pool', label: 'Pool' },
+  { value: 'wifi', label: 'Wifi' },
+  { value: 'parking', label: 'Parking' },
+  { value: 'kitchen', label: 'Kitchen' },
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'pets', label: 'Pets' },
+]
+
+const AMENITY_LABELS: Record<string, string> = Object.fromEntries(
+  AMENITY_OPTIONS.map((a) => [a.value, a.label]),
+)
+
+const GOOD_FOR_OPTIONS: { value: GoodForId; label: string }[] = [
+  { value: 'budget', label: 'Budget (under N$800)' },
+  { value: 'family', label: 'Family-friendly' },
+  { value: 'coast', label: 'On the coast' },
+]
+
+const PRICE_BUCKETS: { value: string; label: string; min: string; max: string }[] = [
+  { value: 'lt500', label: 'Under N$500', min: '', max: '500' },
+  { value: '500-1000', label: 'N$500 – 1,000', min: '500', max: '1000' },
+  { value: '1000-2000', label: 'N$1,000 – 2,000', min: '1000', max: '2000' },
+  { value: 'gt2000', label: 'N$2,000+', min: '2000', max: '' },
 ]
 
 const PROPERTY_TYPES: { value: string; label: string }[] = [
@@ -157,7 +171,8 @@ export function AccommodationList() {
   const [minRating, setMinRating] = useState('')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [priceBucket, setPriceBucket] = useState('')
+  const [savedOnly, setSavedOnly] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
 
   useEffect(() => {
@@ -230,17 +245,29 @@ export function AccommodationList() {
       ),
   })
 
+  const savedQuery = useQuery({
+    queryKey: ['saved-stays', profile?.username ?? 'anon'],
+    queryFn: async () =>
+      asArray<AccListing>(
+        await apiFetch('/api/accommodation/listings/saved/', { auth: true }),
+      ),
+    enabled: savedOnly && Boolean(profile),
+  })
+
   const { data: featuredStays = [] } = useFeaturedPlacement<AccListing>(
     'stays-featured-rail',
     FEATURED_API.stays,
   )
 
   const listings = useMemo(() => {
+    if (savedOnly) return sortStays([...(savedQuery.data ?? [])], sort)
     let list = [...(data ?? [])]
     if (coastOnly) list = list.filter(stayMatchesCoast)
     return sortStays(list, sort)
-  }, [data, coastOnly, sort])
+  }, [savedOnly, savedQuery.data, data, coastOnly, sort])
 
+  const activeLoading = savedOnly ? savedQuery.isLoading : isLoading
+  const activeError = savedOnly ? savedQuery.isError : isError
   const inventoryCount = data?.length ?? 0
   const featured = useMemo(() => featuredStays.slice(0, 8), [featuredStays])
 
@@ -259,12 +286,9 @@ export function AccommodationList() {
       coastOnly,
   )
 
-  const showDiscovery = !isLoading && !hasFilters && inventoryCount >= DISCOVERY_MIN_STAYS
+  const showDiscovery =
+    !isLoading && !hasFilters && !savedOnly && inventoryCount >= DISCOVERY_MIN_STAYS
   const showFeaturedRail = showDiscovery && featured.length > 0
-
-  const moreFilterCount = [propType, minBedrooms, minRating, minPrice, maxPrice && !budgetOnly].filter(
-    Boolean,
-  ).length
 
   const clearAll = () => {
     setSearchInput('')
@@ -281,6 +305,7 @@ export function AccommodationList() {
     setMinRating('')
     setMinPrice('')
     setMaxPrice('')
+    setPriceBucket('')
   }
 
   const toggleAmenity = (id: AmenityId) => {
@@ -292,27 +317,31 @@ export function AccommodationList() {
     })
   }
 
-  const applyNeedChip = (id: AmenityId | 'budget' | 'family' | 'coast') => {
-    if (id === 'budget') {
-      setBudgetOnly((v) => !v)
-      return
-    }
-    if (id === 'family') {
-      setFamilyOnly((v) => !v)
-      return
-    }
-    if (id === 'coast') {
-      setCoastOnly((v) => !v)
-      return
-    }
-    toggleAmenity(id)
+  /** Single-select amenity dropdown value (empty when 0 or many selected). */
+  const amenityValue = amenities.size === 1 ? [...amenities][0] : ''
+  const goodForValue: GoodForId | '' = budgetOnly
+    ? 'budget'
+    : familyOnly
+      ? 'family'
+      : coastOnly
+        ? 'coast'
+        : ''
+
+  const onAmenityChange = (value: string) => {
+    setAmenities(value ? new Set([value as AmenityId]) : new Set())
   }
 
-  const needChipActive = (id: AmenityId | 'budget' | 'family' | 'coast') => {
-    if (id === 'budget') return budgetOnly
-    if (id === 'family') return familyOnly
-    if (id === 'coast') return coastOnly
-    return amenities.has(id)
+  const onGoodForChange = (value: string) => {
+    setBudgetOnly(value === 'budget')
+    setFamilyOnly(value === 'family')
+    setCoastOnly(value === 'coast')
+  }
+
+  const onPriceBucketChange = (value: string) => {
+    setPriceBucket(value)
+    const bucket = PRICE_BUCKETS.find((b) => b.value === value)
+    setMinPrice(bucket?.min ?? '')
+    setMaxPrice(bucket?.max ?? '')
   }
 
   const applyCollection = (c: (typeof COLLECTIONS)[number]) => {
@@ -384,7 +413,6 @@ export function AccommodationList() {
         <div className="st-market__hero-head">
           <p className="st-market__kicker">Places to stay</p>
           <h1 className="st-market__title">Find a stay</h1>
-          <p className="st-market__sub">Search by area, needs, and budget — compare nightly rates.</p>
         </div>
 
         <div className="st-market__find">
@@ -427,6 +455,48 @@ export function AccommodationList() {
 
             <select
               className="st-market__select"
+              value={propType}
+              onChange={(e) => setPropType(e.target.value)}
+              aria-label="Property type"
+            >
+              <option value="">Any type</option>
+              {PROPERTY_TYPES.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="st-market__select"
+              value={amenityValue}
+              onChange={(e) => onAmenityChange(e.target.value)}
+              aria-label="Amenity"
+            >
+              <option value="">Any amenity</option>
+              {AMENITY_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="st-market__select"
+              value={goodForValue}
+              onChange={(e) => onGoodForChange(e.target.value)}
+              aria-label="Good for"
+            >
+              <option value="">Good for…</option>
+              {GOOD_FOR_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="st-market__select"
               value={guests}
               onChange={(e) => setGuests(e.target.value)}
               aria-label="Guests"
@@ -440,6 +510,44 @@ export function AccommodationList() {
             </select>
 
             <select
+              className="st-market__select"
+              value={minBedrooms}
+              onChange={(e) => setMinBedrooms(e.target.value)}
+              aria-label="Bedrooms"
+            >
+              <option value="">Any beds</option>
+              <option value="1">1+ beds</option>
+              <option value="2">2+ beds</option>
+              <option value="3">3+ beds</option>
+            </select>
+
+            <select
+              className="st-market__select"
+              value={priceBucket}
+              onChange={(e) => onPriceBucketChange(e.target.value)}
+              aria-label="Price per night"
+            >
+              <option value="">Any price</option>
+              {PRICE_BUCKETS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="st-market__select"
+              value={minRating}
+              onChange={(e) => setMinRating(e.target.value)}
+              aria-label="Minimum rating"
+            >
+              <option value="">Any rating</option>
+              <option value="4">4+ stars</option>
+              <option value="4.5">4.5+ stars</option>
+              <option value="5">5 stars</option>
+            </select>
+
+            <select
               className="st-market__sort"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortId)}
@@ -450,46 +558,6 @@ export function AccommodationList() {
               <option value="price_asc">Price: low to high</option>
               <option value="price_desc">Price: high to low</option>
             </select>
-          </div>
-        </div>
-
-        <div className="st-market__needs" role="group" aria-label="Need filters">
-          <div className="st-market__rail">
-            {NEED_CHIPS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                className={`st-market__chip${needChipActive(id) ? ' is-active' : ''}`}
-                aria-pressed={needChipActive(id)}
-                onClick={() => applyNeedChip(id)}
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={`st-market__more${moreFilterCount > 0 ? ' is-active' : ''}`}
-              onClick={() => setFiltersOpen(true)}
-            >
-              <SlidersHorizontal size={14} strokeWidth={2.25} aria-hidden />
-              More filters{moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}
-            </button>
-          </div>
-        </div>
-
-        <div className="st-market__types" role="group" aria-label="Property type">
-          <div className="st-market__rail">
-            {PROPERTY_TYPES.map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                className={`st-market__chip${propType === value ? ' is-active' : ''}`}
-                aria-pressed={propType === value}
-                onClick={() => setPropType(propType === value ? '' : value)}
-              >
-                {label}
-              </button>
-            ))}
           </div>
         </div>
       </header>
@@ -530,7 +598,7 @@ export function AccommodationList() {
               className="st-market__active-pill"
               onClick={() => toggleAmenity(id)}
             >
-              {NEED_CHIPS.find((n) => n.id === id)?.label ?? id}{' '}
+              {AMENITY_LABELS[id] ?? id}{' '}
               <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ))}
@@ -559,14 +627,14 @@ export function AccommodationList() {
               {minRating}+ stars <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
-          {minPrice ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setMinPrice('')}>
-              From N${minPrice} <X size={13} strokeWidth={2.5} aria-hidden />
-            </button>
-          ) : null}
-          {maxPrice && !budgetOnly ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setMaxPrice('')}>
-              Up to N${maxPrice} <X size={13} strokeWidth={2.5} aria-hidden />
+          {priceBucket ? (
+            <button
+              type="button"
+              className="st-market__active-pill"
+              onClick={() => onPriceBucketChange('')}
+            >
+              {PRICE_BUCKETS.find((b) => b.value === priceBucket)?.label ?? 'Price'}{' '}
+              <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           <button type="button" className="st-market__clear" onClick={clearAll}>
@@ -591,32 +659,52 @@ export function AccommodationList() {
 
       <div className="st-market__results-bar">
         <p className="st-market__count" role="status">
-          {isLoading ? (
-            'Loading stays…'
-          ) : isError ? (
+          {activeLoading ? (
+            savedOnly ? 'Loading saved stays…' : 'Loading stays…'
+          ) : activeError ? (
             'Couldn’t load stays'
           ) : (
             <>
               <strong>{listings.length}</strong> {listings.length === 1 ? 'stay' : 'stays'}
-              {hasFilters ? ' match' : ' to explore'}
+              {savedOnly ? ' saved' : hasFilters ? ' match' : ' to explore'}
             </>
           )}
         </p>
+        <button
+          type="button"
+          className={`st-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
+          aria-pressed={savedOnly}
+          onClick={() => {
+            if (!profile) {
+              navigate('/login')
+              return
+            }
+            setSavedOnly((v) => !v)
+          }}
+        >
+          <Bookmark
+            size={15}
+            strokeWidth={2.25}
+            fill={savedOnly ? 'currentColor' : 'none'}
+            aria-hidden
+          />
+          {savedOnly ? 'Saved' : 'Saved stays'}
+        </button>
       </div>
 
-      {isError ? (
+      {activeError ? (
         <EmptyState
           iconElement={<Building2 size={28} strokeWidth={1.75} />}
           title="We couldn't load stays"
           sub="Please check your connection and try again."
-          cta={{ label: 'Try again', onClick: () => void refetch() }}
+          cta={{ label: 'Try again', onClick: () => void (savedOnly ? savedQuery.refetch() : refetch()) }}
           className="st-market__empty"
         />
       ) : null}
 
-      {isLoading && !isError ? <ListSkeleton count={6} /> : null}
+      {activeLoading && !activeError ? <ListSkeleton count={6} /> : null}
 
-      {!isLoading && !isError && listings.length > 0 ? (
+      {!activeLoading && !activeError && listings.length > 0 ? (
         <div className="st-market__grid">
           {listings.map((a) => (
             <AccommodationListingCard
@@ -693,133 +781,38 @@ export function AccommodationList() {
         </section>
       ) : null}
 
-      {!isLoading && !isError && listings.length === 0 ? (
+      {!activeLoading && !activeError && listings.length === 0 ? (
         <EmptyState
-          iconElement={<Building2 size={28} strokeWidth={1.75} />}
-          title={hasFilters ? 'No stays match those filters' : 'No stays listed yet'}
-          sub={
-            hasFilters
-              ? budgetOnly
-                ? `No stays under N$${BUDGET_MAX_PRICE}/night — try another area or clear filters.`
-                : 'Try another area, need, or clear filters to see more places.'
-              : 'Hotels, lodges, and guest houses will appear here once hosts add listings.'
+          iconElement={
+            savedOnly ? <Bookmark size={28} strokeWidth={1.75} /> : <Building2 size={28} strokeWidth={1.75} />
           }
-          cta={hasFilters ? { label: 'Clear filters', onClick: clearAll } : undefined}
+          title={
+            savedOnly
+              ? 'No saved stays yet'
+              : hasFilters
+                ? 'No stays match those filters'
+                : 'No stays listed yet'
+          }
+          sub={
+            savedOnly
+              ? 'Tap the bookmark on any stay to save it here for later.'
+              : hasFilters
+                ? budgetOnly
+                  ? `No stays under N$${BUDGET_MAX_PRICE}/night — try another area or clear filters.`
+                  : 'Try another area, need, or clear filters to see more places.'
+                : 'Hotels, lodges, and guest houses will appear here once hosts add listings.'
+          }
+          cta={
+            savedOnly
+              ? { label: 'Browse stays', onClick: () => setSavedOnly(false) }
+              : hasFilters
+                ? { label: 'Clear filters', onClick: clearAll }
+                : undefined
+          }
           className="st-market__empty"
         />
       ) : null}
 
-      <CommunityComposeModalShell
-        open={filtersOpen}
-        title="More filters"
-        titleId="st-filter-modal-title"
-        onClose={() => setFiltersOpen(false)}
-      >
-        <p className="cm-compose-modal__note">Bedrooms, rating, price, and property type.</p>
-
-        <div className="cm-compose-modal__composer-block">
-          <span>Stay</span>
-          <div className="st-filter-modal__row">
-            <label className="st-filter-modal__field">
-              <span>Property type</span>
-              <select
-                className="cm-compose-modal__select"
-                value={propType}
-                onChange={(e) => setPropType(e.target.value)}
-              >
-                <option value="">Any type</option>
-                {PROPERTY_TYPES.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="st-filter-modal__field">
-              <span>Min bedrooms</span>
-              <select
-                className="cm-compose-modal__select"
-                value={minBedrooms}
-                onChange={(e) => setMinBedrooms(e.target.value)}
-              >
-                <option value="">Any</option>
-                <option value="1">1+</option>
-                <option value="2">2+</option>
-                <option value="3">3+</option>
-              </select>
-            </label>
-          </div>
-          <label className="st-filter-modal__field">
-            <span>Minimum rating</span>
-            <select
-              className="cm-compose-modal__select"
-              value={minRating}
-              onChange={(e) => setMinRating(e.target.value)}
-            >
-              <option value="">Any</option>
-              <option value="4">4+</option>
-              <option value="4.5">4.5+</option>
-              <option value="5">5</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="cm-compose-modal__composer-block">
-          <span>Price / night (N$)</span>
-          <div className="st-filter-modal__row">
-            <label className="st-filter-modal__field">
-              <span>From</span>
-              <input
-                className="st-filter-modal__input"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                placeholder="No min"
-              />
-            </label>
-            <label className="st-filter-modal__field">
-              <span>Up to</span>
-              <input
-                className="st-filter-modal__input"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                placeholder="No max"
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="st-filter-modal__actions">
-          <button
-            type="button"
-            className="cm-compose-modal__submit st-filter-modal__apply"
-            onClick={() => setFiltersOpen(false)}
-          >
-            Apply
-          </button>
-          {moreFilterCount > 0 ? (
-            <button
-              type="button"
-              className="st-filter-modal__clear"
-              onClick={() => {
-                setPropType('')
-                setMinBedrooms('')
-                setMinRating('')
-                setMinPrice('')
-                setMaxPrice('')
-                setFiltersOpen(false)
-              }}
-            >
-              Clear advanced
-            </button>
-          ) : null}
-        </div>
-      </CommunityComposeModalShell>
     </div>
   )
 }

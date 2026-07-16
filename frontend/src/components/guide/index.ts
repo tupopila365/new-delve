@@ -1,5 +1,4 @@
 export { GuideAskButton } from './GuideAskButton'
-export { GuideAskSection } from './GuideAskSection'
 export { GuideReviewForm } from './GuideReviewForm'
 export { GuideCredentialsCard } from './GuideCredentialsCard'
 export { GuideDetailView } from './GuideDetailView'

@@ -13,7 +13,6 @@ import {
   StayListingCard,
   StayListingForm,
   StayMonetizationSection,
-  StayQuestionsPanel,
   StayStoriesPanel,
   formToApiPayload,
   stayListingToForm,
@@ -52,7 +51,6 @@ const TABS = [
   { id: 'listings', label: 'Listings' },
   { id: 'stories', label: 'Stories' },
   { id: 'bookings', label: 'Bookings' },
-  { id: 'qa', label: 'Q&A' },
   { id: 'reviews', label: 'Reviews' },
 ] as const
 
@@ -394,12 +392,6 @@ export function StaysAdmin() {
               ))}
             </div>
           )}
-        </section>
-      )}
-
-      {tab === 'qa' && (
-        <section id="qa">
-          <StayQuestionsPanel canAnswer={canManageListings} />
         </section>
       )}
 

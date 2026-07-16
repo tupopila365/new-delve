@@ -10,6 +10,7 @@ import {
   AccommodationRoomBooking,
 } from './AccommodationRoomBooking'
 import { StayHostCard } from './StayHostCard'
+import { ListingDelversMoments } from '../listing'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
 import { roomGalleryImages } from '../listing/listingUtils'
@@ -128,6 +129,16 @@ export function AccommodationRoomDetailView({
               <p className="jd-story__lead">{room.description.trim()}</p>
             </JourneySection>
           ) : null}
+
+          <ListingDelversMoments
+            listingType="accommodation"
+            listingId={listingId}
+            listingTitle={listingTitle}
+            title="From Delvers"
+            className="acc-detail__moments"
+            showWhenEmpty
+            emptyMessage="No guest moments yet."
+          />
 
           <StayHostCard
             username={listing.owner_username}

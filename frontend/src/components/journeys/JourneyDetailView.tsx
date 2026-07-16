@@ -9,9 +9,9 @@ import {
   Bus,
   CalendarDays,
   Car,
+  Eye,
   Footprints,
   Heart,
-  Info,
   MapPin,
   MessageCircle,
   Pencil,
@@ -22,14 +22,13 @@ import {
   Trash2,
   Users,
 } from 'lucide-react'
-import type { MockTrip } from '../../data/mockTrips'
+import type { MockTrip, TripReflections } from '../../data/mockTrips'
 import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { postPermalinkPath } from '../../utils/postPermalink'
 import { friendlyApiMessage } from '../../utils/friendlyError'
 import { ReportButton } from '../report/ReportButton'
 import {
-  buildJourneyDetailRows,
   buildJourneyGallery,
   collectJourneyPhotos,
   formatJourneyCost,
@@ -38,12 +37,13 @@ import {
   routeLabel,
 } from '../../utils/journeyListing'
 import { JourneyHero } from './JourneyHero'
-import { JourneySection } from './JourneySection'
-import { JourneyRouteStops } from './JourneyRouteStops'
 import { JourneyDayByDay } from './JourneyDayByDay'
+import { JourneyRouteRibbon } from './JourneyRouteRibbon'
 import { JourneyBudgetBreakdown } from './JourneyBudgetBreakdown'
 import { buildJourneyStoryChannels } from './journeyStoriesUtils'
 import { JourneyDelversHighlightsSection } from './JourneyDelversHighlights'
+import { JourneyReflections, JourneyTakeaway } from './JourneyReflections'
+import { JourneyCreatorCard, JourneyCreatorMore } from './JourneyCreator'
 import { HighlightAddFlow } from '../highlights/HighlightAddFlow'
 import { HighlightManageSheet } from '../highlights/HighlightManageSheet'
 import { MAX_HIGHLIGHT_CHANNELS, normalizeHighlightsForSave } from '../highlights/highlightFormUtils'
@@ -85,6 +85,12 @@ function travelledLabel(trip: MockTrip) {
   return `Travelled ${start.toLocaleDateString('en-NA', { month: 'long', year: 'numeric' })}`
 }
 
+function formatViews(n?: number): string | null {
+  if (!n || n <= 0) return null
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '')}k`
+  return String(n)
+}
+
 type Props = {
   trip: MockTrip
   journeyId: string
@@ -98,6 +104,7 @@ type Props = {
   likeBusy?: boolean
   saveBusy?: boolean
   similarJourneys: MockTrip[]
+  creatorJourneys?: MockTrip[]
 }
 
 export function JourneyDetailView({
@@ -113,6 +120,7 @@ export function JourneyDetailView({
   likeBusy = false,
   saveBusy = false,
   similarJourneys,
+  creatorJourneys = [],
 }: Props) {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -122,6 +130,7 @@ export function JourneyDetailView({
   const [addHighlightOpen, setAddHighlightOpen] = useState(false)
   const [manageHighlightsOpen, setManageHighlightsOpen] = useState(false)
   const [savingHighlight, setSavingHighlight] = useState(false)
+  const [savingReflections, setSavingReflections] = useState(false)
   const customHighlightChannels = trip.journey_stories ?? []
   const commentsSectionRef = useRef<HTMLElement>(null)
   const commentComposerRef = useRef<HTMLInputElement>(null)
@@ -131,14 +140,8 @@ export function JourneyDetailView({
   const accent = journeyAccentBadge(trip)
   const hook = journeyHook(trip)
   const galleryImages = buildJourneyGallery(trip, photoItems)
-  const storyRows = buildJourneyDetailRows(trip)
   const travelled = travelledLabel(trip)
-  const authorInitial = (trip.author.display_name || trip.author.username || '?').charAt(0).toUpperCase()
-
-  const practicalTips = trip.stops
-    .map((s) => s.notes?.trim())
-    .filter((n): n is string => !!n)
-    .slice(0, 4)
+  const viewsLabel = formatViews(trip.views_count)
 
   const storyChannels = useMemo(
     () => buildJourneyStoryChannels(trip, { journeyPath: `/journeys/${journeyId}` }),
@@ -181,6 +184,22 @@ export function JourneyDetailView({
 
   async function saveManagedHighlights(channels: HighlightChannelInput[]) {
     await patchJourneyStories(normalizeHighlightsForSave(channels), 'manage')
+  }
+
+  async function saveReflections(next: TripReflections) {
+    setSavingReflections(true)
+    setAuthorErr(null)
+    try {
+      await apiFetch(`/api/journeys/${journeyId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reflections: next }),
+      })
+      void qc.invalidateQueries({ queryKey: ['journey', journeyId] })
+    } catch (error) {
+      setAuthorErr(friendlyApiMessage(error, 'Could not save reflections.'))
+    } finally {
+      setSavingReflections(false)
+    }
   }
 
   async function deleteJourney() {
@@ -229,24 +248,15 @@ export function JourneyDetailView({
         onShare={onShare}
       />
 
-      {/* Who took this trip — signals "someone's journey", not a listing */}
+      {/* Creator hub — avatar, name, journey count, Follow */}
       <div className="jd-head">
-        <Link to={`/u/${trip.author.username}`} className="jd-author">
-          {trip.author.avatar ? (
-            <img className="jd-author__avatar" src={trip.author.avatar} alt="" />
-          ) : (
-            <span className="jd-author__avatar jd-author__avatar--fallback" aria-hidden>
-              {authorInitial}
-            </span>
-          )}
-          <span className="jd-author__copy">
-            <span className="jd-author__name">{trip.author.display_name || trip.author.username}</span>
-            <span className="jd-author__sub">
-              @{trip.author.username}
-              {travelled ? ` · ${travelled}` : ''}
-            </span>
-          </span>
-        </Link>
+        <JourneyCreatorCard
+          username={trip.author.username}
+          displayName={trip.author.display_name || trip.author.username}
+          avatar={trip.author.avatar}
+          journeyCount={creatorJourneys.length + 1}
+          isAuthor={isAuthor}
+        />
 
         <div className="jd-head__actions">
           {isAuthor ? (
@@ -274,18 +284,20 @@ export function JourneyDetailView({
         </div>
       </div>
 
-      {/* Title, route, hook */}
+      {/* Title, route, hook as an opening line, summary lead */}
       <div className="jd-titleblock">
         {accent ? <span className="jd-badge">{accent}</span> : null}
         <h1 className="jd-title">{trip.title}</h1>
         <p className="jd-route">
           <Route size={17} strokeWidth={2.25} aria-hidden />
           {route}
+          {travelled ? <span className="jd-route__when"> · {travelled}</span> : null}
         </p>
         {hook ? <p className="jd-hook">{hook}</p> : null}
+        {trip.summary?.trim() ? <p className="jd-lead">{trip.summary.trim()}</p> : null}
       </div>
 
-      {/* Social engagement bar — Delvers-style primary + save on the right */}
+      {/* Social engagement bar */}
       <div className="jd-engage" aria-label="Journey actions">
         <div className="jd-engage__primary">
           <button
@@ -333,7 +345,7 @@ export function JourneyDetailView({
         </p>
       ) : null}
 
-      {/* At-a-glance facts */}
+      {/* At-a-glance facts + views */}
       <ul className="jd-facts">
         <li className="jd-fact">
           <CalendarDays size={15} strokeWidth={2.25} aria-hidden />
@@ -353,10 +365,19 @@ export function JourneyDetailView({
             {label}
           </li>
         ))}
+        {viewsLabel ? (
+          <li className="jd-fact jd-fact--views">
+            <Eye size={15} strokeWidth={2.25} aria-hidden />
+            {viewsLabel} views
+          </li>
+        ) : null}
         <li className="jd-fact jd-fact--cost">{formatJourneyCost(trip.total_cost, trip.currency)} total</li>
       </ul>
 
-      {/* Route highlights & moments */}
+      {/* Route ribbon */}
+      <JourneyRouteRibbon stops={trip.stops} className="jn-detail__ribbon" />
+
+      {/* Route highlights & moments (story rings) */}
       <JourneyDelversHighlightsSection
         trip={trip}
         channels={storyChannels}
@@ -389,52 +410,23 @@ export function JourneyDetailView({
         saving={savingHighlight}
       />
 
-      {trip.summary?.trim() || storyRows.length > 0 ? (
-        <JourneySection title="The story">
-          {trip.summary?.trim() ? <p className="jd-story__lead">{trip.summary.trim()}</p> : null}
-          {storyRows.length > 0 ? (
-            <ul className="jd-story__rows">
-              {storyRows.map((row) => (
-                <li key={row.id} className="jd-story__row">
-                  <span className="jd-story__row-label">
-                    {row.id === 'when' ? (
-                      <CalendarDays size={14} strokeWidth={2.25} aria-hidden />
-                    ) : row.id === 'countries' ? (
-                      <MapPin size={14} strokeWidth={2.25} aria-hidden />
-                    ) : (
-                      <Route size={14} strokeWidth={2.25} aria-hidden />
-                    )}
-                    {row.label}
-                  </span>
-                  <span className="jd-story__row-value">{row.value}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </JourneySection>
-      ) : null}
-
-      <JourneyRouteStops stops={trip.stops} tags={trip.tags} className="jn-detail__route" />
-
+      {/* One immersive diary (route + day-by-day merged) */}
       <JourneyDayByDay
         stops={trip.stops}
+        tags={trip.tags}
         className="jn-detail__diary"
         isAuthor={isAuthor}
         onShareEntry={isAuthor ? shareEntryOnDelvers : undefined}
       />
 
-      {practicalTips.length > 0 ? (
-        <JourneySection title="Practical tips">
-          <ul className="jd-tips">
-            {practicalTips.map((tip, i) => (
-              <li key={`tip-${i}`} className="jd-tip">
-                <Info size={16} strokeWidth={2.25} aria-hidden />
-                {tip}
-              </li>
-            ))}
-          </ul>
-        </JourneySection>
-      ) : null}
+      {/* Author reflections */}
+      <JourneyReflections
+        reflections={trip.reflections}
+        isAuthor={isAuthor}
+        saving={savingReflections}
+        onSave={saveReflections}
+        className="jn-detail__reflect"
+      />
 
       <JourneyBudgetBreakdown
         totalCost={trip.total_cost}
@@ -444,11 +436,22 @@ export function JourneyDetailView({
         className="jn-detail__budget"
       />
 
+      {/* Closing takeaway */}
+      <JourneyTakeaway text={trip.reflections?.takeaway} className="jn-detail__takeaway" />
+
       <JourneyCommentsSection
         journeyId={journeyId}
         sectionRef={commentsSectionRef}
         composerRef={commentComposerRef}
         className="jn-detail__comments"
+      />
+
+      {/* More from the creator */}
+      <JourneyCreatorMore
+        journeys={creatorJourneys}
+        displayName={trip.author.display_name || trip.author.username}
+        username={trip.author.username}
+        className="jn-detail__creator-more"
       />
 
       <JourneyInspirationGrid journeys={similarJourneys} className="jn-detail__inspiration" />

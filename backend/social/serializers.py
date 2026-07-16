@@ -5,6 +5,7 @@ from accommodation.models import AccommodationListing
 from accounts.models import UserType
 from events_app.models import Event
 from food.models import FoodVenue
+from guides.models import TourGuideProfile
 from transport.models import BusTrip, VehicleRentalListing
 
 from config.cloudinary_media import absolute_media_url, cloudinary_video_delivery_url
@@ -108,6 +109,11 @@ class PostSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    guide_profile = serializers.PrimaryKeyRelatedField(
+        queryset=TourGuideProfile.objects.none(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Post
@@ -132,6 +138,7 @@ class PostSerializer(serializers.ModelSerializer):
             "vehicle_listing",
             "bus_trip",
             "food_venue",
+            "guide_profile",
             "created_at",
             "likes_count",
             "saves_count",
@@ -168,6 +175,7 @@ class PostSerializer(serializers.ModelSerializer):
         vehicle_field = self.fields.get("vehicle_listing")
         bus_trip_field = self.fields.get("bus_trip")
         food_venue_field = self.fields.get("food_venue")
+        guide_profile_field = self.fields.get("guide_profile")
         if listing_field is not None:
             if request and request.user.is_authenticated:
                 listing_field.queryset = AccommodationListing.objects.all()
@@ -184,6 +192,8 @@ class PostSerializer(serializers.ModelSerializer):
             bus_trip_field.queryset = BusTrip.objects.filter(is_active=True)
         if food_venue_field is not None:
             food_venue_field.queryset = FoodVenue.objects.filter(is_active=True)
+        if guide_profile_field is not None:
+            guide_profile_field.queryset = TourGuideProfile.objects.filter(is_active=True)
 
     def validate(self, attrs):
         instance = self.instance
@@ -321,10 +331,18 @@ class PostSerializer(serializers.ModelSerializer):
         if food_venue is None and instance is not None:
             food_venue = instance.food_venue
 
-        linked = [row for row in (listing, event, vehicle_listing, bus_trip, food_venue) if row is not None]
+        guide_profile = attrs.get("guide_profile")
+        if guide_profile is None and instance is not None:
+            guide_profile = instance.guide_profile
+
+        linked = [
+            row
+            for row in (listing, event, vehicle_listing, bus_trip, food_venue, guide_profile)
+            if row is not None
+        ]
         if len(linked) > 1:
             raise serializers.ValidationError(
-                "Link one place only (stay, event, vehicle, bus trip, or food venue)."
+                "Link one place only (stay, event, vehicle, bus trip, food venue, or guide)."
             )
 
         if listing is not None and request and request.user.is_authenticated:
@@ -337,6 +355,7 @@ class PostSerializer(serializers.ModelSerializer):
             or vehicle_listing is not None
             or bus_trip is not None
             or food_venue is not None
+            or guide_profile is not None
         ) and not is_acc and post_kind != PostKind.QUESTION:
             attrs["is_delvers"] = True
 
@@ -348,6 +367,19 @@ class PostSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("That bus trip is not available for moments.")
         if food_venue is not None and not food_venue.is_active:
             raise serializers.ValidationError("That food venue is not available for moments.")
+        if guide_profile is not None and not guide_profile.is_active:
+            raise serializers.ValidationError("That guide is not available for moments.")
+
+        # Only travellers who actually attended (completed booking) may share a
+        # guide moment. Enforced when the guide tag is being set in this request.
+        if attrs.get("guide_profile") is not None:
+            from guides.review_services import user_attended_guide
+
+            user = getattr(request, "user", None)
+            if not user_attended_guide(user, attrs["guide_profile"]):
+                raise serializers.ValidationError(
+                    "You can share a moment only after a completed tour with this guide."
+                )
 
         body = attrs.get("body")
         if body is None and instance is not None:
@@ -381,6 +413,7 @@ class PostSerializer(serializers.ModelSerializer):
         ret.pop("vehicle_listing", None)
         ret.pop("bus_trip", None)
         ret.pop("food_venue", None)
+        ret.pop("guide_profile", None)
         if instance.listing_id:
             ret["listing"] = {"id": instance.listing_id, "title": instance.listing.title}
         else:
@@ -410,6 +443,13 @@ class PostSerializer(serializers.ModelSerializer):
             }
         else:
             ret["food_venue"] = None
+        if instance.guide_profile_id:
+            ret["guide_profile"] = {
+                "id": instance.guide_profile_id,
+                "title": instance.guide_profile.headline,
+            }
+        else:
+            ret["guide_profile"] = None
         return ret
 
     def get_liked_by_me(self, obj):

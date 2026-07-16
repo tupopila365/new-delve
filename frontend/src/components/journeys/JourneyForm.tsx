@@ -1,4 +1,4 @@
-import type { TripCost } from '../../data/mockTrips'
+import type { TripCost, TripReflections } from '../../data/mockTrips'
 import { ListingPhotoManager } from '../listing/photos'
 import type { ListingPhotoDraft } from '../listing/photos/types'
 import { JourneyStopMoment, type StopMoment } from '../create/JourneyStopMoment'
@@ -36,6 +36,7 @@ type Props = {
   selectedTags: string[]
   selectedCountries: string[]
   journeyStories: HighlightChannelInput[]
+  reflections: TripReflections
   onChange: (patch: Partial<JourneyFormPatch>) => void
   step?: number
 }
@@ -72,6 +73,7 @@ type JourneyFormPatch = {
   selectedTags: string[]
   selectedCountries: string[]
   journeyStories: HighlightChannelInput[]
+  reflections: TripReflections
 }
 
 const TRANSPORT_OPTIONS = [
@@ -126,6 +128,7 @@ export function JourneyForm({
   selectedTags,
   selectedCountries,
   journeyStories,
+  reflections,
   onChange,
   step,
 }: Props) {
@@ -133,6 +136,15 @@ export function JourneyForm({
 
   const total = costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
   const days = daysBetween(startsOn, endsOn)
+
+  const linesToList = (text: string) =>
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+
+  const patchReflections = (patch: Partial<TripReflections>) =>
+    onChange({ reflections: { ...reflections, ...patch } })
 
   return (
     <div className="cj-compose">
@@ -365,6 +377,43 @@ export function JourneyForm({
               onChange={(journeyStories) => onChange({ journeyStories })}
               hint="Story rings on your journey page — name each ring yourself."
               emptyCopy="No custom highlight rings yet."
+            />
+          </section>
+
+          <section className="ce-form__section" aria-labelledby="ce-reflections-title">
+            <h2 id="ce-reflections-title" className="ce-form__section-title">Reflections</h2>
+            <p className="cj-compose__prompt">Make it personal — the highs, the lows, and what you'd change.</p>
+            <FormTextarea
+              label="Highs (one per line)"
+              id="cj-reflect-highs"
+              placeholder={'Sunrise at the dunes\nThe food in Swakop'}
+              rows={3}
+              value={reflections.highs.join('\n')}
+              onChange={(e) => patchReflections({ highs: linesToList(e.target.value) })}
+            />
+            <FormTextarea
+              label="Lows (one per line)"
+              id="cj-reflect-lows"
+              placeholder={'Midday heat\nLong gravel roads'}
+              rows={3}
+              value={reflections.lows.join('\n')}
+              onChange={(e) => patchReflections({ lows: linesToList(e.target.value) })}
+            />
+            <FormTextarea
+              label="What I'd do differently"
+              id="cj-reflect-change"
+              placeholder="One thing you'd change next time…"
+              rows={2}
+              value={reflections.would_change}
+              onChange={(e) => patchReflections({ would_change: e.target.value })}
+            />
+            <FormTextarea
+              label="The takeaway (closing thought)"
+              id="cj-reflect-takeaway"
+              placeholder="What this trip meant to you…"
+              rows={2}
+              value={reflections.takeaway}
+              onChange={(e) => patchReflections({ takeaway: e.target.value })}
             />
           </section>
 

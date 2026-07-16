@@ -1,5 +1,5 @@
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.core.files.storage import default_storage
 from rest_framework import serializers
@@ -70,6 +70,80 @@ def _listing_cover_url(obj: AccommodationListing, request=None) -> str | None:
         if src:
             return _absolute_media_url(src, request) or src
     return None
+
+
+def _room_price(value) -> str | None:
+    """Normalize a room price to a 2dp string, or None. Raises on bad input."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        amount = Decimal(text)
+    except (InvalidOperation, ValueError):
+        raise serializers.ValidationError("Room prices must be numbers.")
+    if amount < 0:
+        raise serializers.ValidationError("Room prices cannot be negative.")
+    return f"{amount:.2f}"
+
+
+def _room_uint(value) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        raise serializers.ValidationError("Room guest/bedroom counts must be whole numbers.")
+    return max(0, number)
+
+
+def _room_str_list(value) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def normalize_room_type(row) -> dict:
+    """Coerce a freeform room_types entry into the documented, first-class shape.
+
+    Accepts legacy aliases (was_price/original_price, special_label, is_featured,
+    photo, gallery/photos) and returns canonical keys the frontend reads.
+    """
+    if not isinstance(row, dict):
+        raise serializers.ValidationError("Each room type must be an object.")
+    name = str(row.get("name", "")).strip()
+    if not name:
+        raise serializers.ValidationError("Each room type needs a name.")
+
+    image = str(row.get("image") or row.get("photo") or "").strip()
+    images = _room_str_list(row.get("images") or row.get("gallery") or row.get("photos"))
+    if not images and image:
+        images = [image]
+
+    price = _room_price(row.get("price_per_night"))
+    compare_at = _room_price(
+        row.get("compare_at_price") or row.get("was_price") or row.get("original_price")
+    )
+    # A "was" price is only a real discount when it exceeds the current price.
+    if price is not None and compare_at is not None and Decimal(compare_at) <= Decimal(price):
+        compare_at = None
+
+    badge = str(row.get("badge") or row.get("special_label") or "").strip() or None
+
+    return {
+        "name": name,
+        "description": str(row.get("description") or "").strip(),
+        "max_guests": _room_uint(row.get("max_guests")),
+        "bedrooms": _room_uint(row.get("bedrooms")),
+        "bed_summary": str(row.get("bed_summary") or "").strip(),
+        "price_per_night": price,
+        "compare_at_price": compare_at,
+        "badge": badge,
+        "featured": bool(row.get("featured") or row.get("is_featured")),
+        "image": image or None,
+        "images": images,
+    }
 
 
 class AccommodationListingSerializer(serializers.ModelSerializer):
@@ -151,6 +225,13 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         if value is None:
             return ""
         return str(value).strip()
+
+    def validate_room_types(self, value):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("room_types must be a list.")
+        return [normalize_room_type(row) for row in value]
 
     def get_likes_count(self, obj):
         v = getattr(obj, "likes_count", None)

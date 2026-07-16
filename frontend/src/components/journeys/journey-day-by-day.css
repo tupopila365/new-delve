@@ -42,19 +42,71 @@
 }
 
 .jn-diary__place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0 0 3px;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.3;
   color: var(--listing-text, var(--text));
 }
 
+.jn-diary__region {
+  font-weight: 500;
+  color: var(--listing-text-muted, var(--text-secondary));
+}
+
 .jn-diary__dates {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
   color: var(--listing-text-muted, var(--text-secondary));
+}
+
+.jn-diary__intro {
+  margin: 8px 0 10px;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--listing-text, var(--text));
+  max-width: 62ch;
+}
+
+.jn-diary__place-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 6px 12px 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--listing-accent, var(--accent));
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--listing-accent, var(--accent));
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.jn-diary__place-tag:hover {
+  background: rgba(124, 58, 237, 0.2);
+}
+
+.jn-diary__place-tag svg {
+  flex-shrink: 0;
+}
+
+.jn-diary__place-tag-verb {
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.jn-diary__place-tag-name {
+  font-weight: 800;
+  color: var(--listing-text, var(--text));
 }
 
 .jn-diary__cost {
@@ -72,19 +124,133 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .jn-diary__thumb {
   margin: 0;
 }
 
+/* Immersive, photo-forward media carousel per moment */
+.jn-diary__carousel {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.jn-diary__media {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  aspect-ratio: 4 / 3;
+  max-height: 480px;
+}
+
+.jn-diary__media img,
+.jn-diary__media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.jn-diary__media-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  pointer-events: none;
+}
+
+.jn-diary__car-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.jn-diary__car-nav--prev {
+  left: 8px;
+}
+
+.jn-diary__car-nav--next {
+  right: 8px;
+}
+
+.jn-diary__car-nav:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.jn-diary__car-count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  z-index: 2;
+}
+
+.jn-diary__dots {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  z-index: 2;
+}
+
+.jn-diary__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transition: width 140ms ease, background 140ms ease;
+}
+
+.jn-diary__dot.is-active {
+  width: 18px;
+  border-radius: 999px;
+  background: #fff;
+}
+
 .jn-diary__note {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--listing-text, var(--text));
-  max-width: 52ch;
+  max-width: 60ch;
+}
+
+.jn-diary__tags {
+  margin-top: 16px;
 }
 
 .jn-diary__empty-day {

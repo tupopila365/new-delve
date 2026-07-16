@@ -29,6 +29,7 @@ export type PlaceLink =
   | { kind: 'vehicle'; id: number; title: string }
   | { kind: 'bus_trip'; id: number; title: string }
   | { kind: 'food'; id: number; title: string }
+  | { kind: 'guide'; id: number; title: string }
 
 export const DEFAULT_PLACE_LINK: PlaceLink = { kind: 'none' }
 

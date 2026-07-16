@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from .models import GuideBooking, GuideSave, TourGuideProfile
 from .provider_serializers import _photo_url
-from .review_services import user_can_review_guide, user_has_reviewed_guide
+from .review_services import user_attended_guide, user_can_review_guide, user_has_reviewed_guide
 
 
 class TourGuideProfileSerializer(serializers.ModelSerializer):
@@ -16,6 +16,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
     saves_count = serializers.SerializerMethodField()
     has_reviewed = serializers.SerializerMethodField()
     can_review = serializers.SerializerMethodField()
+    attended = serializers.SerializerMethodField()
 
     class Meta:
         model = TourGuideProfile
@@ -47,6 +48,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
             "saves_count",
             "has_reviewed",
             "can_review",
+            "attended",
             "is_active",
             "created_at",
         )
@@ -56,6 +58,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
             "saves_count",
             "has_reviewed",
             "can_review",
+            "attended",
             "created_at",
         )
 
@@ -109,6 +112,12 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return user_can_review_guide(request.user, obj)
+
+    def get_attended(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return user_attended_guide(request.user, obj)
 
     def create(self, validated_data):
         user = self.context["request"].user

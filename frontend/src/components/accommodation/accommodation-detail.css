@@ -99,6 +99,11 @@
   color: #1a0e0c;
 }
 
+/* Kill the global purple glow on primary CTAs (reserve / select room). */
+.acc-detail-page .btn-primary {
+  box-shadow: none;
+}
+
 .acc-detail-page .jd-btn--primary:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
@@ -125,18 +130,8 @@
 .acc-detail__provider,
 .acc-detail__moments,
 .acc-detail__reviews,
-.acc-detail__questions,
 .acc-detail__faq {
   margin-bottom: 12px;
-}
-
-.acc-detail__moment-cta {
-  margin: -4px 0 16px;
-  font-size: 0.82rem;
-}
-
-.acc-detail__moment-cta a {
-  color: var(--accent-hover);
 }
 
 .acc-detail-page .listing-section,
@@ -145,6 +140,56 @@
 .acc-detail-page .listing-amenities,
 .acc-detail-page .listing-rules {
   color: var(--text);
+}
+
+/* Neutral "See all" pills for Reviews + From Delvers — grayscale only, no gradients. */
+.acc-detail-page .listing-section__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 6px 13px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.04);
+  background-image: none;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.acc-detail-page .listing-section__link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.acc-detail-page .listing-section__link:active {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.acc-detail-page .listing-section__link:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* Review cards — brighter, higher-contrast text on the dark stay shell. */
+.acc-detail-page .listing-reviews__list .acc-detail__review-name {
+  color: #fffaf2;
+  font-weight: 800;
+}
+
+.acc-detail-page .listing-reviews__list .acc-detail__review-place {
+  color: rgba(255, 250, 242, 0.74);
+  font-weight: 700;
+}
+
+.acc-detail-page .listing-reviews__list .acc-detail__review-body {
+  color: rgba(255, 250, 242, 0.92);
+  font-weight: 500;
 }
 
 /* Stay room ticket strip */
@@ -602,6 +647,27 @@
 .acc-detail-page .jd-hero {
   min-height: 220px;
   background: linear-gradient(145deg, #2a1814, #080808);
+}
+
+/* Stay moments — reuse the journeys / Delvers purple highlight ring
+   (the page accent is rosewood, so pin the ring to purple explicitly). */
+.acc-detail-page .ev-story-ring__avatar {
+  box-shadow: 0 0 0 2px #7c3aed, 0 10px 22px rgba(0, 0, 0, 0.36);
+}
+
+.acc-detail-page .ev-story-ring--seen .ev-story-ring__avatar {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
+}
+
+.acc-detail-page .ev-story-ring--active .ev-story-ring__avatar {
+  box-shadow:
+    0 0 0 2px #7c3aed,
+    0 0 0 4px rgba(124, 58, 237, 0.35),
+    0 10px 22px rgba(0, 0, 0, 0.36);
+}
+
+.acc-detail-page .ev-story-ring:focus-visible {
+  outline-color: rgba(167, 139, 250, 0.6);
 }
 
 @keyframes acc-bar-up {

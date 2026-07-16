@@ -1,0 +1,83 @@
+/* Coordinate-free "route ribbon" — connected stops that read as a path. */
+
+.jn-ribbon {
+  margin: 4px 0 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.jn-ribbon::-webkit-scrollbar {
+  display: none;
+}
+
+.jn-ribbon__track {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0;
+  padding: 4px 2px 8px;
+  list-style: none;
+  min-width: min-content;
+}
+
+.jn-ribbon__item {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px;
+  min-width: 76px;
+  max-width: 120px;
+  text-align: center;
+}
+
+/* Connector line between stops */
+.jn-ribbon__item::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--listing-border, rgba(255, 255, 255, 0.16));
+  z-index: 0;
+}
+
+.jn-ribbon__item:first-child::before {
+  display: none;
+}
+
+.jn-ribbon__node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--listing-accent, var(--accent, #7c3aed));
+  box-shadow: 0 0 0 3px var(--listing-surface, rgba(20, 20, 24, 1));
+}
+
+.jn-ribbon__place {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--listing-text, var(--text));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.jn-ribbon__nights {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--listing-text-muted, var(--text-secondary));
+}

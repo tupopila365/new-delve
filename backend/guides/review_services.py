@@ -29,6 +29,16 @@ def eligible_guide_booking(user, guide: TourGuideProfile) -> GuideBooking | None
     )
 
 
+def user_attended_guide(user, guide: TourGuideProfile) -> bool:
+    """True when the user has a completed booking with this guide.
+
+    Used as the proof-of-attendance gate for sharing "From Delvers" moments —
+    same signal as reviews, but attendees may post multiple moments so we do
+    not exclude users who have already reviewed.
+    """
+    return eligible_guide_booking(user, guide) is not None
+
+
 def user_can_review_guide(user, guide: TourGuideProfile) -> bool:
     if not user or not user.is_authenticated:
         return False

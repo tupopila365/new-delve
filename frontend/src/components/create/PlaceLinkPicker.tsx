@@ -12,8 +12,9 @@ type BusTripOption = {
   departs_at?: string
 }
 type FoodOption = { id: number; name: string; city?: string; region?: string }
+type GuideOption = { id: number; headline: string; display_name?: string; username?: string }
 
-const TABS = ['none', 'accommodation', 'event', 'vehicle', 'bus_trip', 'food'] as const
+const TABS = ['none', 'accommodation', 'event', 'vehicle', 'bus_trip', 'food', 'guide'] as const
 type TabKind = (typeof TABS)[number]
 
 type Props = {
@@ -42,12 +43,18 @@ function foodLabel(venue: FoodOption): string {
   return place ? `${venue.name} · ${place}` : venue.name
 }
 
+function guideLabel(guide: GuideOption): string {
+  const name = guide.display_name?.trim() || guide.username?.trim() || guide.headline
+  return name && name !== guide.headline ? `${name} · ${guide.headline}` : guide.headline
+}
+
 function tabLabel(tab: TabKind): string {
   if (tab === 'none') return 'None'
   if (tab === 'accommodation') return 'Stay'
   if (tab === 'event') return 'Event'
   if (tab === 'vehicle') return 'Vehicle'
   if (tab === 'bus_trip') return 'Bus trip'
+  if (tab === 'guide') return 'Guide'
   return 'Food'
 }
 
@@ -77,12 +84,18 @@ export function PlaceLinkPicker({ value, onChange, disabled = false }: Props) {
     queryFn: () => apiFetch<FoodOption[]>('/api/food/venues/?ordering=-created_at', { auth: false }),
     staleTime: 120_000,
   })
+  const { data: guidesRaw } = useQuery({
+    queryKey: ['place-link-guides'],
+    queryFn: () => apiFetch<GuideOption[]>('/api/guides/profiles/?ordering=-created_at', { auth: false }),
+    staleTime: 120_000,
+  })
 
   const stays = asArray<StayOption>(staysRaw).slice(0, 40)
   const events = asArray<EventOption>(eventsRaw).slice(0, 40)
   const vehicles = asArray<VehicleOption>(vehiclesRaw).slice(0, 40)
   const trips = asArray<BusTripOption>(tripsRaw).slice(0, 40)
   const foodVenues = asArray<FoodOption>(foodRaw).slice(0, 40)
+  const guides = asArray<GuideOption>(guidesRaw).slice(0, 40)
 
   const kind = value.kind
 
@@ -118,6 +131,11 @@ export function PlaceLinkPicker({ value, onChange, disabled = false }: Props) {
             }
           : { kind: 'none' },
       )
+      return
+    }
+    if (tab === 'guide') {
+      const first = guides[0]
+      onChange(first ? { kind: 'guide', id: first.id, title: first.headline } : { kind: 'none' })
       return
     }
     const first = foodVenues[0]
@@ -265,6 +283,29 @@ export function PlaceLinkPicker({ value, onChange, disabled = false }: Props) {
             {foodVenues.map((venue) => (
               <option key={venue.id} value={venue.id}>
                 {foodLabel(venue)}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      {kind === 'guide' ? (
+        <label className="place-link-picker__field">
+          <span className="sr-only">Choose guide</span>
+          <select
+            className="create-panel__field-input"
+            disabled={disabled || guides.length === 0}
+            value={value.kind === 'guide' ? value.id : ''}
+            onChange={(e) => {
+              const id = Number(e.target.value)
+              const guide = guides.find((row) => row.id === id)
+              if (guide) onChange({ kind: 'guide', id: guide.id, title: guide.headline })
+            }}
+          >
+            {guides.length === 0 ? <option value="">No guides available</option> : null}
+            {guides.map((guide) => (
+              <option key={guide.id} value={guide.id}>
+                {guideLabel(guide)}
               </option>
             ))}
           </select>

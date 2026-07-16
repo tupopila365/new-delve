@@ -14,8 +14,7 @@ import { guidePackageBookPath, nextAvailableGuideDate } from '../booking/booking
 import { GuidePackageReserveCard } from '../booking/guide'
 import '../booking/guide/guide-booking.css'
 import { loginHrefWithReturn } from '../../utils/authRedirect'
-import { ListingReviews } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
+import { ListingDelversMoments, ListingReviews } from '../listing'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { mediaUrl } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
@@ -34,7 +33,6 @@ import {
   type GuideProfile,
 } from '../../utils/guideListing'
 import type { TourPackage } from './types'
-import { GuideAskSection } from './GuideAskSection'
 import { GuideProviderCard } from './GuideProviderCard'
 import { GuideRosterHero } from './GuideRosterHero'
 import '../journeys/journey-detail.css'
@@ -57,9 +55,6 @@ type Props = {
   onSave: () => void
   onShare: () => void
   profile: RequestProfile
-  questions?: ListingQuestionItem[]
-  questionsLoading?: boolean
-  canAnswerQuestions?: boolean
 }
 
 export function TourPackageDetailView({
@@ -75,9 +70,6 @@ export function TourPackageDetailView({
   onSave,
   onShare,
   profile: _profileProp,
-  questions = [],
-  questionsLoading = false,
-  canAnswerQuestions = false,
 }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -340,15 +332,22 @@ export function TourPackageDetailView({
         className="gd-detail__reviews"
       />
 
-      <GuideAskSection
-        guideId={guideId}
-        title="Questions before booking?"
-        placeholder="Availability, pickup, languages, route, group size, or what to bring…"
-        questions={questions}
-        isLoading={questionsLoading}
-        canAnswer={canAnswerQuestions}
-        className="gd-detail__questions"
+      <ListingDelversMoments
+        listingType="guide"
+        listingId={guideId}
+        listingTitle={guide.headline || guide.username}
+        title="From Delvers"
+        className="gd-detail__moments"
+        showWhenEmpty
+        emptyMessage="No traveller moments yet — only travellers who completed a tour can post here."
       />
+      {guide.attended ? (
+        <p className="gd-detail__moment-cta">
+          <Link to={`/create/post?guide=${guideId}`} className="text-link">
+            Share a moment from this guide
+          </Link>
+        </p>
+      ) : null}
 
       {!profile ? (
         <p className="jd-hook" role="note" style={{ margin: '8px 0 16px' }}>

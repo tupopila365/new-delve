@@ -35,6 +35,7 @@ export type FeedPost = {
   vehicle_listing?: { id: number; title: string } | null
   bus_trip?: { id: number; title: string } | null
   food_venue?: { id: number; title: string } | null
+  guide_profile?: { id: number; title: string } | null
   processing_status?: 'ready' | 'processing' | 'failed'
   processing_error?: string
   accepted_answer?: {

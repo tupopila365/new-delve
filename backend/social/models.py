@@ -137,6 +137,14 @@ class Post(models.Model):
         related_name="delvers_posts",
         help_text="Optional link to a food venue for Delvers moments.",
     )
+    guide_profile = models.ForeignKey(
+        "guides.TourGuideProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delvers_posts",
+        help_text="Optional link to a tour guide for Delvers moments.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_hidden = models.BooleanField(default=False, db_index=True)

@@ -148,10 +148,29 @@
   gap: 10px;
 }
 
-.listing-see-all__reviews .guest-review-card {
+.listing-see-all__reviews .acc-detail__review {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
+}
+
+/* Readable, high-contrast text on the dark see-all surface. */
+.listing-see-all__reviews .acc-detail__review-name {
+  color: #fffaf2;
+}
+
+.listing-see-all__reviews .acc-detail__review-place {
+  color: rgba(255, 250, 242, 0.62);
+}
+
+.listing-see-all__reviews .acc-detail__review-body {
+  color: rgba(255, 250, 242, 0.9);
+}
+
+.listing-see-all__reviews .acc-detail__review-avatar {
+  color: #fffaf2;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .listing-see-all__moments {
@@ -214,7 +233,7 @@
   font-size: 0.8rem;
   font-weight: 650;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .listing-see-all__moment-body strong {

@@ -13,6 +13,8 @@ import {
   MessageCircle,
   MessageSquare,
   Search,
+  ShoppingBag,
+  Sparkles,
   Ticket,
   User,
   Users,
@@ -31,6 +33,7 @@ import {
 import { communityTagPath } from '../utils/communityTags'
 import { communityPostPermalinkPath, postPermalinkPath } from '../utils/postPermalink'
 import { HomeStoriesRow } from '../components/HomeStoriesRow'
+import { NoFaceInvite } from '../components/NoFaceInvite'
 import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { HomeRegionPicker } from '../components/home/HomeRegionPicker'
 import { MiniRating } from '../components/MiniRating'
@@ -46,6 +49,8 @@ import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../util
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import type { FeaturedPartnerFields } from '../hooks/useFeaturedPlacement'
 import { useExploreRegion } from '../hooks/useExploreRegion'
+import { useNoFace } from '../hooks/useNoFace'
+import './home-quintos.css'
 
 const moodChips = [
   { label: 'Weekend away', q: 'weekend' },
@@ -63,6 +68,8 @@ const categoryShortcuts = [
   { to: '/guides', label: 'Guides', Icon: Users },
   { to: '/events', label: 'Events', Icon: Ticket },
   { to: '/transport', label: 'Transport', Icon: Car },
+  { to: '/shop', label: 'Local shops', Icon: ShoppingBag },
+  { to: '/coin-toss', label: 'Coin toss', Icon: Sparkles },
   { to: '/journeys', label: 'Journeys', Icon: Map },
   { to: '/community', label: 'Ask locals', Icon: MessageCircle },
   { to: '/delvers', label: 'Delvers', Icon: Camera },
@@ -523,6 +530,7 @@ function featuredUrl(path: string, region?: string, limit = 10) {
 export function Home() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { enabled: noFace } = useNoFace()
   const {
     region,
     source: regionSource,
@@ -629,11 +637,13 @@ export function Home() {
 
   const { data: apiJourneys = [], isLoading: loadingJourneys } = useQuery({
     queryKey: ['journeys', 'home'],
+    enabled: !noFace,
     queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/?limit=8', { auth: false }),
   })
 
   const { data: delversFeed = [], isLoading: loadingDelvers } = useQuery({
     queryKey: ['home-delvers', region],
+    enabled: !noFace,
     queryFn: async () => {
       try {
         const qs = region ? `?region=${encodeURIComponent(region)}` : ''
@@ -728,6 +738,8 @@ export function Home() {
       </section>
 
       <div className="home-content">
+        <NoFaceInvite />
+
         {showAnnouncement && announcement ? (
           <aside className="home-announcement" role="status">
             <div className="home-announcement__copy">
@@ -779,14 +791,46 @@ export function Home() {
             ))}
           </div>
 
-          <HomeCategoryGrid items={categoryShortcuts} />
+          <HomeCategoryGrid
+            items={
+              noFace
+                ? categoryShortcuts.filter((c) => c.to !== '/delvers' && c.to !== '/journeys')
+                : categoryShortcuts
+            }
+          />
 
-          <section className="home-discover__stories" aria-labelledby="home-highlights">
-            <h3 id="home-highlights" className="home-discover__label">
-              Highlights
-            </h3>
-            <HomeStoriesRow />
+          <section className="home-quintos" aria-labelledby="home-quintos-title">
+            <div className="home-quintos__glow" aria-hidden />
+            <div className="home-quintos__body">
+              <p className="home-quintos__kicker">The Quintos</p>
+              <h3 id="home-quintos-title" className="home-quintos__title">
+                Let the coin decide
+              </h3>
+              <p className="home-quintos__lead">
+                Spin for a community-loved spot near you — or add your own favourite gem for the
+                next traveller to discover.
+              </p>
+              <div className="home-quintos__actions">
+                <Link to="/coin-toss" className="home-quintos__btn home-quintos__btn--primary">
+                  <Sparkles size={16} aria-hidden />
+                  Toss a coin
+                </Link>
+                <Link to="/coin-toss/add" className="home-quintos__btn">
+                  <MapPin size={16} aria-hidden />
+                  Add your gem
+                </Link>
+              </div>
+            </div>
           </section>
+
+          {noFace ? null : (
+            <section className="home-discover__stories" aria-labelledby="home-highlights">
+              <h3 id="home-highlights" className="home-discover__label">
+                Highlights
+              </h3>
+              <HomeStoriesRow />
+            </section>
+          )}
         </section>
 
         <HomeAct
@@ -1056,62 +1100,66 @@ export function Home() {
           title="Bring the trip back."
           body="Routes and notes from people who went — so the next traveller starts wiser."
         >
-          <HomeSection
-            id="rail-delvers"
-            title="Delvers"
-            sub="Moments and tips from travellers on the road."
-            seeAllTo="/delvers"
-            loading={loadingDelvers}
-            count={delversItems.length}
-            emptyMessage="No Delvers posts yet."
-            headless
-          >
-            <div className="home-rail">
-              {delversItems.map((post) => {
-                const name = post.author.display_name || post.author.username
-                const place = post.region?.trim() || post.delvers_board?.trim() || 'Delvers'
-                return (
-                  <HomeCard
-                    key={post.id}
-                    to={postPermalinkPath(post.id)}
-                    imageSrc={homeCoverSrc(delversCoverSrc(post), 'delvers')}
-                    imageAlt={delversPreviewText(post)}
-                    title={delversPreviewText(post)}
-                    meta={`${name} · ${place}`}
-                    imageFallback="delvers"
-                  />
-                )
-              })}
-            </div>
-          </HomeSection>
+          {noFace ? null : (
+            <HomeSection
+              id="rail-delvers"
+              title="Delvers"
+              sub="Moments and tips from travellers on the road."
+              seeAllTo="/delvers"
+              loading={loadingDelvers}
+              count={delversItems.length}
+              emptyMessage="No Delvers posts yet."
+              headless
+            >
+              <div className="home-rail">
+                {delversItems.map((post) => {
+                  const name = post.author.display_name || post.author.username
+                  const place = post.region?.trim() || post.delvers_board?.trim() || 'Delvers'
+                  return (
+                    <HomeCard
+                      key={post.id}
+                      to={postPermalinkPath(post.id)}
+                      imageSrc={homeCoverSrc(delversCoverSrc(post), 'delvers')}
+                      imageAlt={delversPreviewText(post)}
+                      title={delversPreviewText(post)}
+                      meta={`${name} · ${place}`}
+                      imageFallback="delvers"
+                    />
+                  )
+                })}
+              </div>
+            </HomeSection>
+          )}
 
-          <HomeSection
-            id="home-journeys"
-            title="Real journeys"
-            sub="Routes, costs, photos, and tips."
-            seeAllTo="/journeys"
-            loading={loadingJourneys}
-            count={journeyItems.length}
-            emptyMessage="No journeys yet."
-            className="home-preview-section"
-            headless
-          >
-            <div className="home-rail home-rail--journeys">
-              {journeyItems.map((t) => (
-                <JourneyHomeCard
-                  key={t.id}
-                  to={`/journeys/${t.id}`}
-                  imageSrc={homeCoverSrc(t.cover_image, 'journey')}
-                  imageAlt={t.title}
-                  title={t.title}
-                  author={t.author.display_name}
-                  days={t.days}
-                  route={journeyRouteLabel(t.stops)}
-                  featured={Boolean(t.is_featured)}
-                />
-              ))}
-            </div>
-          </HomeSection>
+          {noFace ? null : (
+            <HomeSection
+              id="home-journeys"
+              title="Real journeys"
+              sub="Routes, costs, photos, and tips."
+              seeAllTo="/journeys"
+              loading={loadingJourneys}
+              count={journeyItems.length}
+              emptyMessage="No journeys yet."
+              className="home-preview-section"
+              headless
+            >
+              <div className="home-rail home-rail--journeys">
+                {journeyItems.map((t) => (
+                  <JourneyHomeCard
+                    key={t.id}
+                    to={`/journeys/${t.id}`}
+                    imageSrc={homeCoverSrc(t.cover_image, 'journey')}
+                    imageAlt={t.title}
+                    title={t.title}
+                    author={t.author.display_name}
+                    days={t.days}
+                    route={journeyRouteLabel(t.stops)}
+                    featured={Boolean(t.is_featured)}
+                  />
+                ))}
+              </div>
+            </HomeSection>
+          )}
 
           <HomeSection
             id="rail-events"

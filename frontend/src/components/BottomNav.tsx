@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import type { FC } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { useNoFace } from '../hooks/useNoFace'
 
 const navItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: boolean }> }[] = [
   { to: '/', label: 'Explore', end: true, Icon: IconHome },
@@ -11,13 +12,19 @@ const navItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: b
 
 export function BottomNav() {
   const { profile } = useAuth()
+  const { enabled: noFace } = useNoFace()
   const location = useLocation()
   const onDelvers = location.pathname === '/delvers' || location.pathname.startsWith('/delvers/')
   const profileTo = profile ? `/u/${profile.username}` : '/account'
 
+  // No Face hides social surfaces (Delvers, Journeys) from primary navigation.
+  const visibleItems = noFace
+    ? navItems.filter((i) => i.to !== '/delvers' && i.to !== '/journeys')
+    : navItems
+
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      {navItems.map((i) => {
+      {visibleItems.map((i) => {
         const to = i.to === '/search' && onDelvers ? '/search?types=delvers' : i.to
 
         return (

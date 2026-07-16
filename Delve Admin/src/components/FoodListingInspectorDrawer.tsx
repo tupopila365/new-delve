@@ -59,7 +59,6 @@ export function FoodListingInspectorDrawer({ listingId, onClose }: Props) {
               <span>★ {inspector.rating_avg} ({inspector.rating_count})</span>
               <span>{inspector.saves_count} saves</span>
               <span>{inspector.reviews_count} reviews</span>
-              <span>{inspector.questions_count} questions</span>
             </div>
           </section>
 

@@ -57,7 +57,7 @@ export type PublicBusiness = {
 }
 
 export type BusinessListingItem = {
-  kind: 'stays' | 'food' | 'guides' | 'transport' | 'events'
+  kind: 'stays' | 'food' | 'shop' | 'guides' | 'transport' | 'events'
   transport_mode?: 'rental' | 'shared'
   id: number
   title: string

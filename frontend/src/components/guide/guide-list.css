@@ -18,10 +18,7 @@
   margin: 0 0 10px;
   padding: 14px 14px 12px;
   border-radius: 18px;
-  background:
-    radial-gradient(ellipse 80% 70% at 100% 0%, rgba(143, 212, 176, 0.2), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(90, 155, 122, 0.12), transparent 50%),
-    #121212;
+  background: #121212;
   border: 1px solid var(--gl-border);
   animation: gl-hero-in 0.45s ease both;
 }
@@ -148,7 +145,7 @@
 
 @media (min-width: 720px) {
   .gl-market__find-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

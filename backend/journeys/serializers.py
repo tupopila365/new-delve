@@ -25,12 +25,38 @@ class JourneyAuthorSerializer(serializers.ModelSerializer):
         fields = ("id", "username", "display_name", "avatar")
 
 
+_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v")
+
+
 class JourneyEntrySerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
+    media = serializers.JSONField(required=False)
 
     class Meta:
         model = JourneyEntry
-        fields = ("id", "body", "image", "video", "happened_at")
+        fields = ("id", "body", "image", "video", "media", "happened_at")
+
+    def validate_media(self, value):
+        if not isinstance(value, list):
+            return []
+        out: list[dict] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            src = str(item.get("src") or "").strip()
+            if not src:
+                continue
+            kind = str(item.get("kind") or "").strip().lower()
+            if kind not in ("image", "video"):
+                kind = "video" if src.lower().endswith(_VIDEO_EXTS) else "image"
+            entry = {"kind": kind, "src": src}
+            poster = str(item.get("poster") or "").strip()
+            if poster:
+                entry["poster"] = poster
+            out.append(entry)
+            if len(out) >= 12:
+                break
+        return out
 
 
 class JourneyStopSerializer(serializers.ModelSerializer):
@@ -124,6 +150,8 @@ class JourneySerializer(serializers.ModelSerializer):
             "visibility",
             "is_featured",
             "journey_stories",
+            "reflections",
+            "views_count",
             "gallery_images",
             "stops",
             "costs",
@@ -134,7 +162,7 @@ class JourneySerializer(serializers.ModelSerializer):
             "saved_by_me",
             "created_at",
         )
-        read_only_fields = ("author", "created_at", "comments_count", "is_featured")
+        read_only_fields = ("author", "created_at", "comments_count", "is_featured", "views_count")
 
     def get_liked_by_me(self, obj):
         request = self.context.get("request")
@@ -161,6 +189,25 @@ class JourneySerializer(serializers.ModelSerializer):
 
     def validate_journey_stories(self, value):
         return validate_story_channels(value, field_label="Journey stories")
+
+    def validate_reflections(self, value):
+        if value in (None, ""):
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Reflections must be an object.")
+
+        def clean_list(raw):
+            if not isinstance(raw, list):
+                return []
+            cleaned = [str(x).strip() for x in raw if str(x).strip()]
+            return cleaned[:8]
+
+        return {
+            "highs": clean_list(value.get("highs")),
+            "lows": clean_list(value.get("lows")),
+            "would_change": str(value.get("would_change") or "").strip(),
+            "takeaway": str(value.get("takeaway") or "").strip(),
+        }
 
     def validate_gallery_images(self, value):
         try:

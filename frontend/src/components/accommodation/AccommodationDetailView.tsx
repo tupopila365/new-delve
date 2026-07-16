@@ -17,12 +17,10 @@ import {
 import { useAuth } from '../../auth/AuthContext'
 import { mediaUrl } from '../../api/client'
 import { messageProviderPath } from '../messages/messageProviderUtils'
-import { StayAskSection } from './StayAskSection'
 import { StayHostCard } from './StayHostCard'
 import { StayRoomPicker } from './StayRoomPicker'
 import { buildStayStoryChannels } from './stayStoriesUtils'
 import { ListingDelversMoments, ListingFaq, ListingReviews } from '../listing'
-import type { ListingQuestionItem } from '../listing/ListingQuestionThread'
 import type { ListingRoomOption } from '../listing/types'
 import type { ReviewItem } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
@@ -57,9 +55,6 @@ type Props = {
   onSave: () => void
   onLike: () => void
   onShare: () => void
-  questions?: ListingQuestionItem[]
-  loadingQuestions?: boolean
-  canAnswerQuestions?: boolean
   reviews?: ReviewItem[]
   ratingAvg?: string
   ratingCount?: number
@@ -74,9 +69,6 @@ export function AccommodationDetailView({
   onSave,
   onLike,
   onShare,
-  questions = [],
-  loadingQuestions = false,
-  canAnswerQuestions = false,
   reviews = [],
   ratingAvg,
   ratingCount,
@@ -105,7 +97,9 @@ export function AccommodationDetailView({
 
   const displayRating = ratingAvg ?? data.rating_avg
   const displayReviewCount = ratingCount ?? data.rating_count
-  const ratingNum = displayRating != null && displayRating !== '' ? Number(displayRating) : null
+  const hasReviews = displayReviewCount != null && Number(displayReviewCount) > 0
+  const ratingNum =
+    hasReviews && displayRating != null && displayRating !== '' ? Number(displayRating) : null
   const ratingLabel =
     ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0 ? ratingNum.toFixed(1) : null
 
@@ -304,9 +298,7 @@ export function AccommodationDetailView({
           fallbackCoverSrc={data.cover_image}
           title={roomTypes.length > 0 ? 'Rooms & rates' : 'Book this stay'}
           subtitle={
-            roomTypes.length > 0
-              ? 'Compare rooms like tickets — select one, then check dates.'
-              : 'Preview this stay and continue to booking.'
+            roomTypes.length > 0 ? '' : 'Preview this stay and continue to booking.'
           }
         />
       </div>
@@ -458,25 +450,12 @@ export function AccommodationDetailView({
         showWhenEmpty
         emptyMessage="No guest moments yet."
       />
-      <p className="acc-detail__moment-cta">
-        <Link to={`/create/post?listing=${listingId}`} className="text-link">
-          Share a moment from this stay
-        </Link>
-      </p>
-
-      <StayAskSection
-        listingId={listingId}
-        className="acc-detail__questions"
-        questions={questions}
-        isLoading={loadingQuestions}
-        canAnswer={canAnswerQuestions}
-      />
 
       <ListingReviews
         listingType="accommodation"
         listingId={listingId}
         reviews={reviews}
-        rating={displayRating}
+        rating={hasReviews ? displayRating : null}
         count={displayReviewCount}
         emptyMessage="Ratings and written reviews will appear here after guests complete their stay."
         className="acc-detail__reviews"

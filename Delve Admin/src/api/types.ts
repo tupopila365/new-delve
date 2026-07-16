@@ -232,7 +232,6 @@ export type AdminFoodListingInspector = {
   rating_count: number
   saves_count: number
   reviews_count: number
-  questions_count: number
   reservations_by_status: Record<string, number>
   recent_reservations: {
     id: number

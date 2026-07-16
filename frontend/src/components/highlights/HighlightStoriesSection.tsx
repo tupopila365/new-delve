@@ -75,7 +75,7 @@ export function HighlightStoriesSection({
           <h2 id="hl-stories-title" className="ev-page__stories-title">
             {title}
           </h2>
-          <span className="ev-page__stories-sub">{subtitle}</span>
+          {subtitle ? <span className="ev-page__stories-sub">{subtitle}</span> : null}
         </div>
         <HighlightRings
           rings={channels.map((ch) => ({

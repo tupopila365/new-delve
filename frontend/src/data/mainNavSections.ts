@@ -16,6 +16,8 @@ export const SECONDARY_NAV_SECTIONS: MainNavLink[] = [
   { to: '/guides', label: 'Guides' },
   { to: '/transport', label: 'Transport' },
   { to: '/events', label: 'Events' },
+  { to: '/shop', label: 'Local shops' },
+  { to: '/coin-toss', label: 'Coin toss' },
 ]
 
 /** @deprecated Use PRIMARY_NAV_SECTIONS + SECONDARY_NAV_SECTIONS */

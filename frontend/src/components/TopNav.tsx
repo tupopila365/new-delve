@@ -4,15 +4,22 @@ import { Plus } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSections'
 import { useNavBadges } from '../hooks/useNavBadges'
+import { useNoFace } from '../hooks/useNoFace'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import './community/community-feed-cards.css'
 
 export function TopNav() {
   const { profile } = useAuth()
+  const { enabled: noFace } = useNoFace()
   const { unreadMessages } = useNavBadges()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
+
+  // No Face hides social surfaces (Delvers, Journeys) from the primary nav.
+  const primarySections = noFace
+    ? PRIMARY_NAV_SECTIONS.filter((l) => l.to !== '/delvers' && l.to !== '/journeys')
+    : PRIMARY_NAV_SECTIONS
 
   useEffect(() => {
     if (!moreOpen) return
@@ -37,7 +44,7 @@ export function TopNav() {
       </Link>
 
       <nav className="app-topnav__links" aria-label="Site sections">
-        {PRIMARY_NAV_SECTIONS.map((l) => (
+        {primarySections.map((l) => (
           <NavLink
             key={l.to}
             to={l.to}
@@ -91,14 +98,16 @@ export function TopNav() {
 
         <span className="app-topnav__divider" aria-hidden />
 
-        <Link
-          to={profile ? '/create' : '/login'}
-          className="app-topnav__post"
-          aria-label={profile ? 'Post photo, story, or journey' : 'Sign in to post'}
-        >
-          <Plus size={18} strokeWidth={2.6} aria-hidden />
-          <span>Post</span>
-        </Link>
+        {noFace ? null : (
+          <Link
+            to={profile ? '/create' : '/login'}
+            className="app-topnav__post"
+            aria-label={profile ? 'Post photo, story, or journey' : 'Sign in to post'}
+          >
+            <Plus size={18} strokeWidth={2.6} aria-hidden />
+            <span>Post</span>
+          </Link>
+        )}
 
         <ProfileMenu avatarClassName="app-topnav__avatar" />
       </div>

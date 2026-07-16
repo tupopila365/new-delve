@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from accommodation.models import AccommodationListing, AccommodationQuestion
+from accommodation.models import AccommodationListing
 from accounts.models import Profile, UserType
 from social.models import Post
 
@@ -175,57 +175,3 @@ class AskLocalsCohesionSmokeTests(TestCase):
 
         permalink = self.client.get(f"/api/social/posts/{post_id}/")
         self.assertEqual(permalink.status_code, 404)
-
-    def test_listing_question_on_detail_provider_inbox_and_moderation_hide(self):
-        self.client.force_authenticate(user=self.asker)
-        q_url = f"/api/accommodation/listings/{self.listing.pk}/questions/"
-        created = self.client.post(q_url, {"body": "Do you allow late check-in?"}, format="json")
-        self.assertEqual(created.status_code, 201)
-        question_id = created.data["id"]
-
-        listed = self.client.get(q_url)
-        self.assertEqual(listed.status_code, 200)
-        self.assertEqual(len(listed.data), 1)
-        self.assertEqual(listed.data[0]["body"], "Do you allow late check-in?")
-
-        self.host = User.objects.select_related("profile").get(pk=self.host.pk)
-        self.client.force_authenticate(user=self.host)
-        answered = self.client.post(
-            f"/api/accommodation/questions/{question_id}/answers/",
-            {"body": "Yes — message us on arrival day with your ETA."},
-            format="json",
-        )
-        self.assertEqual(answered.status_code, 201)
-        self.assertTrue(answered.data["is_official"])
-
-        inbox = self.client.get("/api/accounts/provider/listing-questions/")
-        self.assertEqual(inbox.status_code, 200)
-        bodies = [row["body"] for row in inbox.data if isinstance(row, dict)]
-        self.assertIn("Do you allow late check-in?", bodies)
-        stay_row = next(row for row in inbox.data if row.get("category") == "stay")
-        self.assertEqual(stay_row["listing_title"], "Cohesion Lodge")
-        self.assertEqual(len(stay_row["answers"]), 1)
-
-        self.client.force_authenticate(user=self.admin)
-        hidden = self.client.patch(
-            "/api/accounts/admin/moderation/",
-            {
-                "target_type": "accommodation_question",
-                "target_id": str(question_id),
-                "action": "remove",
-                "reason": "Cohesion listing Q&A hide",
-            },
-            format="json",
-        )
-        self.assertEqual(hidden.status_code, 200)
-        self.assertTrue(AccommodationQuestion.objects.get(pk=question_id).is_hidden)
-
-        self.client.force_authenticate(user=None)
-        listed_after = self.client.get(q_url)
-        self.assertEqual(len(listed_after.data), 0)
-
-        self.host = User.objects.select_related("profile").get(pk=self.host.pk)
-        self.client.force_authenticate(user=self.host)
-        inbox_after = self.client.get("/api/accounts/provider/listing-questions/")
-        bodies_after = [row["body"] for row in inbox_after.data if isinstance(row, dict)]
-        self.assertNotIn("Do you allow late check-in?", bodies_after)

@@ -787,11 +787,34 @@
   outline-offset: 2px;
 }
 
-.listing-moments__thumb img {
+.listing-moments__thumb img,
+.listing-moments__video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* Video / carousel indicator badge (top-right of the thumbnail). */
+.listing-moments__badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.listing-moments__badge--play {
+  padding-left: 1px;
 }
 
 .listing-moments__placeholder {

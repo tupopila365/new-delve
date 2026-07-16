@@ -30,6 +30,7 @@ export type Profile = {
   posts_visibility: PostsVisibility
   allow_messages: boolean
   show_in_search: boolean
+  no_face_mode: boolean
 }
 
 type AuthState = {
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         posts_visibility: me.posts_visibility ?? 'public',
         allow_messages: me.allow_messages ?? true,
         show_in_search: me.show_in_search ?? true,
+        no_face_mode: me.no_face_mode ?? false,
       })
     } catch {
       setProfile(null)
@@ -93,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       posts_visibility: me.posts_visibility ?? 'public',
       allow_messages: me.allow_messages ?? true,
       show_in_search: me.show_in_search ?? true,
+      no_face_mode: me.no_face_mode ?? false,
     })
   }, [])
 

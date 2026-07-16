@@ -1,0 +1,90 @@
+.home-quintos {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 4px 0 8px;
+  padding: 20px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(228, 196, 138, 0.28);
+  background:
+    radial-gradient(ellipse 60% 80% at 100% 0%, rgba(228, 196, 138, 0.22), transparent 60%),
+    linear-gradient(150deg, #171310 0%, #0d0b09 100%);
+}
+
+.home-quintos__glow {
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(228, 196, 138, 0.35), transparent 70%);
+  filter: blur(20px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.home-quintos__body {
+  position: relative;
+  z-index: 1;
+}
+
+.home-quintos__kicker {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e4c48a;
+}
+
+.home-quintos__title {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  color: #fffaf2;
+}
+
+.home-quintos__lead {
+  margin: 0 0 14px;
+  max-width: 34rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.7);
+}
+
+.home-quintos__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-quintos__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 250, 242, 0.08);
+  color: #fffaf2;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.home-quintos__btn:hover {
+  border-color: rgba(228, 196, 138, 0.6);
+}
+
+.home-quintos__btn--primary {
+  background: #e4c48a;
+  border-color: #e4c48a;
+  color: #1a150e;
+}
+
+.home-quintos__btn--primary:hover {
+  filter: brightness(1.06);
+}

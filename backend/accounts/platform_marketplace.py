@@ -21,6 +21,7 @@ LISTING_TYPES = (
     "vehicle",
     "bus_trip",
     "food",
+    "shop",
     "event",
     "post",
     "community",
@@ -182,6 +183,27 @@ def list_platform_listings(
                 published=item.is_active,
                 price_label=f"{'$' * item.price_level}" if item.price_level else "",
                 category_label=f"Food · {cuisine}" if cuisine else "Food & drink",
+                created_at=item.created_at,
+            )
+            if include(row):
+                rows.append(row)
+
+    if not type_filter or type_filter == "shop":
+        from shop.models import ShopCategory, ShopProduct
+
+        category_labels = dict(ShopCategory.choices)
+        for item in ShopProduct.objects.select_related("owner").order_by("-created_at")[:120]:
+            category = category_labels.get(item.category, item.category)
+            row = _listing_row(
+                listing_type="shop",
+                listing_id=item.pk,
+                title=item.name,
+                owner_username=item.owner.username,
+                region=item.region,
+                city=item.city,
+                published=item.is_active,
+                price_label=f"N${item.price}" if item.price is not None else "",
+                category_label=f"Shop · {category}" if category else "Shop",
                 created_at=item.created_at,
             )
             if include(row):
@@ -362,6 +384,26 @@ def set_listing_published(
             city=obj.city,
             published=obj.is_active,
             category_label="Food & drink",
+            created_at=obj.created_at,
+        )
+
+    if lt == "shop":
+        from shop.models import ShopProduct
+
+        obj = ShopProduct.objects.select_related("owner").filter(pk=pk).first()
+        if not obj:
+            raise ValueError("Listing not found.")
+        obj.is_active = published
+        obj.save(update_fields=["is_active"])
+        return _listing_row(
+            listing_type=lt,
+            listing_id=pk,
+            title=obj.name,
+            owner_username=obj.owner.username,
+            region=obj.region,
+            city=obj.city,
+            published=obj.is_active,
+            category_label="Shop",
             created_at=obj.created_at,
         )
 

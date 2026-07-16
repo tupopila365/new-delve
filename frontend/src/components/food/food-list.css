@@ -18,10 +18,7 @@
   margin: 4px 0 16px;
   padding: 22px 18px 18px;
   border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 70% at 100% 0%, rgba(217, 119, 6, 0.22), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(251, 191, 36, 0.08), transparent 50%),
-    #121212;
+  background: #121212;
   border: 1px solid var(--fd-border);
 }
 
@@ -125,6 +122,38 @@
   font: inherit;
   font-size: 0.82rem;
   font-weight: 750;
+}
+
+.fd-market__saved-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fd-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fd-market__saved-toggle:hover {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.fd-market__saved-toggle.is-active {
+  border-color: transparent;
+  background: var(--fd-accent-bright, #fbbf24);
+  color: #1a0f0c;
+}
+
+.fd-market__saved-toggle svg {
+  flex-shrink: 0;
 }
 
 .fd-market__section {

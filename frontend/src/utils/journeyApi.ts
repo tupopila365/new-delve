@@ -1,4 +1,4 @@
-import { mockTrips, type MockTrip } from '../data/mockTrips'
+import { mockTrips, type MockTrip, type TripReflections } from '../data/mockTrips'
 import { findUserTrip, loadUserTrips } from '../data/userTrips'
 import { mediaUrl } from '../api/client'
 import type { HighlightChannelInput } from '../components/highlights/types'
@@ -20,6 +20,14 @@ export function journeyListFallback(): MockTrip[] {
 export function findJourneyDemoTrip(id: number): MockTrip | undefined {
   if (!isJourneyDemoFallbackEnabled()) return undefined
   return findUserTrip(id) ?? mockTrips.find((t) => t.id === id)
+}
+
+/** The creator's other journeys from demo data (mock mode only). */
+export function authorJourneyDemoFallback(username: string, excludeId: number): MockTrip[] {
+  if (!isJourneyDemoFallbackEnabled()) return []
+  return [...loadUserTrips(), ...mockTrips].filter(
+    (t) => t.author.username === username && t.id !== excludeId,
+  )
 }
 
 /** Tag/country-matched similar journeys from demo data (mock mode only). */
@@ -65,10 +73,17 @@ export type ApiJourney = {
   is_featured?: boolean
   journey_stories?: HighlightChannelInput[]
   gallery_images?: unknown[]
+  reflections?: {
+    highs?: string[]
+    lows?: string[]
+    would_change?: string
+    takeaway?: string
+  } | null
+  views_count?: number
 }
 
 export function mapApiJourneyToTrip(j: ApiJourney): MockTrip {
-  const avatar = j.author.avatar ? mediaUrl(j.author.avatar) : null
+  const avatar = j.author.avatar ? (mediaUrl(j.author.avatar) ?? j.author.avatar) : null
   return {
     id: j.id,
     author: {
@@ -95,6 +110,17 @@ export function mapApiJourneyToTrip(j: ApiJourney): MockTrip {
         ...e,
         image: e.image ? (mediaUrl(e.image) ?? e.image) : null,
         video: e.video ? (mediaUrl(e.video) ?? e.video) : null,
+        media: Array.isArray(e.media)
+          ? e.media
+              .filter((m): m is { kind: 'image' | 'video'; src: string; poster?: string | null } =>
+                Boolean(m && typeof m === 'object' && 'src' in m && (m as { src?: unknown }).src),
+              )
+              .map((m) => ({
+                kind: m.kind === 'video' ? 'video' : 'image',
+                src: mediaUrl(m.src) ?? m.src,
+                poster: m.poster ? (mediaUrl(m.poster) ?? m.poster) : null,
+              }))
+          : undefined,
       })),
     })),
     costs: (j.costs || []).map((c) => ({
@@ -115,6 +141,15 @@ export function mapApiJourneyToTrip(j: ApiJourney): MockTrip {
       url: mediaUrl(item.url) ?? item.url,
       kind: item.kind,
     })),
+    reflections: j.reflections
+      ? {
+          highs: Array.isArray(j.reflections.highs) ? j.reflections.highs : [],
+          lows: Array.isArray(j.reflections.lows) ? j.reflections.lows : [],
+          would_change: j.reflections.would_change || '',
+          takeaway: j.reflections.takeaway || '',
+        }
+      : undefined,
+    views_count: j.views_count ?? 0,
   }
 }
 
@@ -141,6 +176,7 @@ export function buildJourneyPayload(input: {
   totalCost: number
   journeyStories?: HighlightChannelInput[]
   galleryImages?: (string | { url: string; kind: 'image' | 'video' })[]
+  reflections?: TripReflections
 }) {
   return {
     title: input.title.trim(),
@@ -159,5 +195,6 @@ export function buildJourneyPayload(input: {
     stops: input.stops,
     costs: input.costs,
     journey_stories: normalizeHighlightsForSave(input.journeyStories ?? []),
+    reflections: input.reflections ?? { highs: [], lows: [], would_change: '', takeaway: '' },
   }
 }

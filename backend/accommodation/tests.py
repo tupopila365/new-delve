@@ -100,32 +100,6 @@ class AccommodationPhase3SocialTests(TestCase):
             status=BookingStatus.CONFIRMED,
         )
 
-    def test_question_and_host_answer(self):
-        self.client.force_authenticate(user=self.traveler)
-        q_url = f"/api/accommodation/listings/{self.listing.pk}/questions/"
-        res = self.client.post(q_url, {"body": "Is parking included?"}, format="json")
-        self.assertEqual(res.status_code, 201)
-        question_id = res.data["id"]
-
-        listed = self.client.get(q_url)
-        self.assertEqual(listed.status_code, 200)
-        self.assertEqual(len(listed.data), 1)
-        self.assertEqual(listed.data[0]["body"], "Is parking included?")
-
-        self.client.force_authenticate(user=self.host)
-        ans = self.client.post(
-            f"/api/accommodation/questions/{question_id}/answers/",
-            {"body": "Yes, free on-site parking."},
-            format="json",
-        )
-        self.assertEqual(ans.status_code, 201)
-        self.assertTrue(ans.data["is_official"])
-
-        provider_q = self.client.get("/api/accommodation/provider-questions/")
-        self.assertEqual(provider_q.status_code, 200)
-        self.assertEqual(len(provider_q.data), 1)
-        self.assertEqual(len(provider_q.data[0]["answers"]), 1)
-
     def test_review_after_confirmed_booking(self):
         self.client.force_authenticate(user=self.traveler)
         review_url = f"/api/accommodation/bookings/{self.booking.pk}/review/"
@@ -324,23 +298,6 @@ class AccommodationPhase6HardeningTests(TestCase):
         empty = self.client.get("/api/accommodation/provider-bookings/")
         self.assertEqual(empty.status_code, 200)
         self.assertEqual(len(empty.data), 0)
-
-    def test_non_host_answer_not_official(self):
-        self.client.force_authenticate(user=self.traveler)
-        q_url = f"/api/accommodation/listings/{self.listing.pk}/questions/"
-        q = self.client.post(q_url, {"body": "Is WiFi available?"}, format="json")
-        self.assertEqual(q.status_code, 201)
-        question_id = q.data["id"]
-
-        other = User.objects.create_user(username="phase6_peer", email="peer@test.local", password="x")
-        self.client.force_authenticate(user=other)
-        ans = self.client.post(
-            f"/api/accommodation/questions/{question_id}/answers/",
-            {"body": "I think so."},
-            format="json",
-        )
-        self.assertEqual(ans.status_code, 201)
-        self.assertFalse(ans.data["is_official"])
 
     def test_like_toggle(self):
         self.client.force_authenticate(user=self.traveler)

@@ -5,6 +5,7 @@ export type BusinessType =
   | 'transport'
   | 'event_organiser'
   | 'food_drink'
+  | 'retail_shop'
   | 'guide'
   | 'journeys'
   | 'ask_locals'
@@ -39,6 +40,7 @@ export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
   transport: 'Transport',
   event_organiser: 'Events',
   food_drink: 'Food & drink',
+  retail_shop: 'Shop & makers',
   guide: 'Local guide',
   journeys: 'Journeys',
   ask_locals: 'Ask locals',

@@ -203,12 +203,46 @@
   font-size: 0.8rem;
   font-weight: 900;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
 }
 
-.stay-card-v2__actions button.is-active {
-  border-color: rgba(224, 154, 140, 0.5);
-  background: rgba(201, 123, 107, 0.22);
-  color: #e09a8c;
+.stay-card-v2__actions button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.stay-card-v2__actions button:active {
+  transform: scale(0.94);
+}
+
+/* Like → red, Save → gold — matches Delvers post action behavior */
+.stay-card-v2__actions button.stay-card-v2__action--like.is-active {
+  border-color: rgba(255, 48, 64, 0.42);
+  background: rgba(255, 48, 64, 0.14);
+  color: #ff3040;
+}
+
+.stay-card-v2__actions button.stay-card-v2__action--save.is-active {
+  border-color: rgba(255, 193, 7, 0.42);
+  background: rgba(255, 193, 7, 0.16);
+  color: #ffc107;
+}
+
+.stay-card-v2__actions button.is-active svg {
+  fill: currentColor;
+  animation: stay-action-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes stay-action-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  58% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .stay-card-v2__actions button:disabled {

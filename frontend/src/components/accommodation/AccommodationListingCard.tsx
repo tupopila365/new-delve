@@ -78,8 +78,9 @@ export function AccommodationListingCard({
   onShare,
 }: Props) {
   const src = mediaUrl(listing.cover_image) || FALLBACK_STAY_PHOTO
-  const rating = listing.rating_avg ? Number.parseFloat(listing.rating_avg).toFixed(1) : null
   const ratingCount = listing.rating_count ?? 0
+  const rating =
+    ratingCount > 0 && listing.rating_avg ? Number.parseFloat(listing.rating_avg).toFixed(1) : null
   const popular = ratingCount >= 20
   const trustLabel = listing.is_featured_partner
     ? listing.partner_label?.trim() || 'Featured host'
@@ -174,19 +175,21 @@ export function AccommodationListingCard({
       <div className="stay-card-v2__actions">
         <button
           type="button"
-          className={liked ? 'is-active' : ''}
+          className={`stay-card-v2__action--like${liked ? ' is-active' : ''}`}
           disabled={likeBusy}
           onClick={onLike}
           aria-label={liked ? 'Unlike stay' : 'Like stay'}
+          aria-pressed={liked}
         >
           <Heart size={17} strokeWidth={2.35} fill={liked ? 'currentColor' : 'none'} aria-hidden />
           {likeCount > 0 ? likeCount : 'Like'}
         </button>
         <button
           type="button"
-          className={saved ? 'is-active' : ''}
+          className={`stay-card-v2__action--save${saved ? ' is-active' : ''}`}
           onClick={onSave}
           aria-label={saved ? 'Remove saved stay' : 'Save stay'}
+          aria-pressed={saved}
         >
           <Bookmark size={17} strokeWidth={2.35} fill={saved ? 'currentColor' : 'none'} aria-hidden />
           {saved ? 'Saved' : 'Save'}

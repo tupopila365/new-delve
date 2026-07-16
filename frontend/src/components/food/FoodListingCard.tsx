@@ -70,8 +70,12 @@ export function FoodListingCard({
   const location = venue.city ? `${venue.city}, ${venue.region}` : venue.region
   const price = priceLevelLabel(venue.price_level)
   const openLabel = foodOpenBadge(venue.is_open, venue.closes_at)
+  const ratingCount = venue.rating_count ?? 0
   const ratingNum = venue.rating_avg != null && venue.rating_avg !== '' ? Number(venue.rating_avg) : null
-  const ratingLabel = ratingNum != null && Number.isFinite(ratingNum) ? ratingNum.toFixed(1) : null
+  const ratingLabel =
+    ratingCount > 0 && ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0
+      ? ratingNum.toFixed(1)
+      : null
   const isVideoCover = venue.cover_kind === 'video'
   const coverSrc = foodCoverSrc(venue.cover_image, venue.cuisine)
   const videoRef = useRef<HTMLVideoElement>(null)

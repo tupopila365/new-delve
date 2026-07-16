@@ -1,33 +1,16 @@
 import uuid
 
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
-from .models import GuideAnswer, GuideBooking, GuideQuestion, GuideSave, TourGuideProfile
-from .qa_serializers import (
-    GuideAnswerCreateSerializer,
-    GuideAnswerSerializer,
-    GuideQuestionCreateSerializer,
-    GuideQuestionSerializer,
-)
+from .models import GuideBooking, GuideSave, TourGuideProfile
 from .review_serializers import GuideReviewCreateSerializer, GuideReviewSerializer
 from .review_services import guide_reviews_payload
 from .serializers import GuideBookingSerializer, TourGuideProfileSerializer
-
-
-def _guide_questions_qs(guide):
-    answers = GuideAnswer.objects.filter(is_hidden=False).select_related("author", "author__profile")
-    return (
-        GuideQuestion.objects.filter(guide=guide, is_hidden=False)
-        .select_related("author", "author__profile")
-        .prefetch_related(Prefetch("answers", queryset=answers))
-        .order_by("-created_at")
-    )
 
 
 class TourGuideProfileViewSet(viewsets.ModelViewSet):
@@ -44,8 +27,6 @@ class TourGuideProfileViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         if self.action == "review":
             return [permissions.IsAuthenticated(), IsEmailVerified()]
-        if self.action == "questions" and self.request.method == "POST":
-            return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
     def _annotate_engagement(self, qs, user):
@@ -92,7 +73,7 @@ class TourGuideProfileViewSet(viewsets.ModelViewSet):
                 .distinct()
             )
             return self._annotate_engagement(qs, user)
-        if self.action in ("save", "questions", "reviews", "review"):
+        if self.action in ("save", "moments", "reviews", "review"):
             qs = TourGuideProfile.objects.filter(is_active=True).select_related("user", "user__profile")
             return self._annotate_engagement(qs, user)
         qs = super().get_queryset()
@@ -134,41 +115,24 @@ class TourGuideProfileViewSet(viewsets.ModelViewSet):
         review = ser.save()
         return Response(GuideReviewSerializer(review).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["get", "post"])
-    def questions(self, request, pk=None):
+    @action(detail=True, methods=["get"])
+    def moments(self, request, pk=None):
+        from social.models import Post
+        from social.serializers import PostSerializer
+
         guide = self.get_object()
-        if request.method == "GET":
-            qs = _guide_questions_qs(guide)
-            return Response(GuideQuestionSerializer(qs, many=True).data)
-        if not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = GuideQuestionCreateSerializer(
-            data=request.data,
-            context={"request": request, "guide": guide},
+        posts = (
+            Post.objects.filter(
+                guide_profile=guide,
+                is_delvers=True,
+                is_accommodation_story=False,
+                is_hidden=False,
+            )
+            .select_related("author", "author__profile")
+            .order_by("-created_at")[:24]
         )
-        ser.is_valid(raise_exception=True)
-        question = ser.save()
-        return Response(GuideQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
-
-
-class GuideQuestionAnswerView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        question = (
-            GuideQuestion.objects.select_related("guide")
-            .filter(pk=pk, is_hidden=False)
-            .first()
-        )
-        if not question:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        ser = GuideAnswerCreateSerializer(
-            data=request.data,
-            context={"request": request, "question": question},
-        )
-        ser.is_valid(raise_exception=True)
-        answer = ser.save()
-        return Response(GuideAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)
+        ser = PostSerializer(posts, many=True, context={"request": request})
+        return Response(ser.data)
 
 
 class GuideBookingViewSet(viewsets.ModelViewSet):

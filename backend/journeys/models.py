@@ -55,6 +55,14 @@ class Journey(models.Model):
         blank=True,
         help_text="Author highlight channels for story rings",
     )
+    reflections = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Author reflections: {highs: [str], lows: [str], would_change: str, takeaway: str}."
+        ),
+    )
+    views_count = models.PositiveIntegerField(default=0, db_index=True)
     comments_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -89,6 +97,11 @@ class JourneyEntry(models.Model):
     body = models.TextField(blank=True)
     image = models.TextField(blank=True)
     video = models.TextField(blank=True)
+    media = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Ordered carousel media: [{kind: 'image'|'video', src, poster?}].",
+    )
     happened_at = models.DateField(null=True, blank=True)
 
     class Meta:

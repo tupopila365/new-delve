@@ -36,7 +36,11 @@ function emptyRoom(): StayRoomForm {
     bedrooms: 1,
     bed_summary: '',
     price_per_night: '',
+    compare_at_price: '',
+    badge: '',
+    featured: false,
     image: '',
+    images: '',
   }
 }
 
@@ -337,6 +341,48 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                       />
                     </label>
                   </div>
+                  <div className="stay-form__row">
+                    <label className="stay-form__field">
+                      <span>Compare-at price (N$)</span>
+                      <input
+                        value={room.compare_at_price}
+                        onChange={(e) => {
+                          const room_types = [...values.room_types]
+                          room_types[i] = { ...room, compare_at_price: e.target.value }
+                          patch({ room_types })
+                        }}
+                        placeholder="Was price, for a sale"
+                      />
+                    </label>
+                    <label className="stay-form__field">
+                      <span>Sale / special badge</span>
+                      <input
+                        value={room.badge}
+                        onChange={(e) => {
+                          const room_types = [...values.room_types]
+                          room_types[i] = { ...room, badge: e.target.value }
+                          patch({ room_types })
+                        }}
+                        placeholder="e.g. Deal, Popular"
+                      />
+                    </label>
+                  </div>
+                  <p className="stay-form__hint">
+                    Compare-at price shows a strike-through “was” price only when it’s higher than the room
+                    price.
+                  </p>
+                  <label className="stay-form__check">
+                    <input
+                      type="checkbox"
+                      checked={room.featured}
+                      onChange={(e) => {
+                        const room_types = [...values.room_types]
+                        room_types[i] = { ...room, featured: e.target.checked }
+                        patch({ room_types })
+                      }}
+                    />
+                    Feature this room (highlight it on the detail page)
+                  </label>
                   <label className="stay-form__field">
                     <span>Bed setup</span>
                     <input
@@ -350,7 +396,7 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                     />
                   </label>
                   <label className="stay-form__field">
-                    <span>Room photo URL</span>
+                    <span>Room cover photo URL</span>
                     <input
                       value={room.image}
                       onChange={(e) => {
@@ -362,6 +408,22 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                     />
                   </label>
                   {room.image ? <img src={room.image} alt="" className="stay-form__preview" /> : null}
+                  <label className="stay-form__field">
+                    <span>More room photos (one URL per line)</span>
+                    <textarea
+                      rows={3}
+                      value={room.images}
+                      onChange={(e) => {
+                        const room_types = [...values.room_types]
+                        room_types[i] = { ...room, images: e.target.value }
+                        patch({ room_types })
+                      }}
+                      placeholder={'https://example.com/room-2.jpg\nhttps://example.com/room-3.jpg'}
+                    />
+                  </label>
+                  <p className="stay-form__hint">
+                    Extra photos power the room detail gallery. The cover photo is shown first.
+                  </p>
                 </div>
               ))}
               <button

@@ -10,6 +10,7 @@ from accommodation.models import AccommodationListing
 from events_app.models import Event
 from food.models import FoodVenue
 from guides.models import TourGuideProfile
+from shop.models import ShopProduct
 from transport.models import BusTrip, VehicleRentalListing
 
 from .models import BusinessProfile, BusinessType
@@ -96,6 +97,9 @@ def business_stats(business: BusinessProfile) -> dict:
         if row.rating_count and row.rating_avg is not None:
             rating_pairs.append((Decimal(row.rating_avg), int(row.rating_count)))
 
+    shop = ShopProduct.objects.filter(owner=owner, is_active=True)
+    listings_count += shop.count()
+
     transport_modes = _business_transport_modes(business)
     if "rental" in transport_modes:
         transport = VehicleRentalListing.objects.filter(owner=owner, is_active=True)
@@ -162,6 +166,20 @@ def business_listings(business: BusinessProfile, request=None) -> list[dict]:
                 "image": _media_url(request, venue.cover_image),
                 "href": f"/food/{venue.pk}",
                 "meta": None,
+            }
+        )
+
+    for product in ShopProduct.objects.filter(owner=owner, is_active=True).order_by("name"):
+        price_meta = f"N${product.price}" if product.price is not None else None
+        items.append(
+            {
+                "kind": "shop",
+                "id": product.pk,
+                "title": product.name,
+                "subtitle": product.get_category_display(),
+                "image": _media_url(request, product.cover_image),
+                "href": f"/shop/{product.pk}",
+                "meta": price_meta,
             }
         )
 

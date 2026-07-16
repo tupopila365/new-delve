@@ -4,13 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Compass } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { useToggleGuideSave } from '../hooks/useGuideSave'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import { TourPackageDetailView } from '../components/guide/TourPackageDetailView'
 import type { TourPackage } from '../components/guide/types'
 import { EmptyState } from '../components/ui'
-import type { ListingQuestionItem } from '../components/listing/ListingQuestionThread'
 import { normalizeTourPackages } from '../utils/tourPackages'
 import type { GuideProfile } from '../utils/guideListing'
 import '../components/journeys/journey-detail.css'
@@ -59,7 +57,6 @@ function packageReviewMeta(
 export function TourPackageDetail() {
   const { guideId, packageSlug } = useParams<{ guideId: string; packageSlug: string }>()
   const { profile } = useAuth()
-  const { canManageListings, activeBusiness } = useBusinessAccess()
   const saveMut = useToggleGuideSave()
   const [shareMsg, setShareMsg] = useState('')
 
@@ -71,13 +68,6 @@ export function TourPackageDetail() {
     enabled: Number.isFinite(gid),
     queryFn: () =>
       apiFetch<GuideProfile>(`/api/guides/profiles/${guideId}/`, { auth: Boolean(profile) }),
-  })
-
-  const { data: questions = [], isLoading: questionsLoading } = useQuery({
-    queryKey: ['guide-questions', guideId],
-    enabled: Number.isFinite(gid),
-    queryFn: () =>
-      apiFetch<ListingQuestionItem[]>(`/api/guides/profiles/${guideId}/questions/`, { auth: false }),
   })
 
   const { data: reviewsPayload } = useQuery({
@@ -101,11 +91,6 @@ export function TourPackageDetail() {
     () => (guide && pkg ? packageReviewMeta(pkg, guide, travelerReviews) : null),
     [guide, pkg, travelerReviews],
   )
-
-  const canAnswerQuestions =
-    Boolean(canManageListings) &&
-    Boolean(activeBusiness?.business_types?.includes('guide')) &&
-    Boolean(guide && profile && guide.username === profile.username)
 
   const onShare = async () => {
     const title = pkg?.title ?? 'Experience'
@@ -185,9 +170,6 @@ export function TourPackageDetail() {
         onSave={() => saveMut.mutate(Number(guideId))}
         onShare={() => void onShare()}
         profile={profile}
-        questions={questions}
-        questionsLoading={questionsLoading}
-        canAnswerQuestions={canAnswerQuestions}
       />
     </div>
   )

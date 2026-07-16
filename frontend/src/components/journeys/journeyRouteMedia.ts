@@ -10,35 +10,70 @@ export type JourneyStopMediaItem = {
   stopName: string
 }
 
-export function mediaFromStopEntry(stop: TripStop, stopIndex: number, entry: TripEntry): JourneyStopMediaItem | null {
-  if (entry.video) {
-    return {
-      id: entry.id,
-      kind: 'video',
-      src: entry.video,
-      poster: entry.image,
-      caption: entry.body?.trim() || undefined,
+function isVideoSrc(src: string): boolean {
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(src)
+}
+
+/** All media for a single diary moment — the new `media` carousel, or the
+ *  legacy single image/video. IDs stay unique across a moment's items. */
+export function mediaListFromStopEntry(
+  stop: TripStop,
+  stopIndex: number,
+  entry: TripEntry,
+): JourneyStopMediaItem[] {
+  const caption = entry.body?.trim() || undefined
+  const list = Array.isArray(entry.media) ? entry.media.filter((m) => m && m.src) : []
+
+  if (list.length > 0) {
+    return list.map((m, i) => ({
+      id: entry.id * 100 + i,
+      kind: m.kind === 'video' || isVideoSrc(m.src) ? 'video' : 'image',
+      src: m.src,
+      poster: m.poster ?? null,
+      caption,
       stopIndex,
       stopName: stop.place_name,
-    }
+    }))
+  }
+
+  if (entry.video) {
+    return [
+      {
+        id: entry.id * 100,
+        kind: 'video',
+        src: entry.video,
+        poster: entry.image,
+        caption,
+        stopIndex,
+        stopName: stop.place_name,
+      },
+    ]
   }
   if (entry.image) {
-    return {
-      id: entry.id,
-      kind: 'image',
-      src: entry.image,
-      caption: entry.body?.trim() || undefined,
-      stopIndex,
-      stopName: stop.place_name,
-    }
+    return [
+      {
+        id: entry.id * 100,
+        kind: 'image',
+        src: entry.image,
+        caption,
+        stopIndex,
+        stopName: stop.place_name,
+      },
+    ]
   }
-  return null
+  return []
+}
+
+export function mediaFromStopEntry(
+  stop: TripStop,
+  stopIndex: number,
+  entry: TripEntry,
+): JourneyStopMediaItem | null {
+  return mediaListFromStopEntry(stop, stopIndex, entry)[0] ?? null
 }
 
 export function collectStopMedia(stop: TripStop, stopIndex: number): JourneyStopMediaItem[] {
-  return stop.entries
-    .map((entry) => mediaFromStopEntry(stop, stopIndex, entry))
-    .filter((item): item is JourneyStopMediaItem => !!item)
+  return stop.entries.flatMap((entry) => mediaListFromStopEntry(stop, stopIndex, entry))
 }
 
 export function collectRouteMedia(stops: TripStop[]): JourneyStopMediaItem[] {

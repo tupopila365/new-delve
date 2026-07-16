@@ -21,7 +21,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { normalizeReviews } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
-import { ListingDelversMoments, ListingQuestionsSection, ListingReviews } from '../listing'
+import { ListingDelversMoments, ListingReviews } from '../listing'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { ReportButton } from '../report/ReportButton'
 import {
@@ -72,7 +72,6 @@ type Props = {
   onLike: () => void
   onSave: () => void
   onShare: () => void
-  canAnswer?: boolean
   hasReviewed?: boolean
   canReview?: boolean
   canReserve?: boolean
@@ -104,7 +103,6 @@ export function FoodDetailView({
   onLike,
   onSave,
   onShare,
-  canAnswer = false,
   hasReviewed = false,
   canReview = false,
   canReserve = false,
@@ -156,7 +154,9 @@ export function FoodDetailView({
   const reviewCount = reviewPayload?.rating_count ?? data.rating_count
   const ratingNum = rating != null && rating !== '' ? Number(rating) : null
   const ratingLabel =
-    ratingNum != null && Number.isFinite(ratingNum) ? ratingNum.toFixed(1) : null
+    (reviewCount ?? 0) > 0 && ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0
+      ? ratingNum.toFixed(1)
+      : null
 
   function guardEngage(action: () => void) {
     if (!profile) {
@@ -290,9 +290,7 @@ export function FoodDetailView({
           <p className="fd-detail__rating">
             <Star size={15} strokeWidth={2.25} fill="currentColor" aria-hidden />
             <strong>{ratingLabel}</strong>
-            <span>
-              {reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : 'Guest favourite'}
-            </span>
+            <span>{`${reviewCount} review${reviewCount === 1 ? '' : 's'}`}</span>
           </p>
         ) : null}
       </div>
@@ -310,9 +308,6 @@ export function FoodDetailView({
             <Heart size={22} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
             {likeCount > 0 ? <span className="jd-engage__count">{likeCount}</span> : null}
           </button>
-          <a href="#food-questions" className="jd-engage__btn" aria-label="Questions">
-            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
-          </a>
           <button type="button" className="jd-engage__btn" onClick={onShare} aria-label="Share venue">
             <Share2 size={22} strokeWidth={2.25} aria-hidden />
           </button>
@@ -496,19 +491,6 @@ export function FoodDetailView({
           Share a moment from this place
         </Link>
       </p>
-
-      <div id="food-questions">
-        <ListingQuestionsSection
-          className="fd-detail__questions jn-detail__comments"
-          title="Ask a question"
-          placeholder="Ask about the menu, reservations, dietary options…"
-          questionsPath={`/api/food/venues/${venueId}/questions/`}
-          answerPath={(questionId) => `/api/food/questions/${questionId}/answers/`}
-          queryKey={['food-questions', venueId]}
-          canAnswer={canAnswer}
-          officialLabel="Venue"
-        />
-      </div>
 
       <ListingReviews
         listingType="food"

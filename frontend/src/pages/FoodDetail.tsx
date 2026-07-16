@@ -203,7 +203,6 @@ export function FoodDetail() {
         onLike={onLike}
         onSave={onSave}
         onShare={() => onShare(data.name)}
-        canAnswer={canAnswer}
         hasReviewed={Boolean(data.has_reviewed)}
         canReview={Boolean(data.can_review)}
         canReserve={canReserve}

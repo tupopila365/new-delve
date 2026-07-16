@@ -22,7 +22,7 @@ export function GuideExperiencePicker({
   selectedId,
   onSelect,
   title = 'Programs & experiences',
-  subtitle = 'Pick a program to request a date — or open full details.',
+  subtitle = '',
   currency = '$',
   className = '',
 }: Props) {

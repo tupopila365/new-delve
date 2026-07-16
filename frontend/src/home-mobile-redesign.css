@@ -24,10 +24,21 @@
 .page-home > 
 .home-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   width: min(100%, 1120px);
   margin: 0 auto;
   padding: 22px 16px calc(var(--page-bottom-clearance, 110px));
+}
+
+/* Grid items must be allowed to shrink; otherwise horizontal scroller rows
+   (moods, rails, chips) expand their track to max-content and overflow the
+   viewport on phones, getting clipped. */
+.home-content > *,
+.home-discover > *,
+.home-act__stage > *,
+.home-community-preview > * {
+  min-width: 0;
 }
 
 /* Editorial act — type on the page, no cream boxes / dark decks */
@@ -74,6 +85,7 @@
 
 .home-act__stage {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -110,6 +122,7 @@
 
 .home-discover {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -577,6 +590,7 @@
 
 .home-community-preview {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 

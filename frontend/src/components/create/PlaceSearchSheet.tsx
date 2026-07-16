@@ -14,6 +14,7 @@ type BusTripOption = {
   departs_at?: string
 }
 type FoodOption = { id: number; name: string; city?: string; region?: string }
+type GuideOption = { id: number; headline: string; display_name?: string; username?: string; regions?: string[] }
 
 type PlaceHit = {
   kind: Exclude<PlaceLink['kind'], 'none'>
@@ -82,6 +83,12 @@ export function PlaceSearchSheet({
     staleTime: 120_000,
     enabled: open,
   })
+  const { data: guidesRaw } = useQuery({
+    queryKey: ['place-link-guides'],
+    queryFn: () => apiFetch<GuideOption[]>('/api/guides/profiles/?ordering=-created_at', { auth: false }),
+    staleTime: 120_000,
+    enabled: open,
+  })
 
   const hits = useMemo(() => {
     const rows: PlaceHit[] = []
@@ -120,8 +127,21 @@ export function PlaceSearchSheet({
         rows.push({ kind: 'food', id: venue.id, title: venue.name, subtitle: place || 'Food' })
       }
     }
+    if (allow('guide')) {
+      for (const guide of asArray<GuideOption>(guidesRaw)) {
+        const name = guide.display_name?.trim() || guide.username?.trim() || ''
+        const region = (guide.regions ?? []).slice(0, 2).join(', ')
+        if (!matches(query, guide.headline, name, region)) continue
+        rows.push({
+          kind: 'guide',
+          id: guide.id,
+          title: name || guide.headline,
+          subtitle: guide.headline || region || 'Guide',
+        })
+      }
+    }
     return rows.slice(0, 40)
-  }, [allowedKinds, eventsRaw, foodRaw, query, staysRaw, tripsRaw, vehiclesRaw])
+  }, [allowedKinds, eventsRaw, foodRaw, guidesRaw, query, staysRaw, tripsRaw, vehiclesRaw])
 
   const selectedLabel =
     value.kind === 'none' ? null : value.title?.trim() || `${value.kind.replace('_', ' ')} #${value.id}`

@@ -3,7 +3,7 @@ from functools import reduce
 import operator
 
 from django.contrib.auth import get_user_model
-from django.db.models import Prefetch, Q
+from django.db.models import F, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -211,9 +211,14 @@ class JourneyViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         journey = self.get_object()
-        if not can_view_journey(request.user if request.user.is_authenticated else None, journey):
+        viewer = request.user if request.user.is_authenticated else None
+        if not can_view_journey(viewer, journey):
             raise NotFound()
-        return super().retrieve(request, *args, **kwargs)
+        if not viewer or viewer.pk != journey.author_id:
+            Journey.objects.filter(pk=journey.pk).update(views_count=F("views_count") + 1)
+            journey.views_count = (journey.views_count or 0) + 1
+        serializer = self.get_serializer(journey)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(visibility=JourneyVisibility.PUBLIC)

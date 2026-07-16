@@ -7,8 +7,6 @@ from .views import (
     AccommodationProviderAnalyticsView,
     AccommodationProviderBookingViewSet,
     AccommodationProviderListingViewSet,
-    AccommodationProviderQuestionsView,
-    AccommodationQuestionAnswerView,
 )
 
 router = DefaultRouter()
@@ -27,7 +25,5 @@ router.register(
 
 urlpatterns = [
     path("provider-analytics/", AccommodationProviderAnalyticsView.as_view(), name="accommodation-provider-analytics"),
-    path("questions/<int:pk>/answers/", AccommodationQuestionAnswerView.as_view(), name="accommodation-question-answer"),
-    path("provider-questions/", AccommodationProviderQuestionsView.as_view(), name="accommodation-provider-questions"),
     path("", include(router.urls)),
 ]

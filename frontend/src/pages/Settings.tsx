@@ -53,6 +53,7 @@ export function Settings() {
   const [postsVisibility, setPostsVisibility] = useState<PostsVisibility>('public')
   const [allowMessages, setAllowMessages] = useState(true)
   const [showInSearch, setShowInSearch] = useState(true)
+  const [noFaceMode, setNoFaceMode] = useState(false)
 
   // ── Preference fields ───────────────────────────────────────
   const [countryCode, setCountryCode] = useState('')
@@ -97,6 +98,7 @@ export function Settings() {
     setPostsVisibility(profile.posts_visibility ?? 'public')
     setAllowMessages(profile.allow_messages ?? true)
     setShowInSearch(profile.show_in_search ?? true)
+    setNoFaceMode(profile.no_face_mode ?? false)
     setCountryCode(profile.country_code ?? '')
     setPreferredCurrency(profile.preferred_currency ?? '')
   }, [profile])
@@ -177,7 +179,7 @@ export function Settings() {
       } else if (tab === 'privacy') {
         await apiFetch('/api/accounts/me/update/', {
           method: 'PATCH',
-          body: JSON.stringify({ is_private: isPrivate, posts_visibility: postsVisibility, allow_messages: allowMessages, show_in_search: showInSearch }),
+          body: JSON.stringify({ is_private: isPrivate, posts_visibility: postsVisibility, allow_messages: allowMessages, show_in_search: showInSearch, no_face_mode: noFaceMode }),
           headers: { 'Content-Type': 'application/json' },
         })
       } else if (tab === 'preferences') {
@@ -450,6 +452,26 @@ export function Settings() {
                 type="checkbox"
                 checked={showInSearch}
                 onChange={(e) => setShowInSearch(e.target.checked)}
+              />
+              <span className="sp__sw-track" aria-hidden />
+            </label>
+          </div>
+
+          {/* No Face mode */}
+          <div className="sp__toggle-card sp__toggle-card--mt">
+            <div className="sp__toggle-info">
+              <p className="sp__toggle-label">No Face mode</p>
+              <p className="sp__toggle-sub">
+                Hide the social side of Delve — feeds, stories, and other people's posts. You keep
+                everything for discovery: places, stays, food, events, journeys, and Coin Toss. Turn
+                it off anytime to bring the social experience back.
+              </p>
+            </div>
+            <label className="sp__sw" aria-label="No Face mode">
+              <input
+                type="checkbox"
+                checked={noFaceMode}
+                onChange={(e) => setNoFaceMode(e.target.checked)}
               />
               <span className="sp__sw-track" aria-hidden />
             </label>

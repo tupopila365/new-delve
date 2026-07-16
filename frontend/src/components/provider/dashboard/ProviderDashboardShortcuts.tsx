@@ -9,6 +9,7 @@ import {
   Eye,
   Hotel,
   MessageCircle,
+  ShoppingBag,
   Utensils,
 } from 'lucide-react'
 
@@ -28,6 +29,7 @@ const CATEGORY_SHORTCUTS: { type: string; label: string; to: string; Icon: Lucid
   { type: 'guide', label: 'Guides', to: '/provider/guides', Icon: Compass },
   { type: 'transport', label: 'Transport', to: '/provider/transport', Icon: Car },
   { type: 'food_drink', label: 'Food & drink', to: '/provider/food', Icon: Utensils },
+  { type: 'retail_shop', label: 'Shop', to: '/provider/shop', Icon: ShoppingBag },
 ]
 
 export function ProviderDashboardShortcuts({ businessTypes, businessId }: Props) {

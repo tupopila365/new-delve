@@ -136,16 +136,14 @@ export function buildFoodGalleryImages(venue: FoodVenueListing): ListingGalleryI
 export function buildFoodHighlights(venue: FoodVenueListing): string[] {
   const items: string[] = []
   if (venue.popular_dish?.trim()) items.push(venue.popular_dish.trim())
-  if (venue.rating_avg && parseFloat(venue.rating_avg) >= 4.4) items.push('Local favourite')
+  const ratingCount = venue.rating_count ?? 0
+  if (ratingCount > 0 && venue.rating_avg && parseFloat(venue.rating_avg) >= 4.4) {
+    items.push('Local favourite')
+  }
   if (venue.reservations) items.push('Reservations welcome')
   if (venue.dine_in) items.push('Dine in')
   if (venue.takeaway) items.push('Takeaway')
   if (venue.delivery) items.push('Delivery')
-  const fill = ['Signature plates', 'Worth a detour', 'Traveller pick']
-  for (const t of fill) {
-    if (items.length >= 4) break
-    if (!items.includes(t)) items.push(t)
-  }
   return items.slice(0, 4)
 }
 

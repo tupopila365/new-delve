@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { apiFetch } from '../api/client'
 import { usePublishQueue } from '../components/PublishQueueContext'
-import type { TripCost, TripStop } from '../data/mockTrips'
+import type { TripCost, TripReflections, TripStop } from '../data/mockTrips'
 import {
   CreateWizardShell,
   JourneyStopMoment,
@@ -230,6 +230,12 @@ export function CreateJourney() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedCountries, setSelectedCountries] = useState<string[]>(['NA'])
   const [journeyStories, setJourneyStories] = useState<HighlightChannelInput[]>([])
+  const [reflections, setReflections] = useState<TripReflections>({
+    highs: [],
+    lows: [],
+    would_change: '',
+    takeaway: '',
+  })
 
   const [err, setErr] = useState<string | null>(null)
   const [publishIssues, setPublishIssues] = useState<string[]>([])
@@ -274,6 +280,9 @@ export function CreateJourney() {
         ...ch,
         slides: (ch.slides ?? []).map((s) => ({ ...s })),
       })),
+    )
+    setReflections(
+      trip.reflections ?? { highs: [], lows: [], would_change: '', takeaway: '' },
     )
     setHydrated(true)
   }, [existing, hydrated, isEdit, navigate, profile])
@@ -471,6 +480,7 @@ export function CreateJourney() {
       stops,
       costs,
       journeyStories,
+      reflections,
       isEdit,
       editId,
       username: profile.username,
@@ -511,6 +521,7 @@ export function CreateJourney() {
           totalCost,
           journeyStories: resolvedStories,
           galleryImages: serializeGalleryForApi(resolvedMedia.gallery),
+          reflections: snapshot.reflections,
         })
 
         if (snapshot.isEdit && snapshot.editId) {
@@ -584,6 +595,7 @@ export function CreateJourney() {
         selectedTags={selectedTags}
         selectedCountries={selectedCountries}
         journeyStories={journeyStories}
+        reflections={reflections}
         step={step}
         onChange={(patch) => {
           if ('title' in patch && patch.title !== undefined) setTitle(patch.title)
@@ -598,6 +610,7 @@ export function CreateJourney() {
           if ('selectedTags' in patch && patch.selectedTags !== undefined) setSelectedTags(patch.selectedTags)
           if ('selectedCountries' in patch && patch.selectedCountries !== undefined) setSelectedCountries(patch.selectedCountries)
           if ('journeyStories' in patch && patch.journeyStories !== undefined) setJourneyStories(patch.journeyStories)
+          if ('reflections' in patch && patch.reflections !== undefined) setReflections(patch.reflections)
         }}
       />
     </CreateWizardShell>

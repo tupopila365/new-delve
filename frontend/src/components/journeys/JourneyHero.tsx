@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bookmark, ChevronLeft, ChevronRight, Heart, Share2 } from 'lucide-react'
 import type { ListingGalleryItem } from '../listing/types'
+import { MediaLightbox } from '../media/MediaLightbox'
 import './journey-detail.css'
 
 type Props = {
@@ -34,6 +35,7 @@ export function JourneyHero({
   const trackRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
   const [failedSrcs, setFailedSrcs] = useState<Set<string>>(() => new Set())
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   const candidates =
     images.filter((item) => Boolean(item.src?.trim())).length > 0
@@ -46,9 +48,17 @@ export function JourneyHero({
     return item
   })
 
-  const visibleSrcCount = slides.filter((s) => s.src?.trim()).length
+  const viewable = slides.filter((s) => Boolean(s.src?.trim()))
+  const visibleSrcCount = viewable.length
   const multi = slides.length > 1 && visibleSrcCount > 0
   const isEmptyHero = visibleSrcCount === 0
+
+  const openLightbox = (slideIndex: number) => {
+    const item = slides[slideIndex]
+    if (!item?.src?.trim()) return
+    const idx = viewable.indexOf(item)
+    setLightboxIndex(idx >= 0 ? idx : 0)
+  }
 
   const onScroll = () => {
     const el = trackRef.current
@@ -116,7 +126,20 @@ export function JourneyHero({
 
       <div className="jd-hero__carousel" ref={trackRef} onScroll={onScroll}>
         {slides.map((item, index) => (
-          <div key={item.id ?? `${candidates[index]?.src ?? index}-${index}`} className="jd-hero__slide">
+          <div
+            key={item.id ?? `${candidates[index]?.src ?? index}-${index}`}
+            className={`jd-hero__slide${item.src?.trim() ? ' jd-hero__slide--tappable' : ''}`}
+            role={item.src?.trim() ? 'button' : undefined}
+            tabIndex={item.src?.trim() ? 0 : undefined}
+            aria-label={item.src?.trim() ? 'Open full view' : undefined}
+            onClick={() => openLightbox(index)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                openLightbox(index)
+              }
+            }}
+          >
             {item.kind === 'video' && item.src?.trim() ? (
               <video
                 src={item.src}
@@ -181,6 +204,16 @@ export function JourneyHero({
             ))}
           </div>
         </>
+      ) : null}
+
+      {lightboxIndex !== null ? (
+        <MediaLightbox
+          items={viewable}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onChange={setLightboxIndex}
+          label="Photos"
+        />
       ) : null}
     </div>
   )

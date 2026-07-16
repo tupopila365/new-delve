@@ -50,6 +50,7 @@ export type GuideProfile = {
   saves_count?: number
   has_reviewed?: boolean
   can_review?: boolean
+  attended?: boolean
 }
 
 export type PortfolioItem = { src: string; caption?: string }

@@ -506,10 +506,23 @@ button {
 }
 
 .mobile-topbar__sections {
+  position: relative;
   margin: 0 -16px 0;
   padding: 8px 0 10px;
   border-bottom: 1px solid var(--hairline-light);
   background: var(--bg-elevated);
+}
+
+/* Right-edge fade to signal the tab strip scrolls horizontally */
+.mobile-topbar__sections::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 42px;
+  background: linear-gradient(to right, rgba(23, 19, 15, 0), var(--bg-nav, #17130f));
+  pointer-events: none;
 }
 
 .mobile-topbar__sections-scroll {
@@ -547,10 +560,19 @@ button {
 }
 
 .mobile-topbar__sect--more {
-  border: none;
-  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 6px 12px;
+  margin-left: 4px;
+  margin-bottom: 0;
   cursor: pointer;
   font-family: var(--font-sans);
+}
+
+.mobile-topbar__sect--more.mobile-topbar__sect--active {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .mobile-topbar__more-panel {
@@ -565,7 +587,8 @@ button {
 .mobile-topbar__more-item {
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(28, 20, 16, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
@@ -573,8 +596,9 @@ button {
 }
 
 .mobile-topbar__more-item:hover {
-  background: var(--accent-soft);
-  color: var(--accent-hover);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 
 /* ── Nav notification badges ────────────────────────────────── */
@@ -625,12 +649,13 @@ button {
 .mobile-topbar__logo {
   font-family: var(--font-display);
   font-size: 1.45rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 55%, var(--sunset) 120%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: #fff;
+  background: none;
+  -webkit-background-clip: border-box;
+  -webkit-text-fill-color: #fff;
+  background-clip: border-box;
+  letter-spacing: -0.02em;
 }
 
 .mobile-topbar__actions {
@@ -670,8 +695,17 @@ button {
 }
 
 .mobile-topbar__post-btn .cm-feed-toolbar__circle {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #fffaf2;
+  color: #17130f;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-topbar__post-btn:hover .cm-feed-toolbar__circle {
+  background: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 /* Sidebar hidden on phone (bottom nav + top bar) */

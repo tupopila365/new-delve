@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
-import { Bus, Car, Compass, Hotel, Utensils } from 'lucide-react'
+import { Bus, Car, Compass, Hotel, ShoppingBag, Utensils } from 'lucide-react'
 
-export type OnboardingServiceType = 'accommodation' | 'transport' | 'food_drink' | 'guide'
+export type OnboardingServiceType = 'accommodation' | 'transport' | 'food_drink' | 'guide' | 'retail_shop'
 
 export type TransportMode = 'rental' | 'shared'
 
@@ -20,6 +20,15 @@ export type ServiceOption = {
 }
 
 export const ONBOARDING_SERVICE_OPTIONS: ServiceOption[] = [
+  {
+    id: 'retail_shop',
+    label: 'Shop & makers',
+    description: 'Souvenirs, crafts, and travel goods — pickup-first.',
+    Icon: ShoppingBag,
+    requiresVerification: false,
+    verificationOptional: true,
+    dashboardRoute: '/provider/shop',
+  },
   {
     id: 'food_drink',
     label: 'Food & drink',
@@ -115,6 +124,10 @@ export const VERIFICATION_DOCS_BY_SERVICE: Record<
   food_drink: [
     { id: 'business_registration', label: 'Business registration', required: true },
     { id: 'food_handling_cert', label: 'Food handling certificate', required: false },
+  ],
+  retail_shop: [
+    { id: 'business_registration', label: 'Business registration', required: true },
+    { id: 'tourism_license', label: 'Tourism / retail licence', required: false },
   ],
 }
 

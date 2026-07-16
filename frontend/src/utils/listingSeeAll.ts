@@ -156,6 +156,7 @@ async function fetchGuideSeeAll(id: string): Promise<ListingSeeAllData> {
   const guide = await apiFetch<GuideProfile>(`/api/guides/profiles/${id}/`, { auth: false })
   const portfolio = normalizePortfolio(guide.portfolio_gallery)
   const packages = normalizeTourPackages(guide.tour_packages)
+  const moments = await fetchListingMoments('guide', id, guide.headline)
 
   return {
     listingTitle: guide.headline,
@@ -172,7 +173,7 @@ async function fetchGuideSeeAll(id: string): Promise<ListingSeeAllData> {
     },
     moments: {
       title: 'From Delvers',
-      moments: EMPTY_MOMENTS,
+      moments,
     },
   }
 }

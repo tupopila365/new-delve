@@ -1,0 +1,107 @@
+.noface-invite {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 18px 44px 18px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(120, 170, 140, 0.28);
+  background:
+    radial-gradient(ellipse 60% 80% at 100% 0%, rgba(120, 170, 140, 0.16), transparent 60%),
+    linear-gradient(150deg, #14171a 0%, #0d0f10 100%);
+  color: #f4f7f5;
+}
+
+.noface-invite__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.noface-invite__kicker {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9ccbb0;
+}
+
+.noface-invite__title {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.noface-invite__text {
+  margin: 0 0 14px;
+  max-width: 40rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: rgba(244, 247, 245, 0.72);
+}
+
+.noface-invite__text strong {
+  color: #d7e8dd;
+}
+
+.noface-invite__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.noface-invite__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f7f5;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.noface-invite__btn:hover:not(:disabled) {
+  border-color: rgba(156, 203, 176, 0.6);
+}
+
+.noface-invite__btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.noface-invite__btn--primary {
+  background: #9ccbb0;
+  border-color: #9ccbb0;
+  color: #10221a;
+}
+
+.noface-invite__btn--primary:hover {
+  filter: brightness(1.05);
+}
+
+.noface-invite__dismiss {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(244, 247, 245, 0.7);
+  cursor: pointer;
+}
+
+.noface-invite__dismiss:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}

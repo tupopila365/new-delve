@@ -5,8 +5,6 @@ from .models import (
     AccommodationListing,
     AccommodationListingLike,
     AccommodationListingSave,
-    AccommodationQuestion,
-    AccommodationAnswer,
     AccommodationReview,
 )
 
@@ -60,21 +58,6 @@ class AccommodationListingLikeAdmin(admin.ModelAdmin):
 class AccommodationListingSaveAdmin(admin.ModelAdmin):
     list_display = ("listing", "user", "created_at")
     raw_id_fields = ("listing", "user")
-
-
-@admin.register(AccommodationQuestion)
-class AccommodationQuestionAdmin(admin.ModelAdmin):
-    list_display = ("listing", "author", "is_hidden", "created_at")
-    list_filter = ("is_hidden",)
-    search_fields = ("body", "listing__title", "author__username")
-    raw_id_fields = ("listing", "author")
-
-
-@admin.register(AccommodationAnswer)
-class AccommodationAnswerAdmin(admin.ModelAdmin):
-    list_display = ("question", "author", "is_official", "created_at")
-    list_filter = ("is_official",)
-    raw_id_fields = ("question", "author")
 
 
 @admin.register(AccommodationReview)

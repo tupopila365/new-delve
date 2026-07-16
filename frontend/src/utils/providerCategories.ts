@@ -6,6 +6,7 @@ const TYPE_TO_CATEGORY: Record<string, ListingCategory> = {
   transport: 'Transport',
   food_drink: 'Food',
   event_organiser: 'Event',
+  retail_shop: 'Shop',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -13,6 +14,7 @@ const TYPE_LABELS: Record<string, string> = {
   guide: 'guide',
   transport: 'transport',
   food_drink: 'food & drink',
+  retail_shop: 'shop & makers',
 }
 
 export function categoriesForBusinessTypes(types: string[]): ListingCategory[] {
@@ -38,6 +40,7 @@ const CATEGORY_CHIP_LABELS: Record<ListingCategory, string> = {
   Transport: 'Transport',
   Food: 'Food & drink',
   Event: 'Events',
+  Shop: 'Shop',
 }
 
 export function listingTypeChips(types: string[]): { id: string; label: string }[] {
@@ -71,6 +74,7 @@ export function categoryModuleLinks(types: string[]): { label: string; to: strin
     { type: 'guide', label: 'Guides', to: '/provider/guides', emoji: '🧭' },
     { type: 'transport', label: 'Transport', to: '/provider/transport', emoji: '🚗' },
     { type: 'food_drink', label: 'Food & drink', to: '/provider/food', emoji: '🍽' },
+    { type: 'retail_shop', label: 'Shop', to: '/provider/shop', emoji: '🛍' },
     { type: 'event_organiser', label: 'Events', to: '/provider/events', emoji: '🎟' },
   ]
   return modules.filter((m) => types.includes(m.type) || types.includes('multi_provider'))

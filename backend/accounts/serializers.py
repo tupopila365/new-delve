@@ -38,6 +38,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "posts_visibility",
             "allow_messages",
             "show_in_search",
+            "no_face_mode",
         )
         read_only_fields = ("email_verified", "user_type", "is_staff")
 
@@ -113,6 +114,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "posts_visibility",
             "allow_messages",
             "show_in_search",
+            "no_face_mode",
         )
         read_only_fields = ("user_type",)
 
