@@ -21,11 +21,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
-import {
-  ListingDelversMoments,
-  ListingQuestionsSection,
-  ListingReviews,
-} from '../listing'
+import { ListingDelversMoments, ListingReviews } from '../listing'
 import { ReportButton } from '../report/ReportButton'
 import {
   BusTripBookingStatus,
@@ -39,7 +35,7 @@ import { buildBusStoryChannels } from './transportStoriesUtils'
 import {
   buildBusGalleryImages,
   busRouteTitle,
-  DEFAULT_BUS_TRAVEL_TIPS,
+  busTravelTips,
   formatTripWhen,
   openStreetMapSearchUrl,
   routeTimelineStops,
@@ -81,7 +77,6 @@ type Props = {
   saved: boolean
   onSave: () => void
   onShare: () => void
-  canAnswer?: boolean
   booking: BookingProps
 }
 
@@ -91,7 +86,6 @@ export function BusTripDetailView({
   saved,
   onSave,
   onShare,
-  canAnswer = false,
   booking,
 }: Props) {
   const navigate = useNavigate()
@@ -104,6 +98,7 @@ export function BusTripDetailView({
   const operatorName = trip.route_detail.operator_name
   const galleryImages = buildBusGalleryImages(trip)
   const timeline = routeTimelineStops(trip, dep.time, arr?.time ?? null)
+  const travelTips = busTravelTips(trip)
   const operatorInitial = operatorName.charAt(0).toUpperCase() || 'O'
   const boardMap = openStreetMapSearchUrl(trip.route_detail.origin)
   const dropMap = openStreetMapSearchUrl(trip.route_detail.destination)
@@ -361,15 +356,17 @@ export function BusTripDetailView({
         </JourneySection>
       ) : null}
 
-      <JourneySection title="Travel tips">
-        <ul className="jd-tips">
-          {DEFAULT_BUS_TRAVEL_TIPS.map((tip) => (
-            <li key={tip} className="jd-tip">
-              {tip}
-            </li>
-          ))}
-        </ul>
-      </JourneySection>
+      {travelTips.length > 0 ? (
+        <JourneySection title="Travel tips">
+          <ul className="jd-tips">
+            {travelTips.map((tip) => (
+              <li key={tip} className="jd-tip">
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </JourneySection>
+      ) : null}
 
       <BusOperatorCard operatorName={operatorName} className="tp-detail__provider" />
 
@@ -391,17 +388,6 @@ export function BusTripDetailView({
         count={reviewPayload?.rating_count}
         emptyMessage="Reviews will appear here after passengers share feedback."
         className="tp-detail__reviews"
-      />
-
-      <ListingQuestionsSection
-        className="tp-detail__questions"
-        title="Ask the operator"
-        placeholder="Boarding point, stops, luggage, or seat questions…"
-        questionsPath={`/api/transport/bus/trips/${tripId}/questions/`}
-        answerPath={(questionId) => `/api/transport/bus/questions/${questionId}/answers/`}
-        queryKey={['bus-trip-questions', tripId]}
-        canAnswer={canAnswer}
-        officialLabel="Operator"
       />
 
       {canBook ? (

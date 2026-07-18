@@ -5,7 +5,7 @@ import { ListingQuestionThread, type ListingQuestionItem } from '../listing/List
 
 type ProviderListingQuestion = {
   id: number
-  category: 'vehicle' | 'bus_trip' | 'event'
+  category: 'event'
   listing_id: number
   listing_title: string
   author: string
@@ -15,17 +15,11 @@ type ProviderListingQuestion = {
 }
 
 const CATEGORY_LABEL: Record<ProviderListingQuestion['category'], string> = {
-  vehicle: 'Vehicle',
-  bus_trip: 'Bus trip',
   event: 'Event',
 }
 
 function answerPath(category: ProviderListingQuestion['category'], questionId: number) {
   switch (category) {
-    case 'vehicle':
-      return `/api/transport/questions/${questionId}/answers/`
-    case 'bus_trip':
-      return `/api/transport/bus/questions/${questionId}/answers/`
     case 'event':
       return `/api/events/questions/${questionId}/answers/`
   }
@@ -33,7 +27,6 @@ function answerPath(category: ProviderListingQuestion['category'], questionId: n
 
 function officialLabel(category: ProviderListingQuestion['category']) {
   if (category === 'event') return 'Organizer'
-  if (category === 'bus_trip') return 'Operator'
   return 'Provider'
 }
 
@@ -67,8 +60,6 @@ export function ProviderListingQuestionsPanel({ canAnswer = false }: Props) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['provider-listing-questions'] })
       void qc.invalidateQueries({ queryKey: ['provider-stay-questions'] })
-      void qc.invalidateQueries({ queryKey: ['vehicle-questions'] })
-      void qc.invalidateQueries({ queryKey: ['bus-trip-questions'] })
     },
   })
 
@@ -116,7 +107,7 @@ export function ProviderListingQuestionsPanel({ canAnswer = false }: Props) {
     return (
       <div className="stay-questions-empty">
         <strong>No listing questions yet</strong>
-        <p>When travellers ask about your stays, venues, vehicles, bus trips, or events, you can reply here.</p>
+        <p>When travellers ask about your events, you can reply here.</p>
       </div>
     )
   }

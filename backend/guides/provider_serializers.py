@@ -78,6 +78,7 @@ class ProviderGuideProfileSerializer(serializers.ModelSerializer):
             "rating_count",
             "guest_reviews",
             "response_hours_typical",
+            "max_group_size",
             "tour_packages",
             "years_guiding",
             "certifications",

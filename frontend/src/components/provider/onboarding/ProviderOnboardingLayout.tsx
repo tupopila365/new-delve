@@ -1,30 +1,51 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { HOME_HERO_BG } from '../../../data/homeDefaults'
+import { HOME_ATMOSPHERE_BG } from '../../../data/homeDefaults'
 import './provider-onboarding.css'
 
 type Props = {
   children: ReactNode
+  kicker?: string
+  title?: string
+  lead?: string
+  foot?: ReactNode
 }
 
-export function ProviderOnboardingLayout({ children }: Props) {
+export function ProviderOnboardingLayout({
+  children,
+  kicker = 'Provider',
+  title = 'Business setup',
+  lead = 'Tell us what you offer, then add your business details.',
+  foot,
+}: Props) {
   return (
     <div className="prov-onboard">
-      <div className="prov-onboard__bg" aria-hidden>
-        <img className="prov-onboard__bg-img" src={HOME_HERO_BG} alt="" loading="eager" decoding="async" />
-        <div className="prov-onboard__bg-scrim" />
-      </div>
-
-      <header className="prov-onboard__top">
-        <Link to="/" className="prov-onboard__home">
-          DELVE
-        </Link>
+      <header className="prov-onboard__hero">
+        <div
+          className="prov-onboard__hero-photo"
+          style={{ backgroundImage: `url(${HOME_ATMOSPHERE_BG})` }}
+          aria-hidden
+        />
+        <div className="prov-onboard__hero-veil" aria-hidden />
+        <div className="prov-onboard__hero-bar">
+          <Link to="/" className="prov-onboard__home">
+            DELVE
+          </Link>
+          <Link to="/dashboard" className="prov-onboard__skip">
+            Travel dashboard
+          </Link>
+        </div>
+        <div className="prov-onboard__hero-copy">
+          <p className="prov-onboard__kicker">{kicker}</p>
+          <h1 className="prov-onboard__brand">{title}</h1>
+          {lead ? <p className="prov-onboard__lead">{lead}</p> : null}
+        </div>
       </header>
 
-      <main className="prov-onboard__main">{children}</main>
+      <main className="prov-onboard__desk">{children}</main>
 
       <footer className="prov-onboard__foot">
-        <Link to="/dashboard">Back to travel dashboard</Link>
+        {foot ?? <Link to="/dashboard">Back to travel dashboard</Link>}
       </footer>
     </div>
   )

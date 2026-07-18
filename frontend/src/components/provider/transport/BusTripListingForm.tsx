@@ -148,6 +148,28 @@ export function BusTripListingForm({ values, onChange, error, saving, onSubmit, 
                   </button>
                 ))}
               </div>
+              <label className="transport-form__field">
+                Stops along the way
+                <textarea
+                  rows={3}
+                  value={values.stops}
+                  onChange={(e) => patch({ stops: e.target.value })}
+                  placeholder={'One stop per line, in order\ne.g. Rehoboth\nMariental'}
+                />
+              </label>
+              <p className="transport-form__hint">
+                Ordered pick-up/drop points between origin and destination — shown on the route timeline.
+              </p>
+              <label className="transport-form__field">
+                Travel tips
+                <textarea
+                  rows={3}
+                  value={values.travel_tips}
+                  onChange={(e) => patch({ travel_tips: e.target.value })}
+                  placeholder={'One tip per line\ne.g. Arrive 20 minutes before departure'}
+                />
+              </label>
+              <p className="transport-form__hint">One tip per line — shown in the “Travel tips” section.</p>
             </div>
           )}
 

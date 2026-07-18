@@ -62,7 +62,9 @@ export function GuideListingCard({
   const packageCount = g.tour_packages?.length ?? 0
   const ratingNum = g.rating_avg != null && g.rating_avg !== '' ? Number(g.rating_avg) : null
   const ratingLabel =
-    ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0 ? ratingNum.toFixed(1) : null
+    (g.rating_count ?? 0) > 0 && ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0
+      ? ratingNum.toFixed(1)
+      : null
   const fastReply = (g.response_hours_typical ?? 99) <= FAST_RESPONSE_HOURS
 
   return (

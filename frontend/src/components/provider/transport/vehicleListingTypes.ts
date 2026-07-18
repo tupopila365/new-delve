@@ -5,8 +5,17 @@ import {
   serializeGalleryMediaList,
 } from '../../listing/photos/listingGalleryMedia'
 import { RENTER_DOCUMENT_OPTIONS } from '../../../data/renterDocuments'
+import { DEFAULT_PASSENGER_RENTAL_RULES } from '../../../data/transportProvider'
 
 export { RENTER_DOCUMENT_OPTIONS }
+
+/** Split a multi-line textarea into a trimmed list of non-empty lines. */
+function linesToList(value: string): string[] {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
 
 export const VEHICLE_TYPE_OPTIONS = [
   { value: '4x4', label: '4×4 / SUV' },
@@ -44,6 +53,8 @@ export type VehicleListingFormValues = {
   pickup_location: string
   description: string
   included_features: string[]
+  highlights: string
+  rental_rules: string
   cover_image_url: string
   cover_image_file: File | null
   gallery_urls: string
@@ -67,6 +78,8 @@ export const EMPTY_VEHICLE_LISTING_FORM: VehicleListingFormValues = {
   pickup_location: '',
   description: '',
   included_features: [],
+  highlights: '',
+  rental_rules: DEFAULT_PASSENGER_RENTAL_RULES.join('\n'),
   cover_image_url: '',
   cover_image_file: null,
   gallery_urls: '',
@@ -93,6 +106,8 @@ export type ProviderVehicleListing = {
   pickup_location?: string | null
   fuel_type?: string | null
   included_features?: string[]
+  highlights?: string[]
+  rental_rules?: string[]
   gallery_images?: Array<string | { url?: string; kind?: string }>
   required_renter_documents?: string[]
   is_active?: boolean
@@ -131,6 +146,8 @@ export function vehicleToForm(v: ProviderVehicleListing): VehicleListingFormValu
     pickup_location: v.pickup_location ?? '',
     description: v.description ?? '',
     included_features: v.included_features ?? [],
+    highlights: (v.highlights ?? []).join('\n'),
+    rental_rules: (v.rental_rules ?? []).join('\n'),
     cover_image_url: v.cover_image ?? '',
     cover_image_file: null,
     gallery_urls: formatGalleryUrlsField(gallery),
@@ -160,6 +177,8 @@ export function formToVehiclePayload(form: VehicleListingFormValues) {
     pickup_location: form.pickup_location.trim(),
     description: form.description.trim(),
     included_features: form.included_features,
+    highlights: linesToList(form.highlights),
+    rental_rules: linesToList(form.rental_rules),
     cover_image: cover || null,
     cover_image_url: cover || '',
     cover_kind: coverKind,

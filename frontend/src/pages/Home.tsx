@@ -68,7 +68,7 @@ const categoryShortcuts = [
   { to: '/guides', label: 'Guides', Icon: Users },
   { to: '/events', label: 'Events', Icon: Ticket },
   { to: '/transport', label: 'Transport', Icon: Car },
-  { to: '/shop', label: 'Local shops', Icon: ShoppingBag },
+  { to: '/shop', label: 'Shops', Icon: ShoppingBag },
   { to: '/coin-toss', label: 'Coin toss', Icon: Sparkles },
   { to: '/journeys', label: 'Journeys', Icon: Map },
   { to: '/community', label: 'Ask locals', Icon: MessageCircle },
@@ -595,6 +595,7 @@ export function Home() {
 
   const { data: communityQuestions = [], isLoading: loadingCommunityQuestions } = useQuery({
     queryKey: ['home-community-questions', region],
+    enabled: !noFace,
     queryFn: async () => {
       try {
         const params = new URLSearchParams({ kind: 'question', limit: '6' })
@@ -610,6 +611,7 @@ export function Home() {
 
   const { data: communityTips = [], isLoading: loadingCommunityTips } = useQuery({
     queryKey: ['home-community-tips', region],
+    enabled: !noFace,
     queryFn: async () => {
       try {
         const params = new URLSearchParams({ kind: 'tip', limit: '4' })
@@ -625,6 +627,7 @@ export function Home() {
 
   const { data: communityTags = [], isLoading: loadingCommunityTags } = useQuery({
     queryKey: ['home-community-tags'],
+    enabled: !noFace,
     queryFn: async () => {
       try {
         return asArray<TagSummary>(await fetchTagTrending('community', 8))
@@ -794,7 +797,9 @@ export function Home() {
           <HomeCategoryGrid
             items={
               noFace
-                ? categoryShortcuts.filter((c) => c.to !== '/delvers' && c.to !== '/journeys')
+                ? categoryShortcuts.filter(
+                    (c) => c.to !== '/delvers' && c.to !== '/journeys' && c.to !== '/community',
+                  )
                 : categoryShortcuts
             }
           />
@@ -807,16 +812,13 @@ export function Home() {
                 Let the coin decide
               </h3>
               <p className="home-quintos__lead">
-                Spin for a community-loved spot near you — or add your own favourite gem for the
-                next traveller to discover.
+                Can&apos;t decide where to go? Flip the coin for a nearby spot — or add one you love.
               </p>
               <div className="home-quintos__actions">
                 <Link to="/coin-toss" className="home-quintos__btn home-quintos__btn--primary">
-                  <Sparkles size={16} aria-hidden />
                   Toss a coin
                 </Link>
                 <Link to="/coin-toss/add" className="home-quintos__btn">
-                  <MapPin size={16} aria-hidden />
                   Add your gem
                 </Link>
               </div>
@@ -963,6 +965,7 @@ export function Home() {
             </div>
           </HomeSection>
 
+          {noFace ? null : (
           <section className="home-section ta-rail home-preview-section" aria-labelledby="home-community">
             <div className="ta-rail__head">
               <div>
@@ -1086,6 +1089,7 @@ export function Home() {
               </div>
             )}
           </section>
+          )}
         </HomeAct>
 
         <HomeMoment

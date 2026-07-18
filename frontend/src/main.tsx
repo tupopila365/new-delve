@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
+import { CartProvider } from './hooks/useCart'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PublishQueueProvider } from './components/PublishQueueContext'
 import App from './App.tsx'
@@ -30,9 +31,11 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <PublishQueueProvider>
-              <App />
-            </PublishQueueProvider>
+            <CartProvider>
+              <PublishQueueProvider>
+                <App />
+              </PublishQueueProvider>
+            </CartProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

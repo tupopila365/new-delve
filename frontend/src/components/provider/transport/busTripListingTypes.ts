@@ -4,6 +4,15 @@ import {
   parseGalleryUrlsField,
   serializeGalleryMediaList,
 } from '../../listing/photos/listingGalleryMedia'
+import { DEFAULT_PASSENGER_BUS_TIPS } from '../../../data/transportProvider'
+
+/** Split a multi-line textarea into a trimmed list of non-empty lines. */
+function linesToList(value: string): string[] {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
 
 export const BUS_AMENITY_OPTIONS = [
   'Air conditioning',
@@ -26,6 +35,8 @@ export type BusTripListingFormValues = {
   total_seats: number
   price: string
   amenities: string[]
+  stops: string
+  travel_tips: string
   cover_image_url: string
   cover_image_file: File | null
   gallery_urls: string
@@ -44,6 +55,8 @@ export const EMPTY_BUS_TRIP_FORM: BusTripListingFormValues = {
   total_seats: 32,
   price: '',
   amenities: [],
+  stops: '',
+  travel_tips: DEFAULT_PASSENGER_BUS_TIPS.join('\n'),
   cover_image_url: '',
   cover_image_file: null,
   gallery_urls: '',
@@ -60,6 +73,8 @@ export type ProviderBusTripListing = {
     cover_image?: string | null
     cover_kind?: 'image' | 'video' | string | null
     gallery_images?: Array<string | { url?: string; kind?: string }>
+    stops?: Array<string | { place?: string }>
+    travel_tips?: string[]
     distance_km?: number | null
     duration_minutes?: number | null
   }
@@ -104,6 +119,11 @@ export function busTripToForm(t: ProviderBusTripListing): BusTripListingFormValu
     total_seats: t.total_seats,
     price: t.price,
     amenities: t.amenities ?? [],
+    stops: (t.route_detail.stops ?? [])
+      .map((s) => (typeof s === 'string' ? s : s?.place || ''))
+      .filter(Boolean)
+      .join('\n'),
+    travel_tips: (t.route_detail.travel_tips ?? []).join('\n'),
     cover_image_url: t.route_detail.cover_image ?? '',
     cover_image_file: null,
     gallery_urls: formatGalleryUrlsField(gallery),
@@ -125,6 +145,8 @@ export function formToBusTripPayload(form: BusTripListingFormValues) {
       cover_image: cover || null,
       cover_kind: coverKind,
       gallery_images: serializeGalleryMediaList(gallery),
+      stops: linesToList(form.stops),
+      travel_tips: linesToList(form.travel_tips),
       distance_km: form.distance_km.trim() ? Number(form.distance_km) : null,
       duration_minutes: Number(form.duration_minutes) || null,
     },

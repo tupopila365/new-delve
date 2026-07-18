@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AntiCommercialFlag, CommunityVote, TossLocation
+from .models import AntiCommercialFlag, CommunityVote, TossLocation, TossLocationSave
 
 
 @admin.register(TossLocation)
@@ -29,3 +29,10 @@ class CommunityVoteAdmin(admin.ModelAdmin):
 class AntiCommercialFlagAdmin(admin.ModelAdmin):
     list_display = ("user", "location", "reason", "created_at")
     search_fields = ("user__username", "location__name", "reason")
+
+
+@admin.register(TossLocationSave)
+class TossLocationSaveAdmin(admin.ModelAdmin):
+    list_display = ("user", "location", "created_at")
+    search_fields = ("user__username", "location__name")
+    raw_id_fields = ("user", "location")

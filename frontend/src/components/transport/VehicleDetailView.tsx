@@ -20,11 +20,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
-import {
-  ListingDelversMoments,
-  ListingQuestionsSection,
-  ListingReviews,
-} from '../listing'
+import { ListingDelversMoments, ListingReviews } from '../listing'
 import { ReportButton } from '../report/ReportButton'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { VehicleBookingStatus, VehicleReserveCard } from '../booking/transport/VehicleReserveCard'
@@ -34,12 +30,12 @@ import { renterDocLabel } from '../../data/renterDocuments'
 import type { RenterDocumentUpload } from '../../data/renterDocuments'
 import {
   buildVehicleGalleryImages,
-  buildVehicleHighlights,
-  DEFAULT_RENTAL_RULES,
   openStreetMapSearchUrl,
   rentalDaysInclusive,
+  vehicleHighlights,
   vehicleLocationLine,
   vehicleProviderName,
+  vehicleRentalRules,
   vehicleSummaryLine,
   vehicleTypeMeta,
   type VehicleListing,
@@ -80,7 +76,6 @@ type Props = {
   saved: boolean
   onSave: () => void
   onShare: () => void
-  canAnswer?: boolean
   booking: BookingProps
 }
 
@@ -90,7 +85,6 @@ export function VehicleDetailView({
   saved,
   onSave,
   onShare,
-  canAnswer = false,
   booking,
 }: Props) {
   const navigate = useNavigate()
@@ -104,7 +98,8 @@ export function VehicleDetailView({
     : null
   const vehiclePath = `/transport/vehicle/${vehicleId}`
   const galleryImages = buildVehicleGalleryImages(vehicle)
-  const highlightLabels = buildVehicleHighlights(vehicle)
+  const highlightLabels = vehicleHighlights(vehicle)
+  const rentalRules = vehicleRentalRules(vehicle)
   const mapHref = openStreetMapSearchUrl(
     vehicle.pickup_location || vehicle.city || '',
     vehicle.region,
@@ -408,15 +403,17 @@ export function VehicleDetailView({
         </JourneySection>
       ) : null}
 
-      <JourneySection title="Rental rules">
-        <ul className="jd-tips">
-          {DEFAULT_RENTAL_RULES.map((rule) => (
-            <li key={rule} className="jd-tip">
-              {rule}
-            </li>
-          ))}
-        </ul>
-      </JourneySection>
+      {rentalRules.length > 0 ? (
+        <JourneySection title="Rental rules">
+          <ul className="jd-tips">
+            {rentalRules.map((rule) => (
+              <li key={rule} className="jd-tip">
+                {rule}
+              </li>
+            ))}
+          </ul>
+        </JourneySection>
+      ) : null}
 
       {(vehicle.owner_username || vehicle.owner_display_name) && (
         <VehicleProviderCard
@@ -448,17 +445,6 @@ export function VehicleDetailView({
         count={ratingCount}
         emptyMessage="Reviews will appear here after renters share feedback."
         className="tp-detail__reviews"
-      />
-
-      <ListingQuestionsSection
-        className="tp-detail__questions"
-        title="Ask the host"
-        placeholder="Pickup time, insurance, fuel, or gravel roads…"
-        questionsPath={`/api/transport/vehicles/${vehicleId}/questions/`}
-        answerPath={(questionId) => `/api/transport/questions/${questionId}/answers/`}
-        queryKey={['vehicle-questions', vehicleId]}
-        canAnswer={canAnswer}
-        officialLabel="Provider"
       />
 
       {canBook ? (

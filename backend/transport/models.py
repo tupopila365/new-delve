@@ -36,6 +36,16 @@ class VehicleRentalListing(models.Model):
         blank=True,
         help_text='List of short labels, e.g. ["Airport pickup", "Full insurance"]',
     )
+    highlights = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Provider-written selling points, e.g. ["Great on gravel", "Automatic"]',
+    )
+    rental_rules = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Provider-set rental rules, e.g. ["Valid licence required", "No smoking"]',
+    )
     gallery_images = models.JSONField(
         default=list,
         blank=True,
@@ -109,50 +119,6 @@ class VehicleRentalBooking(models.Model):
         ordering = ["-created_at"]
 
 
-class VehicleQuestion(models.Model):
-    listing = models.ForeignKey(
-        VehicleRentalListing,
-        on_delete=models.CASCADE,
-        related_name="questions",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="vehicle_questions",
-    )
-    body = models.TextField()
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    moderation_reason = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-
-class VehicleAnswer(models.Model):
-    question = models.ForeignKey(
-        VehicleQuestion,
-        on_delete=models.CASCADE,
-        related_name="answers",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="vehicle_answers",
-    )
-    body = models.TextField()
-    is_official = models.BooleanField(
-        default=False,
-        help_text="Reply from the listing owner or business team.",
-    )
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    moderation_reason = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
-
-
 class BusOperator(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -193,6 +159,16 @@ class BusRoute(models.Model):
         blank=True,
         help_text='Optional list of interior/route media URLs or {"url","kind"} objects.',
     )
+    stops = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Ordered intermediate stop names between origin and destination.',
+    )
+    travel_tips = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Provider-set boarding/travel tips shown to passengers.',
+    )
     distance_km = models.PositiveIntegerField(
         null=True,
         blank=True,
@@ -229,50 +205,6 @@ class BusTrip(models.Model):
 
     class Meta:
         ordering = ["departs_at"]
-
-
-class BusTripQuestion(models.Model):
-    trip = models.ForeignKey(
-        BusTrip,
-        on_delete=models.CASCADE,
-        related_name="questions",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="bus_trip_questions",
-    )
-    body = models.TextField()
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    moderation_reason = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-
-class BusTripAnswer(models.Model):
-    question = models.ForeignKey(
-        BusTripQuestion,
-        on_delete=models.CASCADE,
-        related_name="answers",
-    )
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="bus_trip_answers",
-    )
-    body = models.TextField()
-    is_official = models.BooleanField(
-        default=False,
-        help_text="Reply from the operator owner or business team.",
-    )
-    is_hidden = models.BooleanField(default=False, db_index=True)
-    moderation_reason = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
 
 
 class SeatReservation(models.Model):

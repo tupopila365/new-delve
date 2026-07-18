@@ -54,6 +54,11 @@ export function normalizeTourPackages(raw: unknown): TourPackage[] {
     const rev = normalizeReviews(o.reviews)
     const reviews = rev.length > 0 ? rev : undefined
 
+    const groupRaw = o.max_group_size ?? o.group_size_max ?? o.max_group
+    const groupNum = typeof groupRaw === 'number' ? groupRaw : Number(groupRaw)
+    const maxGroupSize =
+      Number.isFinite(groupNum) && groupNum > 0 ? Math.floor(groupNum) : undefined
+
     if (id && title && Number.isFinite(hours) && hours > 0 && price) {
       out.push({
         id,
@@ -64,6 +69,7 @@ export function normalizeTourPackages(raw: unknown): TourPackage[] {
         description,
         photos: extraPhotos,
         reviews,
+        maxGroupSize,
       })
     }
   }

@@ -1,6 +1,14 @@
 const API_PREFIX = import.meta.env.VITE_API_URL ?? ''
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
 
+/** Coin Toss always hits Django so saves/votes/gems persist (even in mock-heavy local dev). */
+function shouldUseMocks(path: string): boolean {
+  if (!USE_MOCKS) return false
+  const p = path.startsWith('http') ? new URL(path).pathname : path
+  if (p.startsWith('/api/coin-toss/')) return false
+  return true
+}
+
 export function apiUrl(path: string): string {
   if (path.startsWith('http')) return path
   const p = path.startsWith('/') ? path : `/${path}`
@@ -101,7 +109,7 @@ export async function apiFetch<T = Json>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
-  if (USE_MOCKS) {
+  if (shouldUseMocks(path)) {
     const { mockApiFetch } = await import('../mocks/mockApi')
     try {
       return (await mockApiFetch(path, init)) as T

@@ -73,13 +73,6 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-function formatDate(iso?: string): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('en-NA', { day: 'numeric', month: 'short' })
-}
-
 function postText(post: PinPost): string {
   const text = post.body?.trim()
   if (text) return text
@@ -90,11 +83,6 @@ function postText(post: PinPost): string {
 
 function likesLabel(count: number): string {
   return `${formatCount(count)} ${count === 1 ? 'like' : 'likes'}`
-}
-
-function commentsLabel(count?: number): string {
-  if (!count) return 'View comments'
-  return `View all ${formatCount(count)} ${count === 1 ? 'comment' : 'comments'}`
 }
 
 function postEntry(profile: ReturnType<typeof useAuth>['profile']) {
@@ -1132,28 +1120,21 @@ function DelversReelSlide({
             {post.region ? <span className="dsr-meta__region">{post.region}</span> : null}
           </p>
         ) : null}
-        {post.body ? <p className="dsr-meta__caption">{post.body}</p> : null}
+        {post.body && !commentsOpen ? <p className="dsr-meta__caption">{post.body}</p> : null}
       </div>
 
       {commentsOpen ? (
-        <div className="dsr-comments">
-          <button
-            type="button"
-            className="dsr-comments__backdrop"
-            aria-label="Close comments"
-            onClick={() => setCommentsOpen(false)}
-          />
-          <div className="dsr-comments__sheet">
-            <DelversCommentsPanel
-              postId={post.id}
-              open={commentsOpen}
-              count={post.comments_count ?? 0}
-              onClose={() => setCommentsOpen(false)}
-              onCommented={onCommented}
-              signedIn={signedIn}
-            />
-          </div>
-        </div>
+        <DelversCommentsPanel
+          postId={post.id}
+          open={commentsOpen}
+          count={post.comments_count ?? 0}
+          onClose={() => setCommentsOpen(false)}
+          onCommented={onCommented}
+          signedIn={signedIn}
+          captionUsername={post.author.username}
+          captionText={post.body || ''}
+          captionAvatar={post.author.avatar}
+        />
       ) : null}
     </article>
   )
@@ -1300,7 +1281,6 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
   const name = post.author.display_name || post.author.username
   const text = postText(post)
   const hasMedia = Boolean(post.image || post.video)
-  const date = formatDate(post.created_at)
   const commentCount = post.comments_count ?? 0
   const isOwnPost = Boolean(currentUsername && post.author.username === currentUsername)
   const showFollow = !post.is_sponsored && !isOwnPost
@@ -1324,13 +1304,17 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
 
   return (
     <article className={`ds-post${post.is_sponsored ? ' ds-post--sponsored' : ''}`}>
-      {post.is_sponsored ? (
-        <span className="featured-card__partner ds-post__sponsored">{post.sponsor_label || 'Sponsored'}</span>
-      ) : null}
       <header className="ds-post__head">
         <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ds-post__author">
           <UserAvatar src={post.author.avatar} name={name} className="ds-post__author-avatar" fill />
-          <strong><span className="ds-post__author-name">{name}</span><small>@{post.author.username}</small></strong>
+          <strong>
+            <span className="ds-post__author-name">{name}</span>
+            {post.is_sponsored ? (
+              <small className="ds-post__sponsored">{post.sponsor_label || 'Sponsored'}</small>
+            ) : (
+              <small>@{post.author.username}</small>
+            )}
+          </strong>
         </Link>
         {showFollow ? (
           <span className="ds-post__follow-wrap">
@@ -1430,21 +1414,15 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
               <Heart size={22} strokeWidth={2.25} aria-hidden />
             </Link>
           )}
-          {signedIn ? (
-            <button
-              type="button"
-              onClick={() => setCommentsOpen(true)}
-              className={commentsOpen ? 'is-active' : ''}
-              aria-label="View comments"
-              aria-expanded={commentsOpen}
-            >
-              <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
-            </button>
-          ) : (
-            <Link to="/login" aria-label="View comments">
-              <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
-            </Link>
-          )}
+          <button
+            type="button"
+            onClick={() => setCommentsOpen(true)}
+            className={commentsOpen ? 'is-active' : ''}
+            aria-label="View comments"
+            aria-expanded={commentsOpen}
+          >
+            <MessageCircle size={22} strokeWidth={2.25} aria-hidden />
+          </button>
           <button type="button" onClick={onShare} aria-label="Share post">
             <Share2 size={22} strokeWidth={2.25} aria-hidden />
           </button>
@@ -1471,11 +1449,6 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
 
       <div className="ds-post__copy">
         <p className="ds-post__likes">{likesLabel(post.likes_count || 0)}</p>
-        <p className="ds-post__caption">
-          <Link to={`/u/${encodeURIComponent(post.author.username)}`} className="ds-post__caption-author">{post.author.username}</Link>{' '}
-          <span>{text}</span>
-        </p>
-        {post.delvers_board ? <span className="ds-post__topic">{post.delvers_board}</span> : null}
         {post.listing ? (
           <Link to={`/accommodation/${post.listing.id}`} className="ds-post__place-chip">
             At {post.listing.title}
@@ -1486,10 +1459,6 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
             At {post.event.title}
           </Link>
         ) : null}
-        <button type="button" className="ds-post__comments" onClick={() => setCommentsOpen((open) => !open)} aria-expanded={commentsOpen}>
-          {commentsOpen ? 'Hide comments' : commentsLabel(commentCount)}
-        </button>
-        {date ? <small className="ds-post__date">{date}</small> : null}
       </div>
 
       <DelversCommentsPanel
@@ -1499,6 +1468,9 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
         onClose={() => setCommentsOpen(false)}
         onCommented={handleCommented}
         signedIn={signedIn}
+        captionUsername={post.author.username}
+        captionText={text}
+        captionAvatar={post.author.avatar}
       />
     </article>
   )

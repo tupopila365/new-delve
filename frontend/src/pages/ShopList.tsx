@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useExploreRegion } from '../hooks/useExploreRegion'
 import { ShopListingCard } from '../components/shop/ShopListingCard'
 import { SHOP_CATEGORIES } from '../utils/shopDisplay'
-import type { ShopProductListing } from '../utils/shopListing'
+import type { ShopProductListing, ShopSellerSummary } from '../utils/shopListing'
 import { EmptyState, ListSkeleton } from '../components/ui'
-import { MapPin, Search, ShoppingBag, X } from 'lucide-react'
+import { MapPin, Search, ShoppingBag, Store, X } from 'lucide-react'
 import '../components/shop/shop-list.css'
 
 export function ShopList() {
@@ -45,6 +46,14 @@ export function ShopList() {
       }
       // In mock mode, unhandled endpoints often return `{ detail: "Mock: unhandled ..." }`.
       return []
+    },
+  })
+
+  const { data: sellers = [] } = useQuery({
+    queryKey: ['shop-sellers'],
+    queryFn: async (): Promise<ShopSellerSummary[]> => {
+      const raw = await apiFetch<unknown>('/api/shop/sellers/', { auth: false })
+      return Array.isArray(raw) ? (raw as ShopSellerSummary[]) : []
     },
   })
 
@@ -97,10 +106,10 @@ export function ShopList() {
   return (
     <main className="shop-market">
       <header className="shop-market__hero">
-        <p className="shop-market__kicker">Retail marketplace</p>
-        <h1 className="shop-market__title">Local shops</h1>
+        <p className="shop-market__kicker">Marketplace</p>
+        <h1 className="shop-market__title">Shops</h1>
         <p className="shop-market__lead">
-          Crafts, souvenirs, and travel goods from local makers and small retailers.
+          Browse products from local shops and makers — add to your cart and check out in one place.
         </p>
         {region ? (
           <p className="shop-market__region">
@@ -141,46 +150,72 @@ export function ShopList() {
         <div className="shop-market__section-head">
           <div>
             <h2 className="shop-market__section-title">Browse by category</h2>
-            <p className="shop-market__section-sub">Pickup-first products you can message sellers about.</p>
+            <p className="shop-market__section-sub">Filter products, then add what you love to your cart.</p>
           </div>
         </div>
-        <div className="shop-market__filters" role="toolbar" aria-label="Shop categories">
-          <button
-            type="button"
-            className={`shop-market__chip${category === '' ? ' is-active' : ''}`}
-            onClick={() => setCategory('')}
+        <div className="shop-market__find-row">
+          <select
+            className="shop-market__select"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            aria-label="Category"
           >
-            All products
-          </button>
-          {SHOP_CATEGORIES.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              className={`shop-market__chip${category === c.value ? ' is-active' : ''}`}
-              onClick={() => setCategory(c.value)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+            <option value="">All products</option>
+            {SHOP_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
 
-        <div className="shop-market__filters shop-market__filters--sub" role="toolbar" aria-label="Shop focus filters">
-          <button
-            type="button"
-            className={`shop-market__chip${inStockOnly ? ' is-active' : ''}`}
-            onClick={() => setInStockOnly((v) => !v)}
+          <select
+            className="shop-market__select"
+            value={inStockOnly ? 'in_stock' : ''}
+            onChange={(e) => setInStockOnly(e.target.value === 'in_stock')}
+            aria-label="Availability"
           >
-            In stock
-          </button>
-          <button
-            type="button"
-            className={`shop-market__chip${madeInNamibiaOnly ? ' is-active' : ''}`}
-            onClick={() => setMadeInNamibiaOnly((v) => !v)}
+            <option value="">Any availability</option>
+            <option value="in_stock">In stock</option>
+          </select>
+
+          <select
+            className="shop-market__select"
+            value={madeInNamibiaOnly ? 'made_in_namibia' : ''}
+            onChange={(e) => setMadeInNamibiaOnly(e.target.value === 'made_in_namibia')}
+            aria-label="Origin"
           >
-            Made in Namibia
-          </button>
+            <option value="">All origins</option>
+            <option value="made_in_namibia">Made in Namibia</option>
+          </select>
         </div>
       </section>
+
+      {sellers.length > 0 && activeFilters.length === 0 ? (
+        <section className="shop-market__shops" aria-label="Shops to explore">
+          <div className="shop-market__section-head">
+            <div>
+              <h2 className="shop-market__section-title">Shops to explore</h2>
+              <p className="shop-market__section-sub">Visit a shop to see its full catalog.</p>
+            </div>
+          </div>
+          <div className="shop-market__shops-row h-scroll">
+            {sellers.map((s) => (
+              <Link key={s.username} to={`/shop/seller/${encodeURIComponent(s.username)}`} className="shop-chip">
+                <span className="shop-chip__avatar" aria-hidden>
+                  {s.avatar ? <img src={s.avatar} alt="" /> : <Store size={18} strokeWidth={2.25} />}
+                </span>
+                <span className="shop-chip__body">
+                  <strong>{s.display_name}</strong>
+                  <small>
+                    {s.product_count} item{s.product_count === 1 ? '' : 's'}
+                    {s.city ? ` · ${s.city}` : ''}
+                  </small>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {activeFilters.length > 0 ? (
         <div className="shop-market__active">

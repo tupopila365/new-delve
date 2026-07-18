@@ -25,7 +25,6 @@ export function EmptyState({ iconElement, title, sub, cta, action, className = '
       <div className="ui-empty__inner">
         {iconElement ? (
           <div className="ui-empty__icon-wrap">
-            <div className="ui-empty__icon-glow" aria-hidden />
             <div className="ui-empty__icon ui-empty__icon--graphic">{iconElement}</div>
           </div>
         ) : null}

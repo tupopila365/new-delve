@@ -138,7 +138,6 @@ export function ProfileBioSection({
           style={{ backgroundImage: `url(${HOME_ATMOSPHERE_BG})` }}
         />
         <div className="profile-bio__scene-veil" />
-        <p className="profile-bio__scene-tag">{isMe ? 'Your trail' : 'Traveller'}</p>
       </div>
 
       <div className="profile-bio__passport">

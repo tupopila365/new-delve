@@ -23,7 +23,7 @@ export type EventDetail = EventListing & {
 
 export type EventListItem = Pick<
   EventDetail,
-  'id' | 'title' | 'category' | 'starts_at' | 'venue' | 'city' | 'region'
+  'id' | 'title' | 'category' | 'starts_at' | 'venue' | 'city' | 'region' | 'cover_image' | 'cover_kind'
 >
 
 export type EventDateLong = {
@@ -179,6 +179,7 @@ export function buildEventDetailRows(event: EventDetail): ListingDetailRow[] {
 export {
   categoryMeta,
   eventCoverSrc,
+  EVENT_DEFAULT_IMAGE,
   eventLocationLine,
   eventPriceLabel,
   formatEventDate,

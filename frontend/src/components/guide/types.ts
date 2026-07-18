@@ -9,4 +9,6 @@ export type TourPackage = {
   description?: string
   photos?: string[]
   reviews?: ReviewItem[]
+  /** Provider-set booking cap for this package (people per booking). */
+  maxGroupSize?: number
 }

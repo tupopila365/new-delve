@@ -188,6 +188,26 @@ export function VehicleListingForm({ values, onChange, error, saving, onSubmit, 
                   </button>
                 ))}
               </div>
+              <label className="transport-form__field">
+                Highlights
+                <textarea
+                  rows={4}
+                  value={values.highlights}
+                  onChange={(e) => patch({ highlights: e.target.value })}
+                  placeholder={'One selling point per line\ne.g. Great on gravel roads\nAutomatic transmission'}
+                />
+              </label>
+              <p className="transport-form__hint">One highlight per line — shown under “About this vehicle”.</p>
+              <label className="transport-form__field">
+                Rental rules
+                <textarea
+                  rows={4}
+                  value={values.rental_rules}
+                  onChange={(e) => patch({ rental_rules: e.target.value })}
+                  placeholder={'One rule per line\ne.g. Valid licence required\nReturn with the same fuel level'}
+                />
+              </label>
+              <p className="transport-form__hint">One rule per line — shown in the “Rental rules” section.</p>
             </div>
           )}
 

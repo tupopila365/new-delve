@@ -1,28 +1,13 @@
-/* Delve empty state — dark card, accent glow, matches home / discovery surfaces */
+/* Shared empty state — neutral surface used across list / detail / cart pages */
 
 .ui-empty {
   position: relative;
-  overflow: hidden;
   text-align: center;
   padding: 36px 22px 32px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.14), transparent 58%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-    #141210;
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  color: #fffaf2;
-}
-
-.ui-empty::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% -20%, rgba(255, 154, 82, 0.08), transparent 42%);
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f4f2ef;
+  color: #1a1714;
 }
 
 .ui-empty__inner {
@@ -35,51 +20,38 @@
 
 .ui-empty--compact {
   padding: 24px 18px 22px;
-  border-radius: 18px;
+  border-radius: 14px;
 }
 
 .ui-empty__icon-wrap {
-  position: relative;
   display: grid;
   place-items: center;
   margin-bottom: 14px;
 }
 
 .ui-empty__icon-glow {
-  position: absolute;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.28), transparent 68%);
-  filter: blur(6px);
+  display: none;
 }
 
 .ui-empty__icon {
   font-size: 2.4rem;
   margin-bottom: 10px;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .ui-empty__icon--graphic {
-  position: relative;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   margin: 0;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 154, 82, 0.22);
-  background:
-    linear-gradient(145deg, rgba(124, 58, 237, 0.18), rgba(20, 18, 16, 0.92)),
-    #171412;
-  color: #a78bfa;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  color: #4a453f;
   font-size: inherit;
   opacity: 1;
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .ui-empty__icon--graphic svg {
@@ -91,10 +63,10 @@
   max-width: 28ch;
   font-family: var(--font-sans);
   font-size: 1.02rem;
-  font-weight: 900;
+  font-weight: 800;
   line-height: 1.25;
   letter-spacing: -0.02em;
-  color: rgba(255, 250, 242, 0.96);
+  color: #1a1714;
 }
 
 .ui-empty--compact .ui-empty__title {
@@ -105,9 +77,9 @@
   margin: 0 0 18px;
   max-width: 36ch;
   font-size: 0.88rem;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.52);
+  color: #6b6560;
 }
 
 .ui-empty--compact .ui-empty__sub {
@@ -119,40 +91,100 @@
 .ui-empty__cta.btn-primary {
   margin-top: 2px;
   padding: 11px 18px;
-  border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #a78bfa 0%, var(--accent) 52%, var(--accent-hover) 100%);
+  border: 1px solid #1a1714;
+  border-radius: 10px;
+  background: #1a1714;
   color: #fff;
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 750;
   letter-spacing: -0.01em;
   text-decoration: none;
-  box-shadow:
-    0 10px 24px rgba(124, 58, 237, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+  filter: none;
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    filter 0.15s ease;
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .ui-empty__cta.btn:hover,
 .ui-empty__cta.btn-primary:hover {
-  filter: brightness(1.04);
-  box-shadow:
-    0 14px 28px rgba(124, 58, 237, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  background: #2e2924;
+  border-color: #2e2924;
+  color: #fff;
+  filter: none;
+  box-shadow: none;
+  opacity: 1;
 }
 
 .ui-empty__cta.btn:active,
 .ui-empty__cta.btn-primary:active {
-  transform: translateY(1px);
+  background: #0f0d0b;
 }
 
 .ui-empty__cta.btn:focus-visible,
 .ui-empty__cta.btn-primary:focus-visible {
-  outline: 2px solid var(--accent-ring);
+  outline: 2px solid #1a1714;
   outline-offset: 3px;
+}
+
+/* Dark page contexts — still neutral, inverted */
+.shop-cart .ui-empty,
+.page-home .ui-empty,
+.coin-toss-page .ui-empty,
+[data-theme='dark'] .ui-empty {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #1c1916;
+  color: #f3ebe1;
+}
+
+.shop-cart .ui-empty__icon--graphic,
+.page-home .ui-empty__icon--graphic,
+.coin-toss-page .ui-empty__icon--graphic,
+[data-theme='dark'] .ui-empty__icon--graphic {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #12100e;
+  color: #c9c2b8;
+}
+
+.shop-cart .ui-empty__title,
+.page-home .ui-empty__title,
+.coin-toss-page .ui-empty__title,
+[data-theme='dark'] .ui-empty__title {
+  color: #f3ebe1;
+}
+
+.shop-cart .ui-empty__sub,
+.page-home .ui-empty__sub,
+.coin-toss-page .ui-empty__sub,
+[data-theme='dark'] .ui-empty__sub {
+  color: rgba(243, 235, 225, 0.62);
+}
+
+.shop-cart .ui-empty__cta.btn,
+.shop-cart .ui-empty__cta.btn-primary,
+.page-home .ui-empty__cta.btn,
+.page-home .ui-empty__cta.btn-primary,
+.coin-toss-page .ui-empty__cta.btn,
+.coin-toss-page .ui-empty__cta.btn-primary,
+[data-theme='dark'] .ui-empty__cta.btn,
+[data-theme='dark'] .ui-empty__cta.btn-primary {
+  border-color: #f3ebe1;
+  background: #f3ebe1;
+  color: #1a1714;
+}
+
+.shop-cart .ui-empty__cta.btn:hover,
+.shop-cart .ui-empty__cta.btn-primary:hover,
+.page-home .ui-empty__cta.btn:hover,
+.page-home .ui-empty__cta.btn-primary:hover,
+.coin-toss-page .ui-empty__cta.btn:hover,
+.coin-toss-page .ui-empty__cta.btn-primary:hover,
+[data-theme='dark'] .ui-empty__cta.btn:hover,
+[data-theme='dark'] .ui-empty__cta.btn-primary:hover {
+  background: #fff;
+  border-color: #fff;
+  color: #1a1714;
 }
 
 /* Legacy page hooks — keep layout, inherit new surface */

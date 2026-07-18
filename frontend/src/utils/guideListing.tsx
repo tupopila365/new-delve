@@ -38,6 +38,7 @@ export type GuideProfile = {
   specialities?: string[]
   guest_reviews?: unknown
   response_hours_typical?: number
+  max_group_size?: number | null
   tour_packages?: unknown
   years_guiding?: number | null
   certifications?: unknown
@@ -200,10 +201,8 @@ export function buildPortfolioImages(portfolio: PortfolioItem[], guideName: stri
 }
 
 function buildWhyBookHighlights(g: GuideProfile): WhyHighlight[] {
-  const items: WhyHighlight[] = [
-    { label: 'Local knowledge', Icon: Compass },
-    { label: 'Private experiences', Icon: Users },
-  ]
+  // Only surface highlights we can back with real profile data — no filler.
+  const items: WhyHighlight[] = []
   if (g.default_meeting_point || g.regions?.length) items.push({ label: 'Flexible routes', Icon: Route })
   if (g.languages?.[0]) items.push({ label: `Speaks ${g.languages[0]}`, Icon: Languages })
   if (g.response_hours_typical != null && g.response_hours_typical <= 6) {
@@ -240,17 +239,6 @@ export function buildGuideHighlightItems(g: GuideProfile): ListingLabelItem[] {
     label: item.label,
     icon: <item.Icon size={16} strokeWidth={2.25} aria-hidden />,
   }))
-}
-
-export function buildGuideTrustHighlights(g: GuideProfile): string[] {
-  const badges: string[] = []
-  if (g.licensed_guide) badges.push('Licensed guide')
-  else badges.push('Guide profile')
-  const rating = parseFloat(g.rating_avg ?? '0')
-  if (g.rating_avg != null && rating >= 4.5) badges.push('Highly rated')
-  else if (g.rating_count && g.rating_count >= 5) badges.push('Traveller rated')
-  if (g.response_hours_typical != null && g.response_hours_typical <= 6) badges.push('Fast response')
-  return badges.slice(0, 3)
 }
 
 export function buildGuideDetailRows(g: GuideProfile): ListingDetailRow[] {
@@ -337,10 +325,8 @@ export function buildPackageGallery(pkg: TourPackage, guide?: GuideProfile): Lis
 }
 
 export function buildPackageHighlightItems(g: GuideProfile, pkg: TourPackage): ListingLabelItem[] {
-  const items: WhyHighlight[] = [
-    { label: 'Local-led experience', Icon: Compass },
-    { label: 'Private or small group', Icon: Users },
-  ]
+  // Derive highlights from the package's real title/description/specialities — no filler.
+  const items: WhyHighlight[] = []
   const text = `${pkg.title} ${pkg.description ?? ''} ${(g.specialities ?? []).join(' ')}`.toLowerCase()
 
   if (text.includes('photo') || text.includes('sunrise') || text.includes('view')) {

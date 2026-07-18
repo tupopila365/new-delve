@@ -22,6 +22,7 @@ import { EmptyState } from '../components/ui'
 import { communityPostPermalinkPath, postPermalinkPath } from '../utils/postPermalink'
 import type { FeedPost } from '../components/IgPostCard'
 import { isDelversPost } from '../utils/postFilters'
+import { useNoFace } from '../hooks/useNoFace'
 import { HOME_ATMOSPHERE_BG, HOME_HERO_BG } from '../data/homeDefaults'
 import {
   buildSearchApiPath,
@@ -156,11 +157,22 @@ function ratingLabel(value: string | number | null | undefined): string | undefi
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { profile } = useAuth()
+  const { enabled: noFace } = useNoFace()
   const urlQ = searchParams.get('q')?.trim() ?? ''
   const urlType = readSearchType(searchParams)
 
   const [input, setInput] = useState(urlQ)
   const [type, setType] = useState<SearchType | ''>(urlType)
+
+  const searchCategories = useMemo(
+    () =>
+      noFace
+        ? SEARCH_CATEGORIES.filter(
+            (c) => c.id !== 'profile' && c.id !== 'ask_locals' && c.id !== 'delvers' && c.id !== 'journeys',
+          )
+        : SEARCH_CATEGORIES,
+    [noFace],
+  )
 
   useEffect(() => {
     setInput(urlQ)
@@ -169,6 +181,13 @@ export function SearchPage() {
   useEffect(() => {
     setType(urlType)
   }, [urlType])
+
+  useEffect(() => {
+    if (!noFace) return
+    if (type === 'profile' || type === 'ask_locals' || type === 'delvers' || type === 'journeys') {
+      setType('')
+    }
+  }, [noFace, type])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -192,14 +211,14 @@ export function SearchPage() {
   }, [type])
 
   const showAll = !type
-  const showProfile = showAll || type === 'profile'
-  const showAskLocals = showAll || type === 'ask_locals'
-  const showDelvers = showAll || type === 'delvers'
+  const showProfile = !noFace && (showAll || type === 'profile')
+  const showAskLocals = !noFace && (showAll || type === 'ask_locals')
+  const showDelvers = !noFace && (showAll || type === 'delvers')
   const showStay = showAll || type === 'stay'
   const showFood = showAll || type === 'food'
   const showEvents = showAll || type === 'events'
   const showGuides = showAll || type === 'guides'
-  const showJourneys = showAll || type === 'journeys'
+  const showJourneys = !noFace && (showAll || type === 'journeys')
   const showTransport = showAll || type === 'transport'
 
   const delversPosts = useMemo(() => {
@@ -209,9 +228,9 @@ export function SearchPage() {
   }, [data?.posts, type])
 
   const generalPosts = useMemo(() => {
-    if (!showAll) return []
+    if (!showAll || noFace) return []
     return (data?.posts ?? []).filter((post) => !isDelversPost(post as FeedPost))
-  }, [data?.posts, showAll])
+  }, [data?.posts, showAll, noFace])
 
   const resultCount = useMemo(() => {
     if (!data) return 0
@@ -320,7 +339,7 @@ export function SearchPage() {
           <QuickFilterChips
             ariaLabel="What are you looking for"
             className="search-trail__categories"
-            chips={SEARCH_CATEGORIES.map((item) => ({
+            chips={searchCategories.map((item) => ({
               id: item.id,
               label: item.label,
               Icon: item.Icon,

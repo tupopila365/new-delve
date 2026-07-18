@@ -16,10 +16,7 @@
   margin: 4px 0 16px;
   padding: 22px 18px 18px;
   border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 70% at 100% 0%, rgba(208, 170, 127, 0.24), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(244, 214, 181, 0.1), transparent 50%),
-    #121212;
+  background: #121212;
   border: 1px solid var(--sh-border);
 }
 
@@ -121,6 +118,7 @@
   font-size: 1rem;
   font-weight: 900;
   letter-spacing: -0.02em;
+  color: var(--sh-text);
 }
 
 .shop-market__section-sub {
@@ -172,6 +170,37 @@
   border-color: rgba(244, 214, 181, 0.5);
   background: rgba(208, 170, 127, 0.2);
   color: var(--sh-accent-bright);
+}
+
+.shop-market__find-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shop-market__select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--sh-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.shop-market__select:focus-visible {
+  outline: 2px solid rgba(244, 214, 181, 0.5);
+  outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+  .shop-market__find-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .shop-market__active {
@@ -230,43 +259,98 @@
 
 .shop-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-@media (min-width: 860px) {
+@media (min-width: 640px) {
   .shop-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .shop-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 .shop-card {
-  display: grid;
-  grid-template-columns: 126px 1fr;
-  gap: 12px;
-  align-items: stretch;
-  min-height: 124px;
-  padding: 10px;
-  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.24);
+  overflow: hidden;
   text-decoration: none;
   color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.shop-card:hover {
+  border-color: rgba(244, 214, 181, 0.4);
+  transform: translateY(-2px);
 }
 
 .shop-card__media {
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
   background: #161310;
+  aspect-ratio: 1 / 1;
 }
 
 .shop-card__media img {
   width: 100%;
   height: 100%;
-  min-height: 104px;
   object-fit: cover;
   display: block;
+}
+
+.shop-card__soldout {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 14, 12, 0.55);
+  color: #fffaf2;
+  font-size: 0.82rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+}
+
+.shop-card__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 38px;
+  margin-top: auto;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(244, 214, 181, 0.4);
+  background: rgba(208, 170, 127, 0.16);
+  color: var(--sh-accent-bright);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shop-card__add:hover {
+  background: rgba(208, 170, 127, 0.26);
+}
+
+.shop-card__add.is-added {
+  background: rgba(63, 143, 95, 0.24);
+  border-color: rgba(63, 143, 95, 0.5);
+  color: #b7e6c6;
+}
+
+.shop-card__add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .shop-card__badge {
@@ -294,9 +378,11 @@
 
 .shop-card__body {
   min-width: 0;
-  display: grid;
-  align-content: space-between;
-  gap: 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
 }
 
 .shop-card__head {
@@ -357,4 +443,156 @@
   font-size: 0.72rem;
   font-weight: 650;
   line-height: 1.3;
+}
+
+/* ---- Shops rail ---- */
+.shop-market__shops {
+  margin: 4px 0 8px;
+}
+
+.shop-market__shops-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.shop-market__shops-row::-webkit-scrollbar {
+  display: none;
+}
+
+.shop-chip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 210px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.24);
+  text-decoration: none;
+  color: inherit;
+}
+
+.shop-chip:hover {
+  border-color: rgba(244, 214, 181, 0.4);
+}
+
+.shop-chip__avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(208, 170, 127, 0.16);
+  color: var(--sh-accent-bright);
+}
+
+.shop-chip__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shop-chip__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shop-chip__body strong {
+  font-size: 0.86rem;
+  font-weight: 850;
+  color: var(--sh-text);
+}
+
+.shop-chip__body small {
+  color: var(--sh-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+/* ---- Storefront ---- */
+.storefront__hero {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 4px 0 18px;
+  padding: 18px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--sh-border);
+  background: #121212;
+}
+
+.storefront__avatar {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(208, 170, 127, 0.16);
+  color: var(--sh-accent-bright);
+}
+
+.storefront__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.storefront__copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.storefront__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  color: var(--sh-text);
+}
+
+.storefront__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: var(--sh-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.storefront__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.storefront__bio {
+  margin: 2px 0 0;
+  color: var(--sh-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.storefront__message {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  margin-top: 6px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--sh-accent);
+  color: #1a1510;
+  font-size: 0.84rem;
+  font-weight: 850;
+  text-decoration: none;
 }

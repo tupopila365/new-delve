@@ -1,9 +1,13 @@
 import django_filters
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
-from accounts.permissions import IsServiceProvider
+from accounts.permissions import IsEmailVerified, IsServiceProvider
 
 from .models import ShopProduct
+from .review_serializers import ProductReviewCreateSerializer, ProductReviewSerializer
+from .review_services import product_reviews_payload
 from .serializers import ShopProductSerializer
 
 
@@ -12,11 +16,23 @@ class ShopProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = ShopProduct
-        fields = ["category", "region", "city", "in_stock", "made_in_namibia", "owner_username"]
+        fields = [
+            "category",
+            "region",
+            "city",
+            "in_stock",
+            "made_in_namibia",
+            "is_featured",
+            "owner_username",
+        ]
 
 
 class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ShopProduct.objects.filter(is_active=True).select_related("owner", "owner__profile")
+    queryset = (
+        ShopProduct.objects.filter(is_active=True)
+        .select_related("owner", "owner__profile")
+        .prefetch_related("variants")
+    )
     serializer_class = ShopProductSerializer
     filterset_class = ShopProductFilter
     search_fields = ("name", "description", "tagline", "region", "city", "artisan_name", "pickup_address")
@@ -26,4 +42,25 @@ class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [permissions.IsAuthenticated(), IsServiceProvider()]
+        if self.action == "review":
+            return [permissions.IsAuthenticated(), IsEmailVerified()]
         return [permissions.AllowAny()]
+
+    @action(detail=True, methods=["get"])
+    def reviews(self, request, pk=None):
+        product = self.get_object()
+        return Response(product_reviews_payload(product, request))
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        product = self.get_object()
+        ser = ProductReviewCreateSerializer(
+            data=request.data,
+            context={"request": request, "product": product},
+        )
+        ser.is_valid(raise_exception=True)
+        review = ser.save()
+        return Response(
+            ProductReviewSerializer(review, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )

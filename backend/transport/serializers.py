@@ -16,6 +16,22 @@ from .models import (
 )
 
 
+def clean_str_list(value, *, limit: int = 12) -> list[str]:
+    """Coerce arbitrary JSON into a trimmed list of non-empty strings."""
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value:
+        if item is None:
+            continue
+        text = (item if isinstance(item, str) else str(item)).strip()
+        if text:
+            out.append(text[:160])
+        if len(out) >= limit:
+            break
+    return out
+
+
 class VehicleRentalListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     owner_display_name = serializers.SerializerMethodField()
@@ -47,6 +63,8 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "description",
             "pickup_location",
             "included_features",
+            "highlights",
+            "rental_rules",
             "gallery_images",
             "price_per_day",
             "region",
@@ -61,6 +79,12 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("owner", "created_at", "cover_kind")
+
+    def validate_highlights(self, value):
+        return clean_str_list(value)
+
+    def validate_rental_rules(self, value):
+        return clean_str_list(value)
 
     def get_cover_image(self, obj):
         from .cover_media import vehicle_cover_url
@@ -233,6 +257,8 @@ class BusRouteSerializer(serializers.ModelSerializer):
             "cover_image",
             "cover_kind",
             "gallery_images",
+            "stops",
+            "travel_tips",
             "distance_km",
             "duration_minutes",
         )

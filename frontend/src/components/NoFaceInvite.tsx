@@ -32,9 +32,9 @@ export function NoFaceInvite() {
         <p className="noface-invite__kicker">Make Delve yours</p>
         <h3 className="noface-invite__title">Prefer a quieter Delve?</h3>
         <p className="noface-invite__text">
-          Try <strong>No Face mode</strong> — find places, food, stays, events, and Coin Toss with
-          no social feeds or faces. Or keep the full social experience. You can switch anytime in
-          Settings.
+          Try <strong>No Face mode</strong> — find places, food, stays, events, guides, shops, and Coin
+          Toss with no social feeds, stories, or faces. Or keep the full social experience. You can
+          switch anytime in Settings.
         </p>
         <div className="noface-invite__actions">
           <button

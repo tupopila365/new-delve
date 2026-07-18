@@ -1,14 +1,9 @@
 import uuid
 
 from django.db import transaction
-from django.db.models import Prefetch
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from accounts.business_access import user_can_manage_listing
 
 from accommodation.models import BookingStatus
 
@@ -19,23 +14,9 @@ from .models import (
     BusOperator,
     BusRoute,
     BusTrip,
-    BusTripAnswer,
-    BusTripQuestion,
     SeatReservation,
-    VehicleAnswer,
-    VehicleQuestion,
     VehicleRentalBooking,
     VehicleRentalListing,
-)
-from .qa_serializers import (
-    BusTripAnswerCreateSerializer,
-    BusTripAnswerSerializer,
-    BusTripQuestionCreateSerializer,
-    BusTripQuestionSerializer,
-    VehicleAnswerCreateSerializer,
-    VehicleAnswerSerializer,
-    VehicleQuestionCreateSerializer,
-    VehicleQuestionSerializer,
 )
 from .review_serializers import (
     SeatReservationReviewCreateSerializer,
@@ -78,30 +59,6 @@ class VehicleRentalListingViewSet(viewsets.ModelViewSet):
         if types:
             qs = qs.filter(vehicle_type__in=types)
         return qs
-
-    @action(detail=True, methods=["get", "post"])
-    def questions(self, request, pk=None):
-        listing = self.get_object()
-        if request.method == "GET":
-            visible_answers = VehicleAnswer.objects.filter(is_hidden=False).select_related(
-                "author", "author__profile"
-            )
-            qs = (
-                VehicleQuestion.objects.filter(listing=listing, is_hidden=False)
-                .select_related("author", "author__profile", "listing")
-                .prefetch_related(Prefetch("answers", queryset=visible_answers))
-                .order_by("-created_at")[:50]
-            )
-            return Response(VehicleQuestionSerializer(qs, many=True).data)
-        if not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = VehicleQuestionCreateSerializer(
-            data=request.data,
-            context={"request": request, "listing": listing},
-        )
-        ser.is_valid(raise_exception=True)
-        question = ser.save()
-        return Response(VehicleQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def moments(self, request, pk=None):
@@ -223,7 +180,7 @@ class BusTripViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if self.action in ("list", "retrieve", "moments", "reviews", "questions"):
+        if self.action in ("list", "retrieve", "moments", "reviews"):
             return qs.filter(is_active=True)
         return qs.filter(route__operator__owner=self.request.user)
 
@@ -248,30 +205,6 @@ class BusTripViewSet(viewsets.ModelViewSet):
 
             raise PermissionDenied()
         super().perform_destroy(instance)
-
-    @action(detail=True, methods=["get", "post"])
-    def questions(self, request, pk=None):
-        trip = self.get_object()
-        if request.method == "GET":
-            visible_answers = BusTripAnswer.objects.filter(is_hidden=False).select_related(
-                "author", "author__profile"
-            )
-            qs = (
-                BusTripQuestion.objects.filter(trip=trip, is_hidden=False)
-                .select_related("author", "author__profile", "trip", "trip__route")
-                .prefetch_related(Prefetch("answers", queryset=visible_answers))
-                .order_by("-created_at")[:50]
-            )
-            return Response(BusTripQuestionSerializer(qs, many=True).data)
-        if not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        ser = BusTripQuestionCreateSerializer(
-            data=request.data,
-            context={"request": request, "trip": trip},
-        )
-        ser.is_valid(raise_exception=True)
-        question = ser.save()
-        return Response(BusTripQuestionSerializer(question).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def moments(self, request, pk=None):
@@ -483,46 +416,3 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
         )
 
 
-class VehicleQuestionAnswerView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        question = (
-            VehicleQuestion.objects.select_related("listing")
-            .filter(pk=pk, is_hidden=False)
-            .first()
-        )
-        if not question:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        if not user_can_manage_listing(request.user, question.listing.owner_id):
-            raise PermissionDenied("You cannot answer questions for this listing.")
-        ser = VehicleAnswerCreateSerializer(
-            data=request.data,
-            context={"request": request, "question": question},
-        )
-        ser.is_valid(raise_exception=True)
-        answer = ser.save()
-        return Response(VehicleAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)
-
-
-class BusTripQuestionAnswerView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        question = (
-            BusTripQuestion.objects.select_related("trip", "trip__route", "trip__route__operator")
-            .filter(pk=pk, is_hidden=False)
-            .first()
-        )
-        if not question:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        owner_id = question.trip.route.operator.owner_id
-        if not user_can_manage_listing(request.user, owner_id):
-            raise PermissionDenied("You cannot answer questions for this trip.")
-        ser = BusTripAnswerCreateSerializer(
-            data=request.data,
-            context={"request": request, "question": question},
-        )
-        ser.is_valid(raise_exception=True)
-        answer = ser.save()
-        return Response(BusTripAnswerSerializer(answer).data, status=status.HTTP_201_CREATED)

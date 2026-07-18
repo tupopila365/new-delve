@@ -1,15 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
 import { Car, Truck, Bus } from 'lucide-react'
 import { mediaUrl } from '../api/client'
-import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
+import type { ListingGalleryItem } from '../components/listing/types'
 import {
   isVideoUrl,
   parseGalleryMediaList,
 } from '../components/listing/photos/listingGalleryMedia'
-import {
-  DEFAULT_PASSENGER_BUS_TIPS,
-  DEFAULT_PASSENGER_RENTAL_RULES,
-} from '../data/transportProvider'
 
 export type VehicleListing = {
   id: number
@@ -33,6 +29,8 @@ export type VehicleListing = {
   owner_username?: string
   pickup_location?: string | null
   included_features?: string[] | null
+  highlights?: string[] | null
+  rental_rules?: string[] | null
   required_renter_documents?: string[] | null
   gallery_images?: Array<string | { url?: string; kind?: string }> | null
   owner_display_name?: string | null
@@ -50,6 +48,8 @@ export type BusRouteDetail = {
   cover_image?: string | null
   cover_kind?: 'image' | 'video' | string | null
   gallery_images?: Array<string | { url?: string; kind?: string }> | null
+  stops?: Array<string | { place?: string }> | null
+  travel_tips?: string[] | null
   distance_km?: number | null
   duration_minutes?: number | null
 }
@@ -67,10 +67,6 @@ export type BusTripListing = {
   rating_avg?: string | null
   rating_count?: number | null
 }
-
-export const DEFAULT_RENTAL_RULES = DEFAULT_PASSENGER_RENTAL_RULES
-
-export const DEFAULT_BUS_TRAVEL_TIPS = DEFAULT_PASSENGER_BUS_TIPS
 
 const VEHICLE_TYPE_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
   '4x4': { label: '4×4 / SUV', Icon: Car },
@@ -209,51 +205,24 @@ export function buildBusGalleryImages(trip: BusTripListing): ListingGalleryItem[
   return images
 }
 
-export function buildVehicleHighlights(v: VehicleListing): string[] {
-  const items = [
-    v.vehicle_type === '4x4' || v.vehicle_type === 'pickup' ? 'Great for gravel roads' : 'Comfortable city driving',
-    v.seats != null && v.seats >= 5 ? 'Comfortable seating' : 'Easy to park',
-    v.air_conditioning ? 'Air conditioning' : null,
-    v.included_features?.some((f) => /pickup|airport/i.test(f)) ? 'Flexible pickup' : 'Local pickup',
-    v.transmission === 'automatic' ? 'Automatic transmission' : null,
-  ].filter(Boolean) as string[]
-  return items.slice(0, 4)
+/** Provider-authored selling points (backend field). No fabricated filler. */
+export function vehicleHighlights(v: VehicleListing): string[] {
+  return Array.isArray(v.highlights)
+    ? v.highlights.map((s) => String(s).trim()).filter(Boolean)
+    : []
 }
 
-export function buildVehicleTrustHighlights(v: VehicleListing): string[] {
-  const items: string[] = ['Vehicle rental', 'Listed on DELVE']
-  if (v.air_conditioning) items.push('Air conditioning')
-  if (v.vehicle_type === '4x4' || v.vehicle_type === 'pickup') items.push('Gravel-road friendly')
-  if (v.included_features?.some((f) => /airport|pickup/i.test(f))) items.push('Airport pickup')
-  return items
+/** Provider-authored rental rules (backend field). */
+export function vehicleRentalRules(v: VehicleListing): string[] {
+  return Array.isArray(v.rental_rules)
+    ? v.rental_rules.map((s) => String(s).trim()).filter(Boolean)
+    : []
 }
 
-export function buildBusTrustHighlights(trip: BusTripListing): string[] {
-  const items: string[] = ['Bus trip', 'Listed on DELVE']
-  if (trip.available_seats <= 3) items.push(`${trip.available_seats} seats left`)
-  else if (trip.available_seats <= 8) items.push(`${trip.available_seats} seats available`)
-  else items.push('Seats available')
-  return items
-}
-
-export function buildVehicleDetailRows(v: VehicleListing): ListingDetailRow[] {
-  const locationLine = vehicleLocationLine(v)
-  const rows: ListingDetailRow[] = [
-    { id: 'rate', label: 'Daily rate', value: `N$${v.price_per_day}` },
-    {
-      id: 'pickup',
-      label: 'Pickup location',
-      value: v.pickup_location || locationLine || 'Confirm with provider',
-    },
-    { id: 'return', label: 'Return', value: 'Same location unless arranged with provider' },
-  ]
-  if (v.seats != null) rows.push({ id: 'seats', label: 'Seats', value: `${v.seats} passengers` })
-  if (v.transmission) rows.push({ id: 'transmission', label: 'Transmission', value: v.transmission })
-  if (v.fuel_type) rows.push({ id: 'fuel', label: 'Fuel type', value: v.fuel_type })
-  if (v.year) rows.push({ id: 'year', label: 'Year', value: String(v.year) })
-  const typeMeta = vehicleTypeMeta(v.vehicle_type)
-  if (v.vehicle_type) rows.push({ id: 'type', label: 'Vehicle type', value: typeMeta.label })
-  return rows
+/** Provider-authored travel tips (backend field on the route). */
+export function busTravelTips(trip: BusTripListing): string[] {
+  const tips = trip.route_detail.travel_tips
+  return Array.isArray(tips) ? tips.map((s) => String(s).trim()).filter(Boolean) : []
 }
 
 export function formatTripWhen(iso: string) {
@@ -294,33 +263,14 @@ export type RouteStop = {
 }
 
 export function routeTimelineStops(trip: BusTripListing, depTime: string, arrTime: string | null): RouteStop[] {
-  const { origin, destination } = trip.route_detail
-  let middle: string | null = null
-  if (origin === 'Windhoek' && destination === 'Swakopmund') middle = 'Rehoboth'
-  if (origin === 'Windhoek' && destination === 'Oshakati') middle = 'Otjiwarongo'
-  if (origin === 'Swakopmund' && destination === 'Walvis Bay') middle = 'Langstrand'
-
+  const { origin, destination, stops: rawStops } = trip.route_detail
   const stops: RouteStop[] = [{ place: origin, label: 'Departure', time: depTime }]
-  if (middle) stops.push({ place: middle, label: 'Short stop', time: null })
+  if (Array.isArray(rawStops)) {
+    for (const item of rawStops) {
+      const place = (typeof item === 'string' ? item : item?.place || '').trim()
+      if (place) stops.push({ place, label: 'Stop', time: null })
+    }
+  }
   stops.push({ place: destination, label: 'Arrival', time: arrTime })
   return stops
-}
-
-export function buildBusDetailRows(trip: BusTripListing): ListingDetailRow[] {
-  const dep = formatTripWhen(trip.departs_at)
-  const arr = trip.arrives_at ? formatTripWhen(trip.arrives_at) : null
-  const duration = tripDurationLabel(trip, trip.departs_at, trip.arrives_at)
-  const rows: ListingDetailRow[] = [
-    { id: 'origin', label: 'Origin', value: trip.route_detail.origin },
-    { id: 'destination', label: 'Destination', value: trip.route_detail.destination },
-    { id: 'departure', label: 'Departure', value: `${dep.date} · ${dep.time}` },
-  ]
-  if (arr) rows.push({ id: 'arrival', label: 'Arrival', value: `${arr.date} · ${arr.time}` })
-  if (duration) rows.push({ id: 'duration', label: 'Duration', value: duration })
-  rows.push({ id: 'fare', label: 'Fare', value: `N$${trip.price} per passenger` })
-  rows.push({ id: 'operator', label: 'Operator', value: trip.route_detail.operator_name })
-  if (trip.route_detail.distance_km) {
-    rows.push({ id: 'distance', label: 'Distance', value: `${trip.route_detail.distance_km} km` })
-  }
-  return rows
 }

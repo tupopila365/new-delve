@@ -19,7 +19,8 @@ type Props = {
 
 export function MiniRating({ rating, count, variant = 'default', className = '' }: Props) {
   const r = parseRating(rating)
-  if (r == null) return null
+  // A 0 rating means "not rated yet" — never surface it as a real score.
+  if (r == null || r <= 0) return null
   const label = `${r.toFixed(1)} out of 5 stars${count != null && count > 0 ? `, ${count} reviews` : ''}`
   const rootClass = ['mini-rating', variant === 'onDark' ? 'mini-rating--on-dark' : '', className].filter(Boolean).join(' ')
 

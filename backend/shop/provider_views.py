@@ -37,7 +37,21 @@ def _prepare_provider_product_data(request):
                 data["photos"] = json.loads(raw_photos)
             except json.JSONDecodeError:
                 pass
-        for key in ("in_stock", "pickup_available", "lodge_delivery", "made_in_namibia", "is_active"):
+        raw_variants = data.get("variants_input")
+        if isinstance(raw_variants, str) and raw_variants.strip():
+            try:
+                data["variants_input"] = json.loads(raw_variants)
+            except json.JSONDecodeError:
+                data.pop("variants_input", None)
+        for key in (
+            "in_stock",
+            "is_featured",
+            "pickup_available",
+            "lodge_delivery",
+            "shipping_available",
+            "made_in_namibia",
+            "is_active",
+        ):
             if key in data:
                 data[key] = _parse_bool(data.get(key))
         if "price" in data:

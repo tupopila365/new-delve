@@ -42,11 +42,11 @@
 
 .composer-pill-input--light:focus {
   outline: none;
-  border-color: rgba(124, 58, 237, 0.45);
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.16);
+  border-color: rgba(26, 21, 16, 0.28);
+  box-shadow: 0 0 0 2px rgba(26, 21, 16, 0.08);
 }
 
-/* Shared composer — same layout as group-chat, styled for pill input + purple media actions */
+/* Shared composer — pill input + neutral media / send actions */
 
 .msg-composer {
   display: flex;
@@ -73,8 +73,8 @@
   height: 40px;
   border: none;
   border-radius: 999px;
-  background: #7c3aed;
-  color: #fff;
+  background: #f3ebe1;
+  color: #1a1510;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -83,7 +83,7 @@
 }
 
 .msg-composer__attach-btn:hover {
-  filter: brightness(1.06);
+  background: #fffaf2;
 }
 
 .msg-composer__attach-btn:disabled {
@@ -171,8 +171,8 @@
   height: 44px;
   border: none;
   border-radius: 999px;
-  background: #7c3aed;
-  color: #fff;
+  background: #f3ebe1;
+  color: #1a1510;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -181,11 +181,12 @@
 }
 
 .msg-composer__send:not(:disabled):hover {
-  filter: brightness(1.06);
+  background: #fffaf2;
 }
 
 .msg-composer__send:disabled {
-  background: #5b21b6;
+  background: rgba(243, 235, 225, 0.28);
+  color: rgba(255, 250, 242, 0.45);
   opacity: 1;
   cursor: not-allowed;
 }

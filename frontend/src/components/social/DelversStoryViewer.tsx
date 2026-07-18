@@ -231,13 +231,19 @@ export function DelversStoryViewer({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        if (commentsOpen) {
+          setCommentsOpen(false)
+          return
+        }
+        onClose()
+      }
       if (event.key === 'ArrowLeft') handlePrev()
       if (event.key === 'ArrowRight') goNext()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goNext, handlePrev, onClose])
+  }, [commentsOpen, goNext, handlePrev, onClose])
 
   if (!post) return null
 
@@ -446,6 +452,9 @@ export function DelversStoryViewer({
             signedIn={signedIn}
             onClose={() => setCommentsOpen(false)}
             onCommented={() => onCommented?.(post.id)}
+            captionUsername={post.author.username}
+            captionText={post.body || ''}
+            captionAvatar={post.author.avatar}
           />
         ) : null}
       </article>

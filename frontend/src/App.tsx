@@ -31,8 +31,14 @@ import { FoodDetail } from './pages/FoodDetail'
 import { FoodList } from './pages/FoodList'
 import { ShopList } from './pages/ShopList'
 import { ShopDetail } from './pages/ShopDetail'
+import { ShopStorefront } from './pages/ShopStorefront'
+import { CartPage } from './pages/CartPage'
+import { CheckoutPage } from './pages/CheckoutPage'
+import { OrdersPage } from './pages/OrdersPage'
+import { OrderDetailPage } from './pages/OrderDetailPage'
 import { ShopAdmin } from './pages/ShopAdmin'
 import { ShopProductForm } from './pages/ShopProductForm'
+import { ProviderShopOrders } from './pages/ProviderShopOrders'
 import { CoinToss } from './pages/CoinToss'
 import { AddGem } from './pages/AddGem'
 import { GuideDetail } from './pages/GuideDetail'
@@ -115,12 +121,54 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/create" element={<CreateHub />} />
-          <Route path="/create/post" element={<CreatePost />} />
-          <Route path="/create/ask" element={<CreateAsk />} />
-          <Route path="/create/tip" element={<CreateTip />} />
-          <Route path="/create/highlight" element={<CreateStory />} />
-          <Route path="/stories/new" element={<StoriesNewRedirect />} />
+          <Route
+            path="/create"
+            element={
+              <NoFaceGuard>
+                <CreateHub />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/create/post"
+            element={
+              <NoFaceGuard>
+                <CreatePost />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/create/ask"
+            element={
+              <NoFaceGuard>
+                <CreateAsk />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/create/tip"
+            element={
+              <NoFaceGuard>
+                <CreateTip />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/create/highlight"
+            element={
+              <NoFaceGuard>
+                <CreateStory />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/stories/new"
+            element={
+              <NoFaceGuard>
+                <StoriesNewRedirect />
+              </NoFaceGuard>
+            }
+          />
           <Route path="/delvers/new" element={<Navigate to="/create/highlight" replace />} />
           <Route path="/posts/:id" element={<LegacyPostRedirect />} />
           <Route path="/u/:username" element={<UserProfile />} />
@@ -182,7 +230,14 @@ export default function App() {
             }
           />
           <Route path="/delvers/pin/new" element={<Navigate to="/create/post" replace />} />
-          <Route path="/community" element={<CommunityLayout />}>
+          <Route
+            path="/community"
+            element={
+              <NoFaceGuard>
+                <CommunityLayout />
+              </NoFaceGuard>
+            }
+          >
             <Route index element={<Community />} />
             <Route path="tags/:slug" element={<CommunityTag />} />
             <Route path="groups/new" element={<Navigate to="/community?view=groups&createGroup=1" replace />} />
@@ -201,7 +256,13 @@ export default function App() {
           <Route path="/food" element={<FoodList />} />
           <Route path="/food/:id" element={<FoodDetail />} />
           <Route path="/shop" element={<ShopList />} />
+          <Route path="/shops" element={<Navigate to="/shop" replace />} />
+          <Route path="/shop/seller/:username" element={<ShopStorefront />} />
           <Route path="/shop/:id" element={<ShopDetail />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/orders/:ref" element={<OrderDetailPage />} />
           <Route path="/coin-toss" element={<CoinToss />} />
           <Route path="/coin-toss/add" element={<AddGem />} />
           <Route path="/listing/:type/:id/gallery" element={<ListingGalleryPage />} />
@@ -215,9 +276,30 @@ export default function App() {
           />
           <Route path="/guides/:guideId/packages/:packageSlug" element={<TourPackageDetail />} />
           <Route path="/guides/:id" element={<GuideDetail />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/messages/u/:username" element={<MessageUser />} />
-          <Route path="/messages/:id" element={<MessageThread />} />
+          <Route
+            path="/messages"
+            element={
+              <NoFaceGuard>
+                <Messages />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/messages/u/:username"
+            element={
+              <NoFaceGuard>
+                <MessageUser />
+              </NoFaceGuard>
+            }
+          />
+          <Route
+            path="/messages/:id"
+            element={
+              <NoFaceGuard>
+                <MessageThread />
+              </NoFaceGuard>
+            }
+          />
           <Route path="/account" element={<Account />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/admin/*" element={<PlatformAdminHandoff />} />
@@ -240,6 +322,7 @@ export default function App() {
             <Route path="food" element={<FoodAdmin />} />
             <Route path="food/:venueId" element={<FoodVenueWorkspacePage />} />
             <Route path="shop" element={<ShopAdmin />} />
+            <Route path="shop/orders" element={<ProviderShopOrders />} />
             <Route path="shop/new" element={<ShopProductForm />} />
             <Route path="shop/:productId/edit" element={<ShopProductForm />} />
             <Route path="events" element={<EventsAdmin />} />

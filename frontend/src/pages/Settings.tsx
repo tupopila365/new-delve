@@ -16,6 +16,7 @@ import {
 import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
 import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 import { HOME_ATMOSPHERE_BG } from '../data/homeDefaults'
+import { syncNoFaceLocalFlag } from '../hooks/useNoFace'
 import '../components/settings/SettingsPageEnhancer.css'
 
 type SettingsTab = 'profile' | 'privacy' | 'preferences' | 'account'
@@ -193,6 +194,9 @@ export function Settings() {
         })
       }
       await refreshProfile()
+      if (tab === 'privacy') {
+        syncNoFaceLocalFlag(noFaceMode)
+      }
       if (profile) {
         await invalidateAvatarCaches(qc, profile.username)
       }
@@ -462,9 +466,9 @@ export function Settings() {
             <div className="sp__toggle-info">
               <p className="sp__toggle-label">No Face mode</p>
               <p className="sp__toggle-sub">
-                Hide the social side of Delve — feeds, stories, and other people's posts. You keep
-                everything for discovery: places, stays, food, events, journeys, and Coin Toss. Turn
-                it off anytime to bring the social experience back.
+                Hide the social side of Delve — feeds, stories, messages, Community, Delvers, and
+                Journeys. You keep discovery: places, stays, food, events, guides, shops, and Coin
+                Toss. Turn it off anytime to bring the social experience back.
               </p>
             </div>
             <label className="sp__sw" aria-label="No Face mode">

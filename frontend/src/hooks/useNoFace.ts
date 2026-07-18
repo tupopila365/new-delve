@@ -17,6 +17,26 @@ import { useAuth } from '../auth/AuthContext'
 const GUEST_KEY = 'delve_no_face'
 const ASKED_KEY = 'delve_no_face_asked'
 
+/** Social / face-forward surfaces hidden in No Face mode. */
+export const NO_FACE_HIDDEN_PREFIXES = [
+  '/delvers',
+  '/journeys',
+  '/community',
+  '/create',
+  '/messages',
+] as const
+
+export function isNoFaceHiddenPath(pathname: string): boolean {
+  return NO_FACE_HIDDEN_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
+
+export function isNoFaceHiddenNavTo(to: string): boolean {
+  const path = to.split('?')[0] || to
+  return isNoFaceHiddenPath(path)
+}
+
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -50,6 +70,11 @@ function writeFlag(key: string, value: boolean) {
 
 const getGuestSnapshot = () => readFlag(GUEST_KEY)
 const getAskedSnapshot = () => readFlag(ASKED_KEY)
+
+/** Keep the guest/local flag aligned after Settings or other profile saves. */
+export function syncNoFaceLocalFlag(on: boolean) {
+  writeFlag(GUEST_KEY, on)
+}
 
 export function useNoFace() {
   const { profile, refreshProfile } = useAuth()

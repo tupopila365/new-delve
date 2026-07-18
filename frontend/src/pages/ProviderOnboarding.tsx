@@ -77,7 +77,7 @@ export function ProviderOnboarding() {
 
   if (loading || bizLoading) {
     return (
-      <ProviderOnboardingLayout>
+      <ProviderOnboardingLayout title="Business setup" lead="Loading your progress…">
         <p className="prov-onboard__sub">Loading…</p>
       </ProviderOnboardingLayout>
     )
@@ -247,7 +247,10 @@ export function ProviderOnboarding() {
             : 'Finish'
 
   return (
-    <ProviderOnboardingLayout>
+    <ProviderOnboardingLayout
+      title="Business setup"
+      lead="Pick your services, add business details, then finish verification if needed."
+    >
       <OnboardingStepper current={step} steps={steps} />
 
       {step === 'services' ? (

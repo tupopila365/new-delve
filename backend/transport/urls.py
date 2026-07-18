@@ -4,10 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BusOperatorViewSet,
     BusRouteViewSet,
-    BusTripQuestionAnswerView,
     BusTripViewSet,
     SeatReservationViewSet,
-    VehicleQuestionAnswerView,
     VehicleRentalBookingViewSet,
     VehicleRentalListingViewSet,
 )
@@ -30,7 +28,5 @@ router.register(r"provider-rental-bookings", ProviderRentalBookingViewSet, basen
 router.register(r"provider-seat-bookings", ProviderSeatBookingViewSet, basename="provider-seat-booking")
 
 urlpatterns = [
-    path("questions/<int:pk>/answers/", VehicleQuestionAnswerView.as_view(), name="vehicle-question-answer"),
-    path("bus/questions/<int:pk>/answers/", BusTripQuestionAnswerView.as_view(), name="bus-trip-question-answer"),
     path("", include(router.urls)),
 ]

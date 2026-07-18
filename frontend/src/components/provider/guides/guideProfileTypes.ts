@@ -40,6 +40,7 @@ export type GuideProfileFormValues = {
   years_guiding: number
   licensed_guide: boolean
   response_hours_typical: number
+  max_group_size: string
   certifications: string
   languages_detail: LanguageDetailForm[]
   portfolio: PortfolioItemForm[]
@@ -73,6 +74,7 @@ export const EMPTY_GUIDE_PROFILE_FORM: GuideProfileFormValues = {
   years_guiding: 1,
   licensed_guide: false,
   response_hours_typical: 4,
+  max_group_size: '',
   certifications: '',
   languages_detail: [{ language: 'English', level: 'Fluent' }],
   portfolio: [],
@@ -108,6 +110,7 @@ export type ProviderGuideProfile = {
   rating_count: number
   guest_reviews?: { name: string; place?: string; rating: number; body: string }[]
   response_hours_typical?: number
+  max_group_size?: number | null
   tour_packages?: TourPackage[]
   years_guiding?: number | null
   certifications?: string[]
@@ -141,6 +144,7 @@ export function profileToForm(guide: ProviderGuideProfile): GuideProfileFormValu
     years_guiding: guide.years_guiding ?? 1,
     licensed_guide: Boolean(guide.licensed_guide),
     response_hours_typical: guide.response_hours_typical ?? 4,
+    max_group_size: guide.max_group_size != null ? String(guide.max_group_size) : '',
     certifications: (guide.certifications ?? []).join('\n'),
     languages_detail:
       guide.languages_detail?.length
@@ -172,6 +176,7 @@ export function formToProfilePayload(form: GuideProfileFormValues, packages: Tou
     years_guiding: Number(form.years_guiding) || 0,
     licensed_guide: form.licensed_guide,
     response_hours_typical: Number(form.response_hours_typical) || 4,
+    max_group_size: form.max_group_size.trim() ? Number(form.max_group_size) : null,
     certifications: splitLines(form.certifications.replace(/\n/g, ',')),
     languages_detail: form.languages_detail.filter((l) => l.language.trim()),
     portfolio_gallery: form.portfolio

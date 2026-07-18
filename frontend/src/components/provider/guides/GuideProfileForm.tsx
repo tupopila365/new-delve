@@ -258,6 +258,20 @@ export function GuideProfileForm({ values, onChange, error, saving, onSubmit, on
                 <span className="guide-form__hint">Used for custom tours and sidebar pricing on your guide page.</span>
               </label>
               <label className="guide-form__field">
+                Max group size
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={values.max_group_size}
+                  onChange={(e) => patch({ max_group_size: e.target.value })}
+                  placeholder="20"
+                />
+                <span className="guide-form__hint">
+                  Booking cap — most travellers a single booking can request. Leave blank to use the default (20).
+                </span>
+              </label>
+              <label className="guide-form__field">
                 Default meeting point
                 <textarea
                   rows={3}

@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, Trash2 } from 'lucide-react'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { ProviderAccessGate } from '../components/provider'
 import { ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
+import { ListingPhotoManager, type ListingPhotoDraft } from '../components/listing/photos'
+import {
+  photosFromListingGallery,
+  resolveListingGalleryMedia,
+  serializeGalleryForApi,
+} from '../components/listing/photos/listingPhotoUtils'
+import type { ListingGalleryMediaItem } from '../components/listing/photos/listingGalleryMedia'
 import { SHOP_CATEGORIES } from '../utils/shopDisplay'
-import type { ShopProductListing } from '../utils/shopListing'
+import type { ShopMediaRaw, ShopProductListing } from '../utils/shopListing'
+
+type VariantDraft = { label: string; price_override: string; stock_quantity: string }
 
 const emptyForm = (region = '') => ({
   name: '',
@@ -19,11 +29,16 @@ const emptyForm = (region = '') => ({
   pickup_address: '',
   price: '',
   price_note: '',
+  sku: '',
+  stock_quantity: '1',
   phone: '',
   artisan_name: '',
   in_stock: true,
+  is_featured: false,
   pickup_available: true,
   lodge_delivery: false,
+  shipping_available: false,
+  shipping_fee: '',
   made_in_namibia: true,
   is_active: false,
 })
@@ -36,7 +51,8 @@ export function ShopProductForm() {
   const { profile } = useAuth()
   const { canAccessProvider, canManageListings, isViewerOnly, activeBusiness } = useBusinessAccess()
   const [form, setForm] = useState(emptyForm(profile?.region ?? ''))
-  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [variants, setVariants] = useState<VariantDraft[]>([])
+  const [photos, setPhotos] = useState<ListingPhotoDraft[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -58,14 +74,30 @@ export function ShopProductForm() {
       pickup_address: existing.pickup_address ?? '',
       price: String(existing.price ?? ''),
       price_note: existing.price_note ?? '',
+      sku: existing.sku ?? '',
+      stock_quantity: String(existing.stock_quantity ?? 0),
       phone: existing.phone ?? '',
       artisan_name: existing.artisan_name ?? '',
       in_stock: existing.in_stock,
+      is_featured: Boolean(existing.is_featured),
       pickup_available: existing.pickup_available,
       lodge_delivery: existing.lodge_delivery,
+      shipping_available: Boolean(existing.shipping_available),
+      shipping_fee: String(existing.shipping_fee ?? ''),
       made_in_namibia: existing.made_in_namibia,
       is_active: Boolean(existing.is_active),
     })
+    setVariants(
+      (existing.variants ?? []).map((v) => ({
+        label: v.label,
+        price_override: v.price_override != null ? String(v.price_override) : '',
+        stock_quantity: String(v.stock_quantity ?? 0),
+      })),
+    )
+    const normalized = ((existing.photos ?? []) as ShopMediaRaw[]).map((p) =>
+      typeof p === 'string' ? p : { url: p.url ?? p.image ?? '', kind: p.kind },
+    )
+    setPhotos(photosFromListingGallery(existing.cover_image, normalized))
   }, [existing])
 
   if (!profile) return <Navigate to="/login" replace />
@@ -89,6 +121,18 @@ export function ShopProductForm() {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function updateVariant(index: number, key: keyof VariantDraft, value: string) {
+    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, [key]: value } : v)))
+  }
+
+  function addVariant() {
+    setVariants((prev) => [...prev, { label: '', price_override: '', stock_quantity: '0' }])
+  }
+
+  function removeVariant(index: number) {
+    setVariants((prev) => prev.filter((_, i) => i !== index))
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) {
@@ -108,18 +152,37 @@ export function ShopProductForm() {
       body.append('pickup_address', form.pickup_address.trim())
       body.append('price', form.price || '0')
       body.append('price_note', form.price_note.trim())
+      body.append('sku', form.sku.trim())
+      body.append('stock_quantity', form.stock_quantity || '0')
       body.append('phone', form.phone.trim())
       body.append('artisan_name', form.artisan_name.trim())
       body.append('in_stock', String(form.in_stock))
+      body.append('is_featured', String(form.is_featured))
       body.append('pickup_available', String(form.pickup_available))
       body.append('lodge_delivery', String(form.lodge_delivery))
+      body.append('shipping_available', String(form.shipping_available))
+      body.append('shipping_fee', form.shipping_fee || '0')
       body.append('made_in_namibia', String(form.made_in_namibia))
       body.append('is_active', String(form.is_active))
-      if (coverFile) body.append('cover_image_upload', coverFile)
+      const cleanVariants = variants
+        .filter((v) => v.label.trim())
+        .map((v) => ({
+          label: v.label.trim(),
+          price_override: v.price_override.trim() === '' ? null : v.price_override.trim(),
+          stock_quantity: Number(v.stock_quantity) || 0,
+        }))
+      body.append('variants_input', JSON.stringify(cleanVariants))
 
-      const url = isEdit
-        ? `/api/shop/provider-products/${productId}/`
-        : '/api/shop/provider-products/'
+      const resolved = await resolveListingGalleryMedia(photos, { allowVideoCover: true })
+      const fullMedia: ListingGalleryMediaItem[] = [...resolved.gallery]
+      if (resolved.cover && !fullMedia.some((m) => m.url === resolved.cover)) {
+        fullMedia.unshift({ url: resolved.cover, kind: resolved.coverKind })
+      }
+      const thumb = fullMedia.find((m) => m.kind === 'image')?.url ?? ''
+      body.append('photos', JSON.stringify(serializeGalleryForApi(fullMedia)))
+      body.append('cover_image_url', thumb)
+
+      const url = isEdit ? `/api/shop/provider-products/${productId}/` : '/api/shop/provider-products/'
       const saved = await apiFetch<ShopProductListing>(url, {
         method: isEdit ? 'PATCH' : 'POST',
         body,
@@ -138,7 +201,7 @@ export function ShopProductForm() {
     <ProviderUiPage>
       <ProviderUiHeader
         title={isEdit ? 'Edit product' : 'Add product'}
-        subtitle="Pickup-first listings — travellers message you to arrange collection."
+        subtitle="List a product buyers can add to their cart and purchase."
         actions={
           <Link to="/provider/shop" className="btn btn-secondary btn-sm">
             Back to shop
@@ -186,6 +249,21 @@ export function ShopProductForm() {
 
         <div className="prov-onboard__form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <label className="prov-form__field">
+            <span>Stock quantity</span>
+            <input
+              value={form.stock_quantity}
+              onChange={(e) => update('stock_quantity', e.target.value)}
+              inputMode="numeric"
+            />
+          </label>
+          <label className="prov-form__field">
+            <span>SKU (optional)</span>
+            <input value={form.sku} onChange={(e) => update('sku', e.target.value)} />
+          </label>
+        </div>
+
+        <div className="prov-onboard__form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <label className="prov-form__field">
             <span>Region</span>
             <input value={form.region} onChange={(e) => update('region', e.target.value)} />
           </label>
@@ -204,6 +282,41 @@ export function ShopProductForm() {
           />
         </label>
 
+        <fieldset className="prov-form__field" style={{ border: 0, padding: 0, margin: 0 }}>
+          <span style={{ display: 'block', marginBottom: 8, fontWeight: 700 }}>Options / variants (optional)</span>
+          {variants.map((variant, index) => (
+            <div
+              key={index}
+              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginBottom: 8 }}
+            >
+              <input
+                placeholder="Label (e.g. Large / Red)"
+                value={variant.label}
+                onChange={(e) => updateVariant(index, 'label', e.target.value)}
+              />
+              <input
+                placeholder="Price"
+                value={variant.price_override}
+                onChange={(e) => updateVariant(index, 'price_override', e.target.value)}
+                inputMode="decimal"
+              />
+              <input
+                placeholder="Stock"
+                value={variant.stock_quantity}
+                onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
+                inputMode="numeric"
+              />
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeVariant(index)} aria-label="Remove variant">
+                <Trash2 size={14} strokeWidth={2.25} aria-hidden />
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={addVariant}>
+            <Plus size={14} strokeWidth={2.25} aria-hidden />
+            Add option
+          </button>
+        </fieldset>
+
         <label className="prov-form__field">
           <span>Maker / artisan name</span>
           <input value={form.artisan_name} onChange={(e) => update('artisan_name', e.target.value)} />
@@ -214,10 +327,22 @@ export function ShopProductForm() {
           <input value={form.phone} onChange={(e) => update('phone', e.target.value)} />
         </label>
 
-        <label className="prov-form__field">
-          <span>Cover photo</span>
-          <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)} />
-        </label>
+        <div className="prov-form__field">
+          <span>Photos &amp; videos</span>
+          <ListingPhotoManager
+            photos={photos}
+            onChange={setPhotos}
+            allowVideoCover
+            hint="First item is the cover. Add multiple photos or short clips — buyers can open them full screen."
+          />
+        </div>
+
+        {form.shipping_available ? (
+          <label className="prov-form__field">
+            <span>Shipping fee (NAD)</span>
+            <input value={form.shipping_fee} onChange={(e) => update('shipping_fee', e.target.value)} inputMode="decimal" />
+          </label>
+        ) : null}
 
         <div className="prov-onboard__checks">
           <label>
@@ -233,12 +358,20 @@ export function ShopProductForm() {
             Can deliver to lodge / hotel
           </label>
           <label>
+            <input type="checkbox" checked={form.shipping_available} onChange={(e) => update('shipping_available', e.target.checked)} />
+            Offer shipping
+          </label>
+          <label>
             <input type="checkbox" checked={form.made_in_namibia} onChange={(e) => update('made_in_namibia', e.target.checked)} />
             Made in Namibia
           </label>
           <label>
+            <input type="checkbox" checked={form.is_featured} onChange={(e) => update('is_featured', e.target.checked)} />
+            Feature in my shop
+          </label>
+          <label>
             <input type="checkbox" checked={form.is_active} onChange={(e) => update('is_active', e.target.checked)} />
-            Publish on Local shops
+            Publish on Shops
           </label>
         </div>
 

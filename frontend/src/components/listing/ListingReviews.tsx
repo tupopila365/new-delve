@@ -31,7 +31,8 @@ export function ListingReviews({
   const visible = reviews.slice(0, maxVisible)
   const reviewsPath = listingSeeAllPath(listingType, listingId, 'reviews')
   const ratingNum = rating != null ? parseFloat(String(rating)) : null
-  const hasRating = ratingNum != null && !Number.isNaN(ratingNum)
+  // 0 (or NaN) means "not rated yet" — fall through to reviews/empty state.
+  const hasRating = ratingNum != null && !Number.isNaN(ratingNum) && ratingNum > 0
   const reviewCount = count ?? reviews.length
 
   return (

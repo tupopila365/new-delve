@@ -18,10 +18,7 @@
   margin: 4px 0 16px;
   padding: 22px 18px 18px;
   border-radius: 22px;
-  background:
-    radial-gradient(ellipse 80% 70% at 100% 0%, rgba(255, 138, 61, 0.22), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(255, 176, 122, 0.1), transparent 50%),
-    #121212;
+  background: #121212;
   border: 1px solid var(--tp-border);
   animation: tp-hero-in 0.45s ease both;
 }
@@ -570,7 +567,7 @@
 }
 
 .tp-filter-modal__field > span {
-  color: rgba(255, 250, 242, 0.48);
+  color: rgba(26, 21, 16, 0.52);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -579,23 +576,23 @@
   width: 100%;
   min-height: 42px;
   padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(26, 21, 16, 0.18);
   border-radius: 14px;
   background: transparent;
-  color: #fffaf2;
+  color: #1a1510;
   font: inherit;
   font-size: 0.9rem;
   line-height: 1.45;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 .tp-filter-modal__input::placeholder {
-  color: rgba(255, 250, 242, 0.38);
+  color: rgba(26, 21, 16, 0.38);
 }
 
 .tp-filter-modal__input:focus {
   outline: none;
-  border-color: #fff;
+  border-color: #1a1510;
 }
 
 .tp-filter-modal__input[type='number'] {
@@ -629,10 +626,10 @@
 .tp-filter-modal__clear {
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(26, 21, 16, 0.18);
   border-radius: 999px;
   background: transparent;
-  color: rgba(255, 250, 242, 0.58);
+  color: rgba(26, 21, 16, 0.62);
   font: inherit;
   font-size: 0.84rem;
   font-weight: 750;
@@ -640,8 +637,8 @@
 }
 
 .tp-filter-modal__clear:hover {
-  border-color: rgba(255, 176, 122, 0.4);
-  color: #ffb07a;
+  border-color: rgba(26, 21, 16, 0.4);
+  color: #1a1510;
 }
 
 @media (max-width: 380px) {

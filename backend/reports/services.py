@@ -11,15 +11,11 @@ User = get_user_model()
 
 LISTING_QUESTION_TARGET_TYPES = (
     ReportTargetType.EVENT_QUESTION,
-    ReportTargetType.VEHICLE_QUESTION,
-    ReportTargetType.BUS_TRIP_QUESTION,
     ReportTargetType.JOURNEY_QUESTION,
 )
 
 LISTING_QUESTION_MODELS: dict[str, tuple[str, str]] = {
     ReportTargetType.EVENT_QUESTION: ("events_app.models", "EventQuestion"),
-    ReportTargetType.VEHICLE_QUESTION: ("transport.models", "VehicleQuestion"),
-    ReportTargetType.BUS_TRIP_QUESTION: ("transport.models", "BusTripQuestion"),
     ReportTargetType.JOURNEY_QUESTION: ("journeys.models", "JourneyQuestion"),
 }
 

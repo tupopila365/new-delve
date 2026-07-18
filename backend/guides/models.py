@@ -19,8 +19,8 @@ class TourGuideProfile(models.Model):
     rating_avg = models.DecimalField(
         max_digits=3,
         decimal_places=2,
-        default=Decimal("4.80"),
-        help_text="Average client rating 0–5",
+        default=Decimal("0.00"),
+        help_text="Average client rating 0–5 (0 until the first review lands).",
     )
     rating_count = models.PositiveIntegerField(default=0)
     guest_reviews = models.JSONField(
@@ -31,6 +31,11 @@ class TourGuideProfile(models.Model):
     response_hours_typical = models.PositiveSmallIntegerField(
         default=2,
         help_text="Typical first reply time in hours (for social proof).",
+    )
+    max_group_size = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Provider booking cap: max travellers per booking. Blank falls back to a default.",
     )
     tour_packages = models.JSONField(
         default=list,

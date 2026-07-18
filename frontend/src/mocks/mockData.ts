@@ -137,6 +137,8 @@ export type MockVehicle = {
   description?: string
   pickup_location?: string
   included_features?: string[]
+  highlights?: string[]
+  rental_rules?: string[]
   gallery_images?: string[]
   required_renter_documents?: string[]
   owner_username?: string
@@ -156,6 +158,8 @@ export type MockBusTrip = {
     operator_name: string
     cover_image?: string | null
     gallery_images?: string[]
+    stops?: string[]
+    travel_tips?: string[]
   }
   departs_at: string
   arrives_at: string
@@ -223,6 +227,7 @@ export type MockGuide = {
   rating_count: number
   guest_reviews?: unknown
   response_hours_typical?: number
+  max_group_size?: number | null
   tour_packages?: {
     id: string
     title: string
@@ -1045,6 +1050,12 @@ export const mockVehicles: MockVehicle[] = [
       'Unlimited kilometres',
       'Child seat on request',
     ],
+    highlights: ['Built for gravel and washaways', 'Canopy for luggage', 'Popular for Etosha & the coast'],
+    rental_rules: [
+      "Valid driver's license required",
+      'Return with the same fuel level',
+      'No smoking in the vehicle',
+    ],
     required_renter_documents: ['driver_license_front', 'driver_license_back', 'national_id'],
     gallery_images: [VEH.hiluxFront, VEH.suvSide, VEH.interior, VEH.road],
   },
@@ -1137,6 +1148,11 @@ export const mockBusTrips: MockBusTrip[] = [
         'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=900&q=72',
         'https://images.unsplash.com/photo-1519999482648-25049ddd37b1?auto=format&fit=crop&w=900&q=72',
         'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=900&q=72',
+      ],
+      stops: ['Okahandja', 'Karibib', 'Usakos'],
+      travel_tips: [
+        'Arrive 20 minutes before departure with your booking reference.',
+        'Have your ID ready at boarding.',
       ],
     },
     departs_at: new Date(Date.now() + 1000 * 60 * 60 * 26).toISOString(),

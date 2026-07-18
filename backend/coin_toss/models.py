@@ -6,10 +6,14 @@ class LocationCategory(models.TextChoices):
     VIEWPOINT = "viewpoint", "Viewpoint"
     HIKE = "hike", "Hike / trail"
     BEACH = "beach", "Beach / coast"
+    WATER = "water", "Water / swim"
     MARKET = "market", "Market"
     CAFE = "cafe", "Café / spot to linger"
     CULTURE = "culture", "Culture / heritage"
     WILDLIFE = "wildlife", "Wildlife"
+    SPORTS = "sports", "Sports / active"
+    EVENT = "event", "Event / happening"
+    FREE = "free", "Free to visit"
     HIDDEN = "hidden", "Hidden gem"
     OTHER = "other", "Other"
 
@@ -35,6 +39,11 @@ class TossLocation(models.Model):
         max_length=300,
         blank=True,
         help_text="OpenStreetMap node/way id, Wikidata Q-id, or similar organic reference.",
+    )
+    media = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Photos/videos: [{"url": "...", "kind": "image"|"video"}].',
     )
     is_excluded = models.BooleanField(
         default=False,
@@ -113,3 +122,31 @@ class AntiCommercialFlag(models.Model):
 
     def __str__(self):
         return f"flag {self.user_id} → {self.location_id}"
+
+
+class TossLocationSave(models.Model):
+    """Bookmark a tossed spot to revisit later (and upvote when you get there)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="coin_toss_saves",
+    )
+    location = models.ForeignKey(
+        TossLocation,
+        on_delete=models.CASCADE,
+        related_name="saves",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "location"],
+                name="uniq_coin_toss_save_user_location",
+            )
+        ]
+
+    def __str__(self):
+        return f"save {self.user_id} → {self.location_id}"

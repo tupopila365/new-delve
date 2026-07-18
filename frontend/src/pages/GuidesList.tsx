@@ -193,6 +193,7 @@ export function GuidesList() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [shareMsg, setShareMsg] = useState('')
+  const [areaOptions, setAreaOptions] = useState<string[]>([...TOP_AREAS])
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -233,6 +234,26 @@ export function GuidesList() {
     if (need && need !== 'licensed') list = applyNeedFilter(list, need)
     return sortGuides(list, sort)
   }, [data, need, sort])
+
+  // Derive the area dropdown from guides' real regions. Only recompute from the
+  // unfiltered result set so picking an area (server-side region filter) doesn't
+  // collapse the options. Falls back to TOP_AREAS until data lands.
+  useEffect(() => {
+    if (area || search || language || need) return
+    const list = data ?? []
+    if (list.length === 0) return
+    const counts = new Map<string, number>()
+    for (const g of list) {
+      for (const r of g.regions || []) {
+        const t = r.trim()
+        if (t) counts.set(t, (counts.get(t) ?? 0) + 1)
+      }
+    }
+    const sorted = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([r]) => r)
+    if (sorted.length > 0) setAreaOptions(sorted.slice(0, 12))
+  }, [data, area, search, language, need])
 
   const inventoryCount = data?.length ?? 0
   const featured = useMemo(() => featuredGuides.slice(0, 8), [featuredGuides])
@@ -337,7 +358,7 @@ export function GuidesList() {
               aria-label="Area"
             >
               <option value="">All areas</option>
-              {TOP_AREAS.map((a) => (
+              {areaOptions.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>

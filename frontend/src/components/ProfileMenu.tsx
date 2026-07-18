@@ -7,6 +7,7 @@ import { apiFetch } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
 import { adminConsoleUrl } from '../utils/adminAppUrl'
 import { useNavBadges } from '../hooks/useNavBadges'
+import { useNoFace } from '../hooks/useNoFace'
 import { NavBadge } from './NavBadge'
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 
 export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
   const { profile, logout } = useAuth()
+  const { enabled: noFace } = useNoFace()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -97,9 +99,11 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
           <Link to="/dashboard#saved" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
             Saved places
           </Link>
-          <Link to="/messages" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
-            Messages
-          </Link>
+          {noFace ? null : (
+            <Link to="/messages" className="profile-menu__item" role="menuitem" onClick={() => setOpen(false)}>
+              Messages
+            </Link>
+          )}
 
           {isProvider || businesses.length > 0 ? (
             <>

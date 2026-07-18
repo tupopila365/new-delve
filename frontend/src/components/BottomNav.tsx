@@ -17,7 +17,7 @@ export function BottomNav() {
   const onDelvers = location.pathname === '/delvers' || location.pathname.startsWith('/delvers/')
   const profileTo = profile ? `/u/${profile.username}` : '/account'
 
-  // No Face hides social surfaces (Delvers, Journeys) from primary navigation.
+  // No Face: Explore + Search + Profile only (no social tabs).
   const visibleItems = noFace
     ? navItems.filter((i) => i.to !== '/delvers' && i.to !== '/journeys')
     : navItems

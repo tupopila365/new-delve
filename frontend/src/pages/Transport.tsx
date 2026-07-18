@@ -36,22 +36,11 @@ const NEED_FILTERS: { id: string; label: string }[] = [
 
 const REGIONS = ['Khomas', 'Erongo', 'Oshana', 'Otjozondjupa', 'Hardap', 'Karas'] as const
 
-const TOP_AREAS = [
-  'Windhoek',
-  'Swakopmund',
-  'Walvis Bay',
-  'Ongwediva',
-  'Hosea Kutako Airport',
-] as const
+/** Seed areas kept even before listings load; the list grows from real data. */
+const SEED_AREAS = ['Hosea Kutako Airport'] as const
 
 /** Areas that map cleanly to VehicleFilter `city=` (exact). */
 const API_CITY_AREAS = new Set<string>(['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva'])
-
-const POPULAR_ROUTES: { origin: string; destination: string }[] = [
-  { origin: 'Windhoek', destination: 'Swakopmund' },
-  { origin: 'Windhoek', destination: 'Walvis Bay' },
-  { origin: 'Windhoek', destination: 'Oshakati' },
-]
 
 const COLLECTIONS: {
   id: string
@@ -229,6 +218,7 @@ export function Transport() {
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
+  const [areaOptions, setAreaOptions] = useState<string[]>([...SEED_AREAS])
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -306,6 +296,42 @@ export function Transport() {
     queryFn: async () =>
       asArray<Trip>(await apiFetch(`/api/transport/bus/trips/${bQs}`, { auth: false })),
   })
+
+  useEffect(() => {
+    setAreaOptions((prev) => {
+      const set = new Set(prev)
+      for (const v of vehicles ?? []) {
+        const city = (v.city || '').trim()
+        if (city) set.add(city)
+      }
+      for (const t of trips ?? []) {
+        const o = t.route_detail.origin?.trim()
+        const d = t.route_detail.destination?.trim()
+        if (o) set.add(o)
+        if (d) set.add(d)
+      }
+      set.delete('')
+      const next = [...set]
+      return next.length === prev.length && next.every((a, i) => a === prev[i]) ? prev : next
+    })
+  }, [vehicles, trips])
+
+  const popularRoutes = useMemo(() => {
+    const counts = new Map<string, { origin: string; destination: string; n: number }>()
+    for (const t of trips ?? []) {
+      const o = t.route_detail.origin?.trim()
+      const d = t.route_detail.destination?.trim()
+      if (!o || !d) continue
+      const key = `${o}→${d}`
+      const cur = counts.get(key) ?? { origin: o, destination: d, n: 0 }
+      cur.n += 1
+      counts.set(key, cur)
+    }
+    return [...counts.values()]
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 6)
+      .map(({ origin, destination }) => ({ origin, destination }))
+  }, [trips])
 
   const displayVehicles = useMemo(() => {
     let list = [...(vehicles ?? [])]
@@ -458,10 +484,6 @@ export function Transport() {
     }
   }
 
-  const applyNeed = (id: string) => {
-    setNeedWithHints(need === id ? '' : id)
-  }
-
   const applyCollection = (c: (typeof COLLECTIONS)[number]) => {
     setNeed(c.need)
     if (c.mode) setMode(c.mode)
@@ -523,10 +545,6 @@ export function Transport() {
       <header className="tp-market__hero">
         <p className="tp-market__kicker">Transport marketplace</p>
         <h1 className="tp-market__title">Pick how you move</h1>
-        <p className="tp-market__sub">
-          Rent privately or take a shared seat — compare what’s better for this trip across Windhoek,
-          the coast, and beyond.
-        </p>
 
         <div className="tp-market__find">
           <label className="tp-market__search">
@@ -559,7 +577,7 @@ export function Transport() {
               aria-label="City or area"
             >
               <option value="">All cities</option>
-              {TOP_AREAS.map((a) => (
+              {areaOptions.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
@@ -637,33 +655,18 @@ export function Transport() {
         <p className="tp-market__compare-help">
           <strong>{mode === 'rent' ? 'Renting:' : 'Sharing:'}</strong> {helper}
         </p>
-      ) : (
-        <p className="tp-market__compare-help">
-          Not sure? Browse both — rentals for flexibility, seats for cheaper point-to-point.
-        </p>
-      )}
+      ) : null}
 
       <section className="tp-market__section" aria-label="Trip needs">
         <div className="tp-market__rail" role="group" aria-label="Need filters">
-          {NEED_FILTERS.map(({ id, label }) => (
           <button
-              key={id}
             type="button"
-              className={`tp-market__chip${need === id ? ' is-active' : ''}`}
-              aria-pressed={need === id}
-              onClick={() => applyNeed(id)}
-          >
-              {label}
-          </button>
-          ))}
-        <button
-          type="button"
             className={`tp-market__more${moreFilterCount > 0 ? ' is-active' : ''}`}
             onClick={() => setFiltersOpen(true)}
           >
             <SlidersHorizontal size={14} strokeWidth={2.25} aria-hidden />
             More filters{moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}
-        </button>
+          </button>
         </div>
       </section>
 
@@ -825,7 +828,7 @@ export function Transport() {
         </section>
       ) : null}
 
-      {showDiscovery && (mode === 'all' || mode === 'share') ? (
+      {showDiscovery && (mode === 'all' || mode === 'share') && popularRoutes.length > 0 ? (
         <section className="tp-market__section" aria-labelledby="tp-routes-title">
           <div className="tp-market__section-head">
             <div>
@@ -836,7 +839,7 @@ export function Transport() {
             </div>
           </div>
           <div className="tp-market__rail" role="group" aria-label="Popular bus routes">
-            {POPULAR_ROUTES.map((r) => {
+            {popularRoutes.map((r) => {
                 const active = origin === r.origin && dest === r.destination
                 return (
                   <button
@@ -869,7 +872,7 @@ export function Transport() {
               </p>
             </div>
             {glanceTrips.length > 0 ? (
-              <button type="button" className="tp-market__clear" onClick={() => applyNeed('week')}>
+              <button type="button" className="tp-market__clear" onClick={() => setNeedWithHints('week')}>
                 This week
               </button>
             ) : null}

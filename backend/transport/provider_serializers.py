@@ -19,6 +19,7 @@ from .models import (
     VehicleRentalBooking,
     VehicleRentalListing,
 )
+from .serializers import clean_str_list
 
 
 def _apply_route_cover(route: BusRoute, cover_url: str, *, kind: str | None = None) -> None:
@@ -70,11 +71,19 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
             "pickup_location",
             "fuel_type",
             "included_features",
+            "highlights",
+            "rental_rules",
             "gallery_images",
             "required_renter_documents",
             "is_active",
         )
         read_only_fields = ("id", "cover_kind")
+
+    def validate_highlights(self, value):
+        return clean_str_list(value)
+
+    def validate_rental_rules(self, value):
+        return clean_str_list(value)
 
     def get_cover_image(self, obj):
         return _cover_image_url(obj, self.context.get("request"))
@@ -182,6 +191,8 @@ class ProviderBusTripListingSerializer(serializers.ModelSerializer):
             "cover_image": cover,
             "cover_kind": bus_cover_kind(route),
             "gallery_images": route.gallery_images or [],
+            "stops": route.stops or [],
+            "travel_tips": route.travel_tips or [],
             "distance_km": route.distance_km,
             "duration_minutes": route.duration_minutes,
         }
@@ -262,6 +273,8 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 origin=origin,
                 destination=destination,
                 gallery_images=route_detail.get("gallery_images") or [],
+                stops=clean_str_list(route_detail.get("stops")),
+                travel_tips=clean_str_list(route_detail.get("travel_tips")),
                 distance_km=route_detail.get("distance_km"),
                 duration_minutes=route_detail.get("duration_minutes"),
             )
@@ -280,6 +293,10 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 )
             if route_detail.get("gallery_images") is not None:
                 route.gallery_images = route_detail.get("gallery_images") or []
+            if "stops" in route_detail:
+                route.stops = clean_str_list(route_detail.get("stops"))
+            if "travel_tips" in route_detail:
+                route.travel_tips = clean_str_list(route_detail.get("travel_tips"))
             if "distance_km" in route_detail:
                 route.distance_km = route_detail.get("distance_km")
             if "duration_minutes" in route_detail:
@@ -289,6 +306,8 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                     "cover_image",
                     "cover_kind",
                     "gallery_images",
+                    "stops",
+                    "travel_tips",
                     "distance_km",
                     "duration_minutes",
                 ]
@@ -332,6 +351,10 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 )
             if route_detail.get("gallery_images") is not None:
                 route.gallery_images = route_detail.get("gallery_images") or []
+            if "stops" in route_detail:
+                route.stops = clean_str_list(route_detail.get("stops"))
+            if "travel_tips" in route_detail:
+                route.travel_tips = clean_str_list(route_detail.get("travel_tips"))
             if "distance_km" in route_detail:
                 route.distance_km = route_detail.get("distance_km")
             if "duration_minutes" in route_detail:
@@ -343,6 +366,8 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                     "cover_image",
                     "cover_kind",
                     "gallery_images",
+                    "stops",
+                    "travel_tips",
                     "distance_km",
                     "duration_minutes",
                 ]

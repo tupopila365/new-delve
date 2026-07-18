@@ -114,12 +114,7 @@ export function Register() {
       loginTo={loginTo}
       registerTo={registerTo}
       title="Create your account"
-      subtitle="New to DELVE? Create an account to book, save, and ask locals. Already joined? Sign in instead."
-      footer={
-        <>
-          Already have an account? <Link to={loginTo}>Sign in</Link>
-        </>
-      }
+      subtitle="New to DELVE? Create an account to book, save, and ask locals."
     >
       {err ? <p className="auth-page__error">{err}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
@@ -219,9 +214,6 @@ export function Register() {
           {busy ? 'Creating account…' : 'Create account'}
         </button>
       </form>
-      <p className="auth-page__assist">
-        Already registered? Switch to <Link to={loginTo}>Sign in</Link>.
-      </p>
     </AuthScreen>
   )
 }

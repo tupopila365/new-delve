@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, ShoppingCart } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSections'
 import { useNavBadges } from '../hooks/useNavBadges'
-import { useNoFace } from '../hooks/useNoFace'
+import { useCart } from '../hooks/useCart'
+import { isNoFaceHiddenNavTo, useNoFace } from '../hooks/useNoFace'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import './community/community-feed-cards.css'
@@ -13,13 +14,17 @@ export function TopNav() {
   const { profile } = useAuth()
   const { enabled: noFace } = useNoFace()
   const { unreadMessages } = useNavBadges()
+  const { itemCount } = useCart()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
 
-  // No Face hides social surfaces (Delvers, Journeys) from the primary nav.
   const primarySections = noFace
-    ? PRIMARY_NAV_SECTIONS.filter((l) => l.to !== '/delvers' && l.to !== '/journeys')
+    ? PRIMARY_NAV_SECTIONS.filter((l) => !isNoFaceHiddenNavTo(l.to))
     : PRIMARY_NAV_SECTIONS
+
+  const secondarySections = noFace
+    ? SECONDARY_NAV_SECTIONS.filter((l) => !isNoFaceHiddenNavTo(l.to))
+    : SECONDARY_NAV_SECTIONS
 
   useEffect(() => {
     if (!moreOpen) return
@@ -70,7 +75,7 @@ export function TopNav() {
           </button>
           {moreOpen ? (
             <div className="app-topnav__more-panel" role="menu">
-              {SECONDARY_NAV_SECTIONS.map((l) => (
+              {secondarySections.map((l) => (
                 <Link
                   key={l.to}
                   to={l.to}
@@ -91,9 +96,16 @@ export function TopNav() {
           <IconSearch />
         </Link>
 
-        <Link to="/messages" className="app-topnav__icon-btn app-topnav__icon-btn--badge" aria-label="Messages">
-          <IconMessages />
-          <NavBadge count={unreadMessages} />
+        {noFace ? null : (
+          <Link to="/messages" className="app-topnav__icon-btn app-topnav__icon-btn--badge" aria-label="Messages">
+            <IconMessages />
+            <NavBadge count={unreadMessages} />
+          </Link>
+        )}
+
+        <Link to="/cart" className="app-topnav__icon-btn app-topnav__icon-btn--badge" aria-label="Shopping cart">
+          <ShoppingCart size={20} strokeWidth={2} aria-hidden />
+          <NavBadge count={itemCount} />
         </Link>
 
         <span className="app-topnav__divider" aria-hidden />

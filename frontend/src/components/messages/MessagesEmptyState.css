@@ -85,10 +85,10 @@
 }
 
 .prov-msg-inbox .msg-empty__action {
-  color: #a78bfa;
+  color: #f3ebe1;
   text-decoration: none;
 }
 
 .prov-msg-inbox .msg-empty__action:hover {
-  color: #c4b5fd;
+  color: #fffaf2;
 }

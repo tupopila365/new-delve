@@ -7,7 +7,6 @@ import { BusTripDetailView } from '../components/transport'
 import type { GroupReserveResponse, Reservation } from '../components/booking/transport/BusTripReserveCard'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
-import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { isSeatBlockValid, seatBlockForStart } from '../utils/transportSeatBlock'
 import type { BusTripListing } from '../utils/transportListing'
@@ -19,7 +18,6 @@ export function BusTripDetail() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
-  const { canManageListingForOwner } = useBusinessAccess()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [passengers, setPassengers] = useState(1)
@@ -179,12 +177,6 @@ export function BusTripDetail() {
     )
   }
 
-  const operatorOwner = trip.route_detail.operator_owner_username
-  const canAnswer =
-    Boolean(profile) &&
-    Boolean(operatorOwner) &&
-    canManageListingForOwner(operatorOwner)
-
   return (
     <div className="jn-detail-page tp-detail-page">
       {shareMsg ? (
@@ -203,7 +195,6 @@ export function BusTripDetail() {
         saved={saved}
         onSave={() => setSaved((s) => !s)}
         onShare={() => onShare(`${trip.route_detail.origin} to ${trip.route_detail.destination}`)}
-        canAnswer={canAnswer}
         booking={{
           passengers,
           seatPref,

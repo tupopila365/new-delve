@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, MapPin } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
-import '../Featured.css'
 import './sponsored-feed.css'
 
 export type SponsoredListingFeedItem = {
@@ -27,7 +26,6 @@ export function SponsoredListingFeedCard({ item }: { item: SponsoredListingFeedI
 
   return (
     <article className="ds-post ds-post--sponsored-listing">
-      <span className="featured-card__partner ds-post__sponsored">{label}</span>
       <Link to={item.listing_href} className="ds-sponsored-listing">
         <div className="ds-sponsored-listing__media">
           <img
@@ -41,6 +39,7 @@ export function SponsoredListingFeedCard({ item }: { item: SponsoredListingFeedI
           />
         </div>
         <div className="ds-sponsored-listing__body">
+          <span className="ds-post__sponsored">{label}</span>
           <span className="ds-sponsored-listing__type">{item.listing_meta || item.listing_type}</span>
           <strong>{item.listing_title}</strong>
           {item.listing_subtitle ? (

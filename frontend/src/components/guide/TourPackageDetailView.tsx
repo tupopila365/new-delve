@@ -258,7 +258,7 @@ export function TourPackageDetailView({
           packageSlug={pkg.id}
           pkg={pkg}
           guideDisplayName={displayName}
-          maxGroupSize={20}
+          maxGroupSize={pkg.maxGroupSize ?? guide.max_group_size ?? 20}
         />
       </div>
 

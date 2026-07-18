@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { MapPin, Users } from 'lucide-react'
+import { CheckCircle2, Clock, MapPin, Users } from 'lucide-react'
 import { BookingDateFields, UserBookingErrorState } from '../index'
 import { messageProviderPath } from '../../messages/messageProviderUtils'
 import { RenterDocumentUploads } from './RenterDocumentUploads'
@@ -215,6 +215,7 @@ export function VehicleBookingStatus({
   if (booking.status === 'pending') {
     return (
       <section className="detail-section tp-transport-status">
+        <Clock className="tp-transport-status__icon tp-transport-status__icon--pending" size={44} strokeWidth={2} aria-hidden />
         <h2 className="tp-transport-status__title">Request received</h2>
         <span className="tp-transport-status__badge">Awaiting provider</span>
         <p className="tp-transport-status__total">
@@ -230,6 +231,7 @@ export function VehicleBookingStatus({
   if (booking.status === 'confirmed' && !booking.mock_payment_ref) {
     return (
       <section className="detail-section tp-transport-status">
+        <CheckCircle2 className="tp-transport-status__icon" size={44} strokeWidth={2} aria-hidden />
         <h2 className="tp-transport-status__title">Provider confirmed</h2>
         <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
         <p className="tp-transport-status__total">
@@ -250,6 +252,7 @@ export function VehicleBookingStatus({
   if (booking.status === 'confirmed') {
     return (
       <section className="detail-section tp-transport-status tp-transport-status--success">
+        <CheckCircle2 className="tp-transport-status__icon" size={44} strokeWidth={2} aria-hidden />
         <h2 className="tp-transport-status__title">Request confirmed</h2>
         <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
         <p className="tp-transport-status__text">

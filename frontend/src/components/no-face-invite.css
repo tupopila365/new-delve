@@ -6,11 +6,9 @@
   margin: 0 0 16px;
   padding: 18px 44px 18px 18px;
   border-radius: 18px;
-  border: 1px solid rgba(120, 170, 140, 0.28);
-  background:
-    radial-gradient(ellipse 60% 80% at 100% 0%, rgba(120, 170, 140, 0.16), transparent 60%),
-    linear-gradient(150deg, #14171a 0%, #0d0f10 100%);
-  color: #f4f7f5;
+  border: 1px solid rgba(26, 21, 16, 0.1);
+  background: #fffaf2;
+  color: #1a1510;
 }
 
 .noface-invite__body {
@@ -24,7 +22,7 @@
   font-weight: 850;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #9ccbb0;
+  color: #6b5d52;
 }
 
 .noface-invite__title {
@@ -32,6 +30,7 @@
   font-size: 1.2rem;
   font-weight: 900;
   letter-spacing: -0.02em;
+  color: #1a1510;
 }
 
 .noface-invite__text {
@@ -39,11 +38,11 @@
   max-width: 40rem;
   font-size: 0.88rem;
   line-height: 1.5;
-  color: rgba(244, 247, 245, 0.72);
+  color: #5c534c;
 }
 
 .noface-invite__text strong {
-  color: #d7e8dd;
+  color: #1a1510;
 }
 
 .noface-invite__actions {
@@ -59,16 +58,16 @@
   min-height: 42px;
   padding: 0 16px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f4f7f5;
+  border: 1px solid rgba(26, 21, 16, 0.16);
+  background: transparent;
+  color: #1a1510;
   font-size: 0.85rem;
   font-weight: 800;
   cursor: pointer;
 }
 
 .noface-invite__btn:hover:not(:disabled) {
-  border-color: rgba(156, 203, 176, 0.6);
+  background: rgba(26, 21, 16, 0.05);
 }
 
 .noface-invite__btn:disabled {
@@ -77,13 +76,15 @@
 }
 
 .noface-invite__btn--primary {
-  background: #9ccbb0;
-  border-color: #9ccbb0;
-  color: #10221a;
+  background: #1a1510;
+  border-color: #1a1510;
+  color: #fffaf2;
 }
 
 .noface-invite__btn--primary:hover {
-  filter: brightness(1.05);
+  background: #2a221c;
+  border-color: #2a221c;
+  filter: none;
 }
 
 .noface-invite__dismiss {
@@ -96,12 +97,12 @@
   height: 30px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(244, 247, 245, 0.7);
+  background: rgba(26, 21, 16, 0.06);
+  color: #6b5d52;
   cursor: pointer;
 }
 
 .noface-invite__dismiss:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.14);
+  color: #1a1510;
+  background: rgba(26, 21, 16, 0.1);
 }

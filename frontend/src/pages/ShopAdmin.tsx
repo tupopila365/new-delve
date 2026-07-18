@@ -58,12 +58,17 @@ export function ShopAdmin() {
         title="Shop"
         subtitle="List crafts, souvenirs, and travel goods travellers can pick up or message you to order."
         actions={
-          canManageListings && !isViewerOnly ? (
-            <Link to="/provider/shop/new" className="btn btn-primary btn-sm">
-              <Plus size={15} strokeWidth={2.25} aria-hidden />
-              Add product
+          <>
+            <Link to="/provider/shop/orders" className="btn btn-secondary btn-sm">
+              Orders
             </Link>
-          ) : null
+            {canManageListings && !isViewerOnly ? (
+              <Link to="/provider/shop/new" className="btn btn-primary btn-sm">
+                <Plus size={15} strokeWidth={2.25} aria-hidden />
+                Add product
+              </Link>
+            ) : null}
+          </>
         }
       />
 
@@ -82,7 +87,7 @@ export function ShopAdmin() {
       ) : products.length === 0 ? (
         <ProviderUiEmpty
           title="No products yet"
-          message="Add your first item so travellers can discover it on Local shops and your business profile."
+          message="Add your first item so travellers can discover it on Shops and your business profile."
           action={
             canManageListings && !isViewerOnly ? { label: 'Add product', to: '/provider/shop/new' } : undefined
           }

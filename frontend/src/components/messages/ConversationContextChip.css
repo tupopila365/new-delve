@@ -6,8 +6,8 @@
   margin: 0;
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(124, 58, 237, 0.28);
-  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(255, 250, 242, 0.16);
+  background: rgba(255, 250, 242, 0.06);
   color: rgba(255, 250, 242, 0.88);
   font-size: 0.78rem;
   font-weight: 650;
@@ -17,12 +17,12 @@
 
 .msg-context-chip strong {
   font-weight: 800;
-  color: #c4b5fd;
+  color: #f3ebe1;
 }
 
 .msg-context-chip svg {
   flex: 0 0 auto;
-  color: #a78bfa;
+  color: rgba(243, 235, 225, 0.85);
 }
 
 .msg-context-chip--static {

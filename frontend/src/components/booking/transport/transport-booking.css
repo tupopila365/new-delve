@@ -654,48 +654,59 @@
   color: #ffb347;
 }
 
-/* Booking status panels */
+/* Booking status panels — sit on the app's dark detail surface, so match the
+   surrounding elevated sections (override .detail-section's light card). */
 .tp-transport-status {
-  padding: 20px 18px;
-  border-radius: 16px;
-  background: var(--tp-surface);
-  border: 1px solid var(--tp-border);
+  --tp-text: #fffaf2;
+  --tp-text-muted: rgba(255, 250, 242, 0.74);
+  --tp-text-subtle: rgba(255, 250, 242, 0.5);
+  --tp-success: #5fd68a;
+  --tp-pending: #ffb347;
+  padding: 26px 20px;
   text-align: center;
 }
 
-.tp-transport-status--success {
+.detail-section.tp-transport-status {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.detail-section.tp-transport-status--success {
   border-color: rgba(95, 214, 138, 0.35);
-  background: rgba(95, 214, 138, 0.06);
+  background: rgba(95, 214, 138, 0.08);
 }
 
 .tp-transport-status__icon {
-  margin: 0 auto 10px;
+  display: block;
+  margin: 0 auto 12px;
   color: var(--tp-success);
 }
 
 .tp-transport-status__icon--pending {
-  color: #ffb347;
+  color: var(--tp-pending, #ffb347);
 }
 
 .tp-transport-status__title {
-  margin: 0 0 8px;
-  font-size: 1.15rem;
+  margin: 0 0 10px;
+  font-size: 1.35rem;
   font-weight: 900;
+  letter-spacing: -0.01em;
   color: var(--tp-text);
 }
 
 .tp-transport-status__badge {
   display: inline-block;
-  margin: 0 auto 12px;
-  padding: 4px 10px;
+  margin: 0 auto 14px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 850;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   background: rgba(255, 179, 71, 0.15);
   border: 1px solid rgba(255, 179, 71, 0.4);
-  color: #ffb347;
+  color: var(--tp-pending, #ffb347);
 }
 
 .tp-transport-status__badge--confirmed {

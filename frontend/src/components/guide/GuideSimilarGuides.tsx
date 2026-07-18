@@ -41,7 +41,9 @@ export function GuideSimilarGuides({ guides, title = 'Similar local experts' }: 
               <div className="gd-detail__similar-body">
                 <p className="gd-detail__similar-name">{name}</p>
                 <p className="gd-detail__similar-headline">{g.headline}</p>
-                <MiniRating rating={g.rating_avg} count={g.rating_count} />
+                {(g.rating_count ?? 0) > 0 ? (
+                  <MiniRating rating={g.rating_avg} count={g.rating_count} />
+                ) : null}
               </div>
             </Link>
           )

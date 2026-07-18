@@ -7,7 +7,6 @@ import { VehicleDetailView, type VehicleBooking } from '../components/transport'
 import { renterUploadFromFile } from '../components/booking/transport/RenterDocumentUploads'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
-import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { missingRenterDocuments, type RenterDocumentUpload } from '../data/renterDocuments'
 import type { VehicleListing } from '../utils/transportListing'
@@ -19,7 +18,6 @@ export function VehicleDetail() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
-  const { canManageListingForOwner } = useBusinessAccess()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [start, setStart] = useState('')
@@ -160,11 +158,6 @@ export function VehicleDetail() {
     )
   }
 
-  const canAnswer =
-    Boolean(profile) &&
-    Boolean(vehicle) &&
-    canManageListingForOwner(vehicle.owner_username)
-
   return (
     <div className="jn-detail-page tp-detail-page">
       {shareMsg ? (
@@ -183,7 +176,6 @@ export function VehicleDetail() {
         saved={saved}
         onSave={() => setSaved((s) => !s)}
         onShare={() => onShare(vehicle.title)}
-        canAnswer={canAnswer}
         booking={{
           start,
           end,

@@ -45,8 +45,7 @@
 }
 
 .tp-detail__moments,
-.tp-detail__reviews,
-.tp-detail__questions {
+.tp-detail__reviews {
   margin-bottom: 12px;
 }
 
@@ -54,6 +53,19 @@
 .tp-detail-page .listing-section,
 .tp-detail-page .tp-provider-section {
   color: var(--text);
+}
+
+/* Provider/operator card: --surface isn't remapped for this dark page, so the
+   default card renders light with cream text (invisible). Force dark surfaces. */
+.tp-detail-page .tp-detail__provider {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.tp-detail-page .tp-detail__provider-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .tp-detail-page a.jd-engage__btn {

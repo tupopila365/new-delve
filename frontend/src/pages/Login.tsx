@@ -50,18 +50,6 @@ export function Login() {
       registerTo={registerTo}
       title="Welcome back"
       subtitle="Sign in if you already have a DELVE account."
-      hint={
-        import.meta.env.DEV ? (
-          <>
-            Demo: <strong>demo@delve.local</strong>
-          </>
-        ) : undefined
-      }
-      footer={
-        <>
-          New here? <Link to={registerTo}>Create an account</Link>
-        </>
-      }
     >
       {err ? <p className="auth-page__error">{err}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
@@ -103,9 +91,6 @@ export function Login() {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
-      <p className="auth-page__assist">
-        Don&apos;t have an account yet? Use <Link to={registerTo}>Create account</Link> above.
-      </p>
     </AuthScreen>
   )
 }

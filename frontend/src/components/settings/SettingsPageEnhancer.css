@@ -17,17 +17,25 @@
 
   width: min(100%, 640px);
   margin: 0 auto;
-  padding: 12px 14px calc(var(--page-bottom-clearance, 96px));
+  padding: 12px 14px calc(var(--page-bottom-clearance, 96px) + 24px);
   color: var(--set-cream);
 }
 
 .settings-trail__hero {
   position: relative;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 250, 242, 0.08);
   background: var(--set-panel);
-  min-height: 132px;
+  min-height: 0;
+}
+
+.settings-trail__hero-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  padding: 16px 16px 28px;
 }
 
 .settings-trail__hero-photo {
@@ -84,7 +92,7 @@
   flex-direction: column;
   gap: 12px;
   margin-top: -18px;
-  padding: 16px;
+  padding: 18px 16px 20px;
   border-radius: 18px;
   border: 1px solid var(--set-line);
   background: var(--set-cream);
@@ -162,19 +170,24 @@
 .settings-trail .settings-page {
   width: 100%;
   margin: 0;
-  padding: 0;
   color: var(--set-ink);
 }
 
+/* Desk carries both classes — keep card padding (do not inherit settings-page padding:0). */
 .settings-trail__desk.settings-page {
+  margin-top: -18px;
+  padding: 18px 16px 20px;
   background: var(--set-cream);
 }
 
 .settings-trail .settings-page__top-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 2px;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--set-line);
 }
 
 .settings-trail .settings-page__top-links a {
@@ -183,22 +196,25 @@
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 3px;
+  opacity: 1;
 }
 
 .settings-trail .settings-page__top-links a:hover {
   color: #5c534c;
+  opacity: 1;
 }
 
 .settings-trail .sp__tabs {
   display: flex;
   gap: 0;
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   border-bottom: 1px solid var(--set-line);
   overflow-x: auto;
   scrollbar-width: none;
 }
 
 .settings-trail .sp__tab {
+  position: relative;
   flex: 1 1 auto;
   justify-content: center;
   min-width: 0;
@@ -233,7 +249,7 @@
 .settings-trail .settings-page__panel {
   border: 1px solid var(--set-line);
   border-radius: 14px;
-  background: var(--set-soft);
+  background: #fff;
   padding: 16px;
 }
 
@@ -270,11 +286,18 @@
 .settings-trail .input,
 .settings-trail select.input,
 .settings-trail textarea.input,
-.settings-trail .sp__field input {
+.settings-trail .sp__field input,
+.settings-trail .sp__field select,
+.settings-trail .sp__field textarea {
   border: 1px solid var(--set-line);
   border-radius: 12px;
   background: #fff;
   color: var(--set-ink);
+  color-scheme: light;
+  min-height: 42px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
 }
 
 .settings-trail .input::placeholder,
@@ -283,10 +306,18 @@
 }
 
 .settings-trail .input:focus,
-.settings-trail .sp__field input:focus {
+.settings-trail .sp__field input:focus,
+.settings-trail .sp__field select:focus,
+.settings-trail .sp__field textarea:focus {
   border-color: rgba(26, 21, 16, 0.28);
   outline: none;
   box-shadow: 0 0 0 2px rgba(26, 21, 16, 0.06);
+}
+
+.settings-trail select.input option,
+.settings-trail .sp__field select option {
+  background: #fff;
+  color: #1a1510;
 }
 
 .settings-trail .sp__banner {
@@ -310,7 +341,7 @@
 }
 
 .settings-trail .avatar-field__edit {
-  border-color: var(--set-cream);
+  border-color: #fff;
   background: var(--set-ink);
   color: var(--set-cream);
 }
@@ -347,7 +378,7 @@
 .settings-trail .sp__action-card {
   border: 1px solid var(--set-line);
   border-radius: 12px;
-  background: var(--set-cream);
+  background: var(--set-soft);
 }
 
 .settings-trail .sp__privacy-note {
@@ -380,17 +411,22 @@
   font-weight: 800;
 }
 
-.settings-trail .sp__radio-card--active {
+.settings-trail .sp__radio-dot {
   border-color: rgba(26, 21, 16, 0.28);
-  background: #ebe2d6;
 }
 
-.settings-trail .sp__radio-dot {
-  border-color: rgba(26, 21, 16, 0.24);
+.settings-trail .sp__radio-card--active {
+  border-color: rgba(26, 21, 16, 0.32);
+  background: #ebe2d6;
+  box-shadow: none;
 }
 
 .settings-trail .sp__radio-card--active .sp__radio-dot {
   border-color: var(--set-ink);
+  background: transparent;
+}
+
+.settings-trail .sp__radio-card--active .sp__radio-dot::after {
   background: var(--set-ink);
 }
 
@@ -402,6 +438,29 @@
   background: var(--set-ink);
 }
 
+.settings-trail .sp__verify-banner {
+  display: grid;
+  gap: 10px;
+  background: rgba(154, 91, 24, 0.1);
+  border-top: 1px solid rgba(154, 91, 24, 0.22);
+  color: var(--set-warn);
+}
+
+.settings-trail .sp__verify-btn {
+  margin-left: 0;
+  justify-self: start;
+}
+
+.settings-trail .sp__danger-zone .btn-ghost {
+  color: var(--set-danger) !important;
+  border-color: rgba(159, 45, 45, 0.28) !important;
+}
+
+.settings-trail .sp__danger-zone .btn-primary {
+  background: var(--set-danger) !important;
+  color: #fff !important;
+}
+
 .settings-trail .sp__info-row {
   border-bottom-color: var(--set-line);
 }
@@ -411,12 +470,6 @@
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 2px;
-}
-
-.settings-trail .sp__verify-banner {
-  background: rgba(154, 91, 24, 0.1);
-  border-top-color: rgba(154, 91, 24, 0.22);
-  color: var(--set-warn);
 }
 
 .settings-trail .sp__identity-card {
@@ -517,8 +570,8 @@
     width: min(100%, 720px);
   }
 
-  .settings-trail__hero {
-    min-height: 148px;
+  .settings-trail__hero-copy {
+    padding: 20px 18px 32px;
   }
 }
 

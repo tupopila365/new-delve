@@ -1,4 +1,14 @@
 import { mediaUrl } from '../api/client'
+import type { ListingGalleryItem } from '../components/listing/types'
+import type { ShopMediaRaw, ShopProductListing } from './shopListing'
+
+const VIDEO_RE = /\.(mp4|webm|mov|m4v)(\?|$)|\/video\/(?:upload\/)?/i
+
+function guessKind(url: string, explicit?: string): 'image' | 'video' {
+  if (explicit === 'video' || explicit === 'image') return explicit
+  if (url.startsWith('data:video/')) return 'video'
+  return VIDEO_RE.test(url) ? 'video' : 'image'
+}
 
 const SHOP_IMAGE_BY_CATEGORY: Record<string, string> = {
   souvenirs: 'https://images.unsplash.com/photo-1513519245088-0e12902e35ca?auto=format&fit=crop&w=1200&q=80',
@@ -19,6 +29,41 @@ export function shopCoverSrc(coverImage: string | null | undefined, category: st
   const resolved = mediaUrl(coverImage)
   if (resolved) return resolved
   return SHOP_IMAGE_BY_CATEGORY[category] ?? DEFAULT_SHOP_IMAGE
+}
+
+/**
+ * Normalize a product's media (cover + gallery) into `ListingGalleryItem`s for
+ * the shared gallery/lightbox. Tolerates both `{url,kind}` and legacy `{image}`
+ * shapes, always includes the cover, and dedupes by resolved src.
+ */
+export function shopMediaItems(product: ShopProductListing): ListingGalleryItem[] {
+  const items: ListingGalleryItem[] = []
+  const seen = new Set<string>()
+
+  const push = (rawUrl: string | undefined, kind?: string, caption?: string) => {
+    const url = (rawUrl ?? '').trim()
+    if (!url) return
+    const src = mediaUrl(url) ?? url
+    if (seen.has(src)) return
+    seen.add(src)
+    items.push({ src, kind: guessKind(url, kind), caption })
+  }
+
+  const cover = (product.cover_image ?? '').trim()
+  if (cover) push(cover, undefined)
+
+  for (const raw of (product.photos ?? []) as ShopMediaRaw[]) {
+    if (typeof raw === 'string') {
+      push(raw)
+    } else if (raw && typeof raw === 'object') {
+      push(raw.url ?? raw.image, raw.kind, raw.caption)
+    }
+  }
+
+  if (items.length === 0) {
+    items.push({ src: shopCoverSrc(product.cover_image, product.category), kind: 'image' })
+  }
+  return items
 }
 
 export function shopPriceLabel(price: string | number, priceNote?: string | null): string {

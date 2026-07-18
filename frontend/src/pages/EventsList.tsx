@@ -166,11 +166,6 @@ export function EventsList() {
         <div className="jn-social-top__copy">
           <p className="jn-social-top__eyebrow">Events</p>
           <h1 className="jn-social-top__title">What’s on around you</h1>
-          <p className="jn-social-top__sub">
-            {categoryFollows.categories.length > 0
-              ? 'For you prioritizes the event vibes you follow.'
-              : 'Community nights, markets, and live moments — follow a vibe to personalize For you.'}
-          </p>
         </div>
         <button
           type="button"
@@ -304,7 +299,6 @@ export function EventsList() {
             <h2 id="ev-rings-title" className="jn-rings-head__title">
               Happening soon
             </h2>
-            <span className="jn-rings-head__sub">Tap a preview to jump in</span>
           </div>
           <div className="jn-rings-row">
             {recentRings.map((event) => {
@@ -400,7 +394,6 @@ export function EventsList() {
               <EventRail
                 id="ev-free"
                 title="Free & low-key"
-                sub="Show up without checking the wallet first."
                 events={curated.freeRail}
                 engagement={engagement}
               />
@@ -413,7 +406,7 @@ export function EventsList() {
                 subtitle={
                   hasFilters
                     ? `${results.countLabel} ${results.rest}${filterChips.length ? ` · ${filterChips.join(' · ')}` : ''}`
-                    : 'Videos play as you scroll · double-tap a cover to like.'
+                    : undefined
                 }
                 trailing={
                   <div className="jn-sort" role="group" aria-label="Sort events">
@@ -494,7 +487,7 @@ function EventRail({
 }: {
   id: string
   title: string
-  sub: string
+  sub?: string
   events: EventListing[]
   engagement: ReturnType<typeof useEventEngagement>
 }) {

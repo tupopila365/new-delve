@@ -128,7 +128,9 @@ export function GuideDetailView({
   const ratingRaw = guide.rating_avg
   const ratingNum = ratingRaw != null && ratingRaw !== '' ? Number(ratingRaw) : null
   const ratingLabel =
-    ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0 ? ratingNum.toFixed(1) : null
+    (guide.rating_count ?? 0) > 0 && ratingNum != null && Number.isFinite(ratingNum) && ratingNum > 0
+      ? ratingNum.toFixed(1)
+      : null
 
   function guardEngage(action: () => void) {
     if (!profile) {
@@ -362,7 +364,7 @@ export function GuideDetailView({
             packageSlug={selectedPackage.id}
             pkg={selectedPackage}
             guideDisplayName={displayName}
-            maxGroupSize={20}
+            maxGroupSize={selectedPackage.maxGroupSize ?? guide.max_group_size ?? 20}
           />
         ) : (
           <div className="guide-reserve">
