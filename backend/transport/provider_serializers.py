@@ -155,6 +155,25 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
         if request and self.instance:
             if not user_can_manage_listing(request.user, self.instance.owner_id):
                 raise serializers.ValidationError("You cannot edit this listing.")
+        wanting = attrs.get("is_active")
+        if wanting is None and self.instance is None:
+            wanting = True
+        if wanting is not None and request and request.user:
+            from accounts.seller_trust import enforce_service_go_live
+
+            user = self.instance.owner if self.instance else request.user
+            # Prefer listing owner when editing on behalf of a business.
+            if self.instance is None:
+                from accounts.business_access import resolve_provider_listing_owner
+
+                try:
+                    owner_id = resolve_provider_listing_owner(request.user)
+                    from django.contrib.auth import get_user_model
+
+                    user = get_user_model().objects.filter(pk=owner_id).first() or request.user
+                except Exception:
+                    user = request.user
+            enforce_service_go_live(user=user, wanting_active=bool(wanting))
         return attrs
 
 class ProviderBusTripListingSerializer(serializers.ModelSerializer):
@@ -242,6 +261,18 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"route_detail": "Origin and destination are required."})
             if not operator_name:
                 raise serializers.ValidationError({"route_detail": "Operator name is required."})
+        wanting = attrs.get("is_active")
+        if wanting is None and self.instance is None:
+            wanting = True
+        if wanting is not None:
+            from accounts.seller_trust import enforce_service_go_live
+
+            request = self.context.get("request")
+            user = request.user if request else None
+            if self.instance is not None:
+                op = getattr(getattr(self.instance, "route", None), "operator", None)
+                user = getattr(op, "owner", None) or user
+            enforce_service_go_live(user=user, wanting_active=bool(wanting))
         return attrs
 
     @transaction.atomic
@@ -400,6 +431,11 @@ class ProviderRentalBookingSerializer(serializers.ModelSerializer):
             "check_out",
             "days",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "status",
             "renter_document_count",
             "created_at",
@@ -439,6 +475,11 @@ class ProviderSeatBookingSerializer(serializers.ModelSerializer):
             "seat",
             "date",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "status",
             "created_at",
         )
@@ -457,4 +498,6 @@ class ProviderSeatBookingSerializer(serializers.ModelSerializer):
         return obj.trip.departs_at.date().isoformat()
 
     def get_total_price(self, obj):
+        if obj.total_price:
+            return str(obj.total_price)
         return str(obj.trip.price)

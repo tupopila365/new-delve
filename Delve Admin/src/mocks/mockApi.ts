@@ -5,6 +5,10 @@ import type {
   AdminBookingDetail,
   AdminBusiness,
   AdminListing,
+  AdminPayment,
+  AdminPaymentDetail,
+  AdminDispute,
+  AdminDisputeDetail,
   AdminProfile,
   AdminReport,
   AdminUser,
@@ -25,7 +29,7 @@ import {
   MAX_HOME_PINS,
   MAX_HOME_STORY_SLIDES,
 } from '../api/types'
-import { DEMO_ACTIVITY, DEMO_BOOKINGS, DEMO_LISTINGS, DEMO_REPORTS, demoAnalytics } from '../data/demoData'
+import { DEMO_ACTIVITY, DEMO_BOOKINGS, DEMO_DISPUTES, DEMO_LISTINGS, DEMO_PAYMENTS, DEMO_REPORTS, demoAnalytics } from '../data/demoData'
 
 type MockProfile = AdminProfile & {
   password: string
@@ -107,6 +111,105 @@ let reportIdCounter = mockReports.length + 1
 
 let mockListings: AdminListing[] = [...DEMO_LISTINGS]
 let mockBookings: AdminBooking[] = [...DEMO_BOOKINGS]
+let mockPayments: AdminPayment[] = [...DEMO_PAYMENTS]
+
+type MockSimIntent = {
+  id: string
+  status: string
+  amount: string
+  currency: string
+  target_type: string
+  target_id: string
+  last4: string
+  brand: string
+  failure_code: string
+  failure_message: string
+  charge_id: string
+  refunded: boolean
+  created_at: string
+  confirmed_at: string
+  buyer_username: string
+  simulated: boolean
+  provider: string
+}
+
+let mockSimIntents: MockSimIntent[] = [
+  {
+    id: 'pi_sim_demo_shop_501abcdef',
+    status: 'succeeded',
+    amount: '120.00',
+    currency: 'nad',
+    target_type: 'shop_order',
+    target_id: 'DLV-8F2K1',
+    last4: '4242',
+    brand: 'visa',
+    failure_code: '',
+    failure_message: '',
+    charge_id: 'ch_sim_demo_shop501',
+    refunded: false,
+    created_at: '2026-06-01T10:00:00Z',
+    confirmed_at: '2026-06-01T10:00:02Z',
+    buyer_username: 'demo_user',
+    simulated: true,
+    provider: 'stripe_sim',
+  },
+  {
+    id: 'pi_sim_demo_stay_1042abcdef',
+    status: 'succeeded',
+    amount: '1850.00',
+    currency: 'nad',
+    target_type: 'accommodation',
+    target_id: '1042',
+    last4: '4242',
+    brand: 'visa',
+    failure_code: '',
+    failure_message: '',
+    charge_id: 'ch_sim_demo_stay1042',
+    refunded: false,
+    created_at: '2026-07-10T12:00:00Z',
+    confirmed_at: '2026-07-10T12:00:03Z',
+    buyer_username: 'demo_user',
+    simulated: true,
+    provider: 'stripe_sim',
+  },
+  {
+    id: 'pi_sim_demo_failed_open1',
+    status: 'failed',
+    amount: '650.00',
+    currency: 'nad',
+    target_type: 'guide',
+    target_id: '2099',
+    last4: '0002',
+    brand: 'visa',
+    failure_code: 'card_declined',
+    failure_message: 'Your card was declined.',
+    charge_id: '',
+    refunded: false,
+    created_at: '2026-07-18T08:00:00Z',
+    confirmed_at: '',
+    buyer_username: 'demo_user',
+    simulated: true,
+    provider: 'stripe_sim',
+  },
+]
+
+let mockDisputes: AdminDisputeDetail[] = DEMO_DISPUTES.map((d) => ({
+  ...d,
+  body:
+    d.id === 1
+      ? 'Tracking shows delivered but nothing arrived at the lodge.'
+      : 'Room photos do not match what we got — much smaller and no desk.',
+  resolution_note: '',
+  resolved_by_username: '',
+  has_active_case: true,
+}))
+
+const RESOLUTIONS_LABEL: Record<string, string> = {
+  refund_buyer: 'Refund buyer',
+  release_seller: 'Release to seller',
+  partial: 'Partial / other',
+  dismissed: 'Dismissed',
+}
 let homePinIdCounter = 1
 let mockHomePins: HomePin[] = []
 
@@ -1098,6 +1201,177 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
   if (pathname === '/api/accounts/admin/bookings' && method === 'GET') {
     requireStaff()
     return mockBookings
+  }
+
+  if (pathname === '/api/accounts/admin/payments' && method === 'GET') {
+    requireStaff()
+    const source = (params.get('source') || '').trim().toLowerCase()
+    const payout = (params.get('payout_status') || params.get('payout') || '').trim().toLowerCase()
+    let rows = [...mockPayments]
+    if (source) rows = rows.filter((r) => r.source === source)
+    if (payout === 'all' || payout === '*') {
+      // include all
+    } else if (payout) {
+      rows = rows.filter((r) => r.payout_status === payout)
+    } else {
+      rows = rows.filter((r) => r.payout_status !== 'none')
+    }
+    const held = rows.filter((r) => r.payout_status === 'held').sort((a, b) => b.created_at.localeCompare(a.created_at))
+    const rest = rows.filter((r) => r.payout_status !== 'held').sort((a, b) => b.created_at.localeCompare(a.created_at))
+    return [...held, ...rest]
+  }
+
+  const paymentDetailMatch = pathname.match(/^\/api\/accounts\/admin\/payments\/([^/]+)\/(\d+)$/)
+  if (paymentDetailMatch && method === 'GET') {
+    requireStaff()
+    const source = paymentDetailMatch[1]
+    const recordId = Number(paymentDetailMatch[2])
+    const row = mockPayments.find((p) => p.source === source && p.record_id === recordId)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const detail: AdminPaymentDetail = {
+      ...row,
+      ...(source === 'shop'
+        ? {
+            order_ref: 'DLV-8F2K1',
+            shipping_total: '20.00',
+            tracking_number: 'NP123456',
+            items: [
+              {
+                id: 1,
+                product_name: 'Handwoven basket',
+                quantity: 1,
+                unit_price: '100.00',
+                line_total: '100.00',
+              },
+            ],
+          }
+        : {}),
+      ...(source === 'accommodation'
+        ? { check_in: '2026-05-10', check_out: '2026-05-12', guests: 2 }
+        : {}),
+      ...(source === 'guide' ? { date: '2026-05-14', group_size: 2 } : {}),
+      ...(source === 'vehicle' ? { start_date: '2026-05-10', end_date: '2026-05-14' } : {}),
+      ...(source === 'bus_seat' ? { seat_number: 12, departs_at: '2026-05-11T07:00:00Z' } : {}),
+    }
+    return detail
+  }
+
+  if (pathname === '/api/payments/admin/intents' && method === 'GET') {
+    requireStaff()
+    const statusFilter = (params.get('status') || '').trim()
+    let rows = [...mockSimIntents]
+    if (statusFilter) rows = rows.filter((r) => r.status === statusFilter)
+    return rows
+  }
+
+  const adminIntentDetail = pathname.match(/^\/api\/payments\/admin\/intents\/([^/]+)$/)
+  if (adminIntentDetail && method === 'GET') {
+    requireStaff()
+    const pi = mockSimIntents.find((r) => r.id === decodeURIComponent(adminIntentDetail[1]))
+    if (!pi) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return pi
+  }
+
+  if (pathname === '/api/payments/webhooks/simulate' && method === 'POST') {
+    requireStaff()
+    if (typeof init.body !== 'string') throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as {
+      type?: string
+      payment_intent?: string
+      failure_code?: string
+      failure_message?: string
+    }
+    const eventType = (body.type || '').trim()
+    const pi = mockSimIntents.find((r) => r.id === String(body.payment_intent || '').trim())
+    if (!pi) throw new ApiError('Not found', 404, { detail: 'PaymentIntent not found.' })
+
+    if (eventType === 'charge.refunded' || eventType === 'payment_intent.canceled') {
+      pi.refunded = true
+      const linked = mockPayments.find((p) => p.mock_payment_ref === pi.id)
+      if (linked) {
+        linked.payout_status = 'refunded'
+        linked.payout_status_label = 'Refunded'
+        linked.status = 'refunded'
+      }
+    } else if (eventType === 'payment_intent.payment_failed') {
+      pi.status = 'failed'
+      pi.failure_code = body.failure_code || 'card_declined'
+      pi.failure_message = body.failure_message || 'Your card was declined.'
+    } else if (eventType === 'payment_intent.succeeded') {
+      pi.status = 'succeeded'
+      pi.failure_code = ''
+      pi.failure_message = ''
+      pi.charge_id = pi.charge_id || `ch_sim_${Math.random().toString(36).slice(2, 12)}`
+      pi.confirmed_at = new Date().toISOString()
+      const linked = mockPayments.find((p) => p.mock_payment_ref === pi.id)
+      if (linked && linked.payout_status === 'refunded') {
+        linked.payout_status = 'held'
+        linked.payout_status_label = 'Held by Delve'
+      }
+    } else {
+      throw new ApiError('Bad request', 400, { detail: `Unsupported event type: ${eventType}` })
+    }
+    return { received: true, payment_intent: pi }
+  }
+
+  if (pathname === '/api/accounts/admin/disputes' && method === 'GET') {
+    requireStaff()
+    const source = (params.get('source') || '').trim().toLowerCase()
+    const st = (params.get('status') || 'active').trim().toLowerCase()
+    let rows = [...mockDisputes]
+    if (source) rows = rows.filter((r) => r.source === source)
+    if (st === 'active' || !st) {
+      rows = rows.filter((r) => r.status === 'open' || r.status === 'under_review')
+    } else if (st !== 'all') {
+      rows = rows.filter((r) => r.status === st)
+    }
+    return rows.map(({ body: _b, resolution_note: _n, resolved_by_username: _u, has_active_case: _h, ...rest }) => rest)
+  }
+
+  const disputeDetailMatch = pathname.match(/^\/api\/accounts\/admin\/disputes\/(\d+)$/)
+  if (disputeDetailMatch) {
+    requireStaff()
+    const id = Number(disputeDetailMatch[1])
+    const row = mockDisputes.find((d) => d.id === id)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (method === 'GET') return row
+    if (method === 'PATCH') {
+      const body = JSON.parse(String(init.body)) as {
+        status?: string
+        resolution?: string
+        resolution_note?: string
+      }
+      mockDisputes = mockDisputes.map((d) =>
+        d.id === id
+          ? {
+              ...d,
+              status: body.status || d.status,
+              status_label:
+                body.status === 'resolved'
+                  ? 'Resolved'
+                  : body.status === 'under_review'
+                    ? 'Under review'
+                    : body.status === 'closed'
+                      ? 'Closed'
+                      : d.status_label,
+              resolution: body.resolution ?? d.resolution,
+              resolution_label:
+                RESOLUTIONS_LABEL[body.resolution || ''] ??
+                d.resolution_label,
+              resolution_note: body.resolution_note ?? d.resolution_note,
+              resolved_at:
+                body.status === 'resolved' || body.status === 'closed'
+                  ? new Date().toISOString()
+                  : d.resolved_at,
+              resolved_by_username:
+                body.status === 'resolved' || body.status === 'closed' ? currentUser || '' : d.resolved_by_username,
+              has_active_case: !(body.status === 'resolved' || body.status === 'closed'),
+            }
+          : d,
+      )
+      pushAudit(`Dispute #${id} → ${body.status || 'updated'}`, 'system')
+      return mockDisputes.find((d) => d.id === id)!
+    }
   }
 
   const bookingDetailMatch = pathname.match(/^\/api\/accounts\/admin\/bookings\/([^/]+)\/(\d+)$/)

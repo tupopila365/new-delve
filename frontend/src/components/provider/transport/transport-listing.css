@@ -11,8 +11,8 @@
   flex-direction: column;
   gap: 14px;
   padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--manage-line-soft);
+  background: var(--manage-card);
 }
 
 @media (min-width: 640px) {
@@ -28,7 +28,7 @@
   max-width: 120px;
   aspect-ratio: 4 / 3;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -42,7 +42,7 @@
 }
 
 .transport-list-card__thumb-fallback {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .transport-list-card__badge {
@@ -54,11 +54,11 @@
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(12, 10, 9, 0.85);
-  color: rgba(255, 250, 242, 0.65);
+  color: var(--manage-ink-soft);
 }
 
 .transport-list-card__badge--draft {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .transport-list-card__body {
@@ -84,8 +84,8 @@
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 250, 242, 0.55);
+  background: var(--manage-paper);
+  color: var(--manage-muted);
 }
 
 .transport-list-card__status--live {
@@ -96,7 +96,7 @@
 .transport-list-card__meta {
   margin: 6px 0 0;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .transport-list-card__chips {
@@ -110,14 +110,14 @@
   font-size: 0.72rem;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 250, 242, 0.65);
+  background: var(--manage-paper);
+  color: var(--manage-ink-soft);
 }
 
 .transport-list-card__missing {
   margin: 8px 0 0;
   font-size: 0.78rem;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .transport-list-card__actions {
@@ -133,9 +133,9 @@
   margin-top: 12px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px dashed rgba(255, 154, 82, 0.4);
+  border: 1px dashed var(--manage-ink-soft);
   background: rgba(255, 154, 82, 0.06);
-  color: #a78bfa;
+  color: var(--manage-ink);
   font-size: 0.9rem;
   font-weight: 700;
   font-family: inherit;
@@ -175,9 +175,10 @@
   display: flex;
   flex-direction: column;
   border-radius: 16px 16px 0 0;
-  background: #141110;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fffaf2;
+  background: var(--manage-card, #ffffff);
+  border: 1px solid var(--manage-line, #ddd6ca);
+  color: var(--manage-ink, #1a1814);
+  box-shadow: 0 20px 50px rgba(26, 24, 20, 0.18);
   overflow: hidden;
 }
 
@@ -196,12 +197,13 @@
   margin: 0 0 6px;
   font-size: 1.15rem;
   font-weight: 800;
+  color: var(--manage-ink, #1a1814);
 }
 
 .transport-form__head p {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   line-height: 1.45;
 }
 
@@ -217,9 +219,9 @@
   flex-shrink: 0;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.65);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
   font-size: 0.78rem;
   font-weight: 600;
   font-family: inherit;
@@ -227,9 +229,9 @@
 }
 
 .transport-form__nav-btn--active {
-  background: #a78bfa;
-  border-color: #a78bfa;
-  color: #1a0f05;
+  background: var(--manage-ink);
+  border-color: var(--manage-ink);
+  color: var(--manage-paper);
 }
 
 .transport-form__error {
@@ -259,7 +261,7 @@
   gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .transport-form__field input,
@@ -268,9 +270,9 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fffaf2;
+  border: 1px solid var(--manage-line);
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   font-size: 0.92rem;
   font-family: inherit;
 }
@@ -292,12 +294,13 @@
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
+  color: var(--manage-ink, #1a1814);
 }
 
 .transport-form__hint {
   margin: 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   line-height: 1.45;
 }
 
@@ -310,9 +313,9 @@
 .transport-form__chip {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.65);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
   font-size: 0.8rem;
   font-weight: 600;
   font-family: inherit;
@@ -321,8 +324,8 @@
 
 .transport-form__chip--on {
   background: rgba(255, 154, 82, 0.2);
-  border-color: rgba(255, 154, 82, 0.5);
-  color: #a78bfa;
+  border-color: var(--manage-ink-soft);
+  color: var(--manage-ink);
 }
 
 .transport-form__preview {
@@ -359,7 +362,7 @@
   display: grid;
   place-items: center;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.4);
+  color: var(--manage-muted);
 }
 
 .food-photo-editor__actions {
@@ -379,7 +382,7 @@
   aspect-ratio: 1;
   border-radius: 10px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--manage-paper);
 }
 
 .food-photo-editor__thumb img {
@@ -425,7 +428,7 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--manage-line-soft);
 }
 
 .transport-form__doc-hints {
@@ -440,11 +443,11 @@
 .transport-form__doc-hints li {
   font-size: 0.78rem;
   line-height: 1.45;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line-soft);
 }
 
 .transport-form__doc-hints strong {

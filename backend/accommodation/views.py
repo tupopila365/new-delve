@@ -265,12 +265,16 @@ class AccommodationBookingViewSet(viewsets.ModelViewSet):
         if booking.mock_payment_ref:
             return Response({"detail": "Payment already recorded."}, status=400)
         booking.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        booking.save(update_fields=["mock_payment_ref"])
+        from accounts.marketplace_payout import mark_booking_payment_held
+
+        fields = ["mock_payment_ref", *mark_booking_payment_held(booking)]
+        booking.save(update_fields=list(dict.fromkeys(fields)))
         return Response(
             {
-                "detail": "Payment successful (mock).",
+                "detail": "Payment successful (mock). Delve is holding funds until checkout.",
                 "status": booking.status,
                 "mock_payment_ref": booking.mock_payment_ref,
+                "payout_status": booking.payout_status,
                 "booking": AccommodationBookingSerializer(booking).data,
             }
         )
@@ -348,7 +352,14 @@ class AccommodationProviderBookingViewSet(viewsets.ReadOnlyModelViewSet):
         )
         ser.is_valid(raise_exception=True)
         booking.status = target_status
-        booking.save(update_fields=["status"])
+        fields = ["status"]
+        from accounts.marketplace_payout import mark_booking_refunded_payout, release_booking_payout
+
+        if target_status == BookingStatus.CHECKED_OUT:
+            fields.extend(release_booking_payout(booking))
+        elif target_status == BookingStatus.REFUNDED:
+            fields.extend(mark_booking_refunded_payout(booking))
+        booking.save(update_fields=list(dict.fromkeys(fields)))
         if target_status == BookingStatus.CONFIRMED:
             notify_booking_confirmed(
                 provider=booking.listing.owner,

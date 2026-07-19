@@ -64,7 +64,14 @@ class ProviderGuideBookingViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         booking.status = target
-        booking.save(update_fields=["status"])
+        fields = ["status"]
+        from accounts.marketplace_payout import mark_booking_refunded_payout, release_booking_payout
+
+        if target == "completed":
+            fields.extend(release_booking_payout(booking))
+        elif target == "refunded":
+            fields.extend(mark_booking_refunded_payout(booking))
+        booking.save(update_fields=list(dict.fromkeys(fields)))
         if target == "confirmed":
             notify_booking_confirmed(
                 provider=booking.guide.user,

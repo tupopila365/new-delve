@@ -256,7 +256,7 @@ export function VehicleBookingStatus({
         <h2 className="tp-transport-status__title">Request confirmed</h2>
         <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
         <p className="tp-transport-status__text">
-          The provider would share pickup instructions and contact details here.
+          Payment held by Delve until return. The provider would share pickup instructions here.
         </p>
         <p className="tp-transport-status__ref">
           Reference: <code>{booking.mock_payment_ref}</code>

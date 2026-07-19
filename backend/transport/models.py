@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
 from accommodation.models import BookingStatus
+from accounts.marketplace_payout import PayoutStatus
 
 
 class VehicleRentalListing(models.Model):
@@ -113,6 +116,15 @@ class VehicleRentalBooking(models.Model):
         default=BookingStatus.PENDING,
     )
     mock_payment_ref = models.CharField(max_length=64, blank=True)
+    platform_fee = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    seller_payout = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    payout_status = models.CharField(
+        max_length=20,
+        choices=PayoutStatus.choices,
+        default=PayoutStatus.NONE,
+    )
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payout_released_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -224,7 +236,17 @@ class SeatReservation(models.Model):
         choices=BookingStatus.choices,
         default=BookingStatus.PENDING,
     )
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     mock_payment_ref = models.CharField(max_length=64, blank=True)
+    platform_fee = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    seller_payout = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    payout_status = models.CharField(
+        max_length=20,
+        choices=PayoutStatus.choices,
+        default=PayoutStatus.NONE,
+    )
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payout_released_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -249,6 +271,10 @@ class VehicleRentalReview(models.Model):
     )
     rating = models.PositiveSmallIntegerField()
     body = models.TextField(blank=True)
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_note = models.CharField(max_length=255, blank=True)
+    seller_reply = models.TextField(blank=True)
+    seller_replied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -279,6 +305,10 @@ class SeatReservationReview(models.Model):
     )
     rating = models.PositiveSmallIntegerField()
     body = models.TextField(blank=True)
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_note = models.CharField(max_length=255, blank=True)
+    seller_reply = models.TextField(blank=True)
+    seller_replied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

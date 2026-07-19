@@ -14,7 +14,7 @@ from .review_services import sync_bus_trip_rating, sync_vehicle_listing_rating
 class VehicleRentalReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleRentalReview
-        fields = ("id", "rating", "body", "created_at")
+        fields = ("id", "rating", "body", "seller_reply", "seller_replied_at", "created_at")
         read_only_fields = fields
 
 
@@ -27,12 +27,8 @@ class VehicleRentalReviewCreateSerializer(serializers.Serializer):
         user = self.context["request"].user
         if booking.renter_id != user.id:
             raise serializers.ValidationError("Not your booking.")
-        if booking.status not in (
-            BookingStatus.CONFIRMED,
-            BookingStatus.CHECKED_IN,
-            BookingStatus.CHECKED_OUT,
-        ):
-            raise serializers.ValidationError("You can review after your rental is confirmed or completed.")
+        if booking.status != BookingStatus.CHECKED_OUT:
+            raise serializers.ValidationError("You can review after your rental is checked out.")
         if hasattr(booking, "review"):
             raise serializers.ValidationError("You already reviewed this rental.")
         return attrs
@@ -53,7 +49,7 @@ class VehicleRentalReviewCreateSerializer(serializers.Serializer):
 class SeatReservationReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeatReservationReview
-        fields = ("id", "rating", "body", "created_at")
+        fields = ("id", "rating", "body", "seller_reply", "seller_replied_at", "created_at")
         read_only_fields = fields
 
 
@@ -66,12 +62,8 @@ class SeatReservationReviewCreateSerializer(serializers.Serializer):
         user = self.context["request"].user
         if reservation.passenger_id != user.id:
             raise serializers.ValidationError("Not your reservation.")
-        if reservation.status not in (
-            BookingStatus.CONFIRMED,
-            BookingStatus.CHECKED_IN,
-            BookingStatus.CHECKED_OUT,
-        ):
-            raise serializers.ValidationError("You can review after your trip is confirmed or completed.")
+        if reservation.status != BookingStatus.CHECKED_OUT:
+            raise serializers.ValidationError("You can review after your trip is checked out.")
         if hasattr(reservation, "review"):
             raise serializers.ValidationError("You already reviewed this trip.")
         return attrs

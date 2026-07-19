@@ -42,8 +42,7 @@ def user_can_review_food_venue(user, venue: FoodVenue) -> bool:
         return False
     if FoodVenueReview.objects.filter(venue=venue, reviewer=user).exists():
         return False
-    if not venue.reservations:
-        return True
+    # Always require a seated/completed reservation on Delve (no open walk-in reviews).
     return eligible_food_reservation(user, venue) is not None
 
 
@@ -66,7 +65,7 @@ def sync_food_venue_rating(venue: FoodVenue) -> None:
     ratings = _json_review_ratings(venue)
     ratings.extend(
         float(r)
-        for r in FoodVenueReview.objects.filter(venue=venue).values_list("rating", flat=True)
+        for r in FoodVenueReview.objects.filter(venue=venue, is_hidden=False).values_list("rating", flat=True)
     )
     if not ratings:
         venue.rating_avg = Decimal("0")
@@ -80,7 +79,7 @@ def sync_food_venue_rating(venue: FoodVenue) -> None:
 def food_venue_reviews_payload(venue: FoodVenue) -> dict:
     rows = []
     for review in (
-        FoodVenueReview.objects.filter(venue=venue)
+        FoodVenueReview.objects.filter(venue=venue, is_hidden=False)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:50]
     ):
@@ -97,6 +96,10 @@ def food_venue_reviews_payload(venue: FoodVenue) -> dict:
                 "place": place or venue.name,
                 "rating": review.rating,
                 "body": review.body,
+                "seller_reply": (review.seller_reply or "").strip(),
+                "seller_replied_at": (
+                    review.seller_replied_at.isoformat() if review.seller_replied_at else ""
+                ),
                 "avatar": avatar,
                 "created_at": review.created_at.isoformat(),
             }

@@ -10,11 +10,11 @@
 }
 
 .prov-analytics__delta--up {
-  color: #86efac;
+  color: var(--manage-ink-soft);
 }
 
 .prov-analytics__delta--down {
-  color: #f87171;
+  color: #5c3030;
 }
 
 .prov-analytics__stat-note {
@@ -22,7 +22,7 @@
   margin-top: 2px;
   font-size: 0.68rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.4);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__grid {
@@ -39,8 +39,8 @@
 .prov-analytics__card {
   padding: 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line-soft);
 }
 
 .prov-analytics__card-title {
@@ -49,7 +49,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__trend-empty {
@@ -57,7 +57,7 @@
   padding: 8px 0 4px;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: rgba(255, 250, 242, 0.48);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__trend {
@@ -89,21 +89,21 @@
   width: 100%;
   max-width: 36px;
   border-radius: 6px 6px 2px 2px;
-  background: linear-gradient(180deg, #a78bfa 0%, rgba(255, 154, 82, 0.35) 100%);
+  background: linear-gradient(180deg, var(--manage-ink) 0%, rgba(255, 154, 82, 0.35) 100%);
   min-height: 4px;
 }
 
 .prov-analytics__trend-label {
   font-size: 0.62rem;
   font-weight: 700;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   text-align: center;
 }
 
 .prov-analytics__trend-value {
   font-size: 0.68rem;
   font-weight: 800;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .prov-analytics__funnel {
@@ -122,21 +122,21 @@
 .prov-analytics__funnel-copy strong {
   display: block;
   font-size: 0.82rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .prov-analytics__funnel-copy span {
   display: block;
   margin-top: 2px;
   font-size: 0.72rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__funnel-bar {
   grid-column: 1 / -1;
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   overflow: hidden;
 }
 
@@ -144,7 +144,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #a78bfa;
+  background: var(--manage-ink);
 }
 
 .prov-analytics__rank-list {
@@ -163,8 +163,8 @@
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-paper);
 }
 
 .prov-analytics__rank-item a {
@@ -173,33 +173,33 @@
 }
 
 .prov-analytics__rank-item a:hover strong {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .prov-analytics__rank-num {
   font-size: 0.78rem;
   font-weight: 800;
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__rank-copy strong {
   display: block;
   font-size: 0.85rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .prov-analytics__rank-copy span {
   display: block;
   margin-top: 2px;
   font-size: 0.72rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__rank-metric {
   text-align: right;
   font-size: 0.78rem;
   font-weight: 800;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .prov-analytics__post-row {
@@ -209,14 +209,14 @@
   align-items: start;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-paper);
 }
 
 .prov-analytics__post-row strong {
   display: block;
   font-size: 0.84rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
   line-height: 1.35;
 }
 
@@ -224,7 +224,7 @@
   display: block;
   margin-top: 4px;
   font-size: 0.72rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .prov-analytics__post-stats {
@@ -233,7 +233,7 @@
   gap: 2px;
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   text-align: right;
 }
 
@@ -245,9 +245,9 @@
   border: 1px solid rgba(255, 154, 82, 0.22);
   font-size: 0.82rem;
   line-height: 1.45;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .prov-analytics__insight strong {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }

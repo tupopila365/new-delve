@@ -1,0 +1,512 @@
+/**
+ * Provider manage shell — Phase 1 light cream theme (Shop manage parity).
+ * Applied when `.prov-shell--manage` + `.manage-theme` are on the shell.
+ * Higher specificity beats `.prov-shell--dark` leftovers.
+ */
+
+@import '../../styles/manage-tokens.css';
+
+/* ---- Shell ---- */
+.prov-shell.prov-shell--manage {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(26, 24, 20, 0.04), transparent 55%),
+    var(--manage-cream);
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-main,
+.prov-shell.prov-shell--manage .prov-content {
+  background: transparent;
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-content {
+  padding: 16px 16px calc(48px + var(--safe-bottom, 0px));
+}
+
+.prov-shell.prov-shell--manage .prov-content > * {
+  max-width: var(--manage-content-max);
+  margin-inline: auto;
+  width: 100%;
+}
+
+/* ---- Sidebar ---- */
+.prov-shell.prov-shell--manage .prov-sidebar {
+  background: rgba(250, 248, 244, 0.96);
+  border-right: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__home {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--manage-ink);
+  font-weight: 850;
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__tag {
+  background: var(--manage-chip);
+  color: var(--manage-ink-soft);
+  border: 1px solid var(--manage-line-soft);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__switcher {
+  color: var(--manage-muted);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__switcher select {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+  border-radius: var(--manage-radius-sm);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__biz-card {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  box-shadow: var(--manage-shadow);
+  border-radius: var(--manage-radius);
+  padding: 12px;
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__biz-card strong {
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__biz-card span,
+.prov-shell.prov-shell--manage .prov-sidebar__modules-label,
+.prov-shell.prov-shell--manage .prov-sidebar__perm-hint {
+  color: var(--manage-muted);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__link {
+  color: var(--manage-ink-soft);
+  border-radius: var(--manage-radius-sm);
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__link .prov-sidebar__badge,
+.prov-shell.prov-shell--manage .prov-sidebar__link > :last-child:not(span):not(.prov-sidebar__link-icon) {
+  margin-left: auto;
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__link-icon {
+  flex-shrink: 0;
+  color: var(--manage-muted);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__link:hover,
+.prov-shell.prov-shell--manage .prov-sidebar__link--active {
+  background: var(--manage-chip);
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__link--active .prov-sidebar__link-icon {
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__module {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--manage-ink-soft);
+  border-radius: var(--manage-radius-sm);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__module:hover,
+.prov-shell.prov-shell--manage .prov-sidebar__module--active {
+  background: var(--manage-chip);
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__foot {
+  border-top-color: var(--manage-line-soft);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__public {
+  color: var(--manage-ink-soft);
+}
+
+.prov-shell.prov-shell--manage .prov-sidebar__public:hover {
+  color: var(--manage-ink);
+}
+
+/* ---- Top bar ---- */
+.prov-shell.prov-shell--manage .prov-topbar {
+  background: rgba(250, 248, 244, 0.92);
+  border-bottom: 1px solid var(--manage-line-soft);
+  backdrop-filter: blur(10px);
+}
+
+.prov-shell.prov-shell--manage .prov-topbar__title strong {
+  color: var(--manage-ink);
+}
+
+.prov-shell.prov-shell--manage .prov-topbar__menu {
+  color: var(--manage-ink);
+}
+
+/* ---- Banner ---- */
+.prov-shell.prov-shell--manage .prov-layout-banner {
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink-soft);
+  border-radius: var(--manage-radius);
+}
+
+.prov-shell.prov-shell--manage .prov-layout-banner--bad {
+  background: #f8ecec;
+  border-color: #e4c8c8;
+  color: #5c3030;
+}
+
+.prov-shell.prov-shell--manage .prov-layout-banner a {
+  color: var(--manage-ink);
+  font-weight: 800;
+}
+
+/* ---- Shared prov-ui kit → manage cream ---- */
+.prov-shell--manage .prov-ui,
+.manage-theme:not(.shop-manage--dark) .prov-ui {
+  max-width: var(--manage-content-max);
+  color: var(--manage-ink);
+  gap: var(--manage-section-gap);
+}
+
+.prov-shell--manage .prov-ui__title,
+.manage-theme:not(.shop-manage--dark) .prov-ui__title {
+  color: var(--manage-ink);
+  font-size: var(--manage-title-size);
+  letter-spacing: var(--manage-title-tracking);
+}
+
+.prov-shell--manage .prov-ui__sub,
+.manage-theme:not(.shop-manage--dark) .prov-ui__sub {
+  color: var(--manage-muted);
+  max-width: 40rem;
+}
+
+.prov-shell--manage .prov-ui__btn--primary,
+.manage-theme:not(.shop-manage--dark) .prov-ui__btn--primary {
+  background: var(--manage-ink) !important;
+  color: var(--manage-paper) !important;
+  border: 1px solid var(--manage-ink) !important;
+  box-shadow: none !important;
+}
+
+.prov-shell--manage .prov-ui__btn--ghost,
+.manage-theme:not(.shop-manage--dark) .prov-ui__btn--ghost {
+  background: transparent !important;
+  color: var(--manage-ink) !important;
+  border: 1px solid var(--manage-line) !important;
+}
+
+.prov-shell--manage .prov-ui__section-title,
+.manage-theme:not(.shop-manage--dark) .prov-ui__section-title {
+  color: var(--manage-muted);
+}
+
+.prov-shell--manage .prov-ui__stat,
+.manage-theme:not(.shop-manage--dark) .prov-ui__stat {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  box-shadow: var(--manage-shadow);
+  border-radius: var(--manage-radius);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui__stat--accent,
+.manage-theme:not(.shop-manage--dark) .prov-ui__stat--accent {
+  background: var(--manage-paper);
+  border-color: var(--manage-line);
+}
+
+.prov-shell--manage .prov-ui__stat strong,
+.prov-shell--manage .prov-ui__stat--accent strong,
+.manage-theme:not(.shop-manage--dark) .prov-ui__stat strong,
+.manage-theme:not(.shop-manage--dark) .prov-ui__stat--accent strong {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui__stat span,
+.manage-theme:not(.shop-manage--dark) .prov-ui__stat span {
+  color: var(--manage-muted);
+}
+
+.prov-shell--manage .prov-ui__empty,
+.manage-theme:not(.shop-manage--dark) .prov-ui__empty {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-muted);
+  border-radius: var(--manage-radius);
+}
+
+.prov-shell--manage .prov-ui__empty strong,
+.manage-theme:not(.shop-manage--dark) .prov-ui__empty strong {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui__card,
+.manage-theme:not(.shop-manage--dark) .prov-ui__card {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  box-shadow: var(--manage-shadow);
+  border-radius: var(--manage-radius);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui__chip,
+.manage-theme:not(.shop-manage--dark) .prov-ui__chip {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink-soft);
+}
+
+.prov-shell--manage .prov-ui__chip--active,
+.manage-theme:not(.shop-manage--dark) .prov-ui__chip--active {
+  background: var(--manage-ink);
+  border-color: var(--manage-ink);
+  color: var(--manage-paper);
+}
+
+.prov-shell--manage .prov-ui__search,
+.manage-theme:not(.shop-manage--dark) .prov-ui__search {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+  border-radius: var(--manage-radius-sm);
+}
+
+.prov-shell--manage .prov-ui__pill--ok,
+.manage-theme:not(.shop-manage--dark) .prov-ui__pill--ok {
+  background: var(--manage-chip);
+  color: var(--manage-ink-soft);
+}
+
+.prov-shell--manage .prov-ui__pill--warn,
+.manage-theme:not(.shop-manage--dark) .prov-ui__pill--warn {
+  background: var(--manage-paper);
+  color: var(--manage-ink-soft);
+  border: 1px solid var(--manage-line);
+}
+
+.prov-shell--manage .prov-ui__pill--bad,
+.manage-theme:not(.shop-manage--dark) .prov-ui__pill--bad {
+  background: #f8ecec;
+  color: #5c3030;
+}
+
+/* Review cards / booking rows in shared kit */
+.prov-shell--manage .prov-ui-review,
+.manage-theme:not(.shop-manage--dark) .prov-ui-review {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui-review__body,
+.prov-shell--manage .prov-ui-review__response,
+.manage-theme:not(.shop-manage--dark) .prov-ui-review__body,
+.manage-theme:not(.shop-manage--dark) .prov-ui-review__response {
+  color: var(--manage-ink-soft);
+}
+
+.prov-shell--manage .prov-ui-review__rating,
+.manage-theme:not(.shop-manage--dark) .prov-ui-review__rating {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui-review__reply-input,
+.manage-theme:not(.shop-manage--dark) .prov-ui-review__reply-input {
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-ui-breakdown li,
+.manage-theme:not(.shop-manage--dark) .prov-ui-breakdown li {
+  color: var(--manage-muted);
+}
+
+.prov-shell--manage .prov-ui-breakdown__bar,
+.manage-theme:not(.shop-manage--dark) .prov-ui-breakdown__bar {
+  background: var(--manage-chip);
+}
+
+.prov-shell--manage .prov-ui-breakdown__bar i,
+.manage-theme:not(.shop-manage--dark) .prov-ui-breakdown__bar i {
+  background: var(--manage-ink);
+}
+
+/* Category / dashboard pages that used dark overrides */
+.prov-shell--manage .prov-cat-page,
+.prov-shell--manage .prov-page,
+.prov-shell--manage .prov-cat-strip__title,
+.prov-shell--manage .adm-bar__title,
+.prov-shell--manage .prov-page__title,
+.prov-shell--manage .adm-listing-card__title,
+.prov-shell--manage .adm-booking-row__guest,
+.prov-shell--manage .adm-booking-row__total,
+.prov-shell--manage .adm-review-card__guest,
+.prov-shell--manage .adm-empty__title,
+.prov-shell--manage .prov-dash__title {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-cat-strip__sub,
+.prov-shell--manage .adm-bar__sub,
+.prov-shell--manage .prov-page__sub,
+.prov-shell--manage .adm-stat__l,
+.prov-shell--manage .adm-booking-row__dates,
+.prov-shell--manage .adm-booking-row__listing,
+.prov-shell--manage .adm-listing-card__meta,
+.prov-shell--manage .adm-listing-card__desc,
+.prov-shell--manage .adm-review-card__listing,
+.prov-shell--manage .adm-review-card__body,
+.prov-shell--manage .adm-empty__sub,
+.prov-shell--manage .adm-section__hint,
+.prov-shell--manage .prov-listing-row__meta,
+.prov-shell--manage .prov-page__stat span {
+  color: var(--manage-muted);
+}
+
+.prov-shell--manage .adm-stat,
+.prov-shell--manage .adm-listing-card,
+.prov-shell--manage .adm-booking-row,
+.prov-shell--manage .adm-review-card,
+.prov-shell--manage .adm-empty,
+.prov-shell--manage .prov-overview-card,
+.prov-shell--manage .prov-listing-row,
+.prov-shell--manage .prov-reviews__card,
+.prov-shell--manage .prov-page__stat,
+.prov-shell--manage .prov-dash__stat,
+.prov-shell--manage .prov-dash__shortcut,
+.prov-shell--manage .prov-dash__attention-list li {
+  background: var(--manage-card);
+  border-color: var(--manage-line);
+  color: var(--manage-ink);
+  box-shadow: var(--manage-shadow);
+}
+
+.prov-shell--manage .adm-stat__n,
+.prov-shell--manage .prov-listing-row__main strong,
+.prov-shell--manage .adm-stat--accent,
+.prov-shell--manage .adm-stat--accent .adm-stat__n {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .adm-stat--accent {
+  background: var(--manage-paper);
+  border-color: var(--manage-line);
+}
+
+.prov-shell--manage .adm-tab {
+  color: var(--manage-muted);
+}
+
+.prov-shell--manage .adm-tab:hover:not(.adm-tab--active),
+.prov-shell--manage .adm-tab--active {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .adm-tab--active {
+  border-bottom-color: var(--manage-ink);
+  background: none;
+}
+
+.prov-shell--manage .prov-chip,
+.prov-shell--manage .acc-quick-chip,
+.prov-shell--manage .prov-toolbar__search {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink-soft);
+}
+
+.prov-shell--manage .prov-chip--active,
+.prov-shell--manage .acc-quick-chip--active {
+  background: var(--manage-ink);
+  color: var(--manage-paper);
+  border-color: var(--manage-ink);
+}
+
+.prov-shell--manage .adm-add-btn {
+  background: var(--manage-paper);
+  border-color: var(--manage-line);
+  color: var(--manage-ink-soft);
+}
+
+.prov-shell--manage .adm-add-btn:hover {
+  border-color: var(--manage-ink);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .adm-modal__card {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .adm-modal__card h2,
+.prov-shell--manage .adm-modal__card label {
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .adm-modal__card input,
+.prov-shell--manage .adm-modal__card textarea {
+  background: var(--manage-paper);
+  border-color: var(--manage-line);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-attention__item {
+  background: var(--manage-card);
+  border-color: var(--manage-line);
+  color: var(--manage-ink);
+}
+
+.prov-shell--manage .prov-quick__btn {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+  border-radius: var(--manage-radius-sm);
+}
+
+.prov-shell--manage .prov-quick__btn:hover {
+  background: var(--manage-chip);
+}
+
+/* Module link tiles on listings hub */
+.prov-shell--manage .prov-listings__modules a {
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
+  box-shadow: var(--manage-shadow);
+}
+
+@media (max-width: 900px) {
+  .prov-shell.prov-shell--manage .prov-content {
+    padding: 14px 14px calc(72px + var(--safe-bottom, 0px));
+  }
+
+  .prov-shell.prov-shell--manage .prov-topbar {
+    padding-inline: 14px;
+  }
+
+  .prov-shell.prov-shell--manage .prov-sidebar {
+    background: var(--manage-paper);
+  }
+}
+
+.prov-ui-review__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prov-ui-breakdown__star {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}

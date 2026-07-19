@@ -5,10 +5,11 @@ import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/ui'
 import type { Order } from '../utils/shopListing'
+import { OpenDisputePanel } from '../components/marketplace/OpenDisputePanel'
 import '../components/shop/shop-cart.css'
 import '../components/shop/shop-detail.css'
 
-function money(value: string | number): string {
+function money(value: string | number | undefined): string {
   const n = typeof value === 'number' ? value : Number(value)
   return `N$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\.00$/, '')}`
 }
@@ -16,6 +17,8 @@ function money(value: string | number): string {
 const STATUS_CLASS: Record<string, string> = {
   pending: 'is-pending',
   paid: 'is-paid',
+  ready: 'is-ready',
+  shipped: 'is-shipped',
   fulfilled: 'is-fulfilled',
   cancelled: 'is-cancelled',
   refunded: 'is-refunded',
@@ -37,6 +40,14 @@ export function OrderDetailPage() {
 
   const cancelMut = useMutation({
     mutationFn: () => apiFetch<Order>(`/api/shop/orders/${encodeURIComponent(ref!)}/cancel/`, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['shop-order', ref] })
+      void qc.invalidateQueries({ queryKey: ['shop-orders'] })
+    },
+  })
+
+  const confirmMut = useMutation({
+    mutationFn: () => apiFetch<Order>(`/api/shop/orders/${encodeURIComponent(ref!)}/confirm/`, { method: 'POST' }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['shop-order', ref] })
       void qc.invalidateQueries({ queryKey: ['shop-orders'] })
@@ -66,6 +77,10 @@ export function OrderDetailPage() {
   }
 
   const canCancel = data.status === 'pending' || data.status === 'paid'
+  const canConfirm = data.status === 'ready' || data.status === 'shipped'
+  const fundsHeld = data.payout_status === 'held'
+  const canDispute =
+    fundsHeld || data.status === 'paid' || data.status === 'ready' || data.status === 'shipped'
 
   return (
     <main className="shop-cart">
@@ -77,7 +92,14 @@ export function OrderDetailPage() {
       {justPlaced ? (
         <div className="orders__banner" role="status">
           <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden />
-          Payment successful (mock). Your order is confirmed.
+          Payment held by Delve. The shop handles shipping or pickup.
+        </div>
+      ) : null}
+
+      {fundsHeld && !justPlaced ? (
+        <div className="orders__banner orders__banner--info" role="status">
+          Delve is holding payment until you confirm receipt (or the shop completes handoff). The seller ships and
+          delivers — not Delve.
         </div>
       ) : null}
 
@@ -118,12 +140,12 @@ export function OrderDetailPage() {
           </div>
           {Number(data.shipping_total) > 0 ? (
             <div className="shop-cart__summary-row">
-              <span>Shipping</span>
+              <span>Shipping (paid to shop)</span>
               <strong>{money(data.shipping_total)}</strong>
             </div>
           ) : null}
           <div className="shop-cart__summary-row shop-cart__summary-row--total">
-            <span>Total</span>
+            <span>Total paid</span>
             <strong>{money(data.total)}</strong>
           </div>
         </section>
@@ -131,7 +153,7 @@ export function OrderDetailPage() {
         <section className="order-detail__meta">
           <div className="shop-detail__summary-row">
             <span>Fulfillment</span>
-            <strong>{data.fulfillment_label}</strong>
+            <strong>{data.fulfillment_label} · seller-managed</strong>
           </div>
           {data.delivery_address ? (
             <div className="shop-detail__summary-row">
@@ -143,6 +165,24 @@ export function OrderDetailPage() {
             <div className="shop-detail__summary-row">
               <span>Contact</span>
               <strong>{data.contact_phone}</strong>
+            </div>
+          ) : null}
+          {data.tracking_number ? (
+            <div className="shop-detail__summary-row">
+              <span>Tracking{data.tracking_carrier ? ` (${data.tracking_carrier})` : ''}</span>
+              <strong>{data.tracking_number}</strong>
+            </div>
+          ) : null}
+          {data.fulfillment_note ? (
+            <div className="shop-detail__summary-row">
+              <span>Shop note</span>
+              <strong>{data.fulfillment_note}</strong>
+            </div>
+          ) : null}
+          {data.payout_status_label ? (
+            <div className="shop-detail__summary-row">
+              <span>Payment</span>
+              <strong>{data.payout_status_label}</strong>
             </div>
           ) : null}
           {data.mock_payment_ref ? (
@@ -157,6 +197,16 @@ export function OrderDetailPage() {
           <Link to={`/messages/u/${encodeURIComponent(data.seller_username)}`} className="shop-detail__btn shop-detail__btn--ghost">
             Message shop
           </Link>
+          {canConfirm ? (
+            <button
+              type="button"
+              className="shop-detail__btn shop-detail__btn--primary"
+              onClick={() => confirmMut.mutate()}
+              disabled={confirmMut.isPending}
+            >
+              {confirmMut.isPending ? 'Confirming…' : 'Confirm received'}
+            </button>
+          ) : null}
           {canCancel ? (
             <button
               type="button"
@@ -168,9 +218,21 @@ export function OrderDetailPage() {
             </button>
           ) : null}
         </div>
+
+        {canDispute ? (
+          <section style={{ marginTop: 18 }}>
+            <OpenDisputePanel source="shop" recordId={data.id} enabled />
+          </section>
+        ) : null}
+
         {cancelMut.isError ? (
           <p className="checkout__error">
             {cancelMut.error instanceof ApiError ? cancelMut.error.message : 'Could not cancel order.'}
+          </p>
+        ) : null}
+        {confirmMut.isError ? (
+          <p className="checkout__error">
+            {confirmMut.error instanceof ApiError ? confirmMut.error.message : 'Could not confirm order.'}
           </p>
         ) : null}
       </div>

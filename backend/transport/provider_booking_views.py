@@ -9,6 +9,7 @@ from accommodation.models import BookingStatus
 from accommodation.serializers import ProviderBookingStatusSerializer
 
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_booking_for_listing
+from accounts.marketplace_payout import mark_booking_refunded_payout, release_booking_payout
 from accounts.permissions import IsProviderOrBusinessMember
 from messaging.booking_automation import notify_booking_confirmed
 
@@ -35,7 +36,12 @@ class _ProviderBookingActionsMixin:
         )
         ser.is_valid(raise_exception=True)
         booking.status = target_status
-        booking.save(update_fields=["status"])
+        fields = ["status"]
+        if target_status == BookingStatus.CHECKED_OUT:
+            fields.extend(release_booking_payout(booking))
+        elif target_status == BookingStatus.REFUNDED:
+            fields.extend(mark_booking_refunded_payout(booking))
+        booking.save(update_fields=list(dict.fromkeys(fields)))
         if target_status == BookingStatus.CONFIRMED:
             payload = self._booking_confirmed_automessage_payload(booking)
             if payload:

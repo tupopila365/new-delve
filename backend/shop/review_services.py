@@ -8,9 +8,7 @@ from django.core.files.storage import default_storage
 
 from .models import Order, OrderStatus, ProductReview, ShopProduct
 
-PURCHASED_ORDER_STATUSES = frozenset(
-    {OrderStatus.PAID, OrderStatus.FULFILLED}
-)
+PURCHASED_ORDER_STATUSES = frozenset({OrderStatus.FULFILLED})
 
 
 def _author_label(user) -> str:
@@ -49,7 +47,7 @@ def _reviewer_avatar(user, request=None) -> str | None:
 
 
 def purchase_order_for(user, product: ShopProduct) -> Order | None:
-    """Most recent paid/fulfilled order in which the user bought this product."""
+    """Most recent fulfilled order in which the user bought this product."""
     if not user or not user.is_authenticated:
         return None
     return (
@@ -75,7 +73,7 @@ def user_can_review_product(user, product: ShopProduct) -> bool:
 
 def sync_product_rating(product: ShopProduct) -> None:
     ratings = list(
-        ProductReview.objects.filter(product=product).values_list("rating", flat=True)
+        ProductReview.objects.filter(product=product, is_hidden=False).values_list("rating", flat=True)
     )
     if not ratings:
         product.rating_avg = Decimal("0")
@@ -114,6 +112,10 @@ def _review_row(review: ProductReview, request=None) -> dict:
         "avatar": _reviewer_avatar(review.reviewer, request),
         "rating": review.rating,
         "body": review.body,
+        "seller_reply": (review.seller_reply or "").strip(),
+        "seller_replied_at": (
+            review.seller_replied_at.isoformat() if review.seller_replied_at else ""
+        ),
         "media": normalize_review_media(review.media, request),
         "verified_purchase": review.order_id is not None,
         "created_at": review.created_at.isoformat(),
@@ -122,7 +124,7 @@ def _review_row(review: ProductReview, request=None) -> dict:
 
 def product_reviews_payload(product: ShopProduct, request=None) -> dict:
     reviews = (
-        ProductReview.objects.filter(product=product)
+        ProductReview.objects.filter(product=product, is_hidden=False)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:100]
     )

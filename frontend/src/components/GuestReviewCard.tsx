@@ -7,6 +7,7 @@ export type ReviewItem = {
   rating: number
   body: string
   avatar: string | null
+  sellerReply?: string
 }
 
 /** Collapse long bodies; “Read more” reveals full text. */
@@ -51,7 +52,10 @@ export function normalizeReviews(raw: unknown): ReviewItem[] {
     const body = typeof o.body === 'string' ? o.body.trim() : ''
     const rating = parseReviewRating(o.rating)
     const avatar = parseReviewAvatar(o)
-    if (name && body) out.push({ name, place, body, rating, avatar })
+    const sellerRaw = o.seller_reply ?? o.sellerReply ?? o.response
+    const sellerReply =
+      typeof sellerRaw === 'string' && sellerRaw.trim() ? sellerRaw.trim() : undefined
+    if (name && body) out.push({ name, place, body, rating, avatar, sellerReply })
   }
   return out
 }
@@ -102,6 +106,12 @@ export function GuestReviewCard({ r }: { r: ReviewItem }) {
             >
               {expanded ? 'Show less' : 'Read more'}
             </button>
+          ) : null}
+          {r.sellerReply ? (
+            <div className="acc-detail__review-reply">
+              <span className="acc-detail__review-reply-label">Response from host</span>
+              <p className="acc-detail__review-reply-body">{r.sellerReply}</p>
+            </div>
           ) : null}
         </div>
       </div>

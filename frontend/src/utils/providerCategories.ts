@@ -1,4 +1,11 @@
+import type { LucideIcon } from 'lucide-react'
 import type { ListingCategory } from '../data/providerData'
+import {
+  MANAGE_MODULE_ICONS,
+  MANAGE_MODULE_LABELS,
+  MANAGE_MODULE_PATHS,
+  type ManageModuleId,
+} from '../components/provider/manageIcons'
 
 const TYPE_TO_CATEGORY: Record<string, ListingCategory> = {
   accommodation: 'Stay',
@@ -68,14 +75,22 @@ export function listingsPageSubtitle(businessName: string, types: string[]): str
   return `Listings for ${businessName} — ${parts.join(', ')}.`
 }
 
-export function categoryModuleLinks(types: string[]): { label: string; to: string; emoji: string }[] {
-  const modules: { type: string; label: string; to: string; emoji: string }[] = [
-    { type: 'accommodation', label: 'Stays', to: '/provider/stays', emoji: '🏨' },
-    { type: 'guide', label: 'Guides', to: '/provider/guides', emoji: '🧭' },
-    { type: 'transport', label: 'Transport', to: '/provider/transport', emoji: '🚗' },
-    { type: 'food_drink', label: 'Food & drink', to: '/provider/food', emoji: '🍽' },
-    { type: 'retail_shop', label: 'Shop', to: '/provider/shop', emoji: '🛍' },
-    { type: 'event_organiser', label: 'Events', to: '/provider/events', emoji: '🎟' },
-  ]
-  return modules.filter((m) => types.includes(m.type) || types.includes('multi_provider'))
+const MODULE_ORDER: ManageModuleId[] = [
+  'accommodation',
+  'guide',
+  'transport',
+  'food_drink',
+  'retail_shop',
+  'event_organiser',
+]
+
+export function categoryModuleLinks(
+  types: string[],
+): { label: string; to: string; Icon: LucideIcon; type: ManageModuleId }[] {
+  return MODULE_ORDER.filter((type) => types.includes(type) || types.includes('multi_provider')).map((type) => ({
+    type,
+    label: MANAGE_MODULE_LABELS[type],
+    to: MANAGE_MODULE_PATHS[type],
+    Icon: MANAGE_MODULE_ICONS[type],
+  }))
 }

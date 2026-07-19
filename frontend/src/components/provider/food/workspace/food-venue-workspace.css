@@ -14,19 +14,19 @@
 }
 
 .adm-listing-card__placeholder-icon {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .prov-ui__pill--muted {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 250, 242, 0.65);
+  background: var(--manage-line-soft);
+  color: var(--manage-ink-soft);
 }
 
 .fv-workspace {
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 1rem 2.5rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-workspace__header {
@@ -39,7 +39,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-workspace__title-row {
@@ -55,7 +55,7 @@
   font-size: clamp(1.35rem, 3vw, 1.75rem);
   font-weight: 800;
   line-height: 1.2;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-workspace__badges {
@@ -66,7 +66,7 @@
 
 .fv-workspace__sub {
   margin: 0.5rem 0 0;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   font-size: 0.92rem;
 }
 
@@ -83,7 +83,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  color: #a78bfa;
+  color: var(--manage-ink);
   text-decoration: none;
   font-weight: 600;
 }
@@ -122,10 +122,10 @@
   gap: 0.55rem 0.65rem;
   align-items: center;
   padding: 0.65rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--manage-line-soft);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fffaf2;
+  background: var(--manage-card);
+  color: var(--manage-ink);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -140,14 +140,14 @@
 .fv-nav__item--active {
   border-color: rgba(255, 154, 82, 0.45);
   background: rgba(255, 154, 82, 0.1);
-  box-shadow: 0 0 0 1px rgba(255, 154, 82, 0.25);
+  box-shadow: 0 0 0 1px var(--manage-line);
 }
 
 .fv-nav__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-nav__text {
@@ -159,12 +159,12 @@
 
 .fv-nav__text strong {
   font-size: 0.9rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-nav__text small {
   font-size: 0.74rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   line-height: 1.3;
 }
 
@@ -188,23 +188,23 @@
 }
 
 .fv-nav__status--draft {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-nav__status--empty {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .fv-workspace__panel {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--manage-line-soft);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--manage-card);
   overflow: hidden;
 }
 
 .fv-workspace__panel-head {
   padding: 1rem 1.15rem 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--manage-paper);
 }
 
 .fv-workspace__panel-head h2 {
@@ -214,18 +214,18 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-workspace__panel-icon {
   display: flex;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-workspace__panel-head p {
   margin: 0.35rem 0 0;
   font-size: 0.86rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-workspace__editor {
@@ -254,7 +254,7 @@
 
 .fv-workspace__foot {
   padding: 0.85rem 1.15rem 1.1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--manage-paper);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -279,11 +279,11 @@
 .fv-workspace__save-status {
   margin: 0;
   font-size: 0.8rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-workspace__save-status--saving {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-workspace__save-status--saved {
@@ -302,7 +302,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #a78bfa;
+  color: var(--manage-ink);
   font: inherit;
   font-size: 0.88rem;
   font-weight: 600;
@@ -318,9 +318,9 @@
 .fv-publish {
   margin-bottom: 1rem;
   padding: 1rem 1.15rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--manage-line-soft);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--manage-card);
 }
 
 .fv-publish__head {
@@ -335,7 +335,7 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-publish__title-row {
@@ -357,7 +357,7 @@
   margin: 0;
   font-size: 0.72rem;
   font-weight: 500;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   text-align: right;
   max-width: 12rem;
   line-height: 1.35;
@@ -379,28 +379,28 @@
   flex: 1;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   overflow: hidden;
 }
 
 .fv-publish__progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+  background: var(--manage-ink);
   transition: width 0.25s ease;
 }
 
 .fv-publish__progress-label {
   font-size: 0.72rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   white-space: nowrap;
 }
 
 .fv-publish__head p {
   margin: 0.3rem 0 0;
   font-size: 0.86rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-publish__actions {
@@ -429,7 +429,7 @@
 }
 
 .fv-publish__check--missing {
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .fv-publish__check-icon {
@@ -445,7 +445,7 @@
 }
 
 .fv-publish__check--missing .fv-publish__check-icon {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .fv-publish__jump {
@@ -454,7 +454,7 @@
   border: 0;
   border-radius: 0;
   background: none;
-  color: #a78bfa;
+  color: var(--manage-ink);
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
@@ -464,19 +464,19 @@
 }
 
 .fv-publish__jump:hover {
-  color: #c4b5fd;
+  color: var(--manage-ink-soft);
 }
 
 .fv-publish__hint {
   margin: 0.65rem 0 0;
   font-size: 0.8rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-hub__intro {
   margin: 0 0 0.65rem;
   font-size: 0.88rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-hub__grid {
@@ -494,10 +494,10 @@
   gap: 0.65rem;
   align-items: center;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--manage-line-soft);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fffaf2;
+  background: var(--manage-card);
+  color: var(--manage-ink);
   text-align: left;
   cursor: pointer;
   font: inherit;
@@ -515,7 +515,7 @@
 
 .fv-hub__icon {
   display: flex;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-hub__body {
@@ -531,7 +531,7 @@
 
 .fv-hub__body small {
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-hub__status {
@@ -546,11 +546,11 @@
 }
 
 .fv-hub__status--draft {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-hub__status--empty {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 @media (min-width: 801px) {
@@ -568,29 +568,29 @@
 .fv-workspace__readonly {
   padding: 1rem 1.15rem;
   margin: 0;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   font-size: 0.88rem;
 }
 
 .fv-module__head h3 {
   margin: 0 0 0.25rem;
   font-size: 1rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-module__head p {
   margin: 0 0 1rem;
   font-size: 0.86rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-module__note {
   margin: 0.75rem 0 0;
   padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 250, 242, 0.55);
+  background: var(--manage-card);
+  border: 1px solid var(--manage-paper);
+  color: var(--manage-muted);
   font-size: 0.82rem;
 }
 
@@ -605,7 +605,7 @@
 .fv-field > legend {
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .fv-field input,
@@ -613,16 +613,16 @@
 .fv-field select {
   width: 100%;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--manage-line);
   border-radius: 10px;
   font: inherit;
-  background: rgba(255, 255, 255, 0.06);
-  color: #fffaf2;
+  background: var(--manage-paper);
+  color: var(--manage-ink);
 }
 
 .fv-field input::placeholder,
 .fv-field textarea::placeholder {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .fv-field textarea {
@@ -650,10 +650,10 @@
 
 .fv-chip {
   padding: 0.38rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--manage-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.75);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
   font-size: 0.8rem;
   cursor: pointer;
   font: inherit;
@@ -661,8 +661,8 @@
 
 .fv-chip--on {
   border-color: rgba(255, 154, 82, 0.45);
-  background: rgba(255, 154, 82, 0.12);
-  color: #a78bfa;
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   font-weight: 600;
 }
 
@@ -678,10 +678,10 @@
   align-items: center;
   gap: 0.1rem;
   padding: 0.55rem 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--manage-line);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #fffaf2;
+  background: var(--manage-card);
+  color: var(--manage-ink);
   cursor: pointer;
   font: inherit;
 }
@@ -692,12 +692,12 @@
 
 .fv-price small {
   font-size: 0.68rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-price--on {
   border-color: rgba(255, 154, 82, 0.45);
-  background: rgba(255, 154, 82, 0.12);
+  background: var(--manage-paper);
 }
 
 .fv-toggle-row {
@@ -709,10 +709,10 @@
 
 .fv-toggle {
   padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--manage-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.75);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
   font-size: 0.84rem;
   cursor: pointer;
   font: inherit;
@@ -720,8 +720,8 @@
 
 .fv-toggle--on {
   border-color: rgba(255, 154, 82, 0.45);
-  background: rgba(255, 154, 82, 0.12);
-  color: #a78bfa;
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   font-weight: 600;
 }
 
@@ -730,9 +730,9 @@
   align-items: flex-start;
   gap: 0.65rem;
   padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--manage-line-soft);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--manage-paper);
 }
 
 .fv-field--switch input {
@@ -748,7 +748,7 @@
 
 .fv-field--switch small {
   font-weight: 400;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-hours__quick {
@@ -762,8 +762,8 @@
   padding: 0.38rem 0.7rem;
   border: 1px dashed rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 250, 242, 0.65);
+  background: var(--manage-paper);
+  color: var(--manage-ink-soft);
   font-size: 0.78rem;
   cursor: pointer;
   font: inherit;
@@ -784,7 +784,7 @@
   gap: 0.75rem;
   align-items: center;
   padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--manage-paper);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.02);
 }
@@ -799,7 +799,7 @@
   gap: 0.5rem;
   font-size: 0.88rem;
   font-weight: 500;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-hours__times {
@@ -810,58 +810,58 @@
 
 .fv-hours__times input {
   padding: 0.35rem 0.45rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--manage-line);
   border-radius: 8px;
   font: inherit;
-  background: rgba(255, 255, 255, 0.06);
-  color: #fffaf2;
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   color-scheme: dark;
 }
 
 .fv-hours__closed-label {
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .fv-module--photos .food-photo-editor__label {
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 /* Photo editor — dark overrides inside workspace */
 .fv-workspace .food-photo-editor__placeholder {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 250, 242, 0.4);
+  background: var(--manage-card);
+  border-color: var(--manage-line);
+  color: var(--manage-muted);
 }
 
 .fv-workspace .food-photo-editor__thumb,
 .fv-workspace .food-photo-editor__add {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.65);
+  border-color: var(--manage-line);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
 }
 
 .fv-workspace .food-photo-editor__add:hover {
   border-color: rgba(255, 154, 82, 0.35);
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-workspace .transport-form__hint {
-  color: rgba(255, 250, 242, 0.4);
+  color: var(--manage-muted);
   font-size: 0.78rem;
 }
 
 .fv-workspace .food-photo-editor .btn.btn-ghost {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #fffaf2;
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-line);
+  color: var(--manage-ink);
 }
 
 .fv-workspace .food-photo-editor .btn.btn-ghost:hover {
   border-color: rgba(255, 154, 82, 0.35);
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .fv-create-shell {
@@ -886,17 +886,17 @@
   width: min(100%, 420px);
   padding: 1.25rem;
   border-radius: 16px;
-  background: #1a1512;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  color: #fffaf2;
+  background: var(--manage-card, #ffffff);
+  border: 1px solid var(--manage-line, #ddd6ca);
+  box-shadow: 0 20px 50px rgba(26, 24, 20, 0.18);
+  color: var(--manage-ink, #1a1814);
 }
 
 .fv-create-shell__panel h2 {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 700;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .fv-create-shell__title-row {
@@ -913,15 +913,15 @@
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 10px;
-  background: rgba(255, 154, 82, 0.12);
-  color: #a78bfa;
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   flex-shrink: 0;
 }
 
 .fv-create-shell__panel p {
   margin: 0 0 1rem;
   font-size: 0.88rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .fv-create-shell__actions {

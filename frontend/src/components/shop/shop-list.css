@@ -105,6 +105,20 @@
   font-weight: 750;
 }
 
+.shop-market__sell {
+  margin: 14px 0 0;
+  color: var(--sh-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.shop-market__sell-link {
+  color: var(--sh-accent-bright);
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .shop-market__section {
   margin: 16px 0 8px;
 }

@@ -1,0 +1,196 @@
+.stripe-sim {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: end center;
+  padding: 0;
+}
+
+@media (min-width: 560px) {
+  .stripe-sim {
+    place-items: center;
+    padding: 24px;
+  }
+}
+
+.stripe-sim__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgb(18 16 12 / 0.55);
+  cursor: pointer;
+}
+
+.stripe-sim__backdrop:disabled {
+  cursor: default;
+}
+
+.stripe-sim__panel {
+  position: relative;
+  width: min(100%, 420px);
+  max-height: min(92vh, 640px);
+  overflow: auto;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgb(214 186 120 / 0.18), transparent 55%),
+    linear-gradient(165deg, #fbf7f0 0%, #f3ebe0 100%);
+  color: #1c1914;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px 28px;
+  box-shadow: 0 -8px 40px rgb(20 16 10 / 0.18);
+}
+
+@media (min-width: 560px) {
+  .stripe-sim__panel {
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgb(20 16 10 / 0.22);
+  }
+}
+
+.stripe-sim__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.stripe-sim__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+.stripe-sim__head h2 {
+  margin: 0;
+  font-family: var(--font-display, Georgia, 'Times New Roman', serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stripe-sim__close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(28 25 20 / 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
+.stripe-sim__amount {
+  margin: 12px 0 4px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.stripe-sim__note {
+  margin: 0 0 16px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+
+.stripe-sim__note code {
+  font-size: 0.8em;
+  padding: 0.08em 0.3em;
+  border-radius: 4px;
+  background: rgb(28 25 20 / 0.06);
+}
+
+.stripe-sim__field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+}
+
+.stripe-sim__field > span {
+  opacity: 0.7;
+}
+
+.stripe-sim__field input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgb(28 25 20 / 0.14);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 1rem;
+  background: #fffdf9;
+  color: inherit;
+}
+
+.stripe-sim__field input:focus {
+  outline: 2px solid rgb(180 140 60 / 0.45);
+  outline-offset: 1px;
+}
+
+.stripe-sim__row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+}
+
+.stripe-sim__exp {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.stripe-sim__error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(160 40 30 / 0.1);
+  color: #8a2218;
+  font-size: 0.9rem;
+}
+
+.stripe-sim__step {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.stripe-sim__pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #1c1914;
+  color: #fbf7f0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stripe-sim__pay:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.stripe-sim__secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.62;
+}

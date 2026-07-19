@@ -13,7 +13,7 @@ type Props = {
   title: string
   subtitle: string
   attention?: Attention[]
-  quickActions?: { label: string; to: string; emoji?: string; Icon?: LucideIcon }[]
+  quickActions?: { label: string; to: string; Icon?: LucideIcon }[]
   publicTo?: string
 }
 

@@ -108,6 +108,7 @@ export function Account() {
           <h2 className="account-page__group-title">Shortcuts</h2>
           <AccountRow to={`/u/${profile.username}`} label="Public profile" />
           <AccountRow to="/dashboard" label="Travel dashboard" />
+          <AccountRow to={canAccessProvider ? '/provider/shop' : '/shop/manage'} label="My shop" />
           <AccountRow to="/settings" label="Settings & privacy" />
           <AccountRow to="/messages" label="Messages" />
         </nav>
@@ -130,9 +131,11 @@ export function Account() {
           <nav className="account-page__group" aria-label="Become a provider">
             <h2 className="account-page__group-title">List on Delve</h2>
             <p className="account-page__group-sub">
-              Offer stays, transport, food, events, or guides — your traveller profile stays separate from your business.
+              Anyone can sell crafts and souvenirs in My shop. For stays, transport, food, events, or guides, become a
+              service provider — your traveller profile stays separate.
             </p>
-            <AccountRow to="/provider/start" label="Become a service provider" accent />
+            <AccountRow to="/shop/manage" label="Open my shop" accent />
+            <AccountRow to="/provider/start" label="Become a service provider" />
           </nav>
         ) : null}
 

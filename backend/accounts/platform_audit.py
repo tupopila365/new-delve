@@ -20,6 +20,8 @@ ACTION_LABELS = {
     "listing_publish": "Listing republished",
     "booking_note": "Booking dispute note added",
     "booking_status": "Booking status updated",
+    "dispute_open": "Marketplace dispute opened",
+    "dispute_resolve": "Marketplace dispute updated",
     "email_verify_manual": "Email manually verified",
     "email_verify_resend": "Verification email resent",
     "settings_update": "Platform settings updated",

@@ -257,6 +257,10 @@ export default function App() {
           <Route path="/food/:id" element={<FoodDetail />} />
           <Route path="/shop" element={<ShopList />} />
           <Route path="/shops" element={<Navigate to="/shop" replace />} />
+          <Route path="/shop/manage" element={<ShopAdmin />} />
+          <Route path="/shop/manage/orders" element={<ProviderShopOrders />} />
+          <Route path="/shop/manage/new" element={<ShopProductForm />} />
+          <Route path="/shop/manage/:productId/edit" element={<ShopProductForm />} />
           <Route path="/shop/seller/:username" element={<ShopStorefront />} />
           <Route path="/shop/:id" element={<ShopDetail />} />
           <Route path="/cart" element={<CartPage />} />

@@ -75,10 +75,10 @@ export function GuideMonetizationSection({ enabled, canManage = false }: Props) 
           { value: analytics?.total_saves ?? 0, label: 'Profile saves' },
           {
             value: analytics?.rating_count
-              ? `${(analytics.rating_avg ?? 0).toFixed(1)} ★`
+              ? `${(analytics.rating_avg ?? 0).toFixed(1)}`
               : '—',
             label: analytics?.rating_count
-              ? `${analytics.rating_count} review${analytics.rating_count === 1 ? '' : 's'}`
+              ? `${analytics.rating_count} review${analytics.rating_count === 1 ? '' : 's'} · avg rating`
               : 'Reviews',
           },
           {

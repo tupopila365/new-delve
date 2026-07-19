@@ -4,12 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Bus } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { BusTripDetailView } from '../components/transport'
-import type { GroupReserveResponse, Reservation } from '../components/booking/transport/BusTripReserveCard'
+import type { GroupReserveResponse } from '../components/booking/transport/BusTripReserveCard'
+import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { isSeatBlockValid, seatBlockForStart } from '../utils/transportSeatBlock'
 import type { BusTripListing } from '../utils/transportListing'
+import type { PayTarget } from '../utils/stripeSim'
 import '../components/journeys/journey-detail.css'
 import '../components/transport/transport-detail.css'
 
@@ -25,6 +27,7 @@ export function BusTripDetail() {
   const [firstSeat, setFirstSeat] = useState<number | null>(null)
   const [group, setGroup] = useState<GroupReserveResponse | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [payTargets, setPayTargets] = useState<PayTarget[]>([])
 
   const { data: trip, isLoading, isError, refetch } = useQuery({
     queryKey: ['trip', id],
@@ -74,44 +77,6 @@ export function BusTripDetail() {
       void qc.invalidateQueries({ queryKey: ['trip', id] })
       setFirstSeat(null)
     },
-  })
-
-  const payMut = useMutation({
-    mutationFn: async (rows: Reservation[]) => {
-      const ids = rows.map((r) => r.id)
-      if (ids.length > 1) {
-        return apiFetch<{
-          status: string
-          mock_payment_ref: string
-          reservations: Reservation[]
-        }>('/api/transport/bus/reservations/bulk-mock-pay/', {
-          method: 'POST',
-          body: JSON.stringify({ reservation_ids: ids }),
-        })
-      }
-      return apiFetch<{ status: string; mock_payment_ref: string }>(
-        `/api/transport/bus/reservations/${ids[0]}/mock_pay/`,
-        { method: 'POST', body: JSON.stringify({}) },
-      )
-    },
-    onSuccess: (r) => {
-      setGroup((g) => {
-        if (!g?.reservations.length) return g
-        if ('reservations' in r && Array.isArray(r.reservations)) {
-          return { ...g, reservations: r.reservations }
-        }
-        const paid = r as { status: string; mock_payment_ref: string }
-        return {
-          ...g,
-          reservations: g.reservations.map((x) => ({
-            ...x,
-            status: paid.status,
-            mock_payment_ref: paid.mock_payment_ref,
-          })),
-        }
-      })
-    },
-    onError: (e) => setErr(friendlyApiMessage(e, "The practice payment didn't go through.")),
   })
 
   const onShare = async (title: string) => {
@@ -210,8 +175,32 @@ export function BusTripDetail() {
           profile,
           group,
           totalPrice,
-          onPay: () => group && payMut.mutate(group.reservations),
-          isPayPending: payMut.isPending,
+          onPay: () => {
+            if (!group?.reservations.length) return
+            const ids = group.reservations.map((r) => r.id)
+            const amount = totalPrice ? `N$${totalPrice}` : undefined
+            if (ids.length > 1) {
+              setPayTargets([
+                {
+                  target_type: 'bus_seat_bulk',
+                  target_id: ids.join('-'),
+                  amountLabel: amount,
+                  title: `${trip.route_detail.origin} → ${trip.route_detail.destination}`,
+                  metadata: { reservation_ids: ids },
+                },
+              ])
+            } else {
+              setPayTargets([
+                {
+                  target_type: 'bus_seat',
+                  target_id: String(ids[0]),
+                  amountLabel: amount,
+                  title: `${trip.route_detail.origin} → ${trip.route_detail.destination}`,
+                },
+              ])
+            }
+          },
+          isPayPending: false,
           seats: {
             passengers,
             firstSeat,
@@ -220,6 +209,26 @@ export function BusTripDetail() {
             taken,
             onSelectSeat: setFirstSeat,
           },
+        }}
+      />
+      <StripeSimPayModal
+        open={payTargets.length > 0}
+        targets={payTargets}
+        onClose={() => setPayTargets([])}
+        onSuccess={(intents) => {
+          const ref = intents[0]?.id ?? ''
+          setGroup((g) => {
+            if (!g?.reservations.length) return g
+            return {
+              ...g,
+              reservations: g.reservations.map((x) => ({
+                ...x,
+                mock_payment_ref: ref,
+              })),
+            }
+          })
+          setPayTargets([])
+          void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'seats'] })
         }}
       />
     </div>

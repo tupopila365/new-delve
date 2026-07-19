@@ -14,6 +14,7 @@ export type MyVehicleBooking = {
   total_price: string
   status: string
   mock_payment_ref?: string
+  payout_status?: string
   has_review?: boolean
   created_at?: string
 }
@@ -29,6 +30,7 @@ export type MySeatReservation = {
   seat_price: string
   status: string
   mock_payment_ref?: string
+  payout_status?: string
   has_review?: boolean
   created_at?: string
 }
@@ -45,6 +47,7 @@ export type MySeatBookingGroup = {
   status: string
   total_price: string
   mock_payment_ref?: string
+  payout_status?: string
   has_review?: boolean
   created_at?: string
 }
@@ -74,6 +77,9 @@ export function groupSeatReservations(rows: MySeatReservation[]): MySeatBookingG
       const seatTotal = parseFloat(existing.total_price.replace(/^N\$/, '')) || 0
       const add = parseFloat(row.seat_price) || 0
       existing.total_price = `N$${(seatTotal + add).toFixed(0)}`
+      if (!existing.payout_status && row.payout_status) {
+        existing.payout_status = row.payout_status
+      }
       continue
     }
 
@@ -89,6 +95,7 @@ export function groupSeatReservations(rows: MySeatReservation[]): MySeatBookingG
       status: row.status,
       total_price: `N$${parseFloat(row.seat_price || '0').toFixed(0)}`,
       mock_payment_ref: paymentRef || undefined,
+      payout_status: row.payout_status,
       has_review: row.has_review,
       created_at: row.created_at,
     })

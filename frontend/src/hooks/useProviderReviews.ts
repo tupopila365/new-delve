@@ -1,16 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, asArray } from '../api/client'
-import type { ProviderGuideProfile } from '../components/provider/guides'
-import type { ProviderFoodVenue } from '../components/provider/food/foodVenueTypes'
-import type { ProviderStayListing } from '../components/provider/stays/stayListingTypes'
-import type { ProviderVehicleListing } from '../components/provider/transport/vehicleListingTypes'
-import type { ProviderBusTripListing } from '../components/provider/transport/busTripListingTypes'
-import { normalizeReviews } from '../components/GuestReviewCard'
 import type { ListingCategory } from '../data/providerData'
 import { mocksEnabled } from '../utils/useMocks'
 
 export type ProviderReviewRow = {
   id: string
+  source: string
+  reviewId: number
   guest: string
   listing: string
   category: ListingCategory
@@ -24,6 +20,8 @@ export type ProviderReviewRow = {
 const DEMO_REVIEWS: ProviderReviewRow[] = [
   {
     id: 'demo-1',
+    source: 'accommodation',
+    reviewId: 1,
     guest: 'Anna K.',
     listing: 'Freesia Hotel',
     category: 'Stay',
@@ -34,6 +32,8 @@ const DEMO_REVIEWS: ProviderReviewRow[] = [
   },
   {
     id: 'demo-2',
+    source: 'accommodation',
+    reviewId: 2,
     guest: 'Tobias L.',
     listing: 'Coastal Guesthouse',
     category: 'Stay',
@@ -45,6 +45,8 @@ const DEMO_REVIEWS: ProviderReviewRow[] = [
   },
   {
     id: 'demo-3',
+    source: 'guide',
+    reviewId: 3,
     guest: 'Mila K.',
     listing: 'Desert sunrise tour',
     category: 'Guide',
@@ -55,6 +57,8 @@ const DEMO_REVIEWS: ProviderReviewRow[] = [
   },
   {
     id: 'demo-4',
+    source: 'food',
+    reviewId: 4,
     guest: 'Priya N.',
     listing: 'Oryx Grill House',
     category: 'Food',
@@ -63,123 +67,58 @@ const DEMO_REVIEWS: ProviderReviewRow[] = [
     body: 'Amazing local flavours. Will definitely be back.',
     needsReply: false,
   },
+  {
+    id: 'demo-5',
+    source: 'shop',
+    reviewId: 5,
+    guest: 'Leo M.',
+    listing: 'Mokoro carving',
+    category: 'Shop',
+    rating: 5,
+    date: '2026-04-08',
+    body: 'Beautifully made — arrived carefully packed.',
+    needsReply: true,
+  },
 ]
 
-type ReviewsPayload = {
-  reviews?: unknown[]
+type ApiReviewRow = {
+  id?: string
+  source?: string
+  review_id?: number
+  guest?: string
+  listing_title?: string
+  category?: string
+  rating?: number
+  body?: string
+  created_at?: string
+  seller_reply?: string
+  needs_reply?: boolean
 }
 
-async function fetchListingReviews(path: string): Promise<ReviewsPayload> {
-  try {
-    return await apiFetch<ReviewsPayload>(path, { auth: false })
-  } catch {
-    return { reviews: [] }
-  }
-}
-
-function rowsFromPayload(
-  payload: ReviewsPayload,
-  listing: string,
-  category: ListingCategory,
-  prefix: string,
-): ProviderReviewRow[] {
-  return normalizeReviews(payload.reviews).map((r, i) => ({
-    id: `${prefix}-${i}-${r.name}`,
-    guest: r.name,
-    listing: r.place || listing,
+function mapApiRow(row: ApiReviewRow): ProviderReviewRow | null {
+  const source = typeof row.source === 'string' ? row.source : ''
+  const reviewId = typeof row.review_id === 'number' ? row.review_id : Number(row.review_id)
+  if (!source || !Number.isFinite(reviewId)) return null
+  const category = (row.category || 'Stay') as ListingCategory
+  const reply = typeof row.seller_reply === 'string' ? row.seller_reply.trim() : ''
+  return {
+    id: typeof row.id === 'string' ? row.id : `${source}:${reviewId}`,
+    source,
+    reviewId,
+    guest: typeof row.guest === 'string' ? row.guest : 'Guest',
+    listing: typeof row.listing_title === 'string' ? row.listing_title : 'Listing',
     category,
-    rating: r.rating,
-    date: '',
-    body: r.body,
-    needsReply: false,
-  }))
+    rating: typeof row.rating === 'number' ? row.rating : 0,
+    date: typeof row.created_at === 'string' ? row.created_at.slice(0, 10) : '',
+    body: typeof row.body === 'string' ? row.body : '',
+    needsReply: typeof row.needs_reply === 'boolean' ? row.needs_reply : !reply,
+    response: reply || undefined,
+  }
 }
 
 async function loadLiveReviews(): Promise<ProviderReviewRow[]> {
-  const stays = asArray<ProviderStayListing>(
-    await apiFetch<ProviderStayListing[]>('/api/accommodation/provider-listings/'),
-  )
-  const venues = asArray<ProviderFoodVenue>(
-    await apiFetch<ProviderFoodVenue[]>('/api/food/provider-venues/'),
-  )
-  const guideRaw = await apiFetch<ProviderGuideProfile | null>('/api/guides/provider-profile/').catch(
-    () => null,
-  )
-  const vehicles = asArray<ProviderVehicleListing>(
-    await apiFetch<ProviderVehicleListing[]>('/api/transport/provider-vehicles/'),
-  )
-  const busTrips = asArray<ProviderBusTripListing>(
-    await apiFetch<ProviderBusTripListing[]>('/api/transport/provider-bus-trips/'),
-  )
-
-  const rows: ProviderReviewRow[] = []
-
-  for (const stay of stays) {
-    const payload = await fetchListingReviews(`/api/accommodation/listings/${stay.id}/reviews/`)
-    rows.push(...rowsFromPayload(payload, stay.title, 'Stay', `stay-${stay.id}`))
-  }
-
-  for (const venue of venues) {
-    const payload = await fetchListingReviews(`/api/food/venues/${venue.id}/reviews/`)
-    const travelerOnly = normalizeReviews(payload.reviews).filter((_, idx) => {
-      const raw = payload.reviews?.[idx] as { source?: string } | undefined
-      return raw?.source !== 'seed'
-    })
-    rows.push(
-      ...travelerOnly.map((r, i) => ({
-        id: `food-${venue.id}-${i}`,
-        guest: r.name,
-        listing: venue.name,
-        category: 'Food' as const,
-        rating: r.rating,
-        date: '',
-        body: r.body,
-        needsReply: false,
-      })),
-    )
-  }
-
-  if (guideRaw?.id) {
-    for (const [i, r] of (guideRaw.guest_reviews ?? []).entries()) {
-      rows.push({
-        id: `guide-profile-${i}`,
-        guest: r.name,
-        listing: r.place || 'Guide profile',
-        category: 'Guide',
-        rating: r.rating,
-        date: '',
-        body: r.body,
-        needsReply: false,
-      })
-    }
-    for (const pkg of guideRaw.tour_packages ?? []) {
-      for (const [i, r] of (pkg.reviews ?? []).entries()) {
-        rows.push({
-          id: `guide-${pkg.id}-${i}`,
-          guest: r.name,
-          listing: pkg.title,
-          category: 'Guide',
-          rating: r.rating,
-          date: '',
-          body: r.body,
-          needsReply: false,
-        })
-      }
-    }
-  }
-
-  for (const vehicle of vehicles) {
-    const payload = await fetchListingReviews(`/api/transport/vehicles/${vehicle.id}/reviews/`)
-    rows.push(...rowsFromPayload(payload, vehicle.title, 'Transport', `vehicle-${vehicle.id}`))
-  }
-
-  for (const trip of busTrips) {
-    const payload = await fetchListingReviews(`/api/transport/bus/trips/${trip.id}/reviews/`)
-    const label = `${trip.route_detail.origin} → ${trip.route_detail.destination}`
-    rows.push(...rowsFromPayload(payload, label, 'Transport', `bus-${trip.id}`))
-  }
-
-  return rows
+  const raw = await apiFetch<ApiReviewRow[]>('/api/accounts/provider/reviews/')
+  return asArray(raw).map(mapApiRow).filter((r): r is ProviderReviewRow => r != null)
 }
 
 export function useProviderReviews(enabled = true) {
@@ -191,6 +130,46 @@ export function useProviderReviews(enabled = true) {
     },
     enabled,
     staleTime: 60_000,
+  })
+}
+
+export function useProviderReviewReply() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      source,
+      reviewId,
+      reply,
+    }: {
+      source: string
+      reviewId: number
+      reply: string
+    }) => {
+      const text = reply.trim()
+      if (mocksEnabled()) {
+        return { source, review_id: reviewId, seller_reply: text, needs_reply: !text }
+      }
+      return apiFetch(`/api/accounts/provider/reviews/${source}/${reviewId}/reply/`, {
+        method: 'POST',
+        body: JSON.stringify({ reply }),
+      })
+    },
+    onSuccess: (_data, vars) => {
+      const text = vars.reply.trim()
+      qc.setQueryData<ProviderReviewRow[]>(['provider-reviews-all'], (prev) => {
+        if (!prev) return prev
+        return prev.map((row) =>
+          row.source === vars.source && row.reviewId === vars.reviewId
+            ? {
+                ...row,
+                response: text || undefined,
+                needsReply: !text,
+              }
+            : row,
+        )
+      })
+      void qc.invalidateQueries({ queryKey: ['provider-reviews-all'] })
+    },
   })
 }
 

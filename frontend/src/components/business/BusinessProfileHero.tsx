@@ -4,6 +4,7 @@ import { Building2, Clock, MapPin, ShieldCheck, Star, UserRound } from 'lucide-r
 import { MiniRating } from '../MiniRating'
 import { MessageProviderLink } from '../messages'
 import { ReportButton } from '../report/ReportButton'
+import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import './business-profile.css'
 
 type Props = {
@@ -85,6 +86,8 @@ export function BusinessProfileHero({
           ) : null}
           {serviceLabel ? <span className="biz-profile__badge">{serviceLabel}</span> : null}
         </div>
+
+        <SellerTrustBadges businessId={businessId} compact omitIds={['verified']} />
 
         <h1 className="biz-profile__name">{name}</h1>
         {tagline ? <p className="biz-profile__tagline">{tagline}</p> : null}

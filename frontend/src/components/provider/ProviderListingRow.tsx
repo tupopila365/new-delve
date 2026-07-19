@@ -1,3 +1,4 @@
+import { AlertTriangle, ClipboardList, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { ProviderListing } from '../../data/providerData'
 import { ProviderStatusBadge } from './ProviderStatusBadge'
@@ -13,7 +14,7 @@ export function ProviderListingRow({ listing }: Props) {
         {listing.image ? (
           <img src={listing.image} alt="" />
         ) : (
-          <span aria-hidden>📋</span>
+          <ClipboardList size={22} strokeWidth={2} aria-hidden />
         )}
       </div>
       <div className="prov-ui-listing__main">
@@ -24,13 +25,15 @@ export function ProviderListingRow({ listing }: Props) {
         <span className="prov-ui-listing__meta">
           {listing.category} · {[listing.city, listing.region].filter(Boolean).join(', ')} · {listing.price}
         </span>
-        <span className="prov-ui-listing__meta">
-          ★ {listing.rating} ({listing.ratingCount}) · {listing.bookings} bookings · {listing.views} views · Updated{' '}
+        <span className="prov-ui-listing__meta prov-ui-listing__meta--row">
+          <Star size={13} strokeWidth={2.25} aria-hidden />
+          {listing.rating} ({listing.ratingCount}) · {listing.bookings} bookings · {listing.views} views · Updated{' '}
           {listing.updated}
         </span>
         {listing.healthIssue ? (
-          <span className="prov-ui-listing__meta" style={{ color: '#a78bfa' }}>
-            ⚠ {listing.healthIssue}
+          <span className="prov-ui-listing__meta prov-ui-listing__meta--warn">
+            <AlertTriangle size={13} strokeWidth={2.25} aria-hidden />
+            {listing.healthIssue}
           </span>
         ) : null}
       </div>

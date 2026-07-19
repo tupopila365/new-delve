@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.db import transaction
 from rest_framework import permissions, status, viewsets
@@ -7,6 +8,7 @@ from rest_framework.response import Response
 
 from accommodation.models import BookingStatus
 
+from accounts.marketplace_payout import mark_booking_payment_held
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
 from .filters import BusTripFilter, VehicleFilter
@@ -141,12 +143,14 @@ class VehicleRentalBookingViewSet(viewsets.ModelViewSet):
                 }
             )
         booking.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        booking.save(update_fields=["mock_payment_ref"])
+        fields = ["mock_payment_ref", *mark_booking_payment_held(booking)]
+        booking.save(update_fields=list(dict.fromkeys(fields)))
         return Response(
             {
-                "detail": "Payment successful (mock).",
+                "detail": "Payment successful (mock). Delve is holding funds until checkout.",
                 "status": booking.status,
                 "mock_payment_ref": booking.mock_payment_ref,
+                "payout_status": booking.payout_status,
             }
         )
 
@@ -315,6 +319,7 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
             )
 
         created = []
+        seat_price = trip.price or Decimal("0")
         for s in seats:
             created.append(
                 SeatReservation.objects.create(
@@ -322,6 +327,7 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
                     passenger=request.user,
                     seat_number=s,
                     status=BookingStatus.PENDING,
+                    total_price=seat_price,
                 )
             )
         ser = SeatReservationSerializer(created, many=True, context={"request": request})
@@ -375,12 +381,15 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
             )
         ref = f"mock_{uuid.uuid4().hex[:16]}"
         for r in reservations:
+            if not r.total_price:
+                r.total_price = r.trip.price or Decimal("0")
             r.mock_payment_ref = ref
-            r.save(update_fields=["mock_payment_ref"])
+            fields = ["mock_payment_ref", "total_price", *mark_booking_payment_held(r)]
+            r.save(update_fields=list(dict.fromkeys(fields)))
         ser = SeatReservationSerializer(reservations, many=True, context={"request": request})
         return Response(
             {
-                "detail": "Payment successful (mock).",
+                "detail": "Payment successful (mock). Delve is holding funds until the trip is completed.",
                 "status": BookingStatus.CONFIRMED,
                 "mock_payment_ref": ref,
                 "reservations": ser.data,
@@ -405,13 +414,17 @@ class SeatReservationViewSet(viewsets.ModelViewSet):
                     "mock_payment_ref": res.mock_payment_ref,
                 }
             )
+        if not res.total_price:
+            res.total_price = res.trip.price or Decimal("0")
         res.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        res.save(update_fields=["mock_payment_ref"])
+        fields = ["mock_payment_ref", "total_price", *mark_booking_payment_held(res)]
+        res.save(update_fields=list(dict.fromkeys(fields)))
         return Response(
             {
-                "detail": "Payment successful (mock).",
+                "detail": "Payment successful (mock). Delve is holding funds until the trip is completed.",
                 "status": res.status,
                 "mock_payment_ref": res.mock_payment_ref,
+                "payout_status": res.payout_status,
             }
         )
 

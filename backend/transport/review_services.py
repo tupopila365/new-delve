@@ -16,7 +16,7 @@ def _author_label(user) -> str:
 
 def sync_vehicle_listing_rating(listing: VehicleRentalListing) -> None:
     ratings = list(
-        VehicleRentalReview.objects.filter(listing=listing).values_list("rating", flat=True)
+        VehicleRentalReview.objects.filter(listing=listing, is_hidden=False).values_list("rating", flat=True)
     )
     if not ratings:
         listing.rating_avg = Decimal("0")
@@ -29,7 +29,7 @@ def sync_vehicle_listing_rating(listing: VehicleRentalListing) -> None:
 
 def sync_bus_trip_rating(trip: BusTrip) -> None:
     ratings = list(
-        SeatReservationReview.objects.filter(trip=trip).values_list("rating", flat=True)
+        SeatReservationReview.objects.filter(trip=trip, is_hidden=False).values_list("rating", flat=True)
     )
     if not ratings:
         trip.rating_avg = Decimal("0")
@@ -43,7 +43,7 @@ def sync_bus_trip_rating(trip: BusTrip) -> None:
 def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
     rows = []
     for review in (
-        VehicleRentalReview.objects.filter(listing=listing)
+        VehicleRentalReview.objects.filter(listing=listing, is_hidden=False)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:50]
     ):
@@ -55,6 +55,10 @@ def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
                 "place": listing.city or listing.region,
                 "rating": review.rating,
                 "body": review.body,
+                "seller_reply": (review.seller_reply or "").strip(),
+                "seller_replied_at": (
+                    review.seller_replied_at.isoformat() if review.seller_replied_at else ""
+                ),
                 "created_at": review.created_at.isoformat(),
             }
         )
@@ -65,7 +69,7 @@ def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
 def bus_trip_reviews_payload(trip: BusTrip) -> dict:
     rows = []
     for review in (
-        SeatReservationReview.objects.filter(trip=trip)
+        SeatReservationReview.objects.filter(trip=trip, is_hidden=False)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:50]
     ):
@@ -77,6 +81,10 @@ def bus_trip_reviews_payload(trip: BusTrip) -> dict:
                 "place": trip.route.origin,
                 "rating": review.rating,
                 "body": review.body,
+                "seller_reply": (review.seller_reply or "").strip(),
+                "seller_replied_at": (
+                    review.seller_replied_at.isoformat() if review.seller_replied_at else ""
+                ),
                 "created_at": review.created_at.isoformat(),
             }
         )

@@ -88,9 +88,34 @@ type MockAccBookingRow = {
   room_type_name: string
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'refunded'
   mock_payment_ref: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: 'none' | 'held' | 'released' | 'refunded'
 }
 const mockAccBookings = new Map<number, MockAccBookingRow>()
 let mockAccNextBookingId = 1
+
+const mockUserDisputes: {
+  id: number
+  source: string
+  source_label: string
+  record_id: number
+  title: string
+  buyer_username: string
+  seller_username: string
+  reason: string
+  reason_label: string
+  status: string
+  status_label: string
+  body: string
+  resolution: string
+  resolution_label: string
+  resolution_note: string
+  created_at: string
+  updated_at: string
+  resolved_at: string
+}[] = []
+let mockUserDisputeNextId = 1
 
 /** token -> username for email verification flow in mock mode */
 const mockVerificationTokens = new Map<string, string>()
@@ -167,6 +192,9 @@ type MockGuideBookingRow = {
   total_price: string
   status: string
   mock_payment_ref: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: 'none' | 'held' | 'released' | 'refunded'
 }
 const mockGuideBookings = new Map<number, MockGuideBookingRow & Record<string, unknown>>()
 let mockGuideBookingNextId = 1
@@ -180,9 +208,13 @@ const mockBusReservationRows = new Map<
     id: number
     trip: number
     seat_number: number
-    status: 'pending' | 'confirmed' | 'cancelled'
+    status: 'pending' | 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out'
     mock_payment_ref: string
     client?: string
+    platform_fee?: string
+    seller_payout?: string
+    payout_status?: 'none' | 'held' | 'released' | 'refunded'
+    total_price?: string
   }
 >()
 
@@ -465,6 +497,9 @@ let nextShopProductId = Math.max(0, ...mockShopProducts.map((p) => p.id)) + 1
 let nextShopVariantId =
   Math.max(0, ...mockShopProducts.flatMap((p) => p.variants.map((v) => v.id))) + 1
 
+/** Shop storefront profiles by owner username (mock). */
+const mockShopProfiles: Record<string, { avatar: string | null; display_name: string }> = {}
+
 type MockCartItemRow = {
   id: number
   product_id: number
@@ -490,21 +525,171 @@ type MockShopOrderRow = {
   order_ref: string
   buyer_username: string
   seller_username: string
-  status: 'pending' | 'paid' | 'fulfilled' | 'cancelled' | 'refunded'
+  status: 'pending' | 'paid' | 'ready' | 'shipped' | 'fulfilled' | 'cancelled' | 'refunded'
   fulfillment_type: 'pickup' | 'lodge_delivery' | 'shipping'
   items: MockShopOrderItem[]
   items_total: string
   shipping_total: string
+  platform_fee: string
+  seller_payout: string
   total: string
+  payout_status: 'none' | 'held' | 'released' | 'refunded'
   contact_name: string
   contact_phone: string
   delivery_address: string
   note: string
+  tracking_number: string
+  tracking_carrier: string
+  fulfillment_note: string
   mock_payment_ref: string
+  paid_at: string | null
+  shipped_at: string | null
+  fulfilled_at: string | null
+  payout_released_at: string | null
   created_at: string
 }
 
 const mockShopOrders: MockShopOrderRow[] = []
+
+type MockSimPaymentIntent = {
+  id: string
+  client_secret: string
+  status: string
+  amount: string
+  currency: string
+  target_type: string
+  target_id: string
+  buyer_username: string
+  metadata: Record<string, unknown>
+  last4: string
+  brand: string
+  failure_code: string
+  failure_message: string
+  charge_id: string
+  refunded: boolean
+  created_at: string
+  confirmed_at: string
+}
+
+const mockPaymentIntents = new Map<string, MockSimPaymentIntent>()
+
+const MOCK_CARD_OUTCOMES: Record<string, { result: 'succeeded' | 'failed'; code?: string; message?: string }> = {
+  '4242424242424242': { result: 'succeeded' },
+  '4000000000000002': { result: 'failed', code: 'card_declined', message: 'Your card was declined.' },
+  '4000000000009995': {
+    result: 'failed',
+    code: 'insufficient_funds',
+    message: 'Your card has insufficient funds.',
+  },
+  '4000000000009987': { result: 'failed', code: 'expired_card', message: 'Your card has expired.' },
+}
+
+function serializeMockIntent(pi: MockSimPaymentIntent) {
+  const cents = Math.round(Number(pi.amount || 0) * 100)
+  return {
+    id: pi.id,
+    object: 'payment_intent' as const,
+    client_secret: pi.client_secret,
+    status: pi.status,
+    amount: pi.amount,
+    amount_cents: Number.isFinite(cents) ? cents : 0,
+    currency: pi.currency,
+    target_type: pi.target_type,
+    target_id: pi.target_id,
+    last4: pi.last4,
+    brand: pi.brand,
+    failure_code: pi.failure_code,
+    failure_message: pi.failure_message,
+    charge_id: pi.charge_id,
+    refunded: pi.refunded,
+    created_at: pi.created_at,
+    confirmed_at: pi.confirmed_at,
+    metadata: pi.metadata,
+    simulated: true,
+    provider: 'stripe_sim',
+  }
+}
+
+function fulfillMockCapture(pi: MockSimPaymentIntent) {
+  const ref = pi.id
+  if (pi.target_type === 'shop_order') {
+    const order = mockShopOrders.find((o) => o.order_ref === pi.target_id && o.buyer_username === pi.buyer_username)
+    if (!order || order.mock_payment_ref) return
+    order.status = 'paid'
+    order.mock_payment_ref = ref
+    order.payout_status = 'held'
+    order.paid_at = nowIso()
+    return
+  }
+  if (pi.target_type === 'accommodation') {
+    const b = mockAccBookings.get(Number(pi.target_id))
+    if (!b || b.mock_payment_ref) return
+    b.mock_payment_ref = ref
+    markMockBookingPayoutHeld(b)
+    mockAccBookings.set(b.id, b)
+    return
+  }
+  if (pi.target_type === 'guide') {
+    const b = mockGuideBookings.get(Number(pi.target_id))
+    if (!b || b.mock_payment_ref) return
+    b.mock_payment_ref = ref
+    b.status = 'confirmed'
+    markMockBookingPayoutHeld(b)
+    mockGuideBookings.set(b.id, b)
+    return
+  }
+  if (pi.target_type === 'vehicle') {
+    const b = mockVehicleBookings.get(Number(pi.target_id))
+    if (!b || b.mock_payment_ref) return
+    b.mock_payment_ref = ref
+    markMockBookingPayoutHeld(b)
+    mockVehicleBookings.set(b.id, b)
+    return
+  }
+  if (pi.target_type === 'bus_seat') {
+    const b = mockBusReservationRows.get(Number(pi.target_id))
+    if (!b || b.mock_payment_ref) return
+    b.mock_payment_ref = ref
+    markMockBookingPayoutHeld(b, b.total_price)
+    mockBusReservationRows.set(b.id, b)
+    return
+  }
+  if (pi.target_type === 'bus_seat_bulk') {
+    const ids = (pi.metadata.reservation_ids as number[]) || []
+    for (const rid of ids) {
+      const b = mockBusReservationRows.get(Number(rid))
+      if (!b || b.mock_payment_ref) continue
+      b.mock_payment_ref = ref
+      markMockBookingPayoutHeld(b, b.total_price)
+      mockBusReservationRows.set(b.id, b)
+    }
+  }
+}
+
+function fulfillMockRefund(pi: MockSimPaymentIntent) {
+  if (pi.target_type === 'shop_order') {
+    const order = mockShopOrders.find((o) => o.order_ref === pi.target_id)
+    if (order) {
+      order.payout_status = 'refunded'
+      order.status = 'refunded'
+    }
+    return
+  }
+  const mark = (row: { payout_status?: string; status?: string } | undefined) => {
+    if (!row) return
+    markMockBookingPayoutRefunded(row)
+    row.status = 'refunded'
+  }
+  if (pi.target_type === 'accommodation') mark(mockAccBookings.get(Number(pi.target_id)))
+  else if (pi.target_type === 'guide') mark(mockGuideBookings.get(Number(pi.target_id)))
+  else if (pi.target_type === 'vehicle') mark(mockVehicleBookings.get(Number(pi.target_id)))
+  else if (pi.target_type === 'bus_seat') mark(mockBusReservationRows.get(Number(pi.target_id)))
+  else if (pi.target_type === 'bus_seat_bulk') {
+    for (const rid of (pi.metadata.reservation_ids as number[]) || []) {
+      mark(mockBusReservationRows.get(Number(rid)))
+    }
+  }
+}
 let nextShopOrderId = 1
 let nextShopOrderItemId = 1
 
@@ -516,8 +701,11 @@ type MockVehicleBookingRow = {
   end_date: string
   pickup_area?: string
   total_price: string
-  status: 'pending' | 'confirmed'
+  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'refunded'
   mock_payment_ref: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: 'none' | 'held' | 'released' | 'refunded'
   renter_documents?: { doc_type: string; file_name: string; image_data: string }[]
 }
 const mockVehicleBookings = new Map<number, MockVehicleBookingRow>()
@@ -769,6 +957,10 @@ function formatBusReservationRow(row: {
   seat_number: number
   status: string
   mock_payment_ref: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
+  total_price?: string
 }) {
   return {
     id: row.id,
@@ -777,8 +969,42 @@ function formatBusReservationRow(row: {
     passenger: 1,
     status: row.status,
     mock_payment_ref: row.mock_payment_ref,
+    platform_fee: row.platform_fee ?? '0.00',
+    seller_payout: row.seller_payout ?? '0.00',
+    payout_status: row.payout_status ?? 'none',
+    total_price: row.total_price,
     created_at: nowIso(),
   }
+}
+
+function bookingPlatformFee(total: number): number {
+  return Math.round(total * 0.1 * 100) / 100
+}
+
+function markMockBookingPayoutHeld<T extends {
+  total_price?: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
+}>(row: T, totalPrice?: string): T {
+  const total = Number(totalPrice ?? row.total_price ?? 0) || 0
+  const fee = bookingPlatformFee(total)
+  row.platform_fee = fee.toFixed(2)
+  row.seller_payout = Math.max(0, total - fee).toFixed(2)
+  row.payout_status = 'held'
+  return row
+}
+
+function markMockBookingPayoutReleased<T extends { payout_status?: string }>(row: T): T {
+  if (row.payout_status === 'held') row.payout_status = 'released'
+  return row
+}
+
+function markMockBookingPayoutRefunded<T extends { payout_status?: string }>(row: T): T {
+  if (row.payout_status === 'held' || row.payout_status === 'released') {
+    row.payout_status = 'refunded'
+  }
+  return row
 }
 
 function nowIso() {
@@ -2124,6 +2350,251 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return { ...p, is_staff: p.is_staff ?? false }
   }
 
+  if (pathname === '/api/accounts/me/disputes/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockUserDisputes.filter((d) => d.buyer_username === me)
+  }
+
+  if (pathname === '/api/accounts/me/disputes/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as {
+      source?: string
+      record_id?: number
+      reason?: string
+      body?: string
+    }
+    const source = (body.source || '').trim()
+    const recordId = Number(body.record_id)
+    const reason = (body.reason || 'other').trim()
+    const text = (body.body || '').trim()
+    if (!source || !recordId) throw new ApiError('Bad request', 400, { detail: 'source and record_id required.' })
+    if (text.length < 10) throw new ApiError('Bad request', 400, { detail: 'Please describe the issue (at least 10 characters).' })
+    if (
+      mockUserDisputes.some(
+        (d) =>
+          d.source === source &&
+          d.record_id === recordId &&
+          (d.status === 'open' || d.status === 'under_review') &&
+          d.buyer_username === s.currentUser,
+      )
+    ) {
+      throw new ApiError('Bad request', 400, { detail: 'An open dispute already exists for this purchase.' })
+    }
+    const id = mockUserDisputeNextId++
+    const row = {
+      id,
+      source,
+      source_label: source,
+      record_id: recordId,
+      title: `${source} #${recordId}`,
+      buyer_username: s.currentUser as string,
+      seller_username: 'seller',
+      reason,
+      reason_label: reason,
+      status: 'open',
+      status_label: 'Open',
+      body: text,
+      resolution: '',
+      resolution_label: '',
+      resolution_note: '',
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      resolved_at: '',
+    }
+    mockUserDisputes.unshift(row)
+    return row
+  }
+
+  // ---- Simulated Stripe payments ----
+  if (pathname === '/api/payments/test-cards/' && method === 'GET') {
+    requireAuth(s)
+    return {
+      provider: 'stripe_sim',
+      note: 'No real Stripe keys. Cards behave like Stripe test numbers.',
+      cards: [
+        { number: '4242424242424242', result: 'succeeded', label: 'Success' },
+        { number: '4000000000000002', result: 'failed', label: 'Card declined' },
+        { number: '4000000000009995', result: 'failed', label: 'Insufficient funds' },
+        { number: '4000000000009987', result: 'failed', label: 'Expired card' },
+      ],
+    }
+  }
+
+  if (pathname === '/api/payments/intents/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as {
+      target_type?: string
+      target_id?: string
+      metadata?: Record<string, unknown>
+    }
+    const me = s.currentUser as string
+    const target_type = (body.target_type || '').trim()
+    const target_id = String(body.target_id || '').trim()
+    const metadata = body.metadata && typeof body.metadata === 'object' ? { ...body.metadata } : {}
+    let amount = 0
+
+    if (target_type === 'shop_order') {
+      const order = mockShopOrders.find((o) => o.order_ref === target_id && o.buyer_username === me)
+      if (!order) throw new ApiError('Forbidden', 403, { detail: 'Not your order.' })
+      if (order.mock_payment_ref) throw new ApiError('Bad request', 400, { detail: 'Order already paid.' })
+      amount = Number(order.total) || 0
+    } else if (target_type === 'accommodation') {
+      const b = mockAccBookings.get(Number(target_id))
+      if (!b || b.guest !== me) throw new ApiError('Forbidden', 403, { detail: 'Booking not found.' })
+      if (b.mock_payment_ref) throw new ApiError('Bad request', 400, { detail: 'Booking already paid.' })
+      amount = Number(b.total_price) || 0
+    } else if (target_type === 'guide') {
+      const b = mockGuideBookings.get(Number(target_id))
+      if (!b || b.client !== me) throw new ApiError('Forbidden', 403, { detail: 'Booking not found.' })
+      if (b.mock_payment_ref) throw new ApiError('Bad request', 400, { detail: 'Booking already paid.' })
+      amount = Number(b.total_price) || 0
+    } else if (target_type === 'vehicle') {
+      const b = mockVehicleBookings.get(Number(target_id))
+      if (!b || b.client !== me) throw new ApiError('Forbidden', 403, { detail: 'Booking not found.' })
+      if (b.mock_payment_ref) throw new ApiError('Bad request', 400, { detail: 'Booking already paid.' })
+      amount = Number(b.total_price) || 0
+    } else if (target_type === 'bus_seat') {
+      const b = mockBusReservationRows.get(Number(target_id))
+      if (!b || b.client !== me) throw new ApiError('Forbidden', 403, { detail: 'Reservation not found.' })
+      if (b.mock_payment_ref) throw new ApiError('Bad request', 400, { detail: 'Reservation already paid.' })
+      amount = Number(b.total_price) || 0
+    } else if (target_type === 'bus_seat_bulk') {
+      const ids = (metadata.reservation_ids as number[]) || []
+      if (!ids.length) throw new ApiError('Bad request', 400, { detail: 'reservation_ids required for bulk bus payment.' })
+      const rows = ids.map((id) => mockBusReservationRows.get(Number(id))).filter(Boolean) as {
+        id: number
+        client?: string
+        mock_payment_ref: string
+        total_price?: string
+      }[]
+      if (rows.length !== ids.length || rows.some((r) => r.client !== me)) {
+        throw new ApiError('Forbidden', 403, { detail: 'One or more seats not found.' })
+      }
+      if (rows.some((r) => r.mock_payment_ref)) {
+        throw new ApiError('Bad request', 400, { detail: 'Seats already paid.' })
+      }
+      amount = rows.reduce((sum, r) => sum + (Number(r.total_price) || 0), 0)
+    } else {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid target_type.' })
+    }
+
+    if (amount <= 0) throw new ApiError('Bad request', 400, { detail: 'Amount must be greater than zero.' })
+
+    const existing = [...mockPaymentIntents.values()].find(
+      (pi) =>
+        pi.buyer_username === me &&
+        pi.target_type === target_type &&
+        pi.target_id === target_id &&
+        ['requires_payment_method', 'requires_confirmation', 'processing'].includes(pi.status),
+    )
+    if (existing) {
+      existing.amount = amount.toFixed(2)
+      existing.metadata = metadata
+      return serializeMockIntent(existing)
+    }
+
+    const id = `pi_sim_${Math.random().toString(36).slice(2, 18)}${Date.now().toString(36).slice(-6)}`
+    const pi: MockSimPaymentIntent = {
+      id,
+      client_secret: `${id}_secret_mock`,
+      status: 'requires_payment_method',
+      amount: amount.toFixed(2),
+      currency: 'nad',
+      target_type,
+      target_id,
+      buyer_username: me,
+      metadata,
+      last4: '',
+      brand: 'visa',
+      failure_code: '',
+      failure_message: '',
+      charge_id: '',
+      refunded: false,
+      created_at: nowIso(),
+      confirmed_at: '',
+    }
+    mockPaymentIntents.set(id, pi)
+    return serializeMockIntent(pi)
+  }
+
+  const payIntentDetail = pathname.match(/^\/api\/payments\/intents\/([^/]+)\/?$/)
+  if (payIntentDetail && method === 'GET') {
+    requireAuth(s)
+    const pi = mockPaymentIntents.get(decodeURIComponent(payIntentDetail[1]))
+    if (!pi) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (pi.buyer_username !== s.currentUser && !s.profiles[s.currentUser as string]?.is_staff) {
+      throw new ApiError('Forbidden', 403, { detail: 'Forbidden.' })
+    }
+    return serializeMockIntent(pi)
+  }
+
+  const payIntentConfirm = pathname.match(/^\/api\/payments\/intents\/([^/]+)\/confirm\/?$/)
+  if (payIntentConfirm && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as { card_number?: string }
+    const pi = mockPaymentIntents.get(decodeURIComponent(payIntentConfirm[1]))
+    if (!pi || pi.buyer_username !== s.currentUser) {
+      throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (pi.status === 'succeeded') return serializeMockIntent(pi)
+    const digits = String(body.card_number || '').replace(/\D/g, '')
+    if (digits.length < 13) throw new ApiError('Bad request', 400, { detail: 'Enter a valid card number.' })
+    const outcome = MOCK_CARD_OUTCOMES[digits] || { result: 'succeeded' as const }
+    pi.last4 = digits.slice(-4)
+    pi.brand = digits.startsWith('4') ? 'visa' : 'card'
+    pi.status = 'processing'
+    if (outcome.result === 'succeeded') {
+      pi.status = 'succeeded'
+      pi.failure_code = ''
+      pi.failure_message = ''
+      pi.charge_id = `ch_sim_${Math.random().toString(36).slice(2, 14)}`
+      pi.confirmed_at = nowIso()
+      fulfillMockCapture(pi)
+      return serializeMockIntent(pi)
+    }
+    pi.status = 'failed'
+    pi.failure_code = outcome.code || 'card_declined'
+    pi.failure_message = outcome.message || 'Your card was declined.'
+    throw new ApiError(pi.failure_message, 402, {
+      ...serializeMockIntent(pi),
+      detail: pi.failure_message,
+    })
+  }
+
+  if (pathname === '/api/payments/webhooks/simulate/' && method === 'POST') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    const body = JSON.parse(init.body) as {
+      type?: string
+      event_type?: string
+      payment_intent?: string
+      payment_intent_id?: string
+    }
+    const eventType = (body.type || body.event_type || '').trim()
+    const piId = String(body.payment_intent || body.payment_intent_id || '').trim()
+    const pi = mockPaymentIntents.get(piId)
+    if (!pi) throw new ApiError('Not found', 404, { detail: 'PaymentIntent not found.' })
+    if (eventType === 'payment_intent.succeeded') {
+      pi.status = 'succeeded'
+      pi.charge_id = pi.charge_id || `ch_sim_${Math.random().toString(36).slice(2, 14)}`
+      pi.confirmed_at = nowIso()
+      fulfillMockCapture(pi)
+    } else if (eventType === 'payment_intent.payment_failed') {
+      pi.status = 'failed'
+      pi.failure_message = pi.failure_message || 'Your card was declined.'
+    } else if (eventType === 'charge.refunded' || eventType === 'payment_intent.canceled') {
+      pi.refunded = true
+      fulfillMockRefund(pi)
+    } else {
+      throw new ApiError('Bad request', 400, { detail: `Unsupported event type: ${eventType}` })
+    }
+    return { received: true, payment_intent: serializeMockIntent(pi) }
+  }
+
   if (pathname === '/api/accounts/me/become-provider/' && method === 'POST') {
     requireAuth(s)
     const me = s.currentUser as string
@@ -2708,9 +3179,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const me = s.currentUser as string
     const myTitles = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.title))
     const all = [
-      { id: 1, listing_title: 'Coastal guesthouse', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-10', check_out: '2026-05-13', guests: 2, total_price: '2850', status: 'confirmed', created_at: '2026-04-28T10:00:00Z' },
-      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending', created_at: '2026-05-01T14:30:00Z' },
-      { id: 3, listing_title: 'Freesia Hotel', guest_display_name: 'Anna K.', guest_username: 'anna', check_in: '2026-05-14', check_out: '2026-05-16', guests: 2, total_price: '700', status: 'confirmed', created_at: '2026-04-30T09:15:00Z' },
+      { id: 1, listing_title: 'Coastal guesthouse', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-10', check_out: '2026-05-13', guests: 2, total_price: '2850', status: 'confirmed', platform_fee: '285.00', seller_payout: '2565.00', payout_status: 'held', created_at: '2026-04-28T10:00:00Z' },
+      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending', platform_fee: '0.00', seller_payout: '0.00', payout_status: 'none', created_at: '2026-05-01T14:30:00Z' },
+      { id: 3, listing_title: 'Freesia Hotel', guest_display_name: 'Anna K.', guest_username: 'anna', check_in: '2026-05-14', check_out: '2026-05-16', guests: 2, total_price: '700', status: 'confirmed', platform_fee: '0.00', seller_payout: '0.00', payout_status: 'none', created_at: '2026-04-30T09:15:00Z' },
     ]
     const status = (q.get('status') || '').trim()
     return all.filter((b) => myTitles.has(b.listing_title) && (!status || b.status === status))
@@ -2728,16 +3199,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       check_out: 'checked_out',
       refund: 'refunded',
     }
+    const action = providerBookingActionMatch[2]
+    const session = mockAccBookings.get(Number(providerBookingActionMatch[1]))
+    if (session) {
+      session.status = (statusMap[action] ?? session.status) as MockAccBookingRow['status']
+      if (action === 'check_out') markMockBookingPayoutReleased(session)
+      if (action === 'refund') markMockBookingPayoutRefunded(session)
+      mockAccBookings.set(session.id, session)
+    }
     return {
       id: Number(providerBookingActionMatch[1]),
-      listing_title: 'Coastal guesthouse',
+      listing_title: session?.listing_title ?? 'Coastal guesthouse',
       guest_display_name: 'Demo Explorer',
       guest_username: 'demo_user',
-      check_in: '2026-05-10',
-      check_out: '2026-05-13',
-      guests: 2,
-      total_price: '2850',
-      status: statusMap[providerBookingActionMatch[2]] ?? 'confirmed',
+      check_in: session?.check_in ?? '2026-05-10',
+      check_out: session?.check_out ?? '2026-05-13',
+      guests: session?.guests ?? 2,
+      total_price: session?.total_price ?? '2850',
+      status: statusMap[action] ?? 'confirmed',
+      platform_fee: session?.platform_fee ?? '0.00',
+      seller_payout: session?.seller_payout ?? '0.00',
+      payout_status: session?.payout_status ?? 'none',
     }
   }
 
@@ -4132,6 +4614,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         room_type_name: row.room_type_name,
         status: row.status,
         mock_payment_ref: row.mock_payment_ref,
+        platform_fee: row.platform_fee ?? '0.00',
+        seller_payout: row.seller_payout ?? '0.00',
+        payout_status: row.payout_status ?? 'none',
         has_review: mockAccReviewedBookings.has(row.id),
       }
     })
@@ -4318,12 +4803,16 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       throw new ApiError('Bad request', 400, { detail: 'Payment already recorded.' })
     }
     b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    markMockBookingPayoutHeld(b)
     mockAccBookings.set(bid, b)
     const listing = mockStays.find((st) => st.id === b.listing)
     return {
       detail: 'Payment successful (mock).',
       status: b.status,
       mock_payment_ref: b.mock_payment_ref,
+      platform_fee: b.platform_fee,
+      seller_payout: b.seller_payout,
+      payout_status: b.payout_status,
       booking: {
         id: b.id,
         listing: b.listing,
@@ -4331,6 +4820,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         listing_owner_username: listing?.owner_username ?? '',
         status: b.status,
         mock_payment_ref: b.mock_payment_ref,
+        platform_fee: b.platform_fee,
+        seller_payout: b.seller_payout,
+        payout_status: b.payout_status,
       },
     }
   }
@@ -4469,6 +4961,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: '3120',
         status: 'confirmed',
         renter_document_count: 3,
+        platform_fee: '312.00',
+        seller_payout: '2808.00',
+        payout_status: 'held',
       },
       {
         id: 2,
@@ -4481,6 +4976,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: '2500',
         status: 'pending',
         renter_document_count: 0,
+        platform_fee: '0.00',
+        seller_payout: '0.00',
+        payout_status: 'none',
       },
     ]
     const sessionRows = [...mockVehicleBookings.values()]
@@ -4501,6 +4999,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           total_price: row.total_price,
           status: row.status,
           renter_document_count: row.renter_documents?.length ?? 0,
+          platform_fee: row.platform_fee ?? '0.00',
+          seller_payout: row.seller_payout ?? '0.00',
+          payout_status: row.payout_status ?? 'none',
         }
       })
     return [...staticRows.filter((r) => myTitles.has(r.vehicle_title)), ...sessionRows]
@@ -4515,9 +5016,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         .map((t) => `${t.route_detail.origin} → ${t.route_detail.destination}`),
     )
     const rows = [
-      { id: 1, route_label: 'Windhoek → Swakopmund', passenger_display_name: 'Lisa M.', passenger_username: 'demo_user', seat: 5, date: '2026-05-11', total_price: '180', status: 'confirmed' },
-      { id: 2, route_label: 'Windhoek → Oshakati', passenger_display_name: 'David O.', passenger_username: 'anna', seat: 12, date: '2026-05-15', total_price: '240', status: 'confirmed' },
-      { id: 3, route_label: 'Windhoek → Swakopmund', passenger_display_name: 'Anna F.', passenger_username: 'demo_user', seat: 18, date: '2026-05-21', total_price: '180', status: 'pending' },
+      { id: 1, route_label: 'Windhoek → Swakopmund', passenger_display_name: 'Lisa M.', passenger_username: 'demo_user', seat: 5, date: '2026-05-11', total_price: '180', status: 'confirmed', platform_fee: '18.00', seller_payout: '162.00', payout_status: 'held' },
+      { id: 2, route_label: 'Windhoek → Oshakati', passenger_display_name: 'David O.', passenger_username: 'anna', seat: 12, date: '2026-05-15', total_price: '240', status: 'confirmed', platform_fee: '24.00', seller_payout: '216.00', payout_status: 'held' },
+      { id: 3, route_label: 'Windhoek → Swakopmund', passenger_display_name: 'Anna F.', passenger_username: 'demo_user', seat: 18, date: '2026-05-21', total_price: '180', status: 'pending', platform_fee: '0.00', seller_payout: '0.00', payout_status: 'none' },
     ]
     return rows.filter((r) => myRoutes.has(r.route_label))
   }
@@ -4537,7 +5038,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const id = Number(transportRentalBookingAction[1])
     const session = [...mockVehicleBookings.values()].find((r) => r.id === id)
     if (session) {
-      session.status = statusMap[transportRentalBookingAction[2]] ?? session.status
+      session.status = (statusMap[transportRentalBookingAction[2]] ?? session.status) as MockVehicleBookingRow['status']
+      if (transportRentalBookingAction[2] === 'check_out') markMockBookingPayoutReleased(session)
+      if (transportRentalBookingAction[2] === 'refund') markMockBookingPayoutRefunded(session)
     }
     return {
       id,
@@ -4550,6 +5053,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       total_price: session?.total_price ?? '3120',
       status: statusMap[transportRentalBookingAction[2]] ?? 'confirmed',
       renter_document_count: session?.renter_documents?.length ?? 0,
+      platform_fee: session?.platform_fee ?? '0.00',
+      seller_payout: session?.seller_payout ?? '0.00',
+      payout_status: session?.payout_status ?? 'none',
     }
   }
 
@@ -4565,15 +5071,25 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       check_out: 'checked_out',
       refund: 'refunded',
     }
+    const action = transportSeatBookingAction[2]
+    const session = mockBusReservationRows.get(Number(transportSeatBookingAction[1]))
+    if (session) {
+      session.status = (statusMap[action] ?? session.status) as typeof session.status
+      if (action === 'check_out') markMockBookingPayoutReleased(session)
+      if (action === 'refund') markMockBookingPayoutRefunded(session)
+    }
     return {
       id: Number(transportSeatBookingAction[1]),
       route_label: 'Windhoek → Swakopmund',
       passenger_display_name: 'Anna F.',
       passenger_username: 'demo_user',
-      seat: 18,
+      seat: session?.seat_number ?? 18,
       date: '2026-05-21',
-      total_price: '180',
-      status: statusMap[transportSeatBookingAction[2]] ?? 'confirmed',
+      total_price: session?.total_price ?? '180',
+      status: statusMap[action] ?? 'confirmed',
+      platform_fee: session?.platform_fee ?? '0.00',
+      seller_payout: session?.seller_payout ?? '0.00',
+      payout_status: session?.payout_status ?? 'none',
     }
   }
 
@@ -4785,6 +5301,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         status: 'pending' as const,
         mock_payment_ref: '',
         client: s.currentUser as string,
+        total_price: String(trip.price ?? '0'),
+        platform_fee: '0.00',
+        seller_payout: '0.00',
+        payout_status: 'none' as const,
       }
       mockBusReservationRows.set(rid, row)
       return formatBusReservationRow(row)
@@ -4812,7 +5332,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (!row || row.status !== 'confirmed') {
         throw new ApiError('Waiting for the operator to confirm these seats.', 400, null)
       }
-      if (!row.mock_payment_ref) row.mock_payment_ref = ref
+      if (!row.mock_payment_ref) {
+        row.mock_payment_ref = ref
+        const trip = mockBusTrips.find((t) => t.id === row.trip)
+        markMockBookingPayoutHeld(row, row.total_price ?? trip?.price)
+      }
       if (tripIdForBatch == null) {
         tripIdForBatch = row.trip
       } else if (tripIdForBatch !== row.trip) {
@@ -4824,6 +5348,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       detail: 'Payment successful (mock).',
       status: 'confirmed',
       mock_payment_ref: ref,
+      payout_status: 'held',
       reservations: out,
     }
   }
@@ -4868,10 +5393,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
     row.mock_payment_ref = ref
+    const trip = mockBusTrips.find((t) => t.id === row.trip)
+    markMockBookingPayoutHeld(row, row.total_price ?? trip?.price)
     return {
       detail: 'Payment successful (mock).',
       status: 'confirmed',
       mock_payment_ref: ref,
+      platform_fee: row.platform_fee,
+      seller_payout: row.seller_payout,
+      payout_status: row.payout_status,
     }
   }
 
@@ -4895,6 +5425,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: row.total_price,
         status: row.status,
         mock_payment_ref: row.mock_payment_ref,
+        platform_fee: row.platform_fee ?? '0.00',
+        seller_payout: row.seller_payout ?? '0.00',
+        payout_status: row.payout_status ?? 'none',
         created_at: nowIso(),
         has_review: mockVehReviewedBookings.has(row.id),
       }
@@ -4921,6 +5454,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           seat_price: trip?.price ?? '0',
           status: row.status,
           mock_payment_ref: row.mock_payment_ref,
+          platform_fee: row.platform_fee ?? '0.00',
+          seller_payout: row.seller_payout ?? '0.00',
+          payout_status: row.payout_status ?? 'none',
           created_at: nowIso(),
           has_review: mockBusReviewedReservations.has(row.id),
         }
@@ -5026,10 +5562,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     const ref = `mock_${Math.random().toString(36).slice(2, 18)}`
     row.mock_payment_ref = ref
+    markMockBookingPayoutHeld(row)
     return {
       detail: 'Payment successful (mock).',
       status: 'confirmed',
       mock_payment_ref: ref,
+      platform_fee: row.platform_fee,
+      seller_payout: row.seller_payout,
+      payout_status: row.payout_status,
     }
   }
 
@@ -6643,8 +7183,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/shop/provider-products/' && method === 'POST') {
     requireAuth(s)
     const me = s.currentUser as string
-    const prof = s.profiles[me]
-    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
     const data = await parseProviderShopBody(init.body)
     const row: MockShopProductRow = {
       id: nextShopProductId++,
@@ -6706,6 +7244,52 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return serializeShopProduct(row)
   }
 
+  // ---- Shop: seller profile (storefront avatar + name) ----
+  if (pathname === '/api/shop/provider-profile/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
+    return {
+      display_name: row.display_name,
+      avatar: row.avatar,
+      updated_at: nowIso(),
+    }
+  }
+
+  if (pathname === '/api/shop/provider-profile/' && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
+    if (init.body instanceof FormData) {
+      if (init.body.has('display_name')) {
+        row.display_name = String(init.body.get('display_name') ?? '').trim().slice(0, 120)
+      }
+      const clear = String(init.body.get('clear_avatar') ?? '').toLowerCase()
+      if (clear === 'true' || clear === '1' || clear === 'on') {
+        row.avatar = null
+      } else {
+        const upload = init.body.get('avatar_upload') ?? init.body.get('avatar')
+        if (upload instanceof File) {
+          const bytes = new Uint8Array(await upload.arrayBuffer())
+          let binary = ''
+          for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i])
+          row.avatar = `data:${upload.type || 'image/jpeg'};base64,${btoa(binary)}`
+        }
+      }
+    } else if (isJsonBody(init.body)) {
+      const body = JSON.parse(init.body) as Record<string, unknown>
+      if (typeof body.display_name === 'string') row.display_name = body.display_name.trim().slice(0, 120)
+      if (body.clear_avatar) row.avatar = null
+      else if (typeof body.avatar === 'string') row.avatar = body.avatar
+    }
+    mockShopProfiles[me] = row
+    return {
+      display_name: row.display_name,
+      avatar: row.avatar,
+      updated_at: nowIso(),
+    }
+  }
+
   // ---- Shop: sellers (storefronts) ----
   if (pathname === '/api/shop/sellers/' && method === 'GET') {
     const counts = new Map<string, number>()
@@ -6741,8 +7325,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     return {
       username,
-      display_name: prof?.display_name ?? username,
-      avatar: prof?.avatar ?? null,
+      display_name:
+        (mockShopProfiles[username]?.display_name || '').trim() ||
+        prof?.display_name ||
+        username,
+      avatar: mockShopProfiles[username]?.avatar ?? null,
       bio: prof?.bio ?? '',
       region: prof?.region ?? '',
       city: prof?.city ?? '',
@@ -6762,12 +7349,29 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return (
       {
         pending: 'Pending payment',
-        paid: 'Paid',
+        paid: 'Paid — awaiting seller',
+        ready: 'Ready for pickup / delivery',
+        shipped: 'Shipped',
         fulfilled: 'Fulfilled',
         cancelled: 'Cancelled',
         refunded: 'Refunded',
       }[status] ?? status
     )
+  }
+
+  function shopPayoutStatusLabel(status: string): string {
+    return (
+      {
+        none: 'Not paid yet',
+        held: 'Held by Delve',
+        released: 'Released to seller',
+        refunded: 'Refunded to buyer',
+      }[status] ?? status
+    )
+  }
+
+  function shopPlatformFee(itemsTotal: number): number {
+    return Math.round(itemsTotal * 0.025 * 100) / 100
   }
 
   function shopUnitPrice(product: MockShopProductRow, variantId: number | null): number {
@@ -6918,12 +7522,24 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       }),
       items_total: order.items_total,
       shipping_total: order.shipping_total,
+      platform_fee: order.platform_fee,
+      seller_payout: order.seller_payout,
       total: order.total,
+      payout_status: order.payout_status,
+      payout_status_label: shopPayoutStatusLabel(order.payout_status),
       contact_name: order.contact_name,
       contact_phone: order.contact_phone,
       delivery_address: order.delivery_address,
       note: order.note,
+      tracking_number: order.tracking_number,
+      tracking_carrier: order.tracking_carrier,
+      fulfillment_note: order.fulfillment_note,
       mock_payment_ref: order.mock_payment_ref,
+      seller_handles_fulfillment: true,
+      paid_at: order.paid_at,
+      shipped_at: order.shipped_at,
+      fulfilled_at: order.fulfilled_at,
+      payout_released_at: order.payout_released_at,
       created_at: order.created_at,
     }
   }
@@ -6981,12 +7597,22 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         items,
         items_total: itemsTotal.toFixed(2),
         shipping_total: shipping.toFixed(2),
+        platform_fee: shopPlatformFee(itemsTotal).toFixed(2),
+        seller_payout: (itemsTotal + shipping - shopPlatformFee(itemsTotal)).toFixed(2),
         total: (itemsTotal + shipping).toFixed(2),
+        payout_status: 'none',
         contact_name: String(body.contact_name || ''),
         contact_phone: String(body.contact_phone || ''),
         delivery_address: String(body.delivery_address || ''),
         note: String(body.note || ''),
+        tracking_number: '',
+        tracking_carrier: '',
+        fulfillment_note: '',
         mock_payment_ref: '',
+        paid_at: null,
+        shipped_at: null,
+        fulfilled_at: null,
+        payout_released_at: null,
         created_at: nowIso(),
       }
       mockShopOrders.unshift(order)
@@ -7016,12 +7642,34 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     order.status = 'paid'
     order.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    order.payout_status = 'held'
+    order.paid_at = nowIso()
     return {
-      detail: 'Payment successful (mock).',
+      detail: 'Payment successful (mock). Delve is holding funds until the seller fulfills.',
       status: order.status,
       mock_payment_ref: order.mock_payment_ref,
       order: serializeShopOrder(order),
     }
+  }
+
+  const orderConfirmMatch = pathname.match(/^\/api\/shop\/orders\/([^/]+)\/confirm\/?$/)
+  if (orderConfirmMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const order = mockShopOrders.find(
+      (o) => o.order_ref === decodeURIComponent(orderConfirmMatch[1]) && o.buyer_username === me,
+    )
+    if (!order) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (order.status !== 'ready' && order.status !== 'shipped') {
+      throw new ApiError('Bad request', 400, { detail: 'Order is not awaiting confirmation.' })
+    }
+    order.status = 'fulfilled'
+    order.fulfilled_at = nowIso()
+    if (order.payout_status === 'held') {
+      order.payout_status = 'released'
+      order.payout_released_at = nowIso()
+    }
+    return serializeShopOrder(order)
   }
 
   const orderCancelMatch = pathname.match(/^\/api\/shop\/orders\/([^/]+)\/cancel\/?$/)
@@ -7057,12 +7705,16 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const statusQ = (q.get('status') || '').trim()
     return mockShopOrders
       .filter((o) => o.seller_username === me)
-      .filter((o) => (statusQ ? o.status === statusQ : true))
+      .filter((o) => {
+        if (!statusQ) return true
+        if (statusQ === 'open') return o.status === 'paid' || o.status === 'ready' || o.status === 'shipped'
+        return o.status === statusQ
+      })
       .map((o) => serializeShopOrder(o))
   }
 
   const providerOrderActionMatch = pathname.match(
-    /^\/api\/shop\/provider-orders\/([^/]+)\/(fulfill|cancel|refund)\/?$/,
+    /^\/api\/shop\/provider-orders\/([^/]+)\/(mark-ready|mark-shipped|fulfill|cancel|refund)\/?$/,
   )
   if (providerOrderActionMatch && method === 'POST') {
     requireAuth(s)
@@ -7072,18 +7724,49 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     )
     if (!order) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     const action = providerOrderActionMatch[2]
-    const transitions: Record<string, { from: MockShopOrderRow['status'][]; to: MockShopOrderRow['status'] }> = {
-      fulfill: { from: ['paid'], to: 'fulfilled' },
-      cancel: { from: ['pending', 'paid'], to: 'cancelled' },
-      refund: { from: ['paid', 'fulfilled'], to: 'refunded' },
+    const body = isJsonBody(init.body) ? (JSON.parse(init.body) as Record<string, unknown>) : {}
+    if (typeof body.tracking_number === 'string') order.tracking_number = body.tracking_number.slice(0, 120)
+    if (typeof body.tracking_carrier === 'string') order.tracking_carrier = body.tracking_carrier.slice(0, 80)
+    if (typeof body.fulfillment_note === 'string') order.fulfillment_note = body.fulfillment_note.slice(0, 300)
+
+    if (action === 'mark-ready') {
+      if (order.status !== 'paid') {
+        throw new ApiError('Bad request', 400, { detail: `Cannot mark ready from ${order.status}.` })
+      }
+      order.status = 'ready'
+      order.shipped_at = nowIso()
+    } else if (action === 'mark-shipped') {
+      if (order.status !== 'paid') {
+        throw new ApiError('Bad request', 400, { detail: `Cannot mark shipped from ${order.status}.` })
+      }
+      order.status = 'shipped'
+      order.shipped_at = nowIso()
+    } else if (action === 'fulfill') {
+      if (order.status !== 'paid' && order.status !== 'ready' && order.status !== 'shipped') {
+        throw new ApiError('Bad request', 400, { detail: `Cannot fulfill from ${order.status}.` })
+      }
+      order.status = 'fulfilled'
+      order.fulfilled_at = nowIso()
+      if (order.payout_status === 'held') {
+        order.payout_status = 'released'
+        order.payout_released_at = nowIso()
+      }
+    } else if (action === 'cancel') {
+      if (order.status !== 'pending' && order.status !== 'paid') {
+        throw new ApiError('Bad request', 400, {
+          detail: `Cannot move order from ${order.status} to cancelled.`,
+        })
+      }
+      order.status = 'cancelled'
+    } else if (action === 'refund') {
+      if (!['paid', 'ready', 'shipped', 'fulfilled'].includes(order.status)) {
+        throw new ApiError('Bad request', 400, {
+          detail: `Cannot move order from ${order.status} to refunded.`,
+        })
+      }
+      order.status = 'refunded'
+      order.payout_status = 'refunded'
     }
-    const rule = transitions[action]
-    if (!rule.from.includes(order.status)) {
-      throw new ApiError('Bad request', 400, {
-        detail: `Cannot move order from ${order.status} to ${rule.to}.`,
-      })
-    }
-    order.status = rule.to
     return serializeShopOrder(order)
   }
 
@@ -7272,6 +7955,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: '3600.00',
         status: 'confirmed',
         mock_payment_ref: 'mock_demo',
+        platform_fee: '360.00',
+        seller_payout: '3240.00',
+        payout_status: 'held',
       },
       {
         id: 9002,
@@ -7288,6 +7974,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: '12800.00',
         status: 'pending',
         mock_payment_ref: '',
+        platform_fee: '0.00',
+        seller_payout: '0.00',
+        payout_status: 'none',
       },
       {
         id: 9003,
@@ -7304,6 +7993,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         total_price: '5400.00',
         status: 'confirmed',
         mock_payment_ref: '',
+        platform_fee: '0.00',
+        seller_payout: '0.00',
+        payout_status: 'none',
       },
     ]
     const sessionRows = [...mockGuideBookings.values()]
@@ -7327,6 +8019,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           total_price: String(row.total_price ?? '0'),
           status: String(row.status ?? 'pending'),
           mock_payment_ref: String(row.mock_payment_ref ?? ''),
+          platform_fee: String(row.platform_fee ?? '0.00'),
+          seller_payout: String(row.seller_payout ?? '0.00'),
+          payout_status: String(row.payout_status ?? 'none'),
         }
       })
     const all = guide.username === 'guide_pro' ? [...staticRows, ...sessionRows] : sessionRows
@@ -7349,6 +8044,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const session = mockGuideBookings.get(bid)
     if (session) {
       session.status = statusMap[action] ?? session.status
+      if (action === 'complete') markMockBookingPayoutReleased(session)
+      if (action === 'refund') markMockBookingPayoutRefunded(session)
       mockGuideBookings.set(bid, session)
     }
     return {
@@ -7359,8 +8056,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       date: '2026-05-12',
       guests: 2,
       duration_hours: 4,
-      total_price: '3600.00',
+      total_price: String(session?.total_price ?? '3600.00'),
       status: statusMap[action] ?? 'confirmed',
+      platform_fee: String(session?.platform_fee ?? '0.00'),
+      seller_payout: String(session?.seller_payout ?? '0.00'),
+      payout_status: String(session?.payout_status ?? 'none'),
     }
   }
 
@@ -7645,6 +8345,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     notes?: string
     total_price?: string
     mock_payment_ref?: string
+    platform_fee?: string
+    seller_payout?: string
+    payout_status?: string
     status: string
     created_at?: string
   }) {
@@ -7665,6 +8368,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       notes: row.notes,
       total_price: row.total_price,
       mock_payment_ref: row.mock_payment_ref || '',
+      platform_fee: row.platform_fee ?? '0.00',
+      seller_payout: row.seller_payout ?? '0.00',
+      payout_status: row.payout_status ?? 'none',
       status: row.status,
       created_at: row.created_at,
     }
@@ -7691,6 +8397,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     b.status = 'confirmed'
     b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    markMockBookingPayoutHeld(b)
     mockGuideBookings.set(bid, b)
     return serializeTravellerGuideBooking(b)
   }

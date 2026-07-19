@@ -138,6 +138,8 @@ class OrderSerializer(serializers.ModelSerializer):
     seller_avatar = serializers.SerializerMethodField()
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     fulfillment_label = serializers.CharField(source="get_fulfillment_type_display", read_only=True)
+    payout_status_label = serializers.CharField(source="get_payout_status_display", read_only=True)
+    seller_handles_fulfillment = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -156,12 +158,24 @@ class OrderSerializer(serializers.ModelSerializer):
             "items",
             "items_total",
             "shipping_total",
+            "platform_fee",
+            "seller_payout",
             "total",
+            "payout_status",
+            "payout_status_label",
             "contact_name",
             "contact_phone",
             "delivery_address",
             "note",
+            "tracking_number",
+            "tracking_carrier",
+            "fulfillment_note",
             "mock_payment_ref",
+            "seller_handles_fulfillment",
+            "paid_at",
+            "shipped_at",
+            "fulfilled_at",
+            "payout_released_at",
             "created_at",
         )
 
@@ -173,6 +187,18 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_seller_avatar(self, obj) -> str | None:
         return _owner_avatar(obj.seller, self.context.get("request"))
+
+    def get_seller_handles_fulfillment(self, obj) -> bool:
+        """Delve is the payments middleman; sellers handle shipping/pickup."""
+        return True
+
+
+class SellerFulfillmentSerializer(serializers.Serializer):
+    """Seller marks an order ready or shipped (they handle logistics)."""
+
+    tracking_number = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    tracking_carrier = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    fulfillment_note = serializers.CharField(max_length=300, required=False, allow_blank=True)
 
 
 class CheckoutSerializer(serializers.Serializer):

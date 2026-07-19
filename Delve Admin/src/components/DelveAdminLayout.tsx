@@ -16,7 +16,10 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  Scale,
+  MessageSquareQuote,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { DelveAdminNotifications } from './DelveAdminNotifications'
@@ -35,6 +38,9 @@ const NAV = [
   { to: '/admin/home-pins', label: 'Home pins', icon: Pin },
   { to: '/admin/home-stories', label: 'Home stories', icon: Sparkles },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },
+  { to: '/admin/payments', label: 'Payments', icon: Wallet },
+  { to: '/admin/disputes', label: 'Disputes', icon: Scale },
+  { to: '/admin/reviews', label: 'Reviews', icon: MessageSquareQuote },
   { to: '/admin/reports', label: 'Reports', icon: Flag },
   { to: '/admin/moderation', label: 'Content', icon: ShieldAlert },
   { to: '/admin/email-verification', label: 'Email verify', icon: Mail },

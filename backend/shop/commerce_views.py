@@ -5,19 +5,26 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.business_access import provider_listing_owner_ids
-from accounts.permissions import IsProviderOrBusinessMember
 
 from .commerce_serializers import (
     CartAddSerializer,
     CartSerializer,
     CheckoutSerializer,
     OrderSerializer,
+    SellerFulfillmentSerializer,
+)
+from .commerce_services import (
+    apply_marketplace_totals,
+    mark_fulfilled,
+    mark_payment_held,
+    mark_refunded,
 )
 from .models import (
     Cart,
@@ -141,7 +148,7 @@ class CartItemView(APIView):
 
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):
-    """Buyer orders — list/retrieve own orders, checkout, and mock-pay."""
+    """Buyer orders — list/retrieve own orders, checkout, mock-pay, and confirm receipt."""
 
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -210,7 +217,16 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
                         shipping_fee = max(shipping_fee, item.product.shipping_fee or Decimal("0"))
                 order.shipping_total = shipping_fee
                 order.recalc_totals()
-                order.save(update_fields=["items_total", "shipping_total", "total"])
+                apply_marketplace_totals(order)
+                order.save(
+                    update_fields=[
+                        "items_total",
+                        "shipping_total",
+                        "total",
+                        "platform_fee",
+                        "seller_payout",
+                    ]
+                )
                 created_orders.append(order)
 
             # Remove purchased items from the cart.
@@ -229,10 +245,11 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"detail": "Order is not awaiting payment."}, status=status.HTTP_400_BAD_REQUEST)
         order.status = OrderStatus.PAID
         order.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        order.save(update_fields=["status", "mock_payment_ref", "updated_at"])
+        fields = ["status", "mock_payment_ref", "updated_at", *mark_payment_held(order)]
+        order.save(update_fields=list(dict.fromkeys(fields)))
         return Response(
             {
-                "detail": "Payment successful (mock).",
+                "detail": "Payment successful (mock). Delve is holding funds until the seller fulfills.",
                 "status": order.status,
                 "mock_payment_ref": order.mock_payment_ref,
                 "order": OrderSerializer(order, context={"request": request}).data,
@@ -248,12 +265,25 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
         order.save(update_fields=["status", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data)
 
+    @action(detail=True, methods=["post"])
+    def confirm(self, request, order_ref=None):
+        """Buyer confirms receipt — releases seller payout."""
+        order = self.get_object()
+        if order.status not in (OrderStatus.READY, OrderStatus.SHIPPED):
+            return Response(
+                {"detail": "Order is not awaiting confirmation."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        fields = mark_fulfilled(order)
+        order.save(update_fields=list(dict.fromkeys(fields)))
+        return Response(OrderSerializer(order, context={"request": request}).data)
+
 
 class ProviderOrderViewSet(viewsets.ReadOnlyModelViewSet):
-    """Seller inbox — orders for shops the user manages."""
+    """Seller inbox — orders for shops the user manages. Sellers handle shipping/pickup."""
 
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated, IsProviderOrBusinessMember]
+    permission_classes = [permissions.IsAuthenticated]
     lookup_field = "order_ref"
 
     def get_queryset(self):
@@ -265,7 +295,13 @@ class ProviderOrderViewSet(viewsets.ReadOnlyModelViewSet):
         )
         status_param = self.request.query_params.get("status")
         if status_param:
-            qs = qs.filter(status=status_param)
+            # Convenience: "open" = paid + ready + shipped (awaiting seller / buyer confirm).
+            if status_param == "open":
+                qs = qs.filter(
+                    status__in=(OrderStatus.PAID, OrderStatus.READY, OrderStatus.SHIPPED)
+                )
+            else:
+                qs = qs.filter(status=status_param)
         return qs
 
     def get_serializer_context(self):
@@ -273,32 +309,97 @@ class ProviderOrderViewSet(viewsets.ReadOnlyModelViewSet):
         ctx["request"] = self.request
         return ctx
 
-    def _transition(self, request, order_ref, target, allowed_from):
+    def _apply_fulfillment_fields(self, order, data: dict) -> list[str]:
+        fields: list[str] = []
+        if "tracking_number" in data:
+            order.tracking_number = (data.get("tracking_number") or "")[:120]
+            fields.append("tracking_number")
+        if "tracking_carrier" in data:
+            order.tracking_carrier = (data.get("tracking_carrier") or "")[:80]
+            fields.append("tracking_carrier")
+        if "fulfillment_note" in data:
+            order.fulfillment_note = (data.get("fulfillment_note") or "")[:300]
+            fields.append("fulfillment_note")
+        return fields
+
+    @action(detail=True, methods=["post"], url_path="mark-ready")
+    def mark_ready(self, request, order_ref=None):
+        """Seller: ready for pickup or lodge drop-off."""
         order = self.get_object()
-        if order.status not in allowed_from:
+        if order.status != OrderStatus.PAID:
             return Response(
-                {"detail": f"Cannot move order from {order.status} to {target}."},
+                {"detail": f"Cannot mark ready from {order.status}."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        order.status = target
-        order.save(update_fields=["status", "updated_at"])
+        ser = SellerFulfillmentSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        order.status = OrderStatus.READY
+        order.shipped_at = timezone.now()
+        fields = ["status", "shipped_at", "updated_at", *self._apply_fulfillment_fields(order, ser.validated_data)]
+        order.save(update_fields=list(dict.fromkeys(fields)))
+        return Response(OrderSerializer(order, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="mark-shipped")
+    def mark_shipped(self, request, order_ref=None):
+        """Seller: dispatched with courier (seller-managed shipping)."""
+        order = self.get_object()
+        if order.status != OrderStatus.PAID:
+            return Response(
+                {"detail": f"Cannot mark shipped from {order.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ser = SellerFulfillmentSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        order.status = OrderStatus.SHIPPED
+        order.shipped_at = timezone.now()
+        fields = ["status", "shipped_at", "updated_at", *self._apply_fulfillment_fields(order, ser.validated_data)]
+        order.save(update_fields=list(dict.fromkeys(fields)))
         return Response(OrderSerializer(order, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def fulfill(self, request, order_ref=None):
-        return self._transition(request, order_ref, OrderStatus.FULFILLED, {OrderStatus.PAID})
+        """Seller confirms handoff complete (also releases payout)."""
+        order = self.get_object()
+        if order.status not in (OrderStatus.PAID, OrderStatus.READY, OrderStatus.SHIPPED):
+            return Response(
+                {"detail": f"Cannot fulfill from {order.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ser = SellerFulfillmentSerializer(data=request.data or {})
+        ser.is_valid(raise_exception=True)
+        extra = self._apply_fulfillment_fields(order, ser.validated_data)
+        fields = [*extra, *mark_fulfilled(order)]
+        order.save(update_fields=list(dict.fromkeys(fields)))
+        return Response(OrderSerializer(order, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, order_ref=None):
-        return self._transition(
-            request, order_ref, OrderStatus.CANCELLED, {OrderStatus.PENDING, OrderStatus.PAID}
-        )
+        order = self.get_object()
+        if order.status not in (OrderStatus.PENDING, OrderStatus.PAID):
+            return Response(
+                {"detail": f"Cannot move order from {order.status} to cancelled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        order.status = OrderStatus.CANCELLED
+        order.save(update_fields=["status", "updated_at"])
+        return Response(OrderSerializer(order, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def refund(self, request, order_ref=None):
-        return self._transition(
-            request, order_ref, OrderStatus.REFUNDED, {OrderStatus.PAID, OrderStatus.FULFILLED}
-        )
+        order = self.get_object()
+        if order.status not in (
+            OrderStatus.PAID,
+            OrderStatus.READY,
+            OrderStatus.SHIPPED,
+            OrderStatus.FULFILLED,
+        ):
+            return Response(
+                {"detail": f"Cannot move order from {order.status} to refunded."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        fields = mark_refunded(order)
+        order.save(update_fields=list(dict.fromkeys(fields)))
+        return Response(OrderSerializer(order, context={"request": request}).data)
 
 
 class SellerStorefrontView(APIView):
@@ -307,7 +408,11 @@ class SellerStorefrontView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, username):
-        seller = User.objects.filter(username__iexact=username).select_related("profile").first()
+        seller = (
+            User.objects.filter(username__iexact=username)
+            .select_related("profile", "shop_profile")
+            .first()
+        )
         if not seller:
             return Response({"detail": "Shop not found."}, status=status.HTTP_404_NOT_FOUND)
         products = (
@@ -318,15 +423,20 @@ class SellerStorefrontView(APIView):
         )
         profile = getattr(seller, "profile", None)
         avatar = None
-        if profile and getattr(profile, "avatar", None):
+        shop_profile = getattr(seller, "shop_profile", None)
+        if shop_profile and getattr(shop_profile, "avatar", None):
             try:
-                avatar = request.build_absolute_uri(profile.avatar.url)
+                avatar = request.build_absolute_uri(shop_profile.avatar.url)
             except Exception:
                 avatar = None
+        shop_name = (getattr(shop_profile, "display_name", None) or "").strip()
         display_name = (
-            profile.display_name.strip()
-            if profile and profile.display_name and profile.display_name.strip()
-            else seller.username
+            shop_name
+            or (
+                profile.display_name.strip()
+                if profile and profile.display_name and profile.display_name.strip()
+                else seller.username
+            )
         )
         product_data = ShopProductSerializer(
             products, many=True, context={"request": request}

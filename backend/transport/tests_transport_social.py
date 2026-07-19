@@ -67,13 +67,13 @@ class TransportSocialReviewsTests(TestCase):
             start_date=(timezone.now().date() + timedelta(days=1)),
             end_date=(timezone.now().date() + timedelta(days=3)),
             total_price="1800.00",
-            status=BookingStatus.CONFIRMED,
+            status=BookingStatus.CHECKED_OUT,
         )
         self.seat = SeatReservation.objects.create(
             trip=self.trip,
             passenger=self.traveler,
             seat_number=12,
-            status=BookingStatus.CONFIRMED,
+            status=BookingStatus.CHECKED_OUT,
         )
 
     def test_delvers_post_links_to_vehicle_and_appears_in_moments(self):
@@ -111,7 +111,7 @@ class TransportSocialReviewsTests(TestCase):
         self.assertEqual(moments.status_code, 200)
         self.assertEqual(len(moments.data), 1)
 
-    def test_vehicle_review_after_confirmed_booking(self):
+    def test_vehicle_review_after_checked_out_booking(self):
         self.client.force_authenticate(user=self.traveler)
         res = self.client.post(
             f"/api/transport/vehicle-bookings/{self.vehicle_booking.pk}/review/",
@@ -126,7 +126,7 @@ class TransportSocialReviewsTests(TestCase):
         self.vehicle.refresh_from_db()
         self.assertEqual(self.vehicle.rating_count, 1)
 
-    def test_seat_review_after_confirmed_trip(self):
+    def test_seat_review_after_checked_out_trip(self):
         self.client.force_authenticate(user=self.traveler)
         res = self.client.post(
             f"/api/transport/bus/reservations/{self.seat.pk}/review/",

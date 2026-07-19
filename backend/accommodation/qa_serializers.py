@@ -25,7 +25,17 @@ class AccommodationReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AccommodationReview
-        fields = ("id", "name", "place", "rating", "body", "avatar", "created_at")
+        fields = (
+            "id",
+            "name",
+            "place",
+            "rating",
+            "body",
+            "seller_reply",
+            "seller_replied_at",
+            "avatar",
+            "created_at",
+        )
         read_only_fields = fields
 
     def get_name(self, obj):
@@ -54,13 +64,9 @@ class AccommodationReviewCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         booking: AccommodationBooking = self.context["booking"]
-        if booking.status not in (
-            BookingStatus.CONFIRMED,
-            BookingStatus.CHECKED_IN,
-            BookingStatus.CHECKED_OUT,
-        ):
+        if booking.status != BookingStatus.CHECKED_OUT:
             raise serializers.ValidationError(
-                "You can review after your stay is confirmed or completed."
+                "You can review after your stay is checked out."
             )
         if AccommodationReview.objects.filter(booking=booking).exists():
             raise serializers.ValidationError("You already reviewed this stay.")

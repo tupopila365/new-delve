@@ -26,6 +26,15 @@ from promotions.views import (
     PlatformPromotionDetailView,
     PlatformPromotionsView,
 )
+from .marketplace_dispute_views import (
+    MeDisputeDetailView,
+    MeDisputesView,
+    PlatformDisputeDetailView,
+    PlatformDisputesView,
+)
+from .seller_trust_views import BusinessTrustView, SellerTrustByUsernameView
+from .review_moderation_views import PlatformReviewsView
+from .seller_review_reply_views import ProviderReviewReplyView, ProviderReviewsView
 from .platform_marketplace_views import (
     PlatformBookingDetailView,
     PlatformBookingsView,
@@ -33,6 +42,8 @@ from .platform_marketplace_views import (
     PlatformFoodListingInspectorView,
     PlatformGuideListingInspectorView,
     PlatformListingsView,
+    PlatformPaymentDetailView,
+    PlatformPaymentsView,
 )
 from .platform_views import (
     PlatformActivityView,
@@ -98,6 +109,8 @@ urlpatterns = [
     path("announcement/", PublicAnnouncementView.as_view(), name="public-announcement"),
     path("me/journey-questions/", MeJourneyQuestionsView.as_view(), name="me-journey-questions"),
     path("provider/listing-questions/", ProviderListingQuestionsView.as_view(), name="provider-listing-questions"),
+    path("me/disputes/", MeDisputesView.as_view(), name="me-disputes"),
+    path("me/disputes/<int:pk>/", MeDisputeDetailView.as_view(), name="me-dispute-detail"),
     path("admin/overview/", PlatformOverviewView.as_view(), name="platform-overview"),
     path("admin/activity/", PlatformActivityView.as_view(), name="platform-activity"),
     path("admin/users/", PlatformUsersView.as_view(), name="platform-users"),
@@ -163,6 +176,25 @@ urlpatterns = [
         PlatformBookingDetailView.as_view(),
         name="platform-booking-detail",
     ),
+    path("admin/payments/", PlatformPaymentsView.as_view(), name="platform-payments"),
+    path("admin/reviews/", PlatformReviewsView.as_view(), name="platform-reviews"),
+    path("provider/reviews/", ProviderReviewsView.as_view(), name="provider-reviews"),
+    path(
+        "provider/reviews/<str:source>/<int:review_id>/reply/",
+        ProviderReviewReplyView.as_view(),
+        name="provider-review-reply",
+    ),
+    path(
+        "admin/payments/<str:source>/<int:record_id>/",
+        PlatformPaymentDetailView.as_view(),
+        name="platform-payment-detail",
+    ),
+    path("admin/disputes/", PlatformDisputesView.as_view(), name="platform-disputes"),
+    path(
+        "admin/disputes/<int:pk>/",
+        PlatformDisputeDetailView.as_view(),
+        name="platform-dispute-detail",
+    ),
     path("admin/email-verification/", PlatformEmailVerificationView.as_view(), name="platform-email-verification"),
     path(
         "admin/email-verification/<int:pk>/",
@@ -170,7 +202,17 @@ urlpatterns = [
         name="platform-email-verification-user",
     ),
     path("users/<str:username>/", PublicProfileView.as_view(), name="public-profile"),
+    path(
+        "sellers/<str:username>/trust/",
+        SellerTrustByUsernameView.as_view(),
+        name="seller-trust",
+    ),
     path("businesses/", BusinessProfileListView.as_view(), name="business-list"),
     path("businesses/<int:pk>/", BusinessProfileDetailView.as_view(), name="business-detail"),
+    path(
+        "businesses/<int:pk>/trust/",
+        BusinessTrustView.as_view(),
+        name="business-trust",
+    ),
     path("businesses/<int:pk>/listings/", BusinessListingsView.as_view(), name="business-listings"),
 ]

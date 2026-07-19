@@ -59,6 +59,8 @@ export type ProductReview = {
   avatar?: string | null
   rating: number
   body: string
+  seller_reply?: string
+  seller_replied_at?: string
   media: ProductReviewMedia[]
   verified_purchase: boolean
   created_at: string
@@ -128,7 +130,16 @@ export type OrderItem = {
   line_total: string
 }
 
-export type OrderStatus = 'pending' | 'paid' | 'fulfilled' | 'cancelled' | 'refunded'
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'ready'
+  | 'shipped'
+  | 'fulfilled'
+  | 'cancelled'
+  | 'refunded'
+
+export type PayoutStatus = 'none' | 'held' | 'released' | 'refunded'
 
 export type Order = {
   id: number
@@ -145,12 +156,24 @@ export type Order = {
   items: OrderItem[]
   items_total: string | number
   shipping_total: string | number
+  platform_fee?: string | number
+  seller_payout?: string | number
   total: string | number
+  payout_status?: PayoutStatus
+  payout_status_label?: string
   contact_name?: string
   contact_phone?: string
   delivery_address?: string
   note?: string
+  tracking_number?: string
+  tracking_carrier?: string
+  fulfillment_note?: string
   mock_payment_ref?: string
+  seller_handles_fulfillment?: boolean
+  paid_at?: string | null
+  shipped_at?: string | null
+  fulfilled_at?: string | null
+  payout_released_at?: string | null
   created_at?: string
 }
 

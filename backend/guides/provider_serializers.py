@@ -384,6 +384,10 @@ class ProviderGuideProfileSerializer(serializers.ModelSerializer):
         return rows
 
     def create(self, validated_data):
+        from accounts.seller_trust import enforce_service_go_live
+
+        user = validated_data.get("user") or self.context["request"].user
+        enforce_service_go_live(user=user, wanting_active=bool(validated_data.get("is_active", True)))
         photo_url = validated_data.pop("photo_url", "")
         portfolio = self._normalize_portfolio(validated_data.pop("portfolio_gallery", []))
         validated_data["portfolio_gallery"] = portfolio
@@ -396,6 +400,13 @@ class ProviderGuideProfileSerializer(serializers.ModelSerializer):
         return instance
 
     def update(self, instance, validated_data):
+        if "is_active" in validated_data:
+            from accounts.seller_trust import enforce_service_go_live
+
+            enforce_service_go_live(
+                user=instance.user,
+                wanting_active=bool(validated_data.get("is_active")),
+            )
         photo_url = validated_data.pop("photo_url", None)
         had_photo_upload = "photo" in validated_data
         if "portfolio_gallery" in validated_data:
@@ -445,6 +456,11 @@ class ProviderGuideBookingSerializer(serializers.ModelSerializer):
             "meeting_point",
             "notes",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "status",
             "mock_payment_ref",
         )

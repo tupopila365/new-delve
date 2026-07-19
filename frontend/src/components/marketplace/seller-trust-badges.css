@@ -1,0 +1,39 @@
+.seller-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.seller-trust--compact {
+  margin-top: 6px;
+  gap: 6px;
+}
+
+.seller-trust__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: rgb(28 25 20 / 0.06);
+  color: #2a241c;
+}
+
+.seller-trust--compact .seller-trust__chip {
+  padding: 4px 8px;
+  font-size: 0.72rem;
+}
+
+.seller-trust__chip--success {
+  background: rgb(46 110 72 / 0.12);
+  color: #1f5a38;
+}
+
+.seller-trust__chip--urgency {
+  background: rgb(160 70 30 / 0.12);
+  color: #8a3a14;
+}

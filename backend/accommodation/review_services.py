@@ -23,7 +23,9 @@ def sync_listing_rating_from_reviews(listing: AccommodationListing) -> None:
     ratings = _json_review_ratings(listing)
     ratings.extend(
         float(r)
-        for r in AccommodationReview.objects.filter(listing=listing).values_list("rating", flat=True)
+        for r in AccommodationReview.objects.filter(listing=listing, is_hidden=False).values_list(
+            "rating", flat=True
+        )
     )
     if not ratings:
         return
@@ -36,7 +38,7 @@ def listing_reviews_payload(listing: AccommodationListing) -> dict:
     """API reviews list: traveler reviews plus seeded host JSON entries."""
     rows = []
     for review in (
-        AccommodationReview.objects.filter(listing=listing)
+        AccommodationReview.objects.filter(listing=listing, is_hidden=False)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:50]
     ):
@@ -53,6 +55,10 @@ def listing_reviews_payload(listing: AccommodationListing) -> dict:
                 "place": place,
                 "rating": review.rating,
                 "body": review.body,
+                "seller_reply": (review.seller_reply or "").strip(),
+                "seller_replied_at": (
+                    review.seller_replied_at.isoformat() if review.seller_replied_at else ""
+                ),
                 "avatar": avatar,
                 "created_at": review.created_at.isoformat(),
                 "source": "traveler",

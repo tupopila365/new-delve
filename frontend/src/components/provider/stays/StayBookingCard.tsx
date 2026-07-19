@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
 import { BookingStatusBadge } from '../../booking'
 import { messageUserPath } from '../../messages/messageProviderUtils'
+import { formatSellerPayoutLine } from '../../../utils/bookingPayout'
 
 export type StayProviderBooking = {
   id: number
@@ -13,6 +14,9 @@ export type StayProviderBooking = {
   guests: number
   total_price: string
   status: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
 }
 
 type Props = {
@@ -32,6 +36,8 @@ export function StayBookingCard({
   onAction,
   actionPending,
 }: Props) {
+  const payoutLine = formatSellerPayoutLine(booking)
+
   return (
     <article className="prov-ui__booking">
       <div className="prov-ui__booking-top">
@@ -51,6 +57,7 @@ export function StayBookingCard({
         <span>{booking.guests} guests</span>
         <strong>N${parseFloat(booking.total_price).toLocaleString()}</strong>
       </div>
+      {payoutLine ? <p className="prov-ui__booking-payout">{payoutLine}</p> : null}
       <div className="prov-ui__booking-actions">
         {canManage
           ? statusActions.map((a) => (

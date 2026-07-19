@@ -45,6 +45,9 @@ type ProviderBooking = {
   guests: number
   total_price: string
   status: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
 }
 
 const TABS = [

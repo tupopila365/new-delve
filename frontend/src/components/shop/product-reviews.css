@@ -231,6 +231,30 @@
   line-height: 1.55;
 }
 
+.pr__item-reply {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(208, 170, 127, 0.45);
+  background: rgba(255, 250, 242, 0.04);
+}
+
+.pr__item-reply-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(244, 214, 181, 0.72);
+  margin-bottom: 4px;
+}
+
+.pr__item-reply-body {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.72);
+}
+
 .pr__media {
   display: flex;
   flex-wrap: wrap;

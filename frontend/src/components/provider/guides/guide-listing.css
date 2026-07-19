@@ -24,8 +24,8 @@
 
 .guide-card.prov-ui__card {
   padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--manage-line-soft);
+  background: var(--manage-card);
 }
 
 .guide-card__thumb {
@@ -34,7 +34,7 @@
   max-width: 120px;
   aspect-ratio: 4 / 3;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -42,7 +42,7 @@
 }
 
 .guide-card__thumb-fallback {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
   display: grid;
   place-items: center;
 }
@@ -62,15 +62,15 @@
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(12, 10, 9, 0.85);
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .guide-card__badge--draft {
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .guide-card__badge--hidden {
-  color: rgba(255, 250, 242, 0.65);
+  color: var(--manage-ink-soft);
 }
 
 .guide-card__body {
@@ -98,8 +98,8 @@
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 250, 242, 0.55);
+  background: var(--manage-paper);
+  color: var(--manage-muted);
 }
 
 .guide-card__status--live {
@@ -110,13 +110,13 @@
 .guide-card__meta {
   margin: 6px 0 0;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .guide-card__desc {
   margin: 8px 0 0;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.65);
+  color: var(--manage-ink-soft);
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -127,13 +127,13 @@
 .guide-card__rating {
   margin: 8px 0 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .guide-card__missing {
   margin: 8px 0 0;
   font-size: 0.78rem;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .guide-card__actions {
@@ -148,8 +148,8 @@
   flex-direction: column;
   gap: 14px;
   padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--manage-line-soft);
+  background: var(--manage-card);
 }
 
 .guide-profile-card__top {
@@ -170,7 +170,7 @@
   width: 96px;
   height: 96px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   overflow: hidden;
   flex-shrink: 0;
   display: grid;
@@ -184,7 +184,7 @@
 }
 
 .guide-profile-card__photo-fallback {
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .guide-profile-card__info {
@@ -202,7 +202,7 @@
 .guide-profile-card__name {
   margin: 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.5);
+  color: var(--manage-muted);
 }
 
 .guide-profile-card__headline {
@@ -215,7 +215,7 @@
 .guide-profile-card__bio {
   margin: 8px 0 0;
   font-size: 0.85rem;
-  color: rgba(255, 250, 242, 0.65);
+  color: var(--manage-ink-soft);
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -229,7 +229,7 @@
   gap: 10px;
   margin-top: 10px;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .guide-profile-card__stats span {
@@ -250,16 +250,16 @@
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 250, 242, 0.65);
+  background: var(--manage-paper);
+  color: var(--manage-ink-soft);
 }
 
 .guide-profile-card__chip--accent {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 154, 82, 0.15);
-  color: #a78bfa;
+  background: var(--manage-chip);
+  color: var(--manage-ink);
 }
 
 .guide-profile-card__actions {
@@ -274,9 +274,9 @@
   margin-top: 12px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px dashed rgba(255, 154, 82, 0.4);
+  border: 1px dashed var(--manage-ink-soft);
   background: rgba(255, 154, 82, 0.06);
-  color: #a78bfa;
+  color: var(--manage-ink);
   font-size: 0.9rem;
   font-weight: 700;
   font-family: inherit;
@@ -286,7 +286,7 @@
 .guide-hint {
   margin: 0 0 12px;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.5);
+  color: var(--manage-muted);
 }
 
 /* Form modal */
@@ -323,9 +323,10 @@
   display: flex;
   flex-direction: column;
   border-radius: 16px 16px 0 0;
-  background: #141110;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fffaf2;
+  background: var(--manage-card, #ffffff);
+  border: 1px solid var(--manage-line, #ddd6ca);
+  color: var(--manage-ink, #1a1814);
+  box-shadow: 0 20px 50px rgba(26, 24, 20, 0.18);
   overflow: hidden;
 }
 
@@ -344,12 +345,13 @@
   margin: 0 0 6px;
   font-size: 1.15rem;
   font-weight: 800;
+  color: var(--manage-ink, #1a1814);
 }
 
 .guide-form__head p {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   line-height: 1.45;
 }
 
@@ -369,9 +371,9 @@
   flex-shrink: 0;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.65);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
   font-size: 0.78rem;
   font-weight: 600;
   font-family: inherit;
@@ -379,9 +381,9 @@
 }
 
 .guide-form__nav-btn--active {
-  background: #a78bfa;
-  border-color: #a78bfa;
-  color: #1a0f05;
+  background: var(--manage-ink);
+  border-color: var(--manage-ink);
+  color: var(--manage-paper);
 }
 
 .guide-form__error {
@@ -411,7 +413,7 @@
   gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .guide-form__field input,
@@ -420,9 +422,9 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fffaf2;
+  border: 1px solid var(--manage-line);
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   font-size: 0.92rem;
   font-family: inherit;
 }
@@ -431,7 +433,7 @@
 .guide-form__field select:focus,
 .guide-form__field textarea:focus {
   outline: none;
-  border-color: rgba(255, 154, 82, 0.5);
+  border-color: var(--manage-ink-soft);
 }
 
 .guide-form__row {
@@ -451,13 +453,13 @@
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink, #1a1814);
 }
 
 .guide-form__hint {
   margin: 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
   line-height: 1.45;
 }
 
@@ -465,7 +467,7 @@
   margin: 0;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .guide-form__chips {
@@ -477,9 +479,9 @@
 .guide-form__chip {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.65);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-card);
+  color: var(--manage-ink-soft);
   font-size: 0.8rem;
   font-weight: 600;
   font-family: inherit;
@@ -488,15 +490,15 @@
 
 .guide-form__chip--on {
   background: rgba(255, 154, 82, 0.2);
-  border-color: rgba(255, 154, 82, 0.5);
-  color: #a78bfa;
+  border-color: var(--manage-ink-soft);
+  color: var(--manage-ink);
 }
 
 .guide-form__subcard {
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--manage-line-soft);
+  background: var(--manage-paper);
 }
 
 .guide-form__subcard-head {
@@ -516,9 +518,9 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 250, 242, 0.55);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-card);
+  color: var(--manage-muted);
   cursor: pointer;
 }
 
@@ -528,9 +530,9 @@
   gap: 6px;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px dashed rgba(255, 154, 82, 0.4);
+  border: 1px dashed var(--manage-ink-soft);
   background: transparent;
-  color: #a78bfa;
+  color: var(--manage-ink);
   font-size: 0.85rem;
   font-weight: 600;
   font-family: inherit;
@@ -550,5 +552,5 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--manage-line-soft);
 }

@@ -4,7 +4,7 @@ import { useOutletContext } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
-import { ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
+import { ProviderUiHeader, ProviderUiPage, ProviderUiStats } from '../components/provider/ui'
 
 type ProviderListingOption = {
   target_type: string
@@ -221,6 +221,7 @@ export function ProviderPromotions() {
       setError('')
       setProviderNotes('')
       void qc.invalidateQueries({ queryKey: ['provider-promotions'] })
+      void qc.invalidateQueries({ queryKey: ['provider-promotion-analytics'] })
     },
     onError: (err: unknown) => setError(friendlyApiMessage(err, 'Could not start purchase.')),
   })
@@ -235,6 +236,7 @@ export function ProviderPromotions() {
       setToast(data.detail)
       setReceipt(data.receipt)
       void qc.invalidateQueries({ queryKey: ['provider-promotions'] })
+      void qc.invalidateQueries({ queryKey: ['provider-promotion-analytics'] })
     },
     onError: (err: unknown) => setError(friendlyApiMessage(err, 'Payment failed.')),
   })
@@ -252,6 +254,7 @@ export function ProviderPromotions() {
           : `Cancelled. ${data.refund_note}`,
       )
       void qc.invalidateQueries({ queryKey: ['provider-promotions'] })
+      void qc.invalidateQueries({ queryKey: ['provider-promotion-analytics'] })
     },
     onError: (err: unknown) => setError(friendlyApiMessage(err, 'Could not cancel.')),
   })
@@ -285,36 +288,46 @@ export function ProviderPromotions() {
       {promoAnalytics?.totals ? (
         <section className="prov-ui__panel">
           <h2 className="prov-ui__panel-title">Performance overview</h2>
-          <div className="prov-ui__stats">
-            <div>
-              <span className="prov-ui__muted">Impressions</span>
-              <strong>{promoAnalytics.totals.impressions.toLocaleString()}</strong>
-            </div>
-            <div>
-              <span className="prov-ui__muted">CTR</span>
-              <strong>{promoAnalytics.totals.ctr_pct}%</strong>
-            </div>
-            <div>
-              <span className="prov-ui__muted">Listing opens</span>
-              <strong>{promoAnalytics.totals.listing_opens.toLocaleString()}</strong>
-            </div>
-            <div>
-              <span className="prov-ui__muted">Bookings</span>
-              <strong>{promoAnalytics.totals.bookings}</strong>
-            </div>
-            {promoAnalytics.totals.spend_cents > 0 ? (
-              <div>
-                <span className="prov-ui__muted">Spend</span>
-                <strong>N${(promoAnalytics.totals.spend_cents / 100).toLocaleString()}</strong>
-              </div>
-            ) : null}
-            {promoAnalytics.totals.roi_proxy != null ? (
-              <div>
-                <span className="prov-ui__muted">ROI proxy</span>
-                <strong>{promoAnalytics.totals.roi_proxy} bookings / N$100 spent</strong>
-              </div>
-            ) : null}
-          </div>
+          <p className="prov-ui__panel-hint">Totals from your paid and live promotion campaigns.</p>
+          <ProviderUiStats
+            columns={4}
+            stats={[
+              {
+                label: 'Impressions',
+                value: promoAnalytics.totals.impressions.toLocaleString(),
+              },
+              {
+                label: 'CTR',
+                value: `${promoAnalytics.totals.ctr_pct}%`,
+                accent: true,
+              },
+              {
+                label: 'Listing opens',
+                value: promoAnalytics.totals.listing_opens.toLocaleString(),
+              },
+              {
+                label: 'Bookings',
+                value: promoAnalytics.totals.bookings.toLocaleString(),
+              },
+              ...(promoAnalytics.totals.spend_cents > 0
+                ? [
+                    {
+                      label: 'Spend',
+                      value: `N$${(promoAnalytics.totals.spend_cents / 100).toLocaleString()}`,
+                    },
+                  ]
+                : []),
+              ...(promoAnalytics.totals.roi_proxy != null
+                ? [
+                    {
+                      label: 'ROI proxy',
+                      value: `${promoAnalytics.totals.roi_proxy} / N$100`,
+                      wide: true as const,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </section>
       ) : null}
 

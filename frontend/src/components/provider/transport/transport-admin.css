@@ -11,7 +11,7 @@
   display: block;
   margin-bottom: 4px;
   font-size: 0.85rem;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .transport-scope p {
@@ -25,7 +25,7 @@
   margin: 0;
   padding-left: 18px;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   line-height: 1.45;
 }
 
@@ -47,12 +47,12 @@
   max-width: 100px;
   aspect-ratio: 4 / 3;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   display: grid;
   place-items: center;
   overflow: hidden;
   flex-shrink: 0;
-  color: rgba(255, 250, 242, 0.35);
+  color: var(--manage-muted);
 }
 
 .transport-card__thumb img {
@@ -77,13 +77,13 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 800;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .transport-card__meta {
   margin: 6px 0 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .transport-card__chips {
@@ -98,8 +98,8 @@
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 250, 242, 0.65);
+  background: var(--manage-paper);
+  color: var(--manage-ink-soft);
 }
 
 .transport-card__actions {
@@ -116,13 +116,13 @@
 .transport-capacity__bar {
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   overflow: hidden;
 }
 
 .transport-capacity__fill {
   height: 100%;
-  background: #a78bfa;
+  background: var(--manage-ink);
   border-radius: inherit;
 }
 
@@ -130,7 +130,7 @@
   display: block;
   margin-top: 4px;
   font-size: 0.72rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .food-stories-editor {
@@ -142,9 +142,9 @@
 .food-stories-editor__empty {
   padding: 14px;
   border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border: 1px dashed var(--manage-line);
   font-size: 0.84rem;
-  color: rgba(255, 250, 242, 0.65);
+  color: var(--manage-ink-soft);
 }
 
 .food-stories-editor__empty p {
@@ -154,8 +154,8 @@
 .food-stories-editor__channel {
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-paper);
 }
 
 .food-stories-editor__channel-head {
@@ -182,7 +182,7 @@
   margin: 0;
   font-size: 0.78rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

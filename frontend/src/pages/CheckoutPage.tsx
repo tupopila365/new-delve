@@ -5,7 +5,9 @@ import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../hooks/useCart'
 import { EmptyState } from '../components/ui'
+import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import type { Order } from '../utils/shopListing'
+import type { PayTarget } from '../utils/stripeSim'
 import '../components/shop/shop-cart.css'
 
 type FulfillmentType = 'pickup' | 'lodge_delivery' | 'shipping'
@@ -26,6 +28,8 @@ export function CheckoutPage() {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [payTargets, setPayTargets] = useState<PayTarget[]>([])
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([])
 
   if (!profile) {
     return (
@@ -40,7 +44,7 @@ export function CheckoutPage() {
   }
 
   const items = cart?.items ?? []
-  if (items.length === 0) {
+  if (items.length === 0 && payTargets.length === 0) {
     return (
       <main className="shop-cart">
         <EmptyState
@@ -73,20 +77,35 @@ export function CheckoutPage() {
         }),
       })
       const orders = res.orders ?? []
-      // Mock-pay each created order.
-      for (const order of orders) {
-        await apiFetch(`/api/shop/orders/${encodeURIComponent(order.order_ref)}/pay/`, { method: 'POST' })
+      if (orders.length === 0) {
+        setErr('No orders were created.')
+        return
       }
+      setPendingOrders(orders)
+      setPayTargets(
+        orders.map((order) => ({
+          target_type: 'shop_order' as const,
+          target_id: order.order_ref,
+          amountLabel: money(order.total),
+          title: `Order ${order.order_ref}`,
+        })),
+      )
       refetch()
-      if (orders.length === 1) {
-        navigate(`/orders/${encodeURIComponent(orders[0].order_ref)}?placed=1`)
-      } else {
-        navigate('/orders?placed=1')
-      }
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Could not place your order.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  function finishCheckout() {
+    const orders = pendingOrders
+    setPayTargets([])
+    setPendingOrders([])
+    if (orders.length === 1) {
+      navigate(`/orders/${encodeURIComponent(orders[0].order_ref)}?placed=1`)
+    } else {
+      navigate('/orders?placed=1')
     }
   }
 
@@ -179,17 +198,33 @@ export function CheckoutPage() {
             <span>Subtotal</span>
             <strong>{money(cart?.subtotal ?? 0)}</strong>
           </div>
-          <p className="shop-cart__summary-note">Payment is a secure mock transaction for now.</p>
+          <p className="shop-cart__summary-note">
+            Card payment is simulated (Stripe-shaped). Delve holds funds after payment.
+          </p>
           {err ? <p className="checkout__error">{err}</p> : null}
           <button type="button" className="shop-cart__checkout" onClick={placeOrder} disabled={busy}>
             <CreditCard size={16} strokeWidth={2.25} aria-hidden />
-            {busy ? 'Processing…' : 'Pay (mock)'}
+            {busy ? 'Placing order…' : 'Continue to payment'}
           </button>
           <Link to="/cart" className="shop-cart__continue">
             Back to cart
           </Link>
         </aside>
       </div>
+
+      <StripeSimPayModal
+        open={payTargets.length > 0}
+        targets={payTargets}
+        onClose={() => {
+          setPayTargets([])
+          if (pendingOrders.length === 1) {
+            navigate(`/orders/${encodeURIComponent(pendingOrders[0].order_ref)}`)
+          } else if (pendingOrders.length > 1) {
+            navigate('/orders')
+          }
+        }}
+        onSuccess={() => finishCheckout()}
+      />
     </main>
   )
 }

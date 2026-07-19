@@ -23,6 +23,7 @@ import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ListingDelversMoments, ListingReviews } from '../listing'
 import { ReportButton } from '../report/ReportButton'
+import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import {
   BusTripBookingStatus,
   BusTripReserveCard,
@@ -96,6 +97,7 @@ export function BusTripDetailView({
   const arr = trip.arrives_at ? formatTripWhen(trip.arrives_at) : null
   const duration = tripDurationLabel(trip, trip.departs_at, trip.arrives_at)
   const operatorName = trip.route_detail.operator_name
+  const operatorUsername = trip.route_detail.operator_owner_username
   const galleryImages = buildBusGalleryImages(trip)
   const timeline = routeTimelineStops(trip, dep.time, arr?.time ?? null)
   const travelTips = busTravelTips(trip)
@@ -160,6 +162,7 @@ export function BusTripDetailView({
               {dep.date} · {dep.time}
               {duration ? ` · ~${duration}` : ''}
             </span>
+            {operatorUsername ? <SellerTrustBadges username={operatorUsername} compact /> : null}
           </span>
         </div>
 

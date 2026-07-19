@@ -17,6 +17,27 @@ class ShopCategory(models.TextChoices):
     OTHER = "other", "Other"
 
 
+class ShopProfile(models.Model):
+    """Seller shop identity — avatar + name shown on the public storefront."""
+
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="shop_profile",
+    )
+    display_name = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Public shop name. Falls back to the account display name when empty.",
+    )
+    avatar = models.ImageField(upload_to="shop_avatars/", blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"ShopProfile<{self.owner_id}>"
+
+
 class ShopProduct(models.Model):
     """A retail product sold by a seller (shop). Supports cart + checkout."""
 
@@ -173,10 +194,19 @@ class CartItem(models.Model):
 
 class OrderStatus(models.TextChoices):
     PENDING = "pending", "Pending payment"
-    PAID = "paid", "Paid"
+    PAID = "paid", "Paid — awaiting seller"
+    READY = "ready", "Ready for pickup / delivery"
+    SHIPPED = "shipped", "Shipped"
     FULFILLED = "fulfilled", "Fulfilled"
     CANCELLED = "cancelled", "Cancelled"
     REFUNDED = "refunded", "Refunded"
+
+
+class PayoutStatus(models.TextChoices):
+    NONE = "none", "Not paid yet"
+    HELD = "held", "Held by Delve"
+    RELEASED = "released", "Released to seller"
+    REFUNDED = "refunded", "Refunded to buyer"
 
 
 class FulfillmentType(models.TextChoices):
@@ -216,11 +246,39 @@ class Order(models.Model):
     items_total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     shipping_total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
     total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    platform_fee = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0"),
+        help_text="Delve marketplace fee (from items only).",
+    )
+    seller_payout = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0"),
+        help_text="Amount released to the seller after fee (includes shipping).",
+    )
+    payout_status = models.CharField(
+        max_length=20,
+        choices=PayoutStatus.choices,
+        default=PayoutStatus.NONE,
+    )
     contact_name = models.CharField(max_length=160, blank=True)
     contact_phone = models.CharField(max_length=40, blank=True)
     delivery_address = models.CharField(max_length=400, blank=True)
     note = models.TextField(blank=True)
+    tracking_number = models.CharField(max_length=120, blank=True)
+    tracking_carrier = models.CharField(max_length=80, blank=True)
+    fulfillment_note = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Seller note for pickup window, courier, lodge drop, etc.",
+    )
     mock_payment_ref = models.CharField(max_length=64, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+    payout_released_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -296,6 +354,10 @@ class ProductReview(models.Model):
         blank=True,
         help_text='List of {"url": ..., "kind": "image"|"video"} the reviewer attached.',
     )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_note = models.CharField(max_length=255, blank=True)
+    seller_reply = models.TextField(blank=True)
+    seller_replied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

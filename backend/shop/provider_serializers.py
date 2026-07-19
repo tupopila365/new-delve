@@ -5,8 +5,44 @@ import uuid
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
-from .models import ProductVariant, ShopProduct
+from .models import ProductVariant, ShopProduct, ShopProfile
 from .serializers import ProductVariantSerializer, _absolute_media_url, _cover_image_url
+
+
+class ProviderShopProfileSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+    avatar_upload = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    clear_avatar = serializers.BooleanField(write_only=True, required=False, default=False)
+
+    class Meta:
+        model = ShopProfile
+        fields = ("display_name", "avatar", "avatar_upload", "clear_avatar", "updated_at")
+        read_only_fields = ("updated_at",)
+
+    def get_avatar(self, obj) -> str | None:
+        if not obj.avatar:
+            return None
+        request = self.context.get("request")
+        try:
+            return _absolute_media_url(obj.avatar.url, request)
+        except Exception:
+            return None
+
+    def update(self, instance, validated_data):
+        clear = validated_data.pop("clear_avatar", False)
+        upload = validated_data.pop("avatar_upload", serializers.empty)
+        if "display_name" in validated_data:
+            instance.display_name = (validated_data.get("display_name") or "")[:120]
+        if clear:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = None
+        elif upload is not serializers.empty and upload is not None:
+            if instance.avatar:
+                instance.avatar.delete(save=False)
+            instance.avatar = upload
+        instance.save()
+        return instance
 
 
 class ProviderShopProductSerializer(serializers.ModelSerializer):

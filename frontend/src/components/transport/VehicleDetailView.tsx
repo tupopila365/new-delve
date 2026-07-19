@@ -22,6 +22,7 @@ import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ListingDelversMoments, ListingReviews } from '../listing'
 import { ReportButton } from '../report/ReportButton'
+import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { VehicleBookingStatus, VehicleReserveCard } from '../booking/transport/VehicleReserveCard'
 import { VehicleProviderCard } from './TransportProviderCard'
@@ -183,6 +184,9 @@ export function VehicleDetailView({
                 {locationLine || 'Transport provider'}
                 {ratingLabel ? ` · ★ ${ratingLabel}` : ''}
               </span>
+              {vehicle.owner_username ? (
+                <SellerTrustBadges username={vehicle.owner_username} compact />
+              ) : null}
             </span>
           </Link>
         ) : (
@@ -193,6 +197,9 @@ export function VehicleDetailView({
             <span className="jd-author__copy">
               <span className="jd-author__name">{providerName}</span>
               <span className="jd-author__sub">{locationLine || 'Transport provider'}</span>
+              {vehicle.owner_username ? (
+                <SellerTrustBadges username={vehicle.owner_username} compact />
+              ) : null}
             </span>
           </div>
         )}

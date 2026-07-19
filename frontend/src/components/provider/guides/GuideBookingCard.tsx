@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
 import { BookingStatusBadge } from '../../booking'
 import { messageUserPath } from '../../messages/messageProviderUtils'
+import { formatSellerPayoutLine } from '../../../utils/bookingPayout'
 
 export type GuideProviderBooking = {
   id: number
@@ -18,6 +19,9 @@ export type GuideProviderBooking = {
   total_price: string
   status: string
   mock_payment_ref?: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
 }
 
 type Props = {
@@ -53,6 +57,7 @@ export function GuideBookingCard({
   const timeLabel = formatStartTime(booking.start_time)
   const meeting = booking.meeting_point?.trim() || ''
   const notes = booking.notes?.trim() || ''
+  const payoutLine = formatSellerPayoutLine(booking)
 
   return (
     <article className="prov-ui__booking">
@@ -76,6 +81,7 @@ export function GuideBookingCard({
         </span>
         <strong>N${parseFloat(booking.total_price).toLocaleString()}</strong>
       </div>
+      {payoutLine ? <p className="prov-ui__booking-payout">{payoutLine}</p> : null}
       {meeting || notes ? (
         <div className="prov-ui__booking-extra" style={{ marginTop: 8, fontSize: '0.85rem', opacity: 0.86 }}>
           {meeting ? <p style={{ margin: '0 0 4px' }}>Meet: {meeting}</p> : null}

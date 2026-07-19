@@ -23,6 +23,7 @@ import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ReportButton } from '../report/ReportButton'
+import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import type { ReviewItem } from '../GuestReviewCard'
 import type { TourPackage } from './types'
 import { GuideCredentialsCard } from './GuideCredentialsCard'
@@ -217,6 +218,7 @@ export function GuideDetailView({
               @{guide.username}
               {ratingLabel ? ` · ★ ${ratingLabel}` : ''}
             </span>
+            <SellerTrustBadges username={guide.username} compact />
           </span>
         </Link>
 

@@ -283,6 +283,85 @@ class PlatformBookingNote(models.Model):
         return f"{self.booking_type}:{self.booking_id} note"
 
 
+class MarketplaceDispute(models.Model):
+    """Buyer-opened case against a shop order or service booking (Phase 3)."""
+
+    class Source(models.TextChoices):
+        SHOP = "shop", "Shop order"
+        ACCOMMODATION = "accommodation", "Stay"
+        GUIDE = "guide", "Guide"
+        VEHICLE = "vehicle", "Vehicle rental"
+        BUS_SEAT = "bus_seat", "Bus seat"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        UNDER_REVIEW = "under_review", "Under review"
+        RESOLVED = "resolved", "Resolved"
+        CLOSED = "closed", "Closed"
+
+    class Reason(models.TextChoices):
+        NOT_RECEIVED = "not_received", "Not received / no-show"
+        NOT_AS_DESCRIBED = "not_as_described", "Not as described"
+        DAMAGED = "damaged", "Damaged / poor condition"
+        WRONG_ITEM = "wrong_item", "Wrong item / booking"
+        CANCELLED_BY_SELLER = "cancelled_by_seller", "Seller cancelled"
+        OTHER = "other", "Other"
+
+    class Resolution(models.TextChoices):
+        REFUND_BUYER = "refund_buyer", "Refund buyer"
+        RELEASE_SELLER = "release_seller", "Release to seller"
+        PARTIAL = "partial", "Partial / other"
+        DISMISSED = "dismissed", "Dismissed"
+
+    source = models.CharField(max_length=32, choices=Source.choices, db_index=True)
+    record_id = models.PositiveIntegerField(db_index=True)
+    opener = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="marketplace_disputes_opened",
+    )
+    seller = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="marketplace_disputes_as_seller",
+    )
+    reason = models.CharField(max_length=40, choices=Reason.choices, default=Reason.OTHER)
+    body = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    resolution = models.CharField(
+        max_length=32,
+        choices=Resolution.choices,
+        blank=True,
+        default="",
+    )
+    resolution_note = models.TextField(blank=True)
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="marketplace_disputes_resolved",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["source", "record_id"]),
+            models.Index(fields=["status", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"dispute {self.source}:{self.record_id} ({self.status})"
+
+
 DEFAULT_FEATURE_FLAGS = {
     "delvers_social": True,
     "new_bookings": True,

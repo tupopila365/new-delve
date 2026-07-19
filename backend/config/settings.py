@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "highlights",
     "communities",
     "tags",
+    "payments",
 ]
 
 MIDDLEWARE = [
@@ -220,6 +221,10 @@ EMAIL_BACKEND = os.environ.get(
     "django.core.mail.backends.console.EmailBackend",
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@delve.local")
+
+# Marketplace fees: shops (item %) vs service-provider bookings (%).
+SHOP_PLATFORM_FEE_PERCENT = os.environ.get("SHOP_PLATFORM_FEE_PERCENT", "2.5")
+BOOKING_PLATFORM_FEE_PERCENT = os.environ.get("BOOKING_PLATFORM_FEE_PERCENT", "10")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")

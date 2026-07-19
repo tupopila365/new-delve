@@ -366,6 +366,12 @@
   font-weight: 750;
 }
 
+.orders__banner--info {
+  border-color: rgba(120, 180, 240, 0.35);
+  background: rgba(120, 180, 240, 0.12);
+  color: #c5e0f8;
+}
+
 .orders__list {
   display: grid;
   gap: 12px;
@@ -419,6 +425,13 @@
   color: #a9d7ff;
   border-color: rgba(120, 180, 240, 0.4);
   background: rgba(120, 180, 240, 0.12);
+}
+
+.orders__status.is-ready,
+.orders__status.is-shipped {
+  color: #d4c4ff;
+  border-color: rgba(170, 150, 230, 0.45);
+  background: rgba(140, 120, 210, 0.14);
 }
 
 .orders__status.is-fulfilled {
@@ -624,6 +637,37 @@
   margin: 0;
   color: var(--sc-muted);
   font-size: 0.78rem;
+}
+
+.prov-shop-orders__payout,
+.prov-shop-orders__track,
+.prov-shop-orders__note {
+  margin: 0;
+  color: var(--sc-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.prov-shop-orders__fulfill-form {
+  display: grid;
+  gap: 8px;
+}
+
+.prov-shop-orders__fulfill-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 750;
+  color: var(--sc-muted);
+}
+
+.prov-shop-orders__fulfill-form input {
+  border: 1px solid var(--sc-border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+  padding: 8px 10px;
+  font: inherit;
 }
 
 .prov-shop-orders__actions {

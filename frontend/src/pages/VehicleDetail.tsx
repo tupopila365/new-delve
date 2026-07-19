@@ -5,11 +5,13 @@ import { AlertCircle, Car } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { VehicleDetailView, type VehicleBooking } from '../components/transport'
 import { renterUploadFromFile } from '../components/booking/transport/RenterDocumentUploads'
+import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { missingRenterDocuments, type RenterDocumentUpload } from '../data/renterDocuments'
 import type { VehicleListing } from '../utils/transportListing'
+import type { PayTarget } from '../utils/stripeSim'
 import '../components/journeys/journey-detail.css'
 import '../components/transport/transport-detail.css'
 
@@ -26,6 +28,7 @@ export function VehicleDetail() {
   const [booking, setBooking] = useState<VehicleBooking | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [renterDocuments, setRenterDocuments] = useState<Record<string, RenterDocumentUpload | undefined>>({})
+  const [payTargets, setPayTargets] = useState<PayTarget[]>([])
 
   const { data: vehicle, isLoading, isError, refetch } = useQuery({
     queryKey: ['veh', id],
@@ -53,19 +56,6 @@ export function VehicleDetail() {
       void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'vehicles'] })
     },
     onError: (e) => setErr(friendlyApiMessage(e, "We couldn't save that request. Try again.")),
-  })
-
-  const payMut = useMutation({
-    mutationFn: (bid: number) =>
-      apiFetch<{ status: string; mock_payment_ref: string }>(
-        `/api/transport/vehicle-bookings/${bid}/mock_pay/`,
-        { method: 'POST', body: JSON.stringify({}) },
-      ),
-    onSuccess: (r) => {
-      setBooking((b) => (b ? { ...b, status: r.status, mock_payment_ref: r.mock_payment_ref } : b))
-    },
-    onError: (e) =>
-      setErr(friendlyApiMessage(e, "The practice payment didn't go through.")),
   })
 
   const onShare = async (title: string) => {
@@ -189,11 +179,32 @@ export function VehicleDetail() {
           onDismissErr: () => setErr(null),
           profile,
           booking,
-          onPay: () => booking && payMut.mutate(booking.id),
-          isPayPending: payMut.isPending,
+          onPay: () => {
+            if (!booking) return
+            setPayTargets([
+              {
+                target_type: 'vehicle',
+                target_id: String(booking.id),
+                amountLabel: `N$${booking.total_price}`,
+                title: vehicle.title,
+              },
+            ])
+          },
+          isPayPending: false,
           renterDocuments,
           onRenterDocUpload: (docType, file) => void handleRenterDocUpload(docType, file),
           onRenterDocRemove: handleRenterDocRemove,
+        }}
+      />
+      <StripeSimPayModal
+        open={payTargets.length > 0}
+        targets={payTargets}
+        onClose={() => setPayTargets([])}
+        onSuccess={(intents) => {
+          const ref = intents[0]?.id ?? ''
+          setBooking((b) => (b ? { ...b, mock_payment_ref: ref, status: b.status } : b))
+          setPayTargets([])
+          void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'vehicles'] })
         }}
       />
     </div>

@@ -261,7 +261,7 @@ export function BusTripBookingStatus({
         <h2 className="tp-transport-status__title">Seat request confirmed</h2>
         <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
         <p className="tp-transport-status__text">
-          {routeTitle} · Seats {seatList}
+          {routeTitle} · Seats {seatList}. Payment held by Delve until the trip completes.
         </p>
         <p className="tp-transport-status__ref">
           Reference: <code>{firstRes.mock_payment_ref}</code>

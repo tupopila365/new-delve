@@ -71,7 +71,18 @@ class ProductReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductReview
-        fields = ("id", "name", "avatar", "rating", "body", "media", "verified_purchase", "created_at")
+        fields = (
+            "id",
+            "name",
+            "avatar",
+            "rating",
+            "body",
+            "seller_reply",
+            "seller_replied_at",
+            "media",
+            "verified_purchase",
+            "created_at",
+        )
         read_only_fields = fields
 
     def _request(self):

@@ -1,0 +1,78 @@
+/**
+ * Manage UI tokens — single source of truth for Shop manage + Provider admin.
+ * Theme: light cream / ink neutrals (exact Shop manage palette).
+ * Do not introduce purple, terracotta, or status greens as accents.
+ */
+
+.manage-theme {
+  /* ---- Color ---- */
+  --manage-ink: #1a1814;
+  --manage-ink-soft: #3d3933;
+  --manage-muted: #6f695f;
+  --manage-line: #ddd6ca;
+  --manage-line-soft: #ebe6dc;
+  --manage-cream: #f4f1ea;
+  --manage-paper: #faf8f4;
+  --manage-card: #ffffff;
+  --manage-chip: #efeae1;
+  --manage-shadow: 0 1px 0 rgba(26, 24, 20, 0.04);
+  --manage-radius: 14px;
+  --manage-radius-sm: 10px;
+
+  /* ---- Layout ---- */
+  /* Provider content / lists / bookings (Phase 0 decision) */
+  --manage-content-max: 920px;
+  /* Long forms / step editors */
+  --manage-form-max: 720px;
+  --manage-page-gap: 22px;
+  --manage-section-gap: 20px;
+
+  /* ---- Type ---- */
+  --manage-title-size: clamp(1.45rem, 3.5vw, 1.75rem);
+  --manage-title-tracking: -0.03em;
+  --manage-body-size: 0.9rem;
+  --manage-meta-size: 0.82rem;
+  --manage-label-size: 0.78rem;
+
+  /* ---- Control ---- */
+  --manage-btn-height: 38px;
+  --manage-btn-height-sm: 34px;
+  --manage-chip-height: 22px;
+  --manage-icon-stroke: 2.25;
+
+  /* ---- Shop manage compat aliases (--sm-*) ---- */
+  --sm-ink: var(--manage-ink);
+  --sm-ink-soft: var(--manage-ink-soft);
+  --sm-muted: var(--manage-muted);
+  --sm-line: var(--manage-line);
+  --sm-line-soft: var(--manage-line-soft);
+  --sm-cream: var(--manage-cream);
+  --sm-paper: var(--manage-paper);
+  --sm-card: var(--manage-card);
+  --sm-chip: var(--manage-chip);
+  --sm-shadow: var(--manage-shadow);
+  --sm-radius: var(--manage-radius);
+
+  color: var(--manage-ink);
+}
+
+/* Shell background used by Provider (Phase 1+) and Shop light manage */
+.manage-theme--light {
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(26, 24, 20, 0.04), transparent 55%),
+    var(--manage-cream);
+  color: var(--manage-ink);
+}
+
+/* Narrow form column inside wider provider content */
+.manage-theme__form {
+  max-width: var(--manage-form-max);
+  width: 100%;
+}
+
+.manage-theme__content {
+  max-width: var(--manage-content-max);
+  width: 100%;
+  margin-inline: auto;
+}

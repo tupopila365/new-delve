@@ -96,23 +96,33 @@ export function useBusinessAccess(activeBusinessId?: number | null) {
     }
   }, [businesses, profile?.username])
 
+  const canAccessProvider =
+      profile?.user_type === 'service_provider' ||
+      businesses.some((b) => b.permissions?.view_dashboard)
+
+  const canManageListings = Boolean(permissions?.manage_listings)
+  const isViewerOnly = Boolean(
+      permissions?.view_dashboard &&
+        !permissions?.manage_bookings &&
+        !permissions?.manage_listings
+    )
+
+  // Any signed-in user can sell in the shop marketplace (own products).
+  // Provider team viewers still cannot edit business-owned stock.
+  const canManageShop = Boolean(profile) && (!canAccessProvider || (canManageListings && !isViewerOnly))
+
   return {
     businesses,
     activeBusiness,
     permissions,
     isLoading,
     canManageListingForOwner,
-    canManageListings: Boolean(permissions?.manage_listings),
+    canManageListings,
     canManageBookings: Boolean(permissions?.manage_bookings),
     canManageSettings: Boolean(permissions?.manage_settings),
     canManageTeam: Boolean(permissions?.manage_team),
-    canAccessProvider:
-      profile?.user_type === 'service_provider' ||
-      businesses.some((b) => b.permissions?.view_dashboard),
-    isViewerOnly: Boolean(
-      permissions?.view_dashboard &&
-        !permissions?.manage_bookings &&
-        !permissions?.manage_listings
-    ),
+    canAccessProvider,
+    canManageShop,
+    isViewerOnly,
   }
 }

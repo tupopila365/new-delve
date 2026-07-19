@@ -16,7 +16,7 @@ class GuideReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GuideReview
-        fields = ("id", "name", "place", "rating", "body", "source", "created_at")
+        fields = ("id", "name", "place", "rating", "body", "seller_reply", "seller_replied_at", "source", "created_at")
         read_only_fields = fields
 
     def get_name(self, obj):

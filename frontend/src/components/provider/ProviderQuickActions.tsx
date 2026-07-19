@@ -4,7 +4,6 @@ import type { LucideIcon } from 'lucide-react'
 type Action = {
   label: string
   to: string
-  emoji?: string
   Icon?: LucideIcon
 }
 

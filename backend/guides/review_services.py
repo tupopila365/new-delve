@@ -74,7 +74,7 @@ def sync_guide_rating(guide: TourGuideProfile) -> None:
     ratings = _json_review_ratings(guide)
     ratings.extend(
         float(r)
-        for r in GuideReview.objects.filter(guide=guide).values_list("rating", flat=True)
+        for r in GuideReview.objects.filter(guide=guide, is_hidden=False).values_list("rating", flat=True)
     )
     if not ratings:
         guide.rating_avg = Decimal("0")
@@ -88,7 +88,7 @@ def sync_guide_rating(guide: TourGuideProfile) -> None:
 def guide_reviews_payload(guide: TourGuideProfile) -> dict:
     rows = []
     for review in (
-        GuideReview.objects.filter(guide=guide)
+        GuideReview.objects.filter(guide=guide, is_hidden=False)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:50]
     ):
@@ -105,6 +105,10 @@ def guide_reviews_payload(guide: TourGuideProfile) -> dict:
                 "place": place or guide.headline,
                 "rating": review.rating,
                 "body": review.body,
+                "seller_reply": (review.seller_reply or "").strip(),
+                "seller_replied_at": (
+                    review.seller_replied_at.isoformat() if review.seller_replied_at else ""
+                ),
                 "avatar": avatar,
                 "created_at": review.created_at.isoformat(),
             }

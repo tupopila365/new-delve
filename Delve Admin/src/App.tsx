@@ -13,6 +13,9 @@ import { ListingsPage } from './pages/ListingsPage'
 import { LoginPage } from './pages/LoginPage'
 import { HomePinsPage } from './pages/HomePinsPage'
 import { HomeStoriesPage } from './pages/HomeStoriesPage'
+import { PaymentsPage } from './pages/PaymentsPage'
+import { DisputesPage } from './pages/DisputesPage'
+import { ReviewsModerationPage } from './pages/ReviewsModerationPage'
 import { PromotionsAnalyticsPage } from './pages/PromotionsAnalyticsPage'
 import { PromotionsPage } from './pages/PromotionsPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -55,6 +58,9 @@ function AppRoutes() {
         <Route path="home-pins" element={<HomePinsPage />} />
         <Route path="home-stories" element={<HomeStoriesPage />} />
         <Route path="bookings" element={<BookingsPage />} />
+        <Route path="payments" element={<PaymentsPage />} />
+        <Route path="disputes" element={<DisputesPage />} />
+        <Route path="reviews" element={<ReviewsModerationPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="moderation" element={<ContentModerationPage />} />
         <Route path="email-verification" element={<EmailVerificationPage />} />

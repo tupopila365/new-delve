@@ -154,9 +154,12 @@ class GuideBookingViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Forbidden"}, status=403)
         if b.status != "pending":
             return Response({"detail": "Not payable."}, status=400)
+        from accounts.marketplace_payout import mark_booking_payment_held
+
         b.status = "confirmed"
         b.mock_payment_ref = f"mock_{uuid.uuid4().hex[:16]}"
-        b.save(update_fields=["status", "mock_payment_ref"])
+        fields = ["status", "mock_payment_ref", *mark_booking_payment_held(b)]
+        b.save(update_fields=list(dict.fromkeys(fields)))
         return Response(GuideBookingSerializer(b).data)
 
     @action(detail=True, methods=["post"])

@@ -792,6 +792,12 @@
   color: #ffb4b4;
 }
 
+.shop-detail__btn--primary {
+  background: var(--sd-accent);
+  border-color: transparent;
+  color: #1a1510;
+}
+
 @media (min-width: 860px) {
   .shop-detail__related {
     grid-template-columns: repeat(2, minmax(0, 1fr));

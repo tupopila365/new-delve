@@ -212,6 +212,10 @@ class FoodVenueReview(models.Model):
     )
     rating = models.PositiveSmallIntegerField()
     body = models.TextField(blank=True)
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_note = models.CharField(max_length=255, blank=True)
+    seller_reply = models.TextField(blank=True)
+    seller_replied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

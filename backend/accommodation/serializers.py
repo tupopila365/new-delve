@@ -267,6 +267,9 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         if not hasattr(user, "profile") or user.profile.user_type != "service_provider":
             raise serializers.ValidationError("Only service providers can create listings.")
+        from accounts.seller_trust import enforce_service_go_live
+
+        enforce_service_go_live(user=user, wanting_active=bool(validated_data.get("is_active", True)))
         validated_data["owner"] = user
         if validated_data.get("cover_image") is None:
             validated_data["cover_image"] = ""
@@ -275,6 +278,13 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         if "cover_image" in validated_data and validated_data["cover_image"] is None:
             validated_data["cover_image"] = ""
+        if "is_active" in validated_data:
+            from accounts.seller_trust import enforce_service_go_live
+
+            enforce_service_go_live(
+                user=instance.owner,
+                wanting_active=bool(validated_data.get("is_active")),
+            )
         return super().update(instance, validated_data)
 
 
@@ -295,6 +305,11 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "check_out",
             "guests",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "special_requests",
             "room_type_name",
             "status",
@@ -302,7 +317,19 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "has_review",
             "created_at",
         )
-        read_only_fields = ("guest", "total_price", "status", "mock_payment_ref", "has_review", "created_at")
+        read_only_fields = (
+            "guest",
+            "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
+            "status",
+            "mock_payment_ref",
+            "has_review",
+            "created_at",
+        )
 
     def get_has_review(self, obj):
         if hasattr(obj, "review"):
@@ -400,6 +427,11 @@ class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
             "check_out",
             "guests",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "special_requests",
             "room_type_name",
             "status",
@@ -413,6 +445,11 @@ class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
             "check_out",
             "guests",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "special_requests",
             "room_type_name",
             "mock_payment_ref",

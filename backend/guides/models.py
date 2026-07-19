@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
+from accounts.marketplace_payout import PayoutStatus
+
 
 class TourGuideProfile(models.Model):
     user = models.OneToOneField(
@@ -115,6 +117,15 @@ class GuideBooking(models.Model):
     notes = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     mock_payment_ref = models.CharField(max_length=64, blank=True)
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    seller_payout = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    payout_status = models.CharField(
+        max_length=20,
+        choices=PayoutStatus.choices,
+        default=PayoutStatus.NONE,
+    )
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payout_released_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -142,6 +153,10 @@ class GuideReview(models.Model):
     )
     rating = models.PositiveSmallIntegerField()
     body = models.TextField(blank=True)
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    moderation_note = models.CharField(max_length=255, blank=True)
+    seller_reply = models.TextField(blank=True)
+    seller_replied_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

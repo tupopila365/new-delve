@@ -16,7 +16,7 @@ class FoodVenueReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FoodVenueReview
-        fields = ("id", "name", "place", "rating", "body", "source", "created_at")
+        fields = ("id", "name", "place", "rating", "body", "seller_reply", "seller_replied_at", "source", "created_at")
         read_only_fields = fields
 
     def get_name(self, obj):
@@ -39,7 +39,7 @@ class FoodVenueReviewCreateSerializer(serializers.Serializer):
         user = self.context["request"].user
         if FoodVenueReview.objects.filter(venue=venue, reviewer=user).exists():
             raise serializers.ValidationError("You already reviewed this venue.")
-        if venue.reservations and not eligible_food_reservation(user, venue):
+        if not eligible_food_reservation(user, venue):
             raise serializers.ValidationError(
                 "You can review after your table reservation is marked seated or completed."
             )
@@ -48,7 +48,7 @@ class FoodVenueReviewCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         venue = self.context["venue"]
         user = self.context["request"].user
-        reservation = eligible_food_reservation(user, venue) if venue.reservations else None
+        reservation = eligible_food_reservation(user, venue)
         review = FoodVenueReview.objects.create(
             venue=venue,
             reviewer=user,

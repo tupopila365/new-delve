@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 640px;
+  max-width: var(--manage-content-max, 920px);
 }
 
 .prov-dash__header {
@@ -15,10 +15,10 @@
 
 .prov-dash__title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.45rem, 3.5vw, 1.75rem);
   font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text);
+  letter-spacing: -0.03em;
+  color: var(--manage-ink, var(--text));
 }
 
 .prov-dash__pill {
@@ -35,8 +35,8 @@
 }
 
 .prov-dash__pill--warn {
-  background: rgba(124, 58, 237, 0.12);
-  color: var(--accent);
+  background: var(--manage-chip, #efeae1);
+  color: var(--manage-ink-soft, #3d3933);
 }
 
 .prov-dash__pill--bad {
@@ -95,12 +95,12 @@
 }
 
 .prov-dash__stat--highlight {
-  background: rgba(124, 58, 237, 0.08);
-  border-color: rgba(124, 58, 237, 0.15);
+  background: var(--manage-paper);
+  border-color: var(--manage-line);
 }
 
 .prov-dash__stat--highlight strong {
-  color: var(--accent);
+  color: var(--manage-ink);
 }
 
 /* Attention */
@@ -129,14 +129,14 @@
 
 .prov-dash__attention-list strong {
   font-weight: 800;
-  color: var(--accent);
+  color: var(--manage-ink);
 }
 
 .prov-dash__attention-list a {
   flex-shrink: 0;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--manage-ink);
   text-decoration: none;
 }
 
@@ -173,13 +173,13 @@
 }
 
 .prov-dash__shortcut:hover {
-  border-color: rgba(124, 58, 237, 0.25);
-  background: rgba(124, 58, 237, 0.04);
+  border-color: var(--manage-line);
+  background: var(--manage-paper);
 }
 
 .prov-dash__shortcut svg {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--manage-ink);
 }
 
 /* Recent bookings */
@@ -198,7 +198,7 @@
 .prov-dash__link {
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--manage-ink);
   text-decoration: none;
 }
 
@@ -251,8 +251,8 @@
 }
 
 .prov-dash__booking-status--pending {
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--accent);
+  background: var(--manage-chip);
+  color: var(--manage-ink);
 }
 
 .prov-dash__booking-status--confirmed {

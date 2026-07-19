@@ -38,6 +38,7 @@ import {
 import { ListSkeleton } from '../components/ui'
 import '../components/provider/transport/transport-admin.css'
 import '../components/provider/transport/transport-listing.css'
+import { formatSellerPayoutLine } from '../utils/bookingPayout'
 
 type RentalBooking = {
   id: number
@@ -50,6 +51,9 @@ type RentalBooking = {
   total_price: string
   status: string
   renter_document_count?: number
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
 }
 
 type SeatBooking = {
@@ -61,6 +65,9 @@ type SeatBooking = {
   date: string
   total_price: string
   status: string
+  platform_fee?: string
+  seller_payout?: string
+  payout_status?: string
 }
 
 const RENTAL_TABS = [
@@ -495,6 +502,9 @@ export function TransportAdmin() {
                     </span>
                     <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
                   </div>
+                  {formatSellerPayoutLine(r) ? (
+                    <p className="prov-ui__booking-payout">{formatSellerPayoutLine(r)}</p>
+                  ) : null}
                   {canManageBookings && rentalBookingActions(r.status).length > 0 ? (
                     <div className="prov-ui__booking-actions">
                       {rentalBookingActions(r.status).map((a) => (
@@ -542,6 +552,9 @@ export function TransportAdmin() {
                     <span>{r.date} · Seat {r.seat}</span>
                     <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
                   </div>
+                  {formatSellerPayoutLine(r) ? (
+                    <p className="prov-ui__booking-payout">{formatSellerPayoutLine(r)}</p>
+                  ) : null}
                   {canManageBookings && seatBookingActions(r.status).length > 0 ? (
                     <div className="prov-ui__booking-actions">
                       {seatBookingActions(r.status).map((a) => (

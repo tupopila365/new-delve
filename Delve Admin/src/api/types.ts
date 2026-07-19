@@ -344,6 +344,69 @@ export type AdminBookingDetail = AdminBooking & {
   party_size?: number
 }
 
+export type AdminPayment = {
+  id: string
+  source: string
+  source_label: string
+  record_id: number
+  buyer_username: string
+  seller_username: string
+  title: string
+  status: string
+  total: string
+  platform_fee: string
+  seller_payout: string
+  payout_status: string
+  payout_status_label: string
+  paid_at: string
+  payout_released_at: string
+  mock_payment_ref?: string
+  created_at: string
+  fulfillment_label?: string
+}
+
+export type AdminPaymentDetail = AdminPayment & {
+  order_ref?: string
+  items?: { id: number; product_name: string; quantity: number; unit_price: string; line_total: string }[]
+  shipping_total?: string
+  tracking_number?: string
+  check_in?: string
+  check_out?: string
+  guests?: number
+  date?: string
+  group_size?: number
+  start_date?: string
+  end_date?: string
+  seat_number?: number
+  departs_at?: string
+}
+
+export type AdminDispute = {
+  id: number
+  source: string
+  source_label: string
+  record_id: number
+  title: string
+  buyer_username: string
+  seller_username: string
+  reason: string
+  reason_label: string
+  status: string
+  status_label: string
+  resolution: string
+  resolution_label: string
+  created_at: string
+  updated_at: string
+  resolved_at: string
+}
+
+export type AdminDisputeDetail = AdminDispute & {
+  body: string
+  resolution_note: string
+  resolved_by_username?: string
+  has_active_case?: boolean
+}
+
 export type UnverifiedEmailUser = {
   id: number
   username: string

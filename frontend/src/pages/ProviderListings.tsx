@@ -130,12 +130,15 @@ export function ProviderListings() {
         <section>
           <h2 className="prov-ui__section-title">Your categories</h2>
           <div className="prov-ui__shortcuts">
-            {moduleLinks.map((m) => (
-              <Link key={m.to} to={m.to} className="prov-ui__shortcut">
-                <span aria-hidden>{m.emoji}</span>
-                <span>{m.label}</span>
-              </Link>
-            ))}
+            {moduleLinks.map((m) => {
+              const Icon = m.Icon
+              return (
+                <Link key={m.to} to={m.to} className="prov-ui__shortcut">
+                  <Icon size={18} strokeWidth={2.25} aria-hidden />
+                  <span>{m.label}</span>
+                </Link>
+              )
+            })}
           </div>
         </section>
       ) : null}

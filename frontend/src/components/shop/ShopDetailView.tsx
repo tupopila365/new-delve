@@ -18,6 +18,7 @@ import {
 import { shopCoverSrc, shopCategoryLabel, shopMediaItems } from '../../utils/shopDisplay'
 import { MediaLightbox } from '../media/MediaLightbox'
 import { MiniRating } from '../MiniRating'
+import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import { useCart } from '../../hooks/useCart'
 import { shopLocationLine, type ProductVariant, type ShopProductListing } from '../../utils/shopListing'
 import { ProductReviews } from './ProductReviews'
@@ -142,6 +143,7 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
             </span>
             {seller}
           </Link>
+          <SellerTrustBadges username={product.owner_username} compact />
 
           <h1 className="shop-detail__name">{product.name}</h1>
           {Number(product.rating_avg) > 0 ? (

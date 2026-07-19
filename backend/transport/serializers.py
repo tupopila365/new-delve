@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from rest_framework import serializers
 
@@ -158,12 +159,29 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
             "pickup_area",
             "renter_documents",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "status",
             "mock_payment_ref",
             "has_review",
             "created_at",
         )
-        read_only_fields = ("renter", "total_price", "status", "mock_payment_ref", "has_review", "created_at")
+        read_only_fields = (
+            "renter",
+            "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
+            "status",
+            "mock_payment_ref",
+            "has_review",
+            "created_at",
+        )
 
     def get_has_review(self, obj):
         try:
@@ -336,12 +354,30 @@ class SeatReservationSerializer(serializers.ModelSerializer):
             "passenger",
             "seat_number",
             "seat_price",
+            "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "status",
             "mock_payment_ref",
             "has_review",
             "created_at",
         )
-        read_only_fields = ("passenger", "status", "mock_payment_ref", "has_review", "created_at")
+        read_only_fields = (
+            "passenger",
+            "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
+            "status",
+            "mock_payment_ref",
+            "has_review",
+            "created_at",
+        )
 
     def get_has_review(self, obj):
         try:
@@ -375,4 +411,6 @@ class SeatReservationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Verify your email before booking.")
         validated_data["passenger"] = request.user
         validated_data["status"] = BookingStatus.PENDING
+        trip = validated_data["trip"]
+        validated_data["total_price"] = trip.price or Decimal("0")
         return super().create(validated_data)

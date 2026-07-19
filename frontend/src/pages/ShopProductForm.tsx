@@ -5,8 +5,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
-import { ProviderAccessGate } from '../components/provider'
-import { ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
+import { ShopManageShell } from '../components/shop/ShopManageShell'
+import { ProviderUiHeader } from '../components/provider/ui'
 import { ListingPhotoManager, type ListingPhotoDraft } from '../components/listing/photos'
 import {
   photosFromListingGallery,
@@ -49,7 +49,8 @@ export function ShopProductForm() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
-  const { canAccessProvider, canManageListings, isViewerOnly, activeBusiness } = useBusinessAccess()
+  const { canAccessProvider, canManageShop, activeBusiness } = useBusinessAccess()
+  const shopBase = canAccessProvider ? '/provider/shop' : '/shop/manage'
   const [form, setForm] = useState(emptyForm(profile?.region ?? ''))
   const [variants, setVariants] = useState<VariantDraft[]>([])
   const [photos, setPhotos] = useState<ListingPhotoDraft[]>([])
@@ -101,19 +102,12 @@ export function ShopProductForm() {
   }, [existing])
 
   if (!profile) return <Navigate to="/login" replace />
-  if (!canAccessProvider) {
-    return (
-      <ProviderUiPage>
-        <ProviderAccessGate />
-      </ProviderUiPage>
-    )
-  }
-  if (!canManageListings || isViewerOnly) return <Navigate to="/provider/shop" replace />
+  if (!canManageShop) return <Navigate to={shopBase} replace />
   if (isEdit && isLoading) {
     return (
-      <ProviderUiPage>
+      <ShopManageShell>
         <p role="status">Loading…</p>
-      </ProviderUiPage>
+      </ShopManageShell>
     )
   }
 
@@ -198,18 +192,18 @@ export function ShopProductForm() {
   }
 
   return (
-    <ProviderUiPage>
+    <ShopManageShell>
       <ProviderUiHeader
         title={isEdit ? 'Edit product' : 'Add product'}
         subtitle="List a product buyers can add to their cart and purchase."
         actions={
-          <Link to="/provider/shop" className="btn btn-secondary btn-sm">
+          <Link to={shopBase} className="shop-manage__btn shop-manage__btn--ghost btn-sm">
             Back to shop
           </Link>
         }
       />
 
-      <form className="prov-onboard__form" onSubmit={onSubmit}>
+      <form className="shop-manage__form" onSubmit={onSubmit}>
         <label className="prov-onboard__field">
           <span>Product name</span>
           <input value={form.name} onChange={(e) => update('name', e.target.value)} required />
@@ -306,12 +300,12 @@ export function ShopProductForm() {
                 onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
                 inputMode="numeric"
               />
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeVariant(index)} aria-label="Remove variant">
+              <button type="button" className="shop-manage__btn shop-manage__btn--ghost btn-sm" onClick={() => removeVariant(index)} aria-label="Remove variant">
                 <Trash2 size={14} strokeWidth={2.25} aria-hidden />
               </button>
             </div>
           ))}
-          <button type="button" className="btn btn-secondary btn-sm" onClick={addVariant}>
+          <button type="button" className="shop-manage__btn shop-manage__btn--ghost btn-sm" onClick={addVariant}>
             <Plus size={14} strokeWidth={2.25} aria-hidden />
             Add option
           </button>
@@ -375,12 +369,14 @@ export function ShopProductForm() {
           </label>
         </div>
 
-        {err ? <p className="prov-onboard__error">{err}</p> : null}
+        {err ? <p className="shop-manage__error">{err}</p> : null}
 
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
-        </button>
+        <div className="shop-manage__form-actions">
+          <button type="submit" className="shop-manage__btn shop-manage__btn--primary" disabled={busy}>
+            {busy ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
+          </button>
+        </div>
       </form>
-    </ProviderUiPage>
+    </ShopManageShell>
   )
 }

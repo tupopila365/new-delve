@@ -406,7 +406,7 @@ export function getAttentionItems(
   if (pending > 0) {
     items.push({
       id: 'pending-bookings',
-      label: `${pending} booking${pending === 1 ? '' : 's'} waiting for confirmation`,
+      label: `booking${pending === 1 ? '' : 's'} waiting for confirmation`,
       count: pending,
       priority: 'high',
       actionLabel: 'Manage bookings',
@@ -417,7 +417,7 @@ export function getAttentionItems(
   if (unread > 0) {
     items.push({
       id: 'messages',
-      label: `${unread} message${unread === 1 ? '' : 's'} need${unread === 1 ? 's' : ''} replies`,
+      label: `message${unread === 1 ? '' : 's'} need${unread === 1 ? 's' : ''} replies`,
       count: unread,
       priority: 'high',
       actionLabel: 'Open inbox',
@@ -426,7 +426,7 @@ export function getAttentionItems(
   } else if (mocksEnabled()) {
     items.push({
       id: 'messages',
-      label: '2 messages need replies',
+      label: 'messages need replies',
       count: 2,
       priority: 'high',
       actionLabel: 'Open inbox',
@@ -436,7 +436,7 @@ export function getAttentionItems(
   if (needsUpdate > 0) {
     items.push({
       id: 'listings-update',
-      label: `${needsUpdate} listing${needsUpdate === 1 ? '' : 's'} need updates`,
+      label: `listing${needsUpdate === 1 ? '' : 's'} need updates`,
       count: needsUpdate,
       priority: 'medium',
       actionLabel: 'Review listings',
@@ -447,7 +447,7 @@ export function getAttentionItems(
   if (unanswered > 0) {
     items.push({
       id: 'questions',
-      label: `${unanswered} listing question${unanswered === 1 ? '' : 's'} unanswered`,
+      label: `listing question${unanswered === 1 ? '' : 's'} unanswered`,
       count: unanswered,
       priority: 'medium',
       actionLabel: 'Answer questions',
@@ -456,7 +456,7 @@ export function getAttentionItems(
   } else if (mocksEnabled()) {
     items.push({
       id: 'reviews',
-      label: '2 reviews need responses',
+      label: 'reviews need responses',
       count: 2,
       priority: 'medium',
       actionLabel: 'View reviews',

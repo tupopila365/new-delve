@@ -1,5 +1,5 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Building2, Bus, CalendarDays, Car, Compass, MessageCircle, Utensils } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
@@ -15,6 +15,7 @@ import { FoodReviewForm } from '../components/food/FoodReviewForm'
 import { GuideReviewForm } from '../components/guide/GuideReviewForm'
 import { TransportReviewForm } from '../components/transport/TransportReviewForm'
 import { MessageProviderLink } from '../components/messages'
+import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import {
   findSeatBookingGroup,
   useMySeatBookingGroups,
@@ -23,6 +24,9 @@ import {
 } from '../hooks/useMyTransportBookings'
 import { useMyFoodReservations, type MyFoodReservation } from '../hooks/useMyFoodReservations'
 import type { FoodVenueListing } from '../utils/foodListing'
+import { buyerPaymentLabel } from '../utils/bookingPayout'
+import type { PayTarget } from '../utils/stripeSim'
+import { OpenDisputePanel } from '../components/marketplace/OpenDisputePanel'
 import '../components/booking/booking-detail.css'
 
 type StayBooking = {
@@ -38,6 +42,7 @@ type StayBooking = {
   room_type_name?: string
   status: string
   mock_payment_ref?: string
+  payout_status?: string
   has_review?: boolean
 }
 
@@ -56,6 +61,7 @@ type GuideBooking = {
   notes?: string
   total_price?: string
   mock_payment_ref?: string
+  payout_status?: string
   status: string
   has_reviewed?: boolean
   can_review?: boolean
@@ -169,34 +175,17 @@ export function BookingDetail() {
     enabled: Boolean(profile) && service === 'food' && Boolean(food),
   })
 
+  const [payTargets, setPayTargets] = useState<PayTarget[]>([])
+
   const cancelStayMut = useMutation({
     mutationFn: () =>
       apiFetch<StayBooking>(`/api/accommodation/bookings/${bookingId}/cancel/`, { method: 'POST' }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-bookings', 'stays'] }),
   })
 
-  const payStayMut = useMutation({
-    mutationFn: () =>
-      apiFetch<{ mock_payment_ref: string }>(`/api/accommodation/bookings/${bookingId}/mock_pay/`, {
-        method: 'POST',
-      }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-bookings', 'stays'] }),
-  })
-
   const cancelVehicleMut = useMutation({
     mutationFn: () =>
       apiFetch<MyVehicleBooking>(`/api/transport/vehicle-bookings/${bookingId}/cancel/`, { method: 'POST' }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'vehicles'] })
-    },
-  })
-
-  const payVehicleMut = useMutation({
-    mutationFn: () =>
-      apiFetch<{ status: string; mock_payment_ref: string }>(
-        `/api/transport/vehicle-bookings/${bookingId}/mock_pay/`,
-        { method: 'POST', body: JSON.stringify({}) },
-      ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'vehicles'] })
     },
@@ -227,29 +216,9 @@ export function BookingDetail() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-bookings', 'guides'] }),
   })
 
-  const payGuideMut = useMutation({
-    mutationFn: () =>
-      apiFetch<GuideBooking>(`/api/guides/bookings/${bookingId}/mock_pay/`, { method: 'POST' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['my-bookings', 'guides'] }),
-  })
-
-  const payBusMut = useMutation({
-    mutationFn: async (ids: number[]) => {
-      if (ids.length > 1) {
-        return apiFetch<{ status: string; mock_payment_ref: string }>(
-          '/api/transport/bus/reservations/bulk-mock-pay/',
-          { method: 'POST', body: JSON.stringify({ reservation_ids: ids }) },
-        )
-      }
-      return apiFetch<{ status: string; mock_payment_ref: string }>(
-        `/api/transport/bus/reservations/${ids[0]}/mock_pay/`,
-        { method: 'POST', body: JSON.stringify({}) },
-      )
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'seats'] })
-    },
-  })
+  function invalidateAfterPay() {
+    void qc.invalidateQueries({ queryKey: ['my-bookings'] })
+  }
 
   if (!profile) return <Navigate to="/login" replace />
 
@@ -335,6 +304,9 @@ export function BookingDetail() {
         { label: 'Guests', value: `${stay.guests}` },
         ...(stay.room_type_name?.trim() ? [{ label: 'Room', value: stay.room_type_name.trim() }] : []),
         { label: 'Total', value: stay.total_price ? `N$${stay.total_price}` : 'TBD' },
+        ...(buyerPaymentLabel(stay.payout_status, 'host')
+          ? [{ label: 'Payment', value: buyerPaymentLabel(stay.payout_status, 'host')! }]
+          : []),
         ...(stay.mock_payment_ref?.trim()
           ? [{ label: 'Payment ref', value: stay.mock_payment_ref.trim() }]
           : []),
@@ -364,6 +336,9 @@ export function BookingDetail() {
           ? [{ label: 'Meeting point', value: guide.meeting_point.trim() }]
           : []),
         { label: 'Total', value: guide.total_price ? `N$${guide.total_price}` : 'TBD' },
+        ...(buyerPaymentLabel(guide.payout_status, 'guide')
+          ? [{ label: 'Payment', value: buyerPaymentLabel(guide.payout_status, 'guide')! }]
+          : []),
         ...(guide.mock_payment_ref?.trim()
           ? [{ label: 'Payment ref', value: guide.mock_payment_ref.trim() }]
           : []),
@@ -380,6 +355,9 @@ export function BookingDetail() {
         { label: 'Provider', value: vehicle.owner_display_name?.trim() || vehicle.listing_owner_username },
         ...(location ? [{ label: 'Location', value: location }] : []),
         { label: 'Total', value: vehicle.total_price ? `N$${vehicle.total_price}` : 'TBD' },
+        ...(buyerPaymentLabel(vehicle.payout_status, 'provider')
+          ? [{ label: 'Payment', value: buyerPaymentLabel(vehicle.payout_status, 'provider')! }]
+          : []),
         ...(vehicle.mock_payment_ref?.trim()
           ? [{ label: 'Payment ref', value: vehicle.mock_payment_ref.trim() }]
           : []),
@@ -394,6 +372,9 @@ export function BookingDetail() {
         { label: 'Operator', value: busGroup.operator_name || 'Bus operator' },
         { label: 'Seats', value: busGroup.seat_numbers.join(', ') },
         { label: 'Total', value: busGroup.total_price },
+        ...(buyerPaymentLabel(busGroup.payout_status, 'operator')
+          ? [{ label: 'Payment', value: buyerPaymentLabel(busGroup.payout_status, 'operator')! }]
+          : []),
         ...(busGroup.mock_payment_ref?.trim()
           ? [{ label: 'Payment ref', value: busGroup.mock_payment_ref.trim() }]
           : []),
@@ -421,17 +402,17 @@ export function BookingDetail() {
 
   const canReviewStay =
     Boolean(stay) &&
-    ['confirmed', 'checked_in', 'checked_out'].includes(normalizeBookingStatus(stay!.status)) &&
+    normalizeBookingStatus(stay!.status) === 'checked_out' &&
     !stay!.has_review
 
   const canReviewVehicle =
     Boolean(vehicle) &&
-    ['confirmed', 'checked_in', 'checked_out'].includes(normalizeBookingStatus(vehicle!.status)) &&
+    normalizeBookingStatus(vehicle!.status) === 'checked_out' &&
     !vehicle!.has_review
 
   const canReviewBus =
     Boolean(busGroup) &&
-    ['confirmed', 'checked_in', 'checked_out'].includes(normalizeBookingStatus(busGroup!.status)) &&
+    normalizeBookingStatus(busGroup!.status) === 'checked_out' &&
     !busGroup!.has_review
 
   const canReviewFood =
@@ -448,14 +429,12 @@ export function BookingDetail() {
     Boolean(stay) &&
     normalizeBookingStatus(stay!.status) === 'confirmed' &&
     !stay!.mock_payment_ref?.trim() &&
-    Boolean(stay!.total_price) &&
-    !payStayMut.isPending
+    Boolean(stay!.total_price)
 
   const canPayVehicle =
     Boolean(vehicle) &&
     normalizeBookingStatus(vehicle!.status) === 'confirmed' &&
-    !vehicle!.mock_payment_ref?.trim() &&
-    !payVehicleMut.isPending
+    !vehicle!.mock_payment_ref?.trim()
 
   const canCancelVehicle =
     Boolean(vehicle) &&
@@ -465,8 +444,7 @@ export function BookingDetail() {
   const canPayBus =
     Boolean(busGroup) &&
     normalizeBookingStatus(busGroup!.status) === 'confirmed' &&
-    !busGroup!.mock_payment_ref?.trim() &&
-    !payBusMut.isPending
+    !busGroup!.mock_payment_ref?.trim()
 
   const canCancelBus =
     Boolean(busGroup) &&
@@ -482,8 +460,7 @@ export function BookingDetail() {
     Boolean(guide) &&
     normalizeBookingStatus(guide!.status) === 'pending' &&
     !guide!.mock_payment_ref?.trim() &&
-    Boolean(guide!.total_price) &&
-    !payGuideMut.isPending
+    Boolean(guide!.total_price)
 
   const canCancelGuide =
     Boolean(guide) &&
@@ -590,6 +567,14 @@ export function BookingDetail() {
                 <h1 className="bk-detail-hero__title">{title}</h1>
                 <p className="bk-detail-hero__sub">{subtitle}</p>
                 {nextStep ? <p className="bk-detail-hero__hint">{nextStep}</p> : null}
+                {stay?.payout_status === 'held' ||
+                guide?.payout_status === 'held' ||
+                vehicle?.payout_status === 'held' ||
+                busGroup?.payout_status === 'held' ? (
+                  <p className="bk-detail-hero__hint" role="status">
+                    Payment held by Delve until the booking is completed.
+                  </p>
+                ) : null}
               </div>
             </section>
 
@@ -677,15 +662,48 @@ export function BookingDetail() {
               </section>
             ) : null}
 
+            {stay?.payout_status === 'held' ? (
+              <section className="bk-detail-card" aria-label="Open a dispute">
+                <h2 className="bk-detail-card__title">Need help?</h2>
+                <OpenDisputePanel source="accommodation" recordId={stay.id} enabled />
+              </section>
+            ) : null}
+            {guide?.payout_status === 'held' ? (
+              <section className="bk-detail-card" aria-label="Open a dispute">
+                <h2 className="bk-detail-card__title">Need help?</h2>
+                <OpenDisputePanel source="guide" recordId={guide.id} enabled />
+              </section>
+            ) : null}
+            {vehicle?.payout_status === 'held' ? (
+              <section className="bk-detail-card" aria-label="Open a dispute">
+                <h2 className="bk-detail-card__title">Need help?</h2>
+                <OpenDisputePanel source="vehicle" recordId={vehicle.id} enabled />
+              </section>
+            ) : null}
+            {busGroup?.payout_status === 'held' ? (
+              <section className="bk-detail-card" aria-label="Open a dispute">
+                <h2 className="bk-detail-card__title">Need help?</h2>
+                <OpenDisputePanel source="bus_seat" recordId={busGroup.reservation_ids[0]} enabled />
+              </section>
+            ) : null}
+
             <div className="bk-detail-page__actions">
               {canPayStay && stay ? (
                 <button
                   type="button"
                   className="btn btn-primary btn-block bk-detail-page__cta"
-                  disabled={payStayMut.isPending}
-                  onClick={() => payStayMut.mutate()}
+                  onClick={() =>
+                    setPayTargets([
+                      {
+                        target_type: 'accommodation',
+                        target_id: String(stay.id),
+                        amountLabel: `N$${stay.total_price}`,
+                        title: stay.listing_title,
+                      },
+                    ])
+                  }
                 >
-                  {payStayMut.isPending ? 'Processing…' : `Pay N$${stay.total_price} (mock)`}
+                  Pay N${stay.total_price} with card
                 </button>
               ) : null}
 
@@ -693,10 +711,18 @@ export function BookingDetail() {
                 <button
                   type="button"
                   className="btn btn-primary btn-block bk-detail-page__cta"
-                  disabled={payVehicleMut.isPending}
-                  onClick={() => payVehicleMut.mutate()}
+                  onClick={() =>
+                    setPayTargets([
+                      {
+                        target_type: 'vehicle',
+                        target_id: String(vehicle.id),
+                        amountLabel: `N$${vehicle.total_price}`,
+                        title: vehicle.listing_title,
+                      },
+                    ])
+                  }
                 >
-                  {payVehicleMut.isPending ? 'Processing…' : `Complete demo step · N$${vehicle.total_price}`}
+                  Pay N${vehicle.total_price} with card
                 </button>
               ) : null}
 
@@ -704,10 +730,35 @@ export function BookingDetail() {
                 <button
                   type="button"
                   className="btn btn-primary btn-block bk-detail-page__cta"
-                  disabled={payBusMut.isPending}
-                  onClick={() => payBusMut.mutate(busGroup.reservation_ids)}
+                  onClick={() => {
+                    const ids = busGroup.reservation_ids
+                    if (ids.length > 1) {
+                      setPayTargets([
+                        {
+                          target_type: 'bus_seat_bulk',
+                          target_id: ids.join('-'),
+                          amountLabel: String(busGroup.total_price).startsWith('N$')
+                            ? String(busGroup.total_price)
+                            : `N$${busGroup.total_price}`,
+                          title: busGroup.route_label,
+                          metadata: { reservation_ids: ids },
+                        },
+                      ])
+                    } else {
+                      setPayTargets([
+                        {
+                          target_type: 'bus_seat',
+                          target_id: String(ids[0]),
+                          amountLabel: String(busGroup.total_price).startsWith('N$')
+                            ? String(busGroup.total_price)
+                            : `N$${busGroup.total_price}`,
+                          title: busGroup.route_label,
+                        },
+                      ])
+                    }
+                  }}
                 >
-                  {payBusMut.isPending ? 'Processing…' : `Complete demo step · ${busGroup.total_price}`}
+                  Pay {busGroup.total_price} with card
                 </button>
               ) : null}
 
@@ -715,12 +766,18 @@ export function BookingDetail() {
                 <button
                   type="button"
                   className="btn btn-primary btn-block bk-detail-page__cta"
-                  disabled={payGuideMut.isPending}
-                  onClick={() => payGuideMut.mutate()}
+                  onClick={() =>
+                    setPayTargets([
+                      {
+                        target_type: 'guide',
+                        target_id: String(guide.id),
+                        amountLabel: `N$${guide.total_price}`,
+                        title: guide.guide_headline,
+                      },
+                    ])
+                  }
                 >
-                  {payGuideMut.isPending
-                    ? 'Processing…'
-                    : `Complete demo payment · N$${guide.total_price}`}
+                  Pay N${guide.total_price} with card
                 </button>
               ) : null}
 
@@ -806,6 +863,16 @@ export function BookingDetail() {
                 All bookings
               </Link>
             </div>
+
+            <StripeSimPayModal
+              open={payTargets.length > 0}
+              targets={payTargets}
+              onClose={() => setPayTargets([])}
+              onSuccess={() => {
+                setPayTargets([])
+                invalidateAfterPay()
+              }}
+            />
           </>
         ) : null}
       </div>

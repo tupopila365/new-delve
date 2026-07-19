@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useOutletContext } from 'react-router-dom'
+import { Star } from 'lucide-react'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import {
   ProviderUiChips,
@@ -11,7 +12,12 @@ import {
 } from '../components/provider/ui'
 import { ListSkeleton } from '../components/ui'
 import type { ListingCategory } from '../data/providerData'
-import { reviewStarBreakdown, useProviderReviews, type ProviderReviewRow } from '../hooks/useProviderReviews'
+import {
+  reviewStarBreakdown,
+  useProviderReviewReply,
+  useProviderReviews,
+  type ProviderReviewRow,
+} from '../hooks/useProviderReviews'
 import { categoriesForBusinessTypes, reviewListingChips } from '../utils/providerCategories'
 
 const RATING_FILTERS = [
@@ -27,6 +33,7 @@ const LISTING_FILTER_MAP: Record<string, string> = {
   Guides: 'Guide',
   'Food & drink': 'Food',
   Transport: 'Transport',
+  Shop: 'Shop',
 }
 
 export function ProviderReviews() {
@@ -113,7 +120,9 @@ export function ProviderReviews() {
         <ul className="prov-ui-breakdown">
           {breakdown.map((b) => (
             <li key={b.stars}>
-              <span>{b.stars} ★</span>
+              <span className="prov-ui-breakdown__star">
+                {b.stars} <Star size={12} strokeWidth={2.25} aria-hidden />
+              </span>
               <div className="prov-ui-breakdown__bar" aria-hidden>
                 <i style={{ width: `${b.pct}%` }} />
               </div>
@@ -152,8 +161,35 @@ export function ProviderReviews() {
   )
 }
 
+function listingPath(category: ListingCategory): string {
+  if (category === 'Stay') return '/provider/stays'
+  if (category === 'Guide') return '/provider/guides'
+  if (category === 'Food') return '/provider/food'
+  if (category === 'Transport') return '/provider/transport'
+  if (category === 'Shop') return '/provider/shop'
+  return '/provider/listings'
+}
+
 function ReviewCard({ review, urgent }: { review: ProviderReviewRow; urgent?: boolean }) {
+  const replyMutation = useProviderReviewReply()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(review.response ?? '')
   const dateLabel = review.date || 'Recent'
+  const busy = replyMutation.isPending
+
+  const save = async () => {
+    try {
+      await replyMutation.mutateAsync({
+        source: review.source,
+        reviewId: review.reviewId,
+        reply: draft,
+      })
+      setEditing(false)
+    } catch {
+      /* mutation error surfaces via isError if needed */
+    }
+  }
+
   return (
     <article className={`prov-ui-review${urgent ? ' prov-ui-review--urgent' : ''}`}>
       <div className="prov-ui-review__head">
@@ -166,19 +202,71 @@ function ReviewCard({ review, urgent }: { review: ProviderReviewRow; urgent?: bo
             {review.listing} · {review.category} · {dateLabel}
           </span>
         </div>
-        <span className="prov-ui-review__rating">★ {review.rating}</span>
+        <span className="prov-ui-review__rating">
+          <Star size={14} strokeWidth={2.25} aria-hidden /> {review.rating}
+        </span>
       </div>
       <p className="prov-ui-review__body">{review.body}</p>
-      {review.response ? (
+      {review.response && !editing ? (
         <p className="prov-ui-review__response">
           <strong>Your response:</strong> {review.response}
         </p>
       ) : null}
-      <div className="prov-ui__booking-actions" style={{ marginTop: 10 }}>
-        <Link to="/provider/listings" className="prov-ui__btn prov-ui__btn--ghost">
-          View listing
-        </Link>
-      </div>
+      {editing ? (
+        <div className="prov-ui-review__reply">
+          <label className="prov-ui-review__reply-label" htmlFor={`reply-${review.id}`}>
+            Your response
+          </label>
+          <textarea
+            id={`reply-${review.id}`}
+            className="prov-ui-review__reply-input"
+            rows={3}
+            maxLength={2000}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Thank the guest and address their feedback…"
+            disabled={busy}
+          />
+          {replyMutation.isError ? (
+            <p className="prov-ui-review__reply-error" role="alert">
+              Couldn’t save your response. Try again.
+            </p>
+          ) : null}
+          <div className="prov-ui__booking-actions">
+            <button type="button" className="prov-ui__btn" disabled={busy} onClick={() => void save()}>
+              {busy ? 'Saving…' : 'Save response'}
+            </button>
+            <button
+              type="button"
+              className="prov-ui__btn prov-ui__btn--ghost"
+              disabled={busy}
+              onClick={() => {
+                setDraft(review.response ?? '')
+                setEditing(false)
+                replyMutation.reset()
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="prov-ui__booking-actions" style={{ marginTop: 10 }}>
+          <button
+            type="button"
+            className="prov-ui__btn"
+            onClick={() => {
+              setDraft(review.response ?? '')
+              setEditing(true)
+            }}
+          >
+            {review.response ? 'Edit response' : 'Respond'}
+          </button>
+          <Link to={listingPath(review.category)} className="prov-ui__btn prov-ui__btn--ghost">
+            View listing
+          </Link>
+        </div>
+      )}
     </article>
   )
 }

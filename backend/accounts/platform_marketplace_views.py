@@ -13,6 +13,7 @@ from accounts.platform_marketplace import (
     list_unverified_email_users,
     set_listing_published,
 )
+from accounts.platform_payments import get_platform_payment_detail, list_platform_payments
 
 User = get_user_model()
 
@@ -113,6 +114,38 @@ class PlatformBookingsView(APIView):
                 limit=limit,
             )
         )
+
+
+class PlatformPaymentsView(APIView):
+    """Held / released marketplace money across shop orders and bookings."""
+
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request):
+        search = (request.query_params.get("search") or "").strip()
+        source = (request.query_params.get("source") or request.query_params.get("type") or "").strip()
+        payout_status = (
+            request.query_params.get("payout_status") or request.query_params.get("payout") or ""
+        ).strip()
+        limit = min(int(request.query_params.get("limit") or 200), 300)
+        return Response(
+            list_platform_payments(
+                search=search,
+                source=source,
+                payout_status=payout_status,
+                limit=limit,
+            )
+        )
+
+
+class PlatformPaymentDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get(self, request, source, record_id):
+        detail = get_platform_payment_detail(source, int(record_id))
+        if not detail:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(detail)
 
 
 class PlatformBookingDetailView(APIView):

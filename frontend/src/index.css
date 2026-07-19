@@ -10606,6 +10606,30 @@ a.chip.chip--accent:hover {
   color: var(--accent);
 }
 
+.acc-detail__review-reply {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.acc-detail__review-reply-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.45);
+  margin-bottom: 4px;
+}
+
+.acc-detail__review-reply-body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.72);
+}
+
 .acc-detail__faq {
   margin-bottom: 20px;
 }

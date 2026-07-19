@@ -163,6 +163,12 @@ export function ProductReviews({ productId }: Props) {
                     </div>
                   </div>
                   {review.body ? <p className="pr__item-body">{review.body}</p> : null}
+                  {review.seller_reply ? (
+                    <div className="pr__item-reply">
+                      <span className="pr__item-reply-label">Seller response</span>
+                      <p className="pr__item-reply-body">{review.seller_reply}</p>
+                    </div>
+                  ) : null}
                   {review.media.length > 0 ? (
                     <div className="pr__media">
                       {review.media.map((m, i) => (

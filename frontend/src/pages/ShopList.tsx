@@ -109,7 +109,8 @@ export function ShopList() {
         <p className="shop-market__kicker">Marketplace</p>
         <h1 className="shop-market__title">Shops</h1>
         <p className="shop-market__lead">
-          Browse products from local shops and makers — add to your cart and check out in one place.
+          Browse products from local shops and makers — add to your cart and check out in one place. Sellers handle
+          their own shipping; Delve holds payment until delivery.
         </p>
         {region ? (
           <p className="shop-market__region">
@@ -117,6 +118,12 @@ export function ShopList() {
             Showing items near {region}
           </p>
         ) : null}
+        <p className="shop-market__sell">
+          <Link to="/shop/manage" className="shop-market__sell-link">
+            Sell on Delve
+          </Link>
+          <span> — list your crafts or souvenirs; you ship or offer pickup.</span>
+        </p>
 
         <div className="shop-market__find">
           <label className="shop-market__search" htmlFor="shop-search">

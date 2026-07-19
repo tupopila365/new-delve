@@ -1,4 +1,4 @@
-/* Provider settings — dark theme, matches prov-ui */
+/* Provider settings — manage cream theme, matches prov-ui */
 
 .prov-settings__banner {
   margin: 0;
@@ -9,12 +9,12 @@
 
 .prov-settings__banner--ok {
   background: rgba(134, 239, 172, 0.15);
-  color: #86efac;
+  color: var(--manage-ink-soft);
 }
 
 .prov-settings__banner--err {
   background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
+  color: #5c3030;
 }
 
 .prov-settings__panel {
@@ -27,14 +27,14 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 800;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .prov-settings__panel-sub {
   margin: -8px 0 0;
   font-size: 0.85rem;
   line-height: 1.45;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .prov-settings__fields {
@@ -49,7 +49,7 @@
   gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255, 250, 242, 0.75);
+  color: var(--manage-ink-soft);
 }
 
 .prov-settings__field input,
@@ -58,9 +58,9 @@
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fffaf2;
+  border: 1px solid var(--manage-line);
+  background: var(--manage-paper);
+  color: var(--manage-ink);
   font-size: 0.92rem;
   font-family: inherit;
 }
@@ -69,7 +69,7 @@
 .prov-settings__field select:focus,
 .prov-settings__field textarea:focus {
   outline: none;
-  border-color: rgba(255, 154, 82, 0.5);
+  border-color: var(--manage-ink-soft);
 }
 
 .prov-settings__field textarea {
@@ -92,7 +92,7 @@
 .prov-settings__char-count {
   margin: 0;
   font-size: 0.72rem;
-  color: rgba(255, 250, 242, 0.4);
+  color: var(--manage-muted);
   text-align: right;
 }
 
@@ -104,8 +104,8 @@
 .prov-settings__info-card {
   padding: 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line-soft);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -120,12 +120,12 @@
 }
 
 .prov-settings__info-row span:first-child {
-  color: rgba(255, 250, 242, 0.5);
+  color: var(--manage-muted);
   flex-shrink: 0;
 }
 
 .prov-settings__info-row span:last-child {
-  color: #fffaf2;
+  color: var(--manage-ink);
   text-align: right;
 }
 
@@ -140,8 +140,8 @@
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 154, 82, 0.15);
-  color: #a78bfa;
+  background: var(--manage-chip);
+  color: var(--manage-ink);
 }
 
 .prov-settings__av-row {
@@ -166,8 +166,8 @@
   place-items: center;
   font-size: 1.5rem;
   font-weight: 800;
-  color: #a78bfa;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: var(--manage-ink);
+  border: 2px solid var(--manage-line);
 }
 
 .prov-settings__av-circle img {
@@ -183,9 +183,9 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #a78bfa;
+  background: var(--manage-ink);
   border: 2px solid #141110;
-  color: #1a0f05;
+  color: var(--manage-paper);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -194,7 +194,7 @@
 .prov-settings__av-hint {
   margin: 4px 0 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .prov-settings__av-remove {
@@ -202,7 +202,7 @@
   background: none;
   cursor: pointer;
   font-size: 0.82rem;
-  color: #f87171;
+  color: #5c3030;
   margin-left: 8px;
   padding: 0;
   font-family: inherit;
@@ -215,8 +215,8 @@
   gap: 12px;
   padding: 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line-soft);
   text-decoration: none;
   color: inherit;
 }
@@ -224,14 +224,14 @@
 .prov-settings__action-card strong {
   display: block;
   font-size: 0.88rem;
-  color: #fffaf2;
+  color: var(--manage-ink);
 }
 
 .prov-settings__action-card span {
   display: block;
   margin-top: 2px;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.5);
+  color: var(--manage-muted);
 }
 
 .prov-settings__action-card--disabled {
@@ -240,7 +240,7 @@
 
 .prov-settings__divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   margin: 4px 0;
 }
 
@@ -250,7 +250,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #f87171;
+  color: #5c3030;
 }
 
 .prov-settings__pill {
@@ -259,8 +259,8 @@
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 250, 242, 0.55);
+  background: var(--manage-line-soft);
+  color: var(--manage-muted);
 }
 
 .prov-settings__verify-banner {
@@ -270,10 +270,10 @@
   gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 154, 82, 0.12);
-  border: 1px solid rgba(255, 154, 82, 0.25);
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-line);
   font-size: 0.82rem;
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .prov-settings__resend-btn {
@@ -298,7 +298,7 @@
 .prov-settings__hint {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.5);
+  color: var(--manage-muted);
   line-height: 1.45;
 }
 
@@ -328,11 +328,11 @@
   height: 88px;
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-line);
   font-size: 1.4rem;
   font-weight: 800;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .prov-settings__logo-preview img,
@@ -346,8 +346,8 @@
   margin: 0 0 1.25rem;
   padding: 1rem 1.1rem;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--manage-card);
+  border: 1px solid var(--manage-line-soft);
 }
 
 .prov-verification-card__head {
@@ -371,7 +371,7 @@
   font-weight: 700;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--manage-line-soft);
   color: rgba(255, 250, 242, 0.85);
 }
 
@@ -402,7 +402,7 @@
 .prov-verification-card__meta {
   margin-top: 0.65rem;
   font-size: 0.82rem;
-  color: rgba(255, 250, 242, 0.55);
+  color: var(--manage-muted);
 }
 
 .prov-layout-banner {
@@ -422,7 +422,7 @@
 }
 
 .prov-layout-banner a {
-  color: #a78bfa;
+  color: var(--manage-ink);
   font-weight: 650;
 }
 
@@ -433,10 +433,10 @@
   min-height: 88px;
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--manage-paper);
+  border: 1px solid var(--manage-line);
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.45);
+  color: var(--manage-muted);
 }
 
 .prov-settings__msg-automation {
@@ -463,5 +463,5 @@
 }
 
 .prov-settings__msg-automation:hover {
-  border-color: rgba(255, 154, 82, 0.5);
+  border-color: var(--manage-ink-soft);
 }

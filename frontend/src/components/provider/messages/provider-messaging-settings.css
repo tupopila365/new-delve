@@ -6,26 +6,26 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
   font-size: 0.875rem;
   text-decoration: none;
 }
 
 .prov-msg-settings__back-link:hover {
-  color: var(--accent, #e87722);
+  color: var(--manage-ink);
 }
 
 .prov-msg-settings__loading {
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
 }
 
 .prov-msg-settings__notice {
   margin: 0 0 1rem;
   padding: 0.75rem 0.9rem;
   border-radius: 10px;
-  border: 1px solid rgba(232, 119, 34, 0.25);
-  background: rgba(232, 119, 34, 0.08);
-  color: var(--text-muted, #a89f96);
+  border: 1px solid var(--manage-line);
+  background: var(--manage-paper);
+  color: var(--manage-muted);
   font-size: 0.875rem;
   line-height: 1.45;
 }
@@ -44,8 +44,8 @@
 .prov-msg-settings__card {
   padding: 1.1rem 1.15rem;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 18, 16, 0.72);
+  border: 1px solid var(--manage-line-soft);
+  background: rgba(250, 248, 244, 0.72);
 }
 
 .prov-msg-settings__card h2 {
@@ -55,7 +55,7 @@
 
 .prov-msg-settings__card p {
   margin: 0;
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
   font-size: 0.875rem;
   line-height: 1.45;
 }
@@ -76,7 +76,7 @@
 
 .prov-msg-settings__field span {
   font-size: 0.8125rem;
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
 }
 
 .prov-msg-settings__field textarea {
@@ -85,7 +85,7 @@
   min-height: 6rem;
   padding: 0.65rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--manage-line);
   background: rgba(0, 0, 0, 0.25);
   color: inherit;
   font: inherit;
@@ -96,7 +96,7 @@
 }
 
 .prov-msg-settings__field small {
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
   font-size: 0.75rem;
 }
 
@@ -134,7 +134,7 @@
 }
 
 .prov-msg-settings__sw input:checked + .prov-msg-settings__sw-track {
-  background: var(--accent, #e87722);
+  background: var(--manage-ink);
 }
 
 .prov-msg-settings__sw input:checked + .prov-msg-settings__sw-track::after {
@@ -159,7 +159,7 @@
   flex: 1;
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--manage-line);
   background: rgba(0, 0, 0, 0.25);
   color: inherit;
   font: inherit;
@@ -175,9 +175,9 @@
   justify-content: center;
   width: 2.25rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--manage-line);
   background: transparent;
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
   cursor: pointer;
 }
 
@@ -195,7 +195,7 @@
   border-radius: 999px;
   border: 1px dashed rgba(255, 255, 255, 0.18);
   background: transparent;
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
   font-size: 0.8125rem;
   cursor: pointer;
 }
@@ -233,7 +233,7 @@
 .prov-msg-settings__templates p {
   margin: 0 0 0.45rem;
   font-size: 0.75rem;
-  color: var(--text-muted, #a89f96);
+  color: var(--manage-muted);
 }
 
 .prov-msg-settings__template-row {
@@ -257,7 +257,7 @@
 .prov-msg-settings__template-btn:hover,
 .prov-msg-settings__starter-pack:hover {
   border-color: rgba(255, 154, 82, 0.45);
-  color: #a78bfa;
+  color: var(--manage-ink);
 }
 
 .prov-msg-settings__starter-pack {

@@ -1,35 +1,45 @@
 import { useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowLeft, Car, Compass, Hotel, Menu, ShoppingBag, Ticket, Utensils, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Menu } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess, type MyBusiness } from '../hooks/useBusinessAccess'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { canResubmitVerification, verificationStatusHint } from '../utils/businessVerification'
+import {
+  MANAGE_ICON_SIZE,
+  MANAGE_MODULE_ICONS,
+  MANAGE_MODULE_LABELS,
+  MANAGE_MODULE_PATHS,
+  MANAGE_NAV_ICONS,
+  type ManageModuleId,
+  type ManageNavId,
+} from './provider/manageIcons'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import { ProviderAccessGate } from './provider'
 import { ListSkeleton } from './ui'
 import '../components/provider/settings/provider-settings.css'
+import '../components/provider/provider-manage-shell.css'
 
-const NAV = [
-  { to: '/provider', label: 'Overview', end: true },
-  { to: '/provider/listings', label: 'Listings' },
-  { to: '/provider/promotions', label: 'Promotions' },
-  { to: '/provider/bookings', label: 'Bookings' },
-  { to: '/provider/questions', label: 'Questions' },
-  { to: '/provider/messages', label: 'Messages' },
-  { to: '/provider/reviews', label: 'Reviews' },
-  { to: '/provider/analytics', label: 'Analytics' },
-  { to: '/provider/settings', label: 'Settings', end: false },
-] as const
+const NAV: { to: string; label: string; id: ManageNavId; end?: boolean }[] = [
+  { to: '/provider', label: 'Overview', id: 'overview', end: true },
+  { to: '/provider/listings', label: 'Listings', id: 'listings' },
+  { to: '/provider/promotions', label: 'Promotions', id: 'promotions' },
+  { to: '/provider/bookings', label: 'Bookings', id: 'bookings' },
+  { to: '/provider/questions', label: 'Questions', id: 'questions' },
+  { to: '/provider/messages', label: 'Messages', id: 'messages' },
+  { to: '/provider/reviews', label: 'Reviews', id: 'reviews' },
+  { to: '/provider/analytics', label: 'Analytics', id: 'analytics' },
+  { to: '/provider/settings', label: 'Settings', id: 'settings', end: false },
+]
 
-const MODULE_LINKS: { to: string; label: string; Icon: LucideIcon; serviceType: string }[] = [
-  { to: '/provider/stays', label: 'Stays', Icon: Hotel, serviceType: 'accommodation' },
-  { to: '/provider/guides', label: 'Guides', Icon: Compass, serviceType: 'guide' },
-  { to: '/provider/transport', label: 'Transport', Icon: Car, serviceType: 'transport' },
-  { to: '/provider/food', label: 'Food & drink', Icon: Utensils, serviceType: 'food_drink' },
-  { to: '/provider/shop', label: 'Shop', Icon: ShoppingBag, serviceType: 'retail_shop' },
-  { to: '/provider/events', label: 'Events', Icon: Ticket, serviceType: 'event_organiser' },
+const MODULE_IDS: ManageModuleId[] = [
+  'accommodation',
+  'guide',
+  'transport',
+  'food_drink',
+  'retail_shop',
+  'event_organiser',
 ]
 
 function verificationLabel(status?: string) {
@@ -38,6 +48,10 @@ function verificationLabel(status?: string) {
   if (status === 'rejected') return 'Verification rejected'
   if (status === 'suspended') return 'Suspended'
   return 'Unverified'
+}
+
+function shellClassName() {
+  return 'manage-theme manage-theme--light prov-shell prov-shell--polished prov-shell--manage'
 }
 
 export function ProviderLayout() {
@@ -58,7 +72,7 @@ export function ProviderLayout() {
 
   if (isLoading) {
     return (
-      <div className="prov-shell prov-shell--polished prov-shell--dark">
+      <div className={shellClassName()}>
         <div className="prov-content prov-page">
           <p className="prov-page__sub">Loading provider dashboard…</p>
           <ListSkeleton count={4} variant="row" />
@@ -69,7 +83,7 @@ export function ProviderLayout() {
 
   if (!canAccessProvider) {
     return (
-      <div className="prov-shell prov-shell--polished prov-shell--dark">
+      <div className={shellClassName()}>
         <div className="prov-content">
           <ProviderAccessGate />
         </div>
@@ -77,13 +91,13 @@ export function ProviderLayout() {
     )
   }
 
-  const isModule = MODULE_LINKS.some((m) => location.pathname.startsWith(m.to))
+  const isModule = MODULE_IDS.some((id) => location.pathname.startsWith(MANAGE_MODULE_PATHS[id]))
   const noBusiness = businesses.length === 0
   const onboardingIncomplete = resolvedBusiness && resolvedBusiness.onboarding_completed === false
 
   const activeTypes = resolvedBusiness?.business_types ?? []
-  const visibleModules = MODULE_LINKS.filter(
-    (m) => activeTypes.includes(m.serviceType) || activeTypes.includes('multi_provider'),
+  const visibleModules = MODULE_IDS.filter(
+    (id) => activeTypes.includes(id) || activeTypes.includes('multi_provider'),
   )
 
   if (noBusiness || onboardingIncomplete) {
@@ -91,14 +105,14 @@ export function ProviderLayout() {
   }
 
   return (
-    <div className="prov-shell prov-shell--polished prov-shell--dark">
+    <div className={shellClassName()}>
       <aside className={`prov-sidebar${mobileOpen ? ' prov-sidebar--open' : ''}`}>
         <div className="prov-sidebar__brand">
           <Link to="/" className="prov-sidebar__home" onClick={() => setMobileOpen(false)}>
             <ArrowLeft size={16} strokeWidth={2.25} aria-hidden />
             DELVE
           </Link>
-          <span className="prov-sidebar__tag">Provider dashboard</span>
+          <span className="prov-sidebar__tag">Provider</span>
         </div>
 
         {businesses.length > 1 ? (
@@ -120,39 +134,49 @@ export function ProviderLayout() {
         ) : null}
 
         <nav className="prov-sidebar__nav" aria-label="Provider dashboard">
-          {NAV.map((item) => (
+          {NAV.map((item) => {
+            const Icon = MANAGE_NAV_ICONS[item.id]
+            return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={'end' in item ? item.end : false}
+                end={item.end ?? false}
                 className={({ isActive }) =>
                   isActive && !isModule ? 'prov-sidebar__link prov-sidebar__link--active' : 'prov-sidebar__link'
                 }
                 onClick={() => setMobileOpen(false)}
               >
-                {item.label}
+                <Icon
+                  className="prov-sidebar__link-icon"
+                  size={MANAGE_ICON_SIZE.nav}
+                  strokeWidth={2.25}
+                  aria-hidden
+                />
+                <span>{item.label}</span>
                 {item.to === '/provider/bookings' && pendingProviderBookings > 0 ? (
                   <NavBadge count={pendingProviderBookings} />
                 ) : null}
               </NavLink>
-            ))}
+            )
+          })}
         </nav>
 
         <div className="prov-sidebar__modules">
           <p className="prov-sidebar__modules-label">Categories</p>
-          {visibleModules.map((m) => {
-            const Icon = m.Icon
+          {visibleModules.map((id) => {
+            const Icon = MANAGE_MODULE_ICONS[id]
+            const to = MANAGE_MODULE_PATHS[id]
             return (
               <NavLink
-                key={m.to}
-                to={m.to}
+                key={to}
+                to={to}
                 className={({ isActive }) =>
                   isActive ? 'prov-sidebar__module prov-sidebar__module--active' : 'prov-sidebar__module'
                 }
                 onClick={() => setMobileOpen(false)}
               >
-                <Icon size={16} strokeWidth={2.25} aria-hidden />
-                {m.label}
+                <Icon size={MANAGE_ICON_SIZE.module} strokeWidth={2.25} aria-hidden />
+                {MANAGE_MODULE_LABELS[id]}
               </NavLink>
             )
           })}

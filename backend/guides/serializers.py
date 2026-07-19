@@ -154,13 +154,29 @@ class GuideBookingSerializer(serializers.ModelSerializer):
             "package_title",
             "notes",
             "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
             "mock_payment_ref",
             "status",
             "has_reviewed",
             "can_review",
             "created_at",
         )
-        read_only_fields = ("client", "total_price", "mock_payment_ref", "created_at", "status")
+        read_only_fields = (
+            "client",
+            "total_price",
+            "platform_fee",
+            "seller_payout",
+            "payout_status",
+            "paid_at",
+            "payout_released_at",
+            "mock_payment_ref",
+            "created_at",
+            "status",
+        )
 
     def get_package_title(self, obj):
         from .provider_serializers import _package_title

@@ -97,10 +97,10 @@ class AccommodationPhase3SocialTests(TestCase):
             check_out=today + timedelta(days=2),
             guests=2,
             total_price="2400.00",
-            status=BookingStatus.CONFIRMED,
+            status=BookingStatus.CHECKED_OUT,
         )
 
-    def test_review_after_confirmed_booking(self):
+    def test_review_after_checked_out_booking(self):
         self.client.force_authenticate(user=self.traveler)
         review_url = f"/api/accommodation/bookings/{self.booking.pk}/review/"
         res = self.client.post(review_url, {"rating": 5, "body": "Excellent stay."}, format="json")

@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
-import type { ActivityItem, AdminBusiness, AttentionItem, PlatformOverview, StatItem } from '../api/types'
+import { apiFetch, asArray } from '../api/client'
+import type { ActivityItem, AdminBusiness, AdminDispute, AdminPayment, AttentionItem, PlatformOverview, StatItem } from '../api/types'
 import {
   DelveAdminActivityFeed,
   DelveAdminAttentionList,
@@ -16,6 +16,7 @@ import {
   DelveAdminStatusBadge,
 } from '../components'
 import { DEMO_REPORTS, statusVariant } from '../data/demoData'
+import { HELD_WARN_DAYS, heldAgeDays } from '../utils/paymentAging'
 
 export function DashboardPage() {
   const { data: overview, isLoading, isError, refetch } = useQuery({
@@ -33,8 +34,22 @@ export function DashboardPage() {
     queryFn: () => apiFetch<ActivityItem[]>('/api/accounts/admin/activity/'),
   })
 
+  const { data: heldPayments = [] } = useQuery({
+    queryKey: ['payments', 'held-dashboard'],
+    queryFn: async () => asArray<AdminPayment>(await apiFetch('/api/accounts/admin/payments/?payout_status=held')),
+  })
+
+  const { data: openDisputes = [] } = useQuery({
+    queryKey: ['disputes', 'active-dashboard'],
+    queryFn: async () => asArray<AdminDispute>(await apiFetch('/api/accounts/admin/disputes/?status=active')),
+  })
+
   const pendingBiz = businesses.filter((b) => b.verification_status === 'pending')
   const newReports = DEMO_REPORTS.filter((r) => r.status === 'new' || r.status === 'escalated')
+  const agingHeld = heldPayments.filter((p) => {
+    const days = heldAgeDays(p)
+    return days != null && days > HELD_WARN_DAYS
+  }).length
 
   const attention = useMemo((): AttentionItem[] => {
     const items: AttentionItem[] = []
@@ -48,6 +63,16 @@ export function DashboardPage() {
         actionTo: '/admin/verifications',
       })
     }
+    if (openDisputes.length > 0) {
+      items.push({
+        id: 'disputes',
+        label: `${openDisputes.length} open dispute${openDisputes.length === 1 ? '' : 's'}`,
+        count: openDisputes.length,
+        priority: 'high',
+        actionLabel: 'Open disputes',
+        actionTo: '/admin/disputes',
+      })
+    }
     if ((overview?.reports_open ?? newReports.length) > 0) {
       items.push({
         id: 'reports',
@@ -56,6 +81,25 @@ export function DashboardPage() {
         priority: 'high',
         actionLabel: 'Open reports',
         actionTo: '/admin/reports',
+      })
+    }
+    if (agingHeld > 0) {
+      items.push({
+        id: 'payments-aging',
+        label: `${agingHeld} payment${agingHeld === 1 ? '' : 's'} held over ${HELD_WARN_DAYS} days`,
+        count: agingHeld,
+        priority: 'high',
+        actionLabel: 'Open payments',
+        actionTo: '/admin/payments',
+      })
+    } else if (heldPayments.length > 0) {
+      items.push({
+        id: 'payments-held',
+        label: `${heldPayments.length} payment${heldPayments.length === 1 ? '' : 's'} held by Delve`,
+        count: heldPayments.length,
+        priority: 'medium',
+        actionLabel: 'Open payments',
+        actionTo: '/admin/payments',
       })
     }
     if ((overview?.bookings_pending ?? 0) > 0) {
@@ -79,7 +123,7 @@ export function DashboardPage() {
       })
     }
     return items
-  }, [overview, newReports.length])
+  }, [overview, newReports.length, agingHeld, heldPayments.length, openDisputes.length])
 
   const stats = useMemo((): StatItem[] => {
     if (!overview) return []
@@ -175,6 +219,8 @@ export function DashboardPage() {
             { label: 'All businesses', to: '/admin/businesses' },
             { label: 'All listings', to: '/admin/listings' },
             { label: 'Bookings', to: '/admin/bookings' },
+            { label: 'Payments desk', to: '/admin/payments' },
+            { label: 'Disputes', to: '/admin/disputes' },
             { label: 'Reports', to: '/admin/reports' },
             { label: 'Analytics', to: '/admin/analytics' },
             { label: 'Activity feed', to: '/admin/activity' },

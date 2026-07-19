@@ -15,6 +15,8 @@ function money(value: string | number): string {
 const STATUS_CLASS: Record<string, string> = {
   pending: 'is-pending',
   paid: 'is-paid',
+  ready: 'is-ready',
+  shipped: 'is-shipped',
   fulfilled: 'is-fulfilled',
   cancelled: 'is-cancelled',
   refunded: 'is-refunded',
