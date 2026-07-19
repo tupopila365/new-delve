@@ -29,7 +29,9 @@ def _parse_bool(value):
 def _prepare_provider_product_data(request):
     content_type = request.content_type or ""
     if "multipart" in content_type:
-        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        # Plain dict — not QueryDict. DRF JSONField re-stringifies QueryDict values
+        # as Python repr (single quotes), which then fails "Value must be valid JSON."
+        data = {key: request.data.get(key) for key in request.data.keys()}
         raw_photos = data.get("photos")
         if isinstance(raw_photos, str) and raw_photos.strip():
             try:
@@ -53,11 +55,6 @@ def _prepare_provider_product_data(request):
         ):
             if key in data:
                 data[key] = _parse_bool(data.get(key))
-        if "price" in data:
-            try:
-                data["price"] = data["price"]
-            except (TypeError, ValueError):
-                pass
         cover_file = request.FILES.get("cover_image_upload") or request.FILES.get("cover_image")
         if cover_file is not None:
             data["cover_image_upload"] = cover_file
