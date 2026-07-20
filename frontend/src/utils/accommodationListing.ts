@@ -14,6 +14,7 @@ import {
 import { normalizeReviews } from '../components/GuestReviewCard'
 import { toListingGalleryImages } from '../components/listing/listingUtils'
 import type { ListingDetailRow, ListingFaqItem, ListingGalleryItem, ListingRoomOption } from '../components/listing/types'
+import type { HighlightChannelInput } from '../components/highlights'
 import { mediaUrl } from '../api/client'
 import { buildGalleryItems } from '../components/AccommodationGallery'
 
@@ -53,6 +54,8 @@ export type AccommodationListing = {
   amenities: string[]
   cover_image: string | null
   media_gallery?: { kind: string; src: string }[]
+  /** Provider-curated highlight rings (replaces auto gallery rings when set). */
+  listing_stories?: HighlightChannelInput[]
   check_in_from?: string
   check_out_until?: string
   house_rules?: string

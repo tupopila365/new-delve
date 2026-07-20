@@ -8,16 +8,18 @@ type Props = {
   trip: ProviderBusTripListing
   canEdit?: boolean
   onEdit: () => void
+  onManageHighlights?: () => void
 }
 
 function fmtWhen(iso: string) {
   return new Date(iso).toLocaleString('en-NA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-export function BusTripListingCard({ trip, canEdit, onEdit }: Props) {
+export function BusTripListingCard({ trip, canEdit, onEdit, onManageHighlights }: Props) {
   const { percent, missing } = busTripCompleteness(trip)
   const occ = trip.occupied_seats?.length ?? 0
   const pct = trip.total_seats > 0 ? Math.round((occ / trip.total_seats) * 100) : 0
+  const highlightCount = trip.route_detail.listing_stories?.length ?? 0
 
   return (
     <article className="prov-ui__card transport-list-card">
@@ -53,6 +55,11 @@ export function BusTripListingCard({ trip, canEdit, onEdit }: Props) {
           </div>
           <span className="transport-capacity__label">{occ}/{trip.total_seats} booked · {pct}% full</span>
         </div>
+        <p className="transport-list-card__meta">
+          {highlightCount > 0
+            ? `${highlightCount} highlight ring${highlightCount === 1 ? '' : 's'}`
+            : 'No highlights'}
+        </p>
         {missing.length > 0 ? (
           <p className="transport-list-card__missing">Still needed: {missing.slice(0, 3).join(', ')}</p>
         ) : null}
@@ -60,6 +67,11 @@ export function BusTripListingCard({ trip, canEdit, onEdit }: Props) {
 
       <div className="transport-list-card__actions">
         <Link to={`/transport/bus/${trip.id}`} className="prov-ui__btn prov-ui__btn--ghost">View public</Link>
+        {canEdit && onManageHighlights ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
+            {highlightCount > 0 ? 'Manage highlights' : 'Add highlights'}
+          </button>
+        ) : null}
         {canEdit ? (
           <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>Edit trip</button>
         ) : null}

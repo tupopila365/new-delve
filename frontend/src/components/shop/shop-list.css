@@ -20,8 +20,16 @@
   border: 1px solid var(--sh-border);
 }
 
+.shop-market__hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
 .shop-market__kicker {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 0.68rem;
   font-weight: 850;
   letter-spacing: 0.08em;
@@ -99,10 +107,24 @@
   margin: 10px 0 0;
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   color: var(--sh-accent-bright);
   font-size: 0.8rem;
   font-weight: 750;
+}
+
+.shop-market__region-toggle {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 .shop-market__sell {
@@ -530,6 +552,21 @@
 }
 
 /* ---- Storefront ---- */
+.storefront__top {
+  margin: 4px 0 12px;
+}
+
+.storefront__back {
+  color: var(--sh-muted);
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.storefront__back:hover {
+  color: var(--sh-text);
+}
+
 .storefront__hero {
   display: flex;
   gap: 16px;

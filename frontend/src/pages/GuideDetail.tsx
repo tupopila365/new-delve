@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Compass } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { useToggleGuideSave } from '../hooks/useGuideSave'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 import { normalizeReviews } from '../components/GuestReviewCard'
@@ -27,6 +28,7 @@ export function GuideDetail() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
   const saveMut = useToggleGuideSave()
   const [shareMsg, setShareMsg] = useState('')
   const [selectedPackage, setSelectedPackage] = useState<TourPackage | null>(null)
@@ -126,6 +128,12 @@ export function GuideDetail() {
     )
   }
 
+  const canManage =
+    Boolean(profile) &&
+    (profile?.username === g.username ||
+      (canManageListings && activeBusiness?.owner_username === g.username))
+  const manageHighlightsHref = canManage ? '/provider/guides?edit=highlights' : undefined
+
   return (
     <div className="jn-detail-page gd-detail-page">
       {shareMsg ? (
@@ -157,6 +165,7 @@ export function GuideDetail() {
         profile={profile}
         canReview={Boolean(g.can_review)}
         onScrollToExperiences={scrollToExperiences}
+        manageHighlightsHref={manageHighlightsHref}
       />
     </div>
   )

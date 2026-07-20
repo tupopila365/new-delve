@@ -17,6 +17,8 @@ type Props = {
   onSubmit: () => void
   onCancel: () => void
   isEdit?: boolean
+  /** Open on a specific section (e.g. Highlights from detail page). */
+  initialSection?: (typeof SECTIONS)[number]['id']
 }
 
 const SECTIONS = [
@@ -25,15 +27,24 @@ const SECTIONS = [
   { id: 'credentials', label: 'Trust & credentials' },
   { id: 'pricing', label: 'Pricing & meeting' },
   { id: 'photos', label: 'Photos' },
-  { id: 'stories', label: 'Stories' },
+  { id: 'stories', label: 'Highlights' },
 ] as const
 
 function emptyLang(): LanguageDetailForm {
   return { language: '', level: 'Fluent' }
 }
 
-export function GuideProfileForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
-  const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('identity')
+export function GuideProfileForm({
+  values,
+  onChange,
+  error,
+  saving,
+  onSubmit,
+  onCancel,
+  isEdit,
+  initialSection = 'identity',
+}: Props) {
+  const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>(initialSection)
 
   function patch(partial: Partial<GuideProfileFormValues>) {
     onChange({ ...values, ...partial })

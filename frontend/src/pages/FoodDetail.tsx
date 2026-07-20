@@ -165,6 +165,7 @@ export function FoodDetail() {
 
   const canReserve = Boolean(data.reservations)
   const editHref = canAnswer ? `/provider/food/${id}` : undefined
+  const manageHighlightsHref = canAnswer ? `/provider/food/${id}?module=highlights` : undefined
 
   const onSave = () => {
     if (!profile) {
@@ -194,6 +195,7 @@ export function FoodDetail() {
         data={data}
         venueId={id}
         editHref={editHref}
+        manageHighlightsHref={manageHighlightsHref}
         liked={engagement.isLiked(data)}
         saved={engagement.isSaved(data)}
         likeBusy={engagement.isLikeBusy(data.id)}

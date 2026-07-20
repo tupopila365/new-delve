@@ -3,7 +3,7 @@ import { Star, UtensilsCrossed } from 'lucide-react'
 import { mediaUrl } from '../../../api/client'
 import { cuisineLabel, priceLevelLabel } from '../../../utils/foodListing'
 import { venueCompleteness, type ProviderFoodVenue } from './foodVenueTypes'
-import { venueOpenPillClass } from './foodVenueModules'
+import { moduleStatus, moduleStatusLabel, venueOpenPillClass } from './foodVenueModules'
 
 type Props = {
   venue: ProviderFoodVenue
@@ -17,6 +17,8 @@ export function FoodVenueCard({ venue, onEdit, canManage = true }: Props) {
   const isVideo = venue.cover_kind === 'video' || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(cover || '')
   const openLabel =
     venue.is_open === true ? 'Open' : venue.is_open === false ? 'Closed' : venue.is_active ? 'Published' : 'Draft'
+  const highlightStatus = moduleStatus(venue, 'stories')
+  const highlightsHref = `/provider/food/${venue.id}?module=highlights`
 
   return (
     <article className="adm-listing-card">
@@ -46,14 +48,29 @@ export function FoodVenueCard({ venue, onEdit, canManage = true }: Props) {
           </p>
         ) : null}
         <p className="adm-listing-card__desc">{venue.tagline || venue.description}</p>
+        <p className="adm-listing-card__meta">
+          Highlights: <strong>{moduleStatusLabel(highlightStatus)}</strong>
+          {highlightStatus === 'complete'
+            ? ` · ${venue.venue_stories?.length ?? 0} ring${(venue.venue_stories?.length ?? 0) === 1 ? '' : 's'}`
+            : null}
+        </p>
         {percent < 100 ? (
           <p className="adm-listing-card__hint">Profile {percent}% — missing: {missing.join(', ')}</p>
         ) : null}
       </div>
       <div className="adm-listing-card__actions">
-        <Link to={`/food/${venue.id}`} className="btn btn-ghost adm-action-btn">View</Link>
+        <Link to={`/food/${venue.id}`} className="btn btn-ghost adm-action-btn">
+          View
+        </Link>
         {canManage ? (
-          <button type="button" className="btn btn-ghost adm-action-btn" onClick={onEdit}>Edit</button>
+          <>
+            <Link to={highlightsHref} className="btn btn-ghost adm-action-btn">
+              {highlightStatus === 'empty' ? 'Add highlights' : 'Manage highlights'}
+            </Link>
+            <button type="button" className="btn btn-ghost adm-action-btn" onClick={onEdit}>
+              Edit
+            </button>
+          </>
         ) : null}
       </div>
     </article>

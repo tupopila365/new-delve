@@ -12,12 +12,16 @@ type Props = {
   venueId?: string
   listingName?: string
   explorePath?: string
+  isOwner?: boolean
+  onAddHighlight?: () => void
+  onManageHighlights?: () => void
 }
 
 export function VenueStoriesSection({
   title = 'From the kitchen',
+  subtitle = 'Menu, space & venue highlights',
   ctaLabel = 'View venue',
   ...props
 }: Props) {
-  return <HighlightStoriesSection title={title} ctaLabel={ctaLabel} {...props} />
+  return <HighlightStoriesSection title={title} subtitle={subtitle} ctaLabel={ctaLabel} {...props} />
 }

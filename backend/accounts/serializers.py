@@ -9,6 +9,7 @@ from .models import (
     BusinessType,
     BusinessVerificationDocument,
     Profile,
+    TravelOffer,
     User,
     UserType,
 )
@@ -119,9 +120,104 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ("user_type",)
 
 
+class TravelOfferSerializer(serializers.ModelSerializer):
+    eligibility_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TravelOffer
+        fields = (
+            "id",
+            "title",
+            "summary",
+            "offer_kind",
+            "eligibility",
+            "eligibility_label",
+            "eligibility_display",
+            "price_label",
+            "categories",
+            "details",
+            "how_to_claim",
+            "proof_required",
+            "terms_note",
+            "cover_image",
+            "gallery_images",
+            "is_active",
+            "sort_order",
+            "starts_on",
+            "ends_on",
+        )
+        read_only_fields = ("id",)
+
+    def get_eligibility_display(self, obj: TravelOffer) -> str:
+        label = (obj.eligibility_label or "").strip()
+        if label:
+            return label
+        return obj.get_eligibility_display()
+
+    def validate_categories(self, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Categories must be a list.")
+        cleaned = []
+        for item in value:
+            s = str(item).strip().lower()
+            if s and s not in cleaned:
+                cleaned.append(s)
+        return cleaned
+
+    def validate_title(self, value):
+        title = (value or "").strip()
+        if not title:
+            raise serializers.ValidationError("Title is required.")
+        return title[:160]
+
+    def validate_cover_image(self, value):
+        from accounts.travel_partners import is_allowed_media_url
+
+        src = (value or "").strip()[:2000]
+        if not src:
+            return ""
+        if not is_allowed_media_url(src):
+            raise serializers.ValidationError("Cover must be an http(s) URL or uploaded media path.")
+        return src
+
+    def validate_gallery_images(self, value):
+        from accounts.travel_partners import is_allowed_media_url
+
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Gallery must be a list.")
+        cleaned = []
+        for item in value:
+            if isinstance(item, str):
+                src = item.strip()
+                if not src:
+                    continue
+                if not is_allowed_media_url(src):
+                    raise serializers.ValidationError("Gallery items must be http(s) URLs or media paths.")
+                cleaned.append({"src": src[:2000], "kind": "image"})
+                continue
+            if isinstance(item, dict):
+                src = str(item.get("src") or item.get("url") or "").strip()
+                if not src:
+                    continue
+                if not is_allowed_media_url(src):
+                    raise serializers.ValidationError("Gallery items must be http(s) URLs or media paths.")
+                kind = str(item.get("kind") or "image").strip().lower()
+                if kind not in ("image", "video"):
+                    kind = "image"
+                cleaned.append({"src": src[:2000], "kind": kind})
+                continue
+            raise serializers.ValidationError("Gallery items must be URLs or {src, kind} objects.")
+        return cleaned[:12]
+
+
 class BusinessProfileSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     stats = serializers.SerializerMethodField()
+    travel_offers = serializers.SerializerMethodField()
 
     class Meta:
         model = BusinessProfile
@@ -141,6 +237,10 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
             "onboarding_completed",
             "transport_modes",
             "verification_notes",
+            "showcase_as_partner",
+            "how_we_help",
+            "community_impact",
+            "travel_offers",
             "stats",
         )
 
@@ -149,11 +249,18 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
 
         return business_stats(obj)
 
+    def get_travel_offers(self, obj: BusinessProfile) -> list:
+        from accounts.travel_partners import public_offers_qs
+
+        offers = public_offers_qs(business=obj)
+        return TravelOfferSerializer(offers, many=True).data
+
 
 class MyBusinessSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     role = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    travel_offers = TravelOfferSerializer(many=True, read_only=True)
 
     class Meta:
         model = BusinessProfile
@@ -173,6 +280,10 @@ class MyBusinessSerializer(serializers.ModelSerializer):
             "onboarding_completed",
             "transport_modes",
             "verification_notes",
+            "showcase_as_partner",
+            "how_we_help",
+            "community_impact",
+            "travel_offers",
             "role",
             "permissions",
         )
@@ -250,6 +361,9 @@ class UpdateMyBusinessSerializer(serializers.ModelSerializer):
             "cover_image",
             "onboarding_completed",
             "transport_modes",
+            "showcase_as_partner",
+            "how_we_help",
+            "community_impact",
         )
 
     def validate_business_types(self, value):
@@ -259,6 +373,12 @@ class UpdateMyBusinessSerializer(serializers.ModelSerializer):
         if len(cleaned) > 1 and BusinessType.MULTI_PROVIDER not in cleaned:
             cleaned.append(BusinessType.MULTI_PROVIDER)
         return cleaned
+
+    def validate_how_we_help(self, value):
+        return (value or "")[:4000]
+
+    def validate_community_impact(self, value):
+        return (value or "")[:4000]
 
 
 class BusinessVerificationDocumentSerializer(serializers.ModelSerializer):

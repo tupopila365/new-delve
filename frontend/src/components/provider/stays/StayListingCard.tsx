@@ -9,13 +9,15 @@ type Props = {
   stay: ProviderStayListing
   canEdit?: boolean
   onEdit: () => void
+  onManageHighlights?: () => void
 }
 
-export function StayListingCard({ stay, canEdit, onEdit }: Props) {
+export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: Props) {
   const { percent, missing } = listingCompleteness(stay)
   const cover = stay.cover_image ? mediaUrl(stay.cover_image) || stay.cover_image : null
   const roomCount = Array.isArray(stay.room_types) ? stay.room_types.length : 0
   const photoCount = (stay.media_gallery?.length ?? 0) + (stay.cover_image ? 1 : 0)
+  const highlightCount = stay.listing_stories?.length ?? 0
 
   return (
     <article className="prov-ui__card stay-card">
@@ -53,6 +55,11 @@ export function StayListingCard({ stay, canEdit, onEdit }: Props) {
           {stay.pet_friendly ? <span>Pets</span> : null}
           {roomCount > 0 ? <span>{roomCount} room type{roomCount === 1 ? '' : 's'}</span> : null}
           {photoCount > 0 ? <span>{photoCount} photo{photoCount === 1 ? '' : 's'}</span> : null}
+          <span>
+            {highlightCount > 0
+              ? `${highlightCount} highlight ring${highlightCount === 1 ? '' : 's'}`
+              : 'No highlights'}
+          </span>
         </div>
 
         <p className="stay-card__rating">
@@ -79,6 +86,11 @@ export function StayListingCard({ stay, canEdit, onEdit }: Props) {
         <Link to={`/accommodation/${stay.id}`} className="prov-ui__btn prov-ui__btn--ghost">
           View public
         </Link>
+        {canEdit && onManageHighlights ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
+            {highlightCount > 0 ? 'Manage highlights' : 'Add highlights'}
+          </button>
+        ) : null}
         {canEdit ? (
           <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>
             Edit listing

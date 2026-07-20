@@ -98,6 +98,19 @@ export type MockStay = {
   cover_image: string | null
   /** Extra photos / clips for the detail carousel (first item can match cover). */
   media_gallery?: MockStayMedia[]
+  /** Provider-curated highlight rings. */
+  listing_stories?: Array<{
+    id: string
+    label: string
+    coverSrc?: string
+    slides: Array<{
+      id?: string
+      kind?: 'image' | 'video'
+      src: string
+      headline: string
+      sub?: string
+    }>
+  }>
   check_in_from?: string
   check_out_until?: string
   house_rules?: string
@@ -141,6 +154,18 @@ export type MockVehicle = {
   rental_rules?: string[]
   gallery_images?: string[]
   required_renter_documents?: string[]
+  listing_stories?: Array<{
+    id: string
+    label: string
+    coverSrc?: string
+    slides: Array<{
+      id?: string
+      kind?: 'image' | 'video'
+      src: string
+      headline: string
+      sub?: string
+    }>
+  }>
   owner_username?: string
   owner_display_name?: string
   owner_bio?: string
@@ -156,10 +181,23 @@ export type MockBusTrip = {
     origin: string
     destination: string
     operator_name: string
+    operator_owner_username?: string
     cover_image?: string | null
     gallery_images?: string[]
     stops?: string[]
     travel_tips?: string[]
+    listing_stories?: Array<{
+      id: string
+      label: string
+      coverSrc?: string
+      slides: Array<{
+        id?: string
+        kind?: 'image' | 'video'
+        src: string
+        headline: string
+        sub?: string
+      }>
+    }>
   }
   departs_at: string
   arrives_at: string

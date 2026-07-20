@@ -8,6 +8,7 @@ import { SHOP_CATEGORIES } from '../utils/shopDisplay'
 import type { ShopProductListing, ShopSellerSummary } from '../utils/shopListing'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { MapPin, Search, ShoppingBag, Store, X } from 'lucide-react'
+import { ShopCartButton } from '../components/shop/ShopCartButton'
 import '../components/shop/shop-list.css'
 
 export function ShopList() {
@@ -17,6 +18,8 @@ export function ShopList() {
   const [search, setSearch] = useState('')
   const [inStockOnly, setInStockOnly] = useState(false)
   const [madeInNamibiaOnly, setMadeInNamibiaOnly] = useState(false)
+  /** Marketplace is national by default; region is an opt-in filter. */
+  const [nearRegionOnly, setNearRegionOnly] = useState(false)
   const activeCategoryLabel = SHOP_CATEGORIES.find((c) => c.value === category)?.label ?? ''
 
   useEffect(() => {
@@ -26,17 +29,17 @@ export function ShopList() {
 
   const query = useMemo(() => {
     const params = new URLSearchParams()
-    if (region) params.set('region', region)
+    if (nearRegionOnly && region) params.set('region', region)
     if (category) params.set('category', category)
     if (search) params.set('search', search)
     if (inStockOnly) params.set('in_stock', 'true')
     if (madeInNamibiaOnly) params.set('made_in_namibia', 'true')
     const qs = params.toString()
     return qs ? `?${qs}` : ''
-  }, [region, category, search, inStockOnly, madeInNamibiaOnly])
+  }, [nearRegionOnly, region, category, search, inStockOnly, madeInNamibiaOnly])
 
   const { data: products = [], isLoading, isError } = useQuery({
-    queryKey: ['shop-products', region, category, search, inStockOnly, madeInNamibiaOnly],
+    queryKey: ['shop-products', nearRegionOnly, region, category, search, inStockOnly, madeInNamibiaOnly],
     queryFn: async (): Promise<ShopProductListing[]> => {
       const raw = await apiFetch<unknown>(`/api/shop/products/${query}`, { auth: false })
       // DRF can return either a plain list or a paginated `{ results: [...] }`.
@@ -80,6 +83,13 @@ export function ShopList() {
 
   const activeFilters = useMemo(() => {
     const chips: Array<{ key: string; label: string; onClear: () => void }> = []
+    if (nearRegionOnly && region) {
+      chips.push({
+        key: 'region',
+        label: `Near ${region}`,
+        onClear: () => setNearRegionOnly(false),
+      })
+    }
     if (category) {
       chips.push({
         key: 'category',
@@ -101,12 +111,15 @@ export function ShopList() {
     if (madeInNamibiaOnly)
       chips.push({ key: 'made_in_namibia', label: 'Made in Namibia', onClear: () => setMadeInNamibiaOnly(false) })
     return chips
-  }, [activeCategoryLabel, category, inStockOnly, madeInNamibiaOnly, search])
+  }, [activeCategoryLabel, category, inStockOnly, madeInNamibiaOnly, nearRegionOnly, region, search])
 
   return (
     <main className="shop-market">
       <header className="shop-market__hero">
-        <p className="shop-market__kicker">Marketplace</p>
+        <div className="shop-market__hero-top">
+          <p className="shop-market__kicker">Marketplace</p>
+          <ShopCartButton />
+        </div>
         <h1 className="shop-market__title">Shops</h1>
         <p className="shop-market__lead">
           Browse products from local shops and makers — add to your cart and check out in one place. Sellers handle
@@ -115,7 +128,21 @@ export function ShopList() {
         {region ? (
           <p className="shop-market__region">
             <MapPin size={14} strokeWidth={2.25} aria-hidden />
-            Showing items near {region}
+            {nearRegionOnly ? (
+              <>
+                Showing items near {region}{' '}
+                <button type="button" className="shop-market__region-toggle" onClick={() => setNearRegionOnly(false)}>
+                  Show all Namibia
+                </button>
+              </>
+            ) : (
+              <>
+                Nationwide marketplace{' '}
+                <button type="button" className="shop-market__region-toggle" onClick={() => setNearRegionOnly(true)}>
+                  Near {region}
+                </button>
+              </>
+            )}
           </p>
         ) : null}
         <p className="shop-market__sell">
@@ -241,6 +268,7 @@ export function ShopList() {
               setSearch('')
               setInStockOnly(false)
               setMadeInNamibiaOnly(false)
+              setNearRegionOnly(false)
             }}
           >
             Clear all
@@ -260,7 +288,11 @@ export function ShopList() {
         <EmptyState
           iconElement={<ShoppingBag size={28} strokeWidth={2} aria-hidden />}
           title="No products yet"
-          sub={region ? `Nothing listed in ${region} right now. Try another region or check back soon.` : 'Makers and shops can list here soon.'}
+          sub={
+            nearRegionOnly && region
+              ? `Nothing listed near ${region} right now. Show all Namibia or check back soon.`
+              : 'Makers and shops can list here soon.'
+          }
         />
       ) : (
         <>

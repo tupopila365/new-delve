@@ -11,8 +11,8 @@ export function GuideStoriesEditor({ channels, onChange }: Props) {
     <HighlightChannelEditor
       channels={channels}
       onChange={onChange}
-      hint="Highlight rings on your guide page — trail moments, package teasers, or behind-the-scenes. Auto-generated rings still use your portfolio when you leave this empty."
-      emptyCopy="No custom story rings yet. Auto-generated rings still use your photos and packages."
+      hint="Highlight rings on your guide page — trail moments, package teasers, or behind-the-scenes. Organize media travellers can tap through."
+      emptyCopy="No custom highlights yet. Auto-generated rings still use your photos and packages."
     />
   )
 }

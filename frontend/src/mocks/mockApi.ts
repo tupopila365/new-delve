@@ -727,10 +727,133 @@ type MockUserBusiness = {
   city: string
   onboarding_completed: boolean
   verification_notes?: string
+  showcase_as_partner?: boolean
+  how_we_help?: string
+  community_impact?: string
+  travel_offers?: Array<{
+    id: number
+    title: string
+    summary?: string
+    offer_kind: string
+    eligibility: string
+    eligibility_label?: string
+    eligibility_display?: string
+    price_label?: string
+    categories?: string[]
+    details?: string
+    how_to_claim?: string
+    proof_required?: string
+    terms_note?: string
+    cover_image?: string | null
+    gallery_images?: Array<string | { src: string; kind?: string }>
+    is_active?: boolean
+    sort_order?: number
+    starts_on?: string | null
+    ends_on?: string | null
+  }>
 }
 
 const mockUserBusinesses = new Map<string, MockUserBusiness[]>()
 let mockUserBusinessNextId = 9000
+let mockTravelOfferNextId = 5000
+
+const ELIGIBILITY_LABELS: Record<string, string> = {
+  everyone: 'Everyone',
+  sadc: 'SADC residents',
+  student: 'Students',
+  local: 'Local / regional residents',
+  custom: 'Custom',
+}
+
+function normalizeOffer(
+  offer: NonNullable<MockUserBusiness['travel_offers']>[number],
+): NonNullable<MockUserBusiness['travel_offers']>[number] {
+  return {
+    ...offer,
+    eligibility_display:
+      offer.eligibility_label?.trim() ||
+      ELIGIBILITY_LABELS[offer.eligibility] ||
+      offer.eligibility_display ||
+      offer.eligibility,
+  }
+}
+
+function resolveMockEditableBusiness(me: string, id: number): MockUserBusiness | undefined {
+  const seeded = mockBusinessProfiles.find((b) => b.id === id && b.owner_username === me)
+  const userRows = mockUserBusinesses.get(me) ?? []
+  const created = userRows.find((b) => b.id === id)
+  if (created) return created
+  if (!seeded) return undefined
+  const editable: MockUserBusiness = {
+    id: seeded.id,
+    slug: seeded.slug,
+    owner_username: seeded.owner_username,
+    business_name: seeded.business_name,
+    business_types: seeded.business_types,
+    verification_status: seeded.verification_status,
+    description: seeded.description,
+    tagline: seeded.tagline ?? '',
+    logo: seeded.logo,
+    cover_image: seeded.cover_image,
+    region: seeded.region,
+    city: seeded.city,
+    onboarding_completed: true,
+    showcase_as_partner: seeded.showcase_as_partner,
+    how_we_help: seeded.how_we_help,
+    community_impact: seeded.community_impact,
+    travel_offers: seeded.travel_offers ? [...seeded.travel_offers] : undefined,
+  }
+  mockUserBusinesses.set(me, [...userRows.filter((r) => r.id !== id), editable])
+  return editable
+}
+
+function persistMockBusiness(me: string, target: MockUserBusiness) {
+  const userRows = mockUserBusinesses.get(me) ?? []
+  mockUserBusinesses.set(
+    me,
+    userRows.some((r) => r.id === target.id)
+      ? userRows.map((row) => (row.id === target.id ? { ...target } : row))
+      : [...userRows, { ...target }],
+  )
+  const seeded = mockBusinessProfiles.find((b) => b.id === target.id)
+  if (seeded) {
+    Object.assign(seeded, {
+      business_name: target.business_name,
+      tagline: target.tagline,
+      description: target.description,
+      region: target.region,
+      city: target.city,
+      logo: target.logo,
+      cover_image: target.cover_image,
+      showcase_as_partner: target.showcase_as_partner,
+      how_we_help: target.how_we_help,
+      community_impact: target.community_impact,
+      travel_offers: target.travel_offers,
+    })
+  }
+}
+
+function businessOffers(b: MockUserBusiness | (typeof mockBusinessProfiles)[number]) {
+  const fromRow = (b as MockUserBusiness).travel_offers
+  if (fromRow) return fromRow.map(normalizeOffer)
+  const extras = mockBusinessProfiles.find((row) => row.id === b.id)
+  return (extras?.travel_offers ?? []).map(normalizeOffer)
+}
+
+function isOfferPubliclyActive(
+  offer: NonNullable<MockUserBusiness['travel_offers']>[number],
+  asOf = new Date(),
+) {
+  if (offer.is_active === false) return false
+  const day = asOf.toISOString().slice(0, 10)
+  if (offer.starts_on && String(offer.starts_on) > day) return false
+  if (offer.ends_on && String(offer.ends_on) < day) return false
+  return true
+}
+
+function publicBusinessOffers(b: MockUserBusiness | (typeof mockBusinessProfiles)[number]) {
+  return businessOffers(b).filter((o) => isOfferPubliclyActive(o))
+}
 
 const ownerBusinessPermissions = {
   role: 'owner' as const,
@@ -745,13 +868,22 @@ const ownerBusinessPermissions = {
 }
 
 function serializeMyBusiness(b: MockUserBusiness) {
-  return { ...b, ...ownerBusinessPermissions }
+  const extras = mockBusinessProfiles.find((row) => row.id === b.id)
+  return {
+    ...b,
+    showcase_as_partner: Boolean(b.showcase_as_partner ?? extras?.showcase_as_partner),
+    how_we_help: b.how_we_help ?? extras?.how_we_help ?? '',
+    community_impact: b.community_impact ?? extras?.community_impact ?? '',
+    travel_offers: businessOffers(b),
+    ...ownerBusinessPermissions,
+  }
 }
 
 type PublicBusinessSource = (typeof mockBusinessProfiles)[number] | MockUserBusiness
 
 function serializePublicBusiness(b: PublicBusinessSource) {
   const extras = mockBusinessProfiles.find((row) => row.id === b.id)
+  const row = b as MockUserBusiness
   return {
     id: b.id,
     slug: b.slug,
@@ -765,6 +897,10 @@ function serializePublicBusiness(b: PublicBusinessSource) {
     cover_image: b.cover_image,
     region: b.region,
     city: b.city,
+    showcase_as_partner: Boolean(row.showcase_as_partner ?? extras?.showcase_as_partner),
+    how_we_help: row.how_we_help ?? extras?.how_we_help ?? '',
+    community_impact: row.community_impact ?? extras?.community_impact ?? '',
+    travel_offers: publicBusinessOffers(b),
     stats: {
       listings_count: extras?.listings_count ?? 0,
       rating_avg: extras?.rating_avg ?? null,
@@ -899,7 +1035,11 @@ function mockBusinessListingsFor(b: PublicBusinessSource) {
 
 function allPublicBusinesses(): PublicBusinessSource[] {
   const created = Array.from(mockUserBusinesses.values()).flat()
-  return [...mockBusinessProfiles, ...created]
+  const byId = new Map<number, PublicBusinessSource>()
+  for (const b of mockBusinessProfiles) byId.set(b.id, b)
+  // User overlays win so edits to seeded businesses don't duplicate rows.
+  for (const b of created) byId.set(b.id, b)
+  return [...byId.values()]
 }
 
 function findPublicBusinessById(id: number): PublicBusinessSource | undefined {
@@ -939,6 +1079,10 @@ function busTripDetailForApi(t: (typeof mockBusTrips)[number]) {
     route_detail: {
       ...t.route_detail,
       cover_kind: coverKind,
+      listing_stories: t.route_detail?.listing_stories ?? [],
+      operator_owner_username:
+        (t.route_detail as { operator_owner_username?: string } | undefined)?.operator_owner_username ??
+        (t as { owner_username?: string }).owner_username,
     },
     departs_at: t.departs_at,
     arrives_at: t.arrives_at,
@@ -1739,7 +1883,10 @@ function mockMaybeSendProviderAutoWelcome(
   } else if (startPayload?.context_type) {
     const owned = mockBusinessProfiles.filter((b) => b.owner_username === recipientUsername)
     const created = mockUserBusinesses.get(recipientUsername) ?? []
-    const all = [...owned, ...created]
+    const byId = new Map<number, { id: number }>()
+    for (const b of owned) byId.set(b.id, b)
+    for (const b of created) byId.set(b.id, b)
+    const all = [...byId.values()]
     if (all.length === 1) businessId = all[0].id
   }
   const settings =
@@ -2795,9 +2942,21 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accounts/businesses/' && method === 'GET') {
     const owner = (q.get('owner') || '').trim()
-    const list = owner
+    const partners = (q.get('partners') || q.get('travel_partner') || '').trim().toLowerCase()
+    let list = owner
       ? allPublicBusinesses().filter((b) => b.owner_username.toLowerCase() === owner.toLowerCase())
       : allPublicBusinesses()
+    if (partners === '1' || partners === 'true' || partners === 'yes') {
+      list = list.filter((b) => {
+        const row = serializePublicBusiness(b)
+        return (
+          Boolean(row.showcase_as_partner) ||
+          Boolean(String(row.how_we_help || '').trim()) ||
+          Boolean(String(row.community_impact || '').trim()) ||
+          (Array.isArray(row.travel_offers) && row.travel_offers.length > 0)
+        )
+      })
+    }
     return list.map(serializePublicBusiness)
   }
 
@@ -2806,6 +2965,33 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const b = findPublicBusinessById(Number(businessDetailMatch[1]))
     if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     return serializePublicBusiness(b)
+  }
+
+  const businessOfferDetailMatch = pathname.match(
+    /^\/api\/accounts\/businesses\/(\d+)\/offers\/(\d+)\/?$/,
+  )
+  if (businessOfferDetailMatch && method === 'GET') {
+    const bizId = Number(businessOfferDetailMatch[1])
+    const offerId = Number(businessOfferDetailMatch[2])
+    const b = findPublicBusinessById(bizId)
+    if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const offer = publicBusinessOffers(b).find((o) => o.id === offerId)
+    if (!offer) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const pub = serializePublicBusiness(b)
+    return {
+      ...offer,
+      business: {
+        id: pub.id,
+        business_name: pub.business_name,
+        slug: pub.slug,
+        owner_username: pub.owner_username,
+        verification_status: pub.verification_status,
+        logo: pub.logo,
+        city: pub.city,
+        region: pub.region,
+        showcase_as_partner: pub.showcase_as_partner,
+      },
+    }
   }
 
   const businessListingsMatch = pathname.match(/^\/api\/accounts\/businesses\/(\d+)\/listings\/?$/)
@@ -2820,24 +3006,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.currentUser!
     const id = Number(myBusinessUpdateMatch[1])
-    const seeded = mockBusinessProfiles.find((b) => b.id === id && b.owner_username === me)
-    const userRows = mockUserBusinesses.get(me) ?? []
-    const created = userRows.find((b) => b.id === id)
-    const target = created ?? (seeded ? ({
-      id: seeded.id,
-      slug: seeded.slug,
-      owner_username: seeded.owner_username,
-      business_name: seeded.business_name,
-      business_types: seeded.business_types,
-      verification_status: seeded.verification_status,
-      description: seeded.description,
-      tagline: seeded.tagline ?? '',
-      logo: seeded.logo,
-      cover_image: seeded.cover_image,
-      region: seeded.region,
-      city: seeded.city,
-      onboarding_completed: true,
-    } satisfies MockUserBusiness) : undefined)
+    const target = resolveMockEditableBusiness(me, id)
     if (!target) throw new ApiError('Not found', 404, { detail: 'Not found.' })
 
     if (init.body instanceof FormData) {
@@ -2847,6 +3016,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (typeof tagline === 'string') target.tagline = tagline
       const description = init.body.get('description')
       if (typeof description === 'string') target.description = description
+      const howWeHelp = init.body.get('how_we_help')
+      if (typeof howWeHelp === 'string') target.how_we_help = howWeHelp
+      const communityImpact = init.body.get('community_impact')
+      if (typeof communityImpact === 'string') target.community_impact = communityImpact
+      const showcase = init.body.get('showcase_as_partner')
+      if (typeof showcase === 'string') {
+        target.showcase_as_partner = showcase === 'true' || showcase === '1'
+      }
       const region = init.body.get('region')
       if (typeof region === 'string') target.region = region
       const city = init.body.get('city')
@@ -2860,21 +3037,93 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       Object.assign(target, data)
     }
 
-    if (created) {
-      mockUserBusinesses.set(
-        me,
-        userRows.map((row) => (row.id === id ? { ...target } : row)),
-      )
-    }
+    persistMockBusiness(me, target)
     return serializeMyBusiness(target)
+  }
+
+  const myBusinessOffersMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/offers\/?$/)
+  if (myBusinessOffersMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser!
+    const id = Number(myBusinessOffersMatch[1])
+    const target = resolveMockEditableBusiness(me, id)
+    if (!target) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return businessOffers(target)
+  }
+  if (myBusinessOffersMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser!
+    const id = Number(myBusinessOffersMatch[1])
+    const target = resolveMockEditableBusiness(me, id)
+    if (!target) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const offer = normalizeOffer({
+      id: mockTravelOfferNextId++,
+      title: String(data.title || '').trim() || 'Offer',
+      summary: String(data.summary || ''),
+      offer_kind: String(data.offer_kind || 'discount'),
+      eligibility: String(data.eligibility || 'everyone'),
+      eligibility_label: String(data.eligibility_label || ''),
+      price_label: String(data.price_label || ''),
+      categories: Array.isArray(data.categories) ? data.categories.map(String) : [],
+      details: String(data.details || ''),
+      how_to_claim: String(data.how_to_claim || ''),
+      proof_required: String(data.proof_required || ''),
+      terms_note: String(data.terms_note || ''),
+      cover_image: String(data.cover_image || ''),
+      gallery_images: Array.isArray(data.gallery_images) ? data.gallery_images : [],
+      is_active: data.is_active !== false,
+      sort_order: Number(data.sort_order) || 0,
+      starts_on: data.starts_on ? String(data.starts_on) : null,
+      ends_on: data.ends_on ? String(data.ends_on) : null,
+    })
+    if (!target.travel_offers) target.travel_offers = [...businessOffers(target)]
+    target.travel_offers.push(offer)
+    persistMockBusiness(me, target)
+    return offer
+  }
+
+  const myBusinessOfferDetailMatch = pathname.match(
+    /^\/api\/accounts\/me\/businesses\/(\d+)\/offers\/(\d+)\/?$/,
+  )
+  if (myBusinessOfferDetailMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser!
+    const bizId = Number(myBusinessOfferDetailMatch[1])
+    const offerId = Number(myBusinessOfferDetailMatch[2])
+    const target = resolveMockEditableBusiness(me, bizId)
+    if (!target) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (!target.travel_offers) target.travel_offers = [...businessOffers(target)]
+    const offer = target.travel_offers.find((o) => o.id === offerId)
+    if (!offer) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    Object.assign(offer, data)
+    const normalized = normalizeOffer(offer)
+    Object.assign(offer, normalized)
+    persistMockBusiness(me, target)
+    return offer
+  }
+  if (myBusinessOfferDetailMatch && method === 'DELETE') {
+    requireAuth(s)
+    const me = s.currentUser!
+    const bizId = Number(myBusinessOfferDetailMatch[1])
+    const offerId = Number(myBusinessOfferDetailMatch[2])
+    const target = resolveMockEditableBusiness(me, bizId)
+    if (!target) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (!target.travel_offers) target.travel_offers = [...businessOffers(target)]
+    target.travel_offers = target.travel_offers.filter((o) => o.id !== offerId)
+    persistMockBusiness(me, target)
+    return { ok: true }
   }
 
   if (pathname === '/api/accounts/me/businesses/' && method === 'GET') {
     requireAuth(s)
     const me = s.currentUser as string
     const owned = mockBusinessProfiles.filter((b) => b.owner_username === me)
-    const seeded = owned.map((b) =>
-      serializeMyBusiness({
+    const overlays = mockUserBusinesses.get(me) ?? []
+    const byId = new Map<number, MockUserBusiness>()
+    for (const b of owned) {
+      byId.set(b.id, {
         id: b.id,
         slug: b.slug,
         owner_username: b.owner_username,
@@ -2889,10 +3138,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         region: b.region,
         city: b.city,
         onboarding_completed: true,
-      }),
-    )
-    const created = (mockUserBusinesses.get(me) ?? []).map(serializeMyBusiness)
-    return [...seeded, ...created]
+        showcase_as_partner: b.showcase_as_partner,
+        how_we_help: b.how_we_help,
+        community_impact: b.community_impact,
+        travel_offers: b.travel_offers ? [...b.travel_offers] : undefined,
+      })
+    }
+    for (const b of overlays) byId.set(b.id, b)
+    return [...byId.values()].map(serializeMyBusiness)
   }
 
   if (pathname === '/api/accounts/me/businesses/create/' && method === 'POST') {
@@ -2900,8 +3153,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const me = s.currentUser as string
     const prof = s.profiles[me]
     if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
-    const existing = mockUserBusinesses.get(me) ?? []
-    if (existing.length > 0) throw new ApiError('Already exists', 400, { detail: 'You already have a business profile.' })
+    const existingOverlays = mockUserBusinesses.get(me) ?? []
+    const hasSeeded = mockBusinessProfiles.some((b) => b.owner_username === me)
+    if (existingOverlays.length > 0 || hasSeeded) {
+      throw new ApiError('Already exists', 400, { detail: 'You already have a business profile.' })
+    }
     if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body' })
     const data = JSON.parse(init.body) as {
       business_name: string
@@ -3078,6 +3334,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         amenities: st.amenities,
         cover_image: st.cover_image,
         media_gallery: st.media_gallery ?? [],
+        listing_stories: st.listing_stories ?? [],
         check_in_from: st.check_in_from,
         check_out_until: st.check_out_until,
         house_rules: st.house_rules,
@@ -4854,6 +5111,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         rental_rules: v.rental_rules ?? [],
         gallery_images: v.gallery_images ?? [],
         required_renter_documents: v.required_renter_documents ?? [],
+        listing_stories: v.listing_stories ?? [],
         is_active: (v as { is_active?: boolean }).is_active !== false,
       }))
   }
@@ -4877,6 +5135,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       included_features: data.included_features ?? [],
       gallery_images: data.gallery_images ?? [],
       required_renter_documents: data.required_renter_documents ?? [],
+      listing_stories: data.listing_stories ?? [],
       is_active: data.is_active !== false,
     }
     mockVehicles.push(row as (typeof mockVehicles)[0])
@@ -8613,11 +8872,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
     if (businessIdRaw) {
       const businessIdNum = Number(businessIdRaw)
-      const seeded = mockBusinessProfiles.find((b) => b.id === businessIdNum)
-      const created = [...mockUserBusinesses.values()]
-        .flat()
-        .find((b) => b.id === businessIdNum)
-      const business = seeded ?? created
+      const business = findPublicBusinessById(businessIdNum)
       if (!business) {
         throw new ApiError('Not found', 404, { detail: 'Business not found.' })
       }

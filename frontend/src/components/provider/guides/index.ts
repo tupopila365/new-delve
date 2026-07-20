@@ -13,6 +13,7 @@ export {
   buildGuideProfileFormData,
   packageFormHasUploads,
   profileFormHasUploads,
+  resolveGuideProfileHighlights,
 } from './guideProfileFormData'
 export {
   MAX_GUIDE_PACKAGES,

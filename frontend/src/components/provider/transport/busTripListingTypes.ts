@@ -4,6 +4,7 @@ import {
   parseGalleryUrlsField,
   serializeGalleryMediaList,
 } from '../../listing/photos/listingGalleryMedia'
+import type { HighlightChannelInput } from '../../highlights'
 import { DEFAULT_PASSENGER_BUS_TIPS } from '../../../data/transportProvider'
 
 /** Split a multi-line textarea into a trimmed list of non-empty lines. */
@@ -77,6 +78,7 @@ export type ProviderBusTripListing = {
     travel_tips?: string[]
     distance_km?: number | null
     duration_minutes?: number | null
+    listing_stories?: HighlightChannelInput[]
   }
   departs_at: string
   arrives_at: string
@@ -170,6 +172,7 @@ export function busTripCompleteness(t: ProviderBusTripListing): { percent: numbe
     [Boolean(t.price), 'Fare'],
     [Boolean(t.route_detail.cover_image), 'Route cover photo'],
     [(t.amenities?.length ?? 0) > 0, 'Amenities'],
+    [(t.route_detail.listing_stories?.length ?? 0) > 0, 'Highlights'],
   ]
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)

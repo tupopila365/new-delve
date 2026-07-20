@@ -9,6 +9,7 @@ import type { ProviderOutletContext } from '../components/ProviderLayout'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { ProviderUiChips, ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
 import { BusinessVerificationCard } from '../components/provider'
+import { ProviderTravelOffersEditor } from '../components/business/ProviderTravelOffersEditor'
 import '../components/provider/settings/provider-settings.css'
 import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
 import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
@@ -56,6 +57,9 @@ export function ProviderSettings() {
   const [businessName, setBusinessName] = useState('')
   const [tagline, setTagline] = useState('')
   const [description, setDescription] = useState('')
+  const [howWeHelp, setHowWeHelp] = useState('')
+  const [communityImpact, setCommunityImpact] = useState('')
+  const [showcaseAsPartner, setShowcaseAsPartner] = useState(false)
   const [bizRegion, setBizRegion] = useState('')
   const [bizCity, setBizCity] = useState('')
 
@@ -76,6 +80,9 @@ export function ProviderSettings() {
     setBusinessName(activeBusiness.business_name ?? '')
     setTagline(activeBusiness.tagline ?? '')
     setDescription(activeBusiness.description ?? '')
+    setHowWeHelp(activeBusiness.how_we_help ?? '')
+    setCommunityImpact(activeBusiness.community_impact ?? '')
+    setShowcaseAsPartner(Boolean(activeBusiness.showcase_as_partner))
     setBizRegion(activeBusiness.region ?? '')
     setBizCity(activeBusiness.city ?? '')
   }, [activeBusiness])
@@ -96,6 +103,9 @@ export function ProviderSettings() {
         fd.append('business_name', businessName.trim())
         fd.append('tagline', tagline.trim())
         fd.append('description', description.trim())
+        fd.append('how_we_help', howWeHelp.trim())
+        fd.append('community_impact', communityImpact.trim())
+        fd.append('showcase_as_partner', showcaseAsPartner ? 'true' : 'false')
         fd.append('region', bizRegion.trim())
         fd.append('city', bizCity.trim())
         if (logoFile) fd.append('logo', logoFile)
@@ -111,6 +121,9 @@ export function ProviderSettings() {
           business_name: businessName.trim(),
           tagline: tagline.trim(),
           description: description.trim(),
+          how_we_help: howWeHelp.trim(),
+          community_impact: communityImpact.trim(),
+          showcase_as_partner: showcaseAsPartner,
           region: bizRegion.trim(),
           city: bizCity.trim(),
         }),
@@ -347,6 +360,42 @@ export function ProviderSettings() {
               <p className="prov-settings__char-count">{description.length} / 2000</p>
             </label>
 
+            <label className="prov-settings__check">
+              <input
+                type="checkbox"
+                checked={showcaseAsPartner}
+                disabled={!canManageSettings}
+                onChange={(e) => setShowcaseAsPartner(e.target.checked)}
+              />
+              <span>
+                Show as a <strong>Travel partner</strong> hub — highlight how you make travel attainable
+              </span>
+            </label>
+
+            <label className="prov-settings__field">
+              How we make travel easier
+              <textarea
+                value={howWeHelp}
+                onChange={(e) => setHowWeHelp(e.target.value)}
+                placeholder="e.g. SADC rates, student weekend packages, clear trip options…"
+                disabled={!canManageSettings}
+                rows={3}
+                maxLength={4000}
+              />
+            </label>
+
+            <label className="prov-settings__field">
+              What we bring to the community
+              <textarea
+                value={communityImpact}
+                onChange={(e) => setCommunityImpact(e.target.value)}
+                placeholder="Local jobs, conservation, community projects…"
+                disabled={!canManageSettings}
+                rows={3}
+                maxLength={4000}
+              />
+            </label>
+
             <div className="prov-settings__row">
               <label className="prov-settings__field">
                 City
@@ -378,6 +427,10 @@ export function ProviderSettings() {
             >
               {saving ? 'Saving…' : 'Save business profile'}
             </button>
+          ) : null}
+
+          {activeBusiness ? (
+            <ProviderTravelOffersEditor businessId={activeBusiness.id} canEdit={canManageSettings} />
           ) : null}
         </section>
       ) : null}

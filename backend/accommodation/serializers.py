@@ -4,6 +4,8 @@ from decimal import Decimal, InvalidOperation
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
+from common.story_channels import validate_story_channels
+
 from .booking_services import (
     find_overlapping_booking,
     normalize_room_type_name,
@@ -181,6 +183,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "amenities",
             "cover_image",
             "media_gallery",
+            "listing_stories",
             "check_in_from",
             "check_out_until",
             "house_rules",
@@ -232,6 +235,9 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("room_types must be a list.")
         return [normalize_room_type(row) for row in value]
+
+    def validate_listing_stories(self, value):
+        return validate_story_channels(value, field_label="Highlights")
 
     def get_likes_count(self, obj):
         v = getattr(obj, "likes_count", None)

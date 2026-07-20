@@ -33,6 +33,29 @@ export type BusinessProfile = {
   rating_count?: number
   listings_count?: number
   response_hours?: number
+  showcase_as_partner?: boolean
+  how_we_help?: string
+  community_impact?: string
+  travel_offers?: Array<{
+    id: number
+    title: string
+    summary?: string
+    offer_kind: string
+    eligibility: string
+    eligibility_label?: string
+    eligibility_display?: string
+    price_label?: string
+    categories?: string[]
+    details?: string
+    how_to_claim?: string
+    proof_required?: string
+    terms_note?: string
+    cover_image?: string | null
+    gallery_images?: Array<string | { src: string; kind?: string }>
+    is_active?: boolean
+    starts_on?: string | null
+    ends_on?: string | null
+  }>
 }
 
 export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
@@ -75,6 +98,79 @@ export const mockBusinessProfiles: BusinessProfile[] = [
     rating_count: 124,
     listings_count: 5,
     response_hours: 3,
+    showcase_as_partner: true,
+    how_we_help:
+      'We publish clear SADC resident rates and student weekend packages so a desert trip feels attainable — not only for international full-price travellers.',
+    community_impact:
+      'Our lodges hire locally, source food from nearby farms, and support school sports programmes in Erongo.',
+    travel_offers: [
+      {
+        id: 101,
+        title: 'SADC resident rate',
+        summary: 'Half-price midweek stays for travellers with a SADC passport.',
+        offer_kind: 'eligibility',
+        eligibility: 'sadc',
+        eligibility_display: 'SADC residents',
+        price_label: '50% off',
+        categories: ['stays'],
+        details:
+          'Book a midweek lodge night at half the published rack rate. Valid at participating Desert Stays properties in Swakopmund and the Erongo coast. Breakfast included when the full-price rate includes it.',
+        how_to_claim:
+          '1. Open Message on this offer or on the Desert Stays profile and say you want the SADC resident rate.\n2. Share your preferred dates and property.\n3. When you check in, show a valid SADC passport or national ID.\n4. Pay the discounted rate confirmed in the chat — no promo code needed.',
+        proof_required: 'Valid SADC passport or national ID at check-in',
+        terms_note:
+          'Sunday–Thursday arrivals only. Public holidays and peak festival weekends excluded. One room per passport-holding guest. Cannot combine with other packages.',
+        cover_image:
+          'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=70',
+        gallery_images: [
+          {
+            src: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=900&q=70',
+            kind: 'image',
+          },
+          {
+            src: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=900&q=70',
+            kind: 'image',
+          },
+          {
+            src: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=900&q=70',
+            kind: 'image',
+          },
+        ],
+        is_active: true,
+      },
+      {
+        id: 102,
+        title: 'Student weekend package',
+        summary: 'Guided coastal weekend in December — lodge night, transfer, and guide included.',
+        offer_kind: 'package',
+        eligibility: 'student',
+        eligibility_display: 'Students',
+        price_label: 'From N$1,200',
+        categories: ['stays', 'guides', 'transport'],
+        details:
+          'A Friday–Sunday coastal weekend designed for students: one lodge night near Swakopmund, shared transfer from Windhoek, and a half-day guided dune or harbour walk. Group size is capped so the trip stays affordable.',
+        how_to_claim:
+          '1. Message Desert Stays with “Student weekend package” and your student card details.\n2. Pick a December weekend from the dates they send back.\n3. Pay the deposit they quote to hold your spot.\n4. Bring your student card on the departure day — the guide will check it before boarding.',
+        proof_required: 'Current student card (university / college) matching your booking name',
+        terms_note:
+          'December weekends only while seats remain. Deposit is non-refundable within 7 days of departure. Shared rooms may apply depending on group size.',
+        cover_image:
+          'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=1200&q=70',
+        gallery_images: [
+          {
+            src: 'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?auto=format&fit=crop&w=900&q=70',
+            kind: 'image',
+          },
+          {
+            src: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8804?auto=format&fit=crop&w=900&q=70',
+            kind: 'image',
+          },
+        ],
+        starts_on: '2026-12-01',
+        ends_on: '2026-12-31',
+        is_active: true,
+      },
+    ],
   },
   {
     id: 2,
@@ -129,6 +225,37 @@ export const mockBusinessProfiles: BusinessProfile[] = [
     rating_count: 56,
     listings_count: 4,
     response_hours: 6,
+    showcase_as_partner: true,
+    how_we_help:
+      'Local resident weekday rates and student shuttle packages so getting around Namibia does not have to mean tourist-only pricing.',
+    community_impact: 'We train local drivers and keep routes that connect smaller towns, not only tourist hubs.',
+    travel_offers: [
+      {
+        id: 201,
+        title: 'SADC driver rate',
+        summary: 'Reduced daily rate on 4×4 rentals for SADC licence holders.',
+        offer_kind: 'eligibility',
+        eligibility: 'sadc',
+        eligibility_display: 'SADC residents',
+        price_label: '20% off',
+        categories: ['transport'],
+        details:
+          'Weekday 4×4 rentals at 20% below the standard daily rate for drivers who live in a SADC country. Unlimited local kilometres within Namibia; cross-border needs a separate permit.',
+        how_to_claim:
+          '1. Message Namibia Wheels with the vehicle class and pickup dates.\n2. Ask for the SADC driver rate.\n3. Bring your SADC licence and passport when you collect the vehicle.\n4. Sign the rental agreement at the discounted daily rate.',
+        proof_required: 'Valid SADC driver’s licence and matching passport / ID',
+        terms_note: 'Weekday pickups only. Insurance excess unchanged. One-way drop-offs may have an extra fee.',
+        cover_image:
+          'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=1200&q=70',
+        gallery_images: [
+          {
+            src: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8804?auto=format&fit=crop&w=900&q=70',
+            kind: 'image',
+          },
+        ],
+        is_active: true,
+      },
+    ],
   },
   {
     id: 5,

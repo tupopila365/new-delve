@@ -4,6 +4,7 @@ import {
   parseGalleryUrlsField,
   serializeGalleryMediaList,
 } from '../../listing/photos/listingGalleryMedia'
+import type { HighlightChannelInput } from '../../highlights'
 import { RENTER_DOCUMENT_OPTIONS } from '../../../data/renterDocuments'
 import { DEFAULT_PASSENGER_RENTAL_RULES } from '../../../data/transportProvider'
 
@@ -109,6 +110,7 @@ export type ProviderVehicleListing = {
   highlights?: string[]
   rental_rules?: string[]
   gallery_images?: Array<string | { url?: string; kind?: string }>
+  listing_stories?: HighlightChannelInput[]
   required_renter_documents?: string[]
   is_active?: boolean
 }
@@ -201,6 +203,7 @@ export function vehicleCompleteness(v: ProviderVehicleListing): { percent: numbe
     [(v.gallery_images?.length ?? 0) > 0, 'Gallery photos'],
     [(v.included_features?.length ?? 0) > 0, 'Included features'],
     [(v.required_renter_documents?.length ?? 0) > 0, 'Renter documents'],
+    [(v.listing_stories?.length ?? 0) > 0, 'Highlights'],
   ]
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)

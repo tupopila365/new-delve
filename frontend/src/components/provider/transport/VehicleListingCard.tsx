@@ -9,11 +9,13 @@ type Props = {
   vehicle: ProviderVehicleListing
   canEdit?: boolean
   onEdit: () => void
+  onManageHighlights?: () => void
 }
 
-export function VehicleListingCard({ vehicle, canEdit, onEdit }: Props) {
+export function VehicleListingCard({ vehicle, canEdit, onEdit, onManageHighlights }: Props) {
   const { percent, missing } = vehicleCompleteness(vehicle)
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
+  const highlightCount = vehicle.listing_stories?.length ?? 0
 
   return (
     <article className="prov-ui__card transport-list-card">
@@ -46,16 +48,21 @@ export function VehicleListingCard({ vehicle, canEdit, onEdit }: Props) {
         <p className="transport-list-card__meta">
           {vehicle.city}, {vehicle.region} · N${vehicle.price_per_day}/day
         </p>
-        {(vehicle.required_renter_documents?.length ?? 0) > 0 ? (
-          <div className="transport-list-card__chips">
-            {vehicle.required_renter_documents!.slice(0, 3).map((id) => (
-              <span key={id}>{renterDocLabel(id)}</span>
-            ))}
-            {vehicle.required_renter_documents!.length > 3 ? (
-              <span>+{vehicle.required_renter_documents!.length - 3} docs</span>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="transport-list-card__chips">
+          {(vehicle.required_renter_documents?.length ?? 0) > 0
+            ? vehicle.required_renter_documents!.slice(0, 3).map((id) => (
+                <span key={id}>{renterDocLabel(id)}</span>
+              ))
+            : null}
+          {(vehicle.required_renter_documents?.length ?? 0) > 3 ? (
+            <span>+{vehicle.required_renter_documents!.length - 3} docs</span>
+          ) : null}
+          <span>
+            {highlightCount > 0
+              ? `${highlightCount} highlight ring${highlightCount === 1 ? '' : 's'}`
+              : 'No highlights'}
+          </span>
+        </div>
         {missing.length > 0 ? (
           <p className="transport-list-card__missing">Still needed: {missing.slice(0, 3).join(', ')}</p>
         ) : null}
@@ -63,6 +70,11 @@ export function VehicleListingCard({ vehicle, canEdit, onEdit }: Props) {
 
       <div className="transport-list-card__actions">
         <Link to={`/transport/vehicle/${vehicle.id}`} className="prov-ui__btn prov-ui__btn--ghost">View public</Link>
+        {canEdit && onManageHighlights ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
+            {highlightCount > 0 ? 'Manage highlights' : 'Add highlights'}
+          </button>
+        ) : null}
         {canEdit ? (
           <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>Edit vehicle</button>
         ) : null}

@@ -6,6 +6,7 @@ import {
   Camera,
   Car,
   Hash,
+  HeartHandshake,
   Home as HomeIcon,
   Lightbulb,
   Map,
@@ -64,6 +65,7 @@ const moodChips = [
 
 const categoryShortcuts = [
   { to: '/accommodation', label: 'Stays', Icon: HomeIcon },
+  { to: '/partners', label: 'Partners', Icon: HeartHandshake },
   { to: '/food', label: 'Food & drink', Icon: Utensils },
   { to: '/guides', label: 'Guides', Icon: Users },
   { to: '/events', label: 'Events', Icon: Ticket },

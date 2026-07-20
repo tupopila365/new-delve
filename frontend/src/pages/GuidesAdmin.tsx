@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, Compass, MessageCircle, Plus } from 'lucide-react'
+import { CalendarDays, Clapperboard, Compass, MessageCircle, Plus } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
@@ -26,6 +26,7 @@ import {
   profileCompleteness,
   profileFormHasUploads,
   profileToForm,
+  resolveGuideProfileHighlights,
   type GuideProviderBooking,
   type ProviderGuideProfile,
 } from '../components/provider/guides'
@@ -70,6 +71,7 @@ const STATUS_ACTIONS: Record<string, { label: string; action: string }[]> = {
 export function GuidesAdmin() {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { canManageListings, canManageBookings, isViewerOnly, canAccessProvider } = useBusinessAccess()
 
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('profile')
@@ -78,6 +80,9 @@ export function GuidesAdmin() {
   const [showPackageForm, setShowPackageForm] = useState(false)
   const [editPackageId, setEditPackageId] = useState<string | null>(null)
   const [profileForm, setProfileForm] = useState(EMPTY_GUIDE_PROFILE_FORM)
+  const [profileFormSection, setProfileFormSection] = useState<
+    'identity' | 'expertise' | 'credentials' | 'pricing' | 'photos' | 'stories'
+  >('identity')
   const [packageForm, setPackageForm] = useState(EMPTY_GUIDE_PACKAGE_FORM)
   const [profileErr, setProfileErr] = useState('')
   const [packageErr, setPackageErr] = useState('')
@@ -147,10 +152,11 @@ export function GuidesAdmin() {
 
   const saveProfileMut = useMutation({
     mutationFn: async () => {
-      const hasUploads = profileFormHasUploads(profileForm)
+      const resolvedForm = await resolveGuideProfileHighlights(profileForm)
+      const hasUploads = profileFormHasUploads(resolvedForm)
       const body = hasUploads
-        ? buildGuideProfileFormData(profileForm, packages)
-        : JSON.stringify(formToProfilePayload(profileForm, packages))
+        ? buildGuideProfileFormData(resolvedForm, packages)
+        : JSON.stringify(formToProfilePayload(resolvedForm, packages))
       if (guide) {
         return apiFetch<ProviderGuideProfile>('/api/guides/provider-profile/', {
           method: 'PATCH',
@@ -266,6 +272,7 @@ export function GuidesAdmin() {
 
   const openCreateProfile = () => {
     setProfileForm(guide ? profileToForm(guide) : EMPTY_GUIDE_PROFILE_FORM)
+    setProfileFormSection('identity')
     setShowProfileForm(true)
     setProfileErr('')
     setTab('profile')
@@ -274,9 +281,27 @@ export function GuidesAdmin() {
   const openEditProfile = () => {
     if (!guide) return
     setProfileForm(profileToForm(guide))
+    setProfileFormSection('identity')
     setShowProfileForm(true)
     setProfileErr('')
   }
+
+  const openEditHighlights = () => {
+    if (!guide) return
+    setProfileForm(profileToForm(guide))
+    setProfileFormSection('stories')
+    setShowProfileForm(true)
+    setProfileErr('')
+    setTab('profile')
+  }
+
+  useEffect(() => {
+    if (searchParams.get('edit') !== 'highlights') return
+    if (!guide || !canManageListings) return
+    openEditHighlights()
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when guide + query ready
+  }, [guide, canManageListings, searchParams])
 
   const openCreatePackage = () => {
     setEditPackageId(null)
@@ -308,6 +333,14 @@ export function GuidesAdmin() {
     ...(packages.length === 0 && guide
       ? [{ id: 'packages', label: 'Add your first tour package', action: 'Add package', onClick: openCreatePackage }]
       : []),
+    ...(guide && !(guide.guide_stories?.length)
+      ? [{
+          id: 'highlights',
+          label: 'No custom highlights yet',
+          action: 'Add highlights',
+          onClick: openEditHighlights,
+        }]
+      : []),
     ...(pendingBookings > 0
       ? [{
           id: 'pending',
@@ -325,7 +358,7 @@ export function GuidesAdmin() {
         subtitle={
           isViewerOnly
             ? 'View your guide profile, packages, and traveller bookings.'
-            : 'Manage the profile and packages travellers see on your public guide pages.'
+            : 'Manage your profile, highlights, packages, and what travellers see on your public guide page.'
         }
         actions={
           <>
@@ -378,6 +411,14 @@ export function GuidesAdmin() {
             </button>
           ) : null}
           {canManageListings && guide ? (
+            <button type="button" className="prov-ui__shortcut" onClick={openEditHighlights}>
+              <Clapperboard size={18} strokeWidth={2.25} aria-hidden />
+              <span>
+                {(guide.guide_stories?.length ?? 0) > 0 ? 'Manage highlights' : 'Add highlights'}
+              </span>
+            </button>
+          ) : null}
+          {canManageListings && guide ? (
             <button type="button" className="prov-ui__shortcut" onClick={openCreatePackage}>
               <Plus size={18} strokeWidth={2.25} aria-hidden />
               <span>Add package</span>
@@ -425,7 +466,12 @@ export function GuidesAdmin() {
               ) : null}
             </>
           ) : (
-            <GuideProfileSummaryCard guide={guide} canEdit={canManageListings} onEdit={openEditProfile} />
+            <GuideProfileSummaryCard
+              guide={guide}
+              canEdit={canManageListings}
+              onEdit={openEditProfile}
+              onManageHighlights={openEditHighlights}
+            />
           )}
         </section>
       )}
@@ -544,15 +590,18 @@ export function GuidesAdmin() {
 
       {showProfileForm && canManageListings ? (
         <GuideProfileForm
+          key={`guide-profile-${profileFormSection}`}
           values={profileForm}
           onChange={setProfileForm}
           error={profileErr}
           saving={saveProfileMut.isPending}
           isEdit={Boolean(guide)}
+          initialSection={profileFormSection}
           onSubmit={() => saveProfileMut.mutate()}
           onCancel={() => {
             setShowProfileForm(false)
             setProfileErr('')
+            setProfileFormSection('identity')
           }}
         />
       ) : null}

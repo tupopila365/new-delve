@@ -57,6 +57,8 @@ import { Register } from './pages/Register'
 import { SearchPage } from './pages/SearchPage'
 import { Settings } from './pages/Settings'
 import { Transport } from './pages/Transport'
+import { TravelPartners } from './pages/TravelPartners'
+import { TravelOfferDetail } from './pages/TravelOfferDetail'
 import { TripDetail } from './pages/TripDetail'
 import { TripsList } from './pages/TripsList'
 import { CreateJourney } from './pages/CreateJourney'
@@ -175,6 +177,8 @@ export default function App() {
           <Route path="/dashboard" element={<UserDashboard />} />
           <Route path="/dashboard/bookings/:service/:id" element={<BookingDetail />} />
           <Route path="/business/:id" element={<BusinessProfile />} />
+          <Route path="/business/:id/offers/:offerId" element={<TravelOfferDetail />} />
+          <Route path="/partners" element={<TravelPartners />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/accommodation" element={<AccommodationList />} />
           <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />

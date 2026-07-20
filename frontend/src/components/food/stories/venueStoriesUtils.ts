@@ -91,24 +91,7 @@ export function buildVenueStoryChannels(
     })
   }
 
-  const guestSlides: VenueStorySlide[] = (venue.delvers_moments ?? [])
-    .filter((m) => m.image || m.body?.trim())
-    .map((m) => ({
-      id: `guest-${m.id}`,
-      kind: 'image',
-      src: m.image ? imgSrc(m.image) : cover,
-      headline: m.body?.trim() || 'Guest moment',
-      sub: `@${m.author_username}`,
-      ctaPath: venuePath,
-    }))
-  if (guestSlides.length > 0) {
-    channels.push({
-      id: 'guest-love',
-      label: 'Guest love',
-      coverSrc: guestSlides[0].src,
-      slides: guestSlides,
-    })
-  }
+  // Guest / Delvers moments stay on the listing page separately — not part of provider showcase.
 
   const vibePhotos = photos.filter((p) => p.category === 'interior' || p.category === 'exterior')
   if (vibePhotos.length > 0) {

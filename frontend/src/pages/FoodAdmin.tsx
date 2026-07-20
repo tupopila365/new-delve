@@ -142,7 +142,8 @@ export function FoodAdmin() {
       : '—'
     const totalReviews = venues.reduce((sum, v) => sum + (v.rating_count ?? 0), 0)
     const missingPhotos = venues.filter((v) => !v.cover_image && !v.photos?.length).length
-    return { avgRating, totalReviews, missingPhotos }
+    const missingHighlights = venues.filter((v) => !(v.venue_stories?.length)).length
+    return { avgRating, totalReviews, missingPhotos, missingHighlights }
   }, [venues])
 
   if (!profile) return <Navigate to="/login" replace />
@@ -170,12 +171,20 @@ export function FoodAdmin() {
         subtitle={
           isViewerOnly
             ? 'View your venues and guest feedback.'
-            : 'Manage venues, hours, photos, and what travellers see on DELVE.'
+            : 'Manage venues, hours, photos, highlights, and what travellers see on DELVE.'
         }
         publicTo="/food"
         attention={[
           ...(canManageListings && stats.missingPhotos > 0
             ? [{ label: `${stats.missingPhotos} venue${stats.missingPhotos === 1 ? '' : 's'} missing photos`, actionLabel: 'Add photos', actionTo: '#venues', priority: 'high' as const }]
+            : []),
+          ...(canManageListings && stats.missingHighlights > 0
+            ? [{
+                label: `${stats.missingHighlights} venue${stats.missingHighlights === 1 ? '' : 's'} without highlights`,
+                actionLabel: 'Add highlights',
+                actionTo: '#venues',
+                priority: 'medium' as const,
+              }]
             : []),
         ]}
         quickActions={[

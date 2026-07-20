@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, Camera, MessageCircle, Plus } from 'lucide-react'
+import { CalendarDays, Clapperboard, MessageCircle, Plus } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
@@ -52,10 +52,17 @@ type ProviderBooking = {
 
 const TABS = [
   { id: 'listings', label: 'Listings' },
-  { id: 'stories', label: 'Stories' },
+  { id: 'highlights', label: 'Highlights' },
   { id: 'bookings', label: 'Bookings' },
   { id: 'reviews', label: 'Reviews' },
 ] as const
+
+function tabFromSearchParam(raw: string | null): (typeof TABS)[number]['id'] | null {
+  if (!raw) return null
+  if (raw === 'stories' || raw === 'highlights') return 'highlights'
+  if (TABS.some((t) => t.id === raw)) return raw as (typeof TABS)[number]['id']
+  return null
+}
 
 const BOOKING_FILTERS = [
   { id: 'all', label: 'All' },
@@ -87,14 +94,40 @@ function nightsBetween(a: string, b: string) {
 export function StaysAdmin() {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { canManageListings, canManageBookings, isViewerOnly, canAccessProvider } = useBusinessAccess()
 
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('listings')
+  const initialTab = tabFromSearchParam(searchParams.get('tab')) ?? 'listings'
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>(initialTab)
+  const [highlightListingId, setHighlightListingId] = useState<number | null>(() => {
+    const raw = searchParams.get('listing')
+    const n = raw ? Number(raw) : NaN
+    return Number.isFinite(n) && n > 0 ? n : null
+  })
   const [statusFilter, setStatusFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [form, setForm] = useState(EMPTY_STAY_LISTING_FORM)
   const [formErr, setFormErr] = useState('')
+
+  useEffect(() => {
+    const fromUrl = tabFromSearchParam(searchParams.get('tab'))
+    if (fromUrl) setTab(fromUrl)
+    const raw = searchParams.get('listing')
+    const n = raw ? Number(raw) : NaN
+    if (Number.isFinite(n) && n > 0) {
+      setHighlightListingId(n)
+      setTab('highlights')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (searchParams.get('tab') || searchParams.get('listing')) {
+      setSearchParams({}, { replace: true })
+    }
+    // Clear deep-link params once applied so refresh does not re-force the tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { data: listings = [], isLoading: loadingListings } = useQuery({
     queryKey: ['provider-stays'],
@@ -257,7 +290,7 @@ export function StaysAdmin() {
         subtitle={
           isViewerOnly
             ? 'View properties, bookings, and guest feedback.'
-            : 'Manage properties, rooms, photos, policies, stories, and bookings.'
+            : 'Manage properties, rooms, photos, policies, highlights, and bookings.'
         }
         actions={
           <>
@@ -299,9 +332,9 @@ export function StaysAdmin() {
               <span>Add listing</span>
             </button>
           ) : null}
-          <button type="button" className="prov-ui__shortcut" onClick={() => setTab('stories')}>
-            <Camera size={18} strokeWidth={2.25} aria-hidden />
-            <span>Post story</span>
+          <button type="button" className="prov-ui__shortcut" onClick={() => setTab('highlights')}>
+            <Clapperboard size={18} strokeWidth={2.25} aria-hidden />
+            <span>Manage highlights</span>
           </button>
           <button type="button" className="prov-ui__shortcut" onClick={() => setTab('bookings')}>
             <CalendarDays size={18} strokeWidth={2.25} aria-hidden />
@@ -347,7 +380,16 @@ export function StaysAdmin() {
           ) : (
             <div className="stay-list">
               {listings.map((stay) => (
-                <StayListingCard key={stay.id} stay={stay} canEdit={canManageListings} onEdit={() => openEdit(stay)} />
+                <StayListingCard
+                  key={stay.id}
+                  stay={stay}
+                  canEdit={canManageListings}
+                  onEdit={() => openEdit(stay)}
+                  onManageHighlights={() => {
+                    setHighlightListingId(stay.id)
+                    setTab('highlights')
+                  }}
+                />
               ))}
             </div>
           )}
@@ -359,9 +401,13 @@ export function StaysAdmin() {
         </section>
       )}
 
-      {tab === 'stories' && (
-        <section id="stories">
-          <StayStoriesPanel listings={listings} />
+      {tab === 'highlights' && (
+        <section id="highlights">
+          <StayStoriesPanel
+            listings={listings}
+            canManage={canManageListings}
+            initialListingId={highlightListingId}
+          />
         </section>
       )}
 

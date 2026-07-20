@@ -1,4 +1,5 @@
 import django_filters
+from django.db.models import Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -13,6 +14,9 @@ from .serializers import ShopProductSerializer
 
 class ShopProductFilter(django_filters.FilterSet):
     owner_username = django_filters.CharFilter(field_name="owner__username", lookup_expr="iexact")
+    # Soft match: explore region must not hide national/shipping listings with blank region.
+    region = django_filters.CharFilter(method="filter_region")
+    city = django_filters.CharFilter(field_name="city", lookup_expr="icontains")
 
     class Meta:
         model = ShopProduct
@@ -25,6 +29,12 @@ class ShopProductFilter(django_filters.FilterSet):
             "is_featured",
             "owner_username",
         ]
+
+    def filter_region(self, queryset, name, value):
+        value = (value or "").strip()
+        if not value:
+            return queryset
+        return queryset.filter(Q(region__icontains=value) | Q(region=""))
 
 
 class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):

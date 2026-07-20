@@ -26,7 +26,10 @@ import {
   BusinessProfileState,
   BusinessProfileEmptyServices,
   BusinessTeamPosts,
+  BusinessTravelOffers,
 } from '../components/business'
+import { MediaLightbox } from '../components/media/MediaLightbox'
+import type { ListingGalleryItem } from '../components/listing/types'
 import { MiniRating } from '../components/MiniRating'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 
@@ -89,6 +92,7 @@ export function BusinessProfile() {
   const { businesses: myBusinesses } = useBusinessAccess()
   const [serviceTab, setServiceTab] = useState<ServiceTab>('all')
   const [shareMsg, setShareMsg] = useState('')
+  const [photoLightboxIndex, setPhotoLightboxIndex] = useState<number | null>(null)
 
   const { data: business, isLoading, isError, refetch } = useQuery({
     queryKey: ['business-profile', id],
@@ -131,18 +135,18 @@ export function BusinessProfile() {
   )
 
   const galleryPhotos = useMemo(() => {
-    if (!business) return [] as { src: string; alt: string }[]
-    const photos: { src: string; alt: string }[] = []
+    if (!business) return [] as ListingGalleryItem[]
+    const photos: ListingGalleryItem[] = []
     if (business.cover_image) {
       const src = mediaUrl(business.cover_image) || business.cover_image
-      photos.push({ src, alt: `${business.business_name} cover` })
+      photos.push({ src, alt: `${business.business_name} cover`, kind: 'image' })
     }
     if (business.logo) {
       const src = mediaUrl(business.logo) || business.logo
-      photos.push({ src, alt: `${business.business_name} logo` })
+      photos.push({ src, alt: `${business.business_name} logo`, kind: 'image' })
     }
     scopedListings.forEach((l) => {
-      if (l.image) photos.push({ src: l.image, alt: l.title })
+      if (l.image) photos.push({ src: l.image, alt: l.title, kind: 'image' })
     })
     return photos.slice(0, 9)
   }, [business, scopedListings])
@@ -208,6 +212,12 @@ export function BusinessProfile() {
   const coverSrc = business.cover_image ? mediaUrl(business.cover_image) || business.cover_image : null
   const businessId = Number(id)
   const canManageBusiness = myBusinesses.some((b) => b.id === businessId)
+  const travelPartner =
+    Boolean(business.showcase_as_partner) ||
+    Boolean(business.how_we_help?.trim()) ||
+    Boolean(business.community_impact?.trim()) ||
+    (business.travel_offers?.length ?? 0) > 0
+  const activeOffers = (business.travel_offers ?? []).filter((o) => o.is_active !== false)
 
   return (
     <BusinessProfileShell onShare={onShareProfile}>
@@ -223,6 +233,10 @@ export function BusinessProfile() {
             Open provider dashboard
           </Link>
           <span aria-hidden>·</span>
+          <Link to="/provider/settings" className="biz-profile__manage-link">
+            Edit travel partner hub
+          </Link>
+          <span aria-hidden>·</span>
           <Link to={`/u/${business.owner_username}`} className="biz-profile__manage-link">
             Your personal profile
           </Link>
@@ -235,6 +249,7 @@ export function BusinessProfile() {
         logo={logoSrc}
         cover={coverSrc}
         verified={verified}
+        travelPartner={travelPartner}
         serviceLabel={primaryServiceLabel(types)}
         location={locationLabel || null}
         ratingAvg={ratingAvg}
@@ -249,6 +264,32 @@ export function BusinessProfile() {
       {business.description?.trim() ? (
         <BusinessProfileSection title="About">
           <p className="biz-profile__text">{business.description.trim()}</p>
+        </BusinessProfileSection>
+      ) : null}
+
+      {activeOffers.length > 0 ? (
+        <BusinessProfileSection title="Accessible travel">
+          <BusinessTravelOffers
+            offers={activeOffers}
+            businessName={business.business_name}
+            businessId={business.id}
+          />
+        </BusinessProfileSection>
+      ) : null}
+
+      {business.how_we_help?.trim() ? (
+        <BusinessProfileSection title="How we make travel easier">
+          <div className="biz-profile__hub-block">
+            <p>{business.how_we_help.trim()}</p>
+          </div>
+        </BusinessProfileSection>
+      ) : null}
+
+      {business.community_impact?.trim() ? (
+        <BusinessProfileSection title="What we bring to the community">
+          <div className="biz-profile__hub-block">
+            <p>{business.community_impact.trim()}</p>
+          </div>
         </BusinessProfileSection>
       ) : null}
 
@@ -315,7 +356,15 @@ export function BusinessProfile() {
         <BusinessProfileSection title="Photos">
           <div className="biz-profile__gallery">
             {galleryPhotos.map((photo, i) => (
-              <img key={`${photo.src}-${i}`} src={photo.src} alt={photo.alt} loading="lazy" />
+              <button
+                key={`${photo.src}-${i}`}
+                type="button"
+                className="biz-profile__gallery-btn"
+                onClick={() => setPhotoLightboxIndex(i)}
+                aria-label={`Open ${photo.alt || 'photo'} fullscreen`}
+              >
+                <img src={photo.src} alt={photo.alt || ''} loading="lazy" />
+              </button>
             ))}
           </div>
         </BusinessProfileSection>
@@ -342,6 +391,16 @@ export function BusinessProfile() {
             </a>
           </div>
         </BusinessProfileSection>
+      ) : null}
+
+      {photoLightboxIndex !== null && galleryPhotos.length > 0 ? (
+        <MediaLightbox
+          items={galleryPhotos}
+          index={photoLightboxIndex}
+          onClose={() => setPhotoLightboxIndex(null)}
+          onChange={setPhotoLightboxIndex}
+          label={`${business.business_name} photos`}
+        />
       ) : null}
     </BusinessProfileShell>
   )

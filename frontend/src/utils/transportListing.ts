@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Car, Truck, Bus } from 'lucide-react'
 import { mediaUrl } from '../api/client'
 import type { ListingGalleryItem } from '../components/listing/types'
+import type { HighlightChannelInput } from '../components/highlights'
 import {
   isVideoUrl,
   parseGalleryMediaList,
@@ -33,6 +34,7 @@ export type VehicleListing = {
   rental_rules?: string[] | null
   required_renter_documents?: string[] | null
   gallery_images?: Array<string | { url?: string; kind?: string }> | null
+  listing_stories?: HighlightChannelInput[] | null
   owner_display_name?: string | null
   owner_bio?: string | null
   owner_region?: string | null
@@ -52,6 +54,7 @@ export type BusRouteDetail = {
   travel_tips?: string[] | null
   distance_km?: number | null
   duration_minutes?: number | null
+  listing_stories?: HighlightChannelInput[] | null
 }
 
 export type BusTripListing = {

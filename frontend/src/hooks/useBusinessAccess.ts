@@ -30,6 +30,10 @@ export type MyBusiness = {
   onboarding_completed?: boolean
   transport_modes?: ('rental' | 'shared')[]
   verification_notes?: string
+  showcase_as_partner?: boolean
+  how_we_help?: string
+  community_impact?: string
+  travel_offers?: import('../components/business').TravelOffer[]
   stats?: BusinessStats
 }
 
@@ -53,6 +57,10 @@ export type PublicBusiness = {
   cover_image: string | null
   region: string
   city: string
+  showcase_as_partner?: boolean
+  how_we_help?: string
+  community_impact?: string
+  travel_offers?: import('../components/business').TravelOffer[]
   stats?: BusinessStats
 }
 

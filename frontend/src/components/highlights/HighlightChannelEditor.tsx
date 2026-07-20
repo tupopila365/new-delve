@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ImagePlus, Play, Trash2, X } from 'lucide-react'
+import { Check, ImagePlus, Play, Trash2, X } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
 import type { HighlightChannelInput } from './types'
 import {
@@ -9,6 +9,7 @@ import {
   emptyHighlightSlide,
   filledHighlightSlides,
 } from './highlightFormUtils'
+import { isRemoteMediaUrl } from './eagerHighlightUpload'
 import { HighlightStudioSheet } from './HighlightStudioSheet'
 import '../create/SocialCreateComposer.css'
 import './highlights.css'
@@ -156,6 +157,7 @@ export function HighlightChannelEditor({
               <div className="hl-channel-card__filmstrip" role="list" aria-label="Slides">
                 {slides.map((slide, slideIndex) => {
                   const isVideo = slide.kind === 'video'
+                  const remote = isRemoteMediaUrl(slide.src)
                   return (
                     <div key={slide.id || `slide-${slideIndex}`} className="hl-slide-tile" role="listitem">
                       <button
@@ -170,6 +172,13 @@ export function HighlightChannelEditor({
                             <Play size={12} strokeWidth={2.5} fill="currentColor" />
                           </span>
                         ) : null}
+                        <span
+                          className={`hl-slide-tile__status hl-slide-tile__status--${remote ? 'ready' : 'local'}`}
+                          title={remote ? 'Uploaded' : 'Needs upload'}
+                          aria-label={remote ? 'Uploaded' : 'Needs upload'}
+                        >
+                          {remote ? <Check size={10} strokeWidth={3} aria-hidden /> : null}
+                        </span>
                         <span className="hl-slide-tile__caption">{slide.headline}</span>
                       </button>
                       {slides.length > 1 ? (

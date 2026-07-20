@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { VenueStoryChannelInput } from '../../food/stories/types'
+import { ensureHighlightChannelsMediaUrls } from '../../highlights/highlightMediaApi'
 import { normalizeVenueStoriesForSave } from './venueStoriesFormUtils'
 import {
   scheduleHasOpenDay,
@@ -44,7 +45,7 @@ export const FOOD_VENUE_MODULES: FoodVenueModuleDef[] = [
   { id: 'contact', label: 'Contact', hint: 'Phone and website', Icon: Phone },
   { id: 'service', label: 'Service', hint: 'Dine-in, delivery, and amenities', Icon: UtensilsCrossed },
   { id: 'photos', label: 'Photos', hint: 'Cover image or video and gallery', Icon: Camera },
-  { id: 'stories', label: 'Stories', hint: 'Optional highlight reels', Icon: Clapperboard },
+  { id: 'stories', label: 'Highlights', hint: 'Organize photos & videos for customers', Icon: Clapperboard },
 ]
 
 export type ProviderFoodVenueRecord = {
@@ -163,6 +164,13 @@ export function publishPayload() {
 
 export function unpublishPayload() {
   return { is_active: false }
+}
+
+export async function resolveStoriesPayload(values: FoodVenueFormValues) {
+  const channels = await ensureHighlightChannelsMediaUrls(
+    normalizeVenueStoriesForSave(values.venue_stories),
+  )
+  return { venue_stories: channels }
 }
 
 export function storiesPayload(values: FoodVenueFormValues) {
@@ -292,7 +300,7 @@ export function saveLabel(module: FoodVenueModuleId): string {
     contact: 'Save contact',
     service: 'Save service options',
     photos: 'Save photos',
-    stories: 'Save stories',
+    stories: 'Save highlights',
   }
   return labels[module]
 }

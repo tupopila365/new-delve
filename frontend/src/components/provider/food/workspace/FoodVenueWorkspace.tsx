@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react'
 import { apiFetch } from '../../../../api/client'
@@ -19,6 +19,7 @@ import {
 import {
   buildFoodVenueModuleSaveBody,
   foodVenueModuleAutoSaveKey,
+  resolveFoodVenueHighlightsSaveBody,
   resolveFoodVenuePhotosSaveBody,
 } from '../foodVenueModuleSave'
 import { formatGalleryUrlsField } from '../../../listing/photos/listingGalleryMedia'
@@ -48,12 +49,21 @@ type Props = {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
+function moduleFromSearchParam(raw: string | null): FoodVenueModuleId | null {
+  if (!raw) return null
+  if (raw === 'highlights' || raw === 'stories') return 'stories'
+  if (FOOD_VENUE_MODULES.some((m) => m.id === raw)) return raw as FoodVenueModuleId
+  return null
+}
+
 export function FoodVenueWorkspace({ venue, canManage }: Props) {
   const qc = useQueryClient()
+  const [searchParams] = useSearchParams()
   const record = venue as ProviderFoodVenueRecord
   const isMobile = useMediaQuery('(max-width: 800px)')
   const [mobilePane, setMobilePane] = useState<'hub' | 'editor'>('hub')
-  const [activeModule, setActiveModule] = useState<FoodVenueModuleId>('identity')
+  const initialModule = moduleFromSearchParam(searchParams.get('module')) ?? 'identity'
+  const [activeModule, setActiveModule] = useState<FoodVenueModuleId>(initialModule)
   const [form, setForm] = useState<FoodVenueFormValues>(() => venueToForm(venue))
   const [hours, setHours] = useState<OpeningHoursSchedule>(() =>
     scheduleFromJson(venue.opening_hours_json),
@@ -67,6 +77,13 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
   const hoursRef = useRef(hours)
   formRef.current = form
   hoursRef.current = hours
+
+  useEffect(() => {
+    const fromUrl = moduleFromSearchParam(searchParams.get('module'))
+    if (!fromUrl) return
+    setActiveModule(fromUrl)
+    if (isMobile) setMobilePane('editor')
+  }, [searchParams, isMobile])
 
   useEffect(() => {
     const nextForm = venueToForm(venue)
@@ -150,7 +167,9 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
         let built =
           module === 'photos'
             ? await resolveFoodVenuePhotosSaveBody(form)
-            : buildFoodVenueModuleSaveBody(module, form, hours)
+            : module === 'stories'
+              ? await resolveFoodVenueHighlightsSaveBody(form)
+              : buildFoodVenueModuleSaveBody(module, form, hours)
         if (!built.ok) {
           if (!silent) setError(built.error)
           return
@@ -173,6 +192,16 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
               gallery_files: [],
               gallery_urls: formatGalleryUrlsField(gallery),
             }))
+          } catch {
+            // Keep going with resolved body.
+          }
+        }
+        if (module === 'stories' && typeof built.body === 'string') {
+          try {
+            const parsed = JSON.parse(built.body) as { venue_stories?: FoodVenueFormValues['venue_stories'] }
+            if (parsed.venue_stories) {
+              setForm((prev) => ({ ...prev, venue_stories: parsed.venue_stories! }))
+            }
           } catch {
             // Keep going with resolved body.
           }
@@ -347,8 +376,8 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
               {activeModule === 'stories' ? (
                 <div className="fv-module">
                   <header className="fv-module__head">
-                    <h3>Highlight stories</h3>
-                    <p>Optional reels for discovery — not required to publish.</p>
+                    <h3>Highlights</h3>
+                    <p>Organize photos and videos travellers see on your venue page.</p>
                   </header>
                   <FoodVenueStoriesEditor
                     channels={form.venue_stories}

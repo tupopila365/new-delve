@@ -1,13 +1,23 @@
-/* Business / provider public profile — simple dark mobile layout */
+/* Business / provider public profile — responsive mobile + laptop */
 
 .biz-profile {
-  width: min(100%, 640px);
+  box-sizing: border-box;
+  width: min(100%, 1120px);
   margin: 0 auto;
   min-height: 100dvh;
-  padding: 0 16px calc(var(--bottom-nav-h, 64px) + var(--safe-bottom, 0px) + 24px);
+  padding: 0 max(16px, env(safe-area-inset-right, 0px))
+    calc(var(--bottom-nav-h, 64px) + var(--safe-bottom, 0px) + 24px)
+    max(16px, env(safe-area-inset-left, 0px));
   color: #fffaf2;
   background: #0c0a09;
   font-family: var(--font-sans);
+  overflow-x: clip;
+}
+
+.biz-profile *,
+.biz-profile *::before,
+.biz-profile *::after {
+  box-sizing: border-box;
 }
 
 .biz-profile h1,
@@ -67,12 +77,21 @@
 .biz-profile__wrap {
   display: grid;
   gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.biz-profile__wrap > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ——— Cover + hero ——— */
 .biz-profile__cover {
   width: 100%;
-  height: 120px;
+  max-width: 100%;
+  height: clamp(120px, 28vw, 220px);
   margin: 0 0 -36px;
   border-radius: 16px;
   object-fit: cover;
@@ -81,6 +100,8 @@
 
 .biz-profile__hero {
   position: relative;
+  display: grid;
+  gap: 16px;
   padding: 20px 16px 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
@@ -92,10 +113,23 @@
   padding-top: 48px;
 }
 
+.biz-profile__hero-main {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.biz-profile__hero-identity {
+  display: grid;
+  gap: 0;
+  justify-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
 .biz-profile__logo-wrap {
   display: flex;
   justify-content: center;
-  margin-bottom: 12px;
 }
 
 .biz-profile__logo {
@@ -110,8 +144,8 @@
 .biz-profile__logo--ph {
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, rgba(255, 154, 82, 0.25), rgba(124, 58, 237, 0.12));
-  color: #a78bfa;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.45);
 }
 
 .biz-profile__badges {
@@ -119,6 +153,11 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
+  margin-bottom: 8px;
+}
+
+.biz-profile__hero-identity .seller-trust {
+  justify-content: center;
   margin-bottom: 8px;
 }
 
@@ -134,11 +173,19 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .biz-profile__badge--verified {
-  background: rgba(61, 191, 122, 0.14);
-  color: #7ddea8;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d6d3d1;
+  border-color: rgba(214, 211, 209, 0.28);
+}
+
+.biz-profile__badge--partner {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e7e5e4;
+  border-color: rgba(214, 211, 209, 0.32);
 }
 
 .biz-profile__name {
@@ -151,7 +198,7 @@
 
 .biz-profile__tagline {
   margin: 6px auto 0;
-  max-width: 28ch;
+  max-width: 42ch;
   font-size: 0.82rem;
   font-weight: 500;
   color: rgba(255, 250, 242, 0.55);
@@ -179,7 +226,7 @@
 
 .biz-profile__meta li svg {
   flex-shrink: 0;
-  color: #a78bfa;
+  color: #a8a29e;
 }
 
 .biz-profile__meta .mini-rating {
@@ -189,15 +236,18 @@
 .biz-profile__hero-actions {
   display: grid;
   gap: 8px;
-  margin-top: 16px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
 .biz-profile__hero-actions .msg-provider-link.btn-primary {
   min-height: 44px;
+  width: 100%;
   border-radius: 12px;
   font-size: 0.88rem;
   font-weight: 800;
-  background: #a78bfa;
+  background: #d6d3d1;
   color: #1a0f05;
   border: none;
 }
@@ -212,6 +262,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .biz-profile__report {
@@ -222,7 +273,7 @@
 }
 
 .biz-profile__report:hover {
-  color: #a78bfa;
+  color: #d6d3d1;
 }
 
 .biz-profile__owner-link {
@@ -243,9 +294,9 @@
 }
 
 .biz-profile__owner-link:hover {
-  border-color: rgba(255, 154, 82, 0.35);
-  background: rgba(255, 154, 82, 0.08);
-  color: #a78bfa;
+  border-color: rgba(214, 211, 209, 0.35);
+  background: rgba(255, 255, 255, 0.07);
+  color: #d6d3d1;
   opacity: 1;
 }
 
@@ -304,8 +355,8 @@
 }
 
 .biz-profile__tab--active {
-  border-color: rgba(255, 154, 82, 0.4);
-  background: rgba(255, 154, 82, 0.12);
+  border-color: rgba(214, 211, 209, 0.4);
+  background: rgba(255, 255, 255, 0.08);
   color: #fffaf2;
 }
 
@@ -330,8 +381,8 @@
 }
 
 .biz-profile__service-row:hover {
-  border-color: rgba(255, 154, 82, 0.3);
-  background: rgba(255, 154, 82, 0.06);
+  border-color: rgba(214, 211, 209, 0.3);
+  background: rgba(255, 255, 255, 0.05);
   opacity: 1;
 }
 
@@ -345,6 +396,7 @@
 
 .biz-profile__service-thumb img {
   width: 100%;
+  max-width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
@@ -355,7 +407,7 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  color: #a78bfa;
+  color: #d6d3d1;
 }
 
 .biz-profile__service-copy {
@@ -386,7 +438,7 @@
 .biz-profile__service-copy small {
   font-size: 0.72rem;
   font-weight: 700;
-  color: #a78bfa;
+  color: #d6d3d1;
 }
 
 .biz-profile__service-arrow {
@@ -406,8 +458,8 @@
   height: 52px;
   margin: 0 auto 12px;
   border-radius: 14px;
-  background: rgba(255, 154, 82, 0.12);
-  color: #a78bfa;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d6d3d1;
 }
 
 .biz-profile__empty h3 {
@@ -443,9 +495,9 @@
 }
 
 .biz-profile__empty-btn:hover {
-  border-color: rgba(255, 154, 82, 0.35);
-  background: rgba(255, 154, 82, 0.1);
-  color: #a78bfa;
+  border-color: rgba(214, 211, 209, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: #d6d3d1;
   opacity: 1;
 }
 
@@ -469,19 +521,31 @@
   gap: 4px;
 }
 
-.biz-profile__gallery img {
+.biz-profile__gallery img,
+.biz-profile__gallery-btn img {
   width: 100%;
+  max-width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   display: block;
   border-radius: 8px;
 }
 
+.biz-profile__gallery-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 .biz-profile__location {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .biz-profile__location-copy {
@@ -493,7 +557,7 @@
 
 .biz-profile__location-copy svg {
   flex-shrink: 0;
-  color: #a78bfa;
+  color: #d6d3d1;
   margin-top: 2px;
 }
 
@@ -529,8 +593,8 @@
 }
 
 .biz-profile__directions:hover {
-  border-color: rgba(255, 154, 82, 0.35);
-  color: #a78bfa;
+  border-color: rgba(214, 211, 209, 0.35);
+  color: #d6d3d1;
   opacity: 1;
 }
 
@@ -545,8 +609,8 @@
   margin: 0 0 10px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(255, 154, 82, 0.14);
-  color: #a78bfa;
+  background: rgba(255, 255, 255, 0.1);
+  color: #d6d3d1;
   font-size: 0.78rem;
   font-weight: 700;
   text-align: center;
@@ -567,7 +631,7 @@
 }
 
 .biz-profile__manage-link {
-  color: #a78bfa;
+  color: #d6d3d1;
   font-weight: 700;
   text-decoration: none;
 }
@@ -592,8 +656,8 @@
   height: 56px;
   margin: 0 auto 12px;
   border-radius: 16px;
-  background: rgba(255, 154, 82, 0.15);
-  color: #a78bfa;
+  background: rgba(255, 255, 255, 0.1);
+  color: #d6d3d1;
 }
 
 .biz-profile__state-title {
@@ -618,7 +682,7 @@
   padding: 0 18px;
   border: none;
   border-radius: 10px;
-  background: #a78bfa;
+  background: #d6d3d1;
   color: #1a0f05;
   font-size: 0.85rem;
   font-weight: 700;
@@ -642,15 +706,15 @@
 
 .biz-profile__team-sub {
   margin: 0;
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 12rem;
+  min-width: 0;
   color: rgba(255, 250, 242, 0.55);
   font-size: 0.84rem;
   line-height: 1.45;
 }
 
 .biz-profile__section-link {
-  color: #a78bfa;
+  color: #d6d3d1;
   font-size: 0.8rem;
   font-weight: 800;
   text-decoration: none;
@@ -678,6 +742,7 @@
 
 .biz-profile__team-card img {
   width: 100%;
+  max-width: 100%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
   display: block;
@@ -687,8 +752,8 @@
   display: grid;
   place-items: center;
   aspect-ratio: 4 / 5;
-  background: rgba(124, 58, 237, 0.12);
-  color: #a78bfa;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 250, 242, 0.45);
 }
 
 .biz-profile__team-card__body {
@@ -698,3 +763,338 @@
   line-height: 1.35;
   color: rgba(255, 250, 242, 0.82);
 }
+
+/* ——— Travel partner hub (neutral) ——— */
+.biz-profile__hub-block {
+  display: grid;
+  gap: 10px;
+}
+
+.biz-profile__hub-block p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(255, 250, 242, 0.82);
+  white-space: pre-wrap;
+}
+
+.biz-profile__offers-intro {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: rgba(255, 250, 242, 0.62);
+}
+
+.biz-profile__offer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.biz-profile__offer {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.biz-profile__offer--link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.biz-profile__offer--link:hover {
+  border-color: rgba(214, 211, 209, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  opacity: 1;
+}
+
+.biz-profile__offer-more {
+  margin-left: auto;
+  color: #d6d3d1;
+  font-weight: 750;
+}
+
+.biz-profile__offer-top {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.biz-profile__offer-top:has(.biz-profile__offer-thumb) {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.biz-profile__offer-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.biz-profile__offer-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.biz-profile__offer-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #d6d3d1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.biz-profile__offer-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.biz-profile__offer-title {
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: #fffaf2;
+}
+
+.biz-profile__offer-copy p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: rgba(255, 250, 242, 0.65);
+}
+
+.biz-profile__offer-price {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #e7e5e4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.biz-profile__offer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: rgba(255, 250, 242, 0.55);
+  text-transform: capitalize;
+  align-items: center;
+  width: 100%;
+}
+
+.biz-profile__offer-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ——— Tablet+ ——— */
+@media (min-width: 480px) {
+  .biz-profile__offer-top {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+
+  .biz-profile__offer-top:has(.biz-profile__offer-thumb) {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+  }
+
+  .biz-profile__offer-price {
+    grid-column: auto;
+    justify-self: end;
+    margin-top: 0;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+}
+
+/* ——— Laptop / desktop ——— */
+@media (min-width: 768px) {
+  .biz-profile {
+    padding-top: 8px;
+    padding-bottom: calc(var(--safe-bottom, 0px) + 40px);
+  }
+
+  .biz-profile__bar {
+    margin-bottom: 12px;
+  }
+
+  .biz-profile__wrap {
+    gap: 18px;
+  }
+
+  .biz-profile__cover {
+    height: clamp(180px, 22vw, 280px);
+    margin-bottom: -48px;
+    border-radius: 20px;
+  }
+
+  .biz-profile__hero {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    align-items: center;
+    gap: 24px 28px;
+    padding: 28px 28px 24px;
+    text-align: left;
+    border-radius: 22px;
+  }
+
+  .biz-profile__hero--cover {
+    padding-top: 56px;
+  }
+
+  .biz-profile__hero-main {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 20px;
+    justify-items: start;
+  }
+
+  .biz-profile__hero-identity {
+    justify-items: start;
+  }
+
+  .biz-profile__logo-wrap {
+    justify-content: flex-start;
+  }
+
+  .biz-profile__logo {
+    width: 88px;
+    height: 88px;
+    border-radius: 20px;
+  }
+
+  .biz-profile__badges {
+    justify-content: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .biz-profile__hero-identity .seller-trust {
+    justify-content: flex-start;
+  }
+
+  .biz-profile__name {
+    font-size: clamp(1.5rem, 2.2vw, 1.85rem);
+  }
+
+  .biz-profile__tagline {
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 48ch;
+    font-size: 0.9rem;
+  }
+
+  .biz-profile__meta {
+    justify-content: flex-start;
+  }
+
+  .biz-profile__hero-actions {
+    margin: 0;
+    max-width: none;
+    align-self: stretch;
+  }
+
+  .biz-profile__section {
+    padding: 18px 20px;
+    border-radius: 18px;
+  }
+
+  .biz-profile__section-title {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+  }
+
+  .biz-profile__text,
+  .biz-profile__hub-block p {
+    font-size: 0.95rem;
+    max-width: 68ch;
+  }
+
+  .biz-profile__services {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .biz-profile__offer-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .biz-profile__gallery {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .biz-profile__gallery img {
+    border-radius: 10px;
+  }
+
+  .biz-profile__team-strip {
+    grid-auto-columns: minmax(160px, 200px);
+    gap: 12px;
+  }
+
+  .biz-profile__manage-bar {
+    padding: 12px 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .biz-profile__wrap {
+    gap: 20px;
+  }
+
+  .biz-profile__hero {
+    padding: 32px;
+    gap: 28px 36px;
+  }
+
+  .biz-profile__services {
+    gap: 12px;
+  }
+
+  .biz-profile__service-row {
+    padding: 12px;
+  }
+
+  .biz-profile__service-thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .biz-profile__gallery {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* Narrow phones: keep location CTA full-width when wrapped */
+@media (max-width: 379px) {
+  .biz-profile__directions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .biz-profile__owner-link {
+    flex: 1 1 auto;
+  }
+
+  .biz-profile__report {
+    margin-left: 0;
+  }
+}
+

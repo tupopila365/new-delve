@@ -1,0 +1,43 @@
+/* Mobile cart affordance — TopNav cart is desktop-only */
+
+.shop-cart-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fafaf9;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.shop-cart-btn:hover {
+  border-color: rgba(214, 211, 209, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.shop-cart-btn__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e7e5e4;
+  color: #1c1917;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .shop-cart-btn {
+    display: none;
+  }
+}

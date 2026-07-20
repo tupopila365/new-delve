@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bus, CalendarDays, Car, MessageCircle, Plus } from 'lucide-react'
+import { Bus, CalendarDays, Car, Clapperboard, MessageCircle, Plus } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
@@ -12,6 +12,7 @@ import {
   BusTripListingForm,
   EMPTY_BUS_TRIP_FORM,
   EMPTY_VEHICLE_LISTING_FORM,
+  TransportHighlightsPanel,
   VehicleListingCard,
   VehicleListingForm,
   busTripToForm,
@@ -38,6 +39,7 @@ import {
 import { ListSkeleton } from '../components/ui'
 import '../components/provider/transport/transport-admin.css'
 import '../components/provider/transport/transport-listing.css'
+import '../components/provider/stays/stay-listing.css'
 import { formatSellerPayoutLine } from '../utils/bookingPayout'
 
 type RentalBooking = {
@@ -72,20 +74,30 @@ type SeatBooking = {
 
 const RENTAL_TABS = [
   { id: 'fleet', label: 'Fleet' },
+  { id: 'highlights', label: 'Highlights' },
   { id: 'rentals', label: 'Rentals' },
 ] as const
 
 const SHARED_TABS = [
   { id: 'routes', label: 'Routes' },
+  { id: 'highlights', label: 'Highlights' },
   { id: 'seats', label: 'Seats' },
 ] as const
 
 const ALL_TABS = [
   { id: 'fleet', label: 'Fleet' },
   { id: 'routes', label: 'Routes' },
+  { id: 'highlights', label: 'Highlights' },
   { id: 'rentals', label: 'Rentals' },
   { id: 'seats', label: 'Seats' },
 ] as const
+
+function tabFromSearchParam(raw: string | null): string | null {
+  if (!raw) return null
+  if (raw === 'stories' || raw === 'highlights') return 'highlights'
+  const known = ['fleet', 'routes', 'highlights', 'rentals', 'seats']
+  return known.includes(raw) ? raw : null
+}
 
 function statusClass(status: string) {
   if (status === 'confirmed') return 'prov-ui__status prov-ui__status--confirmed'
@@ -124,6 +136,7 @@ function seatBookingActions(status: string) {
 export function TransportAdmin() {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { activeBusiness, canAccessProvider, canManageListings, canManageBookings, isViewerOnly } = useBusinessAccess()
 
   const modes = resolveTransportModes(activeBusiness)
@@ -138,7 +151,18 @@ export function TransportAdmin() {
   }, [showRental, showShared])
 
   const defaultTab = showRental ? 'fleet' : showShared ? 'routes' : 'fleet'
-  const [tab, setTab] = useState<string>(defaultTab)
+  const initialTab = tabFromSearchParam(searchParams.get('tab')) ?? defaultTab
+  const [tab, setTab] = useState<string>(initialTab)
+  const [highlightKind, setHighlightKind] = useState<'vehicle' | 'bus' | null>(() => {
+    const raw = searchParams.get('kind')
+    if (raw === 'vehicle' || raw === 'bus') return raw
+    return null
+  })
+  const [highlightId, setHighlightId] = useState<number | null>(() => {
+    const raw = searchParams.get('id')
+    const n = raw ? Number(raw) : NaN
+    return Number.isFinite(n) && n > 0 ? n : null
+  })
   const [showVehicleForm, setShowVehicleForm] = useState(false)
   const [showBusForm, setShowBusForm] = useState(false)
   const [editVehicleId, setEditVehicleId] = useState<number | null>(null)
@@ -147,6 +171,30 @@ export function TransportAdmin() {
   const [busForm, setBusForm] = useState(EMPTY_BUS_TRIP_FORM)
   const [vehicleErr, setVehicleErr] = useState('')
   const [busErr, setBusErr] = useState('')
+
+  useEffect(() => {
+    const fromUrl = tabFromSearchParam(searchParams.get('tab'))
+    if (fromUrl) setTab(fromUrl)
+    const kindRaw = searchParams.get('kind')
+    const idRaw = searchParams.get('id')
+    const n = idRaw ? Number(idRaw) : NaN
+    if (kindRaw === 'vehicle' || kindRaw === 'bus') {
+      setHighlightKind(kindRaw)
+      setTab('highlights')
+    }
+    if (Number.isFinite(n) && n > 0) {
+      setHighlightId(n)
+      setTab('highlights')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (searchParams.get('tab') || searchParams.get('kind') || searchParams.get('id')) {
+      setSearchParams({}, { replace: true })
+    }
+    // Clear deep-link params once applied so refresh does not re-force the tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { data: vehicles = [], isLoading: loadingVehicles } = useQuery({
     queryKey: ['provider-vehicles'],
@@ -281,6 +329,15 @@ export function TransportAdmin() {
   const pendingRentals = rentalBookings.filter((b) => b.status === 'pending').length
   const pendingSeats = seatBookings.filter((b) => b.status === 'pending').length
   const missingPhotos = vehicles.filter((v) => !v.cover_image).length
+  const missingHighlights =
+    (showRental ? vehicles.filter((v) => !(v.listing_stories?.length ?? 0)).length : 0) +
+    (showShared ? busTrips.filter((t) => !(t.route_detail.listing_stories?.length ?? 0)).length : 0)
+
+  const openHighlights = (kind?: 'vehicle' | 'bus', id?: number) => {
+    if (kind) setHighlightKind(kind)
+    if (id != null) setHighlightId(id)
+    setTab('highlights')
+  }
   const revenue =
     rentalBookings.filter((b) => b.status === 'confirmed').reduce((s, b) => s + parseFloat(b.total_price), 0) +
     seatBookings.filter((b) => b.status === 'confirmed').reduce((s, b) => s + parseFloat(b.total_price), 0)
@@ -321,6 +378,14 @@ export function TransportAdmin() {
   const attention = [
     ...(showRental && missingPhotos > 0
       ? [{ id: 'photos', label: `${missingPhotos} vehicle${missingPhotos === 1 ? '' : 's'} missing photos`, action: 'Add photos', onClick: () => setTab('fleet') }]
+      : []),
+    ...(missingHighlights > 0
+      ? [{
+          id: 'highlights',
+          label: `${missingHighlights} listing${missingHighlights === 1 ? '' : 's'} missing highlights`,
+          action: 'Add highlights',
+          onClick: () => openHighlights(),
+        }]
       : []),
     ...(pendingRentals + pendingSeats > 0
       ? [{
@@ -407,6 +472,10 @@ export function TransportAdmin() {
               <span>Add trip</span>
             </button>
           ) : null}
+          <button type="button" className="prov-ui__shortcut" onClick={() => openHighlights()}>
+            <Clapperboard size={18} strokeWidth={2.25} aria-hidden />
+            <span>Manage highlights</span>
+          </button>
           <button type="button" className="prov-ui__shortcut" onClick={() => setTab(showRental ? 'rentals' : 'seats')}>
             <CalendarDays size={18} strokeWidth={2.25} aria-hidden />
             <span>Bookings</span>
@@ -439,9 +508,15 @@ export function TransportAdmin() {
           ) : (
             <div className="transport-list">
               {vehicles.map((v) => (
-                <VehicleListingCard key={v.id} vehicle={v} canEdit={canManageListings} onEdit={() => openEditVehicle(v)} />
-                        ))}
-                      </div>
+                <VehicleListingCard
+                  key={v.id}
+                  vehicle={v}
+                  canEdit={canManageListings}
+                  onEdit={() => openEditVehicle(v)}
+                  onManageHighlights={() => openHighlights('vehicle', v.id)}
+                />
+              ))}
+            </div>
                     )}
           {canManageListings && vehicles.length > 0 ? (
             <button type="button" className="transport-add-btn" onClick={openCreateVehicle}>Add rental vehicle</button>
@@ -466,13 +541,33 @@ export function TransportAdmin() {
           ) : (
             <div className="transport-list">
               {busTrips.map((t) => (
-                <BusTripListingCard key={t.id} trip={t} canEdit={canManageListings} onEdit={() => openEditBus(t)} />
+                <BusTripListingCard
+                  key={t.id}
+                  trip={t}
+                  canEdit={canManageListings}
+                  onEdit={() => openEditBus(t)}
+                  onManageHighlights={() => openHighlights('bus', t.id)}
+                />
               ))}
             </div>
           )}
           {canManageListings && busTrips.length > 0 ? (
             <button type="button" className="transport-add-btn" onClick={openCreateBus}>Add shared trip</button>
           ) : null}
+        </section>
+      )}
+
+      {tab === 'highlights' && (
+        <section id="highlights">
+          <TransportHighlightsPanel
+            vehicles={showRental ? vehicles : []}
+            busTrips={showShared ? busTrips : []}
+            canManage={canManageListings}
+            showVehicles={showRental}
+            showBuses={showShared}
+            initialKind={highlightKind ?? undefined}
+            initialId={highlightId}
+          />
         </section>
       )}
 

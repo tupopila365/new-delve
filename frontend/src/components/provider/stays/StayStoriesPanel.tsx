@@ -1,120 +1,182 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Image, Plus, Video } from 'lucide-react'
-import { apiFetch, mediaUrl } from '../../../api/client'
-import { useAuth } from '../../../auth/AuthContext'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import { apiFetch } from '../../../api/client'
+import { friendlyApiMessage } from '../../../utils/friendlyError'
+import { HighlightChannelEditor } from '../../highlights/HighlightChannelEditor'
+import {
+  ensureHighlightChannelsMediaUrls,
+  normalizeHighlightsForSave,
+  type HighlightChannelInput,
+} from '../../highlights'
 import type { ProviderStayListing } from './stayListingTypes'
-
-type AccommodationStory = {
-  id: number
-  body: string
-  region: string
-  image: string | null
-  video: string | null
-  created_at: string
-  author: { username: string; display_name: string }
-  listing?: { id: number; title: string } | null
-}
 
 type Props = {
   listings: ProviderStayListing[]
+  canManage?: boolean
+  /** Prefill selected listing (e.g. from detail page deep-link). */
+  initialListingId?: number | null
 }
 
-export function StayStoriesPanel({ listings }: Props) {
-  const { profile } = useAuth()
+function channelsFromListing(listing: ProviderStayListing | null): HighlightChannelInput[] {
+  if (!listing) return []
+  return (listing.listing_stories ?? []).map((ch) => ({
+    id: ch.id,
+    label: ch.label,
+    coverSrc: ch.coverSrc,
+    slides: (ch.slides ?? []).map((s) => ({ ...s })),
+  }))
+}
 
-  const { data: stories = [], isLoading } = useQuery({
-    queryKey: ['provider-accommodation-stories', profile?.username],
-    enabled: Boolean(profile?.username),
-    queryFn: () => apiFetch<AccommodationStory[]>('/api/social/accommodation-stories/'),
-    select: (rows) => rows.filter((s) => s.author.username === profile?.username),
+export function StayStoriesPanel({ listings, canManage = true, initialListingId = null }: Props) {
+  const qc = useQueryClient()
+  const defaultId =
+    initialListingId && listings.some((l) => l.id === initialListingId)
+      ? initialListingId
+      : listings[0]?.id ?? null
+  const [selectedId, setSelectedId] = useState<number | null>(defaultId)
+  const [channels, setChannels] = useState<HighlightChannelInput[]>(() =>
+    channelsFromListing(listings.find((l) => l.id === defaultId) ?? null),
+  )
+  const [error, setError] = useState('')
+  const [savedFlash, setSavedFlash] = useState('')
+
+  const selected = useMemo(
+    () => listings.find((l) => l.id === selectedId) ?? null,
+    [listings, selectedId],
+  )
+
+  useEffect(() => {
+    if (initialListingId && listings.some((l) => l.id === initialListingId)) {
+      setSelectedId(initialListingId)
+    }
+  }, [initialListingId, listings])
+
+  useEffect(() => {
+    setChannels(channelsFromListing(selected))
+    setError('')
+  }, [selected])
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      if (!selected) throw new Error('Select a property first.')
+      const listing_stories = await ensureHighlightChannelsMediaUrls(
+        normalizeHighlightsForSave(channels),
+      )
+      return apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${selected.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ listing_stories }),
+      })
+    },
+    onSuccess: async (saved) => {
+      setError('')
+      setChannels(channelsFromListing(saved))
+      setSavedFlash('Highlights saved')
+      window.setTimeout(() => setSavedFlash(''), 2200)
+      await qc.invalidateQueries({ queryKey: ['provider-stays'] })
+      await qc.invalidateQueries({ queryKey: ['acc'] })
+      await qc.invalidateQueries({ queryKey: ['accommodation'] })
+    },
+    onError: (e) => setError(friendlyApiMessage(e, 'Could not save highlights.')),
   })
 
-  const createHref = (listingId?: number) => {
-    const params = new URLSearchParams({ host_story: '1', return: '/provider/stays' })
-    if (listingId) params.set('listing', String(listingId))
-    return `/create/highlight?${params.toString()}`
+  if (listings.length === 0) {
+    return (
+      <div className="stay-stories">
+        <header className="stay-stories__head">
+          <div>
+            <h2 className="stay-stories__title">Highlights</h2>
+            <p className="stay-stories__sub">
+              Organize photos and videos travellers see on each stay detail page.
+            </p>
+          </div>
+        </header>
+        <div className="stay-stories__empty">
+          <strong>Add a property first</strong>
+          <p>Highlights are managed per listing — create a stay, then come back here.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="stay-stories">
       <header className="stay-stories__head">
         <div>
-          <h2 className="stay-stories__title">Host stories</h2>
+          <h2 className="stay-stories__title">Highlights</h2>
           <p className="stay-stories__sub">
-            Short photo or video updates linked to your stays — shown in story rings on Places to stay.
+            Organize photos and videos travellers can tap through on your stay pages — not social posts.
           </p>
         </div>
-        <Link to={createHref()} className="prov-ui__btn prov-ui__btn--primary">
-          <Plus size={16} aria-hidden />
-          New story
-        </Link>
+        {canManage && selected ? (
+          <button
+            type="button"
+            className="prov-ui__btn prov-ui__btn--primary"
+            disabled={saveMut.isPending}
+            onClick={() => saveMut.mutate()}
+          >
+            {saveMut.isPending ? 'Saving…' : 'Save highlights'}
+          </button>
+        ) : null}
       </header>
 
-      {listings.length > 0 ? (
-        <div className="stay-stories__listing-picks">
-          <p className="stay-stories__label">Post for a specific property</p>
-          <div className="stay-stories__pick-row">
-            {listings.map((l) => (
-              <Link key={l.id} to={createHref(l.id)} className="stay-stories__pick">
-                {l.title}
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="stay-stories__listing-picks">
+        <label className="stay-stories__label" htmlFor="stay-highlights-listing">
+          Property
+        </label>
+        <select
+          id="stay-highlights-listing"
+          className="stay-stories__select"
+          value={selectedId ?? ''}
+          onChange={(e) => {
+            const next = Number(e.target.value)
+            setSelectedId(Number.isFinite(next) ? next : null)
+          }}
+        >
+          {listings.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.title}
+              {(l.listing_stories?.length ?? 0) > 0
+                ? ` · ${l.listing_stories!.length} ring${l.listing_stories!.length === 1 ? '' : 's'}`
+                : ' · no highlights'}
+            </option>
+          ))}
+        </select>
+        {selected ? (
+          <p className="stay-stories__pick-meta">
+            Public page: <Link to={`/accommodation/${selected.id}`}>{selected.title}</Link>
+          </p>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="stay-stories__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {savedFlash ? (
+        <p className="stay-stories__saved" role="status">
+          {savedFlash}
+        </p>
       ) : null}
 
-      {isLoading ? (
-        <p className="stay-stories__empty">Loading stories…</p>
-      ) : stories.length === 0 ? (
-        <div className="stay-stories__empty">
-          <strong>No stories yet</strong>
-          <p>Share room tours, weekend specials, or behind-the-scenes clips to attract more bookings.</p>
-          <Link to={createHref()} className="prov-ui__link">
-            Create your first story
-          </Link>
-        </div>
-      ) : (
-        <ul className="stay-stories__list">
-          {stories.map((story) => {
-            const thumb = story.image ? mediaUrl(story.image) : story.video ? mediaUrl(story.video) : null
-            return (
-              <li key={story.id} className="stay-stories__item">
-                <div className="stay-stories__thumb">
-                  {thumb && story.image ? (
-                    <img src={thumb} alt="" />
-                  ) : thumb && story.video ? (
-                    <video src={thumb} muted playsInline />
-                  ) : (
-                    <span aria-hidden>
-                      <Image size={20} />
-                    </span>
-                  )}
-                  {story.video ? (
-                    <span className="stay-stories__vid-badge" aria-hidden>
-                      <Video size={12} />
-                    </span>
-                  ) : null}
-                </div>
-                <div className="stay-stories__copy">
-                  <p className="stay-stories__caption">{story.body || 'No caption'}</p>
-                  <p className="stay-stories__meta">
-                    {story.listing ? (
-                      <Link to={`/accommodation/${story.listing.id}`}>{story.listing.title}</Link>
-                    ) : (
-                      'No listing linked'
-                    )}
-                    {' · '}
-                    {story.region}
-                    {' · '}
-                    {new Date(story.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      {selected && canManage ? (
+        <HighlightChannelEditor
+          channels={channels}
+          onChange={setChannels}
+          hint="Highlight rings on this stay page — rooms, amenities, location, or behind-the-scenes. Organize media travellers can tap through."
+          emptyCopy="No custom highlights yet. Auto-generated rings still use your cover and gallery photos."
+        />
+      ) : selected ? (
+        <p className="stay-stories__empty">View only — you cannot edit highlights for this listing.</p>
+      ) : null}
+
+      {canManage && selected && channels.length === 0 ? (
+        <p className="stay-stories__hint">
+          <Plus size={14} aria-hidden /> Tip: create a ring like “Rooms” or “The property”, then add slides.
+        </p>
+      ) : null}
     </div>
   )
 }

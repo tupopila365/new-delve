@@ -465,3 +465,219 @@
 .prov-settings__msg-automation:hover {
   border-color: var(--manage-ink-soft);
 }
+
+.prov-settings__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 12px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--manage-ink, inherit);
+}
+
+.prov-settings__check input {
+  margin-top: 3px;
+}
+
+.prov-settings__subhead {
+  margin: 28px 0 6px;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.prov-settings__offers {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--manage-line, rgba(255, 255, 255, 0.1));
+}
+
+.prov-settings__offer-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.prov-settings__offer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--manage-line, rgba(255, 255, 255, 0.1));
+  background: var(--manage-paper, rgba(255, 255, 255, 0.03));
+}
+
+.prov-settings__offer-row strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.prov-settings__offer-row span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--manage-muted, rgba(255, 250, 242, 0.55));
+}
+
+.prov-settings__offer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.prov-settings__offer-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.prov-settings__offer-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prov-settings__offer-thumb--ph {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 250, 242, 0.4);
+}
+
+.prov-settings__media {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--manage-line, rgba(255, 255, 255, 0.1));
+  background: var(--manage-paper, rgba(255, 255, 255, 0.03));
+}
+
+.prov-settings__media-head {
+  display: grid;
+  gap: 4px;
+}
+
+.prov-settings__media-head strong {
+  font-size: 0.88rem;
+}
+
+.prov-settings__media-head span {
+  font-size: 0.78rem;
+  color: var(--manage-muted, rgba(255, 250, 242, 0.55));
+  line-height: 1.4;
+}
+
+.prov-settings__media-cover,
+.prov-settings__media-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.prov-settings__media-preview {
+  position: relative;
+  width: 96px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prov-settings__media-cover .prov-settings__media-preview {
+  width: min(100%, 220px);
+  height: 120px;
+}
+
+.prov-settings__media-preview img,
+.prov-settings__media-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.prov-settings__media-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(12, 10, 9, 0.75);
+  color: #fffaf2;
+  cursor: pointer;
+}
+
+.prov-settings__media-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+  min-width: min(100%, 220px);
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 250, 242, 0.72);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.prov-settings__media-add--sm {
+  min-height: 72px;
+  min-width: 96px;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+}
+
+.prov-settings__media-add:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.prov-settings__offer-form {
+  display: grid;
+  gap: 12px;
+}
+
+.prov-settings__cats {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.prov-settings__cats legend {
+  font-size: 0.82rem;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+
+.prov-settings__cat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.prov-settings__cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+}

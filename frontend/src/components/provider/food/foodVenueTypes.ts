@@ -235,7 +235,7 @@ export function venueCompleteness(venue: ProviderFoodVenue): { percent: number; 
     hours: 'Opening hours',
     contact: 'Contact info',
     photos: 'Cover photo or video',
-    stories: 'Stories',
+    stories: 'Highlights',
   }
   for (const [id, label] of Object.entries(labels)) {
     const status = moduleStatus(record, id as import('./foodVenueModules').FoodVenueModuleId)

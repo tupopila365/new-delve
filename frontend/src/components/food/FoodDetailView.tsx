@@ -63,6 +63,8 @@ type Props = {
   data: FoodVenueListing
   venueId: string
   editHref?: string
+  /** Deep-link to provider highlights module when owner is viewing. */
+  manageHighlightsHref?: string
   liked: boolean
   saved: boolean
   likeBusy?: boolean
@@ -94,6 +96,7 @@ export function FoodDetailView({
   data,
   venueId,
   editHref,
+  manageHighlightsHref,
   liked,
   saved,
   likeBusy = false,
@@ -387,8 +390,16 @@ export function FoodDetailView({
         venue={data}
         venueId={venueId}
         title="From the kitchen"
-        subtitle="Story, menu highlights & guest moments"
+        subtitle="Menu, space & venue highlights"
         className="jd-stories fd-detail__stories"
+        isOwner={Boolean(manageHighlightsHref)}
+        onManageHighlights={
+          manageHighlightsHref
+            ? () => {
+                navigate(manageHighlightsHref)
+              }
+            : undefined
+        }
       />
 
       {canReserve && reserve ? (

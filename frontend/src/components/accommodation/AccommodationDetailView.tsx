@@ -59,6 +59,8 @@ type Props = {
   reviews?: ReviewItem[]
   ratingAvg?: string
   ratingCount?: number
+  /** Deep-link to provider highlights when owner is viewing. */
+  manageHighlightsHref?: string
 }
 
 export function AccommodationDetailView({
@@ -73,6 +75,7 @@ export function AccommodationDetailView({
   reviews = [],
   ratingAvg,
   ratingCount,
+  manageHighlightsHref,
 }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -341,15 +344,23 @@ export function AccommodationDetailView({
         )}
       </div>
 
-      {storyChannels.length > 0 ? (
+      {storyChannels.length > 0 || manageHighlightsHref ? (
         <HighlightStoriesSection
           channels={storyChannels}
           listingName={data.title}
           explorePath={stayPath}
-          title="Stay moments"
-          subtitle="Spaces & highlights — tap to watch"
+          title="Stay highlights"
+          subtitle="Spaces & moments — tap to watch"
           ctaLabel="View stay"
           className="jd-stories"
+          isOwner={Boolean(manageHighlightsHref)}
+          onManageHighlights={
+            manageHighlightsHref
+              ? () => {
+                  navigate(manageHighlightsHref)
+                }
+              : undefined
+          }
         />
       ) : null}
 

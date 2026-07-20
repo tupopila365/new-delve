@@ -1,5 +1,7 @@
 import { formToProfilePayload, type GuidePackageFormValues, type GuideProfileFormValues } from './guideProfileTypes'
 import type { TourPackage } from '../../guide/types'
+import { ensureHighlightChannelsMediaUrls } from '../../highlights/highlightMediaApi'
+import { normalizeGuideStoriesForSave } from './guideStoriesFormUtils'
 
 function appendBool(fd: FormData, key: string, value: boolean) {
   fd.append(key, value ? 'true' : 'false')
@@ -9,6 +11,16 @@ type PackageUploadOptions = {
   packageId?: string
   packagePhoto?: File | null
   packageGallery?: File[]
+}
+
+/** Ensure highlight media is on Cloudinary before save (Delvers path). */
+export async function resolveGuideProfileHighlights(
+  values: GuideProfileFormValues,
+): Promise<GuideProfileFormValues> {
+  const guide_stories = await ensureHighlightChannelsMediaUrls(
+    normalizeGuideStoriesForSave(values.guide_stories),
+  )
+  return { ...values, guide_stories }
 }
 
 /** Build multipart body for provider guide create/update (profile + portfolio + package uploads). */

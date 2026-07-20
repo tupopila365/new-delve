@@ -4,6 +4,7 @@ import { Building2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { AccommodationDetailView } from '../components/accommodation'
 import { EmptyState } from '../components/ui'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
@@ -23,6 +24,7 @@ export function AccommodationDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
   const [shareMsg, setShareMsg] = useState('')
   const saveMut = useToggleStaySave()
   const queryClient = useQueryClient()
@@ -125,6 +127,13 @@ export function AccommodationDetail() {
 
   const ratingAvg = reviewsData?.rating_avg ?? data.rating_avg
   const ratingCount = reviewsData?.rating_count ?? data.rating_count
+  const canManage =
+    Boolean(profile) &&
+    (profile?.username === data.owner_username ||
+      (canManageListings && activeBusiness?.owner_username === data.owner_username))
+  const manageHighlightsHref = canManage
+    ? `/provider/stays?tab=highlights&listing=${id}`
+    : undefined
 
   return (
     <div className="jn-detail-page acc-detail-page">
@@ -146,6 +155,7 @@ export function AccommodationDetail() {
         reviews={reviews}
         ratingAvg={ratingAvg != null ? String(ratingAvg) : undefined}
         ratingCount={ratingCount}
+        manageHighlightsHref={manageHighlightsHref}
       />
     </div>
   )

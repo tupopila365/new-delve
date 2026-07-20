@@ -254,7 +254,7 @@ export function profileCompleteness(guide: ProviderGuideProfile): { percent: num
     [(guide.portfolio_gallery?.length ?? 0) > 0, 'Portfolio photos'],
     [packages.length > 0, 'Tour package'],
     [packages.some((p) => p.photo), 'Package cover photo'],
-    [(guide.guide_stories?.length ?? 0) > 0, 'Highlight stories'],
+    [(guide.guide_stories?.length ?? 0) > 0, 'Highlights'],
   ]
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)

@@ -173,7 +173,7 @@ export function GuidePackageForm({ values, onChange, error, saving, onSubmit, on
           {section === 'photos' && (
             <div className="guide-form__section food-photo-editor">
               <p className="guide-form__hint">
-                A cover photo is required. Gallery photos appear on the package detail page and story rings.
+                A cover photo is required. Gallery photos appear on the package detail page and highlight rings.
               </p>
               <div className="food-photo-editor__cover">
                 <p className="food-photo-editor__label">Cover photo</p>

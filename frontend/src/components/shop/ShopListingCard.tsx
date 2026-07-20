@@ -24,7 +24,7 @@ export function ShopListingCard({ product, focused }: Props) {
     e.preventDefault()
     e.stopPropagation()
     if (soldOut) return
-    await addItem(product.id, { quantity: 1 })
+    await addItem(product.id, { quantity: 1, listing: product })
     setAdded(true)
     window.setTimeout(() => setAdded(false), 1400)
   }

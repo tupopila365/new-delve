@@ -1,4 +1,6 @@
-import type { VenueStoryChannel, VenueStorySlide } from '../food/stories/types'
+import { mediaUrl } from '../../api/client'
+import type { VenueStoryChannel, VenueStoryChannelInput, VenueStorySlide } from '../food/stories/types'
+import { ownerHighlightsOnly } from '../highlights/highlightChannelMerge'
 import {
   buildBusGalleryImages,
   buildVehicleGalleryImages,
@@ -19,6 +21,38 @@ function shortLabel(title: string, max = 16): string {
   return `${t.slice(0, max - 1)}…`
 }
 
+function resolveSrc(raw: string | null | undefined): string {
+  if (!raw?.trim()) return ''
+  return mediaUrl(raw) || raw
+}
+
+function mapCustomChannel(
+  input: VenueStoryChannelInput,
+  listingPath: string,
+  ctaLabel: string,
+): VenueStoryChannel | null {
+  if (!input.slides?.length) return null
+  const slides: VenueStorySlide[] = input.slides.map((s, i) => ({
+    id: s.id ?? `${input.id}-${i}`,
+    kind: s.kind ?? 'image',
+    src: resolveSrc(s.src),
+    headline: s.headline,
+    sub: s.sub,
+    captionX: s.captionX,
+    captionY: s.captionY,
+    durationMs: s.durationMs,
+    ctaPath: s.ctaPath ?? listingPath,
+    ctaLabel: s.ctaLabel ?? ctaLabel,
+  }))
+  return {
+    id: input.id,
+    label: input.label,
+    coverSrc: input.coverSrc ? resolveSrc(input.coverSrc) : slides[0].src,
+    slides,
+  }
+}
+
+/** Compact highlight rings from vehicle cover/gallery — custom listing_stories replace auto when set. */
 export function buildVehicleStoryChannels(
   vehicle: VehicleListing,
   options: { vehicleId: string; vehiclePath?: string },
@@ -99,9 +133,12 @@ export function buildVehicleStoryChannels(
     }
   }
 
-  return channels
+  return ownerHighlightsOnly(channels, vehicle.listing_stories, (custom) =>
+    mapCustomChannel(custom, vehiclePath, 'View vehicle'),
+  )
 }
 
+/** Compact highlight rings for bus routes — custom route listing_stories replace auto when set. */
 export function buildBusStoryChannels(
   trip: BusTripListing,
   options: { tripId: string; tripPath?: string },
@@ -182,5 +219,7 @@ export function buildBusStoryChannels(
     }
   }
 
-  return channels
+  return ownerHighlightsOnly(channels, trip.route_detail.listing_stories, (custom) =>
+    mapCustomChannel(custom, tripPath, 'View trip'),
+  )
 }

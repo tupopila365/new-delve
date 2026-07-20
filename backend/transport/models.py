@@ -54,6 +54,11 @@ class VehicleRentalListing(models.Model):
         blank=True,
         help_text='List of media URLs or {"url","kind"} objects (image/video)',
     )
+    listing_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Provider highlight channels for story rings on the vehicle detail page",
+    )
     cover_image = models.TextField(
         blank=True,
         default="",
@@ -170,6 +175,11 @@ class BusRoute(models.Model):
         default=list,
         blank=True,
         help_text='Optional list of interior/route media URLs or {"url","kind"} objects.',
+    )
+    listing_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Provider highlight channels for story rings on the bus trip detail page",
     )
     stops = models.JSONField(
         default=list,

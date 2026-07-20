@@ -14,20 +14,7 @@ function money(value: string | number): string {
 export function CartPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { cart, itemCount, isLoading, setQuantity, removeItem } = useCart()
-
-  if (!profile) {
-    return (
-      <main className="shop-cart">
-        <EmptyState
-          iconElement={<ShoppingCart size={28} strokeWidth={2} aria-hidden />}
-          title="Sign in to view your cart"
-          sub="Your cart is saved to your account so you can check out any time."
-          cta={{ label: 'Sign in', to: '/login' }}
-        />
-      </main>
-    )
-  }
+  const { cart, itemCount, isLoading, setQuantity, removeItem, isGuest } = useCart()
 
   if (isLoading) {
     return (
@@ -45,7 +32,11 @@ export function CartPage() {
         <EmptyState
           iconElement={<ShoppingCart size={28} strokeWidth={2} aria-hidden />}
           title="Your cart is empty"
-          sub="Browse shops and add products you'd like to buy."
+          sub={
+            isGuest
+              ? 'Browse shops and add products — sign in when you are ready to check out.'
+              : 'Browse shops and add products you would like to buy.'
+          }
           cta={{ label: 'Browse shops', to: '/shop' }}
         />
       </main>
@@ -66,6 +57,7 @@ export function CartPage() {
         <h1 className="shop-cart__title">Your cart</h1>
         <p className="shop-cart__sub">
           {itemCount} item{itemCount === 1 ? '' : 's'} from {groups.size} shop{groups.size === 1 ? '' : 's'}
+          {isGuest ? ' · Sign in to save and check out' : ''}
         </p>
       </header>
 
@@ -132,9 +124,15 @@ export function CartPage() {
             <strong>{money(cart?.subtotal ?? 0)}</strong>
           </div>
           <p className="shop-cart__summary-note">Shipping (if any) is calculated at checkout per shop.</p>
-          <button type="button" className="shop-cart__checkout" onClick={() => navigate('/checkout')}>
-            Checkout
-          </button>
+          {profile ? (
+            <button type="button" className="shop-cart__checkout" onClick={() => navigate('/checkout')}>
+              Checkout
+            </button>
+          ) : (
+            <Link to="/login" className="shop-cart__checkout" style={{ display: 'grid', placeItems: 'center' }}>
+              Sign in to checkout
+            </Link>
+          )}
           <Link to="/shop" className="shop-cart__continue">
             Continue shopping
           </Link>

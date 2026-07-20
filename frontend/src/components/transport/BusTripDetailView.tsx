@@ -79,6 +79,7 @@ type Props = {
   onSave: () => void
   onShare: () => void
   booking: BookingProps
+  manageHighlightsHref?: string
 }
 
 export function BusTripDetailView({
@@ -88,6 +89,7 @@ export function BusTripDetailView({
   onSave,
   onShare,
   booking,
+  manageHighlightsHref,
 }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -254,15 +256,25 @@ export function BusTripDetailView({
         </li>
       </ul>
 
-      <HighlightStoriesSection
-        channels={storyChannels}
-        listingName={routeTitle}
-        explorePath={tripPath}
-        title="Along the route"
-        subtitle="Tap a highlight to watch"
-        ctaLabel="View trip"
-        className="jd-stories"
-      />
+      {storyChannels.length > 0 || manageHighlightsHref ? (
+        <HighlightStoriesSection
+          channels={storyChannels}
+          listingName={routeTitle}
+          explorePath={tripPath}
+          title="Along the route"
+          subtitle="Tap a highlight to watch"
+          ctaLabel="View trip"
+          className="jd-stories"
+          isOwner={Boolean(manageHighlightsHref)}
+          onManageHighlights={
+            manageHighlightsHref
+              ? () => {
+                  navigate(manageHighlightsHref)
+                }
+              : undefined
+          }
+        />
+      ) : null}
 
       {canBook ? (
         <div className="tp-detail__reserve-block">

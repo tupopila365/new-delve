@@ -35,6 +35,7 @@ from .models import (
     EmailVerificationToken,
     PasswordResetToken,
     Profile,
+    TravelOffer,
     User,
     UserType,
     VerificationStatus,
@@ -48,6 +49,7 @@ from .serializers import (
     ProfileUpdateSerializer,
     PublicProfileSerializer,
     RegisterSerializer,
+    TravelOfferSerializer,
     UpdateMyBusinessSerializer,
 )
 
@@ -365,13 +367,19 @@ class PublicProfileView(APIView):
 
 
 class BusinessProfileListView(APIView):
-    """List businesses — filter by owner username."""
+    """List businesses — filter by owner username or travel partners."""
 
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
+        from accounts.travel_partners import travel_partners_qs
+
         owner = (request.query_params.get("owner") or "").strip()
-        qs = BusinessProfile.objects.select_related("owner").all()
+        partners = (request.query_params.get("partners") or request.query_params.get("travel_partner") or "").strip().lower()
+        if partners in ("1", "true", "yes"):
+            qs = travel_partners_qs()
+        else:
+            qs = BusinessProfile.objects.select_related("owner").prefetch_related("travel_offers").all()
         if owner:
             qs = qs.filter(owner__username__iexact=owner)
         return Response(BusinessProfileSerializer(qs, context={"request": request}, many=True).data)
@@ -381,8 +389,42 @@ class BusinessProfileDetailView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, pk):
-        business = get_object_or_404(BusinessProfile.objects.select_related("owner"), pk=pk)
+        business = get_object_or_404(
+            BusinessProfile.objects.select_related("owner").prefetch_related("travel_offers"),
+            pk=pk,
+        )
         return Response(BusinessProfileSerializer(business, context={"request": request}).data)
+
+
+class BusinessTravelOfferDetailView(APIView):
+    """Public offer detail — active + in-window only."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk, offer_id):
+        from accounts.travel_partners import public_offers_qs
+
+        business = get_object_or_404(BusinessProfile.objects.select_related("owner"), pk=pk)
+        offer = get_object_or_404(public_offers_qs(business=business), pk=offer_id)
+        logo = None
+        if business.logo:
+            try:
+                logo = request.build_absolute_uri(business.logo.url)
+            except Exception:
+                logo = str(business.logo)
+        payload = TravelOfferSerializer(offer).data
+        payload["business"] = {
+            "id": business.id,
+            "business_name": business.business_name,
+            "slug": business.slug,
+            "owner_username": business.owner.username,
+            "verification_status": business.verification_status,
+            "logo": logo,
+            "city": business.city,
+            "region": business.region,
+            "showcase_as_partner": business.showcase_as_partner,
+        }
+        return Response(payload)
 
 
 class BusinessListingsView(APIView):
@@ -476,6 +518,40 @@ class UpdateMyBusinessView(APIView):
         return Response(
             MyBusinessSerializer(business, context={"request": request, "permissions_map": perms_map}).data
         )
+
+
+class MyBusinessTravelOffersView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        business = _get_owned_or_managed_business(request, pk)
+        offers = business.travel_offers.all()
+        return Response(TravelOfferSerializer(offers, many=True).data)
+
+    def post(self, request, pk):
+        business = _get_owned_or_managed_business(request, pk)
+        serializer = TravelOfferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        offer = serializer.save(business=business)
+        return Response(TravelOfferSerializer(offer).data, status=status.HTTP_201_CREATED)
+
+
+class MyBusinessTravelOfferDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk, offer_id):
+        business = _get_owned_or_managed_business(request, pk)
+        offer = get_object_or_404(TravelOffer, pk=offer_id, business=business)
+        serializer = TravelOfferSerializer(offer, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(TravelOfferSerializer(offer).data)
+
+    def delete(self, request, pk, offer_id):
+        business = _get_owned_or_managed_business(request, pk)
+        offer = get_object_or_404(TravelOffer, pk=offer_id, business=business)
+        offer.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MyBusinessDocumentsView(APIView):

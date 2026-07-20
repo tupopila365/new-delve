@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, PlatformBookingNote, PlatformSettings, Profile, User
+from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, PlatformBookingNote, PlatformSettings, Profile, TravelOffer, User
 
 
 @admin.register(User)
@@ -24,9 +24,16 @@ class EmailTokenAdmin(admin.ModelAdmin):
 
 @admin.register(BusinessProfile)
 class BusinessProfileAdmin(admin.ModelAdmin):
-    list_display = ("business_name", "owner", "verification_status", "city", "region")
-    list_filter = ("verification_status",)
+    list_display = ("business_name", "owner", "verification_status", "showcase_as_partner", "city", "region")
+    list_filter = ("verification_status", "showcase_as_partner")
     search_fields = ("business_name", "slug", "owner__username")
+
+
+@admin.register(TravelOffer)
+class TravelOfferAdmin(admin.ModelAdmin):
+    list_display = ("title", "business", "offer_kind", "eligibility", "price_label", "is_active", "sort_order")
+    list_filter = ("offer_kind", "eligibility", "is_active")
+    search_fields = ("title", "business__business_name")
 
 
 @admin.register(BusinessMembership)

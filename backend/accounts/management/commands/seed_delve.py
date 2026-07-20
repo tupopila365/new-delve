@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -10,6 +11,7 @@ from accounts.models import (
     BusinessTeamRole,
     BusinessVerificationDocument,
     Profile,
+    TravelOffer,
     User,
     UserType,
     VerificationDocumentStatus,
@@ -19,6 +21,7 @@ from accounts.models import (
 from events_app.models import Event, EventCategory
 from food.models import CuisineType, FoodReservation, FoodVenue
 from guides.models import GuideBooking, TourGuideProfile
+from shop.models import ProductVariant, ShopCategory, ShopProduct, ShopProfile
 from social.models import Post
 from transport.models import (
     BusOperator,
@@ -849,6 +852,106 @@ class Command(BaseCommand):
                 defaults={"role": BusinessTeamRole.OWNER},
             )
 
+        # Travel partner hub + accessible offers (Desert Stays)
+        desert = BusinessProfile.objects.filter(slug="desert-stays").first()
+        if desert:
+            desert.showcase_as_partner = True
+            desert.how_we_help = (
+                "We publish clear SADC resident rates and student weekend packages so a desert "
+                "trip feels attainable — not only for international full-price travellers."
+            )
+            desert.community_impact = (
+                "Our lodges hire locally, source food from nearby farms, and support school sports "
+                "programmes in Erongo."
+            )
+            desert.save(
+                update_fields=["showcase_as_partner", "how_we_help", "community_impact", "updated_at"]
+            )
+            TravelOffer.objects.update_or_create(
+                business=desert,
+                title="SADC resident rate",
+                defaults={
+                    "summary": "Half-price midweek stays for travellers with a SADC passport.",
+                    "offer_kind": "eligibility",
+                    "eligibility": "sadc",
+                    "eligibility_label": "",
+                    "price_label": "50% off",
+                    "categories": ["stays"],
+                    "details": (
+                        "Book a midweek lodge night at half the published rack rate. Valid at "
+                        "participating Desert Stays properties in Swakopmund and the Erongo coast."
+                    ),
+                    "how_to_claim": (
+                        "1. Message Desert Stays and mention the SADC resident rate.\n"
+                        "2. Share preferred dates and property.\n"
+                        "3. Show a valid SADC passport or national ID at check-in.\n"
+                        "4. Pay the discounted rate confirmed in chat."
+                    ),
+                    "proof_required": "Valid SADC passport or national ID at check-in",
+                    "terms_note": "Sunday–Thursday arrivals only. Public holidays excluded.",
+                    "cover_image": (
+                        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4"
+                        "?auto=format&fit=crop&w=1200&q=70"
+                    ),
+                    "gallery_images": [
+                        {
+                            "src": (
+                                "https://images.unsplash.com/photo-1571896349842-33c89424de2d"
+                                "?auto=format&fit=crop&w=900&q=70"
+                            ),
+                            "kind": "image",
+                        },
+                        {
+                            "src": (
+                                "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b"
+                                "?auto=format&fit=crop&w=900&q=70"
+                            ),
+                            "kind": "image",
+                        },
+                    ],
+                    "is_active": True,
+                    "sort_order": 0,
+                },
+            )
+            TravelOffer.objects.update_or_create(
+                business=desert,
+                title="Student weekend package",
+                defaults={
+                    "summary": "Guided coastal weekend — lodge night, transfer, and guide included.",
+                    "offer_kind": "package",
+                    "eligibility": "student",
+                    "price_label": "From N$1,200",
+                    "categories": ["stays", "guides", "transport"],
+                    "details": (
+                        "Friday–Sunday coastal weekend for students: lodge night near Swakopmund, "
+                        "shared transfer from Windhoek, and a half-day guided dune or harbour walk."
+                    ),
+                    "how_to_claim": (
+                        "1. Message Desert Stays with “Student weekend package”.\n"
+                        "2. Pick a weekend from the dates they send.\n"
+                        "3. Pay the deposit to hold your spot.\n"
+                        "4. Bring your student card on departure day."
+                    ),
+                    "proof_required": "Current student card matching your booking name",
+                    "terms_note": "Deposit non-refundable within 7 days of departure.",
+                    "cover_image": (
+                        "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4"
+                        "?auto=format&fit=crop&w=1200&q=70"
+                    ),
+                    "gallery_images": [
+                        {
+                            "src": (
+                                "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d"
+                                "?auto=format&fit=crop&w=900&q=70"
+                            ),
+                            "kind": "image",
+                        }
+                    ],
+                    "is_active": True,
+                    "sort_order": 1,
+                },
+            )
+
         # Transport provider awaiting admin verification (Delve Admin Phase 7)
         transport_u, _ = User.objects.get_or_create(
             username="transport_mgr",
@@ -898,6 +1001,51 @@ class Command(BaseCommand):
             business=transport_biz,
             user=transport_u,
             defaults={"role": BusinessTeamRole.OWNER},
+        )
+        transport_biz.showcase_as_partner = True
+        transport_biz.how_we_help = (
+            "Local resident weekday rates and student shuttle packages so getting around Namibia "
+            "does not have to mean tourist-only pricing."
+        )
+        transport_biz.community_impact = (
+            "We train local drivers and keep routes that connect smaller towns, not only tourist hubs."
+        )
+        transport_biz.save(
+            update_fields=[
+                "showcase_as_partner",
+                "how_we_help",
+                "community_impact",
+                "updated_at",
+            ]
+        )
+        TravelOffer.objects.update_or_create(
+            business=transport_biz,
+            title="SADC driver rate",
+            defaults={
+                "summary": "Reduced daily rate on 4×4 rentals for SADC licence holders.",
+                "offer_kind": "eligibility",
+                "eligibility": "sadc",
+                "price_label": "20% off",
+                "categories": ["transport"],
+                "details": (
+                    "Weekday 4×4 rentals at 20% below the standard daily rate for drivers who live "
+                    "in a SADC country."
+                ),
+                "how_to_claim": (
+                    "1. Message Namibia Wheels with vehicle class and pickup dates.\n"
+                    "2. Ask for the SADC driver rate.\n"
+                    "3. Bring your SADC licence and passport when collecting the vehicle."
+                ),
+                "proof_required": "Valid SADC driver’s licence and matching passport / ID",
+                "terms_note": "Weekday pickups only. Insurance excess unchanged.",
+                "cover_image": (
+                    "https://images.unsplash.com/photo-1519641471654-76ce0107ad1b"
+                    "?auto=format&fit=crop&w=1200&q=70"
+                ),
+                "gallery_images": [],
+                "is_active": True,
+                "sort_order": 0,
+            },
         )
 
         _transport_doc_specs = [
@@ -1246,8 +1394,262 @@ class Command(BaseCommand):
                 event.business = biz
                 event.save(update_fields=["business"])
 
+        # ---- Shop marketplace (active public listings + cart/checkout demos) ----
+        ShopProfile.objects.update_or_create(
+            owner=u2,
+            defaults={"display_name": "Desert Craft Market"},
+        )
+        ShopProfile.objects.update_or_create(
+            owner=food_u,
+            defaults={"display_name": "Coastal Pantry"},
+        )
+        ShopProfile.objects.update_or_create(
+            owner=stays_u,
+            defaults={"display_name": "Dune Stays Gift Desk"},
+        )
+
+        def _seed_product(owner, name, *, variants=None, **fields):
+            product, created = ShopProduct.objects.get_or_create(
+                owner=owner,
+                name=name,
+                defaults={
+                    "is_active": True,
+                    "in_stock": True,
+                    **fields,
+                },
+            )
+            if not created:
+                dirty = []
+                for key, value in fields.items():
+                    if getattr(product, key) != value:
+                        setattr(product, key, value)
+                        dirty.append(key)
+                if not product.is_active:
+                    product.is_active = True
+                    dirty.append("is_active")
+                if dirty:
+                    product.save(update_fields=[*dirty, "updated_at"])
+            if variants:
+                for label, price_override, stock, sku in variants:
+                    ProductVariant.objects.get_or_create(
+                        product=product,
+                        label=label,
+                        defaults={
+                            "price_override": price_override,
+                            "stock_quantity": stock,
+                            "sku": sku,
+                        },
+                    )
+            return product
+
+        _seed_product(
+            u2,
+            "Etosha hand-carved bowl",
+            description=(
+                "Locally carved hardwood bowl with a smooth food-safe finish. "
+                "Each piece is unique and finished by hand."
+            ),
+            tagline="Carved by local artisans",
+            category=ShopCategory.CRAFTS,
+            region="Khomas",
+            city="Windhoek",
+            pickup_address="Old Breweries Craft Market, Windhoek",
+            price=Decimal("450.00"),
+            price_note="per item",
+            sku="CRAFT-BOWL-01",
+            stock_quantity=12,
+            is_featured=True,
+            pickup_available=True,
+            lodge_delivery=True,
+            shipping_available=True,
+            shipping_fee=Decimal("80.00"),
+            made_in_namibia=True,
+            artisan_name="M. Kandume",
+            phone="+264 81 000 1111",
+            cover_image=(
+                "https://images.unsplash.com/photo-1452860606245-08befc0ff4db"
+                "?auto=format&fit=crop&w=1200&q=80"
+            ),
+            photos=[
+                {
+                    "image": (
+                        "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61"
+                        "?auto=format&fit=crop&w=1200&q=80"
+                    )
+                },
+            ],
+            variants=[
+                ("Small (18cm)", Decimal("450.00"), 8, "CRAFT-BOWL-01-S"),
+                ("Large (28cm)", Decimal("620.00"), 4, "CRAFT-BOWL-01-L"),
+            ],
+        )
+        _seed_product(
+            u2,
+            "Himba-inspired beaded necklace",
+            description="Hand-strung beaded necklace in ochre and cream tones. Adjustable clasp.",
+            tagline="Statement piece, handmade",
+            category=ShopCategory.JEWELLERY,
+            region="Khomas",
+            city="Windhoek",
+            pickup_address="Old Breweries Craft Market, Windhoek",
+            price=Decimal("380.00"),
+            sku="JEW-NECK-02",
+            stock_quantity=6,
+            is_featured=True,
+            pickup_available=True,
+            lodge_delivery=True,
+            shipping_available=False,
+            made_in_namibia=True,
+            artisan_name="T. Muharukua",
+            phone="+264 81 000 1111",
+            cover_image=(
+                "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338"
+                "?auto=format&fit=crop&w=1200&q=80"
+            ),
+        )
+        _seed_product(
+            u2,
+            "Sossusvlei landscape print",
+            description="Fine-art giclée print of the red dunes at sunrise. Ships rolled in a tube.",
+            tagline="Gallery-quality dune art",
+            category=ShopCategory.ART,
+            region="Khomas",
+            city="Windhoek",
+            pickup_address="Studio pickup by appointment",
+            price=Decimal("540.00"),
+            price_note="unframed",
+            sku="ART-DUNE-A2",
+            stock_quantity=15,
+            pickup_available=True,
+            shipping_available=True,
+            shipping_fee=Decimal("120.00"),
+            made_in_namibia=True,
+            artisan_name="L. Beukes",
+            phone="+264 81 000 1111",
+            cover_image=(
+                "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5"
+                "?auto=format&fit=crop&w=1200&q=80"
+            ),
+            variants=[
+                ("A3 print", Decimal("540.00"), 10, "ART-DUNE-A3"),
+                ("A2 print", Decimal("790.00"), 5, "ART-DUNE-A2"),
+            ],
+        )
+
+        if food_u:
+            _seed_product(
+                food_u,
+                "Namib desert spice set",
+                description=(
+                    "Travel-safe spice tins inspired by Namibian grill flavors. "
+                    "Six tins in a keepsake box."
+                ),
+                tagline="Take the taste home",
+                category=ShopCategory.LOCAL_FOOD,
+                region="Erongo",
+                city="Swakopmund",
+                pickup_address="Mole Mall pickup counter",
+                price=Decimal("220.00"),
+                price_note="set",
+                sku="FOOD-SPICE-06",
+                stock_quantity=30,
+                pickup_available=True,
+                shipping_available=True,
+                shipping_fee=Decimal("55.00"),
+                made_in_namibia=True,
+                phone="+264 81 222 3333",
+                cover_image=(
+                    "https://images.unsplash.com/photo-1542838132-92c53300491e"
+                    "?auto=format&fit=crop&w=1200&q=80"
+                ),
+            )
+            _seed_product(
+                food_u,
+                "Kalahari salt & rooibos rub",
+                description="A slow-dried rub blending Kalahari salt with rooibos and citrus.",
+                tagline="Braai-ready flavour",
+                category=ShopCategory.LOCAL_FOOD,
+                region="Erongo",
+                city="Swakopmund",
+                pickup_address="Mole Mall pickup counter",
+                price=Decimal("95.00"),
+                price_note="jar",
+                sku="FOOD-RUB-01",
+                stock_quantity=0,
+                in_stock=False,
+                pickup_available=True,
+                shipping_available=True,
+                shipping_fee=Decimal("55.00"),
+                made_in_namibia=True,
+                phone="+264 81 222 3333",
+                cover_image=(
+                    "https://images.unsplash.com/photo-1596040033229-a9821ebd058d"
+                    "?auto=format&fit=crop&w=1200&q=80"
+                ),
+            )
+
+        if stays_u:
+            _seed_product(
+                stays_u,
+                "Safari cotton scarf",
+                description=(
+                    "Lightweight cotton scarf, block-printed with an oryx motif. "
+                    "Perfect for dusty roads."
+                ),
+                tagline="Wear the desert",
+                category=ShopCategory.CLOTHING,
+                region="Khomas",
+                city="Windhoek",
+                pickup_address="Front desk gift desk",
+                price=Decimal("160.00"),
+                sku="CLO-SCARF-03",
+                stock_quantity=22,
+                is_featured=True,
+                pickup_available=True,
+                lodge_delivery=True,
+                shipping_available=True,
+                shipping_fee=Decimal("45.00"),
+                made_in_namibia=True,
+                artisan_name="Namib Textiles",
+                phone="+264 81 555 7777",
+                cover_image=(
+                    "https://images.unsplash.com/photo-1445205170230-053b83016050"
+                    "?auto=format&fit=crop&w=1200&q=80"
+                ),
+                variants=[
+                    ("Ochre", None, 12, "CLO-SCARF-03-O"),
+                    ("Indigo", None, 10, "CLO-SCARF-03-I"),
+                ],
+            )
+            _seed_product(
+                stays_u,
+                "Namibia road atlas & phrasebook",
+                description=(
+                    "Compact self-drive atlas with gravel-road ratings and a handy "
+                    "Oshiwambo phrasebook."
+                ),
+                tagline="Self-drive essential",
+                category=ShopCategory.BOOKS_MAPS,
+                region="Khomas",
+                city="Windhoek",
+                pickup_address="Front desk gift desk",
+                price=Decimal("130.00"),
+                sku="BOOK-ATLAS-01",
+                stock_quantity=40,
+                pickup_available=True,
+                shipping_available=True,
+                shipping_fee=Decimal("60.00"),
+                made_in_namibia=False,
+                phone="+264 81 555 7777",
+                cover_image=(
+                    "https://images.unsplash.com/photo-1524995999572-aadcec704faf"
+                    "?auto=format&fit=crop&w=1200&q=80"
+                ),
+            )
+
         self.stdout.write(
             self.style.SUCCESS(
-                "Seed complete. Users: demo_user, demo_provider, stays_host, transport_mgr, food_mgr, guide_mgr, demo_admin — password demo12345."
+                "Seed complete. Users: demo_user, demo_provider, stays_host, transport_mgr, "
+                "food_mgr, guide_mgr, demo_admin — password demo12345. Shop products seeded."
             )
         )

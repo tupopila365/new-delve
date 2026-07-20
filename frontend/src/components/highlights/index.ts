@@ -27,4 +27,18 @@ export { HighlightMediaStudio } from './HighlightMediaStudio'
 export { HighlightStudioSheet } from './HighlightStudioSheet'
 export { HighlightAddFlow } from './HighlightAddFlow'
 export { HighlightManageSheet } from './HighlightManageSheet'
-export { uploadHighlightMedia, ensureHighlightMediaUrl, ensureHighlightChannelsMediaUrls } from './highlightMediaApi'
+export {
+  uploadHighlightMedia,
+  ensureHighlightMediaUrl,
+  ensureHighlightChannelsMediaUrls,
+} from './highlightMediaApi'
+export {
+  computeHighlightEditFingerprint,
+  eagerUploadIsReady,
+  idleEagerUploadState,
+  isRemoteMediaUrl,
+  uploadHighlightEdit,
+  type EagerHighlightUploadState,
+  type EagerHighlightUploadStatus,
+  type HighlightEditSnapshot,
+} from './eagerHighlightUpload'

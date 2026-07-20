@@ -1,0 +1,341 @@
+/* Travel partners marketplace — matches food/transport list pages, neutral accents */
+
+.pt-market {
+  --pt-accent: #a8a29e;
+  --pt-accent-bright: #d6d3d1;
+  --pt-surface: rgba(255, 255, 255, 0.04);
+  --pt-border: rgba(255, 255, 255, 0.1);
+  --pt-text: #fffaf2;
+  --pt-muted: rgba(255, 250, 242, 0.62);
+
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 12px 16px calc(var(--bottom-nav-h, 64px) + var(--safe-bottom, 0px) + 28px);
+  color: var(--pt-text);
+}
+
+.pt-market__hero {
+  margin: 4px 0 16px;
+  padding: 22px 18px 18px;
+  border-radius: 22px;
+  background: #121212;
+  border: 1px solid var(--pt-border);
+}
+
+.pt-market__kicker {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pt-accent-bright);
+}
+
+.pt-market__title {
+  margin: 0 0 8px;
+  font-size: clamp(1.55rem, 4vw, 2rem);
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--pt-text);
+}
+
+.pt-market__sub {
+  margin: 0 0 16px;
+  max-width: 36rem;
+  color: var(--pt-muted);
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.pt-market__find {
+  display: grid;
+  gap: 10px;
+}
+
+.pt-market__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pt-market__search svg {
+  flex-shrink: 0;
+  color: var(--pt-accent-bright);
+}
+
+.pt-market__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pt-text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 650;
+  outline: none;
+}
+
+.pt-market__search input::placeholder {
+  color: rgba(255, 250, 242, 0.4);
+}
+
+.pt-market__search-clear {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--pt-muted);
+  cursor: pointer;
+}
+
+.pt-market__find-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pt-market__select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--pt-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.pt-market__chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+
+.pt-market__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.pt-market__chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--pt-surface);
+  color: rgba(255, 250, 242, 0.82);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pt-market__chip:hover {
+  border-color: rgba(214, 211, 209, 0.45);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.pt-market__chip.is-active {
+  border-color: transparent;
+  background: var(--pt-accent-bright);
+  color: #1c1917;
+}
+
+.pt-market__results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 14px;
+}
+
+.pt-market__results-count {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: var(--pt-muted);
+}
+
+.pt-market__results-count strong {
+  color: var(--pt-text);
+  font-weight: 850;
+}
+
+.pt-market__clear {
+  border: 0;
+  background: none;
+  color: var(--pt-accent-bright);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pt-market__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .pt-market__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .pt-market__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.pt-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-border);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pt-card:hover {
+  border-color: rgba(214, 211, 209, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pt-card__media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: #1c1917;
+}
+
+.pt-card__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pt-card__cover--ph {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 250, 242, 0.35);
+}
+
+.pt-card__logo {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(18, 18, 18, 0.9);
+  background: #1c1917;
+}
+
+.pt-card__pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(12, 10, 9, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 250, 242, 0.88);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.pt-card__body {
+  display: grid;
+  gap: 6px;
+  padding: 14px 14px 16px;
+  align-content: start;
+}
+
+.pt-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.pt-card__tagline {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--pt-muted);
+  font-weight: 650;
+}
+
+.pt-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.55);
+}
+
+.pt-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pt-card__services {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.5);
+}
+
+.pt-card__offer {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.35;
+  color: rgba(255, 250, 242, 0.82);
+}
+
+.pt-card__listings {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 250, 242, 0.45);
+}

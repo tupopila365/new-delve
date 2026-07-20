@@ -2,6 +2,7 @@ export { VehicleListingForm, EMPTY_VEHICLE_LISTING_FORM } from './VehicleListing
 export { BusTripListingForm, EMPTY_BUS_TRIP_FORM } from './BusTripListingForm'
 export { VehicleListingCard } from './VehicleListingCard'
 export { BusTripListingCard } from './BusTripListingCard'
+export { TransportHighlightsPanel } from './TransportHighlightsPanel'
 export type { ProviderVehicleListing, VehicleListingFormValues } from './vehicleListingTypes'
 export type { ProviderBusTripListing, BusTripListingFormValues } from './busTripListingTypes'
 export { vehicleToForm, formToVehiclePayload, vehicleCompleteness } from './vehicleListingTypes'

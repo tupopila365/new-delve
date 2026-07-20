@@ -71,6 +71,8 @@ type Props = {
   profile: RequestProfile
   canReview?: boolean
   onScrollToExperiences: () => void
+  /** Deep-link to provider highlights editor when owner is viewing. */
+  manageHighlightsHref?: string
 }
 
 export function GuideDetailView({
@@ -90,6 +92,7 @@ export function GuideDetailView({
   profile: _profileProp,
   canReview = false,
   onScrollToExperiences,
+  manageHighlightsHref,
 }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -342,10 +345,18 @@ export function GuideDetailView({
         channels={storyChannels}
         listingName={guide.headline || displayName}
         explorePath={guidePath}
-        title="Guide moments"
-        subtitle=""
+        title="Guide highlights"
+        subtitle="Trail moments & experiences"
         ctaLabel="View guide"
         className="jd-stories"
+        isOwner={Boolean(manageHighlightsHref)}
+        onManageHighlights={
+          manageHighlightsHref
+            ? () => {
+                navigate(manageHighlightsHref)
+              }
+            : undefined
+        }
       />
 
       {packages.length > 0 ? (

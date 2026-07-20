@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from accounts.business_access import resolve_provider_listing_owner, user_can_manage_listing
 from common.gallery_media import media_url_kind
+from common.story_channels import validate_story_channels
 
 from .cover_media import bus_cover_kind, vehicle_cover_kind, vehicle_cover_url
 from .models import (
@@ -74,6 +75,7 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
             "highlights",
             "rental_rules",
             "gallery_images",
+            "listing_stories",
             "required_renter_documents",
             "is_active",
         )
@@ -84,6 +86,9 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
 
     def validate_rental_rules(self, value):
         return clean_str_list(value)
+
+    def validate_listing_stories(self, value):
+        return validate_story_channels(value, field_label="Highlights")
 
     def get_cover_image(self, obj):
         return _cover_image_url(obj, self.context.get("request"))
@@ -210,6 +215,7 @@ class ProviderBusTripListingSerializer(serializers.ModelSerializer):
             "cover_image": cover,
             "cover_kind": bus_cover_kind(route),
             "gallery_images": route.gallery_images or [],
+            "listing_stories": route.listing_stories or [],
             "stops": route.stops or [],
             "travel_tips": route.travel_tips or [],
             "distance_km": route.distance_km,
@@ -261,6 +267,14 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"route_detail": "Origin and destination are required."})
             if not operator_name:
                 raise serializers.ValidationError({"route_detail": "Operator name is required."})
+            if "listing_stories" in route_detail:
+                try:
+                    route_detail["listing_stories"] = validate_story_channels(
+                        route_detail.get("listing_stories"),
+                        field_label="Highlights",
+                    )
+                except serializers.ValidationError as exc:
+                    raise serializers.ValidationError({"route_detail": {"listing_stories": exc.detail}}) from exc
         wanting = attrs.get("is_active")
         if wanting is None and self.instance is None:
             wanting = True
@@ -304,6 +318,7 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 origin=origin,
                 destination=destination,
                 gallery_images=route_detail.get("gallery_images") or [],
+                listing_stories=route_detail.get("listing_stories") or [],
                 stops=clean_str_list(route_detail.get("stops")),
                 travel_tips=clean_str_list(route_detail.get("travel_tips")),
                 distance_km=route_detail.get("distance_km"),
@@ -324,6 +339,8 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 )
             if route_detail.get("gallery_images") is not None:
                 route.gallery_images = route_detail.get("gallery_images") or []
+            if "listing_stories" in route_detail:
+                route.listing_stories = route_detail.get("listing_stories") or []
             if "stops" in route_detail:
                 route.stops = clean_str_list(route_detail.get("stops"))
             if "travel_tips" in route_detail:
@@ -337,6 +354,7 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                     "cover_image",
                     "cover_kind",
                     "gallery_images",
+                    "listing_stories",
                     "stops",
                     "travel_tips",
                     "distance_km",
@@ -382,6 +400,8 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 )
             if route_detail.get("gallery_images") is not None:
                 route.gallery_images = route_detail.get("gallery_images") or []
+            if "listing_stories" in route_detail:
+                route.listing_stories = route_detail.get("listing_stories") or []
             if "stops" in route_detail:
                 route.stops = clean_str_list(route_detail.get("stops"))
             if "travel_tips" in route_detail:
@@ -397,6 +417,7 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                     "cover_image",
                     "cover_kind",
                     "gallery_images",
+                    "listing_stories",
                     "stops",
                     "travel_tips",
                     "distance_km",

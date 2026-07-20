@@ -5,6 +5,7 @@ import {
   hoursPayload,
   identityPayload,
   locationPayload,
+  resolveStoriesPayload,
   servicePayload,
   storiesPayload,
 } from './foodVenueModules'
@@ -71,6 +72,23 @@ export function buildFoodVenueModuleSaveBody(
       return { ok: true, body: JSON.stringify(storiesPayload(form)) }
     default:
       return { ok: false, error: 'Unknown section.' }
+  }
+}
+
+/**
+ * Highlights save: resolve any leftover blob/data URLs via Delvers Cloudinary path, then JSON PATCH.
+ */
+export async function resolveFoodVenueHighlightsSaveBody(
+  form: FoodVenueFormValues,
+): Promise<SaveBuildResult> {
+  try {
+    const payload = await resolveStoriesPayload(form)
+    return { ok: true, body: JSON.stringify(payload) }
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : 'Could not upload highlight media.',
+    }
   }
 }
 

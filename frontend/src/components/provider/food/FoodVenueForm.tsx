@@ -23,7 +23,7 @@ const SECTIONS = [
   { id: 'hours', label: 'Hours & contact' },
   { id: 'service', label: 'Service' },
   { id: 'photos', label: 'Photos' },
-  { id: 'stories', label: 'Stories' },
+  { id: 'stories', label: 'Highlights' },
 ] as const
 
 const PRICE_OPTIONS = [

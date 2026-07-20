@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { Building2, Clock, MapPin, ShieldCheck, Star, UserRound } from 'lucide-react'
+import { Building2, Clock, HeartHandshake, MapPin, ShieldCheck, Star, UserRound } from 'lucide-react'
 import { MiniRating } from '../MiniRating'
 import { MessageProviderLink } from '../messages'
 import { ReportButton } from '../report/ReportButton'
@@ -22,6 +22,7 @@ type Props = {
   ownerUsername: string
   ownerProfileHref: string
   businessId: number
+  travelPartner?: boolean
 }
 
 export function BusinessProfileHero({
@@ -39,6 +40,7 @@ export function BusinessProfileHero({
   ownerUsername,
   ownerProfileHref,
   businessId,
+  travelPartner = false,
 }: Props) {
   const meta: { id: string; icon: LucideIcon; label: string; isRating?: boolean }[] = []
 
@@ -67,45 +69,55 @@ export function BusinessProfileHero({
         className={`biz-profile__hero${cover ? ' biz-profile__hero--cover' : ''}`}
         aria-label="Provider overview"
       >
-        <div className="biz-profile__logo-wrap">
-          {logo ? (
-            <img src={logo} alt="" className="biz-profile__logo" />
-          ) : (
-            <div className="biz-profile__logo biz-profile__logo--ph" aria-hidden>
-              <Building2 size={28} strokeWidth={2} />
+        <div className="biz-profile__hero-main">
+          <div className="biz-profile__logo-wrap">
+            {logo ? (
+              <img src={logo} alt="" className="biz-profile__logo" />
+            ) : (
+              <div className="biz-profile__logo biz-profile__logo--ph" aria-hidden>
+                <Building2 size={28} strokeWidth={2} />
+              </div>
+            )}
+          </div>
+
+          <div className="biz-profile__hero-identity">
+            <div className="biz-profile__badges">
+              {verified ? (
+                <span className="biz-profile__badge biz-profile__badge--verified">
+                  <ShieldCheck size={12} strokeWidth={2.5} aria-hidden />
+                  Verified
+                </span>
+              ) : null}
+              {travelPartner ? (
+                <span className="biz-profile__badge biz-profile__badge--partner">
+                  <HeartHandshake size={12} strokeWidth={2.5} aria-hidden />
+                  Travel partner
+                </span>
+              ) : null}
+              {serviceLabel ? <span className="biz-profile__badge">{serviceLabel}</span> : null}
             </div>
-          )}
+
+            <SellerTrustBadges businessId={businessId} compact omitIds={['verified']} />
+
+            <h1 className="biz-profile__name">{name}</h1>
+            {tagline ? <p className="biz-profile__tagline">{tagline}</p> : null}
+
+            {meta.length > 0 ? (
+              <ul className="biz-profile__meta">
+                {meta.map((item) => (
+                  <li key={item.id}>
+                    <item.icon size={14} strokeWidth={2.25} aria-hidden />
+                    {item.isRating && ratingAvg ? (
+                      <MiniRating rating={ratingAvg} count={ratingCount} />
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
-
-        <div className="biz-profile__badges">
-          {verified ? (
-            <span className="biz-profile__badge biz-profile__badge--verified">
-              <ShieldCheck size={12} strokeWidth={2.5} aria-hidden />
-              Verified
-            </span>
-          ) : null}
-          {serviceLabel ? <span className="biz-profile__badge">{serviceLabel}</span> : null}
-        </div>
-
-        <SellerTrustBadges businessId={businessId} compact omitIds={['verified']} />
-
-        <h1 className="biz-profile__name">{name}</h1>
-        {tagline ? <p className="biz-profile__tagline">{tagline}</p> : null}
-
-        {meta.length > 0 ? (
-          <ul className="biz-profile__meta">
-            {meta.map((item) => (
-              <li key={item.id}>
-                <item.icon size={14} strokeWidth={2.25} aria-hidden />
-                {item.isRating && ratingAvg ? (
-                  <MiniRating rating={ratingAvg} count={ratingCount} />
-                ) : (
-                  <span>{item.label}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : null}
 
         <div className="biz-profile__hero-actions">
           <MessageProviderLink

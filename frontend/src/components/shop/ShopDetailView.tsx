@@ -6,7 +6,6 @@ import {
   MapPin,
   MessageCircle,
   Minus,
-  Package,
   Pencil,
   Phone,
   Play,
@@ -19,9 +18,11 @@ import { shopCoverSrc, shopCategoryLabel, shopMediaItems } from '../../utils/sho
 import { MediaLightbox } from '../media/MediaLightbox'
 import { MiniRating } from '../MiniRating'
 import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
+import { useAuth } from '../../auth/AuthContext'
 import { useCart } from '../../hooks/useCart'
 import { shopLocationLine, type ProductVariant, type ShopProductListing } from '../../utils/shopListing'
 import { ProductReviews } from './ProductReviews'
+import { ShopCartButton } from './ShopCartButton'
 import './shop-detail.css'
 
 type Props = {
@@ -38,6 +39,7 @@ function formatPrice(value: number): string {
 
 export function ShopDetailView({ product, relatedProducts = [], editHref, messageHref }: Props) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const { addItem } = useCart()
   const location = shopLocationLine(product)
   const seller = product.owner_display_name || product.owner_username
@@ -66,9 +68,9 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
 
   async function handleAdd(thenCheckout = false) {
     if (soldOut) return
-    await addItem(product.id, { variant: variantId, quantity })
+    await addItem(product.id, { variant: variantId, quantity, listing: product })
     if (thenCheckout) {
-      navigate('/checkout')
+      navigate(profile ? '/checkout' : '/login')
       return
     }
     setAdded(true)
@@ -77,10 +79,13 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
 
   return (
     <div className="shop-detail">
-      <Link to="/shop" className="shop-detail__back">
-        <ChevronLeft size={16} strokeWidth={2.5} aria-hidden />
-        Shops
-      </Link>
+      <div className="shop-detail__topbar">
+        <Link to="/shop" className="shop-detail__back">
+          <ChevronLeft size={16} strokeWidth={2.5} aria-hidden />
+          Shops
+        </Link>
+        <ShopCartButton />
+      </div>
 
       <div className="shop-detail__grid">
         <div className="shop-detail__gallery-col">
@@ -145,6 +150,7 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
           </Link>
           <SellerTrustBadges username={product.owner_username} compact />
 
+          <p className="shop-detail__eyebrow">{categoryLabel}</p>
           <h1 className="shop-detail__name">{product.name}</h1>
           {Number(product.rating_avg) > 0 ? (
             <a href="#product-reviews" className="shop-detail__rating-link">
@@ -156,11 +162,6 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
             {product.price_note ? <span> {product.price_note}</span> : null}
           </p>
           {product.tagline ? <p className="shop-detail__tagline">{product.tagline}</p> : null}
-
-          <p className="shop-detail__cat">
-            <Package size={14} strokeWidth={2.25} aria-hidden />
-            {categoryLabel}
-          </p>
 
           {variants.length > 0 ? (
             <div className="shop-detail__variants" role="group" aria-label="Options">
@@ -236,19 +237,19 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
           <ul className="shop-detail__fulfil">
             {product.pickup_available ? (
               <li>
-                <MapPin size={14} strokeWidth={2.25} aria-hidden />
+                <MapPin size={22} strokeWidth={2.25} aria-hidden />
                 Pickup{location ? ` · ${location}` : ' available'}
               </li>
             ) : null}
             {product.lodge_delivery ? (
               <li>
-                <Truck size={14} strokeWidth={2.25} aria-hidden />
+                <Truck size={22} strokeWidth={2.25} aria-hidden />
                 Lodge / hotel delivery
               </li>
             ) : null}
             {product.shipping_available ? (
               <li>
-                <Truck size={14} strokeWidth={2.25} aria-hidden />
+                <Truck size={22} strokeWidth={2.25} aria-hidden />
                 Shipping{Number(product.shipping_fee) > 0 ? ` · ${formatPrice(Number(product.shipping_fee))}` : ''}
               </li>
             ) : null}

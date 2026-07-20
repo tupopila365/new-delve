@@ -165,6 +165,19 @@ class BusinessProfile(models.Model):
         blank=True,
         help_text="Admin notes on verification decision (shown to provider later).",
     )
+    # Travel partner / organization hub — showcase how this business makes travel attainable.
+    showcase_as_partner = models.BooleanField(
+        default=False,
+        help_text="Show this business as a travel partner hub (org-style page with deals & community).",
+    )
+    how_we_help = models.TextField(
+        blank=True,
+        help_text="How this business makes travel easier or more accessible.",
+    )
+    community_impact = models.TextField(
+        blank=True,
+        help_text="What this business brings to the community / place.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -173,6 +186,95 @@ class BusinessProfile(models.Model):
 
     def __str__(self):
         return self.business_name
+
+
+class TravelOfferKind(models.TextChoices):
+    ELIGIBILITY = "eligibility", "Eligibility rate"
+    DISCOUNT = "discount", "Discount"
+    PACKAGE = "package", "Package / trip"
+
+
+class TravelOfferEligibility(models.TextChoices):
+    EVERYONE = "everyone", "Everyone"
+    SADC = "sadc", "SADC residents"
+    STUDENT = "student", "Students"
+    LOCAL = "local", "Local / regional residents"
+    CUSTOM = "custom", "Custom"
+
+
+class TravelOffer(models.Model):
+    """Accessible travel deal published by a business (resident rates, packages, discounts)."""
+
+    business = models.ForeignKey(
+        BusinessProfile,
+        on_delete=models.CASCADE,
+        related_name="travel_offers",
+    )
+    title = models.CharField(max_length=160)
+    summary = models.TextField(blank=True)
+    offer_kind = models.CharField(
+        max_length=20,
+        choices=TravelOfferKind.choices,
+        default=TravelOfferKind.DISCOUNT,
+    )
+    eligibility = models.CharField(
+        max_length=20,
+        choices=TravelOfferEligibility.choices,
+        default=TravelOfferEligibility.EVERYONE,
+    )
+    eligibility_label = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Optional override, e.g. 'SADC passport holders'.",
+    )
+    price_label = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text="Human-readable deal, e.g. '50% off' or 'From N$1,200'.",
+    )
+    categories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Service categories this offer applies to, e.g. ['stays','food'].",
+    )
+    details = models.TextField(
+        blank=True,
+        help_text="Longer explanation of what this offer includes.",
+    )
+    how_to_claim = models.TextField(
+        blank=True,
+        help_text="How travellers sign up or claim this rate / package.",
+    )
+    proof_required = models.CharField(
+        max_length=240,
+        blank=True,
+        help_text="What proof is needed, e.g. 'Valid SADC passport at check-in'.",
+    )
+    terms_note = models.TextField(
+        blank=True,
+        help_text="Optional terms, blackout dates, or fine print.",
+    )
+    cover_image = models.TextField(
+        blank=True,
+        help_text="Hero media URL (image or video) shown on the offer detail page.",
+    )
+    gallery_images = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Extra media items: list of URL strings or {src, kind} objects.",
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.title} — {self.business.business_name}"
 
 
 class VerificationDocumentType(models.TextChoices):

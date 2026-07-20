@@ -22,11 +22,17 @@ import {
   type MediaFilter,
   type MediaKind,
 } from '../create/types'
-import { analyzeImageForEnhance, cssFilterForMedia, renderEditedImage } from '../create/mediaUtils'
-import { prepareVideoEffects } from '../create/videoEffects'
+import { analyzeImageForEnhance, cssFilterForMedia } from '../create/mediaUtils'
 import { MAX_TRIM_DURATION_SEC } from '../create/videoTrimUtils'
 import { loadVideoMetadata } from '../../utils/delversVideoUtils'
-import { uploadHighlightMedia } from './highlightMediaApi'
+import {
+  computeHighlightEditFingerprint,
+  eagerUploadIsReady,
+  idleEagerUploadState,
+  isRemoteMediaUrl,
+  uploadHighlightEdit,
+  type EagerHighlightUploadState,
+} from './eagerHighlightUpload'
 import type { HighlightSlide } from './types'
 import '../create/SocialCreateComposer.css'
 
@@ -86,9 +92,15 @@ export function HighlightMediaStudio({
   })
   const [captionDragging, setCaptionDragging] = useState(false)
   const [error, setError] = useState('')
-  const [uploading, setUploading] = useState(false)
+  const [upload, setUpload] = useState<EagerHighlightUploadState>(() =>
+    initialSlide?.src && isRemoteMediaUrl(initialSlide.src)
+      ? { status: 'ready', url: initialSlide.src, kind: initialSlide.kind === 'video' ? 'video' : 'image', progress: 1 }
+      : idleEagerUploadState(),
+  )
+  const [saving, setSaving] = useState(false)
   const [autoEnhanceBusy, setAutoEnhanceBusy] = useState(false)
   const [hasAutoEnhance, setHasAutoEnhance] = useState(false)
+  const uploadGenRef = useRef(0)
 
   const handleAutoEnhance = () => {
     if (!file || mediaKind !== 'image') return
@@ -166,8 +178,68 @@ export function HighlightMediaStudio({
     setAdjustments(DEFAULT_ADJUSTMENTS)
     setHasAutoEnhance(false)
     setError('')
+    setUpload(idleEagerUploadState())
+    uploadGenRef.current += 1
     if (nextFile) setActiveTool('filters')
   }
+
+  // Delvers-style: upload in the background while the provider edits.
+  const editFingerprint = file
+    ? computeHighlightEditFingerprint({
+        file,
+        mediaKind,
+        filter,
+        filterIntensity,
+        adjustments,
+        crop,
+        videoDuration,
+        videoTrim,
+      })
+    : ''
+
+  useEffect(() => {
+    if (!file || !editFingerprint) return
+    if (mediaKind === 'video' && videoDuration <= 0) return
+    if (eagerUploadIsReady(upload, editFingerprint)) return
+
+    const gen = ++uploadGenRef.current
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setUpload({ status: 'uploading', fingerprint: editFingerprint, progress: 0, error: undefined })
+        const next = await uploadHighlightEdit(
+          {
+            file,
+            mediaKind,
+            filter,
+            filterIntensity,
+            adjustments,
+            crop,
+            videoDuration,
+            videoTrim,
+          },
+          (ratio) => {
+            if (gen !== uploadGenRef.current) return
+            setUpload((prev) =>
+              prev.fingerprint === editFingerprint || prev.status === 'uploading'
+                ? { ...prev, status: 'uploading', fingerprint: editFingerprint, progress: ratio }
+                : prev,
+            )
+          },
+        )
+        if (gen !== uploadGenRef.current) return
+        setUpload(next)
+        if (next.status === 'error' && next.error) {
+          setError(next.error)
+        }
+      })()
+    }, 450)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+    // Intentionally keyed on fingerprint — mirrors SocialCreateComposer uploadKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editFingerprint, mediaKind, videoDuration])
 
   function moveCaption(event: PointerEvent<HTMLElement>) {
     const frame = frameRef.current
@@ -207,7 +279,7 @@ export function HighlightMediaStudio({
       return
     }
     setError('')
-    setUploading(true)
+    setSaving(true)
     try {
       if (!file && initialSlide?.src?.trim()) {
         onSaved({
@@ -222,27 +294,31 @@ export function HighlightMediaStudio({
       }
       if (!file) return
 
-      let url: string
-      let kind: MediaKind
-      if (mediaKind === 'video') {
-        const effects = await prepareVideoEffects(file, {
+      let url = ''
+      let kind: MediaKind = mediaKind
+      if (editFingerprint && eagerUploadIsReady(upload, editFingerprint) && upload.url) {
+        url = upload.url
+        kind = upload.kind ?? mediaKind
+      } else {
+        setUpload({ status: 'uploading', fingerprint: editFingerprint, progress: 0 })
+        const next = await uploadHighlightEdit({
+          file,
+          mediaKind,
           filter,
           filterIntensity,
           adjustments,
-          textOverlays: [],
-          stickers: [],
-          strokes: [],
+          crop,
+          videoDuration,
+          videoTrim,
         })
-        const result = await uploadHighlightMedia(file, 'video', videoTrim, videoDuration, effects)
-        url = result.url
-        kind = result.kind
-      } else {
-        const blob = await renderEditedImage(file, filter, crop, adjustments, filterIntensity)
-        const uploadFile = new File([blob], 'slide.jpg', { type: 'image/jpeg' })
-        const result = await uploadHighlightMedia(uploadFile, 'image')
-        url = result.url
-        kind = result.kind
+        setUpload(next)
+        if (next.status !== 'ready' || !next.url) {
+          throw new Error(next.error || 'Could not upload media.')
+        }
+        url = next.url
+        kind = next.kind ?? mediaKind
       }
+
       onSaved({
         src: url,
         kind,
@@ -253,14 +329,24 @@ export function HighlightMediaStudio({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not upload media.')
     } finally {
-      setUploading(false)
+      setSaving(false)
     }
   }
+
+  const uploadBusy = upload.status === 'uploading' || saving
+  const uploadProgressLabel =
+    upload.status === 'uploading' && typeof upload.progress === 'number'
+      ? `Uploading… ${Math.round(upload.progress * 100)}%`
+      : upload.status === 'ready' && file
+        ? 'Ready'
+        : saving
+          ? 'Saving…'
+          : 'Uploading…'
 
   const shareDisabled =
     (!file && !initialSlide?.src?.trim()) ||
     !caption.trim() ||
-    uploading ||
+    uploadBusy ||
     (mediaKind === 'video' &&
       file != null &&
       videoDuration > 0 &&
@@ -273,12 +359,18 @@ export function HighlightMediaStudio({
       {onCancel ? (
         <CreateStudioHeader
           title="Edit slide"
-          subtitle="Filters, adjust, crop, caption & trim"
+          subtitle={
+            upload.status === 'ready' && file
+              ? 'Uploaded — ready to add'
+              : upload.status === 'uploading'
+                ? 'Uploading to Cloudinary…'
+                : 'Filters, adjust, crop, caption & trim'
+          }
           onBack={onCancel}
           actionLabel={submitLabel}
           actionDisabled={shareDisabled}
-          actionPending={uploading}
-          actionPendingLabel="Uploading…"
+          actionPending={uploadBusy}
+          actionPendingLabel={uploadProgressLabel}
           onAction={() => void handleSave()}
         />
       ) : null}
@@ -315,6 +407,61 @@ export function HighlightMediaStudio({
               onVideoPlay={handlePreviewPlay}
               filterStyle={cssFilterForMedia(filter, filterIntensity, adjustments)}
             />
+            {file ? (
+              <button
+                type="button"
+                className={`hl-media-studio__upload-badge hl-media-studio__upload-badge--${upload.status}`}
+                aria-live="polite"
+                disabled={upload.status === 'uploading' || upload.status === 'ready'}
+                onClick={() => {
+                  if (upload.status !== 'error' || !file) return
+                  uploadGenRef.current += 1
+                  const gen = uploadGenRef.current
+                  const fp = computeHighlightEditFingerprint({
+                    file,
+                    mediaKind,
+                    filter,
+                    filterIntensity,
+                    adjustments,
+                    crop,
+                    videoDuration,
+                    videoTrim,
+                  })
+                  setError('')
+                  setUpload({ status: 'uploading', fingerprint: fp, progress: 0 })
+                  void uploadHighlightEdit(
+                    {
+                      file,
+                      mediaKind,
+                      filter,
+                      filterIntensity,
+                      adjustments,
+                      crop,
+                      videoDuration,
+                      videoTrim,
+                    },
+                    (ratio) => {
+                      if (gen !== uploadGenRef.current) return
+                      setUpload((prev) => ({ ...prev, status: 'uploading', fingerprint: fp, progress: ratio }))
+                    },
+                  ).then((next) => {
+                    if (gen !== uploadGenRef.current) return
+                    setUpload(next)
+                    if (next.status === 'error' && next.error) setError(next.error)
+                  })
+                }}
+              >
+                {upload.status === 'ready'
+                  ? 'Uploaded'
+                  : upload.status === 'uploading'
+                    ? typeof upload.progress === 'number'
+                      ? `${Math.round(upload.progress * 100)}%`
+                      : 'Uploading…'
+                    : upload.status === 'error'
+                      ? 'Retry upload'
+                      : 'Pending'}
+              </button>
+            ) : null}
           </div>
         ) : (
           <MediaPicker

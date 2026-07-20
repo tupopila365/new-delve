@@ -133,7 +133,7 @@ export function GuidePhotoEditor({ values, onChange }: Props) {
             e.target.value = ''
           }}
         />
-        <p className="guide-form__hint">Trail and experience shots for your gallery and story rings.</p>
+        <p className="guide-form__hint">Trail and experience shots for your gallery and highlight rings.</p>
       </div>
     </div>
   )

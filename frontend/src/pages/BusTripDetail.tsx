@@ -8,6 +8,7 @@ import type { GroupReserveResponse } from '../components/booking/transport/BusTr
 import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import { EmptyState } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { isSeatBlockValid, seatBlockForStart } from '../utils/transportSeatBlock'
 import type { BusTripListing } from '../utils/transportListing'
@@ -20,6 +21,7 @@ export function BusTripDetail() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { canManageListings, activeBusiness } = useBusinessAccess()
   const [saved, setSaved] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [passengers, setPassengers] = useState(1)
@@ -142,6 +144,16 @@ export function BusTripDetail() {
     )
   }
 
+  const ownerUsername = trip.route_detail.operator_owner_username
+  const canManage =
+    Boolean(profile) &&
+    Boolean(ownerUsername) &&
+    (profile?.username === ownerUsername ||
+      (canManageListings && activeBusiness?.owner_username === ownerUsername))
+  const manageHighlightsHref = canManage
+    ? `/provider/transport?tab=highlights&kind=bus&id=${id}`
+    : undefined
+
   return (
     <div className="jn-detail-page tp-detail-page">
       {shareMsg ? (
@@ -160,6 +172,7 @@ export function BusTripDetail() {
         saved={saved}
         onSave={() => setSaved((s) => !s)}
         onShare={() => onShare(`${trip.route_detail.origin} to ${trip.route_detail.destination}`)}
+        manageHighlightsHref={manageHighlightsHref}
         booking={{
           passengers,
           seatPref,

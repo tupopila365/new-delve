@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { MapPin, MessageCircle, Store } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { ShopListingCard } from '../components/shop/ShopListingCard'
+import { ShopCartButton } from '../components/shop/ShopCartButton'
 import { EmptyState } from '../components/ui'
 import type { ShopSeller } from '../utils/shopListing'
 import '../components/shop/shop-list.css'
@@ -41,6 +42,12 @@ export function ShopStorefront() {
 
   return (
     <main className="shop-market">
+      <div className="shop-market__hero-top storefront__top">
+        <Link to="/shop" className="storefront__back">
+          Shops
+        </Link>
+        <ShopCartButton />
+      </div>
       <header className="storefront__hero">
         <span className="storefront__avatar" aria-hidden>
           {data.avatar ? <img src={data.avatar} alt="" /> : <Store size={30} strokeWidth={2} />}

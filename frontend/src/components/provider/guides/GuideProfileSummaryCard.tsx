@@ -7,11 +7,17 @@ type Props = {
   guide: ProviderGuideProfile
   canEdit?: boolean
   onEdit: () => void
+  onManageHighlights?: () => void
 }
 
-export function GuideProfileSummaryCard({ guide, canEdit, onEdit }: Props) {
+export function GuideProfileSummaryCard({ guide, canEdit, onEdit, onManageHighlights }: Props) {
   const { percent, missing } = profileCompleteness(guide)
   const packageCount = guide.tour_packages?.length ?? 0
+  const highlightCount = guide.guide_stories?.length ?? 0
+  const highlightsLabel =
+    highlightCount > 0
+      ? `${highlightCount} highlight ring${highlightCount === 1 ? '' : 's'}`
+      : 'No custom highlights yet'
 
   return (
     <article className="prov-ui__card guide-profile-card">
@@ -79,6 +85,10 @@ export function GuideProfileSummaryCard({ guide, canEdit, onEdit }: Props) {
               {missing.length > 4 ? ` +${missing.length - 4} more` : ''}
             </p>
           ) : null}
+
+          <p className="guide-profile-card__bio" style={{ marginTop: 8, opacity: 0.85 }}>
+            Highlights: {highlightsLabel}
+          </p>
         </div>
       </div>
 
@@ -86,6 +96,11 @@ export function GuideProfileSummaryCard({ guide, canEdit, onEdit }: Props) {
         <Link to={`/guides/${guide.id}`} className="prov-ui__btn prov-ui__btn--ghost">
           View public page
         </Link>
+        {canEdit && onManageHighlights ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
+            {highlightCount > 0 ? 'Manage highlights' : 'Add highlights'}
+          </button>
+        ) : null}
         {canEdit ? (
           <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>
             Edit profile

@@ -4,6 +4,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accommodation.models import BookingStatus
+from common.story_channels import validate_story_channels
 
 from .models import (
     BusOperator,
@@ -67,6 +68,7 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "highlights",
             "rental_rules",
             "gallery_images",
+            "listing_stories",
             "price_per_day",
             "region",
             "city",
@@ -83,6 +85,9 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
 
     def validate_highlights(self, value):
         return clean_str_list(value)
+
+    def validate_listing_stories(self, value):
+        return validate_story_channels(value, field_label="Highlights")
 
     def validate_rental_rules(self, value):
         return clean_str_list(value)
@@ -275,6 +280,7 @@ class BusRouteSerializer(serializers.ModelSerializer):
             "cover_image",
             "cover_kind",
             "gallery_images",
+            "listing_stories",
             "stops",
             "travel_tips",
             "distance_km",
@@ -285,6 +291,9 @@ class BusRouteSerializer(serializers.ModelSerializer):
         from .cover_media import bus_cover_kind
 
         return bus_cover_kind(obj)
+
+    def validate_listing_stories(self, value):
+        return validate_story_channels(value, field_label="Highlights")
 
 
 class BusTripSerializer(serializers.ModelSerializer):

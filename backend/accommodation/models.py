@@ -54,6 +54,11 @@ class AccommodationListing(models.Model):
         blank=True,
         help_text='Ordered gallery: [{"kind":"image"|"video","src":"path or URL"}]',
     )
+    listing_stories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Provider highlight channels for story rings on the stay detail page",
+    )
     check_in_from = models.CharField(
         max_length=12,
         blank=True,
