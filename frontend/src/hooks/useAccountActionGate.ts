@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { loginHrefWithReturn } from './authRedirect'
+import { loginHrefWithReturn } from '../utils/authRedirect'
 
 /**
  * Gate review / save / book style actions.
