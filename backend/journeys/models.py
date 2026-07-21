@@ -12,7 +12,7 @@ class JourneyVisibility(models.TextChoices):
 
 class CostCategory(models.TextChoices):
     STAY = "stay", "Accommodation"
-    FOOD = "food", "Food & drink"
+    FOOD = "food", "Foodies"
     TRANSPORT = "transport", "Transport"
     ACTIVITY = "activity", "Activities"
     OTHER = "other", "Other"

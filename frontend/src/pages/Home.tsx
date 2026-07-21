@@ -20,6 +20,7 @@ import {
   User,
   Users,
   Utensils,
+  Mountain,
 } from 'lucide-react'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { fetchTagTrending, type TagSummary } from '../api/tags'
@@ -66,7 +67,8 @@ const moodChips = [
 const categoryShortcuts = [
   { to: '/accommodation', label: 'Stays', Icon: HomeIcon },
   { to: '/partners', label: 'Partners', Icon: HeartHandshake },
-  { to: '/food', label: 'Food & drink', Icon: Utensils },
+  { to: '/food', label: 'Foodies', Icon: Utensils },
+  { to: '/activities', label: 'Activities', Icon: Mountain },
   { to: '/guides', label: 'Guides', Icon: Users },
   { to: '/events', label: 'Events', Icon: Ticket },
   { to: '/transport', label: 'Transport', Icon: Car },
@@ -905,7 +907,7 @@ export function Home() {
         <HomeAct
           index="02"
           title="Tables worth finding."
-          body="Food and drink travellers actually talk about."
+          body="Spots Foodies actually talk about."
         >
           <HomeSection
             id="rail-food"

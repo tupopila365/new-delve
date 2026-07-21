@@ -11,6 +11,7 @@ import {
   MessageCircle,
   ShoppingBag,
   Utensils,
+  Mountain,
 } from 'lucide-react'
 
 type Shortcut = {
@@ -28,14 +29,13 @@ const CATEGORY_SHORTCUTS: { type: string; label: string; to: string; Icon: Lucid
   { type: 'accommodation', label: 'Stays', to: '/provider/stays', Icon: Hotel },
   { type: 'guide', label: 'Guides', to: '/provider/guides', Icon: Compass },
   { type: 'transport', label: 'Transport', to: '/provider/transport', Icon: Car },
-  { type: 'food_drink', label: 'Food & drink', to: '/provider/food', Icon: Utensils },
+  { type: 'food_drink', label: 'Foodies', to: '/provider/food', Icon: Utensils },
   { type: 'retail_shop', label: 'Shop', to: '/provider/shop', Icon: ShoppingBag },
+  { type: 'activity', label: 'Activities', to: '/provider/activities', Icon: Mountain },
 ]
 
 export function ProviderDashboardShortcuts({ businessTypes, businessId }: Props) {
-  const categories = CATEGORY_SHORTCUTS.filter(
-    (c) => businessTypes.includes(c.type) || businessTypes.includes('multi_provider'),
-  )
+  const categories = CATEGORY_SHORTCUTS.filter((c) => businessTypes.includes(c.type))
 
   const main: Shortcut[] = [
     { to: '/provider/analytics', label: 'Analytics', Icon: BarChart3 },

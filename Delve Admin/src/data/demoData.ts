@@ -330,7 +330,7 @@ export const DEMO_LISTINGS: AdminListing[] = [
     city: 'Windhoek',
     status: 'published',
     price_label: '$$',
-    category_label: 'Food & drink',
+    category_label: 'Foodies',
     created_at: '2026-03-01T08:00:00Z',
   },
   {

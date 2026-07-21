@@ -32450,6 +32450,45 @@ a.chip.chip--accent:hover {
   cursor: wait;
 }
 
+.adm-verify-dialog {
+  margin: 0 0 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(28, 20, 16, 0.12);
+  background: #fff8f0;
+  display: grid;
+  gap: 10px;
+}
+
+.adm-verify-dialog h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.adm-verify-dialog p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary, #5c534c);
+}
+
+.adm-verify-dialog textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(28, 20, 16, 0.14);
+  font: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.adm-verify-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .adm-access {
   max-width: 480px;
   margin: 48px auto;

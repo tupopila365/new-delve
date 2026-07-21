@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.utils import timezone
 
 from accommodation.models import AccommodationListing
+from activities.models import ActivityListing
 from events_app.models import Event
 from food.models import FoodVenue
 from guides.models import TourGuideProfile
@@ -100,6 +101,12 @@ def business_stats(business: BusinessProfile) -> dict:
     shop = ShopProduct.objects.filter(owner=owner, is_active=True)
     listings_count += shop.count()
 
+    activities = ActivityListing.objects.filter(owner=owner, is_active=True)
+    listings_count += activities.count()
+    for row in activities:
+        if row.rating_count and row.rating_avg is not None:
+            rating_pairs.append((Decimal(row.rating_avg), int(row.rating_count)))
+
     transport_modes = _business_transport_modes(business)
     if "rental" in transport_modes:
         transport = VehicleRentalListing.objects.filter(owner=owner, is_active=True)
@@ -179,6 +186,33 @@ def business_listings(business: BusinessProfile, request=None) -> list[dict]:
                 "subtitle": product.get_category_display(),
                 "image": _media_url(request, product.cover_image),
                 "href": f"/shop/{product.pk}",
+                "meta": price_meta,
+            }
+        )
+
+    for activity in ActivityListing.objects.filter(owner=owner, is_active=True).order_by("-created_at"):
+        cover = (activity.cover_image or "").strip()
+        if not cover and activity.media_gallery:
+            first = activity.media_gallery[0]
+            if isinstance(first, dict):
+                cover = (first.get("src") or "").strip()
+            elif isinstance(first, str):
+                cover = first.strip()
+        currency = (activity.currency or "").strip().upper()
+        if currency == "NAD":
+            price_meta = f"N${activity.price_from}"
+        elif currency:
+            price_meta = f"{currency} {activity.price_from}"
+        else:
+            price_meta = str(activity.price_from) if activity.price_from is not None else None
+        items.append(
+            {
+                "kind": "activities",
+                "id": activity.pk,
+                "title": activity.title,
+                "subtitle": activity.get_category_display(),
+                "image": _media_url(request, cover) if cover else None,
+                "href": f"/activities/{activity.pk}",
                 "meta": price_meta,
             }
         )

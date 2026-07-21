@@ -115,7 +115,7 @@ export const STORY_CHANNELS: { id: StoryChannelId; label: string; explorePath: s
   { id: 'stays', label: 'Stays', explorePath: '/accommodation' },
   { id: 'go', label: 'Transport', explorePath: '/transport' },
   { id: 'live', label: 'Events', explorePath: '/events' },
-  { id: 'eat', label: 'Food', explorePath: '/food' },
+  { id: 'eat', label: 'Foodies', explorePath: '/food' },
   { id: 'tours', label: 'Guides', explorePath: '/guides' },
   { id: 'pins', label: 'Delvers', explorePath: '/delvers' },
 ]

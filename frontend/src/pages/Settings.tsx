@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Lock } from 'lucide-react'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { apiFetch, mediaUrl } from '../api/client'
+import { apiFetch, mediaUrl, setTokens } from '../api/client'
 import { AvatarPhotoField, clearProfileAvatar, invalidateAvatarCaches, useAvatarPhotoEditor } from '../components/avatar'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
@@ -17,6 +16,7 @@ import { ResendVerificationButton } from '../components/auth/ResendVerificationB
 import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 import { HOME_ATMOSPHERE_BG } from '../data/homeDefaults'
 import { syncNoFaceLocalFlag } from '../hooks/useNoFace'
+import { loginHrefWithReturn } from '../utils/authRedirect'
 import '../components/settings/SettingsPageEnhancer.css'
 
 type SettingsTab = 'profile' | 'privacy' | 'preferences' | 'account'
@@ -35,7 +35,7 @@ function SaveBanner({ saved, error }: { saved: boolean; error: string | null }) 
 }
 
 export function Settings() {
-  const { profile, refreshProfile, logout } = useAuth()
+  const { profile, loading, refreshProfile, logout } = useAuth()
   const { businesses, canAccessProvider } = useBusinessAccess()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -119,14 +119,19 @@ export function Settings() {
       return
     }
     try {
-      await apiFetch('/api/accounts/me/change-password/', {
-        method: 'POST',
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
-        headers: { 'Content-Type': 'application/json' },
-      })
+      const res = await apiFetch<{ detail?: string; access?: string; refresh?: string }>(
+        '/api/accounts/me/change-password/',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+          }),
+        },
+      )
+      if (res.access && res.refresh) {
+        setTokens(res.access, res.refresh)
+      }
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -211,34 +216,18 @@ export function Settings() {
     }
   }
 
-  if (!profile) {
+  if (loading) {
     return (
       <main className="settings-trail settings-trail--auth">
-        <header className="settings-trail__hero">
-          <div
-            className="settings-trail__hero-photo"
-            style={{ backgroundImage: `url(${HOME_ATMOSPHERE_BG})` }}
-            aria-hidden
-          />
-          <div className="settings-trail__hero-veil" aria-hidden />
-          <div className="settings-trail__hero-copy">
-            <p className="settings-trail__kicker">Preferences</p>
-            <h1 className="settings-trail__title">Settings</h1>
-          </div>
-        </header>
-        <section className="settings-trail__auth">
-          <span className="settings-trail__auth-icon" aria-hidden>
-            <Lock size={22} strokeWidth={2.25} />
-          </span>
-          <h2>Sign in to manage settings</h2>
-          <p>Edit your profile, privacy, and preferences after you sign in.</p>
-          <Link to="/login" className="settings-trail__auth-btn">
-            Sign in
-            <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
-          </Link>
-        </section>
+        <p className="settings-trail__auth" style={{ padding: '2rem' }}>
+          Loading settings…
+        </p>
       </main>
     )
+  }
+
+  if (!profile) {
+    return <Navigate to={loginHrefWithReturn('/settings')} replace />
   }
 
   return (
@@ -666,7 +655,10 @@ export function Settings() {
           <button
             type="button"
             className="btn btn-ghost sp__signout-btn"
-            onClick={() => { logout(); navigate('/') }}
+            onClick={() => {
+              logout()
+              navigate('/', { replace: true })
+            }}
           >
             Sign out
           </button>

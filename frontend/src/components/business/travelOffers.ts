@@ -53,7 +53,7 @@ export const OFFER_ELIGIBILITY_OPTIONS: { value: TravelOfferEligibility; label: 
 
 export const OFFER_CATEGORY_OPTIONS = [
   { value: 'stays', label: 'Stays' },
-  { value: 'food', label: 'Food' },
+  { value: 'food', label: 'Foodies' },
   { value: 'guides', label: 'Guides' },
   { value: 'transport', label: 'Transport' },
   { value: 'events', label: 'Events' },

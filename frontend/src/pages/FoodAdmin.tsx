@@ -167,7 +167,7 @@ export function FoodAdmin() {
   return (
     <div className="prov-cat-page">
       <ProviderCategoryStrip
-        title="Food & drink"
+        title="Foodies"
         subtitle={
           isViewerOnly
             ? 'View your venues and guest feedback.'

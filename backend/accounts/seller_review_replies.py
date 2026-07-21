@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from accommodation.models import AccommodationReview
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_listing
+from activities.models import ActivityReview
 from food.models import FoodVenueReview
 from guides.models import GuideReview
 from shop.models import ProductReview
@@ -18,15 +19,17 @@ REVIEW_SOURCES = (
     "food",
     "vehicle",
     "bus_seat",
+    "activity",
 )
 
 CATEGORY_BY_SOURCE = {
     "shop": "Shop",
     "accommodation": "Stay",
     "guide": "Guide",
-    "food": "Food",
+    "food": "Foodies",
     "vehicle": "Transport",
     "bus_seat": "Transport",
+    "activity": "Activity",
 }
 
 MAX_REPLY_LEN = 2000
@@ -55,6 +58,8 @@ def _listing_owner_id(source: str, review) -> int | None:
         route = getattr(trip, "route", None) if trip else None
         operator = getattr(route, "operator", None) if route else None
         return getattr(operator, "owner_id", None)
+    if source == "activity":
+        return getattr(review.listing, "owner_id", None)
     return None
 
 
@@ -75,6 +80,8 @@ def _listing_title(source: str, review) -> str:
         if route:
             return f"{route.origin} → {route.destination}"
         return "Bus trip"
+    if source == "activity":
+        return getattr(review.listing, "title", "Activity") or "Activity"
     return "Listing"
 
 
@@ -87,9 +94,10 @@ def _row(source: str, review) -> dict:
             "shop": "Shop product",
             "accommodation": "Stay",
             "guide": "Guide",
-            "food": "Food venue",
+            "food": "Foodies venue",
             "vehicle": "Vehicle",
             "bus_seat": "Bus trip",
+            "activity": "Activity",
         }.get(source, source),
         "review_id": review.pk,
         "category": CATEGORY_BY_SOURCE.get(source, ""),
@@ -150,6 +158,14 @@ def _get_review(source: str, review_id: int):
                 "trip__route__operator",
                 "reviewer",
                 "reviewer__profile",
+            )
+            .filter(pk=review_id)
+            .first()
+        )
+    if source == "activity":
+        return (
+            ActivityReview.objects.select_related(
+                "listing", "reviewer", "reviewer__profile"
             )
             .filter(pk=review_id)
             .first()
@@ -215,6 +231,11 @@ def list_provider_reviews(user, *, source: str = "", needs_reply: str = "", limi
         ),
         "bus_seat",
         ("trip", "trip__route", "trip__route__operator"),
+    )
+    take(
+        ActivityReview.objects.filter(listing__owner_id__in=owner_ids),
+        "activity",
+        ("listing",),
     )
 
     rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)

@@ -24,7 +24,7 @@ export function BecomeProvider() {
   if (!profile) return <Navigate to="/login?next=%2Fprovider%2Fstart" replace />
 
   if (profile.user_type === 'service_provider') {
-    return <Navigate to="/provider/onboarding" replace />
+    return <Navigate to="/provider" replace />
   }
 
   if (canAccessProvider) {
@@ -37,7 +37,7 @@ export function BecomeProvider() {
     try {
       await apiFetch('/api/accounts/me/become-provider/', { method: 'POST', body: JSON.stringify({}) })
       await refreshProfile()
-      navigate('/provider/onboarding', { replace: true })
+      navigate('/provider', { replace: true })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not upgrade your account.')
     } finally {

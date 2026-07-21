@@ -39,6 +39,10 @@ import { OrderDetailPage } from './pages/OrderDetailPage'
 import { ShopAdmin } from './pages/ShopAdmin'
 import { ShopProductForm } from './pages/ShopProductForm'
 import { ProviderShopOrders } from './pages/ProviderShopOrders'
+import { ActivitiesList } from './pages/ActivitiesList'
+import { ActivityDetail } from './pages/ActivityDetail'
+import { ActivitiesAdmin } from './pages/ActivitiesAdmin'
+import { ActivityForm } from './pages/ActivityForm'
 import { CoinToss } from './pages/CoinToss'
 import { AddGem } from './pages/AddGem'
 import { GuideDetail } from './pages/GuideDetail'
@@ -67,7 +71,6 @@ import { VehicleDetail } from './pages/VehicleDetail'
 import { VerifyEmail } from './pages/VerifyEmail'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { ResetPassword } from './pages/ResetPassword'
-import { ProviderOnboarding } from './pages/ProviderOnboarding'
 import { BecomeProvider } from './pages/BecomeProvider'
 import { ProviderLayout } from './components/ProviderLayout'
 import { ProviderDashboard } from './pages/ProviderDashboard'
@@ -259,6 +262,11 @@ export default function App() {
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/food" element={<FoodList />} />
           <Route path="/food/:id" element={<FoodDetail />} />
+          <Route path="/activities" element={<ActivitiesList />} />
+          <Route path="/activities/manage" element={<ActivitiesAdmin />} />
+          <Route path="/activities/manage/new" element={<ActivityForm />} />
+          <Route path="/activities/manage/:activityId/edit" element={<ActivityForm />} />
+          <Route path="/activities/:id" element={<ActivityDetail />} />
           <Route path="/shop" element={<ShopList />} />
           <Route path="/shops" element={<Navigate to="/shop" replace />} />
           <Route path="/shop/manage" element={<ShopAdmin />} />
@@ -329,6 +337,9 @@ export default function App() {
             <Route path="transport" element={<TransportAdmin />} />
             <Route path="food" element={<FoodAdmin />} />
             <Route path="food/:venueId" element={<FoodVenueWorkspacePage />} />
+            <Route path="activities" element={<ActivitiesAdmin />} />
+            <Route path="activities/new" element={<ActivityForm />} />
+            <Route path="activities/:activityId/edit" element={<ActivityForm />} />
             <Route path="shop" element={<ShopAdmin />} />
             <Route path="shop/orders" element={<ProviderShopOrders />} />
             <Route path="shop/new" element={<ShopProductForm />} />
@@ -341,7 +352,7 @@ export default function App() {
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/provider/onboarding" element={<ProviderOnboarding />} />
+        <Route path="/provider/onboarding" element={<Navigate to="/provider" replace />} />
         <Route path="/provider/start" element={<BecomeProvider />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

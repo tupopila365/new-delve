@@ -22,6 +22,7 @@ from events_app.models import Event, EventCategory
 from food.models import CuisineType, FoodReservation, FoodVenue
 from guides.models import GuideBooking, TourGuideProfile
 from shop.models import ProductVariant, ShopCategory, ShopProduct, ShopProfile
+from activities.models import ActivityCategory, ActivityListing
 from social.models import Post
 from transport.models import (
     BusOperator,
@@ -1647,9 +1648,91 @@ class Command(BaseCommand):
                 ),
             )
 
+        # ---- Activities marketplace (international demos + video media) ----
+        if not ActivityListing.objects.filter(owner=u2, title="Sunset dune drive").exists():
+            ActivityListing.objects.create(
+                owner=u2,
+                title="Sunset dune drive",
+                tagline="Golden hour across the dunes",
+                description=(
+                    "A guided scenic drive timed for sunset — soft light, photo stops, "
+                    "and a short walk on the ridge. Suitable for most fitness levels."
+                ),
+                category=ActivityCategory.DRIVES,
+                country_code="NA",
+                region="Erongo",
+                city="Swakopmund",
+                meeting_point="Swakopmund jetty parking",
+                duration_hours=Decimal("3.0"),
+                price_from=Decimal("850.00"),
+                currency="NAD",
+                price_note="per person",
+                max_group_size=8,
+                languages=["English"],
+                includes=["Vehicle", "Guide", "Bottled water"],
+                excludes=["Personal tips"],
+                media_gallery=[
+                    {
+                        "kind": "image",
+                        "src": (
+                            "https://images.unsplash.com/photo-1509316785289-025f5b846b35"
+                            "?auto=format&fit=crop&w=1200&q=80"
+                        ),
+                        "caption": "Dune ridge",
+                    },
+                    {
+                        "kind": "video",
+                        "src": "https://res.cloudinary.com/demo/video/upload/dog.mp4",
+                        "caption": "Teaser clip",
+                    },
+                ],
+                cover_image=(
+                    "https://images.unsplash.com/photo-1509316785289-025f5b846b35"
+                    "?auto=format&fit=crop&w=1200&q=80"
+                ),
+                cover_kind="image",
+                is_featured=True,
+                is_active=True,
+            )
+        if not ActivityListing.objects.filter(title="Harbour kayak morning").exists():
+            ActivityListing.objects.create(
+                owner=stays_u,
+                title="Harbour kayak morning",
+                tagline="Calm water, city skyline",
+                description="Paddle a sheltered harbour route with a certified instructor.",
+                category=ActivityCategory.WATER,
+                country_code="ZA",
+                region="Western Cape",
+                city="Cape Town",
+                meeting_point="V&A Waterfront kayak desk",
+                duration_hours=Decimal("2.0"),
+                price_from=Decimal("650.00"),
+                currency="ZAR",
+                price_note="per person",
+                max_group_size=6,
+                languages=["English", "Afrikaans"],
+                includes=["Kayak", "Paddle", "Life jacket"],
+                media_gallery=[
+                    {
+                        "kind": "image",
+                        "src": (
+                            "https://images.unsplash.com/photo-1544551763-46a013bb70d5"
+                            "?auto=format&fit=crop&w=1200&q=80"
+                        ),
+                    }
+                ],
+                cover_image=(
+                    "https://images.unsplash.com/photo-1544551763-46a013bb70d5"
+                    "?auto=format&fit=crop&w=1200&q=80"
+                ),
+                cover_kind="image",
+                is_active=True,
+            )
+
         self.stdout.write(
             self.style.SUCCESS(
                 "Seed complete. Users: demo_user, demo_provider, stays_host, transport_mgr, "
-                "food_mgr, guide_mgr, demo_admin — password demo12345. Shop products seeded."
+                "food_mgr, guide_mgr, demo_admin — password demo12345. "
+                "Shop products + activities seeded."
             )
         )

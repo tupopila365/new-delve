@@ -31,9 +31,10 @@ const RATING_FILTERS = [
 const LISTING_FILTER_MAP: Record<string, string> = {
   Stays: 'Stay',
   Guides: 'Guide',
-  'Food & drink': 'Food',
+  'Foodies': 'Food',
   Transport: 'Transport',
   Shop: 'Shop',
+  Activities: 'Activity',
 }
 
 export function ProviderReviews() {
@@ -167,6 +168,7 @@ function listingPath(category: ListingCategory): string {
   if (category === 'Food') return '/provider/food'
   if (category === 'Transport') return '/provider/transport'
   if (category === 'Shop') return '/provider/shop'
+  if (category === 'Activity') return '/provider/activities'
   return '/provider/listings'
 }
 

@@ -13,7 +13,7 @@ export const SPECIALITY_OPTIONS = [
   'Culture',
   'History',
   'Adventure',
-  'Food & drink',
+  'Foodies',
   'City walks',
 ] as const
 

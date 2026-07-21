@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { apiFetch, ApiError } from '../api/client'
+import { apiFetch } from '../api/client'
 import { AuthScreen } from '../components/auth'
+import { authFormError } from '../utils/authErrors'
 
 export function ResetPassword() {
   const nav = useNavigate()
@@ -20,10 +21,15 @@ export function ResetPassword() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (busy) return
     setErr(null)
     setMsg(null)
     if (password !== confirm) {
       setErr('Passwords do not match.')
+      return
+    }
+    if (password.length < 8) {
+      setErr('Password must be at least 8 characters.')
       return
     }
     setBusy(true)
@@ -34,9 +40,9 @@ export function ResetPassword() {
         body: JSON.stringify({ token: token.trim(), new_password: password }),
       })
       setMsg('Password updated. You can sign in now.')
-      setTimeout(() => nav('/login'), 1500)
+      setTimeout(() => nav('/login', { replace: true }), 1500)
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Reset failed')
+      setErr(authFormError(e2, 'This reset link is invalid or has expired. Request a new one.'))
     } finally {
       setBusy(false)
     }
@@ -49,10 +55,16 @@ export function ResetPassword() {
       footer={
         <>
           Back to <Link to="/login">Sign in</Link>
+          {' · '}
+          <Link to="/forgot-password">Request a new link</Link>
         </>
       }
     >
-      {err ? <p className="auth-page__error">{err}</p> : null}
+      {err ? (
+        <p className="auth-page__error" role="alert">
+          {err}
+        </p>
+      ) : null}
       {msg ? <p className="auth-page__success">{msg}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
         <div className="auth-page__field">
@@ -68,6 +80,7 @@ export function ResetPassword() {
             onChange={(e) => setToken(e.target.value)}
             autoComplete="one-time-code"
             required
+            disabled={busy}
           />
         </div>
         <div className="auth-page__field">
@@ -83,6 +96,7 @@ export function ResetPassword() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             required
+            disabled={busy}
           />
         </div>
         <div className="auth-page__field">
@@ -98,6 +112,7 @@ export function ResetPassword() {
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
             required
+            disabled={busy}
           />
         </div>
         <button

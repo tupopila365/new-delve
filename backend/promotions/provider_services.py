@@ -120,7 +120,7 @@ def list_provider_listings(user) -> list[dict]:
                 "label": item.name,
                 "region": item.region,
                 "city": item.city or "",
-                "category_label": "Food & drink",
+                "category_label": "Foodies",
             }
         )
 

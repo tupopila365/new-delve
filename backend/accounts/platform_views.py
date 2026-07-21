@@ -292,7 +292,9 @@ class PlatformBusinessVerificationView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, pk):
-        business = BusinessProfile.objects.filter(pk=pk).first()
+        business = (
+            BusinessProfile.objects.select_related("owner").filter(pk=pk).first()
+        )
         if not business:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -334,6 +336,26 @@ class PlatformBusinessVerificationView(APIView):
             detail=f"{business.business_name}: {old_status} → {new_status}. {reason}".strip(),
         )
 
-        return Response(
-            BusinessProfileSerializer(business, context={"request": request}).data
-        )
+        email_sent = False
+        email_recipient = ""
+        if old_status != new_status:
+            from accounts.mail import send_business_verification_status_email
+
+            email_sent = send_business_verification_status_email(business, request=request)
+            owner = business.owner
+            if owner and (owner.email or "").strip():
+                email_recipient = owner.email.strip()
+
+        data = BusinessProfileSerializer(business, context={"request": request}).data
+        data["email_sent"] = email_sent
+        data["email_recipient"] = email_recipient if email_sent else ""
+        if old_status != new_status and not email_sent:
+            data["email_detail"] = (
+                "Status saved, but no email was sent — the owner has no email on file "
+                "or SMTP failed. Check API logs and EMAIL_* / FRONTEND_URL settings."
+            )
+        elif email_sent:
+            data["email_detail"] = f"Provider notified at {email_recipient}."
+        else:
+            data["email_detail"] = "Status unchanged — no email sent."
+        return Response(data)

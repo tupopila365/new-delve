@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../api/client'
+import { apiFetch, ApiError } from '../api/client'
 import {
   AdminFilterBar,
   AdminFilterChip,
@@ -25,24 +25,30 @@ type Business = {
 
 const STATUSES = ['unverified', 'pending', 'verified', 'suspended', 'rejected'] as const
 const VERIFY_FILTERS = ['All', 'Pending review', 'Verified', 'Rejected', 'Suspended', 'Unverified'] as const
-const TYPE_FILTERS = ['All types', 'Stays', 'Food & drink', 'Guides', 'Transport', 'Events', 'Multi-provider'] as const
+const TYPE_FILTERS = ['All types', 'Stays', 'Foodies', 'Guides', 'Transport', 'Events', 'Multi-provider'] as const
 
-const TYPE_KEYS: Record<string, string> = {
-  'Stays': 'stays',
-  'Food & drink': 'food_drink',
-  'Guides': 'guides',
-  'Transport': 'transport',
-  'Events': 'events',
-  'Multi-provider': 'multi_provider',
+/** Match both legacy display keys and current BusinessType values. */
+const TYPE_KEYS: Record<string, string[]> = {
+  Stays: ['accommodation', 'stays'],
+  Foodies: ['food_drink'],
+  Guides: ['guide', 'guides'],
+  Transport: ['transport'],
+  Events: ['event_organiser', 'events'],
+  'Multi-provider': ['multi_provider'],
 }
 
 const TYPE_LABELS: Record<string, string> = {
+  accommodation: 'Stays',
   stays: 'Stays',
-  food_drink: 'Food & drink',
+  food_drink: 'Foodies',
+  guide: 'Guides',
   guides: 'Guides',
   transport: 'Transport',
+  event_organiser: 'Events',
   events: 'Events',
   multi_provider: 'Multi-provider',
+  activity: 'Activities',
+  retail_shop: 'Shop',
 }
 
 export function PlatformAdminBusinesses() {
@@ -55,15 +61,44 @@ export function PlatformAdminBusinesses() {
   const [search, setSearch] = useState('')
   const [verifyFilter, setVerifyFilter] = useState<(typeof VERIFY_FILTERS)[number]>('All')
   const [typeFilter, setTypeFilter] = useState<(typeof TYPE_FILTERS)[number]>('All types')
+  const [reasonPrompt, setReasonPrompt] = useState<{ id: number; status: string } | null>(null)
+  const [reasonText, setReasonText] = useState('')
+  const [actionErr, setActionErr] = useState<string | null>(null)
 
   const verifyMut = useMutation({
-    mutationFn: ({ id, verification_status }: { id: number; verification_status: string }) =>
+    mutationFn: ({
+      id,
+      verification_status,
+      reason,
+    }: {
+      id: number
+      verification_status: string
+      reason?: string
+    }) =>
       apiFetch<Business>(`/api/accounts/admin/businesses/${id}/verification/`, {
         method: 'PATCH',
-        body: JSON.stringify({ verification_status }),
+        body: JSON.stringify({ verification_status, reason }),
       }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['platform-businesses'] }),
+    onSuccess: () => {
+      setReasonPrompt(null)
+      setReasonText('')
+      setActionErr(null)
+      void qc.invalidateQueries({ queryKey: ['platform-businesses'] })
+    },
+    onError: (e) => {
+      setActionErr(e instanceof ApiError ? e.message : 'Could not update status.')
+    },
   })
+
+  const requestStatusChange = (id: number, verification_status: string) => {
+    setActionErr(null)
+    if (verification_status === 'rejected' || verification_status === 'suspended') {
+      setReasonPrompt({ id, status: verification_status })
+      setReasonText('')
+      return
+    }
+    verifyMut.mutate({ id, verification_status })
+  }
 
   const filtered = useMemo(() => {
     let rows = businesses
@@ -72,8 +107,8 @@ export function PlatformAdminBusinesses() {
       rows = rows.filter((b) => b.verification_status === key)
     }
     if (typeFilter !== 'All types') {
-      const key = TYPE_KEYS[typeFilter]
-      rows = rows.filter((b) => b.business_types.includes(key))
+      const keys = TYPE_KEYS[typeFilter] ?? []
+      rows = rows.filter((b) => b.business_types.some((t) => keys.includes(t)))
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -96,6 +131,53 @@ export function PlatformAdminBusinesses() {
         subtitle="Review provider businesses, verification status, and platform trust."
       />
 
+      {actionErr ? (
+        <p className="adm-page__error" role="alert">
+          {actionErr}
+        </p>
+      ) : null}
+
+      {reasonPrompt ? (
+        <div className="adm-verify-dialog" role="dialog" aria-labelledby="adm-reason-title">
+          <h2 id="adm-reason-title">
+            {reasonPrompt.status === 'suspended' ? 'Suspend business' : 'Reject verification'}
+          </h2>
+          <p>Provide a reason — the business owner will see this note.</p>
+          <textarea
+            value={reasonText}
+            onChange={(e) => setReasonText(e.target.value)}
+            rows={4}
+            placeholder="Reason for this decision…"
+          />
+          <div className="adm-verify-dialog__actions">
+            <button
+              type="button"
+              className="btn btn-ghost btn--sm"
+              onClick={() => {
+                setReasonPrompt(null)
+                setReasonText('')
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn--sm"
+              disabled={verifyMut.isPending || !reasonText.trim()}
+              onClick={() =>
+                verifyMut.mutate({
+                  id: reasonPrompt.id,
+                  verification_status: reasonPrompt.status,
+                  reason: reasonText.trim(),
+                })
+              }
+            >
+              {verifyMut.isPending ? 'Saving…' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {isLoading ? (
         <ListSkeleton count={5} />
       ) : isError ? (
@@ -113,7 +195,11 @@ export function PlatformAdminBusinesses() {
               { value: businesses.filter((b) => b.verification_status === 'verified').length, label: 'Verified' },
               { value: pending.length, label: 'Pending review', accent: pending.length > 0 },
               { value: businesses.filter((b) => b.verification_status === 'rejected').length, label: 'Rejected' },
-              { value: businesses.filter((b) => b.verification_status === 'suspended').length, label: 'Suspended', warn: true },
+              {
+                value: businesses.filter((b) => b.verification_status === 'suspended').length,
+                label: 'Suspended',
+                warn: true,
+              },
             ]}
           />
 
@@ -127,7 +213,9 @@ export function PlatformAdminBusinesses() {
                   <li key={b.id}>
                     <div>
                       <strong>{b.business_name}</strong>
-                      <span>@{b.owner_username} · {b.city}, {b.region}</span>
+                      <span>
+                        @{b.owner_username} · {b.city}, {b.region}
+                      </span>
                     </div>
                     <AdminStatusBadge status="pending review" variant="warning" />
                     <Link to={`/business/${b.id}`} className="adm-panel__action">
@@ -149,9 +237,9 @@ export function PlatformAdminBusinesses() {
           </AdminFilterBar>
 
           {businesses.length === 0 ? (
-            <EmptyState compact icon="🏢" title="No businesses yet" sub="Provider businesses will appear here for review." />
+            <EmptyState compact title="No businesses yet" sub="Provider businesses will appear here for review." />
           ) : filtered.length === 0 ? (
-            <EmptyState compact icon="🔍" title="No businesses found" sub="Try changing your search or filters." />
+            <EmptyState compact title="No businesses found" sub="Try changing your search or filters." />
           ) : (
             <div className="adm-data-table">
               {filtered.map((b) => (
@@ -177,7 +265,7 @@ export function PlatformAdminBusinesses() {
                           type="button"
                           className={`adm-verify-btn${b.verification_status === s ? ' adm-verify-btn--on' : ''}`}
                           disabled={verifyMut.isPending}
-                          onClick={() => verifyMut.mutate({ id: b.id, verification_status: s })}
+                          onClick={() => requestStatusChange(b.id, s)}
                         >
                           {s}
                         </button>

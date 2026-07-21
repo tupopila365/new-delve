@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -15,6 +15,7 @@ import {
   VerificationDocumentsForm,
   type UploadedDoc,
 } from '../components/provider/onboarding'
+import { writeActiveBusinessId } from '../utils/activeBusiness'
 import {
   docsForServices,
   needsDocumentStep,
@@ -24,22 +25,34 @@ import {
   type TransportMode,
 } from '../data/providerOnboarding'
 
-export function ProviderOnboarding() {
+export function ProviderOnboarding({ embedded = false }: { embedded?: boolean }) {
   const { profile, loading } = useAuth()
   const { businesses, isLoading: bizLoading } = useBusinessAccess()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const forceSetup = searchParams.get('setup') === '1'
+  const forceNew = searchParams.get('new') === '1'
+  const paramBusinessId = Number(searchParams.get('business') || 0) || null
 
-  const existing = businesses[0]
+  const existing = forceNew
+    ? undefined
+    : paramBusinessId
+      ? businesses.find((b) => b.id === paramBusinessId)
+      : businesses.find((b) => b.onboarding_completed === false) ??
+        (forceSetup ? businesses[0] : undefined)
+
   const needsResubmit = existing?.verification_status === 'rejected'
-  const alreadyDone = existing?.onboarding_completed === true && !needsResubmit
-
+  const openSetupDocs = forceSetup && existing?.onboarding_completed === true
+  const docsOnly = Boolean(existing && (needsResubmit || openSetupDocs))
+  const alreadyDone = Boolean(existing?.onboarding_completed === true && !docsOnly && !forceNew)
   const initialServices =
     (existing?.business_types.filter((t) => t !== 'multi_provider') as OnboardingServiceType[]) ?? []
 
   const [selectedServices, setSelectedServices] = useState<OnboardingServiceType[]>(initialServices)
   const [transportModes, setTransportModes] = useState<TransportMode[]>(existing?.transport_modes ?? [])
   const [step, setStep] = useState<OnboardingStep>(() => {
-    if (existing && needsResubmit) return 'documents'
+    if (existing && docsOnly) return 'documents'
     if (existing && !existing.onboarding_completed) {
       const types = existing.business_types.filter((t) => t !== 'multi_provider') as OnboardingServiceType[]
       if (types.includes('transport') && !(existing.transport_modes?.length)) return 'transport_mode'
@@ -61,8 +74,8 @@ export function ProviderOnboarding() {
 
   const steps = useMemo(() => {
     const activeServices = selectedServices.length ? selectedServices : initialServices
-    return needsResubmit ? (['documents'] as OnboardingStep[]) : onboardingStepsFor(activeServices)
-  }, [selectedServices, initialServices, needsResubmit])
+    return docsOnly ? (['documents'] as OnboardingStep[]) : onboardingStepsFor(activeServices)
+  }, [selectedServices, initialServices, docsOnly])
 
   const activeServices = selectedServices.length ? selectedServices : initialServices
 
@@ -77,7 +90,7 @@ export function ProviderOnboarding() {
 
   if (loading || bizLoading) {
     return (
-      <ProviderOnboardingLayout title="Business setup" lead="Loading your progress…">
+      <ProviderOnboardingLayout embedded={embedded} title="Business setup" lead="Loading your progress…">
         <p className="prov-onboard__sub">Loading…</p>
       </ProviderOnboardingLayout>
     )
@@ -85,7 +98,10 @@ export function ProviderOnboarding() {
 
   if (!profile) return <Navigate to="/login" replace />
   if (profile.user_type !== 'service_provider') return <Navigate to="/dashboard" replace />
-  if (alreadyDone) return <Navigate to="/provider" replace />
+  if (alreadyDone) {
+    if (embedded) return null
+    return <Navigate to="/provider" replace />
+  }
 
   function handleUpload(docType: string, file: File) {
     setUploads((prev) => [...prev.filter((u) => u.docType !== docType), { docType, file, fileName: file.name }])
@@ -116,7 +132,9 @@ export function ProviderOnboarding() {
       body: JSON.stringify(businessPayload()),
     })
     setBusinessId(biz.id)
+    writeActiveBusinessId(profile?.username, biz.id)
     await queryClient.invalidateQueries({ queryKey: ['my-businesses'] })
+    await queryClient.invalidateQueries({ queryKey: ['my-businesses-menu'] })
     return biz
   }
 
@@ -140,8 +158,13 @@ export function ProviderOnboarding() {
       })
     }
     setVerificationPending(submitForReview)
+    writeActiveBusinessId(profile?.username, id)
     await queryClient.invalidateQueries({ queryKey: ['my-businesses'] })
+    await queryClient.invalidateQueries({ queryKey: ['my-businesses-menu'] })
     setStep('complete')
+    if (forceSetup || forceNew || embedded) {
+      navigate('/provider', { replace: true })
+    }
   }
 
   async function onContinue() {
@@ -205,7 +228,7 @@ export function ProviderOnboarding() {
 
       setBusy(true)
       try {
-        let id = businessId ?? businesses[0]?.id
+        let id = businessId ?? existing?.id
         if (!id) {
           const biz = await createBusiness()
           id = biz.id
@@ -232,7 +255,7 @@ export function ProviderOnboarding() {
 
   const submitForReview =
     step === 'documents' &&
-    (needsResubmit || needsDocumentStep(selectedServices, verifyFood))
+    (docsOnly || needsDocumentStep(selectedServices, verifyFood))
   const continueLabel =
     step === 'services' || step === 'transport_mode'
       ? 'Continue'
@@ -248,6 +271,7 @@ export function ProviderOnboarding() {
 
   return (
     <ProviderOnboardingLayout
+      embedded={embedded}
       title="Business setup"
       lead="Pick your services, add business details, then finish verification if needed."
     >
@@ -295,7 +319,7 @@ export function ProviderOnboarding() {
         <OnboardingCompletePanel services={selectedServices} verificationPending={verificationPending} />
       ) : (
         <div className="prov-onboard__actions">
-          {step !== 'services' ? (
+          {step !== 'services' && !docsOnly ? (
             <button type="button" className="prov-onboard__btn prov-onboard__btn--ghost" onClick={onBack} disabled={busy}>
               Back
             </button>

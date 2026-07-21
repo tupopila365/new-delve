@@ -182,7 +182,7 @@ def list_platform_listings(
                 city=item.city,
                 published=item.is_active,
                 price_label=f"{'$' * item.price_level}" if item.price_level else "",
-                category_label=f"Food · {cuisine}" if cuisine else "Food & drink",
+                category_label=f"Food · {cuisine}" if cuisine else "Foodies",
                 created_at=item.created_at,
             )
             if include(row):
@@ -383,7 +383,7 @@ def set_listing_published(
             region=obj.region,
             city=obj.city,
             published=obj.is_active,
-            category_label="Food & drink",
+            category_label="Foodies",
             created_at=obj.created_at,
         )
 

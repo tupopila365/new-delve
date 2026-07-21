@@ -26,7 +26,9 @@ const SERVICE_LABELS: Record<string, string> = {
   accommodation: 'Stays',
   guide: 'Guides',
   transport: 'Transport',
-  food_drink: 'Food & drink',
+  food_drink: 'Foodies',
+  retail_shop: 'Shop',
+  activity: 'Activities',
 }
 
 function verificationPill(status?: string) {
@@ -263,6 +265,15 @@ export function ProviderSettings() {
             notes={activeBusiness.verification_notes}
             canManage={canManageSettings}
           />
+
+          {canManageSettings ? (
+            <p className="prov-settings__hint">
+              Run more than one brand?{' '}
+              <Link to="/provider?new=1" className="prov-ui__link">
+                Add another business
+              </Link>
+            </p>
+          ) : null}
 
           <div className="prov-settings__info-card">
             <div className="prov-settings__info-row">
@@ -563,7 +574,7 @@ export function ProviderSettings() {
             className="prov-ui__btn prov-ui__btn--ghost prov-settings__save"
             onClick={() => {
               logout()
-              navigate('/')
+              navigate('/', { replace: true })
             }}
           >
             Sign out

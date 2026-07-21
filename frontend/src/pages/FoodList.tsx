@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Bookmark, MapPin, Search, Utensils, X } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useFoodEngagement } from '../hooks/useFoodEngagement'
+import { useAccountActionGate } from '../hooks/useAccountActionGate'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
@@ -93,8 +94,8 @@ function onFoodImgError(e: React.SyntheticEvent<HTMLImageElement>, cuisine: stri
 }
 
 export function FoodList() {
-  const navigate = useNavigate()
   const { profile } = useAuth()
+  const gate = useAccountActionGate()
   const [cuisine, setCuisine] = useState('')
   const [city, setCity] = useState('')
   const [mood, setMood] = useState('')
@@ -180,10 +181,7 @@ export function FoodList() {
   }
 
   const toggleSavedOnly = () => {
-    if (!profile) {
-      navigate('/login')
-      return
-    }
+    if (!gate('save places')) return
     setSavedOnly((prev) => {
       const next = !prev
       if (next) {
@@ -198,18 +196,12 @@ export function FoodList() {
     })
   }
 
-  const requireAuth = () => {
-    if (!profile) {
-      navigate('/login')
-      return false
-    }
-    return true
-  }
+  const requireAuth = (action = 'continue') => gate(action)
 
   const toggleLiked = (id: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!requireAuth()) return
+    if (!requireAuth('like this place')) return
     const venue = venues.find((v) => v.id === id) ?? (data ?? []).find((v) => v.id === id)
     if (!venue) return
     engagement.likeVenue(venue)
@@ -218,7 +210,7 @@ export function FoodList() {
   const toggleSaved = (id: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!requireAuth()) return
+    if (!requireAuth('save this place')) return
     const venue = venues.find((v) => v.id === id) ?? (data ?? []).find((v) => v.id === id)
     if (!venue) return
     engagement.saveVenue(venue)
@@ -242,7 +234,7 @@ export function FoodList() {
         </p>
       ) : null}
       <header className="fd-market__hero">
-        <p className="fd-market__kicker">Food marketplace</p>
+        <p className="fd-market__kicker">Foodies</p>
         <h1 className="fd-market__title">Find your next bite</h1>
 
         <div className="fd-market__find">

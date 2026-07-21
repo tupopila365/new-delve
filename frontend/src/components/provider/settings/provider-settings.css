@@ -288,11 +288,11 @@
   flex-basis: 100%;
   margin: 0;
   font-size: 0.78rem;
-  color: rgba(255, 250, 242, 0.7);
+  color: var(--manage-muted, #6f695f);
 }
 
 .prov-settings__resend-msg--err {
-  color: #fca5a5;
+  color: #b91c1c;
 }
 
 .prov-settings__hint {
@@ -318,7 +318,7 @@
   margin: 0;
   font-size: 0.78rem;
   font-weight: 750;
-  color: rgba(255, 250, 242, 0.62);
+  color: var(--manage-ink-soft, #3d3933);
 }
 
 .prov-settings__logo-preview {
@@ -348,6 +348,7 @@
   border-radius: 14px;
   background: var(--manage-card);
   border: 1px solid var(--manage-line-soft);
+  color: var(--manage-ink);
 }
 
 .prov-verification-card__head {
@@ -363,7 +364,7 @@
   font-weight: 750;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 250, 242, 0.62);
+  color: var(--manage-ink-soft, #3d3933);
 }
 
 .prov-verification-card__pill {
@@ -371,24 +372,33 @@
   font-weight: 700;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  background: var(--manage-line-soft);
-  color: rgba(255, 250, 242, 0.85);
+  background: var(--manage-chip, #efeae2);
+  color: var(--manage-ink, #1a1814);
+  border: 1px solid var(--manage-line-soft);
 }
 
 .prov-verification-card__pill--verified {
-  background: rgba(52, 211, 153, 0.15);
-  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.28);
 }
 
 .prov-verification-card__pill--pending {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fcd34d;
+  background: rgba(217, 119, 6, 0.12);
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.28);
+}
+
+.prov-verification-card__pill--unverified {
+  background: var(--manage-chip, #efeae2);
+  color: var(--manage-ink-soft, #3d3933);
 }
 
 .prov-verification-card__pill--rejected,
 .prov-verification-card__pill--suspended {
-  background: rgba(248, 113, 113, 0.15);
-  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.25);
 }
 
 .prov-verification-card__hint,
@@ -396,13 +406,13 @@
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
-  color: rgba(255, 250, 242, 0.78);
+  color: var(--manage-ink-soft, #3d3933);
 }
 
 .prov-verification-card__meta {
   margin-top: 0.65rem;
   font-size: 0.82rem;
-  color: var(--manage-muted);
+  color: var(--manage-muted, #6f695f);
 }
 
 .prov-layout-banner {
@@ -411,9 +421,9 @@
   border-radius: 12px;
   font-size: 0.9rem;
   line-height: 1.45;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.22);
-  color: rgba(255, 250, 242, 0.9);
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: var(--manage-ink, #1a1814);
 }
 
 .prov-layout-banner--bad {
@@ -458,7 +468,7 @@
 
 .prov-settings__msg-automation span {
   font-size: 0.8125rem;
-  color: rgba(255, 250, 242, 0.62);
+  color: var(--manage-muted, #6f695f);
   line-height: 1.45;
 }
 
@@ -520,7 +530,7 @@
   display: block;
   margin-top: 2px;
   font-size: 0.78rem;
-  color: var(--manage-muted, rgba(255, 250, 242, 0.55));
+  color: var(--manage-muted, #6f695f);
 }
 
 .prov-settings__offer-actions {
@@ -548,7 +558,7 @@
 .prov-settings__offer-thumb--ph {
   display: grid;
   place-items: center;
-  color: rgba(255, 250, 242, 0.4);
+  color: var(--manage-muted, #6f695f);
 }
 
 .prov-settings__media {
@@ -571,7 +581,7 @@
 
 .prov-settings__media-head span {
   font-size: 0.78rem;
-  color: var(--manage-muted, rgba(255, 250, 242, 0.55));
+  color: var(--manage-muted, #6f695f);
   line-height: 1.4;
 }
 
@@ -630,9 +640,9 @@
   min-width: min(100%, 220px);
   padding: 12px;
   border-radius: 10px;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 250, 242, 0.72);
+  border: 1px dashed var(--manage-line, #d8d2c8);
+  background: var(--manage-paper, #f7f4ef);
+  color: var(--manage-ink-soft, #3d3933);
   font-size: 0.82rem;
   font-weight: 700;
   font-family: inherit;

@@ -35,6 +35,7 @@ export function VerificationsPage() {
   const [dialog, setDialog] = useState<{ id: number; name: string; mode: 'approve' | 'reject' } | null>(
     null,
   )
+  const [toast, setToast] = useState('')
 
   const { data: businesses = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['businesses', 'pending'],
@@ -62,12 +63,22 @@ export function VerificationsPage() {
         method: 'PATCH',
         body: JSON.stringify({ verification_status, reason }),
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setDialog(null)
       setSelectedId(null)
+      if (data.email_detail) {
+        setToast(data.email_detail)
+      } else if (data.email_sent) {
+        setToast(`Provider notified at ${data.email_recipient || 'their account email'}.`)
+      } else {
+        setToast('Verification status updated.')
+      }
       void qc.invalidateQueries({ queryKey: ['businesses'] })
       void qc.invalidateQueries({ queryKey: ['overview'] })
       void qc.invalidateQueries({ queryKey: ['activity'] })
+    },
+    onError: (e) => {
+      setToast(e instanceof Error ? e.message : 'Could not update verification.')
     },
   })
 
@@ -95,9 +106,14 @@ export function VerificationsPage() {
     <div className="da-page">
       <DelveAdminPageHeader
         title="Verifications"
-        subtitle={`${pending.length} business${pending.length === 1 ? '' : 'es'} awaiting review.`}
+        subtitle={`${pending.length} business${pending.length === 1 ? '' : 'es'} awaiting review. Approving or rejecting emails the service provider.`}
       />
 
+      {toast ? (
+        <p className="da-toast" role="status">
+          {toast}
+        </p>
+      ) : null}
       {pending.length === 0 ? (
         <DelveAdminEmpty title="Queue is clear" message="No businesses are waiting for verification right now." />
       ) : (

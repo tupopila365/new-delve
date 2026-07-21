@@ -10,7 +10,7 @@ export const JOURNEY_COST_COLORS: Record<TripCost['category'], string> = {
 
 export const JOURNEY_COST_LABELS: Record<TripCost['category'], string> = {
   stay: 'Accommodation',
-  food: 'Food & drink',
+  food: 'Foodies',
   transport: 'Transport',
   activity: 'Activities',
   other: 'Other',

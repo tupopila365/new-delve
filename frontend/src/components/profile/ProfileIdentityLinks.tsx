@@ -47,7 +47,7 @@ export function ProfileIdentityLinks({
           </Link>
         ))
       ) : showDashboard ? (
-        <Link to="/provider/onboarding" className="profile-identity__item profile-identity__item--muted">
+        <Link to="/provider" className="profile-identity__item profile-identity__item--muted">
           <Building2 size={15} strokeWidth={2.25} aria-hidden />
           <span>
             <strong>Set up business</strong>

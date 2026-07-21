@@ -7,7 +7,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { apiFetch, clearTokens, getAccessToken, setTokens } from '../api/client'
+import {
+  apiFetch,
+  clearTokens,
+  getAccessToken,
+  setTokens,
+  SESSION_EXPIRED_EVENT,
+} from '../api/client'
 
 export type UserType = 'normal' | 'service_provider'
 
@@ -43,6 +49,20 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null)
 
+function normalizeProfile(me: Profile): Profile {
+  return {
+    ...me,
+    is_staff: me.is_staff ?? false,
+    country_code: me.country_code ?? '',
+    preferred_currency: me.preferred_currency ?? '',
+    is_private: me.is_private ?? false,
+    posts_visibility: me.posts_visibility ?? 'public',
+    allow_messages: me.allow_messages ?? true,
+    show_in_search: me.show_in_search ?? true,
+    no_face_mode: me.no_face_mode ?? false,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,17 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       const me = await apiFetch<Profile>('/api/accounts/me/')
-      setProfile({
-        ...me,
-        is_staff: me.is_staff ?? false,
-        country_code: me.country_code ?? '',
-        preferred_currency: me.preferred_currency ?? '',
-        is_private: me.is_private ?? false,
-        posts_visibility: me.posts_visibility ?? 'public',
-        allow_messages: me.allow_messages ?? true,
-        show_in_search: me.show_in_search ?? true,
-        no_face_mode: me.no_face_mode ?? false,
-      })
+      setProfile(normalizeProfile(me))
     } catch {
       setProfile(null)
       clearTokens()
@@ -78,6 +88,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshProfile()
   }, [refreshProfile])
 
+  useEffect(() => {
+    const onExpired = () => {
+      setProfile(null)
+    }
+    const onPageShow = (e: PageTransitionEvent) => {
+      // After logout + browser back (bfcache), re-sync session.
+      if (e.persisted) void refreshProfile()
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [refreshProfile])
+
   const login = useCallback(async (email: string, password: string) => {
     const tokens = await apiFetch<{ access: string; refresh: string }>('/api/accounts/token/', {
       method: 'POST',
@@ -86,22 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     setTokens(tokens.access, tokens.refresh)
     const me = await apiFetch<Profile>('/api/accounts/me/')
-    setProfile({
-      ...me,
-      is_staff: me.is_staff ?? false,
-      country_code: me.country_code ?? '',
-      preferred_currency: me.preferred_currency ?? '',
-      is_private: me.is_private ?? false,
-      posts_visibility: me.posts_visibility ?? 'public',
-      allow_messages: me.allow_messages ?? true,
-      show_in_search: me.show_in_search ?? true,
-      no_face_mode: me.no_face_mode ?? false,
-    })
+    setProfile(normalizeProfile(me))
   }, [])
 
   const logout = useCallback(() => {
     clearTokens()
     setProfile(null)
+    if (import.meta.env.VITE_USE_MOCKS === 'true') {
+      void import('../mocks/mockApi').then((m) => m.clearMockSession())
+    }
   }, [])
 
   const value = useMemo(

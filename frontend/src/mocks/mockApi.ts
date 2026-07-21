@@ -72,7 +72,26 @@ type MockComment = {
   marked_helpful_by_me?: boolean
 }
 
-const KEY = 'delve_mock_state_v8'
+const KEY = 'delve_mock_state_v9'
+
+/** Matches seed_delve demo password for all seeded mock profiles. */
+const MOCK_SEED_PASSWORD = 'demo12345'
+/** Per-user passwords (register / change-password). Seed users default to MOCK_SEED_PASSWORD. */
+const mockUserPasswords = new Map<string, string>()
+
+export function clearMockSession() {
+  const s = loadState()
+  s.currentUser = null
+  saveState(s)
+}
+
+function mockPasswordFor(username: string): string {
+  return mockUserPasswords.get(username) ?? MOCK_SEED_PASSWORD
+}
+
+function setMockPassword(username: string, password: string) {
+  mockUserPasswords.set(username, password)
+}
 
 /** In-memory accommodation bookings for mock API (session only). */
 type MockAccBookingRow = {
@@ -127,7 +146,63 @@ function issueMockTokens(username: string) {
 function createMockVerificationToken(username: string) {
   const token = crypto.randomUUID()
   mockVerificationTokens.set(token, username)
+  if (import.meta.env.DEV) {
+    // Single concise line — avoids flooding when resending.
+    console.info(`[mock] verify ${username}: /verify-email?token=${token}`)
+  }
   return token
+}
+
+const mockPasswordResetTokens = new Map<string, string>()
+
+function createMockPasswordResetToken(username: string) {
+  const token = crypto.randomUUID()
+  mockPasswordResetTokens.set(token, username)
+  if (import.meta.env.DEV) {
+    console.info(`[mock] reset ${username}: /reset-password?token=${token}`)
+  }
+  return token
+}
+
+const PROFILE_UPDATE_FIELDS = new Set([
+  'display_name',
+  'bio',
+  'region',
+  'city',
+  'country_code',
+  'preferred_currency',
+  'avatar',
+  'is_private',
+  'posts_visibility',
+  'allow_messages',
+  'show_in_search',
+  'no_face_mode',
+])
+
+function pickProfileUpdates(raw: Record<string, unknown>): Partial<MockProfile> {
+  const out: Record<string, unknown> = {}
+  for (const key of PROFILE_UPDATE_FIELDS) {
+    if (key in raw) out[key] = raw[key]
+  }
+  if (typeof out.country_code === 'string' && out.country_code) {
+    const v = out.country_code.trim().toUpperCase()
+    if (v && !/^[A-Z]{2}$/.test(v)) {
+      throw new ApiError('Bad request', 400, {
+        country_code: ['Use a 2-letter country code (ISO 3166-1).'],
+      })
+    }
+    out.country_code = v
+  }
+  if (typeof out.preferred_currency === 'string' && out.preferred_currency) {
+    const v = out.preferred_currency.trim().toUpperCase()
+    if (v && !/^[A-Z]{3}$/.test(v)) {
+      throw new ApiError('Bad request', 400, {
+        preferred_currency: ['Use a 3-letter currency code (ISO 4217).'],
+      })
+    }
+    out.preferred_currency = v
+  }
+  return out as Partial<MockProfile>
 }
 
 type MockAccReviewRow = {
@@ -497,8 +572,358 @@ let nextShopProductId = Math.max(0, ...mockShopProducts.map((p) => p.id)) + 1
 let nextShopVariantId =
   Math.max(0, ...mockShopProducts.flatMap((p) => p.variants.map((v) => v.id))) + 1
 
+type MockShopProfileRow = {
+  avatar: string | null
+  display_name: string
+  region?: string
+  city?: string
+  fulfillment_notes?: string
+  phone?: string
+  phone_verified?: boolean
+  payout_method?: string
+  payout_account_name?: string
+  payout_account_number?: string
+}
+
 /** Shop storefront profiles by owner username (mock). */
-const mockShopProfiles: Record<string, { avatar: string | null; display_name: string }> = {}
+const mockShopProfiles: Record<string, MockShopProfileRow> = {
+  demo_provider: {
+    avatar: null,
+    display_name: 'Desert Craft Market',
+    region: 'Khomas',
+    city: 'Windhoek',
+    fulfillment_notes: 'Pickup at Independence Ave stall or lodge drop-off in Windhoek.',
+    phone: '+264811234567',
+    phone_verified: true,
+    payout_method: 'mobile_money',
+    payout_account_name: 'Desert Craft',
+    payout_account_number: '0811234567',
+  },
+  food_mgr: { avatar: null, display_name: 'Coastal Pantry' },
+  windhoek_inns: { avatar: null, display_name: 'Dune Stays Gift Desk' },
+}
+
+const mockShopPhoneOtps: Record<string, { phone: string; code: string }> = {}
+
+function mockShopReadiness(row: MockShopProfileRow, emailOk: boolean, me: string) {
+  const profileOk = Boolean(
+    (row.display_name || '').trim() &&
+      (row.region || '').trim() &&
+      (row.city || '').trim() &&
+      (row.fulfillment_notes || '').trim(),
+  )
+  const phoneOk = Boolean((row.phone || '').trim() && row.phone_verified)
+  const payoutOk = Boolean(
+    (row.payout_method || '').trim() &&
+      (row.payout_account_name || '').trim() &&
+      (row.payout_account_number || '').trim(),
+  )
+  const active = mockShopProducts.filter((p) => p.owner_username === me && p.is_active).length
+  const limit = phoneOk ? 40 : 5
+  const canPublish = emailOk && profileOk && active < limit
+  return {
+    email_verified: emailOk,
+    profile_complete: profileOk,
+    phone_verified: phoneOk,
+    payout_details_complete: payoutOk,
+    can_publish: canPublish,
+    can_publish_reason: canPublish
+      ? ''
+      : !emailOk
+        ? 'Verify your email before publishing products.'
+        : !profileOk
+          ? 'Complete your shop profile before publishing.'
+          : `Listing limit of ${limit} reached.`,
+    can_accept_orders: emailOk && profileOk && phoneOk,
+    can_accept_orders_reason:
+      emailOk && profileOk && phoneOk
+        ? ''
+        : !phoneOk
+          ? 'This seller cannot accept paid orders until their phone is verified.'
+          : 'This seller has not finished setting up their shop.',
+    can_receive_payout: emailOk && profileOk && phoneOk && payoutOk,
+    can_receive_payout_reason:
+      emailOk && profileOk && phoneOk && payoutOk
+        ? ''
+        : 'Add payout details in shop settings before funds can be released.',
+    active_listings: active,
+    max_active_listings: limit,
+    checklist: [
+      { id: 'email', label: 'Email verified', done: emailOk },
+      { id: 'profile', label: 'Shop profile complete', done: profileOk },
+      { id: 'phone', label: 'Phone verified', done: phoneOk },
+      { id: 'payout', label: 'Payout details saved', done: payoutOk },
+    ],
+  }
+}
+
+function serializeMockShopProfile(me: string, row: MockShopProfileRow, emailOk: boolean) {
+  return {
+    display_name: row.display_name,
+    avatar: row.avatar,
+    region: row.region ?? '',
+    city: row.city ?? '',
+    fulfillment_notes: row.fulfillment_notes ?? '',
+    phone: row.phone ?? '',
+    phone_verified: Boolean(row.phone_verified),
+    phone_verified_at: row.phone_verified ? nowIso() : null,
+    payout_method: row.payout_method ?? '',
+    payout_account_name: row.payout_account_name ?? '',
+    payout_account_number: row.payout_account_number ?? '',
+    payout_details_set_at: row.payout_method ? nowIso() : null,
+    readiness: mockShopReadiness(row, emailOk, me),
+    updated_at: nowIso(),
+  }
+}
+
+type MockActivityMedia = { kind: 'image' | 'video'; src: string; caption?: string }
+
+type MockActivityRow = {
+  id: number
+  owner_username: string
+  title: string
+  description: string
+  tagline: string
+  category: string
+  country_code: string
+  region: string
+  city: string
+  meeting_point: string
+  duration_hours: string
+  price_from: string
+  currency: string
+  price_note: string
+  max_group_size: number | null
+  min_age: number | null
+  languages: string[]
+  includes: string[]
+  excludes: string[]
+  phone: string
+  media_gallery: MockActivityMedia[]
+  cover_image: string
+  cover_kind: 'image' | 'video'
+  rating_avg: string
+  rating_count: number
+  is_featured: boolean
+  is_active: boolean
+  created_at: string
+}
+
+const ACTIVITY_CATEGORY_LABELS: Record<string, string> = {
+  drives: 'Drives & scenic tours',
+  safari_wildlife: 'Safari & wildlife',
+  adventure: 'Adventure',
+  water: 'Water activities',
+  cultural: 'Cultural experiences',
+  wellness: 'Wellness & nature',
+  other: 'Other',
+}
+
+const mockActivities: MockActivityRow[] = [
+  {
+    id: 1201,
+    owner_username: 'demo_provider',
+    title: 'Sunset dune drive',
+    description:
+      'A guided scenic drive timed for sunset — soft light, photo stops, and a short walk on the ridge. Suitable for most fitness levels.',
+    tagline: 'Golden hour across the dunes',
+    category: 'drives',
+    country_code: 'NA',
+    region: 'Erongo',
+    city: 'Swakopmund',
+    meeting_point: 'Swakopmund jetty parking',
+    duration_hours: '3.0',
+    price_from: '850.00',
+    currency: 'NAD',
+    price_note: 'per person',
+    max_group_size: 8,
+    min_age: null,
+    languages: ['English'],
+    includes: ['Vehicle', 'Guide', 'Bottled water'],
+    excludes: ['Personal tips'],
+    phone: '+264 81 000 1111',
+    media_gallery: [
+      {
+        kind: 'image',
+        src: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1200&q=80',
+        caption: 'Dune ridge',
+      },
+      {
+        kind: 'video',
+        src: 'https://res.cloudinary.com/demo/video/upload/dog.mp4',
+        caption: 'Teaser clip',
+      },
+    ],
+    cover_image:
+      'https://images.unsplash.com/photo-1509316785289-025f5b846b35?auto=format&fit=crop&w=1200&q=80',
+    cover_kind: 'image',
+    rating_avg: '4.80',
+    rating_count: 24,
+    is_featured: true,
+    is_active: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
+  },
+  {
+    id: 1202,
+    owner_username: 'stays_host',
+    title: 'Harbour kayak morning',
+    description: 'Paddle a sheltered harbour route with a certified instructor.',
+    tagline: 'Calm water, city skyline',
+    category: 'water',
+    country_code: 'ZA',
+    region: 'Western Cape',
+    city: 'Cape Town',
+    meeting_point: 'V&A Waterfront kayak desk',
+    duration_hours: '2.0',
+    price_from: '650.00',
+    currency: 'ZAR',
+    price_note: 'per person',
+    max_group_size: 6,
+    min_age: 12,
+    languages: ['English', 'Afrikaans'],
+    includes: ['Kayak', 'Paddle', 'Life jacket'],
+    excludes: [],
+    phone: '+27 21 000 2222',
+    media_gallery: [
+      {
+        kind: 'image',
+        src: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        kind: 'video',
+        src: 'https://res.cloudinary.com/demo/video/upload/dog.mp4',
+      },
+    ],
+    cover_image: 'https://res.cloudinary.com/demo/video/upload/dog.mp4',
+    cover_kind: 'video',
+    rating_avg: '4.60',
+    rating_count: 11,
+    is_featured: false,
+    is_active: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
+  },
+  {
+    id: 1203,
+    owner_username: 'demo_provider',
+    title: 'Half-day wildlife drive',
+    description:
+      'Morning game-viewing drive with a local tracker. Bring binoculars — we provide refreshments.',
+    tagline: 'Track and watch',
+    category: 'safari_wildlife',
+    country_code: 'NA',
+    region: 'Otjozondjupa',
+    city: 'Okahandja',
+    meeting_point: 'Lodge front desk',
+    duration_hours: '4.0',
+    price_from: '1200.00',
+    currency: 'NAD',
+    price_note: 'per person',
+    max_group_size: 10,
+    min_age: 8,
+    languages: ['English'],
+    includes: ['Open vehicle', 'Guide', 'Soft drinks'],
+    excludes: ['Park fees'],
+    phone: '+264 81 000 1111',
+    media_gallery: [
+      {
+        kind: 'image',
+        src: 'https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    cover_image:
+      'https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=1200&q=80',
+    cover_kind: 'image',
+    rating_avg: '4.90',
+    rating_count: 41,
+    is_featured: true,
+    is_active: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+  },
+  {
+    id: 1204,
+    owner_username: 'guide_mgr',
+    title: 'Village walking experience',
+    description: 'A respectful cultural walk with a community host — crafts, stories, and local snacks.',
+    tagline: 'Meet and learn',
+    category: 'cultural',
+    country_code: 'KE',
+    region: 'Nairobi',
+    city: 'Nairobi',
+    meeting_point: 'Community centre gate',
+    duration_hours: '2.5',
+    price_from: '45.00',
+    currency: 'USD',
+    price_note: 'per person',
+    max_group_size: 12,
+    min_age: null,
+    languages: ['English', 'Swahili'],
+    includes: ['Host guide', 'Snack tasting'],
+    excludes: ['Souvenir purchases'],
+    phone: '',
+    media_gallery: [
+      {
+        kind: 'image',
+        src: 'https://images.unsplash.com/photo-1523805009345-7448845a9e53?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    cover_image:
+      'https://images.unsplash.com/photo-1523805009345-7448845a9e53?auto=format&fit=crop&w=1200&q=80',
+    cover_kind: 'image',
+    rating_avg: '4.70',
+    rating_count: 18,
+    is_featured: false,
+    is_active: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(),
+  },
+]
+let nextActivityId = Math.max(0, ...mockActivities.map((a) => a.id)) + 1
+
+type MockActivityReview = {
+  id: number
+  listing_id: number
+  reviewer: string
+  rating: number
+  body: string
+  media: { url: string; kind: 'image' | 'video' }[]
+  seller_reply: string
+  created_at: string
+}
+
+const mockActivityReviews: MockActivityReview[] = [
+  {
+    id: 1,
+    listing_id: 1201,
+    reviewer: 'traveler_demo',
+    rating: 5,
+    body: 'Incredible light and a calm pace — the photo stops were perfectly timed.',
+    media: [],
+    seller_reply: 'Thanks for riding with us — glad the sunset delivered!',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+  },
+  {
+    id: 2,
+    listing_id: 1201,
+    reviewer: 'demo_user',
+    rating: 4,
+    body: 'Beautiful dunes. Bring a windbreaker — it gets chilly after sunset.',
+    media: [],
+    seller_reply: '',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 80).toISOString(),
+  },
+  {
+    id: 3,
+    listing_id: 1203,
+    reviewer: 'demo_user',
+    rating: 5,
+    body: 'Tracker was excellent. Saw plenty of game before noon.',
+    media: [],
+    seller_reply: '',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 55).toISOString(),
+  },
+]
+
+let nextActivityReviewId = Math.max(0, ...mockActivityReviews.map((r) => r.id)) + 1
+const mockActivitySaves = new Map<number, Set<string>>()
 
 type MockCartItemRow = {
   id: number
@@ -755,6 +1180,17 @@ type MockUserBusiness = {
 
 const mockUserBusinesses = new Map<string, MockUserBusiness[]>()
 let mockUserBusinessNextId = 9000
+let mockBizDocNextId = 1
+const mockBizDocuments = new Map<number, { id: number; doc_type: string; file: string; status: string; notes: string; uploaded_at: string }[]>()
+
+const MOCK_REQUIRED_DOCS: Record<string, string[]> = {
+  accommodation: ['business_registration', 'tourism_license'],
+  guide: ['national_id', 'tour_guide_license', 'first_aid_cert'],
+  food_drink: ['business_registration'],
+  retail_shop: ['business_registration'],
+  activity: ['business_registration'],
+  transport: ['business_registration', 'operating_permit'],
+}
 let mockTravelOfferNextId = 5000
 
 const ELIGIBILITY_LABELS: Record<string, string> = {
@@ -1772,7 +2208,7 @@ function mockProviderGuestUsernames(s: MockState, providerUsername: string): Set
 
   const guide = mockGuides.find((g) => g.username === providerUsername)
   if (guide) {
-    if (guide.username === 'guide_pro') {
+    if (guide.username === 'guide_mgr') {
       guests.add('demo_user')
       guests.add('anna')
     }
@@ -2448,47 +2884,72 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   // ---- Accounts ----
   if (pathname === '/api/accounts/check-username/' && method === 'GET') {
     const qq = (q.get('q') || '').trim()
+    if (qq.length < 2) {
+      throw new ApiError('Bad request', 400, {
+        available: false,
+        detail: 'Query must be at least 2 characters.',
+      })
+    }
     const taken = Object.keys(s.profiles).some((u) => u.toLowerCase() === qq.toLowerCase())
     return { available: !taken, username: qq }
   }
 
   if (pathname === '/api/accounts/token/' && method === 'POST') {
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const data = JSON.parse(init.body) as {
+      username?: string
+      email?: string
+      password?: string
+    }
+    const email = (data.email || '').trim().toLowerCase()
+    const usernameIn = (data.username || '').trim()
+    const password = data.password ?? ''
+    if (email && usernameIn) {
+      throw new ApiError('Bad request', 400, { detail: 'Provide email or username, not both.' })
+    }
+    if (!email && !usernameIn) {
+      throw new ApiError('Bad request', 400, { detail: 'Email or username is required.' })
+    }
+    if (!password) {
+      throw new ApiError('Bad request', 400, { detail: 'Password is required.' })
+    }
     let username = ''
-    if (isJsonBody(init.body)) {
-      const data = JSON.parse(init.body) as { username?: string; email?: string }
-      const email = (data.email || '').trim().toLowerCase()
-      username = (data.username || '').trim()
-      if (!username && email) {
-        username =
-          Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || ''
+    if (email) {
+      username =
+        Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || ''
+      if (!username) {
+        throw new ApiError('Bad request', 400, { email: 'No account found with this email.' })
       }
-      if (!username && email.includes('@')) {
-        username = email.split('@')[0] || ''
+    } else {
+      username =
+        Object.keys(s.profiles).find((u) => u.toLowerCase() === usernameIn.toLowerCase()) || ''
+      if (!username) {
+        throw new ApiError('Bad request', 400, { username: 'No account found with this username.' })
       }
     }
-    if (!username) username = 'demo_user'
-    if (!s.profiles[username]) {
-      s.profiles[username] = {
-        username,
-        email: `${username}@mock.delve`,
-        user_type: 'normal',
-        display_name: username,
-        bio: '',
-        region: 'Khomas',
-        city: 'Windhoek',
-        country_code: '',
-        preferred_currency: '',
-        avatar: null,
-        email_verified: true,
-        is_private: false,
-        posts_visibility: 'public',
-        allow_messages: true,
-        show_in_search: true,
-      }
+    if (mockPasswordFor(username) !== password) {
+      throw new ApiError('Unauthorized', 401, {
+        detail: 'No active account found with the given credentials',
+      })
     }
     s.currentUser = username
     saveState(s)
-    return { access: `mock_access_${username}`, refresh: `mock_refresh_${username}` }
+    return issueMockTokens(username)
+  }
+
+  if (pathname === '/api/accounts/token/refresh/' && method === 'POST') {
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as { refresh?: string }
+    const refresh = (body.refresh || '').trim()
+    const m = /^mock_refresh_(.+)$/.exec(refresh)
+    if (!m || !s.profiles[m[1]]) {
+      throw new ApiError('Unauthorized', 401, { detail: 'Token is invalid or expired' })
+    }
+    return { access: `mock_access_${m[1]}` }
   }
 
   if (pathname === '/api/accounts/me/' && method === 'GET') {
@@ -2761,13 +3222,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (init.body instanceof FormData) {
       // Extract text fields; avatar becomes an object-URL blob reference
       const fd = init.body
+      const raw: Record<string, unknown> = {}
       for (const [key, val] of fd.entries()) {
         if (key === 'avatar' && val instanceof File) {
           // Store a data-URL so it persists across page reloads
           const buf = await val.arrayBuffer()
           const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)))
-          const dataUrl = `data:${val.type};base64,${b64}`;
-          (data as Record<string, unknown>)['avatar'] = dataUrl
+          const dataUrl = `data:${val.type};base64,${b64}`
+          raw.avatar = dataUrl
         } else if (typeof val === 'string') {
           const strVal = val
           if (
@@ -2776,12 +3238,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
             key === 'show_in_search' ||
             key === 'no_face_mode'
           ) {
-            (data as Record<string, unknown>)[key] = strVal === 'true'
+            raw[key] = strVal === 'true'
           } else {
-            (data as Record<string, unknown>)[key] = strVal
+            raw[key] = strVal
           }
         }
       }
+      data = pickProfileUpdates(raw)
     } else if (isJsonBody(init.body)) {
       const raw = JSON.parse(init.body) as Record<string, unknown>
       // Ensure boolean fields come through correctly whether sent as bool or string
@@ -2790,11 +3253,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if ('show_in_search' in raw) raw['show_in_search'] = raw['show_in_search'] === true || raw['show_in_search'] === 'true'
       if ('no_face_mode' in raw) raw['no_face_mode'] = raw['no_face_mode'] === true || raw['no_face_mode'] === 'true'
       if ('avatar' in raw && (raw.avatar === null || raw.avatar === '')) raw.avatar = null
-      data = raw as Partial<MockProfile>
+      data = pickProfileUpdates(raw)
     }
     s.profiles[me] = { ...s.profiles[me], ...data, username: me, email: s.profiles[me].email }
     saveState(s)
-    return s.profiles[me]
+    return { ...s.profiles[me], is_staff: s.profiles[me].is_staff ?? false }
   }
 
   if (pathname === '/api/accounts/me/change-password/' && method === 'POST') {
@@ -2802,14 +3265,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!isJsonBody(init?.body)) {
       throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
     }
+    const me = s.currentUser as string
     const body = JSON.parse(init.body) as { current_password?: string; new_password?: string }
-    if (!body.current_password?.trim() || !body.new_password) {
+    if (!body.current_password || !body.new_password) {
       throw new ApiError('Bad request', 400, { detail: 'current_password and new_password are required.' })
+    }
+    if (mockPasswordFor(me) !== body.current_password) {
+      throw new ApiError('Bad request', 400, { detail: 'Current password is incorrect.' })
+    }
+    if (body.current_password === body.new_password) {
+      throw new ApiError('Bad request', 400, {
+        detail: 'New password must be different from your current password.',
+      })
     }
     if (body.new_password.length < 8) {
       throw new ApiError('Bad request', 400, { detail: ['This password is too short.'] })
     }
-    return { detail: 'Password updated.' }
+    setMockPassword(me, body.new_password)
+    return {
+      detail: 'Password updated.',
+      ...issueMockTokens(me),
+    }
   }
 
   if (pathname === '/api/accounts/me/delete/' && method === 'POST') {
@@ -2824,6 +3300,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     if (!body.current_password?.trim()) {
       throw new ApiError('Bad request', 400, { detail: 'current_password is required.' })
+    }
+    if (mockPasswordFor(me) !== body.current_password) {
+      throw new ApiError('Bad request', 400, { detail: 'Current password is incorrect.' })
     }
     const old = s.profiles[me]
     const tombstone = `deleted_${me}`
@@ -2849,16 +3328,36 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   if (pathname === '/api/accounts/register/' && method === 'POST') {
-    const data = isJsonBody(init.body)
-      ? (JSON.parse(init.body) as { username: string; email: string; user_type?: 'normal' | 'service_provider' })
-      : { username: 'new_user', email: 'new@mock', user_type: 'normal' as const }
-    const u = data.username.trim()
-    if (s.profiles[u]) {
-      return { detail: 'Username is already taken.' }
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const data = JSON.parse(init.body) as {
+      username?: string
+      email?: string
+      password?: string
+      user_type?: 'normal' | 'service_provider'
+    }
+    const u = (data.username || '').trim()
+    const email = (data.email || '').trim().toLowerCase()
+    const password = data.password ?? ''
+    if (u.length < 3) {
+      throw new ApiError('Bad request', 400, { username: ['Ensure this field has at least 3 characters.'] })
+    }
+    if (!email) {
+      throw new ApiError('Bad request', 400, { email: ['This field is required.'] })
+    }
+    if (password.length < 8) {
+      throw new ApiError('Bad request', 400, { password: ['This password is too short.'] })
+    }
+    if (Object.keys(s.profiles).some((k) => k.toLowerCase() === u.toLowerCase())) {
+      throw new ApiError('Bad request', 400, { username: ['Username is already taken.'] })
+    }
+    if (Object.values(s.profiles).some((p) => p.email?.toLowerCase() === email)) {
+      throw new ApiError('Bad request', 400, { email: ['Email is already registered.'] })
     }
     s.profiles[u] = {
       username: u,
-      email: data.email,
+      email,
       user_type: data.user_type || 'normal',
       display_name: u,
       bio: '',
@@ -2873,9 +3372,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       allow_messages: true,
       show_in_search: true,
     }
+    setMockPassword(u, password)
     createMockVerificationToken(u)
     saveState(s)
-    return { detail: 'Account created (mock). Check console for verification token in dev.' }
+    const user_id = Object.keys(s.profiles).indexOf(u) + 1
+    return {
+      detail: 'Account created. Check your email (or console in dev) to verify.',
+      user_id,
+      username: u,
+    }
   }
 
   if (pathname === '/api/accounts/verify-email/' && method === 'POST') {
@@ -2884,7 +3389,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     const body = JSON.parse(init.body) as { token?: string }
     const raw = (body.token || '').trim()
-    const username = raw ? mockVerificationTokens.get(raw) : undefined
+    if (!raw) {
+      throw new ApiError('Bad request', 400, { detail: 'token required' })
+    }
+    const uuidOk =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)
+    if (!uuidOk) {
+      throw new ApiError('Bad request', 400, { detail: 'invalid token' })
+    }
+    const username = mockVerificationTokens.get(raw)
     if (!username || !s.profiles[username]) {
       throw new ApiError('invalid or expired token', 400, { detail: 'invalid or expired token' })
     }
@@ -2892,7 +3405,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     mockVerificationTokens.delete(raw)
     s.currentUser = username
     saveState(s)
-    return { detail: 'Email verified (mock).', ...issueMockTokens(username) }
+    return { detail: 'Email verified.', ...issueMockTokens(username) }
   }
 
   if (pathname === '/api/accounts/resend-verification/' && method === 'POST') {
@@ -2923,6 +3436,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!body.email?.trim()) {
       throw new ApiError('Bad request', 400, { detail: 'email is required.' })
     }
+    const email = body.email.trim().toLowerCase()
+    const username =
+      Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || null
+    if (username && !username.startsWith('deleted_') && !s.profiles[username].is_staff) {
+      createMockPasswordResetToken(username)
+    }
     return { detail: 'If an account exists, we sent reset instructions.' }
   }
 
@@ -2931,12 +3450,25 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       throw new ApiError('Bad request', 400, { detail: 'token and new_password are required.' })
     }
     const body = JSON.parse(init.body) as { token?: string; new_password?: string }
-    if (!body.token?.trim() || !body.new_password) {
+    const raw = (body.token || '').trim()
+    const newPassword = body.new_password ?? ''
+    if (!raw || !newPassword) {
       throw new ApiError('Bad request', 400, { detail: 'token and new_password are required.' })
     }
-    if (body.new_password.length < 8) {
+    const uuidOk =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)
+    if (!uuidOk) {
+      throw new ApiError('Bad request', 400, { detail: 'invalid token' })
+    }
+    if (newPassword.length < 8) {
       throw new ApiError('Bad request', 400, { detail: ['This password is too short.'] })
     }
+    const username = mockPasswordResetTokens.get(raw)
+    if (!username || !s.profiles[username]) {
+      throw new ApiError('Bad request', 400, { detail: 'invalid or expired token' })
+    }
+    setMockPassword(username, newPassword)
+    mockPasswordResetTokens.delete(raw)
     return { detail: 'Password updated.' }
   }
 
@@ -3152,11 +3684,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.currentUser as string
     const prof = s.profiles[me]
-    if (prof?.user_type !== 'service_provider') throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    if (prof?.user_type !== 'service_provider') {
+      throw new ApiError('Forbidden', 403, {
+        detail: 'Only service providers can create a business profile.',
+      })
+    }
     const existingOverlays = mockUserBusinesses.get(me) ?? []
-    const hasSeeded = mockBusinessProfiles.some((b) => b.owner_username === me)
-    if (existingOverlays.length > 0 || hasSeeded) {
-      throw new ApiError('Already exists', 400, { detail: 'You already have a business profile.' })
+    const seededOwned = mockBusinessProfiles.filter((b) => b.owner_username === me).length
+    if (existingOverlays.length + seededOwned >= 10) {
+      throw new ApiError('Bad request', 400, {
+        detail: 'You can create up to 10 businesses. Archive or contact support if you need more.',
+      })
     }
     if (!isJsonBody(init.body)) throw new ApiError('Bad request', 400, { detail: 'Invalid body' })
     const data = JSON.parse(init.body) as {
@@ -3168,17 +3706,26 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       region?: string
       city?: string
     }
-    const slug = data.business_name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 70) || 'business'
+    const types = Array.isArray(data.business_types)
+      ? [...new Set(data.business_types.filter(Boolean))]
+      : []
+    if (types.length === 0) {
+      throw new ApiError('Bad request', 400, { detail: 'Select at least one service type.' })
+    }
+    if (types.length > 1 && !types.includes('multi_provider')) types.push('multi_provider')
+    const slugBase =
+      data.business_name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 70) || 'business'
+    const slug = `${slugBase}-${mockUserBusinessNextId}`
     const biz: MockUserBusiness = {
       id: mockUserBusinessNextId++,
       slug,
       owner_username: me,
       business_name: data.business_name.trim(),
-      business_types: data.business_types,
+      business_types: types,
       transport_modes: data.transport_modes,
       verification_status: 'unverified',
       description: data.description?.trim() ?? '',
@@ -3189,7 +3736,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       city: data.city?.trim() ?? '',
       onboarding_completed: false,
     }
-    mockUserBusinesses.set(me, [biz])
+    mockUserBusinesses.set(me, [...existingOverlays, biz])
     return serializeMyBusiness(biz)
   }
 
@@ -3216,13 +3763,64 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   const myBizDocsMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/documents\/?$/)
-  if (myBizDocsMatch && method === 'POST') {
+  if (myBizDocsMatch && method === 'GET') {
     requireAuth(s)
     const me = s.currentUser as string
     const id = Number(myBizDocsMatch[1])
     const list = mockUserBusinesses.get(me) ?? []
     if (!list.some((b) => b.id === id)) throw new ApiError('Not found', 404, { detail: 'Not found.' })
-    return { id: Date.now(), doc_type: 'other', doc_type_label: 'Document', file: '', status: 'pending', notes: '', uploaded_at: new Date().toISOString() }
+    return mockBizDocuments.get(id) ?? []
+  }
+  if (myBizDocsMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const id = Number(myBizDocsMatch[1])
+    const list = mockUserBusinesses.get(me) ?? []
+    const biz = list.find((b) => b.id === id)
+    if (!biz) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (biz.verification_status === 'verified' || biz.verification_status === 'suspended') {
+      throw new ApiError('Bad Request', 400, { detail: 'Cannot upload documents for this business.' })
+    }
+    let docType = 'other'
+    if (init.body instanceof FormData && init.body.has('doc_type')) {
+      docType = String(init.body.get('doc_type') || 'other')
+    } else if (isJsonBody(init.body)) {
+      const body = JSON.parse(init.body) as { doc_type?: string }
+      if (body.doc_type) docType = body.doc_type
+    }
+    const rows = mockBizDocuments.get(id) ?? []
+    const filtered = rows.filter((d) => d.doc_type !== docType)
+    const row = {
+      id: mockBizDocNextId++,
+      doc_type: docType,
+      doc_type_label: docType.replace(/_/g, ' '),
+      file: 'https://mock.local/docs/' + docType + '.pdf',
+      status: 'pending',
+      notes: '',
+      uploaded_at: nowIso(),
+    }
+    filtered.push(row)
+    mockBizDocuments.set(id, filtered)
+    return row
+  }
+
+  const myBizDocDetailMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/documents\/(\d+)\/?$/)
+  if (myBizDocDetailMatch && method === 'DELETE') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const bizId = Number(myBizDocDetailMatch[1])
+    const docId = Number(myBizDocDetailMatch[2])
+    const list = mockUserBusinesses.get(me) ?? []
+    const biz = list.find((b) => b.id === bizId)
+    if (!biz) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (biz.verification_status === 'verified') {
+      throw new ApiError('Bad Request', 400, { detail: 'Cannot remove documents from a verified business.' })
+    }
+    const rows = mockBizDocuments.get(bizId) ?? []
+    const next = rows.filter((d) => d.id !== docId)
+    if (next.length === rows.length) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    mockBizDocuments.set(bizId, next)
+    return null
   }
 
   const myBizSubmitMatch = pathname.match(/^\/api\/accounts\/me\/businesses\/(\d+)\/submit-verification\/?$/)
@@ -3233,6 +3831,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const list = mockUserBusinesses.get(me) ?? []
     const biz = list.find((b) => b.id === id)
     if (!biz) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const docs = mockBizDocuments.get(id) ?? []
+    if (docs.length === 0) {
+      throw new ApiError('Bad Request', 400, {
+        detail: 'Upload at least one verification document before submitting.',
+      })
+    }
+    const required = new Set<string>()
+    for (const t of biz.business_types) {
+      for (const d of MOCK_REQUIRED_DOCS[t] ?? []) required.add(d)
+    }
+    const uploaded = new Set(docs.map((d) => d.doc_type))
+    const missing = [...required].filter((d) => !uploaded.has(d))
+    if (missing.length) {
+      throw new ApiError('Bad Request', 400, {
+        detail: `Upload the required documents before submitting: ${missing.join(', ')}.`,
+      })
+    }
     biz.onboarding_completed = true
     biz.verification_status = 'pending'
     return serializeMyBusiness(biz)
@@ -3297,8 +3912,16 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const b = mockBusinessProfiles.find((x) => x.id === Number(adminBizVerifyMatch[1]))
     if (!b) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     if (isJsonBody(init.body)) {
-      const data = JSON.parse(init.body) as { verification_status?: string }
-      if (data.verification_status) b.verification_status = data.verification_status as typeof b.verification_status
+      const data = JSON.parse(init.body) as { verification_status?: string; reason?: string }
+      const next = data.verification_status
+      if (next === 'rejected' || next === 'suspended') {
+        if (!(data.reason || '').trim()) {
+          throw new ApiError('Bad Request', 400, {
+            detail: 'A reason is required when rejecting or suspending a business.',
+          })
+        }
+      }
+      if (next) b.verification_status = next as typeof b.verification_status
     }
     return {
       id: b.id,
@@ -4522,7 +5145,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       rows.push({ target_type: 'accommodation', target_id: String(st.id), label: st.title, region: st.region, city: st.city, category_label: 'Stay' })
     })
     mockFood.filter((f) => f.owner_username === me).forEach((f) => {
-      rows.push({ target_type: 'food', target_id: String(f.id), label: f.name, region: f.region, city: f.city, category_label: 'Food & drink' })
+      rows.push({ target_type: 'food', target_id: String(f.id), label: f.name, region: f.region, city: f.city, category_label: 'Foodies' })
     })
     mockGuides.filter((g) => g.username === me).forEach((g) => {
       rows.push({ target_type: 'guide', target_id: String(g.id), label: g.headline, region: (g.regions || []).join(', '), city: '', category_label: 'Guide' })
@@ -7301,12 +7924,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   function serializeShopProduct(row: MockShopProductRow) {
     const owner = s.profiles[row.owner_username]
+    const shop = mockShopProfiles[row.owner_username]
     const priceNum = Number(row.price)
     const base = Number.isFinite(priceNum) ? `N$${priceNum.toFixed(2).replace(/\.00$/, '')}` : `N$${row.price}`
     return {
       ...row,
-      owner_display_name: owner?.display_name ?? row.owner_username,
-      owner_avatar: owner?.avatar ?? null,
+      owner_display_name:
+        (shop?.display_name || '').trim() || owner?.display_name || row.owner_username,
+      owner_avatar: shop?.avatar ?? owner?.avatar ?? null,
       category_label: shopCategoryLabelFor(row.category),
       price_label: row.price_note ? `${base} ${row.price_note}` : base,
       variants: row.variants.map((v) => ({
@@ -7314,6 +7939,318 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         effective_price: Number(v.price_override ?? row.price).toFixed(2),
       })),
     }
+  }
+
+  function activityDurationLabel(hoursRaw: string | number): string {
+    const hours = Number(hoursRaw)
+    if (!Number.isFinite(hours) || hours <= 0) return ''
+    if (hours === Math.floor(hours)) {
+      const h = Math.floor(hours)
+      return h === 1 ? '1 hour' : `${h} hours`
+    }
+    return `${hours} hours`
+  }
+
+  function activityPriceLabel(row: MockActivityRow): string {
+    const amount = Number(row.price_from)
+    const currency = (row.currency || '').trim().toUpperCase()
+    let base =
+      currency === 'NAD'
+        ? `N$${amount.toFixed(2).replace(/\.00$/, '')}`
+        : currency
+          ? `${currency} ${amount.toFixed(2).replace(/\.00$/, '')}`
+          : amount.toFixed(2).replace(/\.00$/, '')
+    const note = (row.price_note || '').trim()
+    return note ? `${base} ${note}` : base
+  }
+
+  function serializeActivity(row: MockActivityRow) {
+    const owner = s.profiles[row.owner_username]
+    const me = s.currentUser as string | null
+    const savers = mockActivitySaves.get(row.id) ?? new Set<string>()
+    return {
+      ...row,
+      owner_display_name: owner?.display_name || row.owner_username,
+      owner_avatar: owner?.avatar ?? null,
+      category_label: ACTIVITY_CATEGORY_LABELS[row.category] || row.category,
+      price_label: activityPriceLabel(row),
+      duration_label: activityDurationLabel(row.duration_hours),
+      saved_by_me: Boolean(me && savers.has(me)),
+      saves_count: savers.size,
+    }
+  }
+
+  // ---- Activities marketplace ----
+  if (pathname === '/api/activities/listings/' && method === 'GET') {
+    const categoryQ = (q.get('category') || '').trim()
+    const searchQ = (q.get('search') || '').trim()
+    const regionQ = (q.get('region') || '').trim()
+    const countryQ = (q.get('country_code') || '').trim()
+    return mockActivities
+      .filter((a) => a.is_active)
+      .filter((a) => (categoryQ ? textMatch(a.category, categoryQ) : true))
+      .filter((a) => (countryQ ? textMatch(a.country_code, countryQ) : true))
+      .filter((a) =>
+        regionQ ? textMatch(a.region, regionQ) || textMatch(a.city, regionQ) || !a.region : true,
+      )
+      .filter((a) =>
+        searchQ
+          ? textMatch(a.title, searchQ) ||
+            textMatch(a.description, searchQ) ||
+            textMatch(a.tagline, searchQ) ||
+            textMatch(a.city, searchQ) ||
+            textMatch(a.region, searchQ) ||
+            textMatch(a.meeting_point, searchQ)
+          : true,
+      )
+      .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || b.created_at.localeCompare(a.created_at))
+      .map((a) => serializeActivity(a))
+  }
+
+  const activityPublicMatch = pathname.match(/^\/api\/activities\/listings\/(\d+)\/?$/)
+  if (activityPublicMatch && method === 'GET') {
+    const id = Number(activityPublicMatch[1])
+    const row = mockActivities.find((a) => a.id === id)
+    if (!row || !row.is_active) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return serializeActivity(row)
+  }
+
+  if (pathname === '/api/activities/provider-listings/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockActivities.filter((a) => a.owner_username === me).map((a) => serializeActivity(a))
+  }
+
+  if (pathname === '/api/activities/provider-listings/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const body = (isJsonBody(init.body) ? JSON.parse(String(init.body)) : {}) as Record<string, unknown>
+    const galleryRaw = Array.isArray(body.media_gallery) ? body.media_gallery : []
+    const gallery: MockActivityMedia[] = galleryRaw
+      .map((item) => {
+        if (typeof item === 'string' && item.trim()) return { kind: 'image' as const, src: item.trim() }
+        if (!item || typeof item !== 'object') return null
+        const row = item as Record<string, unknown>
+        const src = String(row.src || row.url || row.image || '').trim()
+        if (!src) return null
+        const kind = String(row.kind || 'image').toLowerCase() === 'video' ? 'video' : 'image'
+        return { kind: kind as 'image' | 'video', src, caption: String(row.caption || '').slice(0, 200) }
+      })
+      .filter((x): x is MockActivityMedia => Boolean(x))
+    const cover = String(body.cover_image || gallery[0]?.src || '').trim()
+    const coverKind =
+      String(body.cover_kind || gallery[0]?.kind || 'image').toLowerCase() === 'video' ? 'video' : 'image'
+    const row: MockActivityRow = {
+      id: nextActivityId++,
+      owner_username: me,
+      title: String(body.title || 'Untitled activity').trim(),
+      description: String(body.description || ''),
+      tagline: String(body.tagline || ''),
+      category: String(body.category || 'other'),
+      country_code: String(body.country_code || '').trim().toUpperCase().slice(0, 2),
+      region: String(body.region || ''),
+      city: String(body.city || ''),
+      meeting_point: String(body.meeting_point || ''),
+      duration_hours: String(body.duration_hours || '2'),
+      price_from: String(body.price_from || '0'),
+      currency: String(body.currency || '').trim().toUpperCase().slice(0, 3),
+      price_note: String(body.price_note || ''),
+      max_group_size: body.max_group_size != null && body.max_group_size !== '' ? Number(body.max_group_size) : null,
+      min_age: body.min_age != null && body.min_age !== '' ? Number(body.min_age) : null,
+      languages: Array.isArray(body.languages) ? body.languages.map(String) : [],
+      includes: Array.isArray(body.includes) ? body.includes.map(String) : [],
+      excludes: Array.isArray(body.excludes) ? body.excludes.map(String) : [],
+      phone: String(body.phone || ''),
+      media_gallery: gallery,
+      cover_image: cover,
+      cover_kind: coverKind,
+      rating_avg: '0.00',
+      rating_count: 0,
+      is_featured: Boolean(body.is_featured),
+      is_active: Boolean(body.is_active),
+      created_at: nowIso(),
+    }
+    mockActivities.unshift(row)
+    return serializeActivity(row)
+  }
+
+  if (pathname === '/api/activities/listings/saved/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    return mockActivities
+      .filter((a) => a.is_active && mockActivitySaves.get(a.id)?.has(me))
+      .map((a) => serializeActivity(a))
+  }
+
+  const activitySaveMatch = pathname.match(/^\/api\/activities\/listings\/(\d+)\/save\/?$/)
+  if (activitySaveMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const listingId = Number(activitySaveMatch[1])
+    const listing = mockActivities.find((a) => a.id === listingId && a.is_active)
+    if (!listing) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    let savers = mockActivitySaves.get(listingId)
+    if (!savers) {
+      savers = new Set<string>()
+      mockActivitySaves.set(listingId, savers)
+    }
+    if (savers.has(me)) {
+      savers.delete(me)
+      return { saved: false, saves_count: savers.size }
+    }
+    savers.add(me)
+    return { saved: true, saves_count: savers.size }
+  }
+
+  const activityReviewsMatch = pathname.match(/^\/api\/activities\/listings\/(\d+)\/reviews\/?$/)
+  if (activityReviewsMatch && method === 'GET') {
+    const listingId = Number(activityReviewsMatch[1])
+    const listing = mockActivities.find((a) => a.id === listingId && a.is_active)
+    if (!listing) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const me = s.currentUser as string | null
+    const reviews = mockActivityReviews
+      .filter((r) => r.listing_id === listingId)
+      .map((r) => ({
+        id: r.id,
+        name: r.reviewer,
+        avatar: null,
+        rating: r.rating,
+        body: r.body,
+        seller_reply: r.seller_reply,
+        seller_replied_at: '',
+        media: r.media,
+        verified_experience: false,
+        created_at: r.created_at,
+      }))
+    const distribution: Record<string, number> = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 }
+    for (const r of reviews) {
+      const key = String(r.rating)
+      if (key in distribution) distribution[key] += 1
+    }
+    const hasReviewed = Boolean(me && reviews.some((r) => r.name === me))
+    const isOwner = Boolean(me && listing.owner_username === me)
+    const fromRows = reviews.length > 0
+    const ratingAvg = fromRows
+      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 100) / 100
+      : Number(listing.rating_avg) || 0
+    const ratingCount = fromRows ? reviews.length : listing.rating_count || 0
+    return {
+      reviews,
+      rating_avg: ratingAvg,
+      rating_count: ratingCount,
+      distribution,
+      can_review: Boolean(me) && !isOwner && !hasReviewed,
+      has_reviewed: hasReviewed,
+      is_owner: isOwner,
+    }
+  }
+
+  const activityReviewPostMatch = pathname.match(/^\/api\/activities\/listings\/(\d+)\/review\/?$/)
+  if (activityReviewPostMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const listingId = Number(activityReviewPostMatch[1])
+    const listing = mockActivities.find((a) => a.id === listingId && a.is_active)
+    if (!listing) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (listing.owner_username === me) throw new ApiError('Cannot review own activity', 400, { detail: 'You cannot review your own activity.' })
+    if (mockActivityReviews.some((r) => r.listing_id === listingId && r.reviewer === me)) {
+      throw new ApiError('Already reviewed', 400, { detail: 'You already reviewed this activity.' })
+    }
+    const body = (isJsonBody(init.body) ? JSON.parse(String(init.body)) : {}) as Record<string, unknown>
+    const rating = Math.max(1, Math.min(5, Number(body.rating) || 0))
+    if (!rating) throw new ApiError('Rating required', 400, { detail: 'rating required.' })
+    const mediaRaw = Array.isArray(body.media) ? body.media : []
+    const media = mediaRaw
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null
+        const row = item as Record<string, unknown>
+        const url = String(row.url || '').trim()
+        if (!url) return null
+        return { url, kind: (String(row.kind || 'image') === 'video' ? 'video' : 'image') as 'image' | 'video' }
+      })
+      .filter((x): x is { url: string; kind: 'image' | 'video' } => Boolean(x))
+    const row: MockActivityReview = {
+      id: nextActivityReviewId++,
+      listing_id: listingId,
+      reviewer: me,
+      rating,
+      body: String(body.body || ''),
+      media,
+      seller_reply: '',
+      created_at: nowIso(),
+    }
+    mockActivityReviews.unshift(row)
+    const ratings = mockActivityReviews.filter((r) => r.listing_id === listingId).map((r) => r.rating)
+    listing.rating_count = ratings.length
+    listing.rating_avg = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2)
+    return {
+      id: row.id,
+      name: me,
+      avatar: null,
+      rating: row.rating,
+      body: row.body,
+      seller_reply: '',
+      seller_replied_at: '',
+      media: row.media,
+      verified_experience: false,
+      created_at: row.created_at,
+    }
+  }
+
+  const activityProviderMatch = pathname.match(/^\/api\/activities\/provider-listings\/(\d+)\/?$/)
+  if (activityProviderMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockActivities.find((a) => a.id === Number(activityProviderMatch[1]) && a.owner_username === me)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return serializeActivity(row)
+  }
+
+  if (activityProviderMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockActivities.find((a) => a.id === Number(activityProviderMatch[1]) && a.owner_username === me)
+    if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = (isJsonBody(init.body) ? JSON.parse(String(init.body)) : {}) as Record<string, unknown>
+    if (body.title != null) row.title = String(body.title).trim()
+    if (body.description != null) row.description = String(body.description)
+    if (body.tagline != null) row.tagline = String(body.tagline)
+    if (body.category != null) row.category = String(body.category)
+    if (body.country_code != null) row.country_code = String(body.country_code).trim().toUpperCase().slice(0, 2)
+    if (body.region != null) row.region = String(body.region)
+    if (body.city != null) row.city = String(body.city)
+    if (body.meeting_point != null) row.meeting_point = String(body.meeting_point)
+    if (body.duration_hours != null) row.duration_hours = String(body.duration_hours)
+    if (body.price_from != null) row.price_from = String(body.price_from)
+    if (body.currency != null) row.currency = String(body.currency).trim().toUpperCase().slice(0, 3)
+    if (body.price_note != null) row.price_note = String(body.price_note)
+    if (body.max_group_size !== undefined) {
+      row.max_group_size = body.max_group_size != null && body.max_group_size !== '' ? Number(body.max_group_size) : null
+    }
+    if (body.phone != null) row.phone = String(body.phone)
+    if (Array.isArray(body.includes)) row.includes = body.includes.map(String)
+    if (Array.isArray(body.excludes)) row.excludes = body.excludes.map(String)
+    if (Array.isArray(body.languages)) row.languages = body.languages.map(String)
+    if (Array.isArray(body.media_gallery)) {
+      row.media_gallery = body.media_gallery
+        .map((item) => {
+          if (typeof item === 'string' && item.trim()) return { kind: 'image' as const, src: item.trim() }
+          if (!item || typeof item !== 'object') return null
+          const media = item as Record<string, unknown>
+          const src = String(media.src || media.url || '').trim()
+          if (!src) return null
+          const kind = String(media.kind || 'image').toLowerCase() === 'video' ? 'video' : 'image'
+          return { kind: kind as 'image' | 'video', src, caption: String(media.caption || '') }
+        })
+        .filter((x): x is MockActivityMedia => Boolean(x))
+    }
+    if (body.cover_image != null) row.cover_image = String(body.cover_image)
+    if (body.cover_kind != null) {
+      row.cover_kind = String(body.cover_kind).toLowerCase() === 'video' ? 'video' : 'image'
+    }
+    if (body.is_active != null) row.is_active = Boolean(body.is_active)
+    if (body.is_featured != null) row.is_featured = Boolean(body.is_featured)
+    return serializeActivity(row)
   }
 
   if (pathname === '/api/shop/products/' && method === 'GET') {
@@ -7443,6 +8380,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.currentUser as string
     const data = await parseProviderShopBody(init.body)
+    const wantActive = Boolean(data.is_active)
+    if (wantActive) {
+      const row = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
+      const emailOk = Boolean(s.profiles[me]?.email_verified)
+      const readiness = mockShopReadiness(row, emailOk, me)
+      if (!readiness.can_publish) {
+        throw new ApiError('Bad Request', 400, {
+          is_active: [readiness.can_publish_reason || 'Cannot publish yet.'],
+        })
+      }
+    }
     const row: MockShopProductRow = {
       id: nextShopProductId++,
       owner_username: me,
@@ -7491,6 +8439,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const row = mockShopProducts.find((p) => p.id === Number(providerShopMatch[1]) && p.owner_username === me)
     if (!row) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     const data = await parseProviderShopBody(init.body)
+    const nextActive = data.is_active === undefined ? row.is_active : Boolean(data.is_active)
+    if (nextActive && !row.is_active) {
+      const shopRow = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
+      const emailOk = Boolean(s.profiles[me]?.email_verified)
+      const readiness = mockShopReadiness(shopRow, emailOk, me)
+      if (!readiness.can_publish) {
+        throw new ApiError('Bad Request', 400, {
+          is_active: [readiness.can_publish_reason || 'Cannot publish yet.'],
+        })
+      }
+    }
     const { variants_input, ...rest } = data as Record<string, unknown>
     Object.assign(row, {
       ...rest,
@@ -7508,11 +8467,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.currentUser as string
     const row = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
-    return {
-      display_name: row.display_name,
-      avatar: row.avatar,
-      updated_at: nowIso(),
-    }
+    const emailOk = Boolean(s.profiles[me]?.email_verified)
+    return serializeMockShopProfile(me, row, emailOk)
   }
 
   if (pathname === '/api/shop/provider-profile/' && method === 'PATCH') {
@@ -7522,6 +8478,25 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (init.body instanceof FormData) {
       if (init.body.has('display_name')) {
         row.display_name = String(init.body.get('display_name') ?? '').trim().slice(0, 120)
+      }
+      if (init.body.has('region')) row.region = String(init.body.get('region') ?? '').trim().slice(0, 120)
+      if (init.body.has('city')) row.city = String(init.body.get('city') ?? '').trim().slice(0, 120)
+      if (init.body.has('fulfillment_notes')) {
+        row.fulfillment_notes = String(init.body.get('fulfillment_notes') ?? '').trim().slice(0, 400)
+      }
+      if (init.body.has('phone')) {
+        const next = String(init.body.get('phone') ?? '').trim().slice(0, 40)
+        if (next !== (row.phone || '')) {
+          row.phone = next
+          row.phone_verified = false
+        }
+      }
+      if (init.body.has('payout_method')) row.payout_method = String(init.body.get('payout_method') ?? '').trim()
+      if (init.body.has('payout_account_name')) {
+        row.payout_account_name = String(init.body.get('payout_account_name') ?? '').trim().slice(0, 160)
+      }
+      if (init.body.has('payout_account_number')) {
+        row.payout_account_number = String(init.body.get('payout_account_number') ?? '').trim().slice(0, 80)
       }
       const clear = String(init.body.get('clear_avatar') ?? '').toLowerCase()
       if (clear === 'true' || clear === '1' || clear === 'on') {
@@ -7538,15 +8513,68 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     } else if (isJsonBody(init.body)) {
       const body = JSON.parse(init.body) as Record<string, unknown>
       if (typeof body.display_name === 'string') row.display_name = body.display_name.trim().slice(0, 120)
+      if (typeof body.region === 'string') row.region = body.region.trim().slice(0, 120)
+      if (typeof body.city === 'string') row.city = body.city.trim().slice(0, 120)
+      if (typeof body.fulfillment_notes === 'string') {
+        row.fulfillment_notes = body.fulfillment_notes.trim().slice(0, 400)
+      }
+      if (typeof body.phone === 'string') {
+        const next = body.phone.trim().slice(0, 40)
+        if (next !== (row.phone || '')) {
+          row.phone = next
+          row.phone_verified = false
+        }
+      }
+      if (typeof body.payout_method === 'string') row.payout_method = body.payout_method.trim()
+      if (typeof body.payout_account_name === 'string') {
+        row.payout_account_name = body.payout_account_name.trim().slice(0, 160)
+      }
+      if (typeof body.payout_account_number === 'string') {
+        row.payout_account_number = body.payout_account_number.trim().slice(0, 80)
+      }
       if (body.clear_avatar) row.avatar = null
       else if (typeof body.avatar === 'string') row.avatar = body.avatar
     }
     mockShopProfiles[me] = row
-    return {
-      display_name: row.display_name,
-      avatar: row.avatar,
-      updated_at: nowIso(),
+    return serializeMockShopProfile(me, row, Boolean(s.profiles[me]?.email_verified))
+  }
+
+  if (pathname === '/api/shop/provider-profile/phone/request-otp/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const row = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
+    let phone = row.phone || ''
+    if (isJsonBody(init.body)) {
+      const body = JSON.parse(init.body) as Record<string, unknown>
+      if (typeof body.phone === 'string') phone = body.phone.trim()
     }
+    if (phone.length < 7) throw new ApiError('Bad Request', 400, { detail: 'Enter a valid phone number.' })
+    row.phone = phone.slice(0, 40)
+    row.phone_verified = false
+    mockShopProfiles[me] = row
+    const code = '123456'
+    mockShopPhoneOtps[me] = { phone: row.phone, code }
+    return { detail: 'If your account has an email, we sent a confirmation code.', debug_code: code }
+  }
+
+  if (pathname === '/api/shop/provider-profile/phone/verify/' && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const cached = mockShopPhoneOtps[me]
+    let code = ''
+    if (isJsonBody(init.body)) {
+      const body = JSON.parse(init.body) as Record<string, unknown>
+      if (typeof body.code === 'string') code = body.code.trim()
+    }
+    if (!cached || cached.code !== code) {
+      throw new ApiError('Bad Request', 400, { detail: 'Invalid or expired code.' })
+    }
+    const row = mockShopProfiles[me] ?? { avatar: null, display_name: '' }
+    row.phone = cached.phone
+    row.phone_verified = true
+    mockShopProfiles[me] = row
+    delete mockShopPhoneOtps[me]
+    return serializeMockShopProfile(me, row, Boolean(s.profiles[me]?.email_verified))
   }
 
   // ---- Shop: sellers (storefronts) ----
@@ -7559,11 +8587,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([username, count]) => {
+        const shop = mockShopProfiles[username]
         const prof = s.profiles[username]
         return {
           username,
-          display_name: prof?.display_name ?? username,
-          avatar: prof?.avatar ?? null,
+          display_name:
+            (shop?.display_name || '').trim() ||
+            (prof?.display_name || '').trim() ||
+            username,
+          avatar: shop?.avatar ?? prof?.avatar ?? null,
           region: prof?.region ?? '',
           city: prof?.city ?? '',
           product_count: count,
@@ -7573,22 +8605,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   const shopSellerMatch = pathname.match(/^\/api\/shop\/sellers\/([^/]+)\/?$/)
   if (shopSellerMatch && method === 'GET') {
-    const username = decodeURIComponent(shopSellerMatch[1])
-    const prof = s.profiles[username]
+    const usernameRaw = decodeURIComponent(shopSellerMatch[1])
+    const usernameKey =
+      Object.keys(s.profiles).find((u) => u.toLowerCase() === usernameRaw.toLowerCase()) ||
+      mockShopProducts.find((p) => p.owner_username.toLowerCase() === usernameRaw.toLowerCase())
+        ?.owner_username ||
+      usernameRaw
+    const prof = s.profiles[usernameKey]
     const products = mockShopProducts
-      .filter((p) => p.owner_username === username && p.is_active)
+      .filter((p) => p.owner_username.toLowerCase() === usernameKey.toLowerCase() && p.is_active)
       .sort((a, b) => Number(b.is_featured) - Number(a.is_featured))
       .map((p) => serializeShopProduct(p))
-    if (!prof && products.length === 0) {
+    if (products.length === 0 && !prof && !mockShopProfiles[usernameKey]) {
       throw new ApiError('Not found', 404, { detail: 'Shop not found.' })
     }
     return {
-      username,
+      username: usernameKey,
       display_name:
-        (mockShopProfiles[username]?.display_name || '').trim() ||
+        (mockShopProfiles[usernameKey]?.display_name || '').trim() ||
         prof?.display_name ||
-        username,
-      avatar: mockShopProfiles[username]?.avatar ?? null,
+        usernameKey,
+      avatar: mockShopProfiles[usernameKey]?.avatar ?? null,
       bio: prof?.bio ?? '',
       region: prof?.region ?? '',
       city: prof?.city ?? '',
@@ -8283,7 +9320,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           payout_status: String(row.payout_status ?? 'none'),
         }
       })
-    const all = guide.username === 'guide_pro' ? [...staticRows, ...sessionRows] : sessionRows
+    const all = guide.username === 'guide_mgr' ? [...staticRows, ...sessionRows] : sessionRows
     return all.filter((b) => !status || b.status === status)
   }
 
@@ -9661,8 +10698,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
   }
 
-  // Default: return something safe to keep UI from exploding in mock mode
-  return { detail: `Mock: unhandled ${method} ${pathname}` }
+  // Unhandled routes fail with a quiet 404 (no console spam from mockApi itself).
+  throw new ApiError('Not found', 404, { detail: 'Not found.' })
 }
 
 /** Session-scoped mock coin-toss locations (offsets relative to toss origin). */

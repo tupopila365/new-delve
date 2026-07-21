@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { apiFetch, ApiError } from '../../api/client'
+import { apiFetch } from '../../api/client'
+import { authFormError } from '../../utils/authErrors'
 
 type Props = {
   email?: string
@@ -23,6 +24,7 @@ export function ResendVerificationButton({
   const [err, setErr] = useState<string | null>(null)
 
   async function onResend() {
+    if (busy) return
     setBusy(true)
     setErr(null)
     setMsg(null)
@@ -36,7 +38,7 @@ export function ResendVerificationButton({
       setMsg(res.detail)
       onSent?.()
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Could not resend email.')
+      setErr(authFormError(e, 'Could not resend email.'))
     } finally {
       setBusy(false)
     }

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiFetch, ApiError } from '../api/client'
+import { apiFetch } from '../api/client'
 import { AuthScreen } from '../components/auth'
+import { authFormError } from '../utils/authErrors'
 
 const SENT_MESSAGE = 'If an account exists, we sent reset instructions.'
 
@@ -13,6 +14,7 @@ export function ForgotPassword() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (busy) return
     setErr(null)
     setMsg(null)
     setBusy(true)
@@ -24,7 +26,7 @@ export function ForgotPassword() {
       })
       setMsg(res.detail || SENT_MESSAGE)
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Request failed')
+      setErr(authFormError(e2, 'Could not send reset instructions. Try again.'))
     } finally {
       setBusy(false)
     }
@@ -37,7 +39,7 @@ export function ForgotPassword() {
       hint={
         import.meta.env.DEV ? (
           <>
-            In dev, check the <strong>Django console</strong> for the reset link.
+            In dev, check the <strong>console</strong> (mock) or Django console for the reset link.
           </>
         ) : (
           <>
@@ -51,7 +53,11 @@ export function ForgotPassword() {
         </>
       }
     >
-      {err ? <p className="auth-page__error">{err}</p> : null}
+      {err ? (
+        <p className="auth-page__error" role="alert">
+          {err}
+        </p>
+      ) : null}
       {msg ? <p className="auth-page__success">{msg}</p> : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
         <div className="auth-page__field">
@@ -68,6 +74,7 @@ export function ForgotPassword() {
             autoComplete="email"
             inputMode="email"
             required
+            disabled={busy}
           />
         </div>
         <button type="submit" className="auth-page__submit" disabled={busy || !email.trim()}>

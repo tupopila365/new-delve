@@ -14,6 +14,7 @@ const TYPE_TO_CATEGORY: Record<string, ListingCategory> = {
   food_drink: 'Food',
   event_organiser: 'Event',
   retail_shop: 'Shop',
+  activity: 'Activity',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -22,6 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   transport: 'transport',
   food_drink: 'food & drink',
   retail_shop: 'shop & makers',
+  activity: 'activities',
 }
 
 export function categoriesForBusinessTypes(types: string[]): ListingCategory[] {
@@ -45,16 +47,17 @@ const CATEGORY_CHIP_LABELS: Record<ListingCategory, string> = {
   Stay: 'Stays',
   Guide: 'Guides',
   Transport: 'Transport',
-  Food: 'Food & drink',
+  Food: 'Foodies',
   Event: 'Events',
   Shop: 'Shop',
+  Activity: 'Activities',
 }
 
 export function listingTypeChips(types: string[]): { id: string; label: string }[] {
   const cats = categoriesForBusinessTypes(types)
   const chips: { id: string; label: string }[] = [{ id: 'All', label: 'All' }]
   for (const c of cats) {
-    chips.push({ id: c, label: c === 'Food' ? 'Food & drink' : c })
+    chips.push({ id: c, label: c === 'Food' ? 'Foodies' : c })
   }
   return chips
 }
@@ -81,13 +84,14 @@ const MODULE_ORDER: ManageModuleId[] = [
   'transport',
   'food_drink',
   'retail_shop',
+  'activity',
   'event_organiser',
 ]
 
 export function categoryModuleLinks(
   types: string[],
 ): { label: string; to: string; Icon: LucideIcon; type: ManageModuleId }[] {
-  return MODULE_ORDER.filter((type) => types.includes(type) || types.includes('multi_provider')).map((type) => ({
+  return MODULE_ORDER.filter((type) => types.includes(type)).map((type) => ({
     type,
     label: MANAGE_MODULE_LABELS[type],
     to: MANAGE_MODULE_PATHS[type],

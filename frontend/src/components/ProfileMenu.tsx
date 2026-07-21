@@ -5,7 +5,7 @@ import { UserAvatar } from './UserAvatar'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
-import { adminConsoleUrl } from '../utils/adminAppUrl'
+import { writeActiveBusinessId } from '../utils/activeBusiness'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { useNoFace } from '../hooks/useNoFace'
 import { NavBadge } from './NavBadge'
@@ -30,6 +30,11 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
   const isProvider = profile?.user_type === 'service_provider'
   const { pendingUserBookings } = useNavBadges()
 
+  const openProviderBusiness = (businessId: number) => {
+    writeActiveBusinessId(profile?.username, businessId)
+    setOpen(false)
+    navigate(`/provider?business=${businessId}`)
+  }
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
@@ -57,7 +62,7 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
   const onLogout = () => {
     setOpen(false)
     logout()
-    navigate('/')
+    navigate('/', { replace: true })
   }
 
   return (
@@ -113,16 +118,27 @@ export function ProfileMenu({ className = '', avatarClassName = '' }: Props) {
                 Business dashboard
               </Link>
               {businesses.map((b) => (
-                <Link
+                <button
                   key={b.id}
-                  to={`/business/${b.id}`}
+                  type="button"
+                  className="profile-menu__item profile-menu__item--sub"
+                  role="menuitem"
+                  onClick={() => openProviderBusiness(b.id)}
+                >
+                  Switch to {b.business_name}
+                  {b.onboarding_completed === false ? ' (setup)' : ''}
+                </button>
+              ))}
+              {businesses.length > 0 ? (
+                <Link
+                  to="/provider?new=1"
                   className="profile-menu__item profile-menu__item--sub"
                   role="menuitem"
                   onClick={() => setOpen(false)}
                 >
-                  {b.business_name}
+                  Add another business
                 </Link>
-              ))}
+              ) : null}
               <Link to="/provider/listings" className="profile-menu__item profile-menu__item--sub" role="menuitem" onClick={() => setOpen(false)}>
                 Listings
               </Link>

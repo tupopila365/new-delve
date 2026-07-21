@@ -6,6 +6,7 @@ export type BusinessType =
   | 'event_organiser'
   | 'food_drink'
   | 'retail_shop'
+  | 'activity'
   | 'guide'
   | 'journeys'
   | 'ask_locals'
@@ -62,8 +63,9 @@ export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
   accommodation: 'Accommodation',
   transport: 'Transport',
   event_organiser: 'Events',
-  food_drink: 'Food & drink',
+  food_drink: 'Foodies',
   retail_shop: 'Shop & makers',
+  activity: 'Activities',
   guide: 'Local guide',
   journeys: 'Journeys',
   ask_locals: 'Ask locals',
@@ -193,7 +195,7 @@ export const mockBusinessProfiles: BusinessProfile[] = [
   {
     id: 3,
     slug: 'kaoko-safari-guides',
-    owner_username: 'guide_pro',
+    owner_username: 'guide_mgr',
     business_name: 'Kaoko Safari Guides',
     business_types: ['guide'],
     verification_status: 'verified',
@@ -260,7 +262,7 @@ export const mockBusinessProfiles: BusinessProfile[] = [
   {
     id: 5,
     slug: 'taste-of-namibia',
-    owner_username: 'food_owner',
+    owner_username: 'food_mgr',
     business_name: 'Taste of Namibia',
     business_types: ['food_drink'],
     verification_status: 'verified',

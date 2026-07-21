@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { ApiError } from './api/client'
 import { AuthProvider } from './auth/AuthContext'
 import { CartProvider } from './hooks/useCart'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -21,7 +22,20 @@ import './components/provider/stays/stay-listing.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1 },
+    queries: {
+      staleTime: 30_000,
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError) {
+          // Auth / missing / client errors — don't hammer the network or console.
+          if ([0, 401, 403, 404].includes(error.status)) return false
+          if (error.status >= 400 && error.status < 500) return false
+        }
+        return failureCount < 1
+      },
+    },
+    mutations: {
+      retry: false,
+    },
   },
 })
 

@@ -7,7 +7,7 @@ export const EVENT_CATEGORIES: { value: string; label: string; Icon: LucideIcon 
   { value: 'sports', label: 'Sports', Icon: Trophy },
   { value: 'culture', label: 'Culture', Icon: Landmark },
   { value: 'business', label: 'Business', Icon: Briefcase },
-  { value: 'food', label: 'Food & drink', Icon: Utensils },
+  { value: 'food', label: 'Foodies', Icon: Utensils },
   { value: 'other', label: 'Other', Icon: Sparkles },
 ]
 

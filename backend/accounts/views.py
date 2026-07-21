@@ -17,6 +17,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .mail import (
+    PASSWORD_RESET_EXPIRES_HOURS,
     PASSWORD_RESET_SENT_MESSAGE,
     VERIFICATION_SENT_MESSAGE,
     can_resend_verification,
@@ -38,6 +39,7 @@ from .models import (
     TravelOffer,
     User,
     UserType,
+    VerificationDocumentStatus,
     VerificationStatus,
 )
 from .serializers import (
@@ -121,7 +123,7 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        send_verification_email(user)
+        send_verification_email(user, request=request)
         if settings.DEBUG and "console" in settings.EMAIL_BACKEND:
             detail = "Account created. Check your email (or console in dev) to verify."
         else:
@@ -179,7 +181,7 @@ class ResendVerificationView(APIView):
                 return Response({"detail": "Email is already verified."})
             if not can_resend_verification(request.user):
                 return Response({"detail": VERIFICATION_SENT_MESSAGE})
-            send_verification_email(request.user)
+            send_verification_email(request.user, request=request)
             return Response({"detail": "Verification email sent."})
 
         email = (request.data.get("email") or "").strip().lower()
@@ -187,7 +189,7 @@ class ResendVerificationView(APIView):
             return Response({"detail": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(email__iexact=email).first()
         if user and can_resend_verification(user):
-            send_verification_email(user)
+            send_verification_email(user, request=request)
         return Response({"detail": VERIFICATION_SENT_MESSAGE})
 
 
@@ -201,6 +203,11 @@ def _can_request_password_reset(user: User) -> bool:
     return True
 
 
+def _issue_tokens_for_user(user: User) -> dict[str, str]:
+    refresh = RefreshToken.for_user(user)
+    return {"refresh": str(refresh), "access": str(refresh.access_token)}
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [PasswordResetThrottle]
@@ -211,7 +218,7 @@ class PasswordResetRequestView(APIView):
             return Response({"detail": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(email__iexact=email).first()
         if user and _can_request_password_reset(user):
-            send_password_reset_email(user)
+            send_password_reset_email(user, request=request)
         return Response({"detail": PASSWORD_RESET_SENT_MESSAGE})
 
 
@@ -234,7 +241,7 @@ class PasswordResetConfirmView(APIView):
         except ValueError:
             return Response({"detail": "invalid token"}, status=status.HTTP_400_BAD_REQUEST)
         t = PasswordResetToken.objects.filter(token=raw, used=False).select_related("user").first()
-        if not t or t.is_expired():
+        if not t or t.is_expired(hours=PASSWORD_RESET_EXPIRES_HOURS):
             return Response({"detail": "invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
         user = t.user
         if not _can_request_password_reset(user):
@@ -247,6 +254,7 @@ class PasswordResetConfirmView(APIView):
         user.save(update_fields=["password"])
         t.used = True
         t.save(update_fields=["used"])
+        PasswordResetToken.objects.filter(user=user, used=False).exclude(pk=t.pk).update(used=True)
         return Response({"detail": "Password updated."})
 
 
@@ -286,8 +294,13 @@ class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        current = (request.data.get("current_password") or "").strip()
+        # Do not strip passwords — trailing spaces are part of the secret.
+        current = request.data.get("current_password") or ""
         new_password = request.data.get("new_password") or ""
+        if not isinstance(current, str):
+            current = str(current)
+        if not isinstance(new_password, str):
+            new_password = str(new_password)
         if not current or not new_password:
             return Response(
                 {"detail": "current_password and new_password are required."},
@@ -299,14 +312,19 @@ class ChangePasswordView(APIView):
                 {"detail": "Current password is incorrect."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if current == new_password:
+            return Response(
+                {"detail": "New password must be different from your current password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             validate_password(new_password, user)
         except ValidationError as exc:
             return Response({"detail": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(new_password)
         user.save(update_fields=["password"])
-        return Response({"detail": "Password updated."})
-
+        tokens = _issue_tokens_for_user(user)
+        return Response({"detail": "Password updated.", **tokens})
 
 class SelfDeleteAccountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -475,6 +493,9 @@ def _get_owned_or_managed_business(request, pk: int) -> BusinessProfile:
 class CreateMyBusinessView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    # Soft cap so a single account cannot spam empty shells.
+    MAX_OWNED_BUSINESSES = 10
+
     def post(self, request):
         profile = Profile.objects.get(user_id=request.user.id)
         if profile.user_type != UserType.SERVICE_PROVIDER:
@@ -482,13 +503,25 @@ class CreateMyBusinessView(APIView):
                 {"detail": "Only service providers can create a business profile."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if BusinessProfile.objects.filter(owner=request.user).exists():
+        owned_count = BusinessProfile.objects.filter(owner=request.user).count()
+        if owned_count >= self.MAX_OWNED_BUSINESSES:
             return Response(
-                {"detail": "You already have a business profile."},
+                {
+                    "detail": (
+                        f"You can create up to {self.MAX_OWNED_BUSINESSES} businesses. "
+                        "Archive or contact support if you need more."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         serializer = CreateBusinessSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
+        types = serializer.validated_data.get("business_types") or []
+        if not types:
+            return Response(
+                {"detail": "Select at least one service type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         business = serializer.save()
         BusinessMembership.objects.get_or_create(
             business=business,
@@ -565,8 +598,27 @@ class MyBusinessDocumentsView(APIView):
         )
 
     def post(self, request, pk):
+        from accounts.media_storage import durable_media_configured, durable_media_error_detail
+
         business = _get_owned_or_managed_business(request, pk)
-        serializer = BusinessVerificationDocumentSerializer(data=request.data)
+        if not durable_media_configured():
+            return Response(
+                {"detail": durable_media_error_detail()},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if business.verification_status == VerificationStatus.VERIFIED:
+            return Response(
+                {"detail": "This business is already verified. Contact support to update documents."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if business.verification_status == VerificationStatus.SUSPENDED:
+            return Response(
+                {"detail": "This business is suspended and cannot upload documents."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = BusinessVerificationDocumentSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         doc = serializer.save(business=business)
         return Response(
@@ -575,14 +627,69 @@ class MyBusinessDocumentsView(APIView):
         )
 
 
+class MyBusinessDocumentDetailView(APIView):
+    """Delete a verification document before / after rejection (not while verified)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk, doc_id):
+        business = _get_owned_or_managed_business(request, pk)
+        if business.verification_status == VerificationStatus.VERIFIED:
+            return Response(
+                {"detail": "Cannot remove documents from a verified business."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if business.verification_status == VerificationStatus.SUSPENDED:
+            return Response(
+                {"detail": "This business is suspended."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        doc = get_object_or_404(BusinessVerificationDocument, pk=doc_id, business=business)
+        if doc.file:
+            doc.file.delete(save=False)
+        doc.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class SubmitBusinessVerificationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
+        from accounts.mail import send_business_verification_status_email
+        from accounts.verification_requirements import missing_required_detail
+
         business = _get_owned_or_managed_business(request, pk)
+        if business.verification_status == VerificationStatus.VERIFIED:
+            return Response(
+                {"detail": "This business is already verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if business.verification_status == VerificationStatus.SUSPENDED:
+            return Response(
+                {"detail": "This business is suspended and cannot resubmit verification."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not business.verification_documents.exists():
+            return Response(
+                {"detail": "Upload at least one verification document before submitting."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        missing = missing_required_detail(business)
+        if missing:
+            return Response({"detail": missing}, status=status.HTTP_400_BAD_REQUEST)
         business.onboarding_completed = True
         business.verification_status = VerificationStatus.PENDING
-        business.save(update_fields=["onboarding_completed", "verification_status", "updated_at"])
+        # Clear prior rejection notes so the queue shows a fresh submission.
+        business.verification_notes = ""
+        business.save(
+            update_fields=["onboarding_completed", "verification_status", "verification_notes", "updated_at"]
+        )
+        # Re-open previously rejected docs as pending for the new review cycle.
+        business.verification_documents.filter(status=VerificationDocumentStatus.REJECTED).update(
+            status=VerificationDocumentStatus.PENDING,
+            notes="",
+        )
+        send_business_verification_status_email(business, request=request)
         perms = business_permissions(request.user, business)
         perms_map = {business.pk: {"role": perms.pop("role"), "permissions": perms}}
         return Response(

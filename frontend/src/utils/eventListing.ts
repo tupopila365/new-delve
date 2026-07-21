@@ -143,7 +143,7 @@ export function buildEventHighlights(event: EventDetail): string[] {
     'Good for groups',
     'Family friendly',
     event.is_free ? 'Free entry' : 'Ticketed entry',
-    cat.label === 'Food & drink' ? 'Food nearby' : null,
+    cat.label === 'Foodies' ? 'Food nearby' : null,
     cat.label === 'Sports' ? 'Outdoor energy' : null,
     cat.label === 'Culture' ? 'Creative performances' : null,
     cat.label === 'Business' ? 'Networking' : null,

@@ -20,6 +20,11 @@ class ShopCategory(models.TextChoices):
 class ShopProfile(models.Model):
     """Seller shop identity — avatar + name shown on the public storefront."""
 
+    class PayoutMethod(models.TextChoices):
+        BANK = "bank", "Bank transfer"
+        MOBILE_MONEY = "mobile_money", "Mobile money"
+        OTHER = "other", "Other"
+
     owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -31,6 +36,23 @@ class ShopProfile(models.Model):
         help_text="Public shop name. Falls back to the account display name when empty.",
     )
     avatar = models.ImageField(upload_to="shop_avatars/", blank=True, null=True)
+    region = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    fulfillment_notes = models.CharField(
+        max_length=400,
+        blank=True,
+        help_text="How buyers get items — pickup spot, shipping areas, lodge drop-off, etc.",
+    )
+    phone = models.CharField(max_length=40, blank=True)
+    phone_verified_at = models.DateTimeField(null=True, blank=True)
+    payout_method = models.CharField(
+        max_length=20,
+        choices=PayoutMethod.choices,
+        blank=True,
+    )
+    payout_account_name = models.CharField(max_length=160, blank=True)
+    payout_account_number = models.CharField(max_length=80, blank=True)
+    payout_details_set_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -112,6 +134,14 @@ class ShopProduct(models.Model):
         self.stock_quantity = remaining
         if remaining == 0:
             self.in_stock = False
+        self.save(update_fields=["stock_quantity", "in_stock", "updated_at"])
+
+    def increment_stock(self, quantity: int) -> None:
+        """Restore stock when a pending/paid order is cancelled."""
+        restored = self.available_quantity + max(0, int(quantity))
+        self.stock_quantity = restored
+        if restored > 0:
+            self.in_stock = True
         self.save(update_fields=["stock_quantity", "in_stock", "updated_at"])
 
 

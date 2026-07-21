@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { apiFetch, ApiError } from '../api/client'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { apiFetch } from '../api/client'
 import { AuthScreen } from '../components/auth'
+import { authFormError } from '../utils/authErrors'
 
 function usernameFromEmail(email: string): string {
   const local = email.split('@')[0] ?? ''
@@ -57,6 +58,7 @@ export function Register() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (busy || checking) return
     setErr(null)
     const u = username.trim()
     const em = email.trim().toLowerCase()
@@ -76,7 +78,6 @@ export function Register() {
       setErr('That username is taken — try another.')
       return
     }
-    if (checking) return
     setBusy(true)
     try {
       await apiFetch('/api/accounts/register/', {
@@ -91,7 +92,7 @@ export function Register() {
       })
       nav('/verify-email', { state: { emailHint: em, isProvider } })
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Could not create your account. Try again.')
+      setErr(authFormError(e2, 'Could not create your account. Try again.'))
     } finally {
       setBusy(false)
     }
@@ -116,7 +117,11 @@ export function Register() {
       title="Create your account"
       subtitle="New to DELVE? Create an account to book, save, and ask locals."
     >
-      {err ? <p className="auth-page__error">{err}</p> : null}
+      {err ? (
+        <p className="auth-page__error" role="alert">
+          {err}
+        </p>
+      ) : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
         <div className="auth-page__choice" role="group" aria-label="Account type">
           <p className="auth-page__choice-label">I want to</p>
@@ -126,6 +131,7 @@ export function Register() {
               className={`auth-page__choice-card${!isProvider ? ' is-active' : ''}`}
               onClick={() => setIsProvider(false)}
               aria-pressed={!isProvider}
+              disabled={busy}
             >
               <strong>Travel & explore</strong>
               <span>Book stays, food, guides, and join the community.</span>
@@ -135,6 +141,7 @@ export function Register() {
               className={`auth-page__choice-card${isProvider ? ' is-active' : ''}`}
               onClick={() => setIsProvider(true)}
               aria-pressed={isProvider}
+              disabled={busy}
             >
               <strong>List my business</strong>
               <span>Host stays, food, transport, or tours after setup.</span>
@@ -161,6 +168,7 @@ export function Register() {
             autoComplete="email"
             inputMode="email"
             required
+            disabled={busy}
           />
         </div>
 
@@ -178,6 +186,7 @@ export function Register() {
             autoComplete="new-password"
             minLength={8}
             required
+            disabled={busy}
           />
         </div>
 
@@ -197,6 +206,7 @@ export function Register() {
             }}
             autoComplete="username"
             required
+            disabled={busy}
           />
           {usernameHint ? (
             <p

@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Ticket,
   Utensils,
+  Mountain,
 } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { BUSINESS_TYPE_LABELS, type BusinessType } from '../data/businessProfiles'
@@ -33,15 +34,16 @@ import type { ListingGalleryItem } from '../components/listing/types'
 import { MiniRating } from '../components/MiniRating'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 
-type ServiceTab = 'all' | 'stays' | 'food' | 'shop' | 'guides' | 'transport' | 'events'
+type ServiceTab = 'all' | 'stays' | 'food' | 'shop' | 'guides' | 'transport' | 'events' | 'activities'
 
 type ListingItem = BusinessListingItem & { Icon: LucideIcon; displayIcon: LucideIcon }
 
 const SERVICE_TABS: { id: ServiceTab; label: string; Icon: LucideIcon }[] = [
   { id: 'all', label: 'All', Icon: Building2 },
   { id: 'stays', label: 'Stays', Icon: BedDouble },
-  { id: 'food', label: 'Food', Icon: Utensils },
+  { id: 'food', label: 'Foodies', Icon: Utensils },
   { id: 'shop', label: 'Shop', Icon: ShoppingBag },
+  { id: 'activities', label: 'Activities', Icon: Mountain },
   { id: 'guides', label: 'Guides', Icon: Compass },
   { id: 'transport', label: 'Transport', Icon: Car },
   { id: 'events', label: 'Events', Icon: Ticket },
@@ -51,6 +53,7 @@ const TYPE_TO_KIND: Record<string, Exclude<ServiceTab, 'all'>> = {
   accommodation: 'stays',
   food_drink: 'food',
   retail_shop: 'shop',
+  activity: 'activities',
   guide: 'guides',
   transport: 'transport',
   event_organiser: 'events',
@@ -60,6 +63,7 @@ const KIND_ICONS: Record<Exclude<ServiceTab, 'all'>, LucideIcon> = {
   stays: BedDouble,
   food: Utensils,
   shop: ShoppingBag,
+  activities: Mountain,
   guides: Compass,
   transport: Car,
   events: Ticket,

@@ -27,7 +27,7 @@ export function ProviderAccessGate({
         }
         cta={
           isProviderSignup
-            ? { label: 'Start provider setup', to: '/provider/onboarding' }
+            ? { label: 'Start provider setup', to: '/provider' }
             : { label: 'Become a service provider', to: '/provider/start' }
         }
       />

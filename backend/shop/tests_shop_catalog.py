@@ -119,3 +119,51 @@ class ShopPublicCatalogTests(TestCase):
         )
         self.assertEqual(res.status_code, 200, res.data)
         self.assertEqual(res.data["item_count"], 4)
+
+    def test_sellers_list_uses_shop_display_name(self):
+        from shop.models import ShopProfile
+
+        ShopProfile.objects.create(owner=self.seller, display_name="Vicious Craft Co")
+        res = self.client.get("/api/shop/sellers/")
+        self.assertEqual(res.status_code, 200)
+        row = next(r for r in res.data if r["username"] == self.seller.username)
+        self.assertEqual(row["display_name"], "Vicious Craft Co")
+
+        store = self.client.get(f"/api/shop/sellers/{self.seller.username}/")
+        self.assertEqual(store.status_code, 200)
+        self.assertEqual(store.data["display_name"], "Vicious Craft Co")
+        self.assertGreaterEqual(store.data["product_count"], 1)
+
+    def test_cancel_pending_restores_cart(self):
+        from shop.models import Cart, CartItem, Order
+
+        buyer = User.objects.create_user(
+            username="buyer_cancel",
+            email="buyer_cancel@test.local",
+            password="pass12345",
+        )
+        cart = Cart.objects.create(user=buyer)
+        CartItem.objects.create(
+            cart=cart,
+            product=self.khomas,
+            quantity=2,
+            unit_price=Decimal("100.00"),
+        )
+        self.client.force_authenticate(user=buyer)
+        checkout = self.client.post(
+            "/api/shop/orders/",
+            {"fulfillment_type": "pickup", "contact_name": "Buyer"},
+            format="json",
+        )
+        self.assertEqual(checkout.status_code, 201, checkout.data)
+        self.assertEqual(CartItem.objects.filter(cart=cart).count(), 0)
+        order_ref = checkout.data["orders"][0]["order_ref"]
+        self.khomas.refresh_from_db()
+        stock_after = self.khomas.stock_quantity
+
+        cancel = self.client.post(f"/api/shop/orders/{order_ref}/cancel/")
+        self.assertEqual(cancel.status_code, 200, cancel.data)
+        self.assertEqual(CartItem.objects.filter(cart=cart).count(), 1)
+        self.khomas.refresh_from_db()
+        self.assertEqual(self.khomas.stock_quantity, stock_after + 2)
+        self.assertEqual(Order.objects.get(order_ref=order_ref).status, "cancelled")

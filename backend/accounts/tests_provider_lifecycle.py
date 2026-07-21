@@ -60,3 +60,50 @@ class BecomeProviderTests(TestCase):
         self.assertFalse(create.data["onboarding_completed"])
         self.assertEqual(create.data["verification_status"], "unverified")
         self.assertTrue(BusinessProfile.objects.filter(owner=self.traveler).exists())
+
+    def test_provider_can_create_multiple_businesses(self):
+        self.client.force_authenticate(user=self.traveler)
+        self.client.post("/api/accounts/me/become-provider/", {}, format="json")
+        first = self.client.post(
+            "/api/accounts/me/businesses/create/",
+            {
+                "business_name": "Foodies Hub",
+                "business_types": ["food_drink"],
+                "region": "Khomas",
+                "city": "Windhoek",
+            },
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertIn("food_drink", first.data["business_types"])
+        self.assertTrue(first.data["business_types"])
+
+        second = self.client.post(
+            "/api/accounts/me/businesses/create/",
+            {
+                "business_name": "Activity Desk",
+                "business_types": ["activity", "retail_shop"],
+                "region": "Erongo",
+                "city": "Swakopmund",
+            },
+            format="json",
+        )
+        self.assertEqual(second.status_code, 201, second.data)
+        self.assertIn("activity", second.data["business_types"])
+        self.assertIn("retail_shop", second.data["business_types"])
+        self.assertIn("multi_provider", second.data["business_types"])
+        self.assertEqual(BusinessProfile.objects.filter(owner=self.traveler).count(), 2)
+
+        listed = self.client.get("/api/accounts/me/businesses/")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.data), 2)
+
+    def test_create_rejects_empty_business_types(self):
+        self.client.force_authenticate(user=self.traveler)
+        self.client.post("/api/accounts/me/become-provider/", {}, format="json")
+        res = self.client.post(
+            "/api/accounts/me/businesses/create/",
+            {"business_name": "Ghost Biz", "business_types": []},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)

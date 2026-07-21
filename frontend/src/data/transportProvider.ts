@@ -67,19 +67,12 @@ export const TRANSPORT_MODE_LABELS: Record<TransportMode, string> = {
 
 
 /** Resolve which transport modes a business operates (defaults legacy transport businesses to both). */
-
 export function resolveTransportModes(business?: Pick<MyBusiness, 'transport_modes' | 'business_types'>): TransportMode[] {
-
   if (business?.transport_modes?.length) return business.transport_modes
-
-  if (business?.business_types?.includes('transport') || business?.business_types?.includes('multi_provider')) {
-
+  if (business?.business_types?.includes('transport')) {
     return ['rental', 'shared']
-
   }
-
   return []
-
 }
 
 

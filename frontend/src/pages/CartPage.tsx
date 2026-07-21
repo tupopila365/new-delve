@@ -1,9 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Minus, Plus, ShoppingCart, Store, Trash2 } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { CreditCard, Minus, Plus, ShoppingCart, Store, Trash2 } from 'lucide-react'
+import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../hooks/useCart'
 import { EmptyState } from '../components/ui'
-import type { CartItem } from '../utils/shopListing'
+import type { CartItem, Order } from '../utils/shopListing'
 import '../components/shop/shop-cart.css'
 
 function money(value: string | number): string {
@@ -13,8 +15,19 @@ function money(value: string | number): string {
 
 export function CartPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const restored = params.get('restored') === '1'
   const { profile } = useAuth()
   const { cart, itemCount, isLoading, setQuantity, removeItem, isGuest } = useCart()
+
+  const { data: pendingOrders = [] } = useQuery({
+    queryKey: ['shop-orders-pending-payment'],
+    enabled: Boolean(profile),
+    queryFn: async () => {
+      const orders = asArray<Order>(await apiFetch<Order[]>('/api/shop/orders/'))
+      return orders.filter((order) => order.status === 'pending')
+    },
+  })
 
   if (isLoading) {
     return (
@@ -29,15 +42,43 @@ export function CartPage() {
   if (items.length === 0) {
     return (
       <main className="shop-cart">
+        {pendingOrders.length > 0 ? (
+          <section className="orders__banner shop-cart__pending" role="status">
+            <CreditCard size={18} strokeWidth={2.25} aria-hidden />
+            <div>
+              <strong>
+                {pendingOrders.length} order{pendingOrders.length === 1 ? '' : 's'} waiting for payment
+              </strong>
+              <p>
+                Your cart was moved into an order. Finish payment (or cancel the order to put items back in your
+                cart).
+              </p>
+              <div className="shop-cart__pending-actions">
+                {pendingOrders.slice(0, 3).map((order) => (
+                  <Link key={order.order_ref} to={`/orders/${encodeURIComponent(order.order_ref)}`}>
+                    Pay {order.order_ref}
+                  </Link>
+                ))}
+                <Link to="/orders">View all orders</Link>
+              </div>
+            </div>
+          </section>
+        ) : null}
         <EmptyState
           iconElement={<ShoppingCart size={28} strokeWidth={2} aria-hidden />}
           title="Your cart is empty"
           sub={
-            isGuest
-              ? 'Browse shops and add products — sign in when you are ready to check out.'
-              : 'Browse shops and add products you would like to buy.'
+            pendingOrders.length > 0
+              ? 'Complete payment on your pending order to finish buying.'
+              : isGuest
+                ? 'Browse shops and add products — sign in when you are ready to check out.'
+                : 'Browse shops and add products you would like to buy.'
           }
-          cta={{ label: 'Browse shops', to: '/shop' }}
+          cta={
+            pendingOrders.length > 0
+              ? { label: 'Open orders', to: '/orders' }
+              : { label: 'Browse shops', to: '/shop' }
+          }
         />
       </main>
     )
@@ -53,6 +94,11 @@ export function CartPage() {
 
   return (
     <main className="shop-cart">
+      {restored ? (
+        <section className="orders__banner" role="status">
+          Order cancelled — items are back in your cart.
+        </section>
+      ) : null}
       <header className="shop-cart__head">
         <h1 className="shop-cart__title">Your cart</h1>
         <p className="shop-cart__sub">
@@ -60,6 +106,19 @@ export function CartPage() {
           {isGuest ? ' · Sign in to save and check out' : ''}
         </p>
       </header>
+
+      {pendingOrders.length > 0 ? (
+        <section className="orders__banner shop-cart__pending" role="status">
+          <CreditCard size={18} strokeWidth={2.25} aria-hidden />
+          <div>
+            <strong>You also have unpaid orders</strong>
+            <p>Finish payment so sellers can prepare your items.</p>
+            <div className="shop-cart__pending-actions">
+              <Link to="/orders">View unpaid orders</Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="shop-cart__layout">
         <div className="shop-cart__items">

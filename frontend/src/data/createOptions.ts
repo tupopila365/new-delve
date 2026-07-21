@@ -54,7 +54,7 @@ export const PROVIDER_CREATE_OPTIONS: CreateOption[] = [
   {
     to: '/provider/food',
     icon: 'utensils',
-    title: 'Food & drink venue',
+    title: 'Foodies venue',
     desc: 'Add a restaurant, café, bar, or food spot.',
     providerOnly: true,
   },

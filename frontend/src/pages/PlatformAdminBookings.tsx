@@ -160,7 +160,7 @@ export function PlatformAdminBookings() {
           <AdminFilterChip key={f} label={f} active={statusFilter === f} onClick={() => setStatusFilter(f)} />
         ))}
         {CATEGORY_FILTERS.map((f) => (
-          <AdminFilterChip key={f} label={f === 'Food' ? 'Food & drink' : f} active={categoryFilter === f} onClick={() => setCategoryFilter(f)} sub />
+          <AdminFilterChip key={f} label={f === 'Food' ? 'Foodies' : f} active={categoryFilter === f} onClick={() => setCategoryFilter(f)} sub />
         ))}
         {PAYMENT_FILTERS.map((f) => (
           <AdminFilterChip key={f} label={f} active={paymentFilter === f} onClick={() => setPaymentFilter(f)} sub />

@@ -60,6 +60,13 @@ export function OrdersPage() {
         </div>
       ) : null}
 
+      {params.get('pay') === '1' ? (
+        <div className="orders__banner shop-cart__pending" role="status">
+          <Package size={18} strokeWidth={2.25} aria-hidden />
+          Payment still needed — open an order marked “Pending payment” to finish paying, or cancel to restore your cart.
+        </div>
+      ) : null}
+
       {isLoading ? (
         <p role="status">Loading orders…</p>
       ) : orders.length === 0 ? (

@@ -201,7 +201,7 @@ export function FoodDetailView({
       <JourneyHero
         images={galleryImages}
         backTo="/food"
-        backLabel="Food & drink"
+        backLabel="Foodies"
         liked={liked}
         saved={saved}
         likeBusy={likeBusy}

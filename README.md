@@ -86,9 +86,32 @@ This is the **canonical platform admin console**. The traveller app’s `/admin`
 
 Staff actions in the API (`/api/accounts/admin/*`) are audited via `AdminAuditLog`.
 
+### Production: business verification
+
+End-to-end flow needs the **API**, **traveller/provider app**, and **Delve Admin** wired to the same backend.
+
+1. **API config vars**
+   - `CLOUDINARY_URL` — required so verification PDFs/images survive Heroku dyno restarts
+   - `FRONTEND_URL` — live traveller app origin (links in status emails)
+   - `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` — include traveller **and** Delve Admin origins
+   - SMTP (`EMAIL_BACKEND`, `EMAIL_HOST`, …) — owner emails on submit / approve / reject
+
+2. **Create a staff admin** (once):
+
+```bash
+heroku run -a YOUR_API_APP python manage.py ensure_platform_admin --email you@example.com --password 'YourSecurePass123!'
+```
+
+3. **Delve Admin** config (rebuild after change): `VITE_USE_MOCKS=false`, `VITE_API_URL=https://YOUR_API.herokuapp.com`
+
+4. **Smoke test**
+   - Provider: onboarding → upload docs → submit → status `pending`
+   - Delve Admin → Verifications → open files → Approve
+   - Provider settings shows Verified; owner gets email
+
 ### Environment
 
-- `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL` (verification and password-reset links), `EMAIL_BACKEND` for real SMTP.
+- `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL` (verification and password-reset links), `EMAIL_BACKEND` for real SMTP, `CLOUDINARY_URL` for verification documents.
 
 ## Features (MVP)
 

@@ -372,6 +372,32 @@
   color: #c5e0f8;
 }
 
+.shop-cart__pending {
+  align-items: flex-start;
+  border-color: rgba(214, 170, 90, 0.45);
+  background: rgba(214, 170, 90, 0.12);
+  color: #f0d9a8;
+}
+
+.shop-cart__pending p {
+  margin: 4px 0 0;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.shop-cart__pending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 10px;
+}
+
+.shop-cart__pending-actions a {
+  color: inherit;
+  font-weight: 850;
+  text-underline-offset: 2px;
+}
+
 .orders__list {
   display: grid;
   gap: 12px;

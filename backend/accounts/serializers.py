@@ -397,6 +397,56 @@ class BusinessVerificationDocumentSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("status", "uploaded_at")
 
+    def validate_file(self, value):
+        from accounts.verification_requirements import (
+            ALLOWED_VERIFICATION_CONTENT_TYPES,
+            ALLOWED_VERIFICATION_EXTENSIONS,
+            MAX_VERIFICATION_FILE_BYTES,
+        )
+
+        name = (getattr(value, "name", "") or "").lower()
+        ext = ""
+        if "." in name:
+            ext = "." + name.rsplit(".", 1)[-1]
+        content_type = (getattr(value, "content_type", None) or "").lower()
+        size = getattr(value, "size", None)
+
+        if size is not None and size > MAX_VERIFICATION_FILE_BYTES:
+            raise serializers.ValidationError(
+                f"File is too large (max {MAX_VERIFICATION_FILE_BYTES // (1024 * 1024)} MB)."
+            )
+        if ext and ext not in ALLOWED_VERIFICATION_EXTENSIONS:
+            raise serializers.ValidationError(
+                "Upload a PDF or image (JPG, PNG, WEBP, HEIC)."
+            )
+        if content_type and content_type not in ALLOWED_VERIFICATION_CONTENT_TYPES:
+            # Allow empty/unknown type when extension is clearly ok.
+            if not ext or ext not in ALLOWED_VERIFICATION_EXTENSIONS:
+                raise serializers.ValidationError(
+                    "Upload a PDF or image (JPG, PNG, WEBP, HEIC)."
+                )
+        return value
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        # One active file per doc type — replace older uploads on resubmit.
+        older = instance.business.verification_documents.filter(doc_type=instance.doc_type).exclude(
+            pk=instance.pk
+        )
+        for old in older:
+            if old.file:
+                old.file.delete(save=False)
+            old.delete()
+        return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        url = data.get("file")
+        request = self.context.get("request")
+        if request is not None and url and not str(url).startswith(("http://", "https://")):
+            data["file"] = request.build_absolute_uri(url)
+        return data
+
 
 class PublicProfileSerializer(serializers.ModelSerializer):
     """Public fields for /@username-style profile pages (no email)."""

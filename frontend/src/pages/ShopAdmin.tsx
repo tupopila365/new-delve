@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, Pencil, Plus, ShoppingBag, Store } from 'lucide-react'
+import { Camera, Check, Pencil, Plus, ShoppingBag, Store } from 'lucide-react'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
@@ -15,11 +15,50 @@ import { ListSkeleton } from '../components/ui'
 import { shopCoverSrc, shopPriceLabel } from '../utils/shopDisplay'
 import type { ShopProductListing } from '../utils/shopListing'
 
+type SellerChecklistItem = {
+  id: string
+  label: string
+  done: boolean
+}
+
+type SellerReadiness = {
+  email_verified: boolean
+  profile_complete: boolean
+  phone_verified: boolean
+  payout_details_complete: boolean
+  can_publish: boolean
+  can_publish_reason?: string
+  can_accept_orders: boolean
+  can_accept_orders_reason?: string
+  can_receive_payout: boolean
+  can_receive_payout_reason?: string
+  active_listings: number
+  max_active_listings: number
+  checklist: SellerChecklistItem[]
+}
+
 type ShopProfile = {
   display_name?: string
   avatar: string | null
+  region?: string
+  city?: string
+  fulfillment_notes?: string
+  phone?: string
+  phone_verified?: boolean
+  phone_verified_at?: string | null
+  payout_method?: string
+  payout_account_name?: string
+  payout_account_number?: string
+  payout_details_set_at?: string | null
+  readiness?: SellerReadiness
   updated_at?: string
 }
+
+const PAYOUT_METHODS = [
+  { value: 'bank', label: 'Bank transfer' },
+  { value: 'mobile_money', label: 'Mobile money' },
+  { value: 'other', label: 'Other' },
+] as const
 
 export function ShopAdmin() {
   const { profile } = useAuth()
@@ -28,8 +67,21 @@ export function ShopAdmin() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [profileErr, setProfileErr] = useState<string | null>(null)
+  const [setupMsg, setSetupMsg] = useState<string | null>(null)
   const [shopName, setShopName] = useState('')
   const [nameDirty, setNameDirty] = useState(false)
+  const [region, setRegion] = useState('')
+  const [city, setCity] = useState('')
+  const [fulfillmentNotes, setFulfillmentNotes] = useState('')
+  const [detailsDirty, setDetailsDirty] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [debugCode, setDebugCode] = useState<string | null>(null)
+  const [payoutMethod, setPayoutMethod] = useState('')
+  const [payoutName, setPayoutName] = useState('')
+  const [payoutNumber, setPayoutNumber] = useState('')
+  const [payoutDirty, setPayoutDirty] = useState(false)
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['provider-shop-products'],
@@ -51,9 +103,27 @@ export function ShopAdmin() {
   })
 
   useEffect(() => {
-    if (!shopProfile || nameDirty) return
-    setShopName(shopProfile.display_name ?? '')
-  }, [shopProfile, nameDirty])
+    if (!shopProfile) return
+    if (!nameDirty) setShopName(shopProfile.display_name ?? '')
+    if (!detailsDirty) {
+      setRegion(shopProfile.region ?? '')
+      setCity(shopProfile.city ?? '')
+      setFulfillmentNotes(shopProfile.fulfillment_notes ?? '')
+    }
+    if (!otpSent) setPhone(shopProfile.phone ?? '')
+    if (!payoutDirty) {
+      setPayoutMethod(shopProfile.payout_method ?? '')
+      setPayoutName(shopProfile.payout_account_name ?? '')
+      setPayoutNumber(shopProfile.payout_account_number ?? '')
+    }
+  }, [shopProfile, nameDirty, detailsDirty, otpSent, payoutDirty])
+
+  const invalidateShop = () => {
+    void qc.invalidateQueries({ queryKey: ['shop-provider-profile'] })
+    if (profile?.username) {
+      void qc.invalidateQueries({ queryKey: ['shop-seller', profile.username] })
+    }
+  }
 
   const avatarMut = useMutation({
     mutationFn: async (file: File | null) => {
@@ -67,10 +137,7 @@ export function ShopAdmin() {
     },
     onSuccess: () => {
       setProfileErr(null)
-      void qc.invalidateQueries({ queryKey: ['shop-provider-profile'] })
-      if (profile?.username) {
-        void qc.invalidateQueries({ queryKey: ['shop-seller', profile.username] })
-      }
+      invalidateShop()
     },
     onError: (e) => {
       setProfileErr(e instanceof ApiError ? e.message : 'Could not update photo.')
@@ -87,15 +154,109 @@ export function ShopAdmin() {
       setShopName(data.display_name ?? '')
       setNameDirty(false)
       setProfileErr(null)
-      void qc.invalidateQueries({ queryKey: ['shop-provider-profile'] })
-      if (profile?.username) {
-        void qc.invalidateQueries({ queryKey: ['shop-seller', profile.username] })
-      }
+      invalidateShop()
     },
     onError: (e) => {
       setProfileErr(e instanceof ApiError ? e.message : 'Could not update shop name.')
     },
   })
+
+  const detailsMut = useMutation({
+    mutationFn: async () => {
+      return apiFetch<ShopProfile>('/api/shop/provider-profile/', {
+        method: 'PATCH',
+        body: {
+          display_name: shopName.trim(),
+          region: region.trim(),
+          city: city.trim(),
+          fulfillment_notes: fulfillmentNotes.trim(),
+        },
+      })
+    },
+    onSuccess: () => {
+      setDetailsDirty(false)
+      setNameDirty(false)
+      setSetupMsg('Shop details saved.')
+      setProfileErr(null)
+      invalidateShop()
+    },
+    onError: (e) => {
+      setSetupMsg(null)
+      setProfileErr(e instanceof ApiError ? e.message : 'Could not save shop details.')
+    },
+  })
+
+  const requestOtpMut = useMutation({
+    mutationFn: async () => {
+      return apiFetch<{ detail?: string; debug_code?: string }>(
+        '/api/shop/provider-profile/phone/request-otp/',
+        { method: 'POST', body: { phone: phone.trim() } },
+      )
+    },
+    onSuccess: (data) => {
+      setOtpSent(true)
+      setDebugCode(typeof data.debug_code === 'string' ? data.debug_code : null)
+      setSetupMsg(data.detail || 'Confirmation code sent to your email.')
+      setProfileErr(null)
+      invalidateShop()
+    },
+    onError: (e) => {
+      setSetupMsg(null)
+      setProfileErr(e instanceof ApiError ? e.message : 'Could not send confirmation code.')
+    },
+  })
+
+  const verifyOtpMut = useMutation({
+    mutationFn: async () => {
+      return apiFetch<ShopProfile>('/api/shop/provider-profile/phone/verify/', {
+        method: 'POST',
+        body: { code: otpCode.trim() },
+      })
+    },
+    onSuccess: () => {
+      setOtpSent(false)
+      setOtpCode('')
+      setDebugCode(null)
+      setSetupMsg('Phone verified.')
+      setProfileErr(null)
+      invalidateShop()
+    },
+    onError: (e) => {
+      setSetupMsg(null)
+      setProfileErr(e instanceof ApiError ? e.message : 'Could not verify code.')
+    },
+  })
+
+  const payoutMut = useMutation({
+    mutationFn: async () => {
+      return apiFetch<ShopProfile>('/api/shop/provider-profile/', {
+        method: 'PATCH',
+        body: {
+          payout_method: payoutMethod,
+          payout_account_name: payoutName.trim(),
+          payout_account_number: payoutNumber.trim(),
+        },
+      })
+    },
+    onSuccess: () => {
+      setPayoutDirty(false)
+      setSetupMsg('Payout details saved.')
+      setProfileErr(null)
+      invalidateShop()
+    },
+    onError: (e) => {
+      setSetupMsg(null)
+      setProfileErr(e instanceof ApiError ? e.message : 'Could not save payout details.')
+    },
+  })
+
+  const readiness = shopProfile?.readiness
+  const checklist = readiness?.checklist ?? [
+    { id: 'email', label: 'Email verified', done: Boolean(profile?.email_verified) },
+    { id: 'profile', label: 'Shop profile complete', done: false },
+    { id: 'phone', label: 'Phone verified', done: Boolean(shopProfile?.phone_verified) },
+    { id: 'payout', label: 'Payout details saved', done: false },
+  ]
 
   const stats = useMemo(() => {
     return {
@@ -110,6 +271,7 @@ export function ShopAdmin() {
 
   const storefrontHref = `/shop/seller/${encodeURIComponent(profile.username)}`
   const shownName = shopName.trim() || profile.display_name || profile.username
+  const phoneVerified = Boolean(shopProfile?.phone_verified || readiness?.phone_verified)
 
   return (
     <ShopManageShell>
@@ -197,6 +359,7 @@ export function ShopAdmin() {
             </div>
           ) : null}
           {profileErr ? <p className="shop-manage__error">{profileErr}</p> : null}
+          {setupMsg && !profileErr ? <p className="shop-manage__ok">{setupMsg}</p> : null}
         </div>
         <input
           ref={fileRef}
@@ -210,6 +373,228 @@ export function ShopAdmin() {
           }}
         />
       </section>
+
+      {canManageShop ? (
+        <section className="shop-manage__setup" aria-labelledby="shop-setup-heading">
+          <div className="shop-manage__setup-head">
+            <h2 id="shop-setup-heading">Seller setup</h2>
+            <p>
+              No ID documents. Verify email and finish your shop profile to publish. Verify phone to accept paid
+              orders. Add payout details before funds can be released.
+            </p>
+            {readiness ? (
+              <p className="shop-manage__setup-cap">
+                Published listings: {readiness.active_listings} / {readiness.max_active_listings}
+              </p>
+            ) : null}
+          </div>
+
+          <ul className="shop-manage__checklist">
+            {checklist.map((item) => (
+              <li
+                key={item.id}
+                className={`shop-manage__check${item.done ? ' shop-manage__check--done' : ''}`}
+              >
+                <span className="shop-manage__check-mark" aria-hidden>
+                  {item.done ? <Check size={14} strokeWidth={2.5} /> : null}
+                </span>
+                <span>{item.label}</span>
+                {item.id === 'email' && !item.done ? (
+                  <Link to="/verify-email" className="shop-manage__check-link">
+                    Verify
+                  </Link>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+
+          {!readiness?.can_publish && readiness?.can_publish_reason ? (
+            <p className="shop-manage__setup-hint">{readiness.can_publish_reason}</p>
+          ) : null}
+          {readiness?.can_publish && !readiness.can_accept_orders && readiness.can_accept_orders_reason ? (
+            <p className="shop-manage__setup-hint">{readiness.can_accept_orders_reason}</p>
+          ) : null}
+
+          <div className="shop-manage__setup-grid">
+            <label className="shop-manage__name-field">
+              <span>Region</span>
+              <input
+                value={region}
+                onChange={(e) => {
+                  setRegion(e.target.value)
+                  setDetailsDirty(true)
+                }}
+                placeholder="e.g. Khomas"
+                maxLength={120}
+              />
+            </label>
+            <label className="shop-manage__name-field">
+              <span>City</span>
+              <input
+                value={city}
+                onChange={(e) => {
+                  setCity(e.target.value)
+                  setDetailsDirty(true)
+                }}
+                placeholder="e.g. Windhoek"
+                maxLength={120}
+              />
+            </label>
+          </div>
+          <label className="shop-manage__name-field">
+            <span>How buyers get their items</span>
+            <textarea
+              className="shop-manage__textarea"
+              value={fulfillmentNotes}
+              onChange={(e) => {
+                setFulfillmentNotes(e.target.value)
+                setDetailsDirty(true)
+              }}
+              placeholder="Pickup spot, shipping areas, lodge drop-off, etc."
+              maxLength={400}
+              rows={3}
+            />
+          </label>
+          {detailsDirty || nameDirty ? (
+            <button
+              type="button"
+              className="shop-manage__btn shop-manage__btn--primary btn-sm"
+              onClick={() => detailsMut.mutate()}
+              disabled={detailsMut.isPending}
+            >
+              {detailsMut.isPending ? 'Saving…' : 'Save shop details'}
+            </button>
+          ) : null}
+
+          <div className="shop-manage__setup-block">
+            <h3>Phone</h3>
+            <p className="shop-manage__setup-block-sub">
+              {phoneVerified
+                ? 'Verified — you can accept paid orders.'
+                : 'Required before buyers can pay for your products.'}
+            </p>
+            <label className="shop-manage__name-field">
+              <span>Phone number</span>
+              <input
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value)
+                  setOtpSent(false)
+                }}
+                placeholder="+264…"
+                maxLength={40}
+                disabled={phoneVerified && !otpSent}
+              />
+            </label>
+            {!phoneVerified || otpSent ? (
+              <div className="shop-manage__identity-actions">
+                <button
+                  type="button"
+                  className="shop-manage__btn shop-manage__btn--ghost btn-sm"
+                  onClick={() => requestOtpMut.mutate()}
+                  disabled={requestOtpMut.isPending || phone.trim().length < 7}
+                >
+                  {requestOtpMut.isPending ? 'Sending…' : otpSent ? 'Resend code' : 'Send code'}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="shop-manage__link-btn"
+                onClick={() => {
+                  setOtpSent(false)
+                  setPhone(shopProfile?.phone ?? '')
+                }}
+              >
+                Change phone
+              </button>
+            )}
+            {otpSent ? (
+              <>
+                <label className="shop-manage__name-field">
+                  <span>Confirmation code</span>
+                  <input
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="6-digit code"
+                    maxLength={8}
+                    inputMode="numeric"
+                  />
+                </label>
+                {debugCode ? (
+                  <p className="shop-manage__setup-hint">Debug code: {debugCode}</p>
+                ) : null}
+                <button
+                  type="button"
+                  className="shop-manage__btn shop-manage__btn--primary btn-sm"
+                  onClick={() => verifyOtpMut.mutate()}
+                  disabled={verifyOtpMut.isPending || !otpCode.trim()}
+                >
+                  {verifyOtpMut.isPending ? 'Verifying…' : 'Confirm phone'}
+                </button>
+              </>
+            ) : null}
+          </div>
+
+          <div className="shop-manage__setup-block">
+            <h3>Payout</h3>
+            <p className="shop-manage__setup-block-sub">
+              {readiness?.can_receive_payout
+                ? 'Details saved — funds can be released after fulfillment.'
+                : 'Required before Delve can release held payment to you.'}
+            </p>
+            <label className="shop-manage__name-field">
+              <span>Method</span>
+              <select
+                value={payoutMethod}
+                onChange={(e) => {
+                  setPayoutMethod(e.target.value)
+                  setPayoutDirty(true)
+                }}
+              >
+                <option value="">Select…</option>
+                {PAYOUT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="shop-manage__name-field">
+              <span>Account name</span>
+              <input
+                value={payoutName}
+                onChange={(e) => {
+                  setPayoutName(e.target.value)
+                  setPayoutDirty(true)
+                }}
+                maxLength={160}
+              />
+            </label>
+            <label className="shop-manage__name-field">
+              <span>Account number</span>
+              <input
+                value={payoutNumber}
+                onChange={(e) => {
+                  setPayoutNumber(e.target.value)
+                  setPayoutDirty(true)
+                }}
+                maxLength={80}
+              />
+            </label>
+            {payoutDirty ? (
+              <button
+                type="button"
+                className="shop-manage__btn shop-manage__btn--primary btn-sm"
+                onClick={() => payoutMut.mutate()}
+                disabled={payoutMut.isPending}
+              >
+                {payoutMut.isPending ? 'Saving…' : 'Save payout details'}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <ProviderUiStats
         stats={[

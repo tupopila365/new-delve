@@ -30,7 +30,7 @@ export function BusinessVerificationCard({ status, notes, canManage = true, clas
         <p className="prov-verification-card__meta">Email verification and business verification are separate steps.</p>
       ) : null}
       {resubmit ? (
-        <Link to="/provider/onboarding" className="prov-ui__btn prov-ui__btn--ghost prov-ui__btn--sm">
+        <Link to="/provider?setup=1" className="prov-ui__btn prov-ui__btn--ghost prov-ui__btn--sm">
           {status === 'rejected' ? 'Resubmit documents' : 'Complete verification'}
         </Link>
       ) : null}

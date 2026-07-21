@@ -1,0 +1,40 @@
+.verify-email-prompt {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border, #d4d0c8) 80%, transparent);
+  background: color-mix(in srgb, var(--surface, #fff) 92%, #f3eee6);
+}
+
+.verify-email-prompt__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--text, #1c1917);
+}
+
+.verify-email-prompt__text {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--muted, #57534e);
+}
+
+.verify-email-prompt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.verify-email-prompt__msg,
+.verify-email-prompt__err {
+  margin: 0;
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+.verify-email-prompt__err {
+  color: #b42318;
+}

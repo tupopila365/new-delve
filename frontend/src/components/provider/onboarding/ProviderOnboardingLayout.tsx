@@ -9,6 +9,8 @@ type Props = {
   title?: string
   lead?: string
   foot?: ReactNode
+  /** Render inside provider dashboard (no full-page hero chrome). */
+  embedded?: boolean
 }
 
 export function ProviderOnboardingLayout({
@@ -17,7 +19,21 @@ export function ProviderOnboardingLayout({
   title = 'Business setup',
   lead = 'Tell us what you offer, then add your business details.',
   foot,
+  embedded = false,
 }: Props) {
+  if (embedded) {
+    return (
+      <div className="prov-onboard prov-onboard--embedded">
+        <div className="prov-onboard__embedded-head">
+          <p className="prov-onboard__kicker">{kicker}</p>
+          <h1 className="prov-onboard__brand">{title}</h1>
+          {lead ? <p className="prov-onboard__lead">{lead}</p> : null}
+        </div>
+        <div className="prov-onboard__desk">{children}</div>
+      </div>
+    )
+  }
+
   return (
     <div className="prov-onboard">
       <header className="prov-onboard__hero">

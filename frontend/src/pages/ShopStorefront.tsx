@@ -9,12 +9,14 @@ import type { ShopSeller } from '../utils/shopListing'
 import '../components/shop/shop-list.css'
 
 export function ShopStorefront() {
-  const { username } = useParams()
+  const { username: usernameParam } = useParams()
+  const username = usernameParam ? decodeURIComponent(usernameParam) : undefined
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['shop-seller', username],
     enabled: Boolean(username),
     queryFn: () => apiFetch<ShopSeller>(`/api/shop/sellers/${encodeURIComponent(username!)}/`, { auth: false }),
+    retry: 1,
   })
 
   if (isLoading) {
@@ -26,12 +28,20 @@ export function ShopStorefront() {
   }
 
   if (isError || !data) {
+    const detail =
+      error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: string }).message || '')
+        : ''
     return (
       <main className="shop-market">
         <EmptyState
           iconElement={<Store size={28} strokeWidth={2} aria-hidden />}
           title="Shop not found"
-          sub="This shop may have no active products yet."
+          sub={
+            detail.includes('Not found') || detail.includes('Shop not found')
+              ? 'This shop may have been removed or has no published products yet.'
+              : 'Could not load this shop. Check your connection and try again.'
+          }
           cta={{ label: 'Browse shops', to: '/shop' }}
         />
       </main>

@@ -1,0 +1,15 @@
+Hi {{ username }},
+
+Your business "{{ business_name }}" verification status is now: {{ status_label }}.
+
+{% if notes %}
+Notes from the review team:
+{{ notes }}
+
+{% endif %}
+{{ body }}
+
+Open provider settings:
+{{ settings_url }}
+
+— DELVE

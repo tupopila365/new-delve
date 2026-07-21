@@ -2,6 +2,7 @@ from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from .models import ProductVariant, ShopProduct
+from .shop_identity import shop_avatar_url, shop_display_name
 
 
 def _absolute_media_url(url: str, request=None) -> str:
@@ -37,21 +38,11 @@ def _cover_image_url(obj: ShopProduct, request=None) -> str | None:
 
 
 def _owner_display_name(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and profile.display_name and profile.display_name.strip():
-        return profile.display_name.strip()
-    return user.username
+    return shop_display_name(user)
 
 
 def _owner_avatar(user, request=None) -> str | None:
-    profile = getattr(user, "profile", None)
-    avatar = getattr(profile, "avatar", None)
-    if avatar:
-        try:
-            return _absolute_media_url(avatar.url, request)
-        except Exception:
-            return None
-    return None
+    return shop_avatar_url(user, request)
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):

@@ -7,7 +7,7 @@ class EventCategory(models.TextChoices):
     SPORTS = "sports", "Sports"
     CULTURE = "culture", "Culture"
     BUSINESS = "business", "Business"
-    FOOD = "food", "Food & drink"
+    FOOD = "food", "Foodies"
     OTHER = "other", "Other"
 
 

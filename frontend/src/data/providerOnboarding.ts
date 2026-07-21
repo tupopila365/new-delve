@@ -1,7 +1,13 @@
 import type { LucideIcon } from 'lucide-react'
-import { Bus, Car, Compass, Hotel, ShoppingBag, Utensils } from 'lucide-react'
+import { Bus, Car, Compass, Hotel, Mountain, ShoppingBag, Utensils } from 'lucide-react'
 
-export type OnboardingServiceType = 'accommodation' | 'transport' | 'food_drink' | 'guide' | 'retail_shop'
+export type OnboardingServiceType =
+  | 'accommodation'
+  | 'transport'
+  | 'food_drink'
+  | 'guide'
+  | 'retail_shop'
+  | 'activity'
 
 export type TransportMode = 'rental' | 'shared'
 
@@ -30,8 +36,17 @@ export const ONBOARDING_SERVICE_OPTIONS: ServiceOption[] = [
     dashboardRoute: '/provider/shop',
   },
   {
+    id: 'activity',
+    label: 'Activities',
+    description: 'Drives, adventure, water, and cultural experiences.',
+    Icon: Mountain,
+    requiresVerification: false,
+    verificationOptional: true,
+    dashboardRoute: '/provider/activities',
+  },
+  {
     id: 'food_drink',
-    label: 'Food & drink',
+    label: 'Foodies',
     Icon: Utensils,
     requiresVerification: false,
     verificationOptional: true,
@@ -128,6 +143,11 @@ export const VERIFICATION_DOCS_BY_SERVICE: Record<
   retail_shop: [
     { id: 'business_registration', label: 'Business registration', required: true },
     { id: 'tourism_license', label: 'Tourism / retail licence', required: false },
+  ],
+  activity: [
+    { id: 'business_registration', label: 'Business registration', required: true },
+    { id: 'tourism_license', label: 'Tourism / operator licence', required: false },
+    { id: 'first_aid_cert', label: 'First aid certificate', required: false },
   ],
 }
 

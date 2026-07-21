@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { BedDouble, Car, Compass, PackageOpen, Utensils } from 'lucide-react'
+import { BedDouble, Car, Compass, Mountain, PackageOpen, Utensils } from 'lucide-react'
 import './business-profile.css'
 
 const EXPLORE_BY_TYPE: Record<string, { label: string; href: string; Icon: LucideIcon }> = {
   accommodation: { label: 'Browse stays', href: '/accommodation', Icon: BedDouble },
   food_drink: { label: 'Browse food & drink', href: '/food', Icon: Utensils },
+  activity: { label: 'Browse activities', href: '/activities', Icon: Mountain },
   guide: { label: 'Browse guides', href: '/guides', Icon: Compass },
   transport: { label: 'Browse transport', href: '/transport', Icon: Car },
 }

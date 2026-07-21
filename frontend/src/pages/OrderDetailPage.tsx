@@ -41,8 +41,14 @@ export function OrderDetailPage() {
   const cancelMut = useMutation({
     mutationFn: () => apiFetch<Order>(`/api/shop/orders/${encodeURIComponent(ref!)}/cancel/`, { method: 'POST' }),
     onSuccess: () => {
+      const wasAwaitingPayment = data?.status === 'pending'
       void qc.invalidateQueries({ queryKey: ['shop-order', ref] })
       void qc.invalidateQueries({ queryKey: ['shop-orders'] })
+      void qc.invalidateQueries({ queryKey: ['shop-orders-pending-payment'] })
+      void qc.invalidateQueries({ queryKey: ['shop-cart'] })
+      if (wasAwaitingPayment) {
+        navigate('/cart?restored=1')
+      }
     },
   })
 

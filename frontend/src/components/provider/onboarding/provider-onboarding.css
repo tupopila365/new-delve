@@ -27,6 +27,33 @@
   color: var(--po-ink);
 }
 
+/* Inside provider dashboard — no full-page hero */
+.prov-onboard--embedded {
+  width: 100%;
+  max-width: var(--manage-form-max, 720px);
+  margin: 0;
+  padding: 0 0 24px;
+}
+
+.prov-onboard__embedded-head {
+  margin-bottom: 1.25rem;
+}
+
+.prov-onboard--embedded .prov-onboard__brand {
+  font-size: 1.55rem;
+  margin: 0.15rem 0 0.35rem;
+}
+
+.prov-onboard--embedded .prov-onboard__lead {
+  margin: 0;
+  color: var(--po-muted);
+}
+
+.prov-shell .prov-onboard--embedded {
+  /* Avoid app-main:has(.prov-onboard) full-bleed fighting the manage shell */
+  background: transparent;
+}
+
 .prov-onboard__hero {
   position: relative;
   overflow: hidden;

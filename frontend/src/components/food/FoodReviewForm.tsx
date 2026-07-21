@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Star } from 'lucide-react'
 import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { VerifyEmailPrompt } from '../auth/VerifyEmailPrompt'
 
 type Props = {
   venueId: string | number
@@ -30,7 +31,10 @@ export function FoodReviewForm({ venueId, onSubmitted }: Props) {
     },
   })
 
-  if (!profile?.email_verified) return null
+  if (!profile) return null
+  if (!profile.email_verified) {
+    return <VerifyEmailPrompt action="leave a review" email={profile.email} />
+  }
 
   return (
     <div className="event-review-form">

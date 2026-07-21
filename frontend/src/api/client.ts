@@ -26,6 +26,8 @@ export function mediaUrl(maybePath: string | null | undefined): string | undefin
 const ACCESS = 'delve_access'
 const REFRESH = 'delve_refresh'
 
+export const SESSION_EXPIRED_EVENT = 'delve:session-expired'
+
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS)
 }
@@ -42,6 +44,11 @@ export function setTokens(access: string, refresh: string) {
 export function clearTokens() {
   localStorage.removeItem(ACCESS)
   localStorage.removeItem(REFRESH)
+}
+
+function announceSessionExpired() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
 }
 
 /** Coerce list API responses — mocks and misconfigured endpoints may return objects. */
@@ -105,6 +112,60 @@ async function parseBody(res: Response): Promise<unknown> {
   }
 }
 
+/** Single in-flight refresh so parallel 401s don't stampede. */
+let refreshInFlight: Promise<string | null> | null = null
+
+async function refreshAccessTokenOnce(): Promise<string | null> {
+  const refresh = getRefreshToken()
+  if (!refresh) return null
+  if (refreshInFlight) return refreshInFlight
+
+  refreshInFlight = (async () => {
+    try {
+      const r = await fetch(apiUrl('/api/accounts/token/refresh/'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh }),
+      })
+      if (!r.ok) {
+        clearTokens()
+        announceSessionExpired()
+        return null
+      }
+      const data = (await r.json()) as { access?: string }
+      if (!data.access) {
+        clearTokens()
+        announceSessionExpired()
+        return null
+      }
+      localStorage.setItem(ACCESS, data.access)
+      return data.access
+    } catch {
+      clearTokens()
+      announceSessionExpired()
+      return null
+    } finally {
+      refreshInFlight = null
+    }
+  })()
+
+  return refreshInFlight
+}
+
+function networkApiError(cause: unknown): ApiError {
+  const msg =
+    cause instanceof Error && cause.message
+      ? cause.message
+      : 'Could not reach the server. Check your connection and try again.'
+  return new ApiError(
+    /failed to fetch|networkerror|load failed/i.test(msg)
+      ? 'Could not reach the server. Check your connection and try again.'
+      : msg,
+    0,
+    null,
+  )
+}
+
 export async function apiFetch<T = Json>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
@@ -127,24 +188,34 @@ export async function apiFetch<T = Json>(
     const t = getAccessToken()
     if (t) headers.set('Authorization', `Bearer ${t}`)
   }
-  let res = await fetch(apiUrl(path), { ...rest, headers })
+
+  let res: Response
+  try {
+    res = await fetch(apiUrl(path), { ...rest, headers })
+  } catch (e) {
+    throw networkApiError(e)
+  }
 
   if (res.status === 401 && getRefreshToken() && auth) {
-    const r = await fetch(apiUrl('/api/accounts/token/refresh/'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: getRefreshToken() }),
-    })
-    if (r.ok) {
-      const data = (await r.json()) as { access: string }
-      localStorage.setItem(ACCESS, data.access)
-      headers.set('Authorization', `Bearer ${data.access}`)
-      res = await fetch(apiUrl(path), { ...rest, headers })
+    const nextAccess = await refreshAccessTokenOnce()
+    if (nextAccess) {
+      headers.set('Authorization', `Bearer ${nextAccess}`)
+      try {
+        res = await fetch(apiUrl(path), { ...rest, headers })
+      } catch (e) {
+        throw networkApiError(e)
+      }
+    } else {
+      throw new ApiError('Please sign in again.', 401, { detail: 'Please sign in again.' })
     }
   }
 
   const body = await parseBody(res)
   if (!res.ok) {
+    if (res.status === 401 && auth) {
+      clearTokens()
+      announceSessionExpired()
+    }
     throw new ApiError(formatApiErrorMessage(body, res.statusText || 'Request failed'), res.status, body)
   }
   return body as T

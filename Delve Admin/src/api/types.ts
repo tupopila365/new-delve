@@ -35,6 +35,10 @@ export type AdminBusiness = {
   document_count?: number
   description?: string
   tagline?: string
+  /** Present on PATCH verification responses — provider was emailed. */
+  email_sent?: boolean
+  email_recipient?: string
+  email_detail?: string
 }
 
 export type VerificationDocument = {

@@ -958,12 +958,30 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
     if (!business) throw new ApiError('Not found', 404, { detail: 'Not found.' })
     const body = JSON.parse(String(init.body)) as { verification_status?: string; reason?: string }
     if (body.verification_status) {
+      const prev = business.verification_status
+      if (
+        (body.verification_status === 'rejected' || body.verification_status === 'suspended') &&
+        !(body.reason || '').trim()
+      ) {
+        throw new ApiError('Bad request', 400, {
+          detail: 'A reason is required when rejecting or suspending a business.',
+        })
+      }
       business.verification_status = body.verification_status
       if (body.reason) business.verification_notes = body.reason
       pushAudit(
         `Business verification updated — ${business.business_name} → ${body.verification_status}`,
         'business',
       )
+      const changed = prev !== body.verification_status
+      return {
+        ...business,
+        email_sent: changed,
+        email_recipient: changed ? 'provider@example.com' : '',
+        email_detail: changed
+          ? `Provider notified at provider@example.com.`
+          : 'Status unchanged — no email sent.',
+      }
     }
     return business
   }

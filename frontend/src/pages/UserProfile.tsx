@@ -367,7 +367,7 @@ export function UserProfile() {
               </div>
               <p className="up__businesses-empty">
                 You have not published a business profile yet.{' '}
-                <Link to="/provider/onboarding">Complete provider setup</Link> to list stays, transport, and more.
+                <Link to="/provider">Complete provider setup</Link> to list stays, transport, and more.
               </p>
             </section>
           ) : null}

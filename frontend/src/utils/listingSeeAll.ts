@@ -40,6 +40,10 @@ import {
   type BusTripListing,
   type VehicleListing,
 } from './transportListing'
+import {
+  activityGallery,
+  type ActivityListing,
+} from './activityListing'
 
 export type ListingSeeAllType =
   | 'accommodation'
@@ -49,6 +53,7 @@ export type ListingSeeAllType =
   | 'journey'
   | 'event'
   | 'transport'
+  | 'activity'
 
 export type ListingSeeAllSection = 'gallery' | 'reviews' | 'moments'
 
@@ -318,6 +323,45 @@ async function fetchTransportSeeAll(id: string): Promise<ListingSeeAllData> {
   }
 }
 
+async function fetchActivitySeeAll(id: string): Promise<ListingSeeAllData> {
+  const data = await apiFetch<ActivityListing>(`/api/activities/listings/${id}/`, { auth: false })
+  const [moments, reviewPayload] = await Promise.all([
+    fetchListingMoments('activity', id, data.title),
+    apiFetch<{ reviews: unknown[]; rating_avg: number | string | null; rating_count: number }>(
+      `/api/activities/listings/${id}/reviews/`,
+      { auth: false },
+    ),
+  ])
+  const gallery = activityGallery(data).map((item) => ({
+    src: mediaUrl(item.src) ?? item.src,
+    kind: item.kind === 'video' ? ('video' as const) : ('image' as const),
+    caption: item.caption,
+  }))
+
+  return {
+    listingTitle: data.title,
+    backTo: `/activities/${id}`,
+    gallery: { title: 'Photos & video', images: gallery },
+    reviews: {
+      title: 'Reviews',
+      reviews: normalizeReviews(
+        (reviewPayload.reviews ?? []).map((row) => {
+          if (!row || typeof row !== 'object') return row
+          const o = row as Record<string, unknown>
+          return {
+            ...o,
+            body: typeof o.body === 'string' && o.body.trim() ? o.body : 'Rated this activity.',
+            place: [data.city, data.region, data.country_code].filter(Boolean).join(', '),
+          }
+        }),
+      ),
+      rating: reviewPayload.rating_avg ?? data.rating_avg ?? null,
+      count: reviewPayload.rating_count ?? data.rating_count ?? null,
+    },
+    moments: { title: 'From Delvers', moments },
+  }
+}
+
 export async function fetchListingSeeAllData(type: string, id: string): Promise<ListingSeeAllData> {
   switch (type as ListingSeeAllType) {
     case 'accommodation':
@@ -334,6 +378,8 @@ export async function fetchListingSeeAllData(type: string, id: string): Promise<
       return fetchEventSeeAll(id)
     case 'transport':
       return fetchTransportSeeAll(id)
+    case 'activity':
+      return fetchActivitySeeAll(id)
     default:
       throw new ApiError('Unknown listing type.', 404, null)
   }

@@ -1,10 +1,15 @@
-import { useState } from 'react'
-import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowLeft, Menu } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Menu, Plus } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess, type MyBusiness } from '../hooks/useBusinessAccess'
 import { useNavBadges } from '../hooks/useNavBadges'
 import { canResubmitVerification, verificationStatusHint } from '../utils/businessVerification'
+import {
+  concreteBusinessTypes,
+  readActiveBusinessId,
+  writeActiveBusinessId,
+} from '../utils/activeBusiness'
 import {
   MANAGE_ICON_SIZE,
   MANAGE_MODULE_ICONS,
@@ -18,8 +23,11 @@ import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import { ProviderAccessGate } from './provider'
 import { ListSkeleton } from './ui'
+import { ProviderOnboarding } from '../pages/ProviderOnboarding'
+import { loginHrefWithReturn } from '../utils/authRedirect'
 import '../components/provider/settings/provider-settings.css'
 import '../components/provider/provider-manage-shell.css'
+import '../components/provider/onboarding/provider-onboarding.css'
 
 const NAV: { to: string; label: string; id: ManageNavId; end?: boolean }[] = [
   { to: '/provider', label: 'Overview', id: 'overview', end: true },
@@ -39,6 +47,7 @@ const MODULE_IDS: ManageModuleId[] = [
   'transport',
   'food_drink',
   'retail_shop',
+  'activity',
   'event_organiser',
 ]
 
@@ -57,18 +66,66 @@ function shellClassName() {
 export function ProviderLayout() {
   const { profile } = useAuth()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [activeBusinessId, setActiveBusinessId] = useState<number | null>(null)
+  const [activeBusinessId, setActiveBusinessId] = useState<number | null>(() =>
+    readActiveBusinessId(profile?.username),
+  )
 
-  const { businesses, activeBusiness, canManageListings, canManageBookings, isLoading, canAccessProvider, canManageSettings } =
-    useBusinessAccess(activeBusinessId)
+  useEffect(() => {
+    setActiveBusinessId(readActiveBusinessId(profile?.username))
+  }, [profile?.username])
+
+  const selectBusiness = (id: number | null) => {
+    setActiveBusinessId(id)
+    writeActiveBusinessId(profile?.username, id)
+  }
+
+  const {
+    businesses,
+    activeBusiness,
+    canManageListings,
+    canManageBookings,
+    isLoading,
+    canAccessProvider,
+    canManageSettings,
+  } = useBusinessAccess(activeBusinessId)
+
+  const paramBusinessId = Number(searchParams.get('business') || 0) || null
+  const forceNew = searchParams.get('new') === '1'
+  const forceSetup = searchParams.get('setup') === '1'
+
+  useEffect(() => {
+    if (paramBusinessId && businesses.some((b) => b.id === paramBusinessId)) {
+      selectBusiness(paramBusinessId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync URL business param once
+  }, [paramBusinessId, businesses])
+
+  useEffect(() => {
+    if (!businesses.length || activeBusinessId == null) return
+    if (!businesses.some((b) => b.id === activeBusinessId)) {
+      selectBusiness(businesses[0]?.id ?? null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businesses, activeBusinessId])
 
   const resolvedBusiness: MyBusiness | undefined =
     businesses.find((b) => b.id === (activeBusinessId ?? activeBusiness?.id)) ?? activeBusiness
 
+  const incompleteBusiness = businesses.find((b) => b.onboarding_completed === false)
+  const noBusiness = businesses.length === 0
+
+  const showOnboarding =
+    noBusiness ||
+    forceNew ||
+    forceSetup ||
+    Boolean(resolvedBusiness && resolvedBusiness.onboarding_completed === false) ||
+    Boolean(incompleteBusiness && !resolvedBusiness)
+
   const { pendingProviderBookings } = useNavBadges()
 
-  if (!profile) return <Navigate to="/login" replace />
+  if (!profile) return <Navigate to={loginHrefWithReturn('/provider')} replace />
 
   if (isLoading) {
     return (
@@ -92,17 +149,8 @@ export function ProviderLayout() {
   }
 
   const isModule = MODULE_IDS.some((id) => location.pathname.startsWith(MANAGE_MODULE_PATHS[id]))
-  const noBusiness = businesses.length === 0
-  const onboardingIncomplete = resolvedBusiness && resolvedBusiness.onboarding_completed === false
-
-  const activeTypes = resolvedBusiness?.business_types ?? []
-  const visibleModules = MODULE_IDS.filter(
-    (id) => activeTypes.includes(id) || activeTypes.includes('multi_provider'),
-  )
-
-  if (noBusiness || onboardingIncomplete) {
-    return <Navigate to="/provider/onboarding" replace />
-  }
+  const activeTypes = concreteBusinessTypes(resolvedBusiness?.business_types)
+  const visibleModules = MODULE_IDS.filter((id) => activeTypes.includes(id))
 
   return (
     <div className={shellClassName()}>
@@ -115,13 +163,32 @@ export function ProviderLayout() {
           <span className="prov-sidebar__tag">Provider</span>
         </div>
 
-        {businesses.length > 1 ? (
+        {showOnboarding ? (
+          <div className="prov-sidebar__biz-card">
+            <strong>
+              {forceNew
+                ? 'New business'
+                : resolvedBusiness?.business_name ||
+                  incompleteBusiness?.business_name ||
+                  'Business setup'}
+            </strong>
+            <span>
+              {noBusiness || forceNew || incompleteBusiness
+                ? 'Finish setup to unlock tools'
+                : 'Update verification'}
+            </span>
+          </div>
+        ) : businesses.length > 1 ? (
           <label className="prov-sidebar__switcher">
             <span>Active business</span>
-            <select value={resolvedBusiness?.id ?? ''} onChange={(e) => setActiveBusinessId(Number(e.target.value))}>
+            <select
+              value={resolvedBusiness?.id ?? ''}
+              onChange={(e) => selectBusiness(Number(e.target.value))}
+            >
               {businesses.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.business_name}
+                  {b.onboarding_completed === false ? ' (setup)' : ''}
                 </option>
               ))}
             </select>
@@ -133,63 +200,97 @@ export function ProviderLayout() {
           </div>
         ) : null}
 
-        <nav className="prov-sidebar__nav" aria-label="Provider dashboard">
-          {NAV.map((item) => {
-            const Icon = MANAGE_NAV_ICONS[item.id]
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end ?? false}
-                className={({ isActive }) =>
-                  isActive && !isModule ? 'prov-sidebar__link prov-sidebar__link--active' : 'prov-sidebar__link'
-                }
-                onClick={() => setMobileOpen(false)}
-              >
-                <Icon
-                  className="prov-sidebar__link-icon"
-                  size={MANAGE_ICON_SIZE.nav}
-                  strokeWidth={2.25}
-                  aria-hidden
-                />
-                <span>{item.label}</span>
-                {item.to === '/provider/bookings' && pendingProviderBookings > 0 ? (
-                  <NavBadge count={pendingProviderBookings} />
-                ) : null}
-              </NavLink>
-            )
-          })}
-        </nav>
+        {!showOnboarding ? (
+          <>
+            <nav className="prov-sidebar__nav" aria-label="Provider dashboard">
+              {NAV.map((item) => {
+                const Icon = MANAGE_NAV_ICONS[item.id]
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end ?? false}
+                    className={({ isActive }) =>
+                      isActive && !isModule
+                        ? 'prov-sidebar__link prov-sidebar__link--active'
+                        : 'prov-sidebar__link'
+                    }
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Icon
+                      className="prov-sidebar__link-icon"
+                      size={MANAGE_ICON_SIZE.nav}
+                      strokeWidth={2.25}
+                      aria-hidden
+                    />
+                    <span>{item.label}</span>
+                    {item.to === '/provider/bookings' && pendingProviderBookings > 0 ? (
+                      <NavBadge count={pendingProviderBookings} />
+                    ) : null}
+                  </NavLink>
+                )
+              })}
+            </nav>
 
-        <div className="prov-sidebar__modules">
-          <p className="prov-sidebar__modules-label">Categories</p>
-          {visibleModules.map((id) => {
-            const Icon = MANAGE_MODULE_ICONS[id]
-            const to = MANAGE_MODULE_PATHS[id]
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  isActive ? 'prov-sidebar__module prov-sidebar__module--active' : 'prov-sidebar__module'
-                }
-                onClick={() => setMobileOpen(false)}
-              >
-                <Icon size={MANAGE_ICON_SIZE.module} strokeWidth={2.25} aria-hidden />
-                {MANAGE_MODULE_LABELS[id]}
-              </NavLink>
-            )
-          })}
-        </div>
+            <div className="prov-sidebar__modules">
+              <p className="prov-sidebar__modules-label">Categories</p>
+              {visibleModules.map((id) => {
+                const Icon = MANAGE_MODULE_ICONS[id]
+                const to = MANAGE_MODULE_PATHS[id]
+                return (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      isActive
+                        ? 'prov-sidebar__module prov-sidebar__module--active'
+                        : 'prov-sidebar__module'
+                    }
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <Icon size={MANAGE_ICON_SIZE.module} strokeWidth={2.25} aria-hidden />
+                    {MANAGE_MODULE_LABELS[id]}
+                  </NavLink>
+                )
+              })}
+            </div>
+          </>
+        ) : (
+          <nav className="prov-sidebar__nav" aria-label="Provider setup">
+            <NavLink
+              to="/provider"
+              end
+              className="prov-sidebar__link prov-sidebar__link--active"
+              onClick={() => setMobileOpen(false)}
+            >
+              <span>Business setup</span>
+            </NavLink>
+          </nav>
+        )}
 
         <div className="prov-sidebar__foot">
-          {resolvedBusiness ? (
-            <Link to={`/business/${resolvedBusiness.id}`} className="prov-sidebar__public" onClick={() => setMobileOpen(false)}>
+          {canManageSettings && !showOnboarding ? (
+            <Link to="/provider?new=1" className="prov-sidebar__public" onClick={() => setMobileOpen(false)}>
+              <Plus size={14} strokeWidth={2.25} aria-hidden /> Add business
+            </Link>
+          ) : null}
+          {resolvedBusiness && !showOnboarding ? (
+            <Link
+              to={`/business/${resolvedBusiness.id}`}
+              className="prov-sidebar__public"
+              onClick={() => setMobileOpen(false)}
+            >
               Public business profile
             </Link>
           ) : null}
-          {!canManageBookings ? <p className="prov-sidebar__perm-hint">Bookings: view or reply only</p> : null}
-          <Link to={`/u/${profile.username}`} className="prov-sidebar__public" onClick={() => setMobileOpen(false)}>
+          {!showOnboarding && !canManageBookings ? (
+            <p className="prov-sidebar__perm-hint">Bookings: view or reply only</p>
+          ) : null}
+          <Link
+            to={`/u/${profile.username}`}
+            className="prov-sidebar__public"
+            onClick={() => setMobileOpen(false)}
+          >
             Personal profile
           </Link>
           <Link to="/dashboard" className="prov-sidebar__public" onClick={() => setMobileOpen(false)}>
@@ -209,48 +310,63 @@ export function ProviderLayout() {
             <Menu size={20} strokeWidth={2.25} aria-hidden />
           </button>
           <div className="prov-topbar__title">
-            <strong>{resolvedBusiness?.business_name ?? 'Provider dashboard'}</strong>
+            <strong>
+              {showOnboarding
+                ? 'Business setup'
+                : (resolvedBusiness?.business_name ?? 'Provider dashboard')}
+            </strong>
           </div>
           <ProfileMenu className="prov-topbar__profile" avatarClassName="prov-topbar__av" />
         </header>
 
         <div className="prov-content">
-          {resolvedBusiness &&
-          resolvedBusiness.verification_status !== 'verified' &&
-          resolvedBusiness.verification_status !== 'unverified' ? (
-            <div
-              className={`prov-layout-banner${resolvedBusiness.verification_status === 'rejected' || resolvedBusiness.verification_status === 'suspended' ? ' prov-layout-banner--bad' : ''}`}
-              role="status"
-            >
-              {verificationStatusHint(resolvedBusiness.verification_status, resolvedBusiness.verification_notes)}
-              {canResubmitVerification(resolvedBusiness.verification_status) ? (
-                <>
-                  {' '}
-                  <Link to="/provider/onboarding">Resubmit documents</Link>
-                </>
+          {showOnboarding ? (
+            <ProviderOnboarding
+              embedded
+              key={forceNew ? 'new' : `biz-${paramBusinessId || incompleteBusiness?.id || resolvedBusiness?.id || 'setup'}`}
+            />
+          ) : (
+            <>
+              {resolvedBusiness &&
+              resolvedBusiness.verification_status !== 'verified' &&
+              resolvedBusiness.verification_status !== 'unverified' ? (
+                <div
+                  className={`prov-layout-banner${
+                    resolvedBusiness.verification_status === 'rejected' ||
+                    resolvedBusiness.verification_status === 'suspended'
+                      ? ' prov-layout-banner--bad'
+                      : ''
+                  }`}
+                  role="status"
+                >
+                  {verificationStatusHint(
+                    resolvedBusiness.verification_status,
+                    resolvedBusiness.verification_notes,
+                  )}
+                  {canResubmitVerification(resolvedBusiness.verification_status) ? (
+                    <>
+                      {' '}
+                      <Link to={`/provider?setup=1&business=${resolvedBusiness.id}`}>
+                        Resubmit documents
+                      </Link>
+                    </>
+                  ) : null}
+                </div>
               ) : null}
-            </div>
-          ) : null}
-          <Outlet
-            context={{
-              activeBusiness: resolvedBusiness,
-              businesses,
-              canManageListings,
-              canManageBookings,
-              canManageSettings,
-            }}
-          />
+              <Outlet
+                context={{
+                  activeBusiness: resolvedBusiness,
+                  businesses,
+                  canManageListings,
+                  canManageBookings,
+                  canManageSettings,
+                  setActiveBusinessId: selectBusiness,
+                }}
+              />
+            </>
+          )}
         </div>
       </div>
-
-      {mobileOpen ? (
-        <button
-          type="button"
-          className="prov-sidebar__backdrop"
-          aria-label="Close menu"
-          onClick={() => setMobileOpen(false)}
-        />
-      ) : null}
     </div>
   )
 }
@@ -260,5 +376,6 @@ export type ProviderOutletContext = {
   businesses: MyBusiness[]
   canManageListings: boolean
   canManageBookings: boolean
-  canManageSettings: boolean
+  canManageSettings?: boolean
+  setActiveBusinessId?: (id: number | null) => void
 }

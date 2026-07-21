@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { apiFetch, ApiError, setTokens } from '../api/client'
+import { apiFetch, setTokens } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { AuthScreen } from '../components/auth'
 import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
 import type { MyBusiness } from '../hooks/useBusinessAccess'
+import { writeActiveBusinessId } from '../utils/activeBusiness'
+import { authFormError } from '../utils/authErrors'
 
 type VerifyResponse = {
   detail: string
@@ -16,14 +18,21 @@ export function VerifyEmail() {
   const loc = useLocation()
   const nav = useNavigate()
   const { refreshProfile } = useAuth()
-  const state = loc.state as { emailHint?: string; isProvider?: boolean } | null
+  const state = loc.state as {
+    emailHint?: string
+    isProvider?: boolean
+    reason?: string
+    from?: string
+  } | null
   const hint = state?.emailHint
   const isProvider = state?.isProvider ?? false
+  const reason = state?.reason
   const [token, setToken] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const autoAttempted = useRef<string | null>(null)
+  const inFlight = useRef(false)
 
   useEffect(() => {
     const q = new URLSearchParams(loc.search).get('token')
@@ -32,6 +41,8 @@ export function VerifyEmail() {
 
   const completeVerification = useCallback(
     async (rawToken: string) => {
+      if (inFlight.current) return
+      inFlight.current = true
       setErr(null)
       setMsg(null)
       setBusy(true)
@@ -45,11 +56,22 @@ export function VerifyEmail() {
           setTokens(data.access, data.refresh)
           await refreshProfile()
           setMsg('Email verified — signing you in…')
+          if (state?.from) {
+            nav(state.from, { replace: true })
+            return
+          }
           if (isProvider) {
             const businesses = await apiFetch<MyBusiness[]>('/api/accounts/me/businesses/')
-            const needsOnboarding =
-              businesses.length === 0 || businesses.some((b) => b.onboarding_completed === false)
-            nav(needsOnboarding ? '/provider/onboarding' : '/', { replace: true })
+            const me = await apiFetch<{ username: string }>('/api/accounts/me/')
+            const incomplete = businesses.find((b) => b.onboarding_completed === false)
+            if (businesses.length === 0) {
+              nav('/provider', { replace: true })
+            } else if (incomplete) {
+              writeActiveBusinessId(me.username, incomplete.id)
+              nav(`/provider?business=${incomplete.id}`, { replace: true })
+            } else {
+              nav('/', { replace: true })
+            }
           } else {
             nav('/', { replace: true })
           }
@@ -57,12 +79,13 @@ export function VerifyEmail() {
         }
         setMsg('Email verified. You can sign in now.')
       } catch (e2) {
-        setErr(e2 instanceof ApiError ? e2.message : 'Verification failed')
+        setErr(authFormError(e2, 'This link is invalid or has expired. Request a new one.'))
       } finally {
+        inFlight.current = false
         setBusy(false)
       }
     },
-    [isProvider, nav, refreshProfile],
+    [isProvider, nav, refreshProfile, state?.from],
   )
 
   useEffect(() => {
@@ -77,18 +100,21 @@ export function VerifyEmail() {
     await completeVerification(token)
   }
 
+  const subtitle = reason
+    ? `Verify your email to ${reason}. Paste the token below, or open the link from your email.`
+    : hint
+      ? `We sent a link to ${hint}. Paste the token below, or open the link from your email.`
+      : 'Confirm your email to unlock bookings and provider tools. You can browse and sign in before verifying.'
+
   return (
     <AuthScreen
       title="Verify email"
-      subtitle={
-        hint
-          ? `We sent a link to ${hint}. Paste the token below, or open the link from your email.`
-          : 'Confirm your email to unlock bookings and provider tools. You can browse and sign in before verifying.'
-      }
+      subtitle={subtitle}
       hint={
         import.meta.env.DEV ? (
           <>
-            In dev, check the <strong>Django console</strong> for the verification link.
+            In dev, check the <strong>console</strong> (mock) or Django console for the verification
+            link.
           </>
         ) : (
           <>
@@ -103,7 +129,11 @@ export function VerifyEmail() {
         </>
       }
     >
-      {err ? <p className="auth-page__error">{err}</p> : null}
+      {err ? (
+        <p className="auth-page__error" role="alert">
+          {err}
+        </p>
+      ) : null}
       {msg ? (
         <p className="auth-page__success">
           {msg}{' '}
@@ -127,12 +157,13 @@ export function VerifyEmail() {
           autoComplete="one-time-code"
           aria-label="Verification token"
           required
+          disabled={busy}
         />
-        <button type="submit" className="auth-page__submit" disabled={busy}>
+        <button type="submit" className="auth-page__submit" disabled={busy || !token.trim()}>
           {busy ? 'Verifying…' : 'Verify'}
         </button>
       </form>
-      {hint ? <ResendVerificationButton email={hint} /> : null}
+      {hint || err ? <ResendVerificationButton email={hint} /> : null}
     </AuthScreen>
   )
 }

@@ -12,7 +12,8 @@ const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva', 'Lüderi
 
 const SERVICE_FILTERS: { id: string; label: string; types: string[] }[] = [
   { id: 'stays', label: 'Stays', types: ['accommodation'] },
-  { id: 'food', label: 'Food', types: ['food_drink'] },
+  { id: 'food', label: 'Foodies', types: ['food_drink'] },
+  { id: 'activities', label: 'Activities', types: ['activity'] },
   { id: 'guides', label: 'Guides', types: ['guide'] },
   { id: 'transport', label: 'Transport', types: ['transport'] },
   { id: 'events', label: 'Events', types: ['event_organiser'] },

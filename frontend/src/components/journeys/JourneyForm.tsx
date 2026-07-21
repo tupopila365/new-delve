@@ -109,7 +109,7 @@ const COUNTRY_OPTIONS = [
 
 const COST_CATEGORIES = [
   { value: 'stay', label: 'Accommodation', icon: '🏨' },
-  { value: 'food', label: 'Food & drink', icon: '🍽' },
+  { value: 'food', label: 'Foodies', icon: '🍽' },
   { value: 'transport', label: 'Transport', icon: '🚗' },
   { value: 'activity', label: 'Activities', icon: '🎯' },
   { value: 'other', label: 'Other', icon: '💼' },

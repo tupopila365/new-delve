@@ -52,7 +52,7 @@ export const DEMO_ADMIN_REPORTS: AdminReport[] = [
   { id: 1, type: 'Post', item: 'Delvers photo — dune sunset', reporter: 'user_42', reason: 'Spam / misleading location', status: 'new', date: '2026-06-02', severity: 'medium' },
   { id: 2, type: 'Comment', item: 'Reply on community thread', reporter: 'demo_user', reason: 'Harassment', status: 'under_review', date: '2026-06-01', severity: 'high' },
   { id: 3, type: 'Business', item: 'Desert Lodge Co.', reporter: 'stays_host', reason: 'Fake verification documents', status: 'escalated', date: '2026-05-30', severity: 'critical' },
-  { id: 4, type: 'Listing', item: 'Unlisted safari vehicle', reporter: 'guide_pro', reason: 'Safety concern', status: 'new', date: '2026-05-29', severity: 'high' },
+  { id: 4, type: 'Listing', item: 'Unlisted safari vehicle', reporter: 'guide_mgr', reason: 'Safety concern', status: 'new', date: '2026-05-29', severity: 'high' },
 ]
 
 export const DEMO_ADMIN_ACTIVITY: AdminActivity[] = [

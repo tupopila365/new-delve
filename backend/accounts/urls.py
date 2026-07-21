@@ -70,6 +70,7 @@ from .views import (
     CreateMyBusinessView,
     MeView,
     MyBusinessDocumentsView,
+    MyBusinessDocumentDetailView,
     MyBusinessesView,
     MyBusinessTravelOfferDetailView,
     MyBusinessTravelOffersView,
@@ -107,6 +108,11 @@ urlpatterns = [
         name="my-business-offer-detail",
     ),
     path("me/businesses/<int:pk>/documents/", MyBusinessDocumentsView.as_view(), name="my-business-documents"),
+    path(
+        "me/businesses/<int:pk>/documents/<int:doc_id>/",
+        MyBusinessDocumentDetailView.as_view(),
+        name="my-business-document-detail",
+    ),
     path(
         "me/businesses/<int:pk>/submit-verification/",
         SubmitBusinessVerificationView.as_view(),

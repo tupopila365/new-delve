@@ -12,5 +12,5 @@ export function isFoodBusiness(businessTypes: string[] | undefined): boolean {
 }
 
 export function foodServiceLabel(): string {
-  return 'Food & drink venue'
+  return 'Foodies venue'
 }

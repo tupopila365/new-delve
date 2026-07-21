@@ -10,7 +10,12 @@ from .commerce_views import (
     SellerStorefrontView,
     ShopSellerListView,
 )
-from .provider_views import ProviderShopProductViewSet, ProviderShopProfileView
+from .provider_views import (
+    ProviderShopPhoneRequestOtpView,
+    ProviderShopPhoneVerifyView,
+    ProviderShopProductViewSet,
+    ProviderShopProfileView,
+)
 from .views import ShopProductViewSet
 
 router = DefaultRouter()
@@ -24,6 +29,16 @@ urlpatterns = [
     path("cart/merge/", CartMergeView.as_view(), name="shop-cart-merge"),
     path("cart/items/<int:pk>/", CartItemView.as_view(), name="shop-cart-item"),
     path("provider-profile/", ProviderShopProfileView.as_view(), name="shop-provider-profile"),
+    path(
+        "provider-profile/phone/request-otp/",
+        ProviderShopPhoneRequestOtpView.as_view(),
+        name="shop-provider-phone-otp",
+    ),
+    path(
+        "provider-profile/phone/verify/",
+        ProviderShopPhoneVerifyView.as_view(),
+        name="shop-provider-phone-verify",
+    ),
     path("sellers/", ShopSellerListView.as_view(), name="shop-seller-list"),
     path("sellers/<str:username>/", SellerStorefrontView.as_view(), name="shop-seller"),
     path("", include(router.urls)),

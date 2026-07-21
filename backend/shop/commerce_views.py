@@ -37,6 +37,7 @@ from .models import (
     ShopProduct,
 )
 from .serializers import ShopProductSerializer, ShopSellerSerializer
+from .shop_identity import shop_avatar_url, shop_display_name
 
 User = get_user_model()
 
@@ -50,6 +51,33 @@ def _resolve_unit_price(product: ShopProduct, variant: ProductVariant | None) ->
     if variant is not None:
         return variant.effective_price
     return product.price or Decimal("0")
+
+
+def _restore_order_to_cart(order: Order, user) -> None:
+    """Put pending-order lines back into the buyer's cart (e.g. abandoned payment)."""
+    cart = _get_or_create_cart(user)
+    for line in order.items.select_related("product", "variant").all():
+        if not line.product_id:
+            continue
+        item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product_id=line.product_id,
+            variant_id=line.variant_id,
+            defaults={
+                "quantity": line.quantity,
+                "unit_price": line.unit_price,
+            },
+        )
+        if not created:
+            item.quantity = min(99, item.quantity + line.quantity)
+            item.unit_price = line.unit_price
+            item.save(update_fields=["quantity", "unit_price"])
+
+
+def _restore_order_stock(order: Order) -> None:
+    for line in order.items.select_related("product").all():
+        if line.product_id and line.product:
+            line.product.increment_stock(line.quantity)
 
 
 class CartView(APIView):
@@ -180,6 +208,23 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
         if not items:
             return Response({"detail": "Your cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
 
+        from shop.seller_gates import can_accept_paid_orders
+
+        blocked = []
+        for item in items:
+            seller = item.product.owner
+            ok, reason = can_accept_paid_orders(seller)
+            if not ok:
+                blocked.append(f"{item.product.name}: {reason}")
+        if blocked:
+            return Response(
+                {
+                    "detail": "Some items cannot be checked out yet.",
+                    "sellers": blocked,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         fulfillment = data.get("fulfillment_type", FulfillmentType.PICKUP)
 
         # Group cart items by seller — one order per shop.
@@ -261,8 +306,14 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
         order = self.get_object()
         if order.status not in (OrderStatus.PENDING, OrderStatus.PAID):
             return Response({"detail": "Order cannot be cancelled."}, status=status.HTTP_400_BAD_REQUEST)
-        order.status = OrderStatus.CANCELLED
-        order.save(update_fields=["status", "updated_at"])
+        previous = order.status
+        with transaction.atomic():
+            _restore_order_stock(order)
+            # Payment never finished — put items back so the buyer can try again.
+            if previous == OrderStatus.PENDING and order.buyer_id == request.user.id:
+                _restore_order_to_cart(order, request.user)
+            order.status = OrderStatus.CANCELLED
+            order.save(update_fields=["status", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
@@ -408,6 +459,7 @@ class SellerStorefrontView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, username):
+        username = (username or "").strip()
         seller = (
             User.objects.filter(username__iexact=username)
             .select_related("profile", "shop_profile")
@@ -417,41 +469,22 @@ class SellerStorefrontView(APIView):
             return Response({"detail": "Shop not found."}, status=status.HTTP_404_NOT_FOUND)
         products = (
             ShopProduct.objects.filter(owner=seller, is_active=True)
-            .select_related("owner", "owner__profile")
+            .select_related("owner", "owner__profile", "owner__shop_profile")
             .prefetch_related("variants")
             .order_by("-is_featured", "-created_at")
         )
         profile = getattr(seller, "profile", None)
-        avatar = None
-        shop_profile = getattr(seller, "shop_profile", None)
-        if shop_profile and getattr(shop_profile, "avatar", None):
-            try:
-                avatar = request.build_absolute_uri(shop_profile.avatar.url)
-            except Exception:
-                avatar = None
-        shop_name = (getattr(shop_profile, "display_name", None) or "").strip()
-        display_name = (
-            shop_name
-            or (
-                profile.display_name.strip()
-                if profile and profile.display_name and profile.display_name.strip()
-                else seller.username
-            )
-        )
-        product_data = ShopProductSerializer(
-            products, many=True, context={"request": request}
-        ).data
         payload = {
             "username": seller.username,
-            "display_name": display_name,
-            "avatar": avatar,
+            "display_name": shop_display_name(seller),
+            "avatar": shop_avatar_url(seller, request),
             "bio": getattr(profile, "bio", "") or "",
             "region": getattr(profile, "region", "") or "",
             "city": getattr(profile, "city", "") or "",
-            "product_count": len(product_data),
-            "products": product_data,
+            "product_count": products.count(),
+            "products": products,
         }
-        return Response(ShopSellerSerializer(payload).data)
+        return Response(ShopSellerSerializer(payload, context={"request": request}).data)
 
 
 class ShopSellerListView(APIView):
@@ -460,41 +493,37 @@ class ShopSellerListView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        owners = (
+        owner_rows = (
             ShopProduct.objects.filter(is_active=True)
-            .values("owner__username")
+            .values("owner_id")
             .annotate(product_count=Count("id"))
             .order_by("-product_count")[:50]
         )
+        counts = {row["owner_id"]: row["product_count"] for row in owner_rows}
+        if not counts:
+            return Response([])
+
+        sellers = (
+            User.objects.filter(id__in=counts.keys())
+            .select_related("profile", "shop_profile")
+            .order_by("username")
+        )
+        # Keep popularity order from the annotate query.
+        by_id = {user.id: user for user in sellers}
         results = []
-        for row in owners:
-            seller = (
-                User.objects.filter(username=row["owner__username"])
-                .select_related("profile")
-                .first()
-            )
+        for owner_id, product_count in counts.items():
+            seller = by_id.get(owner_id)
             if not seller:
                 continue
             profile = getattr(seller, "profile", None)
-            avatar = None
-            if profile and getattr(profile, "avatar", None):
-                try:
-                    avatar = request.build_absolute_uri(profile.avatar.url)
-                except Exception:
-                    avatar = None
-            display_name = (
-                profile.display_name.strip()
-                if profile and profile.display_name and profile.display_name.strip()
-                else seller.username
-            )
             results.append(
                 {
                     "username": seller.username,
-                    "display_name": display_name,
-                    "avatar": avatar,
+                    "display_name": shop_display_name(seller),
+                    "avatar": shop_avatar_url(seller, request),
                     "region": getattr(profile, "region", "") or "",
                     "city": getattr(profile, "city", "") or "",
-                    "product_count": row["product_count"],
+                    "product_count": product_count,
                 }
             )
         return Response(results)

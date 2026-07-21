@@ -1,7 +1,13 @@
 """Shop product APIs — any signed-in user may sell (own products)."""
 
 import json
+import logging
+import random
+import string
 
+from django.conf import settings
+from django.core.cache import cache
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -13,9 +19,13 @@ from accounts.business_access import (
     resolve_provider_listing_owner,
     user_can_manage_listing,
 )
+from accounts.mail import deliver_mail
 
 from .models import ShopProduct, ShopProfile
 from .provider_serializers import ProviderShopProductSerializer, ProviderShopProfileSerializer
+from .seller_gates import otp_cache_key, pop_phone_otp, store_phone_otp
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_bool(value):
@@ -87,7 +97,20 @@ class ProviderShopProductViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(owner_id=resolve_provider_listing_owner(self.request.user))
+        owner_id = resolve_provider_listing_owner(self.request.user)
+        product = serializer.save(owner_id=owner_id)
+        shop, created = ShopProfile.objects.get_or_create(owner_id=owner_id)
+        if created or not (shop.display_name or "").strip():
+            owner = product.owner
+            profile = getattr(owner, "profile", None)
+            fallback = (
+                (getattr(profile, "display_name", None) or "").strip()
+                or f"{owner.username}'s shop"
+            )
+            if not (shop.display_name or "").strip():
+                shop.display_name = fallback[:120]
+                shop.save(update_fields=["display_name", "updated_at"])
+        return product
 
     def perform_update(self, serializer):
         product = self.get_object()
@@ -114,7 +137,7 @@ class ProviderShopProductViewSet(viewsets.ModelViewSet):
 
 
 class ProviderShopProfileView(APIView):
-    """Seller shop profile (avatar for the public storefront)."""
+    """Seller shop profile + readiness checklist."""
 
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -146,3 +169,68 @@ class ProviderShopProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class ProviderShopPhoneRequestOtpView(APIView):
+    """Send a one-time code to confirm the seller phone (emailed — no ID docs)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        owner_id = resolve_provider_listing_owner(request.user)
+        profile, _ = ShopProfile.objects.get_or_create(owner_id=owner_id)
+
+        phone = (request.data.get("phone") or profile.phone or "").strip()
+        if len(phone) < 7:
+            return Response({"detail": "Enter a valid phone number."}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile.phone = phone[:40]
+        profile.phone_verified_at = None
+        profile.save(update_fields=["phone", "phone_verified_at", "updated_at"])
+
+        code = "".join(random.choices(string.digits, k=6))
+        store_phone_otp(request.user.pk, phone, code)
+
+        email = (request.user.email or "").strip()
+        if email:
+            deliver_mail(
+                subject="DELVE shop — confirm your phone",
+                message=(
+                    f"Hi {request.user.username},\n\n"
+                    f"Confirm phone {phone} for your DELVE shop with this code:\n\n"
+                    f"  {code}\n\n"
+                    f"It expires in 10 minutes.\n"
+                ),
+                recipient_list=[email],
+            )
+        else:
+            logger.warning("Shop phone OTP for user_id=%s has no email", request.user.pk)
+
+        payload: dict = {"detail": "If your account has an email, we sent a confirmation code."}
+        if settings.DEBUG:
+            payload["debug_code"] = code
+        return Response(payload)
+
+
+class ProviderShopPhoneVerifyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        code = (request.data.get("code") or "").strip()
+        if not code:
+            return Response({"detail": "code is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        cached = pop_phone_otp(request.user.pk)
+        if not cached or str(cached.get("code")) != code:
+            return Response({"detail": "Invalid or expired code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        owner_id = resolve_provider_listing_owner(request.user)
+        profile, _ = ShopProfile.objects.get_or_create(owner_id=owner_id)
+        profile.phone = (cached.get("phone") or profile.phone or "")[:40]
+        profile.phone_verified_at = timezone.now()
+        profile.save(update_fields=["phone", "phone_verified_at", "updated_at"])
+        cache.delete(otp_cache_key(request.user.pk))
+
+        return Response(
+            ProviderShopProfileSerializer(profile, context={"request": request}).data
+        )

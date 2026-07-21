@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   type LucideIcon,
   MessageSquare,
+  Mountain,
   Settings,
   ShoppingBag,
   Star,
@@ -27,6 +28,7 @@ export type ManageModuleId =
   | 'transport'
   | 'food_drink'
   | 'retail_shop'
+  | 'activity'
   | 'event_organiser'
 
 export type ManageNavId =
@@ -47,6 +49,7 @@ export const MANAGE_MODULE_ICONS: Record<ManageModuleId, LucideIcon> = {
   transport: Car,
   food_drink: Utensils,
   retail_shop: ShoppingBag,
+  activity: Mountain,
   event_organiser: Ticket,
 }
 
@@ -54,8 +57,9 @@ export const MANAGE_MODULE_LABELS: Record<ManageModuleId, string> = {
   accommodation: 'Stays',
   guide: 'Guides',
   transport: 'Transport',
-  food_drink: 'Food & drink',
+  food_drink: 'Foodies',
   retail_shop: 'Shop',
+  activity: 'Activities',
   event_organiser: 'Events',
 }
 
@@ -65,6 +69,7 @@ export const MANAGE_MODULE_PATHS: Record<ManageModuleId, string> = {
   transport: '/provider/transport',
   food_drink: '/provider/food',
   retail_shop: '/provider/shop',
+  activity: '/provider/activities',
   event_organiser: '/provider/events',
 }
 

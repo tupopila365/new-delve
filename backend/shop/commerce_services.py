@@ -45,11 +45,13 @@ def release_seller_payout(order: Order) -> list[str]:
     """Release held funds to the seller (minus Delve fee)."""
     if order.payout_status != PayoutStatus.HELD:
         return []
-    from accounts.seller_trust import seller_may_receive_payout
+    from shop.seller_gates import can_receive_payout
 
-    if order.seller_id and not seller_may_receive_payout(order.seller):
-        # Trust gate: keep held for unverified / new sellers.
-        return []
+    if order.seller_id:
+        ok, _reason = can_receive_payout(order.seller)
+        if not ok:
+            # Keep held until phone + payout details are complete.
+            return []
     order.payout_status = PayoutStatus.RELEASED
     order.payout_released_at = timezone.now()
     return ["payout_status", "payout_released_at"]

@@ -274,7 +274,7 @@ class PlatformEmailVerificationView(APIView):
 
         from accounts.mail import send_verification_email
 
-        send_verification_email(user)
+        send_verification_email(user, request=request)
         log_admin_action(
             actor=request.user,
             action="email_verify_resend",

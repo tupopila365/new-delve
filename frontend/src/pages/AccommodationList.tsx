@@ -10,6 +10,7 @@ import {
 } from '../components/accommodation/AccommodationListingCard'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { useToggleStaySave } from '../hooks/useStaySave'
+import { useAccountActionGate } from '../hooks/useAccountActionGate'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { HostStoriesRow } from '../components/HostStoriesRow'
 import { partnerBadgeFields } from '../utils/featuredPartner'
@@ -154,6 +155,7 @@ function sortStays(list: AccListing[], sort: SortId): AccListing[] {
 export function AccommodationList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const gate = useAccountActionGate()
   const queryClient = useQueryClient()
   const saveMut = useToggleStaySave()
 
@@ -363,25 +365,19 @@ export function AccommodationList() {
     },
   })
 
-  const requireAuth = () => {
-    if (!profile) {
-      navigate('/login')
-      return false
-    }
-    return true
-  }
+  const requireAuth = (action = 'continue') => gate(action)
 
   const onToggleLike = (listingId: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!requireAuth()) return
+    if (!requireAuth('like this stay')) return
     likeMut.mutate(listingId)
   }
 
   const onToggleSave = (listingId: number, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!requireAuth()) return
+    if (!requireAuth('save this stay')) return
     saveMut.mutate(listingId)
   }
 

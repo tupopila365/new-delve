@@ -40,7 +40,7 @@ class ShopProductFilter(django_filters.FilterSet):
 class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
         ShopProduct.objects.filter(is_active=True)
-        .select_related("owner", "owner__profile")
+        .select_related("owner", "owner__profile", "owner__shop_profile")
         .prefetch_related("variants")
     )
     serializer_class = ShopProductSerializer

@@ -239,7 +239,7 @@ export function ShopList() {
                   {s.avatar ? <img src={s.avatar} alt="" /> : <Store size={18} strokeWidth={2.25} />}
                 </span>
                 <span className="shop-chip__body">
-                  <strong>{s.display_name}</strong>
+                  <strong>{s.display_name || s.username}</strong>
                   <small>
                     {s.product_count} item{s.product_count === 1 ? '' : 's'}
                     {s.city ? ` · ${s.city}` : ''}
