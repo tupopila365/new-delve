@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Map } from 'lucide-react'
 import type { TourPackage } from '../../guide/types'
 import { packageCompleteness } from './guideProfileTypes'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   pkg: TourPackage
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function GuidePackageCard({ pkg, guideId, canEdit, onEdit, onDelete, deletePending }: Props) {
+  const { format } = useDisplayMoney()
   const { percent, missing } = packageCompleteness(pkg)
   const reviewCount = pkg.reviews?.length ?? 0
   const avgRating =
@@ -40,7 +42,7 @@ export function GuidePackageCard({ pkg, guideId, canEdit, onEdit, onDelete, dele
         </div>
 
         <p className="guide-card__meta">
-          {pkg.hours}h · N${pkg.price} per person
+          {pkg.hours}h · {format(pkg.price)} per person
           {(pkg.photos?.length ?? 0) > 0 ? ` · ${pkg.photos!.length} gallery photo${pkg.photos!.length === 1 ? '' : 's'}` : ''}
         </p>
 

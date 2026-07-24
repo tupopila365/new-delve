@@ -102,6 +102,7 @@ def food_venue_reviews_payload(venue: FoodVenue) -> dict:
                 ),
                 "avatar": avatar,
                 "created_at": review.created_at.isoformat(),
+                "verified_guest": True,
             }
         )
 
@@ -117,6 +118,7 @@ def food_venue_reviews_payload(venue: FoodVenue) -> dict:
                 "rating": row.get("rating"),
                 "body": row.get("body") or "",
                 "avatar": row.get("avatar"),
+                "verified_guest": bool(row.get("verified_guest", True)),
             }
         )
 

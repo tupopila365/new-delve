@@ -11,6 +11,7 @@ import {
 } from '../booking'
 import type { ListingRoomOption } from '../listing/types'
 import './accommodation-room.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Props = {
   room: ListingRoomOption
@@ -44,6 +45,7 @@ export function AccommodationRoomBooking({
   maxListingGuests,
   className = '',
 }: Props) {
+  const { format } = useDisplayMoney()
   const { profile } = useAuth()
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
@@ -99,11 +101,11 @@ export function AccommodationRoomBooking({
         {pricing.badge ? <span className="acc-room-booking__badge">{pricing.badge}</span> : null}
         <div className="acc-room-booking__price-row">
           {pricing.onSale && pricing.compareAt != null ? (
-            <span className="acc-room-booking__was">N${pricing.compareAt}</span>
+            <span className="acc-room-booking__was">{format(pricing.compareAt)}</span>
           ) : null}
           {pricing.price != null ? (
             <>
-              <span className="acc-room-booking__now">N${pricing.price}</span>
+              <span className="acc-room-booking__now">{format(pricing.price)}</span>
               <span className="acc-room-booking__unit">/ night</span>
             </>
           ) : null}
@@ -112,13 +114,13 @@ export function AccommodationRoomBooking({
           <div className="acc-room-booking__fees">
             <div className="acc-room-booking__fee-row">
               <span>
-                N${pricing.price} × {nights} {nights === 1 ? 'night' : 'nights'}
+                {format(pricing.price)} × {nights} {nights === 1 ? 'night' : 'nights'}
               </span>
-              <span>N${total}</span>
+              <span>{format(total)}</span>
             </div>
             <div className="acc-room-booking__fee-row acc-room-booking__fee-row--total">
               <span>Stay total</span>
-              <strong>N${total}</strong>
+              <strong>{format(total)}</strong>
             </div>
           </div>
         ) : (

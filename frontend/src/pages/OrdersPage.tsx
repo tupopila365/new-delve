@@ -3,14 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, Package, Store } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { EmptyState } from '../components/ui'
 import type { Order } from '../utils/shopListing'
 import '../components/shop/shop-cart.css'
-
-function money(value: string | number): string {
-  const n = typeof value === 'number' ? value : Number(value)
-  return `N$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\.00$/, '')}`
-}
 
 const STATUS_CLASS: Record<string, string> = {
   pending: 'is-pending',
@@ -26,6 +22,11 @@ export function OrdersPage() {
   const { profile } = useAuth()
   const [params] = useSearchParams()
   const justPlaced = params.get('placed') === '1'
+  const { format } = useDisplayMoney()
+  const money = (value: string | number) => {
+    const n = typeof value === 'number' ? value : Number(value)
+    return format(Number.isFinite(n) ? n : 0)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['shop-orders'],

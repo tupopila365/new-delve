@@ -7,6 +7,8 @@ import { useAuth } from '../auth/AuthContext'
 import { GuideListingCard } from '../components/guide/GuideListingCard'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { useToggleGuideSave } from '../hooks/useGuideSave'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { useForYou } from '../hooks/useForYou'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
@@ -153,7 +155,7 @@ function applyNeedFilter(guides: Guide[], needId: string): Guide[] {
   }
 }
 
-function sortGuides(list: Guide[], sort: SortId): Guide[] {
+function sortGuides(list: Guide[], sort: SortId, forYouAffinity = 0): Guide[] {
   const next = [...list]
   next.sort((a, b) => {
     if (sort === 'price_asc') return hourlyRate(a) - hourlyRate(b)
@@ -176,13 +178,18 @@ function sortGuides(list: Guide[], sort: SortId): Guide[] {
       Math.min(g.rating_count ?? 0, 40) / 20 +
       (g.is_featured_partner ? 4 : 0) +
       ((g.tour_packages?.length ?? 0) > 0 ? 1.5 : 0) +
-      ((g.response_hours_typical ?? 99) <= FAST_RESPONSE_HOURS ? 1 : 0)
+      ((g.response_hours_typical ?? 99) <= FAST_RESPONSE_HOURS ? 1 : 0) +
+      forYouAffinity * 2.5 +
+      (g.saved_by_me ? 1.5 : 0)
     return score(b) - score(a)
   })
   return next
 }
 
 export function GuidesList() {
+  const { format } = useDisplayMoney()
+  const { boost } = useForYou()
+  const guidesAffinity = boost('guides')
   const navigate = useNavigate()
   const { profile } = useAuth()
   const saveMut = useToggleGuideSave()
@@ -232,8 +239,8 @@ export function GuidesList() {
   const guides = useMemo(() => {
     let list = [...(data ?? [])]
     if (need && need !== 'licensed') list = applyNeedFilter(list, need)
-    return sortGuides(list, sort)
-  }, [data, need, sort])
+    return sortGuides(list, sort, guidesAffinity)
+  }, [data, need, sort, guidesAffinity])
 
   // Derive the area dropdown from guides' real regions. Only recompute from the
   // unfiltered result set so picking an area (server-side region filter) doesn't
@@ -545,7 +552,7 @@ export function GuidesList() {
                       {g.hourly_rate ? (
                         <>
                           <span aria-hidden>·</span>
-                          From ${g.hourly_rate}/hr
+                          {format(g.hourly_rate, { suffix: '/hr', from: true })}
                         </>
                       ) : null}
                     </p>

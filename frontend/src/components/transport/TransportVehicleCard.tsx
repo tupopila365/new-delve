@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { isVideoUrl } from '../listing/photos/listingGalleryMedia'
 import { vehicleTypeMeta } from '../../utils/transportListing'
 import './transport-market.css'
@@ -61,6 +62,7 @@ export function TransportVehicleCard({
   onToggleSave,
   onShare,
 }: Props) {
+  const { format } = useDisplayMoney()
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
   const TypeIcon = typeMeta.Icon
   const coverSrc = mediaUrl(vehicle.cover_image) || vehicle.cover_image
@@ -180,12 +182,12 @@ export function TransportVehicleCard({
           <div className="tm-card__price-block">
             <p className="tm-card__price">
               <BadgeDollarSign size={13} strokeWidth={2.25} aria-hidden />
-              N${vehicle.price_per_day}
+              {format(vehicle.price_per_day)}
               <span className="tm-card__per"> / day</span>
             </p>
             {totalEst ? (
               <p className="tm-card__est">
-                Est. N${totalEst} · {rentalDays} {rentalDays === 1 ? 'day' : 'days'}
+                Est. {format(totalEst)} · {rentalDays} {rentalDays === 1 ? 'day' : 'days'}
               </p>
             ) : null}
           </div>

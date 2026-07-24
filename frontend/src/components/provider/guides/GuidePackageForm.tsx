@@ -7,6 +7,7 @@ import {
   type GuidePackageFormValues,
 } from './guideProfileTypes'
 import '../transport/transport-listing.css'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   values: GuidePackageFormValues
@@ -25,6 +26,7 @@ const SECTIONS = [
 ] as const
 
 export function GuidePackageForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
+  const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('experience')
 
   function patch(partial: Partial<GuidePackageFormValues>) {
@@ -159,7 +161,7 @@ export function GuidePackageForm({ values, onChange, error, saving, onSubmit, on
                   />
                 </label>
                 <label className="guide-form__field">
-                  Price per person (N$)
+                  Price per person ({currency})
                   <input
                     value={values.price}
                     onChange={(e) => patch({ price: e.target.value })}

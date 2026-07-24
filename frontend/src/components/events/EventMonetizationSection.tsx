@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { apiFetch } from '../../api/client'
 import { ProviderUiStats } from '../provider/ui'
 import { EventTemplateForm } from './EventTemplateForm'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type MonetizationAnalytics = {
   days: number
@@ -43,6 +44,7 @@ type Props = {
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export function EventMonetizationSection({ enabled, canManage, businessId, defaultRegion = '' }: Props) {
+  const { format } = useDisplayMoney()
   const qc = useQueryClient()
   const [showTemplateForm, setShowTemplateForm] = useState(false)
 
@@ -78,7 +80,7 @@ export function EventMonetizationSection({ enabled, canManage, businessId, defau
       </h2>
       <ProviderUiStats
         stats={[
-          { value: `N$${(analytics?.on_platform_revenue ?? 0).toFixed(0)}`, label: 'On-platform revenue' },
+          { value: format(analytics?.on_platform_revenue ?? 0), label: 'On-platform revenue' },
           { value: analytics?.external_ticket_clicks ?? 0, label: 'External ticket clicks' },
           { value: analytics?.confirmed_bookings ?? 0, label: 'Confirmed RSVPs' },
           { value: analytics?.pending_payment ?? 0, label: 'Awaiting payment' },
@@ -101,7 +103,7 @@ export function EventMonetizationSection({ enabled, canManage, businessId, defau
               {analytics.events.map((row) => (
                 <tr key={row.id}>
                   <td>{row.title}</td>
-                  <td>{row.revenue > 0 ? `N$${row.revenue.toFixed(0)}` : '—'}</td>
+                  <td>{row.revenue > 0 ? format(row.revenue) : '—'}</td>
                   <td>{row.external_clicks || '—'}</td>
                   <td>{row.bookings}</td>
                 </tr>

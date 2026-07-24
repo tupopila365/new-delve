@@ -9,9 +9,11 @@ import {
 } from '../../utils/eventDisplay'
 import { Featured, type FeaturedItem } from '../Featured'
 import { FEATURED_API, useFeaturedPlacement } from '../../hooks/useFeaturedPlacement'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { partnerBadgeFields } from '../../utils/featuredPartner'
 
 export function FeaturedEvents() {
+  const { currency } = useDisplayMoney()
   const { data, isLoading } = useFeaturedPlacement<EventListing>('featured-events-rail', FEATURED_API.events)
 
   const items: FeaturedItem[] = (data ?? []).map((event) => {
@@ -26,7 +28,7 @@ export function FeaturedEvents() {
       ...partnerBadgeFields(event, event.is_free ? 'Free event' : cat.label),
       location: eventLocationLine(event),
       meta: `${when.full} · ${when.time}`,
-      price: eventPriceLabel(event) ?? 'View details',
+      price: eventPriceLabel(event, currency) ?? 'View details',
       rating: event.likes_count && event.likes_count > 0 ? event.likes_count : null,
     }
   })

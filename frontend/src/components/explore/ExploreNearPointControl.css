@@ -1,0 +1,145 @@
+.explore-near {
+  --explore-near-ink: #fffaf2;
+  --explore-near-muted: rgba(255, 250, 242, 0.62);
+  --explore-near-border: rgba(255, 255, 255, 0.12);
+  --explore-near-surface: rgba(255, 255, 255, 0.04);
+  --explore-near-accent: #fbbf24;
+  --explore-near-accent-soft: rgba(217, 119, 6, 0.22);
+  --explore-near-accent-border: rgba(251, 191, 36, 0.45);
+
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--explore-near-border);
+  background: var(--explore-near-surface);
+  color: var(--explore-near-ink);
+}
+
+.st-market .explore-near {
+  --explore-near-accent: #e09a8c;
+  --explore-near-accent-soft: rgba(201, 123, 107, 0.22);
+  --explore-near-accent-border: rgba(224, 154, 140, 0.45);
+}
+
+.explore-near__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.explore-near__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--explore-near-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--explore-near-ink);
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.explore-near__btn.is-active,
+.explore-near__chip.is-active {
+  border-color: var(--explore-near-accent-border);
+  background: var(--explore-near-accent-soft);
+  color: var(--explore-near-accent);
+}
+
+.explore-near__btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.explore-near__search {
+  flex: 1 1 160px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 140px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--explore-near-border);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.explore-near__search svg {
+  flex: 0 0 auto;
+  color: var(--explore-near-muted);
+}
+
+.explore-near__search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--explore-near-ink);
+  outline: none;
+}
+
+.explore-near__search input::placeholder {
+  color: var(--explore-near-muted);
+}
+
+.explore-near__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--explore-near-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--explore-near-muted);
+  cursor: pointer;
+}
+
+.explore-near__towns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.explore-near__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--explore-near-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--explore-near-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.explore-near__chip:hover {
+  color: var(--explore-near-ink);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.explore-near__status,
+.explore-near__hint,
+.explore-near__error {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--explore-near-muted);
+}
+
+.explore-near__status strong {
+  color: var(--explore-near-ink);
+  font-weight: 750;
+}
+
+.explore-near__error {
+  color: #fbbf24;
+}

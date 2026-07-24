@@ -392,7 +392,7 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
             <input
               value={draft.price_label}
               onChange={(e) => setDraft((d) => ({ ...d, price_label: e.target.value }))}
-              placeholder="e.g. 50% off · From N$1,200"
+              placeholder="e.g. 50% off · From 1,200"
               maxLength={80}
             />
           </label>

@@ -5,6 +5,8 @@ import { ListingSection } from './ListingSection'
 import { roomGalleryImages } from './listingUtils'
 import type { ListingRoomOption } from './types'
 import './listing-detail.css'
+import { formatDisplayMoney } from '../../lib/displayMoney'
+import { exploreDisplayCurrency } from '../../lib/exploreDestination'
 
 type Props = {
   rooms: ListingRoomOption[]
@@ -29,7 +31,7 @@ function roomMeta(room: ListingRoomOption): string {
 
 function displayPrice(room: ListingRoomOption): string | null {
   const price = room.pricePerNight?.trim() || room.fallbackPrice?.trim()
-  return price ? `N$${price}` : null
+  return price ? formatDisplayMoney(price, exploreDisplayCurrency()) : null
 }
 
 export function ListingRoomPicker({
@@ -53,7 +55,7 @@ export function ListingRoomPicker({
           const imageSrc = room.image ? mediaUrl(room.image) || room.image : galleryImages[0]?.src ?? null
           const meta = roomMeta(room)
           const price = displayPrice(room)
-          const compareAt = room.compareAtPrice?.trim() ? `N$${room.compareAtPrice.trim()}` : null
+          const compareAt = room.compareAtPrice?.trim() ? formatDisplayMoney(room.compareAtPrice.trim(), exploreDisplayCurrency()) : null
           const onSale = Boolean(compareAt && price && compareAt !== price)
           const badge = room.badge?.trim() || (onSale ? 'On sale' : room.featured ? 'Special' : null)
           const photoCount = galleryImages.length

@@ -6,6 +6,7 @@ import {
   type MessagePlaceContext,
 } from '../messages/messageProviderUtils'
 import { BookingStatusBadge } from '../booking'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Props = {
   booking: ProviderBooking
@@ -26,6 +27,7 @@ function bookingPlace(booking: ProviderBooking): MessagePlaceContext | null {
 }
 
 export function ProviderBookingRow({ booking, showActions = true }: Props) {
+  const { format } = useDisplayMoney()
   return (
     <div className="prov-booking-row">
       <div className="prov-booking-row__guest">
@@ -50,7 +52,7 @@ export function ProviderBookingRow({ booking, showActions = true }: Props) {
       </span>
       <BookingStatusBadge status={booking.status} />
       <strong className="prov-booking-row__amount">
-        {booking.total ? `N$${booking.total.toLocaleString()}` : 'Free'}
+        {booking.total ? format(booking.total) : 'Free'}
       </strong>
       {booking.paymentStatus ? (
         <span className="prov-booking-row__payment">{booking.paymentStatus}</span>

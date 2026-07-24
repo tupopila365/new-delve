@@ -57,6 +57,13 @@
   color: var(--st-text);
 }
 
+.st-market__explore-hint {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: rgba(255, 250, 242, 0.7);
+}
+
 .st-market__find {
   display: grid;
   gap: 8px;
@@ -307,6 +314,40 @@
   justify-content: space-between;
   gap: 8px 16px;
   margin: 18px 0 12px;
+}
+
+.st-market__results-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-market__view-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(28, 25, 23, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.st-market__view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #57534e;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.st-market__view-toggle button.is-active {
+  background: #1c1917;
+  color: #fffaf2;
 }
 
 .st-market__count {

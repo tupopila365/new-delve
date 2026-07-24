@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BedDouble, Bookmark, Building2, MapPin, Search, X } from 'lucide-react'
+import { BedDouble, Bookmark, Building2, List, Map as MapIcon, MapPin, Search, X } from 'lucide-react'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -11,6 +11,18 @@ import {
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { useToggleStaySave } from '../hooks/useStaySave'
 import { useAccountActionGate } from '../hooks/useAccountActionGate'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import { useExploreNearPoint } from '../hooks/useExploreNearPoint'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { useForYou } from '../hooks/useForYou'
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { listingMatchesExplore } from '../lib/exploreDestination'
+import { compareByDistance, formatDistanceKm, listingDistanceKm } from '../lib/geoDistance'
+import { listingTrustBoost } from '../lib/listingTrust'
+import { listingTasteTags } from '../lib/forYouDeep'
+import { useForYouDeep } from '../hooks/useForYouDeep'
+import { ExploreNearPointControl } from '../components/explore/ExploreNearPointControl'
+import { ExploreResultsMap } from '../components/explore/ExploreResultsMap'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { HostStoriesRow } from '../components/HostStoriesRow'
 import { partnerBadgeFields } from '../utils/featuredPartner'
@@ -20,16 +32,22 @@ import '../components/accommodation/stay-list.css'
 type AccListing = AccommodationCardListing & {
   saves_count?: number
   saved_by_me?: boolean
+  liked_by_me?: boolean
   is_featured_partner?: boolean
   partner_label?: string
   promotion_id?: number
   description?: string
+  latitude?: number | string | null
+  longitude?: number | string | null
+  owner_verified?: boolean
+  niche_tags?: string[] | null
+  amenities?: string[] | null
 }
 
-type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc'
+type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'distance'
 
 type AmenityId = 'pool' | 'wifi' | 'parking' | 'kitchen' | 'breakfast' | 'pets'
-type GoodForId = 'budget' | 'family' | 'coast'
+type GoodForId = 'budget' | 'family' | 'coast' | 'verified'
 
 const AMENITY_OPTIONS: { value: AmenityId; label: string }[] = [
   { value: 'pool', label: 'Pool' },
@@ -44,17 +62,18 @@ const AMENITY_LABELS: Record<string, string> = Object.fromEntries(
   AMENITY_OPTIONS.map((a) => [a.value, a.label]),
 )
 
-const GOOD_FOR_OPTIONS: { value: GoodForId; label: string }[] = [
-  { value: 'budget', label: 'Budget (under N$800)' },
+const GOOD_FOR_OPTIONS_BASE: { value: GoodForId; label: string }[] = [
+  { value: 'budget', label: 'Budget' },
   { value: 'family', label: 'Family-friendly' },
   { value: 'coast', label: 'On the coast' },
+  { value: 'verified', label: 'Verified hosts' },
 ]
 
-const PRICE_BUCKETS: { value: string; label: string; min: string; max: string }[] = [
-  { value: 'lt500', label: 'Under N$500', min: '', max: '500' },
-  { value: '500-1000', label: 'N$500 – 1,000', min: '500', max: '1000' },
-  { value: '1000-2000', label: 'N$1,000 – 2,000', min: '1000', max: '2000' },
-  { value: 'gt2000', label: 'N$2,000+', min: '2000', max: '' },
+const PRICE_BUCKETS_BASE: { value: string; min: string; max: string }[] = [
+  { value: 'lt500', min: '', max: '500' },
+  { value: '500-1000', min: '500', max: '1000' },
+  { value: '1000-2000', min: '1000', max: '2000' },
+  { value: 'gt2000', min: '2000', max: '' },
 ]
 
 const PROPERTY_TYPES: { value: string; label: string }[] = [
@@ -86,13 +105,13 @@ const TOP_AREAS = [
 /** Cities map to `city=`; destinations without a city use `search=`. */
 const CITY_AREAS = new Set(['Windhoek', 'Swakopmund', 'Walvis Bay', 'Lüderitz', 'Ongwediva'])
 
-const COLLECTIONS: { id: string; label: string; amenity?: AmenityId; need?: 'budget' | 'family' | 'coast' }[] = [
+const COLLECTIONS_BASE: { id: string; label: string; amenity?: AmenityId; need?: 'budget' | 'family' | 'coast' }[] = [
   { id: 'pool-picks', label: 'Pool picks', amenity: 'pool' },
   { id: 'pet-friendly', label: 'Pet friendly', amenity: 'pets' },
-  { id: 'budget-nights', label: 'Under N$800', need: 'budget' },
+  { id: 'budget-nights', label: 'Budget nights', need: 'budget' },
 ]
 
-/** Namibia budget stays often sit under ~N$800/night in demo inventory. */
+/** Local-currency budget ceiling for demo inventory / filters. */
 const BUDGET_MAX_PRICE = 800
 const FAMILY_GUESTS = 4
 const DISCOVERY_MIN_STAYS = 6
@@ -124,9 +143,20 @@ function stayMatchesCoast(a: AccListing): boolean {
   return COAST_KEYWORDS.some((k) => hay.includes(k))
 }
 
-function sortStays(list: AccListing[], sort: SortId): AccListing[] {
+function sortStays(
+  list: AccListing[],
+  sort: SortId,
+  forYouAffinity = 0,
+  nearPoint: { latitude: number; longitude: number } | null = null,
+  itemBoost: (vertical: 'stays', id: number, tags: string[]) => number = () => 0,
+  exploring = true,
+): AccListing[] {
   const next = [...list]
+  const personalWeight = exploring ? 1 : 1.65
   next.sort((a, b) => {
+    if (sort === 'distance' && nearPoint) {
+      return compareByDistance(listingDistanceKm(nearPoint, a), listingDistanceKm(nearPoint, b))
+    }
     if (sort === 'price_asc') return nightlyPrice(a) - nightlyPrice(b)
     if (sort === 'price_desc') {
       const ap = nightlyPrice(a)
@@ -145,8 +175,13 @@ function sortStays(list: AccListing[], sort: SortId): AccListing[] {
       ratingValue(s) * 2 +
       Math.min(s.rating_count ?? 0, 40) / 20 +
       (s.is_featured_partner ? 4 : 0) +
+      listingTrustBoost(s) +
+      itemBoost('stays', s.id, listingTasteTags(s)) * personalWeight +
       (s.wifi ? 0.4 : 0) +
-      (s.pool ? 0.3 : 0)
+      (s.pool ? 0.3 : 0) +
+      forYouAffinity * (exploring ? 2.5 : 1.1) +
+      (s.saved_by_me ? 1.5 : 0) +
+      (s.liked_by_me ? 0.8 : 0)
     return score(b) - score(a)
   })
   return next
@@ -156,8 +191,56 @@ export function AccommodationList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const gate = useAccountActionGate()
+  const { country, region: exploreRegion, label: exploreLabel, exploring } = useExploreDestination()
+  const { point: nearPoint } = useExploreNearPoint()
+  const { currency, format, threshold } = useDisplayMoney()
+  const { boost } = useForYou()
+  const staysAffinity = boost('stays')
+  const { itemBoost } = useForYouDeep()
   const queryClient = useQueryClient()
   const saveMut = useToggleStaySave()
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+
+  const goodForOptions = useMemo(
+    () =>
+      GOOD_FOR_OPTIONS_BASE.map((o) =>
+        o.value === 'budget'
+          ? { ...o, label: `Budget (${threshold(BUDGET_MAX_PRICE, 'under').toLowerCase()})` }
+          : o,
+      ),
+    [threshold],
+  )
+
+  const priceBuckets = useMemo(
+    () =>
+      PRICE_BUCKETS_BASE.map((b) => {
+        if (b.value === 'lt500') {
+          return { ...b, label: threshold(500, 'under') }
+        }
+        if (b.value === '500-1000') {
+          return {
+            ...b,
+            label: `${formatDisplayMoney(500, currency)} – ${formatDisplayMoney(1000, currency).replace(/^[^\d]+/, '')}`,
+          }
+        }
+        if (b.value === '1000-2000') {
+          return {
+            ...b,
+            label: `${formatDisplayMoney(1000, currency)} – ${formatDisplayMoney(2000, currency).replace(/^[^\d]+/, '')}`,
+          }
+        }
+        return { ...b, label: `${formatDisplayMoney(2000, currency)}+` }
+      }),
+    [currency, threshold],
+  )
+
+  const collections = useMemo(
+    () =>
+      COLLECTIONS_BASE.map((c) =>
+        c.need === 'budget' ? { ...c, label: threshold(BUDGET_MAX_PRICE, 'under') } : c,
+      ),
+    [threshold],
+  )
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -168,6 +251,7 @@ export function AccommodationList() {
   const [budgetOnly, setBudgetOnly] = useState(false)
   const [familyOnly, setFamilyOnly] = useState(false)
   const [coastOnly, setCoastOnly] = useState(false)
+  const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [propType, setPropType] = useState('')
   const [minBedrooms, setMinBedrooms] = useState('')
   const [minRating, setMinRating] = useState('')
@@ -181,6 +265,11 @@ export function AccommodationList() {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
     return () => window.clearTimeout(t)
   }, [searchInput])
+
+  useEffect(() => {
+    if (nearPoint) setSort('distance')
+    else setSort((s) => (s === 'distance' ? 'recommended' : s))
+  }, [nearPoint?.latitude, nearPoint?.longitude, nearPoint?.label])
 
   useEffect(() => {
     if (!shareMsg) return
@@ -209,6 +298,8 @@ export function AccommodationList() {
       if (CITY_AREAS.has(area)) p.set('city', area)
       else p.set('search', search ? `${search} ${area}` : area)
     }
+    if (exploring && exploreRegion) p.set('region', exploreRegion)
+    if (exploring && country) p.set('country_code', country)
     if (effectiveGuests) p.set('guests', effectiveGuests)
     if (propType) p.set('property_type', propType)
     if (minPrice) p.set('min_price', minPrice)
@@ -229,6 +320,9 @@ export function AccommodationList() {
   }, [
     search,
     area,
+    exploreRegion,
+    exploring,
+    country,
     effectiveGuests,
     propType,
     minPrice,
@@ -240,7 +334,13 @@ export function AccommodationList() {
   ])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['accommodation', qs, profile?.username ?? 'anon'],
+    queryKey: [
+      'accommodation',
+      qs,
+      exploring ? country : 'my-delve',
+      exploring ? exploreRegion : '',
+      profile?.username ?? 'anon',
+    ],
     queryFn: async () =>
       asArray<AccListing>(
         await apiFetch(`/api/accommodation/listings/${qs}`, { auth: Boolean(profile) }),
@@ -262,11 +362,39 @@ export function AccommodationList() {
   )
 
   const listings = useMemo(() => {
-    if (savedOnly) return sortStays([...(savedQuery.data ?? [])], sort)
+    if (savedOnly) {
+      return sortStays(
+        [...(savedQuery.data ?? [])],
+        sort,
+        staysAffinity,
+        nearPoint,
+        itemBoost,
+        exploring,
+      )
+    }
     let list = [...(data ?? [])]
+    if (exploring) {
+      if (!exploreRegion) {
+        list = list.filter((row) => listingMatchesExplore(row, country, ''))
+      }
+    }
     if (coastOnly) list = list.filter(stayMatchesCoast)
-    return sortStays(list, sort)
-  }, [savedOnly, savedQuery.data, data, coastOnly, sort])
+    if (verifiedOnly) list = list.filter((s) => Boolean(s.owner_verified))
+    return sortStays(list, sort, staysAffinity, nearPoint, itemBoost, exploring)
+  }, [
+    savedOnly,
+    savedQuery.data,
+    data,
+    coastOnly,
+    verifiedOnly,
+    sort,
+    country,
+    exploreRegion,
+    exploring,
+    staysAffinity,
+    itemBoost,
+    nearPoint,
+  ])
 
   const activeLoading = savedOnly ? savedQuery.isLoading : isLoading
   const activeError = savedOnly ? savedQuery.isError : isError
@@ -285,7 +413,8 @@ export function AccommodationList() {
       amenities.size ||
       budgetOnly ||
       familyOnly ||
-      coastOnly,
+      coastOnly ||
+      verifiedOnly,
   )
 
   const showDiscovery =
@@ -302,6 +431,7 @@ export function AccommodationList() {
     setBudgetOnly(false)
     setFamilyOnly(false)
     setCoastOnly(false)
+    setVerifiedOnly(false)
     setPropType('')
     setMinBedrooms('')
     setMinRating('')
@@ -327,7 +457,9 @@ export function AccommodationList() {
       ? 'family'
       : coastOnly
         ? 'coast'
-        : ''
+        : verifiedOnly
+          ? 'verified'
+          : ''
 
   const onAmenityChange = (value: string) => {
     setAmenities(value ? new Set([value as AmenityId]) : new Set())
@@ -337,16 +469,17 @@ export function AccommodationList() {
     setBudgetOnly(value === 'budget')
     setFamilyOnly(value === 'family')
     setCoastOnly(value === 'coast')
+    setVerifiedOnly(value === 'verified')
   }
 
   const onPriceBucketChange = (value: string) => {
     setPriceBucket(value)
-    const bucket = PRICE_BUCKETS.find((b) => b.value === value)
+    const bucket = priceBuckets.find((b) => b.value === value)
     setMinPrice(bucket?.min ?? '')
     setMaxPrice(bucket?.max ?? '')
   }
 
-  const applyCollection = (c: (typeof COLLECTIONS)[number]) => {
+  const applyCollection = (c: (typeof collections)[number]) => {
     if (c.amenity) {
       setAmenities((prev) => new Set(prev).add(c.amenity!))
     }
@@ -409,6 +542,9 @@ export function AccommodationList() {
         <div className="st-market__hero-head">
           <p className="st-market__kicker">Places to stay</p>
           <h1 className="st-market__title">Find a stay</h1>
+          <p className="st-market__explore-hint">
+            {exploring ? `Exploring ${exploreLabel}` : 'My Delve · personalized stays'}
+          </p>
         </div>
 
         <div className="st-market__find">
@@ -484,7 +620,7 @@ export function AccommodationList() {
               aria-label="Good for"
             >
               <option value="">Good for…</option>
-              {GOOD_FOR_OPTIONS.map(({ value, label }) => (
+              {goodForOptions.map(({ value, label }) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -524,7 +660,7 @@ export function AccommodationList() {
               aria-label="Price per night"
             >
               <option value="">Any price</option>
-              {PRICE_BUCKETS.map(({ value, label }) => (
+              {priceBuckets.map(({ value, label }) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -550,12 +686,17 @@ export function AccommodationList() {
               aria-label="Sort stays"
             >
               <option value="recommended">Recommended</option>
+              <option value="distance" disabled={!nearPoint}>
+                Distance{nearPoint ? ` · ${nearPoint.label}` : ''}
+              </option>
               <option value="rating">Top rated</option>
               <option value="price_asc">Price: low to high</option>
               <option value="price_desc">Price: high to low</option>
             </select>
           </div>
         </div>
+
+        {exploring ? <ExploreNearPointControl onPointSet={() => setSort('distance')} /> : null}
       </header>
 
       {hasFilters ? (
@@ -600,7 +741,7 @@ export function AccommodationList() {
           ))}
           {budgetOnly ? (
             <button type="button" className="st-market__active-pill" onClick={() => setBudgetOnly(false)}>
-              Under N${BUDGET_MAX_PRICE} <X size={13} strokeWidth={2.5} aria-hidden />
+              {threshold(BUDGET_MAX_PRICE, 'under')} <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           {familyOnly ? (
@@ -611,6 +752,11 @@ export function AccommodationList() {
           {coastOnly ? (
             <button type="button" className="st-market__active-pill" onClick={() => setCoastOnly(false)}>
               Coast <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {verifiedOnly ? (
+            <button type="button" className="st-market__active-pill" onClick={() => setVerifiedOnly(false)}>
+              Verified hosts <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           {minBedrooms ? (
@@ -629,7 +775,7 @@ export function AccommodationList() {
               className="st-market__active-pill"
               onClick={() => onPriceBucketChange('')}
             >
-              {PRICE_BUCKETS.find((b) => b.value === priceBucket)?.label ?? 'Price'}{' '}
+              {priceBuckets.find((b) => b.value === priceBucket)?.label ?? 'Price'}{' '}
               <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
@@ -642,7 +788,7 @@ export function AccommodationList() {
       {showDiscovery ? (
         <section className="st-market__section st-market__section--tight" aria-label="Collections">
           <div className="st-market__rail" role="group">
-            {COLLECTIONS.map((c) => (
+            {collections.map((c) => (
               <button key={c.id} type="button" className="st-market__chip" onClick={() => applyCollection(c)}>
                 {c.label}
               </button>
@@ -663,30 +809,69 @@ export function AccommodationList() {
             <>
               <strong>{listings.length}</strong> {listings.length === 1 ? 'stay' : 'stays'}
               {savedOnly ? ' saved' : hasFilters ? ' match' : ' to explore'}
+              {nearPoint && sort === 'distance' ? ` · nearest to ${nearPoint.label}` : ''}
             </>
           )}
         </p>
-        <button
-          type="button"
-          className={`st-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
-          aria-pressed={savedOnly}
-          onClick={() => {
-            if (!profile) {
-              navigate('/login')
-              return
-            }
-            setSavedOnly((v) => !v)
-          }}
-        >
-          <Bookmark
-            size={15}
-            strokeWidth={2.25}
-            fill={savedOnly ? 'currentColor' : 'none'}
-            aria-hidden
-          />
-          {savedOnly ? 'Saved' : 'Saved stays'}
-        </button>
+        <div className="st-market__results-acts">
+          {nearPoint ? (
+            <div className="st-market__view-toggle" role="group" aria-label="Results view">
+              <button
+                type="button"
+                className={viewMode === 'list' ? 'is-active' : undefined}
+                aria-pressed={viewMode === 'list'}
+                onClick={() => setViewMode('list')}
+              >
+                <List size={14} strokeWidth={2.25} aria-hidden />
+                List
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'map' ? 'is-active' : undefined}
+                aria-pressed={viewMode === 'map'}
+                onClick={() => setViewMode('map')}
+              >
+                <MapIcon size={14} strokeWidth={2.25} aria-hidden />
+                Map
+              </button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className={`st-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
+            aria-pressed={savedOnly}
+            onClick={() => {
+              if (!profile) {
+                navigate('/login')
+                return
+              }
+              setSavedOnly((v) => !v)
+            }}
+          >
+            <Bookmark
+              size={15}
+              strokeWidth={2.25}
+              fill={savedOnly ? 'currentColor' : 'none'}
+              aria-hidden
+            />
+            {savedOnly ? 'Saved' : 'Saved stays'}
+          </button>
+        </div>
       </div>
+
+      {nearPoint && viewMode === 'map' && !activeLoading && !activeError ? (
+        <ExploreResultsMap
+          origin={nearPoint}
+          items={listings.map((a) => ({
+            id: a.id,
+            title: a.title,
+            href: `/accommodation/${a.id}`,
+            latitude: a.latitude,
+            longitude: a.longitude,
+            subtitle: a.city ? `${a.city}, ${a.region}` : a.region,
+          }))}
+        />
+      ) : null}
 
       {activeError ? (
         <EmptyState
@@ -700,7 +885,7 @@ export function AccommodationList() {
 
       {activeLoading && !activeError ? <ListSkeleton count={6} /> : null}
 
-      {!activeLoading && !activeError && listings.length > 0 ? (
+      {!activeLoading && !activeError && listings.length > 0 && viewMode === 'list' ? (
         <div className="st-market__grid">
           {listings.map((a) => (
             <AccommodationListingCard
@@ -711,6 +896,9 @@ export function AccommodationList() {
               saved={Boolean(a.saved_by_me)}
               likeCount={a.likes_count ?? 0}
               likeBusy={likeMut.isPending && likeMut.variables === a.id}
+              distanceLabel={
+                nearPoint ? formatDistanceKm(listingDistanceKm(nearPoint, a)) : null
+              }
               onLike={(e) => onToggleLike(a.id, e)}
               onSave={(e) => onToggleSave(a.id, e)}
               onShare={(e) => void shareStay(a, e)}
@@ -765,7 +953,7 @@ export function AccommodationList() {
                       {a.price_per_night ? (
                         <>
                           <span aria-hidden>·</span>
-                          From N${a.price_per_night}/night
+                          {format(a.price_per_night, { suffix: '/night', from: true })}
                         </>
                       ) : null}
                     </p>
@@ -794,7 +982,7 @@ export function AccommodationList() {
               ? 'Tap the bookmark on any stay to save it here for later.'
               : hasFilters
                 ? budgetOnly
-                  ? `No stays under N$${BUDGET_MAX_PRICE}/night — try another area or clear filters.`
+                  ? `No stays ${threshold(BUDGET_MAX_PRICE, 'under').toLowerCase()}/night — try another area or clear filters.`
                   : 'Try another area, need, or clear filters to see more places.'
                 : 'Hotels, lodges, and guest houses will appear here once hosts add listings.'
           }

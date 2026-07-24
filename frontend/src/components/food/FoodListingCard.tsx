@@ -1,8 +1,11 @@
 import { useEffect, useRef, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Bookmark, Heart, MapPin, Share2, Star, Utensils } from 'lucide-react'
+import { BadgeCheck, Bookmark, Heart, MapPin, Share2, Star, Utensils } from 'lucide-react'
 import { foodCoverSrc, foodOpenBadge } from '../../utils/foodDisplay'
 import { cuisineIcon, cuisineLabel, priceLevelLabel, priceLevelName } from '../../utils/foodListing'
+import { listingTrustLabel } from '../../lib/listingTrust'
+import { listingTasteTags } from '../../lib/forYouDeep'
+import { useVideoWatchSignal } from '../../hooks/useForYouDeep'
 import './food-list.css'
 
 export type FoodCardVenue = {
@@ -26,6 +29,9 @@ export type FoodCardVenue = {
   reservations?: boolean | null
   is_featured_partner?: boolean
   partner_label?: string
+  owner_verified?: boolean
+  niche_tags?: string[] | null
+  amenities?: string[] | null
   liked_by_me?: boolean
   likes_count?: number
   saved_by_me?: boolean
@@ -39,6 +45,8 @@ type Props = {
   likeCount?: number
   likeBusy?: boolean
   saveBusy?: boolean
+  /** Shown next to location when sorting by distance. */
+  distanceLabel?: string | null
   onToggleLike: (id: number, e: MouseEvent) => void
   onToggleSave: (id: number, e: MouseEvent) => void
   onShare?: (id: number, e: MouseEvent) => void
@@ -62,6 +70,7 @@ export function FoodListingCard({
   likeCount = 0,
   likeBusy = false,
   saveBusy = false,
+  distanceLabel,
   onToggleLike,
   onToggleSave,
   onShare,
@@ -78,8 +87,11 @@ export function FoodListingCard({
       : null
   const isVideoCover = venue.cover_kind === 'video'
   const coverSrc = foodCoverSrc(venue.cover_image, venue.cuisine)
+  const trustLabel = listingTrustLabel(venue)
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRef = useRef<HTMLDivElement>(null)
+  const tasteTags = listingTasteTags(venue)
+  useVideoWatchSignal('food', venue.id, tasteTags, videoRef, isVideoCover)
 
   useEffect(() => {
     if (!isVideoCover) return
@@ -123,8 +135,11 @@ export function FoodListingCard({
         {openLabel ? (
           <span className={`fd-spot__open${venue.is_open === false ? ' is-closed' : ''}`}>{openLabel}</span>
         ) : null}
-        {venue.is_featured_partner ? (
-          <span className="fd-spot__partner">{venue.partner_label || 'Featured'}</span>
+        {trustLabel ? (
+          <span className={`fd-spot__partner${venue.owner_verified ? ' fd-spot__partner--verified' : ''}`}>
+            {venue.owner_verified ? <BadgeCheck size={11} strokeWidth={2.5} aria-hidden /> : null}
+            {trustLabel}
+          </span>
         ) : null}
         <div className="fd-spot__actions" aria-label="Venue actions">
           <button
@@ -177,6 +192,7 @@ export function FoodListingCard({
         <p className="fd-spot__location">
           <MapPin size={13} strokeWidth={2.25} aria-hidden />
           {location || 'Namibia'}
+          {distanceLabel ? <span className="fd-spot__distance">{distanceLabel}</span> : null}
         </p>
 
         {venue.popular_dish?.trim() ? (

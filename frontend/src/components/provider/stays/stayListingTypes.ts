@@ -1,5 +1,6 @@
 import type { ListingFaqItem } from '../../listing/types'
 import type { HighlightChannelInput } from '../../highlights'
+import { parseCoord } from '../../../utils/placeMap'
 
 export const PROPERTY_TYPES = [
   { value: 'hotel', label: 'Hotel' },
@@ -47,6 +48,11 @@ export type StayListingFormValues = {
   property_type: string
   region: string
   city: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  google_place_id: string
+  formatted_address: string
   price_per_night: string
   max_guests: number
   bedrooms: number
@@ -74,6 +80,11 @@ export const EMPTY_STAY_LISTING_FORM: StayListingFormValues = {
   property_type: 'guesthouse',
   region: '',
   city: '',
+  address: '',
+  latitude: null,
+  longitude: null,
+  google_place_id: '',
+  formatted_address: '',
   price_per_night: '',
   max_guests: 2,
   bedrooms: 1,
@@ -101,6 +112,11 @@ export type ProviderStayListing = {
   description: string
   region: string
   city: string
+  address?: string
+  latitude?: number | string | null
+  longitude?: number | string | null
+  google_place_id?: string
+  formatted_address?: string
   price_per_night: string
   max_guests: number
   bedrooms: number
@@ -196,6 +212,11 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
     property_type: stay.property_type || 'guesthouse',
     region: stay.region,
     city: stay.city,
+    address: stay.address ?? '',
+    latitude: parseCoord(stay.latitude),
+    longitude: parseCoord(stay.longitude),
+    google_place_id: stay.google_place_id ?? '',
+    formatted_address: stay.formatted_address ?? '',
     price_per_night: stay.price_per_night,
     max_guests: stay.max_guests,
     bedrooms: stay.bedrooms,
@@ -232,6 +253,11 @@ export function formToApiPayload(form: StayListingFormValues) {
     property_type: form.property_type,
     region: form.region.trim(),
     city: form.city.trim(),
+    address: form.address.trim(),
+    latitude: form.latitude,
+    longitude: form.longitude,
+    google_place_id: form.google_place_id.trim(),
+    formatted_address: form.formatted_address.trim(),
     price_per_night: form.price_per_night,
     max_guests: Number(form.max_guests),
     bedrooms: Number(form.bedrooms),
@@ -283,6 +309,10 @@ export function listingCompleteness(stay: ProviderStayListing): { percent: numbe
     [Boolean(stay.title?.trim()), 'Title'],
     [Boolean(stay.description?.trim()), 'Description'],
     [Boolean(stay.city?.trim() && stay.region?.trim()), 'Location'],
+    [
+      parseCoord(stay.latitude) != null && parseCoord(stay.longitude) != null,
+      'Map pin',
+    ],
     [Boolean(stay.cover_image), 'Cover photo'],
     [Boolean(stay.price_per_night), 'Nightly price'],
     [stay.max_guests > 0, 'Guest capacity'],

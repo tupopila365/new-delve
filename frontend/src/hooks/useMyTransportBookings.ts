@@ -1,5 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, asArray } from '../api/client'
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { exploreDisplayCurrency } from '../lib/exploreDestination'
+
+function parseMoneyAmount(value: string | number | null | undefined): number {
+  if (value == null || value === '') return 0
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const n = Number(String(value).replace(/[^0-9.-]/g, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Format a stored booking total for display (Explore currency; display-only). */
+export function formatBookingTotal(value: string | number | null | undefined): string {
+  return formatDisplayMoney(parseMoneyAmount(value), exploreDisplayCurrency(), {
+    fallback: formatDisplayMoney(0, exploreDisplayCurrency()),
+  })
+}
 
 export type MyVehicleBooking = {
   id: number
@@ -74,9 +90,9 @@ export function groupSeatReservations(rows: MySeatReservation[]): MySeatBookingG
       if (row.status === 'pending' || existing.status === 'pending') {
         existing.status = 'pending'
       }
-      const seatTotal = parseFloat(existing.total_price.replace(/^N\$/, '')) || 0
-      const add = parseFloat(row.seat_price) || 0
-      existing.total_price = `N$${(seatTotal + add).toFixed(0)}`
+      const seatTotal = parseMoneyAmount(existing.total_price)
+      const add = parseMoneyAmount(row.seat_price)
+      existing.total_price = (seatTotal + add).toFixed(0)
       if (!existing.payout_status && row.payout_status) {
         existing.payout_status = row.payout_status
       }
@@ -93,7 +109,7 @@ export function groupSeatReservations(rows: MySeatReservation[]): MySeatBookingG
       seat_numbers: [row.seat_number],
       reservation_ids: [row.id],
       status: row.status,
-      total_price: `N$${parseFloat(row.seat_price || '0').toFixed(0)}`,
+      total_price: parseMoneyAmount(row.seat_price).toFixed(0),
       mock_payment_ref: paymentRef || undefined,
       payout_status: row.payout_status,
       has_review: row.has_review,

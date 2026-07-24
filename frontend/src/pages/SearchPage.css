@@ -219,6 +219,39 @@
   background: var(--trail-soft);
 }
 
+.search-trail__long-tail {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.search-trail__long-tail-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-trail__long-tail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(26, 21, 16, 0.14);
+  background: #fff;
+  color: var(--trail-ink);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.search-trail__long-tail-btn--primary {
+  background: var(--trail-ink);
+  color: var(--trail-cream);
+  border-color: transparent;
+}
+
 .search-trail__hint,
 .search-trail__summary {
   margin: 4px 2px 0;

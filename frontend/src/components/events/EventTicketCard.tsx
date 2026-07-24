@@ -24,6 +24,7 @@ import {
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { externalTicketHref, resolveTicketingMode } from '../../utils/eventTicketing'
 import './event-detail.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Props = {
   event: EventDetail
@@ -54,6 +55,7 @@ export function EventTicketCard({
   mockPaymentRef,
   ticketQr,
 }: Props) {
+  const { format } = useDisplayMoney()
   const ticketingMode = resolveTicketingMode(event)
   const start = formatEventDateLong(event.starts_at)
   const organizerName = organizerLabel(event)
@@ -89,7 +91,7 @@ export function EventTicketCard({
         return (
           <button type="button" className="btn btn-primary btn-block" onClick={onPay} disabled={payPending}>
             <Ticket size={16} strokeWidth={2.25} aria-hidden />
-            {payPending ? 'Processing…' : `Pay N$${bookingTotal ?? event.price ?? ''} (mock)`}
+            {payPending ? 'Processing…' : `Pay ${format(bookingTotal ?? event.price ?? '')} (mock)`}
           </button>
         )
       }
@@ -129,7 +131,7 @@ export function EventTicketCard({
       return (
         <button type="button" className="btn btn-primary btn-block" onClick={onRsvp} disabled={rsvpPending}>
           <Ticket size={16} strokeWidth={2.25} aria-hidden />
-          Reserve · N${event.price}
+          Reserve · {format(event.price)}
         </button>
       )
     }
@@ -170,7 +172,7 @@ export function EventTicketCard({
         ) : event.price ? (
           <>
             <BadgeDollarSign size={20} strokeWidth={2.25} aria-hidden />
-            N${event.price}
+            {format(event.price)}
           </>
         ) : (
           <>

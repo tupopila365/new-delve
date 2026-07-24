@@ -7,30 +7,28 @@ type Props = {
   source: ExploreRegionSource
   canPick: boolean
   regions: readonly string[]
+  /** Country label for “All in {country}” chip. */
+  countryLabel?: string
   onSelect: (region: string) => void
   onClear: () => void
 }
 
-export function HomeRegionPicker({ region, source, canPick, regions, onSelect, onClear }: Props) {
+export function HomeRegionPicker({
+  region,
+  canPick,
+  regions,
+  countryLabel = 'this country',
+  onSelect,
+  onClear,
+}: Props) {
   if (!canPick && !region) return null
-
-  if (!canPick) {
-    return (
-      <p className="home-region home-region--locked" aria-label={`Exploring ${region}`}>
-        <MapPin size={14} strokeWidth={2.25} aria-hidden />
-        <span>
-          Exploring <strong>{region}</strong>
-          {source === 'profile' ? ' · from your profile' : null}
-        </span>
-      </p>
-    )
-  }
+  if (regions.length === 0) return null
 
   return (
     <div className="home-region">
       <p className="home-region__label" id="home-region-label">
         <MapPin size={14} strokeWidth={2.25} aria-hidden />
-        Exploring
+        Region in {countryLabel}
       </p>
       <div className="home-region__chips" role="group" aria-labelledby="home-region-label">
         <button
@@ -39,7 +37,7 @@ export function HomeRegionPicker({ region, source, canPick, regions, onSelect, o
           aria-pressed={!region}
           onClick={onClear}
         >
-          Nationwide
+          All of {countryLabel}
         </button>
         {regions.map((name) => {
           const active = region === name

@@ -1,46 +1,28 @@
-import { useCallback, useState } from 'react'
-import { useAuth } from '../auth/AuthContext'
-import {
-  EXPLORE_REGIONS,
-  readGuestExploreRegion,
-  writeGuestExploreRegion,
-} from '../lib/exploreRegion'
+import { useExploreDestination } from './useExploreDestination'
 
-export type ExploreRegionSource = 'profile' | 'guest' | 'none'
+export type ExploreRegionSource = 'explore' | 'none'
 
 /**
- * Effective region for consumer feeds (home, stories, delvers preview).
- * Prefers signed-in profile.region; otherwise uses a guest preference in localStorage.
+ * Effective explore region for feeds.
+ * Always pickable — home profile.region no longer locks browsing.
+ * Backed by ExploreDestinationProvider (country + region).
  */
 export function useExploreRegion() {
-  const { profile } = useAuth()
-  const [guestRegion, setGuestRegionState] = useState(() => readGuestExploreRegion())
-
-  const profileRegion = profile?.region?.trim() ?? ''
-  const region = profileRegion || guestRegion
-  const source: ExploreRegionSource = profileRegion ? 'profile' : guestRegion ? 'guest' : 'none'
-  /** Guests (and travellers without a profile region) can set / clear the preference. */
-  const canPick = !profileRegion
-
-  const setGuestRegion = useCallback((next: string) => {
-    const trimmed = next.trim()
-    writeGuestExploreRegion(trimmed)
-    setGuestRegionState(trimmed)
-  }, [])
-
-  const clearGuestRegion = useCallback(() => {
-    writeGuestExploreRegion('')
-    setGuestRegionState('')
-  }, [])
+  const { region, regions, setRegion, clearRegion, country, label, exploring, mode } =
+    useExploreDestination()
 
   return {
     region,
-    source,
-    canPick,
-    guestRegion,
-    profileRegion,
-    regions: EXPLORE_REGIONS,
-    setGuestRegion,
-    clearGuestRegion,
+    source: (region ? 'explore' : 'none') as ExploreRegionSource,
+    canPick: exploring,
+    guestRegion: region,
+    profileRegion: '',
+    regions,
+    country,
+    exploreLabel: label,
+    exploring,
+    mode,
+    setGuestRegion: setRegion,
+    clearGuestRegion: clearRegion,
   }
 }

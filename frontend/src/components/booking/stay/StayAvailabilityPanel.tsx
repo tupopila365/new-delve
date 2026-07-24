@@ -3,6 +3,7 @@ import { BookingDateFields } from '../BookingDateFields'
 import { BookingGuestSelector } from '../BookingGuestSelector'
 import { formatStayRange } from '../bookingUtils'
 import type { AvailabilityStatus } from '../bookingUtils'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   status: AvailabilityStatus
@@ -47,6 +48,7 @@ export function StayAvailabilityPanel({
   onContinue,
   onChangeDates,
 }: Props) {
+  const { format } = useDisplayMoney()
   const hasDates = Boolean(checkIn && checkOut && nights)
 
   return (
@@ -148,7 +150,7 @@ export function StayAvailabilityPanel({
           {nights && nightlyRate != null && estimatedTotal ? (
             <li className="stay-avail__fact">
               <span>Total</span>
-              <span>N${estimatedTotal}</span>
+              <span>{format(estimatedTotal)}</span>
             </li>
           ) : null}
         </ul>

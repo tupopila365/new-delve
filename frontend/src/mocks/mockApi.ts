@@ -1,6 +1,8 @@
 import { ApiError } from '../api/client'
 import { mockTrips, type MockTrip } from '../data/mockTrips'
 import { mockBusinessProfiles } from '../data/businessProfiles'
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { exploreDisplayCurrency, regionsForCountry } from '../lib/exploreDestination'
 import {
   mockBusTrips,
   mockEvents,
@@ -237,6 +239,85 @@ type MockFoodReviewRow = {
 }
 const mockFoodSessionReviews: MockFoodReviewRow[] = []
 const mockFoodReviewedVenues = new Set<string>()
+
+type MockAdminReport = {
+  id: number
+  reporter_username: string
+  target_type: string
+  target_id: string
+  target_label: string
+  reason: string
+  reason_label: string
+  description: string
+  status: string
+  severity: string
+  admin_notes: string
+  action_taken: string
+  resolved_by_username: string | null
+  resolved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+const REASON_LABELS: Record<string, string> = {
+  spam: 'Spam or misleading',
+  harassment: 'Harassment or abuse',
+  fake_or_misleading: 'Fake or misleading',
+  safety_concern: 'Safety concern',
+  inappropriate_content: 'Inappropriate content',
+  fraud: 'Fraud or scam',
+  other: 'Other',
+}
+
+const REASON_SEVERITY: Record<string, string> = {
+  spam: 'medium',
+  harassment: 'high',
+  fake_or_misleading: 'medium',
+  safety_concern: 'critical',
+  inappropriate_content: 'medium',
+  fraud: 'high',
+  other: 'low',
+}
+
+let mockReportIdSeq = 100
+const mockFiledReports: MockAdminReport[] = [
+  {
+    id: 91,
+    reporter_username: 'demo_user',
+    target_type: 'listing',
+    target_id: 'accommodation:199',
+    target_label: 'CHEAPEST ROOM IN CAPE TOWN!!! BOOK NOW',
+    reason: 'fake_or_misleading',
+    reason_label: 'Fake or misleading',
+    description: 'Price and photos look fake — possible spam in new SA market.',
+    status: 'new',
+    severity: 'medium',
+    admin_notes: '',
+    action_taken: '',
+    resolved_by_username: null,
+    resolved_at: null,
+    created_at: '2026-07-20T10:00:00Z',
+    updated_at: '2026-07-20T10:00:00Z',
+  },
+  {
+    id: 92,
+    reporter_username: 'anna',
+    target_type: 'listing',
+    target_id: 'food:599',
+    target_label: 'BEST BRAAI IN AFRICA — 50% OFF TODAY',
+    reason: 'spam',
+    reason_label: 'Spam or misleading',
+    description: 'Spammy caps title flooding Cape Town food results.',
+    status: 'escalated',
+    severity: 'medium',
+    admin_notes: '',
+    action_taken: '',
+    resolved_by_username: null,
+    resolved_at: null,
+    created_at: '2026-07-21T08:30:00Z',
+    updated_at: '2026-07-21T08:30:00Z',
+  },
+]
 
 const MOCK_ACC_BLOCKING = new Set(['pending', 'confirmed', 'checked_in'])
 
@@ -1374,7 +1455,7 @@ function mockBusinessListingsFor(b: PublicBusinessSource) {
         subtitle: s.property_type ? `${s.property_type} · ${s.city}` : s.city,
         image: s.cover_image ?? null,
         href: `/accommodation/${s.id}`,
-        meta: `N$${s.price_per_night}/night`,
+        meta: formatDisplayMoney(s.price_per_night, exploreDisplayCurrency(), { suffix: '/night' }),
       })
     })
 
@@ -1402,7 +1483,7 @@ function mockBusinessListingsFor(b: PublicBusinessSource) {
         subtitle: g.headline,
         image: g.photo ?? null,
         href: `/guides/${g.id}`,
-        meta: g.hourly_rate ? `N$${g.hourly_rate}/hr` : null,
+        meta: g.hourly_rate ? formatDisplayMoney(g.hourly_rate, exploreDisplayCurrency(), { suffix: '/hr' }) : null,
       })
     })
 
@@ -1418,7 +1499,7 @@ function mockBusinessListingsFor(b: PublicBusinessSource) {
           subtitle: [v.city, v.vehicle_type].filter(Boolean).join(' · '),
           image: v.cover_image ?? v.gallery_images?.[0] ?? null,
           href: `/transport/vehicle/${v.id}`,
-          meta: `N$${v.price_per_day}/day`,
+          meta: formatDisplayMoney(v.price_per_day, exploreDisplayCurrency(), { suffix: '/day' }),
         })
       })
   }
@@ -1447,7 +1528,7 @@ function mockBusinessListingsFor(b: PublicBusinessSource) {
           subtitle: `${t.route_detail.operator_name} · ${depLabel}`,
           image: t.route_detail.cover_image ?? t.route_detail.gallery_images?.[0] ?? null,
           href: `/transport/bus/${t.id}`,
-          meta: `N$${t.price}/seat`,
+          meta: formatDisplayMoney(t.price, exploreDisplayCurrency(), { suffix: '/seat' }),
         })
       })
   }
@@ -1462,7 +1543,7 @@ function mockBusinessListingsFor(b: PublicBusinessSource) {
         subtitle: e.venue || [e.city, e.region].filter(Boolean).join(', '),
         image: e.cover_image ?? null,
         href: `/events/${e.id}`,
-        meta: e.is_free ? 'Free' : e.price ? `N$${e.price}` : null,
+        meta: e.is_free ? 'Free' : e.price ? formatDisplayMoney(e.price, exploreDisplayCurrency()) : null,
       })
     })
 
@@ -1710,11 +1791,11 @@ let mockFeaturedCampaigns: MockFeaturedCampaign[] = [
 ]
 
 const PROMOTION_PRICING = [
-  { placement: 'homepage_stays', label: 'Homepage — Featured stays', price_label: 'N$2,500 / week', note: 'Up to 2 slots on the stays rail' },
-  { placement: 'homepage_guides', label: 'Homepage — Featured guides', price_label: 'N$2,000 / week', note: 'Up to 2 slots' },
-  { placement: 'homepage_food', label: 'Homepage — Featured food', price_label: 'N$1,800 / week', note: 'Up to 2 slots' },
-  { placement: 'homepage_events', label: 'Homepage — Featured events', price_label: 'N$1,500 / week', note: 'Up to 2 slots' },
-  { placement: 'delvers_feed', label: 'Delvers feed — Sponsored', price_label: 'N$1,200 / week', note: 'Positions 3 & 8 in feed' },
+  { placement: 'homepage_stays', label: 'Homepage — Featured stays', price_label: `${formatDisplayMoney(2500, exploreDisplayCurrency())} / week`, note: 'Up to 2 slots on the stays rail' },
+  { placement: 'homepage_guides', label: 'Homepage — Featured guides', price_label: `${formatDisplayMoney(2000, exploreDisplayCurrency())} / week`, note: 'Up to 2 slots' },
+  { placement: 'homepage_food', label: 'Homepage — Featured food', price_label: `${formatDisplayMoney(1800, exploreDisplayCurrency())} / week`, note: 'Up to 2 slots' },
+  { placement: 'homepage_events', label: 'Homepage — Featured events', price_label: `${formatDisplayMoney(1500, exploreDisplayCurrency())} / week`, note: 'Up to 2 slots' },
+  { placement: 'delvers_feed', label: 'Delvers feed — Sponsored', price_label: `${formatDisplayMoney(1200, exploreDisplayCurrency())} / week`, note: 'Positions 3 & 8 in feed' },
 ]
 
 const PLACEMENT_LABELS: Record<string, string> = {
@@ -1817,7 +1898,7 @@ function mockRefundPreview(c: MockProviderCampaign) {
   const refund = Math.floor(c.amount_cents * (remaining / total) * 0.5)
   return {
     amount_cents: refund,
-    amount_display: refund ? `N$${(refund / 100).toFixed(2)}` : '',
+    amount_display: refund ? formatDisplayMoney(refund / 100, exploreDisplayCurrency()) : '',
     note: refund ? 'Partial refund — 50% of unused time.' : 'No refund — less than one day unused.',
   }
 }
@@ -2052,11 +2133,13 @@ function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[num
   const likers = mockListingLikes.get(row.id)
   const savers = mockListingSaves.get(row.id)
   const profile = s.profiles[row.owner_username]
+  const biz = mockBusinessProfiles.find((b) => b.owner_username === row.owner_username)
   return {
     ...row,
     is_active: row.is_active !== false,
     owner_display_name: row.owner_display_name ?? profile?.display_name ?? null,
     owner_avatar: row.owner_avatar ?? profile?.avatar ?? null,
+    owner_verified: biz?.verification_status === 'verified',
     likes_count: likers?.size ?? 0,
     liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
     saves_count: savers?.size ?? 0,
@@ -2070,9 +2153,11 @@ function enrichFoodVenueRow(s: MockState, row: (typeof mockFood)[number]) {
   const coverKind =
     (row as { cover_kind?: string }).cover_kind ??
     (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(row.cover_image || '')) ? 'video' : 'image')
+  const biz = mockBusinessProfiles.find((b) => b.owner_username === row.owner_username)
   return {
     ...row,
     cover_kind: coverKind,
+    owner_verified: biz?.verification_status === 'verified',
     likes_count: likers?.size ?? 0,
     liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
     saves_count: savers?.size ?? 0,
@@ -2876,6 +2961,35 @@ function textMatch(hay: string, needle: string) {
   return hay.toLowerCase().includes(needle.toLowerCase())
 }
 
+function longTailMatch(hay: string, query: string) {
+  const q = query.trim().toLowerCase()
+  if (!q) return false
+  const hayLower = hay.toLowerCase()
+  if (hayLower.includes(q)) return true
+  const synonyms: Record<string, string[]> = {
+    brunch: ['breakfast', 'cafe', 'café', 'morning'],
+    mechanic: ['garage', 'tyre', 'tire', 'repair', 'workshop'],
+    'hidden brunch': ['hidden', 'brunch', 'local favourite', 'locals only'],
+    'tiny house': ['tiny', 'cabin', 'compact', 'micro'],
+    'off-grid': ['solar', 'remote', 'bush', 'unplugged'],
+    'street food': ['kapana', 'market', 'stall', 'takeaway'],
+    'niche tour': ['specialist', 'bespoke', 'private', 'hidden'],
+  }
+  const needles = new Set<string>([q, ...(synonyms[q] ?? [])])
+  for (const token of q.split(/\s+/)) {
+    if (token.length >= 2) {
+      needles.add(token)
+      for (const s of synonyms[token] ?? []) needles.add(s)
+    }
+  }
+  return [...needles].some((n) => n.length >= 2 && hayLower.includes(n))
+}
+
+function tagsHay(tags: unknown): string {
+  if (!Array.isArray(tags)) return ''
+  return tags.map((t) => String(t)).join(' ')
+}
+
 export async function mockApiFetch(path: string, init: RequestInit & { auth?: boolean } = {}) {
   const s = loadState()
   const { pathname, q } = parseQuery(path.startsWith('/') ? path : `/${path}`)
@@ -3470,6 +3584,68 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     setMockPassword(username, newPassword)
     mockPasswordResetTokens.delete(raw)
     return { detail: 'Password updated.' }
+  }
+
+  function mockSellerTrustSnapshot(username: string) {
+    const profile = s.profiles[username]
+    if (!profile) return null
+    const biz =
+      mockBusinessProfiles.find(
+        (b) => b.owner_username === username && b.verification_status === 'verified',
+      ) || mockBusinessProfiles.find((b) => b.owner_username === username)
+    const businessVerified = biz?.verification_status === 'verified'
+    const badges: Array<{ id: string; label: string; variant?: string }> = []
+    if (businessVerified) {
+      badges.push({ id: 'verified', label: 'Verified business', variant: 'success' })
+    } else {
+      badges.push({ id: 'fulfillment_building', label: 'Building track record', variant: 'default' })
+    }
+    return {
+      seller_user_id: Object.keys(s.profiles).indexOf(username) + 1,
+      seller_username: username,
+      business_id: biz?.id ?? null,
+      business_name: biz?.business_name ?? '',
+      business_verified: businessVerified,
+      verification_status: biz?.verification_status ?? 'unverified',
+      fulfillment_completed: businessVerified ? 12 : 0,
+      fulfillment_total: businessVerified ? 12 : 0,
+      fulfillment_rate: businessVerified ? 1 : null,
+      disputes_total: 0,
+      dispute_rate: businessVerified ? 0 : null,
+      cancels_total: 0,
+      cancel_sample: businessVerified ? 12 : 0,
+      cancel_rate: businessVerified ? 0.05 : null,
+      min_sample: 5,
+      badges,
+      gates: {
+        listing_go_live_allowed: businessVerified,
+        payout_release_allowed: businessVerified,
+        go_live_hold_reason: businessVerified
+          ? ''
+          : 'Verify your business before publishing stays, food venues, guides, or transport listings.',
+        payout_hold_reason: businessVerified
+          ? ''
+          : 'Payouts stay held until your business is verified or you complete at least 5 fulfillments.',
+        is_new_seller: !businessVerified,
+      },
+    }
+  }
+
+  const sellerTrustMatch = pathname.match(/^\/api\/accounts\/sellers\/([^/]+)\/trust\/?$/)
+  if (sellerTrustMatch && method === 'GET') {
+    const username = decodeURIComponent(sellerTrustMatch[1])
+    const snap = mockSellerTrustSnapshot(username)
+    if (!snap) throw new ApiError('Not found', 404, { detail: 'Seller not found.' })
+    return snap
+  }
+
+  const businessTrustMatch = pathname.match(/^\/api\/accounts\/businesses\/(\d+)\/trust\/?$/)
+  if (businessTrustMatch && method === 'GET') {
+    const biz = mockBusinessProfiles.find((b) => b.id === Number(businessTrustMatch[1]))
+    if (!biz) throw new ApiError('Not found', 404, { detail: 'Business not found.' })
+    const snap = mockSellerTrustSnapshot(biz.owner_username)
+    if (!snap) throw new ApiError('Not found', 404, { detail: 'Business not found.' })
+    return { ...snap, business_id: biz.id, business_name: biz.business_name }
   }
 
   if (pathname === '/api/accounts/businesses/' && method === 'GET') {
@@ -7926,7 +8102,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const owner = s.profiles[row.owner_username]
     const shop = mockShopProfiles[row.owner_username]
     const priceNum = Number(row.price)
-    const base = Number.isFinite(priceNum) ? `N$${priceNum.toFixed(2).replace(/\.00$/, '')}` : `N$${row.price}`
+    const base = Number.isFinite(priceNum)
+      ? formatDisplayMoney(priceNum, exploreDisplayCurrency())
+      : formatDisplayMoney(row.price, exploreDisplayCurrency())
     return {
       ...row,
       owner_display_name:
@@ -7953,13 +8131,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   function activityPriceLabel(row: MockActivityRow): string {
     const amount = Number(row.price_from)
-    const currency = (row.currency || '').trim().toUpperCase()
-    let base =
-      currency === 'NAD'
-        ? `N$${amount.toFixed(2).replace(/\.00$/, '')}`
-        : currency
-          ? `${currency} ${amount.toFixed(2).replace(/\.00$/, '')}`
-          : amount.toFixed(2).replace(/\.00$/, '')
+    const currency = (row.currency || '').trim().toUpperCase() || exploreDisplayCurrency()
+    let base = formatDisplayMoney(amount, currency)
     const note = (row.price_note || '').trim()
     return note ? `${base} ${note}` : base
   }
@@ -10104,6 +10277,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   // ---- Search ----
   if (pathname === '/api/search/' && method === 'GET') {
     const qq = (q.get('q') || '').trim()
+    const countryQ = (q.get('country_code') || '').trim().toUpperCase()
     const emptySearch = {
       users: [],
       accommodation: [],
@@ -10117,6 +10291,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       journeys: [],
     }
     if (qq.length < 2) return emptySearch
+
+    const allowedRegions = new Set(
+      (regionsForCountry(countryQ) || []).map((r) => r.toLowerCase()),
+    )
+    const matchesExploreCountry = (row: {
+      country_code?: string
+      region?: string | null
+      city?: string | null
+    }) => {
+      if (!countryQ) return true
+      const cc = (row.country_code || '').trim().toUpperCase()
+      if (cc) return cc === countryQ
+      const region = (row.region || '').trim().toLowerCase()
+      if (!region) return true
+      if (allowedRegions.size === 0) return true
+      return allowedRegions.has(region)
+    }
 
     const typeTokens = (q.get('types') || '')
       .split(',')
@@ -10150,11 +10341,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           .filter(([, p]) => p.show_in_search !== false)
           .filter(
             ([username, p]) =>
-              textMatch(username, qq) ||
-              textMatch(p.display_name ?? '', qq) ||
-              textMatch(p.bio ?? '', qq) ||
-              textMatch(p.region ?? '', qq) ||
-              textMatch(p.city ?? '', qq),
+              longTailMatch(
+                `${username} ${p.display_name ?? ''} ${p.bio ?? ''} ${p.region ?? ''} ${p.city ?? ''}`,
+                qq,
+              ),
           )
           .slice(0, limit)
           .map(([username, p], i) => {
@@ -10178,29 +10368,69 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return {
       users,
       accommodation: wants('accommodation')
-        ? mockStays.filter((s2) => textMatch(s2.title, qq) || textMatch(s2.region, qq)).slice(0, limit)
+        ? mockStays
+            .filter(matchesExploreCountry)
+            .filter((s2) =>
+              longTailMatch(
+                `${s2.title} ${s2.description} ${s2.region} ${s2.city} ${s2.address ?? ''} ${s2.property_type} ${(s2.amenities || []).join(' ')} ${tagsHay((s2 as { niche_tags?: string[] }).niche_tags)}`,
+                qq,
+              ),
+            )
+            .slice(0, limit)
         : [],
       vehicles: wants('vehicles')
-        ? mockVehicles.filter((v) => textMatch(v.title, qq) || textMatch(v.region, qq)).slice(0, limit)
+        ? mockVehicles
+            .filter((v) =>
+              longTailMatch(
+                `${v.title} ${v.make} ${v.model} ${v.region} ${v.city} ${v.description ?? ''}`,
+                qq,
+              ),
+            )
+            .slice(0, limit)
         : [],
       bus_trips: wants('bus_trips')
         ? mockBusTrips
-            .filter((t) => textMatch(t.route_detail.origin, qq) || textMatch(t.route_detail.destination, qq))
+            .filter((t) =>
+              longTailMatch(
+                `${t.route_detail.origin} ${t.route_detail.destination} ${t.route_detail.operator_name}`,
+                qq,
+              ),
+            )
             .slice(0, limit)
             .map((t) => busTripDetailForApi(t))
         : [],
       events: wants('events')
-        ? mockEvents.filter((e) => textMatch(e.title, qq) || textMatch(e.region, qq)).slice(0, limit)
+        ? mockEvents
+            .filter(matchesExploreCountry)
+            .filter((e) =>
+              longTailMatch(`${e.title} ${e.description} ${e.region} ${e.city} ${e.venue}`, qq),
+            )
+            .slice(0, limit)
         : [],
       food: wants('food')
-        ? mockFood.filter((f) => textMatch(f.name, qq) || textMatch(f.region, qq)).slice(0, limit)
+        ? mockFood
+            .filter(matchesExploreCountry)
+            .filter((f) =>
+              longTailMatch(
+                `${f.name} ${f.description} ${f.region} ${f.city} ${f.cuisine} ${f.tagline ?? ''} ${f.popular_dish ?? ''} ${f.address ?? ''} ${tagsHay((f as { niche_tags?: string[] }).niche_tags)}`,
+                qq,
+              ),
+            )
+            .slice(0, limit)
         : [],
       guides: wants('guides')
-        ? mockGuides.filter((g) => textMatch(g.headline, qq) || textMatch(g.username, qq)).slice(0, limit)
+        ? mockGuides
+            .filter((g) =>
+              longTailMatch(
+                `${g.headline} ${g.bio} ${g.username} ${(g.languages || []).join(' ')} ${(g.regions || []).join(' ')} ${(g.specialities || []).join(' ')}`,
+                qq,
+              ),
+            )
+            .slice(0, limit)
         : [],
       posts: wants('posts')
         ? withMeFlags(s, visiblePosts(s.posts))
-            .filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq))
+            .filter((p) => longTailMatch(`${p.body} ${p.region} ${p.place_label ?? ''}`, qq))
             .filter((p) => (delversOnly ? p.is_delvers : true))
             .slice(0, limit)
         : [],
@@ -10209,18 +10439,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
             s,
             visiblePosts(s.posts).filter((p) => p.post_kind === 'question' && !p.is_delvers),
           )
-            .filter((p) => textMatch(p.body, qq) || textMatch(p.region, qq) || textMatch(p.place_label ?? '', qq))
+            .filter((p) => longTailMatch(`${p.body} ${p.region} ${p.place_label ?? ''}`, qq))
             .slice(0, limit)
         : [],
       journeys: wants('journeys')
         ? mockVisibleJourneys(s)
             .filter(
               (j) =>
-                textMatch(j.title, qq) ||
-                textMatch(j.summary, qq) ||
-                (j.tags || []).some((tag) => textMatch(tag, qq)) ||
-                (j.stops || []).some(
-                  (stop) => textMatch(stop.place_name, qq) || textMatch(stop.region ?? '', qq),
+                longTailMatch(
+                  `${j.title} ${j.summary} ${(j.tags || []).join(' ')} ${(j.stops || [])
+                    .map((stop) => `${stop.place_name} ${stop.region ?? ''}`)
+                    .join(' ')}`,
+                  qq,
                 ),
             )
             .slice(0, limit)
@@ -10244,18 +10474,80 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!body.target_type || !body.target_id || !body.reason) {
       throw new ApiError('Bad request', 400, { detail: 'target_type, target_id, and reason are required.' })
     }
-    return {
-      id: Date.now(),
-      reporter_username: s.currentUser,
+    const reason = body.reason
+    const report: MockAdminReport = {
+      id: ++mockReportIdSeq,
+      reporter_username: String(s.currentUser || 'guest'),
       target_type: body.target_type,
       target_id: body.target_id,
       target_label: body.target_label || '',
-      reason: body.reason,
+      reason,
+      reason_label: REASON_LABELS[reason] || reason,
       description: body.description || '',
       status: 'new',
-      severity: 'medium',
+      severity: REASON_SEVERITY[reason] || 'medium',
+      admin_notes: '',
+      action_taken: '',
+      resolved_by_username: null,
+      resolved_at: null,
       created_at: nowIso(),
+      updated_at: nowIso(),
     }
+    mockFiledReports.unshift(report)
+    return report
+  }
+
+  if (pathname === '/api/accounts/admin/reports/' && method === 'GET') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    let rows = [...mockFiledReports]
+    const statusFilter = (q.get('status') || '').trim()
+    const severity = (q.get('severity') || '').trim()
+    const targetType = (q.get('target_type') || '').trim()
+    if (statusFilter) rows = rows.filter((r) => r.status === statusFilter)
+    if (severity) rows = rows.filter((r) => r.severity === severity)
+    if (targetType) rows = rows.filter((r) => r.target_type === targetType)
+    return rows.slice(0, 200)
+  }
+
+  const adminReportDetailMatch = pathname.match(/^\/api\/accounts\/admin\/reports\/(\d+)\/?$/)
+  if (adminReportDetailMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const report = mockFiledReports.find((r) => r.id === Number(adminReportDetailMatch[1]))
+    if (!report) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return report
+  }
+  if (adminReportDetailMatch && method === 'PATCH') {
+    requireAuth(s)
+    const me = s.profiles[s.currentUser as string]
+    if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
+    const report = mockFiledReports.find((r) => r.id === Number(adminReportDetailMatch[1]))
+    if (!report) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (!isJsonBody(init?.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as {
+      status?: string
+      action?: string
+      action_taken?: string
+      admin_notes?: string
+    }
+    if (body.status) report.status = body.status
+    if (body.admin_notes != null) report.admin_notes = body.admin_notes
+    const action = body.action || body.action_taken
+    if (action) {
+      report.action_taken = action
+      if (report.status === 'new' || report.status === 'under_review') {
+        report.status = action === 'dismiss' ? 'dismissed' : 'resolved'
+      }
+    }
+    report.resolved_by_username = String(s.currentUser)
+    report.resolved_at = nowIso()
+    report.updated_at = nowIso()
+    return report
   }
 
   // ---- Coin toss (unbiased nearby randomizer) ----
@@ -10270,6 +10562,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     dLng: number
     region: string
     city: string
+    country_code: string
     open_source_ref: string
     media: { url: string; kind: 'image' | 'video' }[]
     is_excluded: boolean
@@ -10303,6 +10596,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: -0.008,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-hilltop',
         media: [
           {
@@ -10331,6 +10625,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: 0.015,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-market',
         media: [],
         is_excluded: false,
@@ -10350,6 +10645,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: 0.018,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:way/mock-river',
         media: [
           {
@@ -10374,6 +10670,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: -0.012,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-courtyard',
         media: [],
         is_excluded: false,
@@ -10393,6 +10690,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: 0.004,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-mural',
         media: [],
         is_excluded: false,
@@ -10412,6 +10710,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: -0.02,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-gig',
         media: [],
         is_excluded: false,
@@ -10431,6 +10730,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: 0.01,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-dam',
         media: [],
         is_excluded: false,
@@ -10450,6 +10750,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: 0.022,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-pitch',
         media: [],
         is_excluded: false,
@@ -10469,12 +10770,38 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         dLng: -0.018,
         region: 'Nearby',
         city: 'Near you',
+        country_code: 'NA',
         open_source_ref: 'osm:node/mock-park',
         media: [],
         is_excluded: false,
         upvote_count: 6,
         commercial_flag_count: 0,
         voters: new Set(['alice', 'bob', 'cara', 'dan', 'eve', 'frank']),
+        flaggers: new Set(),
+        savers: new Set(),
+      },
+      {
+        id: 10,
+        name: 'Bo-Kaap courtyard hush',
+        category: 'hidden',
+        category_label: 'Hidden gem',
+        description: 'A quiet coloured courtyard locals use for late coffee — niche Cape Town gem.',
+        dLat: 0.008,
+        dLng: -0.006,
+        region: 'Western Cape',
+        city: 'Cape Town',
+        country_code: 'ZA',
+        open_source_ref: 'osm:node/mock-bokaap',
+        media: [
+          {
+            url: 'https://images.unsplash.com/photo-1580060839134-75a5edca2e99?auto=format&fit=crop&w=800&q=80',
+            kind: 'image',
+          },
+        ],
+        is_excluded: false,
+        upvote_count: 4,
+        commercial_flag_count: 0,
+        voters: new Set(['alice', 'bob', 'cara', 'dan']),
         flaggers: new Set(),
         savers: new Set(),
       },
@@ -10492,6 +10819,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       longitude: originLng + loc.dLng,
       region: loc.region,
       city: loc.city,
+      country_code: loc.country_code || '',
       open_source_ref: loc.open_source_ref,
       media: loc.media ?? [],
       is_excluded: loc.is_excluded,
@@ -10505,7 +10833,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const originLat = Number(q.get('latitude') ?? -22.56)
     const originLng = Number(q.get('longitude') ?? 17.08)
     const needle = (q.get('q') || '').trim().toLowerCase()
+    const countryQ = (q.get('country_code') || '').trim().toUpperCase()
     let rows = mockCoinTossLocations.filter((l) => !l.is_excluded)
+    if (countryQ) {
+      rows = rows.filter((l) => !l.country_code || l.country_code.toUpperCase() === countryQ)
+    }
     if (needle) {
       rows = rows
         .filter((l) => l.name.toLowerCase().includes(needle))
@@ -10527,6 +10859,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       latitude?: number
       longitude?: number
       accuracy_m?: number | null
+      country_code?: string
       media?: { url?: string; kind?: string }[]
     }
     const name = (body.name || '').trim()
@@ -10569,6 +10902,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       dLng: 0,
       region: 'Nearby',
       city: 'Near you',
+      country_code: String(body.country_code || '').trim().toUpperCase().slice(0, 2),
       open_source_ref: '',
       media,
       is_excluded: false,
@@ -10596,6 +10930,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       radius_miles?: number
       min_upvotes?: number
       categories?: string[]
+      country_code?: string
     }
     const lat = Number(body.latitude)
     const lng = Number(body.longitude)
@@ -10605,10 +10940,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const radius = Number(body.radius_miles ?? 5)
     const minUpvotes = Number(body.min_upvotes ?? 3)
     const cats = Array.isArray(body.categories) ? body.categories.filter(Boolean) : []
+    const countryQ = String(body.country_code || '').trim().toUpperCase()
     const nearby = mockCoinTossLocations.filter((loc) => {
       if (loc.is_excluded) return false
       if (loc.upvote_count < minUpvotes) return false
       if (cats.length && !cats.includes(loc.category)) return false
+      if (countryQ && loc.country_code && loc.country_code.toUpperCase() !== countryQ) return false
       const la = lat + loc.dLat
       const lo = lng + loc.dLng
       return milesBetween(lat, lng, la, lo) <= radius

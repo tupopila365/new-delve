@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, Exists, IntegerField, OuterRef, Q, Value, When
 
 from accommodation.models import BookingStatus
 from accounts.marketplace_payout import PayoutStatus
@@ -206,7 +206,7 @@ def get_seller_trust(
     go_live_hold_reason = (
         ""
         if listing_go_live_allowed
-        else "Verify your business before publishing stays, guides, or transport listings."
+        else "Verify your business before publishing stays, food venues, guides, or transport listings."
     )
     payout_hold_reason = (
         ""
@@ -248,6 +248,28 @@ def get_seller_trust(
             "is_new_seller": fulfillment_completed < MIN_RATE_SAMPLE,
         },
     }
+
+
+def owner_is_business_verified(owner_id: int | None) -> bool:
+    """Lightweight check used on listing cards / list ranking (no rate math)."""
+    if not owner_id:
+        return False
+    return BusinessProfile.objects.filter(
+        owner_id=owner_id,
+        verification_status=VerificationStatus.VERIFIED,
+    ).exists()
+
+
+def annotate_owner_verified(qs, *, owner_id_field: str = "owner_id"):
+    """Annotate queryset with owner_verified=Exists(verified BusinessProfile)."""
+    return qs.annotate(
+        owner_verified=Exists(
+            BusinessProfile.objects.filter(
+                owner_id=OuterRef(owner_id_field),
+                verification_status=VerificationStatus.VERIFIED,
+            )
+        )
+    )
 
 
 def seller_may_receive_payout(user) -> bool:

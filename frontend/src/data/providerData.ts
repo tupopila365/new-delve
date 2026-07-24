@@ -5,6 +5,8 @@ import type { ProviderVehicleListing } from '../components/provider/transport/ve
 import type { TourPackage } from '../components/guide/types'
 import { mocksEnabled } from '../utils/useMocks'
 import type { EventListing } from '../utils/eventDisplay'
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { exploreDisplayCurrency } from '../lib/exploreDestination'
 
 export type ListingCategory = 'Stay' | 'Guide' | 'Transport' | 'Food' | 'Event' | 'Shop' | 'Activity'
 export type ListingStatus = 'published' | 'draft' | 'needs_update' | 'pending_review' | 'suspended'
@@ -108,7 +110,7 @@ export function stayToProviderListing(s: StayListingApi, bookingCount = 0): Prov
     status: s.is_active === false ? 'draft' : s.cover_image ? 'published' : 'needs_update',
     city: s.city ?? '',
     region: s.region,
-    price: `N$${s.price_per_night}/night`,
+    price: formatDisplayMoney(s.price_per_night, exploreDisplayCurrency(), { suffix: '/night' }),
     rating: s.rating_avg ?? '—',
     ratingCount: s.rating_count ?? 0,
     bookings: bookingCount,
@@ -137,7 +139,7 @@ export function eventToProviderListing(
     status: e.is_published === false ? 'draft' : e.cover_image ? 'published' : 'needs_update',
     city: e.city ?? e.venue ?? '',
     region: e.region ?? '',
-    price: e.is_free ? 'Free' : e.price ? `N$${e.price}` : 'Paid',
+    price: e.is_free ? 'Free' : e.price ? formatDisplayMoney(e.price, exploreDisplayCurrency()) : 'Paid',
     rating: '—',
     ratingCount: 0,
     bookings: e.rsvp_count ?? 0,
@@ -182,7 +184,7 @@ export function vehicleToProviderListing(v: ProviderVehicleListing, bookingCount
     status: v.is_active === false ? 'draft' : v.cover_image ? 'published' : 'needs_update',
     city: v.city,
     region: v.region,
-    price: `N$${v.price_per_day}/day`,
+    price: formatDisplayMoney(v.price_per_day, exploreDisplayCurrency(), { suffix: '/day' }),
     rating: '—',
     ratingCount: 0,
     bookings: bookingCount,
@@ -206,7 +208,7 @@ export function busTripToProviderListing(t: ProviderBusTripListing): ProviderLis
     status: t.is_active === false ? 'draft' : cover ? 'published' : 'needs_update',
     city: route.origin,
     region: route.origin,
-    price: t.price ? `N$${t.price}` : 'Per seat',
+    price: t.price ? formatDisplayMoney(t.price, exploreDisplayCurrency()) : 'Per seat',
     rating: '—',
     ratingCount: 0,
     bookings: 0,
@@ -235,7 +237,7 @@ export function guidePackageToProviderListing(
     status: opts.isActive === false ? 'draft' : photo ? 'published' : 'needs_update',
     city,
     region,
-    price: pkg.price ? `N$${pkg.price}/person` : 'On request',
+    price: pkg.price ? formatDisplayMoney(pkg.price, exploreDisplayCurrency(), { suffix: '/person' }) : 'On request',
     rating: opts.rating ?? '—',
     ratingCount: opts.ratingCount ?? 0,
     bookings: bookingCount,
@@ -260,7 +262,7 @@ export function getProviderMockListings(owner?: string): ProviderListing[] {
       status: s.cover_image ? ('published' as const) : ('needs_update' as const),
       city: s.city,
       region: s.region,
-      price: `N$${s.price_per_night}/night`,
+      price: formatDisplayMoney(s.price_per_night, exploreDisplayCurrency(), { suffix: '/night' }),
       rating: s.rating_avg,
       ratingCount: s.rating_count,
       bookings: demoBookings(s.id),
@@ -286,7 +288,7 @@ export function getProviderMockListings(owner?: string): ProviderListing[] {
         status: pkg.photo ? ('published' as const) : ('needs_update' as const),
         city: g.regions?.[0] ?? 'Namibia',
         region: g.regions?.[1] ?? '',
-        price: `N$${pkg.price}/person`,
+        price: formatDisplayMoney(pkg.price, exploreDisplayCurrency(), { suffix: '/person' }),
         rating: String(g.rating_avg),
         ratingCount: g.rating_count,
         bookings: demoBookings(pkg.id),
@@ -308,7 +310,7 @@ export function getProviderMockListings(owner?: string): ProviderListing[] {
       status: v.cover_image ? ('published' as const) : ('needs_update' as const),
       city: v.city,
       region: v.region,
-      price: `N$${v.price_per_day}/day`,
+      price: formatDisplayMoney(v.price_per_day, exploreDisplayCurrency(), { suffix: '/day' }),
       rating: '—',
       ratingCount: 0,
       bookings: demoBookings(v.id),

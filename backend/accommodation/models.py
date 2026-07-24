@@ -38,12 +38,29 @@ class AccommodationListing(models.Model):
     pool = models.BooleanField(default=False, db_index=True)
     kitchen = models.BooleanField(default=False, db_index=True)
     breakfast = models.BooleanField(default=False, db_index=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120)
     city = models.CharField(max_length=120, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    google_place_id = models.CharField(max_length=255, blank=True)
+    formatted_address = models.CharField(max_length=500, blank=True)
     price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
     max_guests = models.PositiveSmallIntegerField(default=2)
     bedrooms = models.PositiveSmallIntegerField(default=1)
     amenities = models.JSONField(default=list, blank=True)
+    niche_tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Long-tail discovery tags, e.g. ["tiny house", "off-grid"].',
+    )
     cover_image = models.TextField(
         blank=True,
         default="",

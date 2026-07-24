@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BarChart3, Sparkles } from 'lucide-react'
 import { apiFetch } from '../../../api/client'
 import { ProviderUiStats } from '../ui'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 export type StayMonetizationAnalytics = {
   days: number
@@ -32,6 +33,7 @@ type Props = {
 }
 
 export function StayMonetizationSection({ enabled, canManage = false }: Props) {
+  const { format } = useDisplayMoney()
   const { data: analytics } = useQuery({
     queryKey: ['stay-provider-analytics'],
     queryFn: () => apiFetch<StayMonetizationAnalytics>('/api/accommodation/provider-analytics/?days=30'),
@@ -48,7 +50,7 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
       </h2>
       <ProviderUiStats
         stats={[
-          { value: `N$${(analytics?.on_platform_revenue ?? 0).toFixed(0)}`, label: 'Stay revenue' },
+          { value: format(analytics?.on_platform_revenue ?? 0), label: 'Stay revenue' },
           { value: analytics?.confirmed_bookings ?? 0, label: 'Confirmed stays' },
           { value: analytics?.pending_requests ?? 0, label: 'Pending requests' },
           {
@@ -82,7 +84,7 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
               {analytics.listings.map((row) => (
                 <tr key={row.id}>
                   <td>{row.title}</td>
-                  <td>{row.revenue > 0 ? `N$${row.revenue.toFixed(0)}` : '—'}</td>
+                  <td>{row.revenue > 0 ? format(row.revenue) : '—'}</td>
                   <td>{row.bookings}</td>
                   <td>{row.likes_count || '—'}</td>
                   <td>{row.saves_count || '—'}</td>

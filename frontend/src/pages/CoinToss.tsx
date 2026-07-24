@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bookmark, LocateFixed } from 'lucide-react'
 import { apiFetch, formatApiErrorMessage, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useExploreDestination } from '../hooks/useExploreDestination'
 import { CoinTossCard } from '../components/coin-toss/CoinTossCard'
 import { TossSpotDetail } from '../components/coin-toss/TossSpotDetail'
 import {
@@ -32,6 +33,7 @@ type GeoState = {
 
 export function CoinToss() {
   const { profile } = useAuth()
+  const { country, label: exploreLabel } = useExploreDestination()
   const qc = useQueryClient()
   const [geo, setGeo] = useState<GeoState>(null)
   const [geoError, setGeoError] = useState<string | null>(null)
@@ -133,6 +135,7 @@ export function CoinToss() {
         longitude: geo.longitude,
         radius_miles: radiusMiles,
         min_upvotes: DEFAULT_MIN_UPVOTES,
+        country_code: country,
       }
       if (mood.categories.length > 0) {
         body.categories = mood.categories
@@ -155,7 +158,7 @@ export function CoinToss() {
     setWinner(nextWinner)
     setTossError(nextError)
     setIsSpinning(false)
-  }, [geo, isSpinning, requestGeo, radiusMiles, mood, profile])
+  }, [geo, isSpinning, requestGeo, radiusMiles, mood, profile, country])
 
   const onVoteSpot = useCallback(
     async (spot: TossLocation) => {
@@ -249,7 +252,8 @@ export function CoinToss() {
         <header className="coin-toss-page__hero">
           <h1 className="coin-toss-page__brand">Coin Toss</h1>
           <p className="coin-toss-page__lead">
-            Can&apos;t decide where to go? Flip the coin — it picks a nearby spot for you.
+            Can&apos;t decide where to go? Flip the coin — it picks a nearby spot while you explore{' '}
+            {exploreLabel}.
           </p>
         </header>
 

@@ -1,6 +1,6 @@
 import secrets
 
-from django.db.models import Count, Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef, Q
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -89,6 +89,7 @@ def _nearby_locations(
     radius_miles: float,
     min_upvotes: int,
     categories: list[str] | None = None,
+    country_code: str | None = None,
 ):
     min_lat, max_lat, min_lon, max_lon = bounding_box(lat, lon, radius_miles)
     qs = _eligible_queryset(min_upvotes=min_upvotes).filter(
@@ -99,6 +100,10 @@ def _nearby_locations(
     )
     if categories:
         qs = qs.filter(category__in=categories)
+    cc = (country_code or "").strip().upper()
+    if cc:
+        # Prefer Explore-country gems; still allow untagged legacy rows.
+        qs = qs.filter(Q(country_code__iexact=cc) | Q(country_code=""))
     candidates = list(qs)
     nearby = []
     for loc in candidates:
@@ -134,6 +139,7 @@ class CoinTossView(APIView):
             radius_miles=radius,
             min_upvotes=min_upvotes,
             categories=data.get("categories") or None,
+            country_code=data.get("country_code") or None,
         )
         if not nearby:
             return Response(
@@ -170,6 +176,10 @@ class TossLocationListView(APIView):
         q = (request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(name__icontains=q)
+
+        country = (request.query_params.get("country_code") or "").strip().upper()[:2]
+        if country:
+            qs = qs.filter(Q(country_code__iexact=country) | Q(country_code=""))
 
         lat = to_float(request.query_params.get("latitude"))
         lon = to_float(request.query_params.get("longitude"))
@@ -249,6 +259,7 @@ class TossLocationListView(APIView):
             longitude=lon,
             region=data.get("region", ""),
             city=data.get("city", ""),
+            country_code=(data.get("country_code") or "").strip().upper()[:2],
             media=normalize_toss_media(data.get("media") or []),
         )
         # Adding = the first verified on-site upvote (they're physically there).

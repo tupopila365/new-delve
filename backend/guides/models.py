@@ -16,6 +16,13 @@ class TourGuideProfile(models.Model):
     bio = models.TextField(blank=True)
     languages = models.JSONField(default=list, blank=True)
     regions = models.JSONField(default=list, blank=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2 primary country for this guide.",
+    )
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     photo = models.ImageField(upload_to="guides/", blank=True, null=True)
     rating_avg = models.DecimalField(

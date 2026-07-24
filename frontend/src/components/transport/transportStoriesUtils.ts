@@ -14,6 +14,8 @@ import {
   vehicleProviderName,
   vehicleSummaryLine,
 } from '../../utils/transportListing'
+import { formatDisplayMoney } from '../../lib/displayMoney'
+import { exploreDisplayCurrency } from '../../lib/exploreDestination'
 
 function shortLabel(title: string, max = 16): string {
   const t = title.trim()
@@ -79,7 +81,7 @@ export function buildVehicleStoryChannels(
       id: `${vehicle.id}-rate`,
       kind: 'image',
       src: cover,
-      headline: `N$${vehicle.price_per_day} / day`,
+      headline: formatDisplayMoney(vehicle.price_per_day, exploreDisplayCurrency(), { suffix: '/day' }),
       sub: [region, name].filter(Boolean).join(' · '),
       ctaPath: vehiclePath,
       ctaLabel: 'Request vehicle',
@@ -166,7 +168,7 @@ export function buildBusStoryChannels(
       id: `${trip.id}-fare`,
       kind: 'image',
       src: cover,
-      headline: `N$${trip.price} per passenger`,
+      headline: `${formatDisplayMoney(trip.price, exploreDisplayCurrency())} per passenger`,
       sub: `${trip.available_seats} seats available · ${trip.route_detail.operator_name}`,
       ctaPath: tripPath,
       ctaLabel: 'Request seat',

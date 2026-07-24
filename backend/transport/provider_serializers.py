@@ -62,6 +62,7 @@ class ProviderVehicleListingSerializer(serializers.ModelSerializer):
             "seats",
             "vehicle_type",
             "price_per_day",
+            "country_code",
             "region",
             "city",
             "cover_image",
@@ -212,6 +213,8 @@ class ProviderBusTripListingSerializer(serializers.ModelSerializer):
             "origin": route.origin,
             "destination": route.destination,
             "operator_name": operator.name,
+            "country_code": operator.country_code or "",
+            "region": operator.region or "",
             "cover_image": cover,
             "cover_kind": bus_cover_kind(route),
             "gallery_images": route.gallery_images or [],
@@ -302,6 +305,7 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
             operator = BusOperator.objects.create(
                 owner_id=owner_id,
                 name=operator_name,
+                country_code=(route_detail.get("country_code") or "").strip().upper()[:2],
                 region=(route_detail.get("region") or "")[:120],
             )
 
@@ -391,7 +395,28 @@ class ProviderBusTripWriteSerializer(serializers.Serializer):
                 route.destination = route_detail["destination"].strip()
             if route_detail.get("operator_name"):
                 route.operator.name = route_detail["operator_name"].strip()
-                route.operator.save(update_fields=["name"])
+                op_fields = ["name"]
+                if "country_code" in route_detail:
+                    route.operator.country_code = (
+                        (route_detail.get("country_code") or "").strip().upper()[:2]
+                    )
+                    op_fields.append("country_code")
+                if "region" in route_detail:
+                    route.operator.region = (route_detail.get("region") or "")[:120]
+                    op_fields.append("region")
+                route.operator.save(update_fields=op_fields)
+            elif "country_code" in route_detail or "region" in route_detail:
+                op_fields = []
+                if "country_code" in route_detail:
+                    route.operator.country_code = (
+                        (route_detail.get("country_code") or "").strip().upper()[:2]
+                    )
+                    op_fields.append("country_code")
+                if "region" in route_detail:
+                    route.operator.region = (route_detail.get("region") or "")[:120]
+                    op_fields.append("region")
+                if op_fields:
+                    route.operator.save(update_fields=op_fields)
             if "cover_image" in route_detail or "cover_kind" in route_detail:
                 _apply_route_cover(
                     route,

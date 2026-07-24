@@ -7,6 +7,8 @@ import {
   type StayListingFormValues,
   type StayRoomForm,
 } from './stayListingTypes'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
+import { VenueLocationPicker } from '../food/workspace/VenueLocationPicker'
 
 type Props = {
   values: StayListingFormValues
@@ -45,6 +47,7 @@ function emptyRoom(): StayRoomForm {
 }
 
 export function StayListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
+  const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('basics')
 
   function patch(partial: Partial<StayListingFormValues>) {
@@ -147,16 +150,23 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                   placeholder="Describe the property, neighbourhood, and what makes your stay special."
                 />
               </label>
-              <div className="stay-form__row">
-                <label className="stay-form__field">
-                  <span>City</span>
-                  <input value={values.city} onChange={(e) => patch({ city: e.target.value })} placeholder="Swakopmund" />
-                </label>
-                <label className="stay-form__field">
-                  <span>Region</span>
-                  <input value={values.region} onChange={(e) => patch({ region: e.target.value })} placeholder="Erongo" />
-                </label>
-              </div>
+              <p className="stay-form__hint">
+                Drop an exact pin so guests get turn-by-turn directions — city/region alone is only an approximate area.
+              </p>
+              <VenueLocationPicker
+                value={{
+                  latitude: values.latitude,
+                  longitude: values.longitude,
+                  google_place_id: values.google_place_id,
+                  formatted_address: values.formatted_address,
+                  region: values.region,
+                  city: values.city,
+                  address: values.address,
+                }}
+                onChange={(loc) => patch(loc)}
+                searchPlaceholder="Search for your property or address"
+                hint="Search above or click / drag the pin to set your exact stay location."
+              />
               <label className="stay-form__check">
                 <input
                   type="checkbox"
@@ -171,7 +181,7 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
           {section === 'pricing' ? (
             <div className="stay-form__section">
               <label className="stay-form__field">
-                <span>From price per night (N$)</span>
+                <span>From price per night ({currency})</span>
                 <input
                   value={values.price_per_night}
                   onChange={(e) => patch({ price_per_night: e.target.value })}
@@ -329,7 +339,7 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                       />
                     </label>
                     <label className="stay-form__field">
-                      <span>Price / night (N$)</span>
+                      <span>Price / night ({currency})</span>
                       <input
                         value={room.price_per_night}
                         onChange={(e) => {
@@ -343,7 +353,7 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                   </div>
                   <div className="stay-form__row">
                     <label className="stay-form__field">
-                      <span>Compare-at price (N$)</span>
+                      <span>Compare-at price ({currency})</span>
                       <input
                         value={room.compare_at_price}
                         onChange={(e) => {

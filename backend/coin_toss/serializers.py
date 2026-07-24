@@ -50,6 +50,7 @@ class TossLocationSerializer(serializers.ModelSerializer):
             "longitude",
             "region",
             "city",
+            "country_code",
             "open_source_ref",
             "media",
             "is_excluded",
@@ -87,6 +88,10 @@ class TossRequestSerializer(serializers.Serializer):
         allow_empty=True,
         max_length=20,
     )
+    country_code = serializers.CharField(required=False, allow_blank=True, max_length=2)
+
+    def validate_country_code(self, value: str) -> str:
+        return (value or "").strip().upper()[:2]
 
 
 class VoteRequestSerializer(serializers.Serializer):
@@ -108,7 +113,11 @@ class AddLocationSerializer(serializers.Serializer):
     accuracy_m = serializers.FloatField(required=False, allow_null=True, min_value=0)
     region = serializers.CharField(required=False, allow_blank=True, max_length=120)
     city = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    country_code = serializers.CharField(required=False, allow_blank=True, max_length=2)
     media = TossMediaItemSerializer(many=True, required=False)
+
+    def validate_country_code(self, value: str) -> str:
+        return (value or "").strip().upper()[:2]
 
     def validate_media(self, value):
         if value and len(value) > MAX_TOSS_MEDIA:

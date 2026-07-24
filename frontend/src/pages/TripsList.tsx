@@ -24,7 +24,9 @@ import {
   JOURNEY_DEFAULT_IMAGE,
 } from '../utils/journeyDisplay'
 import { useAuth } from '../auth/AuthContext'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { useJourneyEngagement } from '../hooks/useJourneyEngagement'
+import { formatDisplayMoney } from '../lib/displayMoney'
 import { JourneyListingCard } from '../components/journeys/JourneyListingCard'
 import { JourneySectionHead } from '../components/journeys/JourneySectionHead'
 import { JourneyListDelversViewer } from '../components/journeys/JourneyDelversHighlights'
@@ -43,12 +45,24 @@ const SOCIAL_MODES = [
 
 type SortMode = 'recent' | 'popular'
 
-const BUDGET_BUCKETS = [
-  { label: 'Under N$2k', min: 0, max: 2000 },
-  { label: 'N$2–5k', min: 2000, max: 5000 },
-  { label: 'N$5–12k', min: 5000, max: 12000 },
-  { label: 'N$12k+', min: 12000, max: Infinity },
+const BUDGET_BUCKET_DEFS = [
+  { min: 0, max: 2000, kind: 'under' as const },
+  { min: 2000, max: 5000, kind: 'range' as const },
+  { min: 5000, max: 12000, kind: 'range' as const },
+  { min: 12000, max: Infinity, kind: 'plus' as const },
 ]
+
+function budgetBucketLabel(currency: string, min: number, max: number, kind: 'under' | 'range' | 'plus') {
+  const symAmt = (n: number) => {
+    if (n >= 1000 && n % 1000 === 0) {
+      return `${formatDisplayMoney(n / 1000, currency)}k`
+    }
+    return formatDisplayMoney(n, currency)
+  }
+  if (kind === 'under') return `Under ${symAmt(max)}`
+  if (kind === 'plus') return `${symAmt(min)}+`
+  return `${symAmt(min)}–${symAmt(max).replace(/^[^0-9]+/, '')}`
+}
 
 /** Fallback shown only when the live feed has too few stops to rank places. */
 const FALLBACK_DESTINATIONS = [
@@ -99,6 +113,11 @@ function resultsHint(count: number, filters: { quick: string; search: string; bu
 export function TripsList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { currency, format } = useDisplayMoney()
+  const BUDGET_BUCKETS = BUDGET_BUCKET_DEFS.map((b) => ({
+    ...b,
+    label: budgetBucketLabel(currency, b.min, b.max, b.kind),
+  }))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [quickFilter, setQuickFilter] = useState('')
@@ -395,7 +414,7 @@ export function TripsList() {
                 <JourneyRail
                   id="jn-budget"
                   title="Trips that won’t wreck the wallet"
-                  sub="Full cost breakdowns under N$5k."
+                  sub={`Full cost breakdowns under ${format(5000)}.`}
                   trips={curated.budgetRail}
                   engagement={engagement}
                 />

@@ -9,6 +9,7 @@ import { BookingGuestSelector, BookingPriceSummary, UserBookingErrorState } from
 import { formatTripWhen, type BusTripListing } from '../../../utils/transportListing'
 import { BusSeatPicker } from './BusSeatPicker'
 import './transport-booking.css'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Reservation = {
   id: number
@@ -65,11 +66,12 @@ export function BusTripReserveCard({
   seats,
   className = '',
 }: Props) {
+  const { format } = useDisplayMoney()
   const firstRes = group?.reservations[0]
   if (firstRes && firstRes.status !== 'pending') return null
 
   const dep = formatTripWhen(trip.departs_at)
-  const payLabel = group ? `N$${Number(group.total_price).toFixed(0)}` : totalPrice ? `N$${totalPrice}` : `N$${trip.price}`
+  const payLabel = group ? format(Number(group.total_price)) : totalPrice ? format(totalPrice) : format(trip.price)
   const operatorName = trip.route_detail.operator_name
   const lowSeats = trip.available_seats <= 3
 
@@ -97,7 +99,7 @@ export function BusTripReserveCard({
 
       <div className="shared-reserve__price-row">
         <p className="shared-reserve__price">
-          N${trip.price}
+          {format(trip.price)}
           <small> / passenger</small>
         </p>
         <span className={`shared-reserve__seats-left${lowSeats ? ' shared-reserve__seats-left--low' : ''}`}>
@@ -155,7 +157,7 @@ export function BusTripReserveCard({
       <BookingPriceSummary
         lines={[
           {
-            label: `${passengers} ${passengers === 1 ? 'passenger' : 'passengers'} × N$${trip.price}`,
+            label: `${passengers} ${passengers === 1 ? 'passenger' : 'passengers'} × ${format(trip.price)}`,
             value: payLabel,
           },
         ]}

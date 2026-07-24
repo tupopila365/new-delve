@@ -4,6 +4,7 @@ import { CreditCard, ShoppingCart } from 'lucide-react'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../hooks/useCart'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { EmptyState } from '../components/ui'
 import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import type { Order } from '../utils/shopListing'
@@ -12,15 +13,15 @@ import '../components/shop/shop-cart.css'
 
 type FulfillmentType = 'pickup' | 'lodge_delivery' | 'shipping'
 
-function money(value: string | number): string {
-  const n = typeof value === 'number' ? value : Number(value)
-  return `N$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\.00$/, '')}`
-}
-
 export function CheckoutPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { cart, itemCount, refetch } = useCart()
+  const { format } = useDisplayMoney()
+  const money = (value: string | number) => {
+    const n = typeof value === 'number' ? value : Number(value)
+    return format(Number.isFinite(n) ? n : 0)
+  }
   const [fulfillment, setFulfillment] = useState<FulfillmentType>('pickup')
   const [contactName, setContactName] = useState(profile?.display_name ?? '')
   const [contactPhone, setContactPhone] = useState('')

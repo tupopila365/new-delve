@@ -4,8 +4,10 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { ApiError } from './api/client'
 import { AuthProvider } from './auth/AuthContext'
+import { ExploreDestinationProvider } from './hooks/useExploreDestination'
 import { CartProvider } from './hooks/useCart'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { HomeCountryGate } from './components/onboarding/HomeCountryOnboarding'
 import { PublishQueueProvider } from './components/PublishQueueContext'
 import App from './App.tsx'
 import './index.css'
@@ -45,11 +47,14 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <CartProvider>
-              <PublishQueueProvider>
-                <App />
-              </PublishQueueProvider>
-            </CartProvider>
+            <ExploreDestinationProvider>
+              <CartProvider>
+                <PublishQueueProvider>
+                  <HomeCountryGate />
+                  <App />
+                </PublishQueueProvider>
+              </CartProvider>
+            </ExploreDestinationProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

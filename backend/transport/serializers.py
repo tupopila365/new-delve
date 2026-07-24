@@ -70,6 +70,7 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "gallery_images",
             "listing_stories",
             "price_per_day",
+            "country_code",
             "region",
             "city",
             "cover_image",
@@ -251,7 +252,7 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
 class BusOperatorSerializer(serializers.ModelSerializer):
     class Meta:
         model = BusOperator
-        fields = ("id", "name", "contact_phone", "region", "created_at")
+        fields = ("id", "name", "contact_phone", "country_code", "region", "created_at")
         read_only_fields = ("owner", "created_at")
 
     def create(self, validated_data):

@@ -44,7 +44,7 @@ class AccommodationListingViewSet(viewsets.ModelViewSet):
     )
     serializer_class = AccommodationListingSerializer
     filterset_class = AccommodationListingFilter
-    search_fields = ("title", "description", "region", "city")
+    search_fields = ("title", "description", "region", "city", "country_code")
     ordering_fields = ("price_per_night", "created_at", "rating_avg")
     ordering = ["-created_at"]
 
@@ -60,6 +60,9 @@ class AccommodationListingViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
 
     def _annotate_engagement(self, qs, user):
+        from accounts.seller_trust import annotate_owner_verified
+
+        qs = annotate_owner_verified(qs)
         qs = qs.annotate(
             likes_count=Count("user_likes", distinct=True),
             saves_count=Count("user_saves", distinct=True),

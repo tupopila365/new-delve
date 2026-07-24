@@ -4,6 +4,7 @@ import { mediaUrl } from '../../../api/client'
 import { propertyTypeLabel } from '../../../utils/accommodationListing'
 import type { ProviderStayListing } from './stayListingTypes'
 import { listingCompleteness } from './stayListingTypes'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   stay: ProviderStayListing
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: Props) {
+  const { format } = useDisplayMoney()
   const { percent, missing } = listingCompleteness(stay)
   const cover = stay.cover_image ? mediaUrl(stay.cover_image) || stay.cover_image : null
   const roomCount = Array.isArray(stay.room_types) ? stay.room_types.length : 0
@@ -43,7 +45,7 @@ export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: P
 
         <p className="stay-card__type">{propertyTypeLabel(stay.property_type)}</p>
         <p className="stay-card__meta">
-          {stay.city}, {stay.region} · N${stay.price_per_night}/night · {stay.max_guests} guests · {stay.bedrooms}{' '}
+          {stay.city}, {stay.region} · {format(stay.price_per_night, { suffix: '/night' })} · {stay.max_guests} guests · {stay.bedrooms}{' '}
           bed{stay.bedrooms === 1 ? '' : 's'}
         </p>
 

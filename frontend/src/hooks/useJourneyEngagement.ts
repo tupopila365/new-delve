@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { MockTrip } from '../data/mockTrips'
+import { recordForYouSignal } from '../lib/forYou'
 import { journeyPermalinkUrl } from '../utils/journeyPermalink'
 
 type EngagementOverride = {
@@ -75,6 +76,7 @@ export function useJourneyEngagement(trips: MockTrip[]) {
       return ctx
     },
     onSuccess: (data, journeyId) => {
+      if (data?.liked) recordForYouSignal('journeys', 'like')
       patchOverride(journeyId, { liked: data.liked, likesCount: data.likes_count })
       void qc.invalidateQueries({ queryKey: ['journeys'] })
       void qc.invalidateQueries({ queryKey: ['journey', String(journeyId)] })
@@ -109,6 +111,7 @@ export function useJourneyEngagement(trips: MockTrip[]) {
       return ctx
     },
     onSuccess: (data, journeyId) => {
+      if (data?.saved) recordForYouSignal('journeys', 'save')
       patchOverride(journeyId, { saved: data.saved, savesCount: data.saves_count })
       setShareMsg(data.saved ? 'Saved' : 'Removed from saved')
       void qc.invalidateQueries({ queryKey: ['journeys'] })

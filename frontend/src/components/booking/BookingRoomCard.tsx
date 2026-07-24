@@ -1,6 +1,7 @@
 import { BadgeDollarSign, BedDouble, Users } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
 import './booking-detail.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 export type BookingRoomCardData = {
   name: string
@@ -18,6 +19,7 @@ type Props = {
 }
 
 export function BookingRoomCard({ room, className = '' }: Props) {
+  const { format } = useDisplayMoney()
   const imageSrc = room.image ? mediaUrl(room.image) || room.image : null
   const price = room.pricePerNight?.trim() || room.fallbackPrice?.trim() || null
 
@@ -56,7 +58,7 @@ export function BookingRoomCard({ room, className = '' }: Props) {
           {price ? (
             <li>
               <BadgeDollarSign size={14} strokeWidth={2.25} aria-hidden />
-              N${price} / night
+              {format(price, { suffix: '/night' })}
             </li>
           ) : null}
         </ul>

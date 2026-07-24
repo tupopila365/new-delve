@@ -3,6 +3,7 @@ import { MessageCircle } from 'lucide-react'
 import { BookingStatusBadge } from '../../booking'
 import { messageUserPath } from '../../messages/messageProviderUtils'
 import { formatSellerPayoutLine } from '../../../utils/bookingPayout'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 export type GuideProviderBooking = {
   id: number
@@ -54,6 +55,7 @@ export function GuideBookingCard({
   onAction,
   actionPending,
 }: Props) {
+  const { format } = useDisplayMoney()
   const timeLabel = formatStartTime(booking.start_time)
   const meeting = booking.meeting_point?.trim() || ''
   const notes = booking.notes?.trim() || ''
@@ -79,7 +81,7 @@ export function GuideBookingCard({
         <span>
           {booking.guests} guest{booking.guests === 1 ? '' : 's'}
         </span>
-        <strong>N${parseFloat(booking.total_price).toLocaleString()}</strong>
+        <strong>{format(booking.total_price)}</strong>
       </div>
       {payoutLine ? <p className="prov-ui__booking-payout">{payoutLine}</p> : null}
       {meeting || notes ? (

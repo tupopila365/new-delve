@@ -15,17 +15,18 @@ from .serializers import FoodVenueSerializer
 class FoodVenueFilter(django_filters.FilterSet):
     min_price_level = django_filters.NumberFilter(field_name="price_level", lookup_expr="gte")
     max_price_level = django_filters.NumberFilter(field_name="price_level", lookup_expr="lte")
+    country_code = django_filters.CharFilter(field_name="country_code", lookup_expr="iexact")
 
     class Meta:
         model = FoodVenue
-        fields = ["cuisine", "region", "city", "is_active"]
+        fields = ["cuisine", "region", "city", "country_code", "is_active"]
 
 
 class FoodVenueViewSet(viewsets.ModelViewSet):
     queryset = FoodVenue.objects.filter(is_active=True).select_related("owner", "owner__profile")
     serializer_class = FoodVenueSerializer
     filterset_class = FoodVenueFilter
-    search_fields = ("name", "description", "region", "city")
+    search_fields = ("name", "description", "region", "city", "country_code")
     ordering_fields = ("name", "created_at")
     ordering = ["name"]
 
@@ -41,6 +42,9 @@ class FoodVenueViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
 
     def _annotate_engagement(self, qs, user):
+        from accounts.seller_trust import annotate_owner_verified
+
+        qs = annotate_owner_verified(qs)
         qs = qs.annotate(
             likes_count=Count("user_likes", distinct=True),
             saves_count=Count("user_saves", distinct=True),

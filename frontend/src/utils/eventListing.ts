@@ -1,6 +1,7 @@
 import type { ListingDetailRow, ListingGalleryItem } from '../components/listing/types'
 import type { HighlightChannelInput } from '../components/highlights/types'
 import { mediaUrl } from '../api/client'
+import { formatDisplayMoney } from '../lib/displayMoney'
 import { isVideoUrl, parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
 import {
   categoryMeta,
@@ -66,9 +67,12 @@ export function eventTimeRange(event: Pick<EventDetail, 'starts_at' | 'ends_at'>
   return end ? `${start.time} – ${end.time}` : start.time
 }
 
-export function admissionLabel(event: Pick<EventDetail, 'is_free' | 'price'>): string {
+export function admissionLabel(
+  event: Pick<EventDetail, 'is_free' | 'price'>,
+  currency = 'NAD',
+): string {
   if (event.is_free) return 'Free entry'
-  if (event.price) return `N$${event.price}`
+  if (event.price) return formatDisplayMoney(event.price, currency)
   return 'Price TBA'
 }
 
@@ -125,10 +129,10 @@ export function buildEventGalleryImages(event: EventDetail): ListingGalleryItem[
   return images
 }
 
-export function buildEventTrustHighlights(event: EventDetail): string[] {
+export function buildEventTrustHighlights(event: EventDetail, currency = 'NAD'): string[] {
   const items: string[] = ['Event on DELVE']
   if (event.is_free) items.push('Free entry')
-  else if (event.price) items.push(`From N$${event.price}`)
+  else if (event.price) items.push(formatDisplayMoney(event.price, currency, { from: true }))
   if (event.ticket_url?.trim()) items.push('Tickets available')
   if (event.capacity) items.push(`Up to ${event.capacity} attendees`)
   const countdown = eventCountdownLabel(event.starts_at)

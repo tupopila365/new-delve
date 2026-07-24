@@ -70,6 +70,7 @@ class ProviderGuideProfileSerializer(serializers.ModelSerializer):
             "bio",
             "languages",
             "regions",
+            "country_code",
             "hourly_rate",
             "photo",
             "photo_upload",

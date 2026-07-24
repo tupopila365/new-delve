@@ -1,3 +1,6 @@
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { exploreDisplayCurrency } from '../lib/exploreDestination'
+
 export type BookingPayoutStatus = 'none' | 'held' | 'released' | 'refunded'
 
 export type BookingPayoutRecipient = 'host' | 'guide' | 'provider' | 'operator'
@@ -33,25 +36,27 @@ export function sellerPayoutStatusLabel(status: string | null | undefined): stri
   )
 }
 
-function money(value: string | number): string {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return `N$${value}`
-  return `N$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+function money(value: string | number, currency?: string | null): string {
+  return formatDisplayMoney(value, currency || exploreDisplayCurrency(), {
+    fallback: formatDisplayMoney(0, currency || exploreDisplayCurrency()),
+  })
 }
 
-/** Seller line: “Your payout N$X · Held by Delve (Delve fee N$Y)” */
+/** Seller line: “Your payout R1,200 · Held by Delve (Delve fee R120)” */
 export function formatSellerPayoutLine(opts: {
   seller_payout?: string | number | null
   platform_fee?: string | number | null
   payout_status?: string | null
+  currency?: string | null
 }): string | null {
   if (opts.seller_payout == null || opts.payout_status == null || opts.payout_status === 'none') {
     return null
   }
+  const currency = opts.currency || exploreDisplayCurrency()
   const statusLabel = sellerPayoutStatusLabel(opts.payout_status)
-  let line = `Your payout ${money(opts.seller_payout)}`
+  let line = `Your payout ${money(opts.seller_payout, currency)}`
   if (statusLabel) line += ` · ${statusLabel}`
   const fee = Number(opts.platform_fee ?? 0)
-  if (fee > 0) line += ` (Delve fee ${money(fee)})`
+  if (fee > 0) line += ` (Delve fee ${money(fee, currency)})`
   return line
 }

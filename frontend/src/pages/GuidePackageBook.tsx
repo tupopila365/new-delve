@@ -35,6 +35,7 @@ import {
   type GuideProfile,
 } from '../utils/guideListing'
 import { normalizeTourPackages } from '../utils/tourPackages'
+import { recordForYouSignal } from '../lib/forYou'
 
 type Phase = 'availability' | 'details' | 'review' | 'sent'
 
@@ -181,6 +182,7 @@ export function GuidePackageBook() {
       })
     },
     onSuccess: (b) => {
+      recordForYouSignal('guides', 'book')
       setBooking(b)
       setPhase('sent')
       void qc.invalidateQueries({ queryKey: ['guide-bookings'] })

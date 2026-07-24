@@ -48,6 +48,11 @@ export type AccommodationListing = {
   description: string
   region: string
   city: string
+  address?: string
+  latitude?: number | string | null
+  longitude?: number | string | null
+  google_place_id?: string
+  formatted_address?: string
   price_per_night: string
   max_guests: number
   bedrooms: number
@@ -118,7 +123,7 @@ export function propertyTypeLabel(v: string) {
   return PROPERTY_LABELS[v] ?? v
 }
 
-export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords } from './placeMap'
+export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords, parseCoord, resolveDirectionsUrl } from './placeMap'
 
 export function parseHouseRules(text: string): string[] {
   return text.split('\n').map((l) => l.trim()).filter(Boolean)

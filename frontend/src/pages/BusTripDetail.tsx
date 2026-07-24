@@ -15,9 +15,12 @@ import type { BusTripListing } from '../utils/transportListing'
 import type { PayTarget } from '../utils/stripeSim'
 import '../components/journeys/journey-detail.css'
 import '../components/transport/transport-detail.css'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { recordForYouSignal } from '../lib/forYou'
 
 export function BusTripDetail() {
   const { id } = useParams()
+  const { format } = useDisplayMoney()
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
@@ -70,6 +73,7 @@ export function BusTripDetail() {
         }),
       }),
     onSuccess: (data) => {
+      recordForYouSignal('transport', 'book')
       setGroup(data)
       void qc.invalidateQueries({ queryKey: ['trip', id] })
       void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'seats'] })
@@ -191,7 +195,7 @@ export function BusTripDetail() {
           onPay: () => {
             if (!group?.reservations.length) return
             const ids = group.reservations.map((r) => r.id)
-            const amount = totalPrice ? `N$${totalPrice}` : undefined
+            const amount = totalPrice ? format(totalPrice) : undefined
             if (ids.length > 1) {
               setPayTargets([
                 {

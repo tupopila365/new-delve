@@ -20,6 +20,7 @@ import { MiniRating } from '../MiniRating'
 import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import { useAuth } from '../../auth/AuthContext'
 import { useCart } from '../../hooks/useCart'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { shopLocationLine, type ProductVariant, type ShopProductListing } from '../../utils/shopListing'
 import { ProductReviews } from './ProductReviews'
 import { ShopCartButton } from './ShopCartButton'
@@ -32,14 +33,10 @@ type Props = {
   messageHref: string
 }
 
-function formatPrice(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return 'Ask for price'
-  return `N$${value.toFixed(2).replace(/\.00$/, '')}`
-}
-
 export function ShopDetailView({ product, relatedProducts = [], editHref, messageHref }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { format } = useDisplayMoney()
   const { addItem } = useCart()
   const location = shopLocationLine(product)
   const seller = product.owner_display_name || product.owner_username
@@ -158,7 +155,7 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
             </a>
           ) : null}
           <p className="shop-detail__pricetag">
-            {formatPrice(unitPrice)}
+            {format(unitPrice, { fallback: 'Ask for price' })}
             {product.price_note ? <span> {product.price_note}</span> : null}
           </p>
           {product.tagline ? <p className="shop-detail__tagline">{product.tagline}</p> : null}
@@ -250,7 +247,7 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
             {product.shipping_available ? (
               <li>
                 <Truck size={22} strokeWidth={2.25} aria-hidden />
-                Shipping{Number(product.shipping_fee) > 0 ? ` · ${formatPrice(Number(product.shipping_fee))}` : ''}
+                Shipping{Number(product.shipping_fee) > 0 ? ` · ${format(Number(product.shipping_fee))}` : ''}
               </li>
             ) : null}
           </ul>
@@ -328,7 +325,7 @@ export function ShopDetailView({ product, relatedProducts = [], editHref, messag
                 />
                 <div className="shop-detail__related-body">
                   <strong>{item.name}</strong>
-                  <span>{item.price_label || formatPrice(Number(item.price))}</span>
+                  <span>{item.price_label || format(Number(item.price), { fallback: 'Ask for price' })}</span>
                 </div>
               </Link>
             ))}

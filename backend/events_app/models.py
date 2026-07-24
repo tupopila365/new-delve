@@ -40,6 +40,13 @@ class EventRecurrenceTemplate(models.Model):
         default=EventCategory.OTHER,
     )
     venue = models.CharField(max_length=200, blank=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     cover_image = models.ImageField(upload_to="events/templates/", blank=True, null=True)
@@ -106,6 +113,13 @@ class Event(models.Model):
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField(null=True, blank=True)
     venue = models.CharField(max_length=200, blank=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     cover_image = models.TextField(

@@ -41,6 +41,7 @@ import '../components/provider/transport/transport-admin.css'
 import '../components/provider/transport/transport-listing.css'
 import '../components/provider/stays/stay-listing.css'
 import { formatSellerPayoutLine } from '../utils/bookingPayout'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 
 type RentalBooking = {
   id: number
@@ -134,6 +135,7 @@ function seatBookingActions(status: string) {
 }
 
 export function TransportAdmin() {
+  const { format } = useDisplayMoney()
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -401,7 +403,7 @@ export function TransportAdmin() {
     ...(showRental ? [{ value: vehicles.length, label: 'Vehicles' }] : []),
     ...(showShared ? [{ value: busTrips.length, label: 'Trips' }] : []),
     { value: rentalBookings.length + seatBookings.length || '—', label: 'Bookings', accent: pendingRentals + pendingSeats > 0 },
-    { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
+    { value: format(revenue), label: 'Revenue', accent: revenue > 0 },
   ]
 
   return (
@@ -595,7 +597,7 @@ export function TransportAdmin() {
                         ? ` · ${r.renter_document_count} doc${r.renter_document_count === 1 ? '' : 's'} uploaded`
                         : ''}
                     </span>
-                    <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
+                    <strong>{format(r.total_price)}</strong>
                   </div>
                   {formatSellerPayoutLine(r) ? (
                     <p className="prov-ui__booking-payout">{formatSellerPayoutLine(r)}</p>
@@ -645,7 +647,7 @@ export function TransportAdmin() {
                   </div>
                   <div className="prov-ui__booking-details">
                     <span>{r.date} · Seat {r.seat}</span>
-                    <strong>N${parseFloat(r.total_price).toLocaleString()}</strong>
+                    <strong>{format(r.total_price)}</strong>
                   </div>
                   {formatSellerPayoutLine(r) ? (
                     <p className="prov-ui__booking-payout">{formatSellerPayoutLine(r)}</p>

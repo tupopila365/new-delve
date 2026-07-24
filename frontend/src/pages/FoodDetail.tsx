@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Utensils } from 'lucide-react'
@@ -12,6 +12,8 @@ import { EmptyState } from '../components/ui'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import type { FoodVenueListing } from '../utils/foodListing'
 import { useFoodEngagement } from '../hooks/useFoodEngagement'
+import { recordForYouSignal } from '../lib/forYou'
+import { listingTasteTags, recordSessionView } from '../lib/forYouDeep'
 import '../components/journeys/journey-detail.css'
 import '../components/food/food-detail.css'
 
@@ -39,6 +41,14 @@ export function FoodDetail() {
     enabled: !!id,
     queryFn: () => apiFetch<FoodVenueListing>(`/api/food/venues/${id}/`, { auth: Boolean(profile) }),
   })
+
+  const tasteTags = useMemo(() => (data ? listingTasteTags(data) : []), [data])
+
+  useEffect(() => {
+    if (!id || !data) return
+    recordSessionView('food', id, tasteTags)
+    recordForYouSignal('food', 'view')
+  }, [id, data, tasteTags])
 
   const engagementVenues = useMemo(() => (data ? [data] : []), [data])
   const engagement = useFoodEngagement(engagementVenues)

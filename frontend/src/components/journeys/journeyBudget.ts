@@ -1,4 +1,6 @@
 import type { TripCost } from '../../data/mockTrips'
+import { formatDisplayMoney } from '../../lib/displayMoney'
+import { exploreDisplayCurrency } from '../../lib/exploreDestination'
 
 export const JOURNEY_COST_COLORS: Record<TripCost['category'], string> = {
   transport: '#3dbf7a',
@@ -43,7 +45,6 @@ export function categoryBreakdown(costs: TripCost[], total: number) {
   }))
 }
 
-export function formatBudgetAmount(amount: number, currency = 'NAD') {
-  const prefix = currency === 'NAD' ? 'N$' : `${currency} `
-  return `${prefix}${amount.toLocaleString()}`
+export function formatBudgetAmount(amount: number, currency?: string | null) {
+  return formatDisplayMoney(amount, currency ?? exploreDisplayCurrency())
 }

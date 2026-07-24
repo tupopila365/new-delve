@@ -16,6 +16,8 @@ import {
   DEMO_ANALYTICS,
   DEMO_CONTENT_REVIEW,
 } from '../data/adminData'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { adminConsoleUrl } from '../utils/adminAppUrl'
 
 type Overview = {
   users: number
@@ -44,6 +46,7 @@ const COMING_SOON = [
 ]
 
 export function PlatformAdmin() {
+  const { format } = useDisplayMoney()
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['platform-overview'],
     queryFn: () => apiFetch<Overview>('/api/accounts/admin/overview/'),
@@ -136,7 +139,7 @@ export function PlatformAdmin() {
           { value: data.bookings, label: 'Bookings this month' },
           { value: newReports.length, label: 'Reported content', warn: newReports.length > 0 },
           { value: issueBookings.length, label: 'Booking issues', warn: issueBookings.length > 0 },
-          { value: `N$${DEMO_ANALYTICS.revenueMonth.toLocaleString()}`, label: 'Revenue (demo)' },
+          { value: format(DEMO_ANALYTICS.revenueMonth), label: 'Revenue (demo)' },
           { value: DEMO_ANALYTICS.newUsersWeek, label: 'New signups (7d)' },
         ]}
       />
@@ -187,7 +190,7 @@ export function PlatformAdmin() {
       <section className="adm-panel" id="reports">
         <div className="adm-panel__head">
           <h2>Reports preview</h2>
-          <span className="adm-panel__soon">Full reports — coming soon</span>
+          <a href={adminConsoleUrl('/reports')}>Open full reports →</a>
         </div>
         <ul className="adm-mini-table">
           {DEMO_ADMIN_REPORTS.slice(0, 3).map((r) => (
@@ -200,9 +203,12 @@ export function PlatformAdmin() {
                 status={r.severity}
                 variant={r.severity === 'critical' || r.severity === 'high' ? 'danger' : r.severity === 'medium' ? 'warning' : 'neutral'}
               />
-              <button type="button" className="adm-panel__action adm-panel__action--btn" disabled title="Review coming soon">
+              <a
+                href={adminConsoleUrl('/reports')}
+                className="adm-panel__action adm-panel__action--btn"
+              >
                 Review
-              </button>
+              </a>
             </li>
           ))}
         </ul>

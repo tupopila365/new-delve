@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { recordForYouSignal } from '../lib/forYou'
+import { recordForYouDeep } from '../lib/forYouDeep'
 
 const LEGACY_SAVES_KEY = 'delve:saved-stays'
 const MIGRATED_KEY = 'delve:saved-stays-migrated'
@@ -60,7 +62,11 @@ export function useToggleStaySave() {
         `/api/accommodation/listings/${listingId}/save/`,
         { method: 'POST' },
       ),
-    onSuccess: () => {
+    onSuccess: (data, listingId) => {
+      if (data?.saved) {
+        recordForYouSignal('stays', 'save')
+        recordForYouDeep({ vertical: 'stays', id: listingId, kind: 'save' })
+      }
       void qc.invalidateQueries({ queryKey: ['accommodation'] })
       void qc.invalidateQueries({ queryKey: ['saved-stays'] })
       void qc.invalidateQueries({ queryKey: ['acc'] })

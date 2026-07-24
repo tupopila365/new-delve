@@ -12,6 +12,7 @@ import {
   type VehicleListing,
 } from '../../../utils/transportListing'
 import './transport-booking.css'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Booking = {
   id: number
@@ -59,6 +60,7 @@ export function VehicleReserveCard({
   onRenterDocRemove,
   className = '',
 }: Props) {
+  const { format } = useDisplayMoney()
   if (booking && booking.status !== 'pending') return null
 
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
@@ -101,7 +103,7 @@ export function VehicleReserveCard({
         <div>
           <p className="rental-reserve__kicker">{typeMeta.label}</p>
           <p className="rental-reserve__price">
-            N${vehicle.price_per_day}
+            {format(vehicle.price_per_day)}
             <span>/ day</span>
           </p>
         </div>
@@ -173,14 +175,14 @@ export function VehicleReserveCard({
         <div className="rental-reserve__total">
           {estimatedTotal ? (
             <>
-              <strong>N${estimatedTotal}</strong>
+              <strong>{format(estimatedTotal)}</strong>
               <span>
                 {days} {days === 1 ? 'day' : 'days'}
               </span>
             </>
           ) : (
             <>
-              <strong>N${vehicle.price_per_day}</strong>
+              <strong>{format(vehicle.price_per_day)}</strong>
               <span>per day</span>
             </>
           )}
@@ -219,7 +221,7 @@ export function VehicleBookingStatus({
         <h2 className="tp-transport-status__title">Request received</h2>
         <span className="tp-transport-status__badge">Awaiting provider</span>
         <p className="tp-transport-status__total">
-          Estimated total: <strong>N${booking.total_price}</strong>
+          Estimated total: <strong>{format(booking.total_price)}</strong>
         </p>
         <p className="tp-transport-status__text">
           The provider will confirm your dates. Practice payment unlocks after they accept.
@@ -235,7 +237,7 @@ export function VehicleBookingStatus({
         <h2 className="tp-transport-status__title">Provider confirmed</h2>
         <span className="tp-transport-status__badge tp-transport-status__badge--confirmed">Confirmed</span>
         <p className="tp-transport-status__total">
-          Total: <strong>N${booking.total_price}</strong>
+          Total: <strong>{format(booking.total_price)}</strong>
         </p>
         <p className="tp-transport-status__text">
           Complete the practice payment step — your card is never charged.

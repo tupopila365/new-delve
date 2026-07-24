@@ -48,6 +48,7 @@ import { EventReviewForm } from './EventReviewForm'
 import { EventTicketCard } from './EventTicketCard'
 import '../journeys/journey-detail.css'
 import './event-detail.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Props = {
   event: EventDetail
@@ -114,6 +115,7 @@ export function EventDetailView({
   isOwner = false,
   onAddHighlight,
 }: Props) {
+  const { format } = useDisplayMoney()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const categoryFollows = useEventCategoryFollows()
@@ -166,7 +168,7 @@ export function EventDetailView({
     : ticketingMode === 'external'
       ? 'Get tickets'
       : ticketingMode === 'on_platform'
-        ? `Reserve · N$${event.price}`
+        ? `Reserve · ${format(event.price)}`
         : 'RSVP'
 
   return (

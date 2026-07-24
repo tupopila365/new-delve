@@ -5,6 +5,7 @@ import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import { ProviderUiHeader, ProviderUiPage, ProviderUiStats } from '../components/provider/ui'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 
 type ProviderListingOption = {
   target_type: string
@@ -136,6 +137,7 @@ function statusPillClass(status: string) {
 }
 
 export function ProviderPromotions() {
+  const { format } = useDisplayMoney()
   const { canManageListings } = useOutletContext<ProviderOutletContext>()
   const qc = useQueryClient()
   const [toast, setToast] = useState('')
@@ -313,7 +315,7 @@ export function ProviderPromotions() {
                 ? [
                     {
                       label: 'Spend',
-                      value: `N$${(promoAnalytics.totals.spend_cents / 100).toLocaleString()}`,
+                      value: format(promoAnalytics.totals.spend_cents / 100),
                     },
                   ]
                 : []),
@@ -321,7 +323,7 @@ export function ProviderPromotions() {
                 ? [
                     {
                       label: 'ROI proxy',
-                      value: `${promoAnalytics.totals.roi_proxy} / N$100`,
+                      value: `${promoAnalytics.totals.roi_proxy} / ${format(100)}`,
                       wide: true as const,
                     },
                   ]

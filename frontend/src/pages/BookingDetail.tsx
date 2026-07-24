@@ -18,10 +18,12 @@ import { MessageProviderLink } from '../components/messages'
 import { StripeSimPayModal } from '../components/payments/StripeSimPayModal'
 import {
   findSeatBookingGroup,
+  formatBookingTotal,
   useMySeatBookingGroups,
   useMyVehicleBookings,
   type MyVehicleBooking,
 } from '../hooks/useMyTransportBookings'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { useMyFoodReservations, type MyFoodReservation } from '../hooks/useMyFoodReservations'
 import type { FoodVenueListing } from '../utils/foodListing'
 import { buyerPaymentLabel } from '../utils/bookingPayout'
@@ -136,6 +138,7 @@ export function BookingDetail() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
+  const { format } = useDisplayMoney()
   const { service, id } = useParams<{ service: string; id: string }>()
   const bookingId = Number(id)
 
@@ -303,7 +306,7 @@ export function BookingDetail() {
         { label: 'Check out', value: stay.check_out },
         { label: 'Guests', value: `${stay.guests}` },
         ...(stay.room_type_name?.trim() ? [{ label: 'Room', value: stay.room_type_name.trim() }] : []),
-        { label: 'Total', value: stay.total_price ? `N$${stay.total_price}` : 'TBD' },
+        { label: 'Total', value: stay.total_price ? format(stay.total_price) : 'TBD' },
         ...(buyerPaymentLabel(stay.payout_status, 'host')
           ? [{ label: 'Payment', value: buyerPaymentLabel(stay.payout_status, 'host')! }]
           : []),
@@ -335,7 +338,7 @@ export function BookingDetail() {
         ...(guide.meeting_point?.trim()
           ? [{ label: 'Meeting point', value: guide.meeting_point.trim() }]
           : []),
-        { label: 'Total', value: guide.total_price ? `N$${guide.total_price}` : 'TBD' },
+        { label: 'Total', value: guide.total_price ? format(guide.total_price) : 'TBD' },
         ...(buyerPaymentLabel(guide.payout_status, 'guide')
           ? [{ label: 'Payment', value: buyerPaymentLabel(guide.payout_status, 'guide')! }]
           : []),
@@ -354,7 +357,7 @@ export function BookingDetail() {
         { label: 'Return', value: vehicle.end_date },
         { label: 'Provider', value: vehicle.owner_display_name?.trim() || vehicle.listing_owner_username },
         ...(location ? [{ label: 'Location', value: location }] : []),
-        { label: 'Total', value: vehicle.total_price ? `N$${vehicle.total_price}` : 'TBD' },
+        { label: 'Total', value: vehicle.total_price ? format(vehicle.total_price) : 'TBD' },
         ...(buyerPaymentLabel(vehicle.payout_status, 'provider')
           ? [{ label: 'Payment', value: buyerPaymentLabel(vehicle.payout_status, 'provider')! }]
           : []),
@@ -371,7 +374,7 @@ export function BookingDetail() {
         { label: 'Route', value: busGroup.route_label },
         { label: 'Operator', value: busGroup.operator_name || 'Bus operator' },
         { label: 'Seats', value: busGroup.seat_numbers.join(', ') },
-        { label: 'Total', value: busGroup.total_price },
+        { label: 'Total', value: formatBookingTotal(busGroup.total_price) },
         ...(buyerPaymentLabel(busGroup.payout_status, 'operator')
           ? [{ label: 'Payment', value: buyerPaymentLabel(busGroup.payout_status, 'operator')! }]
           : []),
@@ -697,13 +700,13 @@ export function BookingDetail() {
                       {
                         target_type: 'accommodation',
                         target_id: String(stay.id),
-                        amountLabel: `N$${stay.total_price}`,
+                        amountLabel: format(stay.total_price),
                         title: stay.listing_title,
                       },
                     ])
                   }
                 >
-                  Pay N${stay.total_price} with card
+                  Pay {format(stay.total_price)} with card
                 </button>
               ) : null}
 
@@ -716,13 +719,13 @@ export function BookingDetail() {
                       {
                         target_type: 'vehicle',
                         target_id: String(vehicle.id),
-                        amountLabel: `N$${vehicle.total_price}`,
+                        amountLabel: format(vehicle.total_price),
                         title: vehicle.listing_title,
                       },
                     ])
                   }
                 >
-                  Pay N${vehicle.total_price} with card
+                  Pay {format(vehicle.total_price)} with card
                 </button>
               ) : null}
 
@@ -737,9 +740,7 @@ export function BookingDetail() {
                         {
                           target_type: 'bus_seat_bulk',
                           target_id: ids.join('-'),
-                          amountLabel: String(busGroup.total_price).startsWith('N$')
-                            ? String(busGroup.total_price)
-                            : `N$${busGroup.total_price}`,
+                          amountLabel: formatBookingTotal(busGroup.total_price),
                           title: busGroup.route_label,
                           metadata: { reservation_ids: ids },
                         },
@@ -749,16 +750,14 @@ export function BookingDetail() {
                         {
                           target_type: 'bus_seat',
                           target_id: String(ids[0]),
-                          amountLabel: String(busGroup.total_price).startsWith('N$')
-                            ? String(busGroup.total_price)
-                            : `N$${busGroup.total_price}`,
+                          amountLabel: formatBookingTotal(busGroup.total_price),
                           title: busGroup.route_label,
                         },
                       ])
                     }
                   }}
                 >
-                  Pay {busGroup.total_price} with card
+                  Pay {formatBookingTotal(busGroup.total_price)} with card
                 </button>
               ) : null}
 
@@ -771,13 +770,13 @@ export function BookingDetail() {
                       {
                         target_type: 'guide',
                         target_id: String(guide.id),
-                        amountLabel: `N$${guide.total_price}`,
+                        amountLabel: format(guide.total_price),
                         title: guide.guide_headline,
                       },
                     ])
                   }
                 >
-                  Pay N${guide.total_price} with card
+                  Pay {format(guide.total_price)} with card
                 </button>
               ) : null}
 

@@ -43,6 +43,7 @@ import {
 } from '../../utils/transportListing'
 import '../journeys/journey-detail.css'
 import './transport-detail.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Booking = {
   id: number
@@ -90,6 +91,7 @@ export function VehicleDetailView({
   booking,
   manageHighlightsHref,
 }: Props) {
+  const { format } = useDisplayMoney()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
@@ -308,7 +310,7 @@ export function VehicleDetailView({
         ) : null}
         <li className="jd-fact jd-fact--cost">
           <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
-          N${vehicle.price_per_day}/day
+          {format(vehicle.price_per_day, { suffix: '/day' })}
         </li>
       </ul>
 
@@ -470,7 +472,7 @@ export function VehicleDetailView({
         <div className="jd-mobilebar">
           <span className="jd-mobilebar__meta">
             <span className="jd-mobilebar__title">
-              {estTotal ? `Est. N$${estTotal}` : `N$${vehicle.price_per_day}/day`}
+              {estTotal ? `Est. ${format(estTotal)}` : format(vehicle.price_per_day, { suffix: '/day' })}
             </span>
             <span className="jd-mobilebar__sub">
               {estTotal

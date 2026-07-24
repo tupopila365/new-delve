@@ -9,6 +9,7 @@ import { isNoFaceHiddenNavTo, useNoFace } from '../hooks/useNoFace'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import { BrandLogo } from './BrandLogo'
+import { ExploreDestinationSwitcher } from './explore/ExploreDestinationSwitcher'
 import './community/community-feed-cards.css'
 
 export function TopNav() {
@@ -48,6 +49,10 @@ export function TopNav() {
       <Link to="/" className="app-topnav__logo" aria-label="DELVE home">
         <BrandLogo alt="" />
       </Link>
+
+      <div className="app-topnav__explore">
+        <ExploreDestinationSwitcher />
+      </div>
 
       <nav className="app-topnav__links" aria-label="Site sections">
         {primarySections.map((l) => (

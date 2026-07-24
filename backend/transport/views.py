@@ -44,7 +44,7 @@ class VehicleRentalListingViewSet(viewsets.ModelViewSet):
     )
     serializer_class = VehicleRentalListingSerializer
     filterset_class = VehicleFilter
-    search_fields = ("title", "make", "model", "region", "city")
+    search_fields = ("title", "make", "model", "region", "city", "country_code")
     ordering_fields = ("price_per_day", "created_at")
     ordering = ["-created_at"]
 
@@ -175,7 +175,7 @@ class BusTripViewSet(viewsets.ModelViewSet):
     queryset = BusTrip.objects.select_related("route", "route__operator").order_by("departs_at")
     serializer_class = BusTripSerializer
     filterset_class = BusTripFilter
-    search_fields = ("route__origin", "route__destination", "route__operator__name")
+    search_fields = ("route__origin", "route__destination", "route__operator__name", "route__operator__country_code")
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):

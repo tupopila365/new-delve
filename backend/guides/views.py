@@ -16,7 +16,7 @@ from .serializers import GuideBookingSerializer, TourGuideProfileSerializer
 class TourGuideProfileViewSet(viewsets.ModelViewSet):
     queryset = TourGuideProfile.objects.filter(is_active=True).select_related("user", "user__profile")
     serializer_class = TourGuideProfileSerializer
-    search_fields = ("headline", "bio", "regions", "specialities", "languages")
+    search_fields = ("headline", "bio", "regions", "specialities", "languages", "country_code")
     ordering_fields = ("rating_avg", "hourly_rate", "created_at")
     ordering = ["-created_at"]
 
@@ -47,6 +47,10 @@ class TourGuideProfileViewSet(viewsets.ModelViewSet):
         region = (self.request.query_params.get("region") or "").strip()
         if region:
             qs = qs.filter(regions__icontains=region)
+
+        country = (self.request.query_params.get("country_code") or "").strip()
+        if country:
+            qs = qs.filter(country_code__iexact=country)
 
         language = (self.request.query_params.get("language") or "").strip()
         if language:

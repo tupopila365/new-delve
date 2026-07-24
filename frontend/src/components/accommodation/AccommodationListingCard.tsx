@@ -12,6 +12,8 @@ import {
   Users,
 } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
+import { listingTrustLabel } from '../../lib/listingTrust'
 import './AccommodationListingCard.css'
 
 export type AccommodationCardListing = {
@@ -36,6 +38,7 @@ export type AccommodationCardListing = {
   liked_by_me?: boolean
   is_featured_partner?: boolean
   partner_label?: string
+  owner_verified?: boolean
 }
 
 type Props = {
@@ -45,6 +48,7 @@ type Props = {
   saved: boolean
   likeCount: number
   likeBusy?: boolean
+  distanceLabel?: string | null
   onLike: (event: MouseEvent) => void
   onSave: (event: MouseEvent) => void
   onShare: (event: MouseEvent) => void
@@ -73,20 +77,18 @@ export function AccommodationListingCard({
   saved,
   likeCount,
   likeBusy,
+  distanceLabel,
   onLike,
   onSave,
   onShare,
 }: Props) {
+  const { format } = useDisplayMoney()
   const src = mediaUrl(listing.cover_image) || FALLBACK_STAY_PHOTO
   const ratingCount = listing.rating_count ?? 0
   const rating =
     ratingCount > 0 && listing.rating_avg ? Number.parseFloat(listing.rating_avg).toFixed(1) : null
-  const popular = ratingCount >= 20
-  const trustLabel = listing.is_featured_partner
-    ? listing.partner_label?.trim() || 'Featured host'
-    : popular
-      ? 'Popular'
-      : null
+  const trustLabel = listingTrustLabel(listing)
+  const priceText = format(listing.price_per_night, { suffix: '/night', from: true })
   const tags = [
     listing.pool ? 'Pool' : null,
     listing.wifi ? 'Wi-Fi' : null,
@@ -127,18 +129,17 @@ export function AccommodationListingCard({
               <p className="stay-card-v2__location">
                 <MapPin size={13} strokeWidth={2.25} aria-hidden />
                 {location(listing)}
+                {distanceLabel ? <span className="stay-card-v2__distance">{distanceLabel}</span> : null}
               </p>
             </div>
-            <p className="stay-card-v2__price">
-              <span>From</span>
-              N${listing.price_per_night}
-              <small>/night</small>
-            </p>
+            <p className="stay-card-v2__price">{priceText || 'Ask for price'}</p>
           </div>
 
           {trustLabel ? (
             <div className="stay-card-v2__trust">
-              <span className="stay-card-v2__badge">
+              <span
+                className={`stay-card-v2__badge${listing.owner_verified ? ' stay-card-v2__badge--verified' : ''}`}
+              >
                 <BadgeCheck size={12} strokeWidth={2.25} aria-hidden />
                 {trustLabel}
               </span>

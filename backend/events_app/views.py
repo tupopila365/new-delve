@@ -76,10 +76,19 @@ class EventFilter(django_filters.FilterSet):
     organizer = django_filters.CharFilter(field_name="organizer__username", lookup_expr="iexact")
     when = django_filters.CharFilter(method="filter_when")
     business = django_filters.CharFilter(method="filter_business")
+    country_code = django_filters.CharFilter(field_name="country_code", lookup_expr="iexact")
 
     class Meta:
         model = Event
-        fields = ["category", "region", "city", "is_published", "is_free", "organizer"]
+        fields = [
+            "category",
+            "region",
+            "city",
+            "country_code",
+            "is_published",
+            "is_free",
+            "organizer",
+        ]
 
     def filter_when(self, queryset, name, value):
         value = (value or "").strip().lower()
@@ -117,7 +126,7 @@ class EventFilter(django_filters.FilterSet):
 class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     filterset_class = EventFilter
-    search_fields = ("title", "description", "venue", "region", "city")
+    search_fields = ("title", "description", "venue", "region", "city", "country_code")
     ordering_fields = ("starts_at", "created_at", "likes_count")
     ordering = ["starts_at"]
 

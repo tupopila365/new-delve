@@ -9,6 +9,7 @@ import { ProviderUiChips, ProviderUiEmpty, ProviderUiHeader, ProviderUiPage, Pro
 import { getBookingStats } from '../data/providerData'
 import { useProviderMergedBookings } from '../hooks/useProviderMergedBookings'
 import { bookingsPageSubtitle, categoriesForBusinessTypes } from '../utils/providerCategories'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 
 const STATUS_FILTERS = [
   { id: 'All', label: 'All' },
@@ -19,6 +20,7 @@ const STATUS_FILTERS = [
 ] as const
 
 export function ProviderBookings() {
+  const { format } = useDisplayMoney()
   const { profile } = useAuth()
   const qc = useQueryClient()
   const { activeBusiness, canManageBookings } = useOutletContext<ProviderOutletContext>()
@@ -161,7 +163,7 @@ export function ProviderBookings() {
           { value: stats.pending, label: 'Pending', accent: stats.pending > 0 },
           { value: stats.confirmed, label: 'Confirmed' },
           { value: stats.completed, label: 'Completed' },
-          { value: `N$${stats.revenue.toLocaleString()}`, label: 'Revenue' },
+          { value: format(stats.revenue), label: 'Revenue' },
         ]}
         columns={4}
       />

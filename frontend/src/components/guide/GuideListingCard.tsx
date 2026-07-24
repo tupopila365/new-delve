@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { BadgeCheck, Bookmark, Clock, Compass, MapPin, Share2, Star } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import './guide-list.css'
 
 export type GuideCardData = {
@@ -55,6 +56,7 @@ export function GuideListingCard({
   onToggleSave,
   onShare,
 }: Props) {
+  const { format } = useDisplayMoney()
   const name = displayName(g)
   const photo = mediaUrl(g.photo)
   const regionLine = (g.regions || []).slice(0, 2).join(' · ') || 'Namibia'
@@ -129,10 +131,7 @@ export function GuideListingCard({
             ) : null}
           </div>
           {g.hourly_rate ? (
-            <span className="gl-spot__price">
-              From <strong>${g.hourly_rate}</strong>
-              <em>/hr</em>
-            </span>
+            <span className="gl-spot__price">{format(g.hourly_rate, { suffix: '/hr', from: true })}</span>
           ) : (
             <span className="gl-spot__price gl-spot__price--muted">Rates on profile</span>
           )}

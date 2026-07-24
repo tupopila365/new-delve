@@ -10,6 +10,7 @@ import { ListingReviews } from '../components/listing'
 import { MediaLightbox } from '../components/media/MediaLightbox'
 import { EmptyState } from '../components/ui'
 import { useAccountActionGate } from '../hooks/useAccountActionGate'
+import { recordForYouSignal } from '../lib/forYou'
 import {
   activityGallery,
   activityLocationLine,
@@ -50,6 +51,7 @@ export function ActivityDetail() {
         method: 'POST',
       }),
     onSuccess: (result) => {
+      if (result?.saved) recordForYouSignal('activities', 'save')
       qc.setQueryData<ActivityListing>(['activity', id], (prev) =>
         prev ? { ...prev, saved_by_me: result.saved, saves_count: result.saves_count } : prev,
       )

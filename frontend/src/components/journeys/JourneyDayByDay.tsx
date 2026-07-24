@@ -26,6 +26,7 @@ import { JourneyStopMediaLightbox } from './JourneyStopMediaLightbox'
 import { dayRangeLabel, fmtJourneyDateShort, nightsBetween } from '../../utils/journeyListing'
 import './journey-route-stops.css'
 import './journey-day-by-day.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Props = {
   stops: TripStop[]
@@ -144,6 +145,7 @@ function EntryMediaCarousel({
 }
 
 export function JourneyDayByDay({ stops, tags = [], className = '', isAuthor = false, onShareEntry }: Props) {
+  const { format } = useDisplayMoney()
   const routeMedia = useMemo(() => collectRouteMedia(stops), [stops])
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
@@ -196,7 +198,7 @@ export function JourneyDayByDay({ stops, tags = [], className = '', isAuthor = f
                         {stop.cost ? (
                           <>
                             {' · '}
-                            <span className="jn-diary__cost">N${stop.cost.toLocaleString()}</span>
+                            <span className="jn-diary__cost">{format(stop.cost)}</span>
                           </>
                         ) : null}
                       </p>

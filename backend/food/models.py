@@ -36,6 +36,13 @@ class FoodVenue(models.Model):
         choices=CuisineType.choices,
         default=CuisineType.OTHER,
     )
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     address = models.CharField(max_length=300, blank=True)
@@ -72,6 +79,11 @@ class FoodVenue(models.Model):
         default=list,
         blank=True,
         help_text='Extra amenity labels, e.g. ["Outdoor seating", "Card accepted"]',
+    )
+    niche_tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Long-tail discovery tags, e.g. ["hidden brunch", "locals only"].',
     )
     photos = models.JSONField(
         default=list,

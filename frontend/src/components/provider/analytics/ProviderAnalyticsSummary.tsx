@@ -2,6 +2,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react'
 import { ProviderUiStats } from '../ui'
 import type { ProviderAnalyticsSnapshot } from '../../../data/providerAnalytics'
 import { analyticsPeriodLabel } from '../../../data/providerAnalytics'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   data: ProviderAnalyticsSnapshot
@@ -19,6 +20,7 @@ function Delta({ value }: { value: number }) {
 }
 
 export function ProviderAnalyticsSummary({ data }: Props) {
+  const { format } = useDisplayMoney()
   const { summary, deltas, period } = data
 
   return (
@@ -37,7 +39,7 @@ export function ProviderAnalyticsSummary({ data }: Props) {
           },
           { value: summary.listingViews.toLocaleString(), label: 'Listing views' },
           { value: summary.bookingRequests, label: 'Booking requests', accent: summary.bookingRequests > 0 },
-          { value: `N$${summary.revenue.toLocaleString()}`, label: 'Revenue' },
+          { value: format(summary.revenue), label: 'Revenue' },
           { value: summary.avgRating, label: 'Avg rating' },
           { value: `${summary.conversionRate}%`, label: 'View → booking' },
           { value: summary.confirmedBookings, label: 'Confirmed' },

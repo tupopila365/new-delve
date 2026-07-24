@@ -1,6 +1,8 @@
 import type { MockTrip } from '../data/mockTrips'
 import { partyDisplayLabel } from '../components/journeys/PartyPicker'
 import { parseGalleryMediaList } from '../components/listing/photos/listingGalleryMedia'
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { exploreDisplayCurrency } from '../lib/exploreDestination'
 
 const HOOK_BY_TAG: Record<string, string> = {
   '4x4': 'Best for a first-time desert road trip',
@@ -99,9 +101,8 @@ export function transportLabel(modes: string[]) {
   return modes.map((mode) => TRANSPORT_LABELS[mode] ?? mode.replace(/_/g, ' ')).join(' · ')
 }
 
-export function formatJourneyCost(amount: number, currency = 'NAD') {
-  const prefix = currency === 'NAD' ? 'N$' : `${currency} `
-  return `${prefix}${amount.toLocaleString()}`
+export function formatJourneyCost(amount: number, currency?: string | null) {
+  return formatDisplayMoney(amount, currency ?? exploreDisplayCurrency())
 }
 
 export function journeyCoverSrc(cover: string | null | undefined) {

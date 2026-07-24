@@ -6,6 +6,8 @@ import {
   propertyTypeLabel,
   type AccommodationListing,
 } from '../../utils/accommodationListing'
+import { formatDisplayMoney } from '../../lib/displayMoney'
+import { exploreDisplayCurrency } from '../../lib/exploreDestination'
 
 function shortLabel(title: string, max = 16): string {
   const t = title.trim()
@@ -73,7 +75,10 @@ export function buildStayStoryChannels(
         id: `${data.id}-rate`,
         kind: 'image',
         src: gallery[1].src,
-        headline: `From N$${data.price_per_night} / night`,
+        headline: formatDisplayMoney(data.price_per_night, exploreDisplayCurrency(), {
+          suffix: '/night',
+          from: true,
+        }),
         sub: [locationLine, `Up to ${data.max_guests} guests`].filter(Boolean).join(' · '),
         ctaPath: stayPath,
         ctaLabel: 'Select room',

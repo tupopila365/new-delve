@@ -13,6 +13,7 @@ import {
   todayIsoDate,
   validateStayDates,
 } from '../components/booking'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import type { AvailabilityStatus } from '../components/booking'
 import {
   StayAvailabilityPanel,
@@ -28,6 +29,7 @@ import {
   type AccommodationListing,
   type RoomTypeItem,
 } from '../utils/accommodationListing'
+import { recordForYouSignal } from '../lib/forYou'
 
 type Booking = {
   id: number
@@ -54,6 +56,7 @@ function parseGuestsParam(raw: string | null): number | null {
 
 export function AccommodationBook() {
   const { id } = useParams()
+  const { format } = useDisplayMoney()
   const [searchParams] = useSearchParams()
   const roomName = searchParams.get('room') ?? ''
   const qc = useQueryClient()
@@ -162,6 +165,7 @@ export function AccommodationBook() {
         }),
       }),
     onSuccess: (b) => {
+      recordForYouSignal('stays', 'book')
       setBooking(b)
       setPhase('sent')
       void qc.invalidateQueries({ queryKey: ['acc-bookings'] })
@@ -236,7 +240,7 @@ export function AccommodationBook() {
       title={listing.title}
       location={areaLine}
       rows={summaryRows}
-      total={displayTotal ? { label: 'Total', value: `N$${displayTotal}` } : undefined}
+      total={displayTotal ? { label: 'Total', value: format(displayTotal) } : undefined}
       note="You won't be charged until the host confirms."
     />
   )
@@ -256,7 +260,7 @@ export function AccommodationBook() {
     { label: 'Nights', value: `${nights} ${nights === 1 ? 'night' : 'nights'}` },
     { label: 'Guests', value: `${guests}` },
     { label: 'Room', value: selectedRoom?.name ?? 'Standard' },
-    { label: 'Nightly rate', value: `N$${rateLabel}` },
+    { label: 'Nightly rate', value: format(rateLabel) },
     ...(specialRequests.trim()
       ? [{ label: 'Special requests', value: specialRequests.trim(), fullWidth: true as const }]
       : []),
@@ -276,7 +280,7 @@ export function AccommodationBook() {
         },
         { label: 'Guests', value: `${booking.guests}` },
         { label: 'Room', value: selectedRoom?.name ?? 'Standard' },
-        ...(booking.total_price ? [{ label: 'Total', value: `N$${booking.total_price}` }] : []),
+        ...(booking.total_price ? [{ label: 'Total', value: format(booking.total_price) }] : []),
         ...(booking.special_requests
           ? [{ label: 'Special requests', value: booking.special_requests, fullWidth: true as const }]
           : []),
@@ -331,7 +335,7 @@ export function AccommodationBook() {
 
   const priceLine =
     activeNights != null && nightlyRate != null
-      ? `N$${nightlyRate.toFixed(2)} × ${activeNights} ${activeNights === 1 ? 'night' : 'nights'}`
+      ? `${format(nightlyRate)} × ${activeNights} ${activeNights === 1 ? 'night' : 'nights'}`
       : undefined
 
   return (
@@ -402,7 +406,7 @@ export function AccommodationBook() {
           location={areaLine}
           items={reviewItems}
           priceLine={priceLine}
-          total={estimatedTotal ? `N$${estimatedTotal}` : undefined}
+          total={estimatedTotal ? format(estimatedTotal) : undefined}
           cancelNote={`Cancellation — ${cancellationBlurb}`}
           isSubmitting={createMut.isPending}
           onBack={() => setPhase('details')}

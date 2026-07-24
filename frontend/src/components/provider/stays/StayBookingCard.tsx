@@ -3,6 +3,7 @@ import { MessageCircle } from 'lucide-react'
 import { BookingStatusBadge } from '../../booking'
 import { messageUserPath } from '../../messages/messageProviderUtils'
 import { formatSellerPayoutLine } from '../../../utils/bookingPayout'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 export type StayProviderBooking = {
   id: number
@@ -36,6 +37,7 @@ export function StayBookingCard({
   onAction,
   actionPending,
 }: Props) {
+  const { format } = useDisplayMoney()
   const payoutLine = formatSellerPayoutLine(booking)
 
   return (
@@ -55,7 +57,7 @@ export function StayBookingCard({
           {booking.check_in} → {booking.check_out} · {nights} night{nights === 1 ? '' : 's'}
         </span>
         <span>{booking.guests} guests</span>
-        <strong>N${parseFloat(booking.total_price).toLocaleString()}</strong>
+        <strong>{format(booking.total_price)}</strong>
       </div>
       {payoutLine ? <p className="prov-ui__booking-payout">{payoutLine}</p> : null}
       <div className="prov-ui__booking-actions">

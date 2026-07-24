@@ -5,6 +5,8 @@ import { mediaUrl } from '../../api/client'
 import { JourneySection } from '../journeys/JourneySection'
 import { roomGalleryImages } from '../listing/listingUtils'
 import type { ListingRoomOption } from '../listing/types'
+import { formatDisplayMoney } from '../../lib/displayMoney'
+import { exploreDisplayCurrency } from '../../lib/exploreDestination'
 
 type Props = {
   rooms: ListingRoomOption[]
@@ -30,7 +32,7 @@ function roomMeta(room: ListingRoomOption): string {
 
 function displayPrice(room: ListingRoomOption): string | null {
   const price = room.pricePerNight?.trim() || room.fallbackPrice?.trim()
-  return price ? `N$${price}` : null
+  return price ? formatDisplayMoney(price, exploreDisplayCurrency()) : null
 }
 
 function resolveRoomImage(room: ListingRoomOption, fallbackCoverSrc?: string | null): string | null {
@@ -106,7 +108,7 @@ export function StayRoomPicker({
           const imageSrc = resolveRoomImage(room, fallbackCoverSrc)
           const meta = roomMeta(room)
           const price = displayPrice(room)
-          const compareAt = room.compareAtPrice?.trim() ? `N$${room.compareAtPrice.trim()}` : null
+          const compareAt = room.compareAtPrice?.trim() ? formatDisplayMoney(room.compareAtPrice.trim(), exploreDisplayCurrency()) : null
           const onSale = Boolean(compareAt && price && compareAt !== price)
           const badge =
             room.badge?.trim() || (onSale ? 'On sale' : room.featured ? 'Featured' : null)

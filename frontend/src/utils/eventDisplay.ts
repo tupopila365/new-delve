@@ -8,6 +8,7 @@ import {
   Utensils,
 } from 'lucide-react'
 import { mediaUrl } from '../api/client'
+import { formatDisplayMoney } from '../lib/displayMoney'
 import {
   isVideoUrl,
   parseGalleryMediaList,
@@ -168,9 +169,12 @@ export function eventLocationLine(event: Pick<EventListing, 'venue' | 'city' | '
   return [event.venue || 'Venue TBA', event.city || event.region].filter(Boolean).join(', ')
 }
 
-export function eventPriceLabel(event: Pick<EventListing, 'is_free' | 'price'>): string | null {
+export function eventPriceLabel(
+  event: Pick<EventListing, 'is_free' | 'price'>,
+  currency = 'NAD',
+): string | null {
   if (event.is_free) return 'Free entry'
-  if (event.price) return `From N$${event.price}`
+  if (event.price) return formatDisplayMoney(event.price, currency, { from: true })
   return null
 }
 

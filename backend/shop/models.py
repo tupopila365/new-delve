@@ -36,6 +36,13 @@ class ShopProfile(models.Model):
         help_text="Public shop name. Falls back to the account display name when empty.",
     )
     avatar = models.ImageField(upload_to="shop_avatars/", blank=True, null=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
     fulfillment_notes = models.CharField(
@@ -75,6 +82,13 @@ class ShopProduct(models.Model):
         max_length=32,
         choices=ShopCategory.choices,
         default=ShopCategory.SOUVENIRS,
+    )
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
     )
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)

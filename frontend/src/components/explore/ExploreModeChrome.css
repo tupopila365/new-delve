@@ -1,0 +1,76 @@
+.explore-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(201, 123, 107, 0.35);
+  background: linear-gradient(90deg, rgba(48, 28, 24, 0.96), rgba(28, 25, 23, 0.94));
+  color: #fffaf2;
+}
+
+.explore-mode-bar__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: rgba(255, 250, 242, 0.88);
+}
+
+.explore-mode-bar__copy strong {
+  font-weight: 850;
+  color: #e8b4a8;
+}
+
+.explore-mode-bar__change {
+  flex-shrink: 0;
+  color: rgba(255, 250, 242, 0.7);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.explore-mode-bar__change:hover {
+  color: #fffaf2;
+}
+
+.explore-mode-bar__exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fffaf2;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.explore-mode-bar__exit:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+body.delve-explore-on .app-shell {
+  --explore-mode-accent: #c97b6b;
+}
+
+body.delve-explore-off .app-shell {
+  --explore-mode-accent: #2a6f5e;
+}
+
+@media (max-width: 720px) {
+  .explore-mode-bar {
+    padding: 7px 12px;
+  }
+
+  .explore-mode-bar__exit span {
+    /* Keep label — it’s the exit affordance */
+  }
+}

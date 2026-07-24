@@ -501,8 +501,15 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding-bottom: 10px;
+}
+
+.mobile-topbar__explore {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .mobile-topbar__sections {
@@ -10567,6 +10574,13 @@ a.chip.chip--accent:hover {
   font-size: 12px;
   font-weight: 700;
   color: var(--text-tertiary);
+}
+
+.acc-detail__review-verified {
+  font-size: 11px;
+  font-weight: 800;
+  color: #2a6f5e;
+  letter-spacing: 0.02em;
 }
 
 .acc-detail__review-rating {
@@ -23301,10 +23315,15 @@ a.chip.chip--accent:hover {
     display: inline-flex;
     align-items: center;
     line-height: 0;
-    margin-right: 20px;
+    margin-right: 12px;
     flex-shrink: 0;
     text-decoration: none;
     transition: opacity 0.18s ease;
+  }
+
+  .app-topnav__explore {
+    flex-shrink: 0;
+    margin-right: 12px;
   }
 
   .app-topnav__logo .delve-brand-logo {

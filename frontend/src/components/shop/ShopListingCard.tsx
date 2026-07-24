@@ -4,6 +4,7 @@ import { Check, Plus, ShoppingCart } from 'lucide-react'
 import { shopCategoryLabel, shopCoverSrc, shopPriceLabel } from '../../utils/shopDisplay'
 import { MiniRating } from '../MiniRating'
 import { useCart } from '../../hooks/useCart'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import type { ShopProductListing } from '../../utils/shopListing'
 import './shop-list.css'
 
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function ShopListingCard({ product, focused }: Props) {
+  const { currency } = useDisplayMoney()
   const cover = shopCoverSrc(product.cover_image, product.category)
   const seller = product.owner_display_name || product.owner_username
   const { addItem } = useCart()
@@ -44,7 +46,7 @@ export function ShopListingCard({ product, focused }: Props) {
         <div className="shop-card__head">
           <strong>{product.name}</strong>
           <span className="shop-card__price">
-            {product.price_label || shopPriceLabel(product.price, product.price_note)}
+            {product.price_label || shopPriceLabel(product.price, product.price_note, currency)}
           </span>
         </div>
         {product.tagline ? <span className="shop-card__tagline">{product.tagline}</span> : null}

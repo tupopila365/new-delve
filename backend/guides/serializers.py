@@ -29,6 +29,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
             "bio",
             "languages",
             "regions",
+            "country_code",
             "hourly_rate",
             "photo",
             "rating_avg",

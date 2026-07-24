@@ -2,11 +2,25 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'reac
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { recordForYouSignal } from '../lib/forYou'
+import { recordForYouDeep, listingTasteTags } from '../lib/forYouDeep'
 import type { FoodVenueListing } from '../utils/foodListing'
 
 type EngagementVenue = Pick<
   FoodVenueListing,
-  'id' | 'name' | 'liked_by_me' | 'likes_count' | 'saved_by_me' | 'saves_count'
+  | 'id'
+  | 'name'
+  | 'liked_by_me'
+  | 'likes_count'
+  | 'saved_by_me'
+  | 'saves_count'
+  | 'cuisine'
+  | 'city'
+  | 'region'
+  | 'niche_tags'
+  | 'amenities'
+  | 'popular_dish'
+  | 'tagline'
 >
 
 type EngagementOverride = {
@@ -53,6 +67,16 @@ export function useFoodEngagement(venues: EngagementVenue[] = []) {
       })
     },
     onSuccess: (data, venueId) => {
+      if (data?.liked) {
+        recordForYouSignal('food', 'like')
+        const venue = venues.find((v) => v.id === venueId)
+        recordForYouDeep({
+          vertical: 'food',
+          id: venueId,
+          kind: 'like',
+          tags: venue ? listingTasteTags(venue) : undefined,
+        })
+      }
       setOverrides((prev) => {
         const next = new Map(prev)
         next.set(venueId, { ...next.get(venueId), liked: data.liked, likesCount: data.likes_count })
@@ -91,6 +115,16 @@ export function useFoodEngagement(venues: EngagementVenue[] = []) {
       })
     },
     onSuccess: (data, venueId) => {
+      if (data?.saved) {
+        recordForYouSignal('food', 'save')
+        const venue = venues.find((v) => v.id === venueId)
+        recordForYouDeep({
+          vertical: 'food',
+          id: venueId,
+          kind: 'save',
+          tags: venue ? listingTasteTags(venue) : undefined,
+        })
+      }
       setOverrides((prev) => {
         const next = new Map(prev)
         next.set(venueId, { ...next.get(venueId), saved: data.saved, savesCount: data.saves_count })

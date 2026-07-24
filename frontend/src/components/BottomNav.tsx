@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useNoFace } from '../hooks/useNoFace'
 
 const navItems: { to: string; label: string; end?: boolean; Icon: FC<{ active: boolean }> }[] = [
-  { to: '/', label: 'Explore', end: true, Icon: IconHome },
+  { to: '/', label: 'Home', end: true, Icon: IconHome },
   { to: '/search', label: 'Search', Icon: IconSearch },
   { to: '/delvers', label: 'Delvers', Icon: IconDelvers },
   { to: '/journeys', label: 'Journeys', Icon: IconJourneys },
@@ -17,7 +17,7 @@ export function BottomNav() {
   const onDelvers = location.pathname === '/delvers' || location.pathname.startsWith('/delvers/')
   const profileTo = profile ? `/u/${profile.username}` : '/account'
 
-  // No Face: Explore + Search + Profile only (no social tabs).
+  // No Face: Home + Search + Profile only (no social tabs).
   const visibleItems = noFace
     ? navItems.filter((i) => i.to !== '/delvers' && i.to !== '/journeys')
     : navItems

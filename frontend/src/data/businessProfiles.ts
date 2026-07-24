@@ -1,5 +1,8 @@
 /** Business / provider profiles — public presence separate from user accounts. */
 
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { exploreDisplayCurrency } from '../lib/exploreDestination'
+
 export type BusinessType =
   | 'accommodation'
   | 'transport'
@@ -147,7 +150,7 @@ export const mockBusinessProfiles: BusinessProfile[] = [
         offer_kind: 'package',
         eligibility: 'student',
         eligibility_display: 'Students',
-        price_label: 'From N$1,200',
+        price_label: `From ${formatDisplayMoney(1200, exploreDisplayCurrency())}`,
         categories: ['stays', 'guides', 'transport'],
         details:
           'A Friday–Sunday coastal weekend designed for students: one lodge night near Swakopmund, shared transfer from Windhoek, and a half-day guided dune or harbour walk. Group size is capped so the trip stays affordable.',
@@ -276,6 +279,25 @@ export const mockBusinessProfiles: BusinessProfile[] = [
     rating_count: 210,
     listings_count: 3,
     response_hours: 2,
+  },
+  {
+    id: 6,
+    slug: 'capetown-quick-deals',
+    owner_username: 'spam_host',
+    business_name: 'Cape Town Quick Deals',
+    business_types: ['accommodation', 'food_drink'],
+    verification_status: 'unverified',
+    description:
+      'New account listing many places at once — not yet verified. Used in demos to show trust ranking.',
+    tagline: 'Unverified demo seller',
+    logo: null,
+    cover_image: null,
+    region: 'Western Cape',
+    city: 'Cape Town',
+    rating_avg: '3.1',
+    rating_count: 2,
+    listings_count: 2,
+    response_hours: 48,
   },
 ]
 

@@ -16,11 +16,12 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 import { mediaUrl } from '../../api/client'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { StayHostCard } from './StayHostCard'
 import { StayRoomPicker } from './StayRoomPicker'
 import { buildStayStoryChannels } from './stayStoriesUtils'
-import { ListingDelversMoments, ListingFaq, ListingReviews } from '../listing'
+import { ListingDelversMoments, ListingFaq, ListingLocationCard, ListingReviews } from '../listing'
 import type { ListingRoomOption } from '../listing/types'
 import type { ReviewItem } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
@@ -37,9 +38,11 @@ import {
   loveItemIcon,
   normalizeFaqs,
   normalizeRoomTypes,
-  openStreetMapSearchUrl,
+  hasValidCoords,
+  parseCoord,
   parseHouseRules,
   propertyTypeLabel,
+  resolveDirectionsUrl,
   sortAmenities,
   whyGuestsLove,
   type AccommodationListing,
@@ -79,6 +82,7 @@ export function AccommodationDetailView({
 }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { format } = useDisplayMoney()
   const [selectedRoom, setSelectedRoom] = useState<ListingRoomOption | null>(null)
 
   const faqs = normalizeFaqs(data.faqs)
@@ -89,8 +93,20 @@ export function AccommodationDetailView({
   const roomOffers = buildRoomOffers(data, roomTypes, listingId)
   const loveItems = whyGuestsLove(data)
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
+  const latitude = parseCoord(data.latitude)
+  const longitude = parseCoord(data.longitude)
+  const precisePin = hasValidCoords(latitude, longitude)
+  const displayAddress =
+    data.formatted_address?.trim() || data.address?.trim() || locationLine || null
   const sortedAmenities = sortAmenities(data.amenities ?? [])
-  const mapHref = openStreetMapSearchUrl(data.city || '', data.region || '')
+  const directionsHref = resolveDirectionsUrl({
+    name: data.title,
+    address: data.address,
+    city: data.city,
+    region: data.region,
+    latitude,
+    longitude,
+  })
   const stayPath = `/accommodation/${listingId}`
   const profileHref = `/u/${encodeURIComponent(data.owner_username)}`
   const messageHref = messageProviderPath(data.owner_username, {
@@ -147,8 +163,8 @@ export function AccommodationDetailView({
     data.price_per_night
 
   const mobilePrice = selectedRoom
-    ? `N$${selectedPrice}`
-    : `From N$${data.price_per_night}`
+    ? format(selectedPrice)
+    : format(data.price_per_night, { from: true })
 
   const mobileSub = selectedRoom
     ? `${selectedRoom.name} · / night`
@@ -239,13 +255,13 @@ export function AccommodationDetailView({
           <button type="button" className="jd-engage__btn" onClick={onShare} aria-label="Share stay">
             <Share2 size={22} strokeWidth={2.25} aria-hidden />
           </button>
-          {mapHref ? (
+          {directionsHref ? (
             <a
-              href={mapHref}
+              href={directionsHref}
               className="jd-engage__btn"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Open area in maps"
+              aria-label={precisePin ? 'Get directions' : 'Open area in maps'}
             >
               <Navigation size={22} strokeWidth={2.25} aria-hidden />
             </a>
@@ -267,7 +283,7 @@ export function AccommodationDetailView({
       <ul className="jd-facts">
         <li className="jd-fact jd-fact--cost">
           <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
-          From N${data.price_per_night} / night
+          {format(data.price_per_night, { suffix: '/ night', from: true })}
         </li>
         <li className="jd-fact">
           <Users size={15} strokeWidth={2.25} aria-hidden />
@@ -313,7 +329,7 @@ export function AccommodationDetailView({
           <div className="stay-reserve">
             <p className="stay-reserve__kicker">Continue with this room</p>
             <p className="stay-reserve__price">
-              N${selectedPrice}
+              {format(selectedPrice)}
               <small> / night</small>
             </p>
             <p className="stay-reserve__meta">{selectedRoom.name}</p>
@@ -333,7 +349,7 @@ export function AccommodationDetailView({
           <div className="stay-reserve">
             <p className="stay-reserve__kicker">Reserve a stay</p>
             <p className="stay-reserve__price">
-              From N${data.price_per_night}
+              {format(data.price_per_night, { from: true })}
               <small> / night</small>
             </p>
             <p className="stay-reserve__hint">Choose a room above to continue with dates and guests.</p>
@@ -425,23 +441,22 @@ export function AccommodationDetailView({
         </JourneySection>
       ) : null}
 
-      {(locationLine || mapHref) && (
-        <JourneySection title="Location">
-          <p className="jd-story__lead">
-            {locationLine || 'Area shared after booking confirmation.'}
-          </p>
-          <p className="jd-hook" style={{ marginTop: 8 }}>
-            Area only — exact address is usually shared after booking.
-          </p>
-          {mapHref ? (
-            <div className="acc-detail__venue-acts">
-              <a className="jd-btn" href={mapHref} target="_blank" rel="noopener noreferrer">
-                <Navigation size={14} strokeWidth={2.25} aria-hidden />
-                Open in maps
-              </a>
-            </div>
-          ) : null}
-        </JourneySection>
+      {(displayAddress || precisePin) && (
+        <ListingLocationCard
+          title="Location"
+          name={data.title}
+          address={displayAddress}
+          city={data.city}
+          region={data.region}
+          latitude={latitude}
+          longitude={longitude}
+          approximateHint={
+            precisePin
+              ? null
+              : 'Area only — exact address is usually shared after booking. Ask the host for a pin if you need directions.'
+          }
+          className="acc-detail__location"
+        />
       )}
 
       <StayHostCard

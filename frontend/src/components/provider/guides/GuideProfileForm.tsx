@@ -8,6 +8,7 @@ import {
 } from './guideProfileTypes'
 import { GuidePhotoEditor } from './GuidePhotoEditor'
 import { GuideStoriesEditor } from './GuideStoriesEditor'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   values: GuideProfileFormValues
@@ -44,6 +45,7 @@ export function GuideProfileForm({
   isEdit,
   initialSection = 'identity',
 }: Props) {
+  const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>(initialSection)
 
   function patch(partial: Partial<GuideProfileFormValues>) {
@@ -260,7 +262,7 @@ export function GuideProfileForm({
           {section === 'pricing' && (
             <div className="guide-form__section">
               <label className="guide-form__field">
-                Hourly rate (N$)
+                Hourly rate ({currency})
                 <input
                   value={values.hourly_rate}
                   onChange={(e) => patch({ hourly_rate: e.target.value })}

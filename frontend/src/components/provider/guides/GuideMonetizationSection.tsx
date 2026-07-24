@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { BarChart3, Sparkles } from 'lucide-react'
 import { apiFetch } from '../../../api/client'
+import { formatDisplayMoney } from '../../../lib/displayMoney'
+import { exploreDisplayCurrency } from '../../../lib/exploreDestination'
 import { ProviderUiStats } from '../ui'
 import '../../events/event-detail.css'
 
@@ -40,8 +42,8 @@ type Props = {
 
 function formatRevenue(value?: string) {
   const n = Number.parseFloat(value ?? '0')
-  if (!Number.isFinite(n) || n <= 0) return 'N$0'
-  return `N$${n.toLocaleString('en-NA', { maximumFractionDigits: 0 })}`
+  if (!Number.isFinite(n) || n <= 0) return formatDisplayMoney(0, exploreDisplayCurrency())
+  return formatDisplayMoney(n, exploreDisplayCurrency())
 }
 
 export function GuideMonetizationSection({ enabled, canManage = false }: Props) {

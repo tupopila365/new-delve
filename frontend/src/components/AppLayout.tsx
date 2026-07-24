@@ -14,6 +14,7 @@ import { BottomNav } from './BottomNav'
 import { MobileTopBar } from './MobileTopBar'
 import { ServiceProviderPageHeader } from './ServiceProviderPageHeader'
 import { TopNav } from './TopNav'
+import { ExploreModeChrome } from './explore/ExploreModeChrome'
 import { useMigrateStaySaves } from '../hooks/useStaySave'
 
 export function AppLayout() {
@@ -86,6 +87,7 @@ export function AppLayout() {
     <div className="app-shell">
       <TopNav />
       <MobileTopBar />
+      <ExploreModeChrome />
       <main className={homeMain ? 'app-main app-main--home' : 'app-main'}>
         {foodPage ? <FoodCardsEnhancer /> : null}
         {guidesPage ? <GuidesCardsEnhancer /> : null}

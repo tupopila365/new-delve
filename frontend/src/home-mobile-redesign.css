@@ -149,6 +149,10 @@
   line-height: 1.35;
 }
 
+.home-discover__explore {
+  margin-top: 10px;
+}
+
 .home-discover__moods {
   display: flex;
   flex-wrap: nowrap;

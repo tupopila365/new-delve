@@ -40,6 +40,7 @@ import {
 import '../components/provider/guides/guide-listing.css'
 import { ListSkeleton } from '../components/ui'
 import type { TourPackage } from '../components/guide/types'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 
 const TABS = [
   { id: 'profile', label: 'Profile' },
@@ -69,6 +70,7 @@ const STATUS_ACTIONS: Record<string, { label: string; action: string }[]> = {
 }
 
 export function GuidesAdmin() {
+  const { format } = useDisplayMoney()
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -441,7 +443,7 @@ export function GuidesAdmin() {
           { value: guide?.rating_avg ?? '—', label: 'Rating' },
           { value: packages.length, label: 'Packages' },
           { value: bookings.length || '—', label: 'Bookings', accent: pendingBookings > 0 },
-          { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
+          { value: format(revenue), label: 'Revenue', accent: revenue > 0 },
         ]}
       />
 

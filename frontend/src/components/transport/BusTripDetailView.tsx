@@ -45,6 +45,7 @@ import {
 } from '../../utils/transportListing'
 import '../journeys/journey-detail.css'
 import './transport-detail.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type SeatProps = {
   passengers: number
@@ -91,6 +92,7 @@ export function BusTripDetailView({
   booking,
   manageHighlightsHref,
 }: Props) {
+  const { format } = useDisplayMoney()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const routeTitle = busRouteTitle(trip)
@@ -125,10 +127,10 @@ export function BusTripDetailView({
   const firstRes = booking.group?.reservations[0]
   const canBook = !firstRes || firstRes.status === 'pending'
   const payLabel = booking.group
-    ? `N$${Number(booking.group.total_price).toFixed(0)}`
+    ? format(Number(booking.group.total_price))
     : booking.totalPrice
-      ? `N$${booking.totalPrice}`
-      : `N$${trip.price}`
+      ? format(booking.totalPrice)
+      : format(trip.price)
 
   function guardEngage(action: () => void) {
     if (!profile) {
@@ -252,7 +254,7 @@ export function BusTripDetailView({
         </li>
         <li className="jd-fact jd-fact--cost">
           <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
-          N${trip.price}/seat
+          {format(trip.price, { suffix: '/seat' })}
         </li>
       </ul>
 
@@ -408,7 +410,7 @@ export function BusTripDetailView({
       {canBook ? (
         <div className="jd-mobilebar">
           <span className="jd-mobilebar__meta">
-            <span className="jd-mobilebar__title">N${trip.price}/seat</span>
+            <span className="jd-mobilebar__title">{format(trip.price, { suffix: '/seat' })}</span>
             <span className="jd-mobilebar__sub">
               {dep.time} · {trip.available_seats} left
             </span>

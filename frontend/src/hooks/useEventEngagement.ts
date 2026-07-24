@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'reac
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { recordForYouSignal } from '../lib/forYou'
 import type { EventListing } from '../utils/eventDisplay'
 
 type EngagementOverride = {
@@ -31,6 +32,7 @@ export function useEventEngagement(events: EventListing[]) {
     mutationFn: (eventId: number) =>
       apiFetch<{ liked: boolean; likes_count: number }>(`/api/events/${eventId}/like/`, { method: 'POST' }),
     onSuccess: (data, eventId) => {
+      if (data?.liked) recordForYouSignal('events', 'like')
       setOverrides((prev) => {
         const next = new Map(prev)
         next.set(eventId, { ...next.get(eventId), liked: data.liked, likesCount: data.likes_count })
@@ -45,6 +47,7 @@ export function useEventEngagement(events: EventListing[]) {
     mutationFn: (eventId: number) =>
       apiFetch<{ saved: boolean; saves_count: number }>(`/api/events/${eventId}/save/`, { method: 'POST' }),
     onSuccess: (data, eventId) => {
+      if (data?.saved) recordForYouSignal('events', 'save')
       setOverrides((prev) => {
         const next = new Map(prev)
         next.set(eventId, { ...next.get(eventId), saved: data.saved, savesCount: data.saves_count })

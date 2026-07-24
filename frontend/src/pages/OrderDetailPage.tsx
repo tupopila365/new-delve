@@ -3,16 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, ChevronLeft, Package, Store } from 'lucide-react'
 import { apiFetch, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { EmptyState } from '../components/ui'
 import type { Order } from '../utils/shopListing'
 import { OpenDisputePanel } from '../components/marketplace/OpenDisputePanel'
 import '../components/shop/shop-cart.css'
 import '../components/shop/shop-detail.css'
-
-function money(value: string | number | undefined): string {
-  const n = typeof value === 'number' ? value : Number(value)
-  return `N$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\.00$/, '')}`
-}
 
 const STATUS_CLASS: Record<string, string> = {
   pending: 'is-pending',
@@ -31,6 +27,11 @@ export function OrderDetailPage() {
   const qc = useQueryClient()
   const [params] = useSearchParams()
   const justPlaced = params.get('placed') === '1'
+  const { format } = useDisplayMoney()
+  const money = (value: string | number | undefined) => {
+    const n = typeof value === 'number' ? value : Number(value)
+    return format(Number.isFinite(n) ? n : 0)
+  }
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['shop-order', ref],

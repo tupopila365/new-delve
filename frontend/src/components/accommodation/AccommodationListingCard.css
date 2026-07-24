@@ -110,6 +110,16 @@
   font-weight: 720;
 }
 
+.stay-card-v2__distance {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(201, 123, 107, 0.35);
+  color: #f3d2c8;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .stay-card-v2__trust {
   display: flex;
   flex-wrap: wrap;
@@ -127,6 +137,11 @@
   color: #e09a8c;
   font-size: 0.7rem;
   font-weight: 850;
+}
+
+.stay-card-v2__badge--verified {
+  background: rgba(42, 111, 94, 0.22);
+  color: #9fd4c4;
 }
 
 .stay-card-v2__price {

@@ -13,6 +13,7 @@ import { BookingStatusBadge } from '../components/booking'
 import { EmptyState } from '../components/ui'
 import { apiFetch, asArray } from '../api/client'
 import { getBookingStats, type AdminBooking } from '../data/adminData'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 
 const STATUS_FILTERS = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled', 'Refunded', 'Disputed'] as const
 const CATEGORY_FILTERS = ['All categories', 'Stay', 'Guide', 'Transport', 'Food', 'Event'] as const
@@ -70,6 +71,7 @@ function mapApiBooking(row: ApiAdminBooking): AdminBooking {
 }
 
 export function PlatformAdminBookings() {
+  const { format } = useDisplayMoney()
   const { data: apiRows = [], isLoading, isError } = useQuery({
     queryKey: ['platform-admin-bookings'],
     queryFn: async () =>
@@ -151,7 +153,7 @@ export function PlatformAdminBookings() {
           { value: stats.cancelled, label: 'Cancelled' },
           { value: stats.disputed, label: 'Disputed', warn: stats.disputed > 0 },
           { value: stats.failedPayments, label: 'Failed payments', warn: stats.failedPayments > 0 },
-          { value: `N$${stats.revenue.toLocaleString()}`, label: 'Paid volume' },
+          { value: format(stats.revenue), label: 'Paid volume' },
         ]}
       />
 
@@ -201,7 +203,7 @@ export function PlatformAdminBookings() {
               <BookingStatusBadge status={b.status} />
               <AdminStatusBadge status={b.paymentStatus} variant={paymentVariant(b.paymentStatus)} />
               <strong className="adm-data-table__amount">
-                {b.amount ? `N$${b.amount.toLocaleString()}` : '—'}
+                {b.amount ? format(b.amount) : '—'}
               </strong>
               {b.issue ? (
                 <AdminStatusBadge status={b.issue} variant="danger" />

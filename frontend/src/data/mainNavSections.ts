@@ -3,7 +3,7 @@ export type MainNavLink = { to: string; label: string; end?: boolean }
 
 /** Top-level primary navigation — keep uncrowded */
 export const PRIMARY_NAV_SECTIONS: MainNavLink[] = [
-  { to: '/', label: 'Explore', end: true },
+  { to: '/explore', label: 'Explore', end: true },
   { to: '/accommodation', label: 'Stays' },
   { to: '/journeys', label: 'Journeys' },
   { to: '/delvers', label: 'Delvers' },

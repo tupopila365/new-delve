@@ -87,6 +87,7 @@ export type FoodVenueListing = {
   delivery?: boolean | null
   reservations?: boolean | null
   amenities?: string[]
+  niche_tags?: string[]
   photos?: VenuePhoto[]
   reviews?: VenueReview[]
   delvers_moments?: DelversMoment[]

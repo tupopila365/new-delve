@@ -6,6 +6,7 @@ import {
   type MessagePlaceContext,
 } from '../../messages/messageProviderUtils'
 import { BookingStatusBadge } from '../../booking'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 function bookingPlace(booking: ProviderBooking): MessagePlaceContext | null {
   const typeByCategory: Record<string, MessagePlaceContext['type']> = {
@@ -35,6 +36,7 @@ export function ProviderBookingCard({
   confirmPending,
   checkInPending,
 }: Props) {
+  const { format } = useDisplayMoney()
   const canConfirm = onConfirm && ['requested', 'pending', 'reserved'].includes(booking.status)
   const canCheckIn = onCheckIn && booking.status === 'confirmed'
 
@@ -53,7 +55,7 @@ export function ProviderBookingCard({
       <div className="prov-ui__booking-details">
         <span>{booking.date}</span>
         {booking.guests ? <span>{booking.guests} guests</span> : null}
-        <strong>{booking.total ? `N$${booking.total.toLocaleString()}` : 'Free'}</strong>
+        <strong>{booking.total ? format(booking.total) : 'Free'}</strong>
       </div>
       <div className="prov-ui__booking-actions">
         {canConfirm ? (

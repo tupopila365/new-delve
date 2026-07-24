@@ -16,6 +16,7 @@ import {
   User,
   Utensils,
 } from 'lucide-react'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
 import { foodCoverSrc } from '../utils/foodDisplay'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
@@ -176,6 +177,7 @@ function locationLine(city?: string | null, region?: string | null) {
 
 export function UserDashboard() {
   const { profile } = useAuth()
+  const { format } = useDisplayMoney()
 
   const { data: stayBookings, isLoading: loadingStays } = useQuery({
     queryKey: ['my-bookings', 'stays'],
@@ -288,7 +290,7 @@ export function UserDashboard() {
         dateLabel: `${b.check_in} – ${b.check_out}`,
         peopleLabel: `${b.guests} ${b.guests === 1 ? 'guest' : 'guests'}`,
         status: b.status,
-        price: b.total_price ? `N$${b.total_price}` : undefined,
+        price: b.total_price ? format(b.total_price) : undefined,
         href: `/dashboard/bookings/stay/${b.id}`,
         viewLabel: 'View stay',
         messageLabel: 'Message host',
@@ -318,7 +320,7 @@ export function UserDashboard() {
           dateLabel,
           peopleLabel: `${b.group_size} ${b.group_size === 1 ? 'traveller' : 'travellers'}`,
           status: b.status,
-          price: b.total_price ? `N$${b.total_price}` : undefined,
+          price: b.total_price ? format(b.total_price) : undefined,
           href: `/dashboard/bookings/guide/${b.id}`,
           viewLabel: isExperience ? 'View experience' : 'View guide',
           messageLabel: 'Message guide',
@@ -342,7 +344,7 @@ export function UserDashboard() {
           dateLabel,
           peopleLabel: `${b.tickets} ${b.tickets === 1 ? 'ticket' : 'tickets'}`,
           status: b.status,
-          price: b.total_price ? `N$${b.total_price}` : undefined,
+          price: b.total_price ? format(b.total_price) : undefined,
           href: `/events/${b.event}`,
           viewLabel: 'View event',
           messageLabel: 'Message organizer',
@@ -361,7 +363,7 @@ export function UserDashboard() {
         dateLabel: `${b.start_date} – ${b.end_date}`,
         peopleLabel: 'Vehicle rental',
         status: b.status,
-        price: b.total_price ? `N$${b.total_price}` : undefined,
+        price: b.total_price ? format(b.total_price) : undefined,
         href: `/dashboard/bookings/vehicle/${b.id}`,
         viewLabel: 'View rental',
         messageLabel: 'Message provider',
@@ -662,7 +664,7 @@ export function UserDashboard() {
                     dateLabel={dateLabel}
                     peopleLabel={`${b.tickets} ${b.tickets === 1 ? 'ticket' : 'tickets'} · ${b.booking_ref}`}
                     status={b.status}
-                    price={b.total_price ? `N$${b.total_price}` : undefined}
+                    price={b.total_price ? format(b.total_price) : undefined}
                     nextStep={bookingNextStep(b.status, 'event')}
                     href={`/events/${b.event}`}
                     messageUsername={b.organizer_username}
@@ -712,7 +714,7 @@ export function UserDashboard() {
                         <div className="t-dash__saved-copy">
                           <strong>{stay.title}</strong>
                           <span>{location}</span>
-                          <span>From N${stay.price_per_night} / night</span>
+                          <span>{format(stay.price_per_night, { suffix: '/night', from: true })}</span>
                         </div>
                       </Link>
                     )
@@ -766,7 +768,7 @@ export function UserDashboard() {
                           <strong>{guide.headline}</strong>
                           <span>{location || name}</span>
                           <span>
-                            {guide.hourly_rate ? `From N$${guide.hourly_rate} / hr` : 'Rates on profile'}
+                            {guide.hourly_rate ? format(guide.hourly_rate, { suffix: '/hr', from: true }) : 'Rates on profile'}
                           </span>
                         </div>
                       </Link>

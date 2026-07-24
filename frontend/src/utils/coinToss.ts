@@ -13,6 +13,7 @@ export type TossLocation = {
   longitude: number | string
   region?: string
   city?: string
+  country_code?: string
   open_source_ref?: string
   media?: TossMedia[]
   is_excluded?: boolean

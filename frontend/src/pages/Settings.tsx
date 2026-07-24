@@ -12,6 +12,7 @@ import {
   CURRENCY_OPTIONS,
   defaultCurrencyForCountry,
 } from '../lib/countryCurrencyPreferences'
+import { clearHomeCountrySkipped } from '../lib/homeCountry'
 import { ResendVerificationButton } from '../components/auth/ResendVerificationButton'
 import { ProfileIdentityLinks } from '../components/profile/ProfileIdentityLinks'
 import { HOME_ATMOSPHERE_BG } from '../data/homeDefaults'
@@ -189,14 +190,18 @@ export function Settings() {
           headers: { 'Content-Type': 'application/json' },
         })
       } else if (tab === 'preferences') {
+        const nextCountry = countryCode.trim().toUpperCase() || ''
         await apiFetch('/api/accounts/me/update/', {
           method: 'PATCH',
           body: JSON.stringify({
-            country_code: countryCode.trim().toUpperCase() || '',
+            country_code: nextCountry,
             preferred_currency: preferredCurrency.trim().toUpperCase() || '',
           }),
           headers: { 'Content-Type': 'application/json' },
         })
+        if (nextCountry && profile) {
+          clearHomeCountrySkipped(profile.username)
+        }
       }
       await refreshProfile()
       if (tab === 'privacy') {
@@ -484,14 +489,16 @@ export function Settings() {
       {/* ── PREFERENCES ── */}
       {tab === 'preferences' && (
         <section className="sp__section settings-page__panel" id="sp-panel-preferences" role="tabpanel" aria-labelledby="sp-tab-preferences">
-          <h2 id="sp-pref-title" className="sp__section-title">Region &amp; pricing</h2>
+          <h2 id="sp-pref-title" className="sp__section-title">Home country &amp; currency</h2>
           <p className="sp__section-sub">
-            Choose your location and preferred currency. This controls how prices are shown across the app.
+            Where you’re based — your identity on DELVE. This is separate from{' '}
+            <strong>Explore</strong> (the destination you’re browsing). Marketplace prices follow
+            Explore; your preferred currency is saved with your profile.
           </p>
 
           <div className="sp__fields">
             <div className="sp__field">
-              <label className="sp__label" htmlFor="sp-country">Country</label>
+              <label className="sp__label" htmlFor="sp-country">Home country</label>
               <select
                 id="sp-country"
                 className="input"
@@ -508,6 +515,9 @@ export function Settings() {
                   <option key={c.code} value={c.code}>{c.name}</option>
                 ))}
               </select>
+              <p className="sp__field-hint">
+                Changing home country does not switch Explore destination.
+              </p>
             </div>
 
             <div className="sp__field">
@@ -523,6 +533,9 @@ export function Settings() {
                   <option key={c.code} value={c.code}>{c.label}</option>
                 ))}
               </select>
+              <p className="sp__field-hint">
+                Defaults from your home country. Browse prices still use Explore currency.
+              </p>
             </div>
           </div>
 
@@ -578,6 +591,20 @@ export function Settings() {
                 {!profile.email_verified && (
                   <Link to="/verify-email" className="sp__verify-link"> · Verify</Link>
                 )}
+              </span>
+            </div>
+            <div className="sp__info-row">
+              <span className="sp__info-label">Home country</span>
+              <span className="sp__info-val">
+                {profile.country_code
+                  ? COUNTRY_ROWS.find((c) => c.code === profile.country_code)?.name ??
+                    profile.country_code
+                  : 'Not set'}
+                {profile.preferred_currency ? ` · ${profile.preferred_currency}` : ''}
+                {' · '}
+                <Link to="/settings?tab=preferences" className="sp__verify-link">
+                  Edit
+                </Link>
               </span>
             </div>
             <div className="sp__info-row">

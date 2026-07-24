@@ -17,6 +17,7 @@ class ShopProductFilter(django_filters.FilterSet):
     # Soft match: explore region must not hide national/shipping listings with blank region.
     region = django_filters.CharFilter(method="filter_region")
     city = django_filters.CharFilter(field_name="city", lookup_expr="icontains")
+    country_code = django_filters.CharFilter(field_name="country_code", lookup_expr="iexact")
 
     class Meta:
         model = ShopProduct
@@ -24,6 +25,7 @@ class ShopProductFilter(django_filters.FilterSet):
             "category",
             "region",
             "city",
+            "country_code",
             "in_stock",
             "made_in_namibia",
             "is_featured",
@@ -45,7 +47,7 @@ class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):
     )
     serializer_class = ShopProductSerializer
     filterset_class = ShopProductFilter
-    search_fields = ("name", "description", "tagline", "region", "city", "artisan_name", "pickup_address")
+    search_fields = ("name", "description", "tagline", "region", "city", "country_code", "artisan_name", "pickup_address")
     ordering_fields = ("name", "created_at", "price")
     ordering = ["-created_at"]
 

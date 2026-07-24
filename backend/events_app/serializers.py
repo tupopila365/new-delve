@@ -62,6 +62,7 @@ class EventSerializer(serializers.ModelSerializer):
             "starts_at",
             "ends_at",
             "venue",
+            "country_code",
             "region",
             "city",
             "cover_image",

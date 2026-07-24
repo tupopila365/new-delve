@@ -152,6 +152,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     owner_display_name = serializers.SerializerMethodField()
     owner_avatar = serializers.SerializerMethodField()
+    owner_verified = serializers.SerializerMethodField()
     cover_image = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     likes_count = serializers.SerializerMethodField()
     liked_by_me = serializers.SerializerMethodField()
@@ -166,6 +167,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "owner_username",
             "owner_display_name",
             "owner_avatar",
+            "owner_verified",
             "title",
             "description",
             "property_type",
@@ -175,12 +177,19 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "pool",
             "kitchen",
             "breakfast",
+            "country_code",
             "region",
             "city",
+            "address",
+            "latitude",
+            "longitude",
+            "google_place_id",
+            "formatted_address",
             "price_per_night",
             "max_guests",
             "bedrooms",
             "amenities",
+            "niche_tags",
             "cover_image",
             "media_gallery",
             "listing_stories",
@@ -209,6 +218,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "saved_by_me",
             "owner_display_name",
             "owner_avatar",
+            "owner_verified",
         )
 
     def get_owner_display_name(self, obj):
@@ -216,6 +226,14 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
 
     def get_owner_avatar(self, obj):
         return _owner_avatar_url(obj.owner, self.context.get("request"))
+
+    def get_owner_verified(self, obj):
+        annotated = getattr(obj, "owner_verified", None)
+        if annotated is not None:
+            return bool(annotated)
+        from accounts.seller_trust import owner_is_business_verified
+
+        return owner_is_business_verified(getattr(obj, "owner_id", None))
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

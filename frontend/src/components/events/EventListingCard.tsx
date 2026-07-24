@@ -18,6 +18,7 @@ import {
   formatEventDate,
   organizerLabel,
 } from '../../utils/eventDisplay'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import '../journeys/JourneyListingCard.css'
 import './EventListingCard.css'
 
@@ -53,9 +54,10 @@ export function EventListingCard({
   onSave,
   onShare,
 }: Props) {
+  const { currency } = useDisplayMoney()
   const when = formatEventDate(event.starts_at)
   const accent = eventAccentBadge(event)
-  const price = eventPriceLabel(event)
+  const price = eventPriceLabel(event, currency)
   const location = eventLocationLine(event)
   const organizer = organizerLabel(event)
   const preview = eventPreviewMedia(event)

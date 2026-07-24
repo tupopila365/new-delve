@@ -28,6 +28,7 @@ import {
 import '../components/provider/stays/stay-listing.css'
 import { normalizeReviews } from '../components/GuestReviewCard'
 import { ListSkeleton } from '../components/ui'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 
 type StayReviewsResponse = {
   reviews: unknown[]
@@ -92,6 +93,7 @@ function nightsBetween(a: string, b: string) {
 }
 
 export function StaysAdmin() {
+  const { format } = useDisplayMoney()
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -353,7 +355,7 @@ export function StaysAdmin() {
           { value: listings.length, label: 'Listings' },
           { value: avgRating, label: 'Avg rating' },
           { value: bookingCount || '—', label: 'Bookings', accent: pendingBookings > 0 },
-          { value: `N$${revenue.toLocaleString()}`, label: 'Revenue', accent: revenue > 0 },
+          { value: format(revenue), label: 'Revenue', accent: revenue > 0 },
         ]}
       />
 

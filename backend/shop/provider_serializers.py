@@ -25,6 +25,7 @@ class ProviderShopProfileSerializer(serializers.ModelSerializer):
             "avatar",
             "avatar_upload",
             "clear_avatar",
+            "country_code",
             "region",
             "city",
             "fulfillment_notes",
@@ -67,6 +68,8 @@ class ProviderShopProfileSerializer(serializers.ModelSerializer):
 
         if "display_name" in validated_data:
             instance.display_name = (validated_data.get("display_name") or "")[:120]
+        if "country_code" in validated_data:
+            instance.country_code = (validated_data.get("country_code") or "").strip().upper()[:2]
         if "region" in validated_data:
             instance.region = (validated_data.get("region") or "")[:120]
         if "city" in validated_data:
@@ -128,6 +131,7 @@ class ProviderShopProductSerializer(serializers.ModelSerializer):
             "tagline",
             "category",
             "category_label",
+            "country_code",
             "region",
             "city",
             "pickup_address",

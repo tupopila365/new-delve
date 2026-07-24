@@ -4,16 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { ShopManageShell } from '../components/shop/ShopManageShell'
 import { ProviderUiEmpty, ProviderUiHeader, ProviderUiStats } from '../components/provider/ui'
 import { ListSkeleton } from '../components/ui'
 import type { Order } from '../utils/shopListing'
 import '../components/shop/shop-cart.css'
-
-function money(value: string | number | undefined): string {
-  const n = typeof value === 'number' ? value : Number(value)
-  return `N$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\.00$/, '')}`
-}
 
 const STATUS_CLASS: Record<string, string> = {
   pending: 'is-pending',
@@ -44,6 +40,11 @@ export function ProviderShopOrders() {
   const { profile } = useAuth()
   const { canManageShop } = useBusinessAccess()
   const qc = useQueryClient()
+  const { format } = useDisplayMoney()
+  const money = (value: string | number | undefined) => {
+    const n = typeof value === 'number' ? value : Number(value)
+    return format(Number.isFinite(n) ? n : 0)
+  }
   const [statusFilter, setStatusFilter] = useState('open')
   const [drafts, setDrafts] = useState<Record<string, FulfillDraft>>({})
 

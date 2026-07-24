@@ -15,9 +15,12 @@ import type { VehicleListing } from '../utils/transportListing'
 import type { PayTarget } from '../utils/stripeSim'
 import '../components/journeys/journey-detail.css'
 import '../components/transport/transport-detail.css'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { recordForYouSignal } from '../lib/forYou'
 
 export function VehicleDetail() {
   const { id } = useParams()
+  const { format } = useDisplayMoney()
   const nav = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
@@ -53,6 +56,7 @@ export function VehicleDetail() {
       })
     },
     onSuccess: (b) => {
+      recordForYouSignal('transport', 'book')
       setBooking(b)
       void qc.invalidateQueries({ queryKey: ['veh-bookings'] })
       void qc.invalidateQueries({ queryKey: ['my-bookings', 'transport', 'vehicles'] })
@@ -196,7 +200,7 @@ export function VehicleDetail() {
               {
                 target_type: 'vehicle',
                 target_id: String(booking.id),
-                amountLabel: `N$${booking.total_price}`,
+                amountLabel: format(booking.total_price),
                 title: vehicle.title,
               },
             ])

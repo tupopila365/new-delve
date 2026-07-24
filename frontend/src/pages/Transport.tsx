@@ -18,6 +18,7 @@ import { TransportVehicleCard } from '../components/transport/TransportVehicleCa
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { isVideoUrl } from '../components/listing/photos/listingGalleryMedia'
 import { vehicleTypeMeta } from '../utils/transportListing'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import '../components/transport/transport-list.css'
 
 type TransportMode = 'all' | 'rent' | 'share'
@@ -202,6 +203,7 @@ function resultsCountLabel(
 }
 
 export function Transport() {
+  const { format, currency } = useDisplayMoney()
   const [mode, setMode] = useState<TransportMode>('all')
   const [need, setNeed] = useState('')
   const [sort, setSort] = useState<SortId>('recommended')
@@ -776,7 +778,7 @@ export function Transport() {
                         <MapPin size={12} strokeWidth={2.25} aria-hidden />
                         {v.city || v.region}
                         <span aria-hidden>·</span>
-                        N${v.price_per_day}/day
+                        {format(v.price_per_day, { suffix: '/day' })}
                       </p>
                     </div>
                   </Link>
@@ -818,7 +820,7 @@ export function Transport() {
                       <Route size={12} strokeWidth={2.25} aria-hidden />
                       {t.route_detail.operator_name}
                       <span aria-hidden>·</span>
-                      N${t.price}
+                      {format(t.price)}
                     </p>
                   </div>
                 </Link>
@@ -1015,7 +1017,7 @@ export function Transport() {
         </div>
 
         <div className="cm-compose-modal__composer-block">
-          <span>Price / day (N$)</span>
+          <span>Price / day ({currency})</span>
           <div className="tp-filter-modal__row">
             <label className="tp-filter-modal__field">
               <span>From</span>

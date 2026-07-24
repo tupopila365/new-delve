@@ -35,8 +35,14 @@ export function writeSearchParams(q: string, type: SearchType | ''): Record<stri
   return params
 }
 
-export function buildSearchApiPath(q: string, type: SearchType | ''): string {
+export function buildSearchApiPath(
+  q: string,
+  type: SearchType | '',
+  countryCode?: string,
+): string {
   const params = new URLSearchParams({ q: q.trim() })
   if (type) params.set('types', type)
+  const cc = (countryCode || '').trim().toUpperCase()
+  if (cc) params.set('country_code', cc)
   return `/api/search/?${params.toString()}`
 }

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { BadgeCheck, Clock, Compass, Star } from 'lucide-react'
 import type { ProviderGuideProfile } from './guideProfileTypes'
 import { profileCompleteness } from './guideProfileTypes'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   guide: ProviderGuideProfile
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export function GuideProfileSummaryCard({ guide, canEdit, onEdit, onManageHighlights }: Props) {
+  const { format } = useDisplayMoney()
   const { percent, missing } = profileCompleteness(guide)
   const packageCount = guide.tour_packages?.length ?? 0
   const highlightCount = guide.guide_stories?.length ?? 0
@@ -52,7 +54,7 @@ export function GuideProfileSummaryCard({ guide, canEdit, onEdit, onManageHighli
               <Star size={14} aria-hidden /> {guide.rating_avg} ({guide.rating_count})
             </span>
             {guide.years_guiding ? <span>{guide.years_guiding} yrs guiding</span> : null}
-            {guide.hourly_rate ? <span>N${guide.hourly_rate}/hr</span> : null}
+            {guide.hourly_rate ? <span>{format(guide.hourly_rate, { suffix: '/hr' })}</span> : null}
             {guide.response_hours_typical ? (
               <span>
                 <Clock size={14} aria-hidden /> ~{guide.response_hours_typical}h response

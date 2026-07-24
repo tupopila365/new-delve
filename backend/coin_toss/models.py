@@ -35,6 +35,13 @@ class TossLocation(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     region = models.CharField(max_length=120, blank=True)
     city = models.CharField(max_length=120, blank=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2 for Explore destination scoping.",
+    )
     open_source_ref = models.CharField(
         max_length=300,
         blank=True,

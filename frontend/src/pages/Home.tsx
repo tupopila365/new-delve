@@ -9,7 +9,7 @@ import {
   HeartHandshake,
   Home as HomeIcon,
   Lightbulb,
-  Map,
+  Map as MapIcon,
   MapPin,
   MessageCircle,
   MessageSquare,
@@ -23,9 +23,10 @@ import {
   Mountain,
 } from 'lucide-react'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
+import { formatDisplayMoney } from '../lib/displayMoney'
 import { fetchTagTrending, type TagSummary } from '../api/tags'
 import { useAuth } from '../auth/AuthContext'
-import { BrandLogo } from '../components/BrandLogo'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import type { FeedPost } from '../components/IgPostCard'
 import {
   isDelversPin,
@@ -52,6 +53,13 @@ import { journeyListFallback, mergeJourneyFeeds, type ApiJourney } from '../util
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import type { FeaturedPartnerFields } from '../hooks/useFeaturedPlacement'
 import { useExploreRegion } from '../hooks/useExploreRegion'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import { useForYou } from '../hooks/useForYou'
+import { useForYouDeep } from '../hooks/useForYouDeep'
+import { useMyDelveHome } from '../hooks/useMyDelveHome'
+import { forYouVerticalLabel, type ForYouVertical } from '../lib/forYou'
+import { listingTasteTags } from '../lib/forYouDeep'
+import { ExploreDestinationSwitcher } from '../components/explore/ExploreDestinationSwitcher'
 import { useNoFace } from '../hooks/useNoFace'
 import './home-quintos.css'
 
@@ -66,18 +74,18 @@ const moodChips = [
 ]
 
 const categoryShortcuts = [
-  { to: '/accommodation', label: 'Stays', Icon: HomeIcon },
-  { to: '/partners', label: 'Partners', Icon: HeartHandshake },
-  { to: '/food', label: 'Foodies', Icon: Utensils },
-  { to: '/activities', label: 'Activities', Icon: Mountain },
-  { to: '/guides', label: 'Guides', Icon: Users },
-  { to: '/events', label: 'Events', Icon: Ticket },
-  { to: '/transport', label: 'Transport', Icon: Car },
-  { to: '/shop', label: 'Shops', Icon: ShoppingBag },
-  { to: '/coin-toss', label: 'Coin toss', Icon: Sparkles },
-  { to: '/journeys', label: 'Journeys', Icon: Map },
-  { to: '/community', label: 'Ask locals', Icon: MessageCircle },
-  { to: '/delvers', label: 'Delvers', Icon: Camera },
+  { to: '/accommodation', label: 'Stays', Icon: HomeIcon, vertical: 'stays' as ForYouVertical | null },
+  { to: '/partners', label: 'Partners', Icon: HeartHandshake, vertical: null },
+  { to: '/food', label: 'Foodies', Icon: Utensils, vertical: 'food' as ForYouVertical | null },
+  { to: '/activities', label: 'Activities', Icon: Mountain, vertical: 'activities' as ForYouVertical | null },
+  { to: '/guides', label: 'Guides', Icon: Users, vertical: 'guides' as ForYouVertical | null },
+  { to: '/events', label: 'Events', Icon: Ticket, vertical: 'events' as ForYouVertical | null },
+  { to: '/transport', label: 'Transport', Icon: Car, vertical: 'transport' as ForYouVertical | null },
+  { to: '/shop', label: 'Shops', Icon: ShoppingBag, vertical: 'shop' as ForYouVertical | null },
+  { to: '/coin-toss', label: 'Coin toss', Icon: Sparkles, vertical: null },
+  { to: '/journeys', label: 'Journeys', Icon: MapIcon, vertical: 'journeys' as ForYouVertical | null },
+  { to: '/community', label: 'Ask locals', Icon: MessageCircle, vertical: null },
+  { to: '/delvers', label: 'Delvers', Icon: Camera, vertical: null },
 ] as const
 
 function formatQuestionTime(iso?: string) {
@@ -112,6 +120,9 @@ type StayHomeItem = FeaturedPartnerFields & {
   price_per_night: string
   rating_avg: string | number
   rating_count: number
+  property_type?: string | null
+  niche_tags?: string[] | null
+  amenities?: string[] | null
 }
 
 type EventHomeItem = FeaturedPartnerFields & {
@@ -128,9 +139,13 @@ type FoodHomeItem = FeaturedPartnerFields & {
   name: string
   cuisine: string
   region: string
+  city?: string | null
   cover_image: string | null
   rating_avg: string | number
   rating_count: number
+  niche_tags?: string[] | null
+  popular_dish?: string | null
+  amenities?: string[] | null
 }
 
 type GuideHomeItem = FeaturedPartnerFields & {
@@ -215,17 +230,19 @@ function formatTripDeparture(iso: string) {
 function mergeTransportHomeItems(
   vehicles: TransportVehicleHomeItem[],
   trips: TransportTripHomeItem[],
+  currency: string,
   limit = 10,
 ): TransportHomeItem[] {
   const vehicleRows: TransportHomeItem[] = vehicles.slice(0, limit).map((v) => {
     const location = v.city ? `${v.city}, ${v.region}` : v.region
+    const price = formatDisplayMoney(v.price_per_day, currency, { suffix: '/day', from: true })
     return {
       key: `vehicle-${v.id}`,
       kind: 'vehicle',
       id: v.id,
       title: v.title,
       cover: v.cover_image,
-      meta: `${location} · from N$${v.price_per_day}/day`,
+      meta: `${location} · ${price.replace(/^From /, 'from ')}`,
       rating:
         v.rating_avg != null && v.rating_count != null
           ? { avg: v.rating_avg, count: v.rating_count }
@@ -239,7 +256,7 @@ function mergeTransportHomeItems(
     id: t.id,
     title: `${t.route_detail.origin} → ${t.route_detail.destination}`,
     cover: t.route_detail.cover_image ?? null,
-    meta: `${formatTripDeparture(t.departs_at)} · ${t.route_detail.operator_name} · N$${t.price}`,
+    meta: `${formatTripDeparture(t.departs_at)} · ${t.route_detail.operator_name} · ${formatDisplayMoney(t.price, currency)}`,
     rating:
       t.rating_avg != null && t.rating_count != null
         ? { avg: t.rating_avg, count: t.rating_count }
@@ -544,32 +561,39 @@ export function Home() {
     setGuestRegion,
     clearGuestRegion,
   } = useExploreRegion()
+  const { country, countryLabel, label: exploreLabel, exploring } = useExploreDestination()
+  const { currency: exploreCurrency, format: formatMoney } = useDisplayMoney()
+  const { topVertical, rankVerticals } = useForYou()
+  const { itemBoost, subtitle: forYouSubtitle, tasteTags } = useForYouDeep()
   const [heroSearch, setHeroSearch] = useState('')
   const [announcementDismissed, setAnnouncementDismissed] = useState(false)
 
   const { data: stays = [], isLoading: staysLoading } = useFeaturedPlacement<StayHomeItem>(
-    `home-stays-${region}`,
-    featuredUrl(FEATURED_API.stays, region),
+    `home-stays-${exploring ? `${country}-${region}` : 'my-delve'}`,
+    featuredUrl(FEATURED_API.stays, exploring ? region : undefined),
   )
   const { data: events = [], isLoading: eventsLoading } = useFeaturedPlacement<EventHomeItem>(
-    `home-events-${region}`,
-    featuredUrl(FEATURED_API.events, region),
+    `home-events-${exploring ? `${country}-${region}` : 'my-delve'}`,
+    featuredUrl(FEATURED_API.events, exploring ? region : undefined),
   )
   const { data: food = [], isLoading: foodLoading } = useFeaturedPlacement<FoodHomeItem>(
-    `home-food-${region}`,
-    featuredUrl(FEATURED_API.food, region),
+    `home-food-${exploring ? `${country}-${region}` : 'my-delve'}`,
+    featuredUrl(FEATURED_API.food, exploring ? region : undefined),
   )
   const { data: guides = [], isLoading: guidesLoading } = useFeaturedPlacement<GuideHomeItem>(
-    `home-guides-${region}`,
-    featuredUrl(FEATURED_API.guides, region),
+    `home-guides-${exploring ? `${country}-${region}` : 'my-delve'}`,
+    featuredUrl(FEATURED_API.guides, exploring ? region : undefined),
   )
 
   const { data: homeVehicles = [], isLoading: loadingHomeVehicles } = useQuery({
-    queryKey: ['home-transport-vehicles', region],
+    queryKey: ['home-transport-vehicles', exploring ? country : 'my-delve', exploring ? region : ''],
     queryFn: async () => {
       try {
         return asArray<TransportVehicleHomeItem>(
-          await apiFetch(`/api/transport/vehicles/${transportListQuery(region)}`, { auth: false }),
+          await apiFetch(
+            `/api/transport/vehicles/${transportListQuery(exploring ? region : '')}`,
+            { auth: false },
+          ),
         )
       } catch {
         return []
@@ -579,7 +603,7 @@ export function Home() {
   })
 
   const { data: homeTrips = [], isLoading: loadingHomeTrips } = useQuery({
-    queryKey: ['home-transport-trips', region],
+    queryKey: ['home-transport-trips', exploring ? country : 'my-delve'],
     queryFn: async () => {
       try {
         return asArray<TransportTripHomeItem>(
@@ -665,15 +689,193 @@ export function Home() {
     staleTime: 45_000,
   })
 
-  const stayItems = stays.slice(0, 10)
+  const stayItems = useMemo(() => {
+    const rows = stays.slice(0, 10)
+    if (exploring) return rows
+    return [...rows].sort(
+      (a, b) =>
+        itemBoost('stays', b.id, listingTasteTags(b)) - itemBoost('stays', a.id, listingTasteTags(a)),
+    )
+  }, [stays, exploring, itemBoost])
+
+  const foodItems = useMemo(() => {
+    const rows = food.slice(0, 10)
+    if (exploring) return rows
+    return [...rows].sort(
+      (a, b) =>
+        itemBoost('food', b.id, listingTasteTags(b)) - itemBoost('food', a.id, listingTasteTags(a)),
+    )
+  }, [food, exploring, itemBoost])
+
   const eventItems = events.slice(0, 10)
-  const foodItems = food.slice(0, 10)
   const guideItems = guides.slice(0, 10)
   const transportItems = useMemo(
-    () => mergeTransportHomeItems(homeVehicles, homeTrips, 10),
-    [homeVehicles, homeTrips],
+    () => mergeTransportHomeItems(homeVehicles, homeTrips, exploreCurrency, 10),
+    [homeVehicles, homeTrips, exploreCurrency],
   )
   const loadingTransport = loadingHomeVehicles || loadingHomeTrips
+
+  const {
+    continueBrowsing,
+    savedCards,
+    likedCards,
+    loadingContinue,
+    loadingSaved,
+  } = useMyDelveHome({
+    enabled: !exploring,
+    loggedIn: Boolean(profile),
+    stayPool: stayItems,
+    foodPool: foodItems,
+    guidePool: guideItems,
+  })
+
+  const rankedCategories = useMemo(() => {
+    const order = rankVerticals([
+      'stays',
+      'food',
+      'guides',
+      'events',
+      'transport',
+      'shop',
+      'activities',
+      'journeys',
+    ])
+    const rank = new Map(order.map((v, i) => [v, i]))
+    return [...categoryShortcuts].sort((a, b) => {
+      const ar = a.vertical ? (rank.get(a.vertical) ?? 99) : 99
+      const br = b.vertical ? (rank.get(b.vertical) ?? 99) : 99
+      if (ar !== br) return ar - br
+      return 0
+    })
+  }, [rankVerticals])
+
+  const forYouRail = useMemo(() => {
+    if (!topVertical) return null
+
+    const byDeep = <T extends { id: number }>(
+      vertical: ForYouVertical,
+      rows: T[],
+      tagsFor: (row: T) => string[],
+    ) =>
+      [...rows].sort(
+        (a, b) =>
+          itemBoost(vertical, b.id, tagsFor(b)) - itemBoost(vertical, a.id, tagsFor(a)),
+      )
+
+    if (topVertical === 'food' && foodItems.length > 0) {
+      const ranked = byDeep('food', foodItems, (f) => listingTasteTags(f))
+      return {
+        vertical: topVertical,
+        title: 'Eat and drink',
+        seeAllTo: '/food',
+        loading: foodLoading,
+        cards: ranked.map((f) => ({
+          key: String(f.id),
+          to: `/food/${f.id}`,
+          imageSrc: homeCoverSrc(f.cover_image, 'food'),
+          imageAlt: `${f.name} — ${f.cuisine}, ${f.region}`,
+          title: f.name,
+          rating: { avg: f.rating_avg, count: f.rating_count },
+          meta: `${f.cuisine} · ${f.region}`,
+          featured: Boolean(f.is_featured_partner),
+          partnerLabel: f.partner_label,
+        })),
+      }
+    }
+    if (topVertical === 'stays' && stayItems.length > 0) {
+      const ranked = byDeep('stays', stayItems, (s) => listingTasteTags(s))
+      return {
+        vertical: topVertical,
+        title: 'Places to stay',
+        seeAllTo: '/accommodation',
+        loading: staysLoading,
+        cards: ranked.map((s) => ({
+          key: String(s.id),
+          to: `/accommodation/${s.id}`,
+          imageSrc: homeCoverSrc(s.cover_image, 'stay'),
+          imageAlt: `${s.title}, ${s.city ? `${s.city}, ` : ''}${s.region}`,
+          title: s.title,
+          rating: { avg: s.rating_avg, count: s.rating_count },
+          meta: `${s.city ? `${s.city}, ` : ''}${s.region} · ${formatMoney(s.price_per_night, { suffix: '/night', from: true }).replace(/^From /, 'from ')}`,
+          featured: Boolean(s.is_featured_partner),
+          partnerLabel: s.partner_label,
+        })),
+      }
+    }
+    if (topVertical === 'guides' && guideItems.length > 0) {
+      return {
+        vertical: topVertical,
+        title: 'Local guides',
+        seeAllTo: '/guides',
+        loading: guidesLoading,
+        cards: guideItems.map((g) => ({
+          key: String(g.id),
+          to: `/guides/${g.id}`,
+          imageSrc: homeCoverSrc(g.photo, 'guide'),
+          imageAlt: `${g.headline} — guide @${g.username}`,
+          title: g.headline,
+          rating: { avg: g.rating_avg, count: g.rating_count },
+          meta: `@${g.username}${g.hourly_rate ? ` · from ${g.hourly_rate}/hr` : ''}`,
+          featured: Boolean(g.is_featured_partner),
+          partnerLabel: g.partner_label,
+        })),
+      }
+    }
+    if (topVertical === 'events' && eventItems.length > 0) {
+      return {
+        vertical: topVertical,
+        title: 'Events',
+        seeAllTo: '/events',
+        loading: eventsLoading,
+        cards: eventItems.map((e) => ({
+          key: String(e.id),
+          to: `/events/${e.id}`,
+          imageSrc: homeCoverSrc(e.cover_image, 'event'),
+          imageAlt: `${e.title} — ${e.venue || e.region}`,
+          title: e.title,
+          rating: undefined as { avg: string | number; count: number } | undefined,
+          meta: e.venue || e.region,
+          featured: Boolean(e.is_featured_partner),
+          partnerLabel: e.partner_label,
+        })),
+      }
+    }
+    if (topVertical === 'transport' && transportItems.length > 0) {
+      return {
+        vertical: topVertical,
+        title: 'Getting around',
+        seeAllTo: '/transport',
+        loading: loadingTransport,
+        cards: transportItems.map((item) => ({
+          key: item.key,
+          to: item.kind === 'vehicle' ? `/transport/vehicle/${item.id}` : `/transport/bus/${item.id}`,
+          imageSrc: homeCoverSrc(item.cover, 'transport'),
+          imageAlt: item.title,
+          title: item.title,
+          rating: item.rating,
+          meta: item.meta,
+          featured: false,
+          partnerLabel: undefined as string | undefined,
+        })),
+      }
+    }
+    return null
+  }, [
+    topVertical,
+    foodItems,
+    stayItems,
+    guideItems,
+    eventItems,
+    transportItems,
+    foodLoading,
+    staysLoading,
+    guidesLoading,
+    eventsLoading,
+    loadingTransport,
+    exploreCurrency,
+    itemBoost,
+    formatMoney,
+  ])
   const delversItems = useMemo(() => selectDelversPreview(delversFeed, 4), [delversFeed])
   const homeQuestions = useMemo(() => pickHomeQuestions(communityQuestions, 2), [communityQuestions])
   const homeTips = useMemo(() => communityTips.slice(0, 2), [communityTips])
@@ -705,25 +907,24 @@ export function Home() {
         />
         <div className="ta-hero__scrim" aria-hidden />
         <div className="ta-hero__inner ta-hero__inner--home">
-          <p className="ta-hero__brand">
-            <BrandLogo className="ta-hero__brand-logo" alt="DELVE" />
-          </p>
           <h1 className="ta-hero__title ta-hero__title--home">Experience the world in one place.</h1>
           <p className="ta-hero__sub ta-hero__sub--home">
-            Stays, tables, guides, and routes — shaped by people who’ve already been.
+            {exploring
+              ? `You’re exploring ${exploreLabel} — stays, tables, guides, and routes for this trip.`
+              : 'Stays, tables, guides, and routes — shaped by what you’ve liked, saved, and watched.'}
           </p>
           <div className="ta-hero__actions ta-hero__actions--home">
             <div className="ta-hero__cta-row">
-              <Link to="/search" className="btn btn-primary">
-                Start your journey
+              <Link to={exploring ? '/search' : '/explore'} className="btn btn-primary">
+                {exploring ? 'Search this place' : 'Start exploring'}
               </Link>
-              <Link to="/accommodation" className="ta-hero__ghost">
-                Explore
+              <Link to={exploring ? '/accommodation' : '/food'} className="ta-hero__ghost">
+                {exploring ? 'Browse stays' : 'For you'}
               </Link>
             </div>
             <form className="ta-hero__searchform" onSubmit={onHeroSearch} role="search" aria-label="Search DELVE">
               <label htmlFor="home-hero-search" className="visually-hidden">
-                Where are you going?
+                {exploring ? 'Search this destination' : 'Search your Delve'}
               </label>
               <span className="ta-hero__searchform-icon" aria-hidden>
                 <Search size={18} strokeWidth={2.25} />
@@ -735,7 +936,7 @@ export function Home() {
                 name="q"
                 enterKeyHint="search"
                 autoComplete="off"
-                placeholder="Where are you going?"
+                placeholder={exploring ? `Search in ${exploreLabel}…` : 'Search what you love…'}
                 value={heroSearch}
                 onChange={(e) => setHeroSearch(e.target.value)}
               />
@@ -774,19 +975,52 @@ export function Home() {
         <section className="home-discover" aria-labelledby="home-discover-title">
           <header className="home-discover__head">
             <h2 id="home-discover-title" className="home-discover__title">
-              Where will you go next?
+              {exploring ? 'Where will you go next?' : 'For you'}
             </h2>
-            <p className="home-discover__lead">Pick a mood, or open a category.</p>
+            <p className="home-discover__lead">
+              {exploring ? (
+                <>
+                  Exploring <strong>{exploreLabel}</strong> — pick a mood, or open a category.
+                </>
+              ) : (
+                <>
+                  You’re in <strong>My Delve</strong> — continue browsing, saved picks, and rails
+                  shaped by your taste. Or{' '}
+                  <Link to="/explore">start exploring a destination</Link>.
+                </>
+              )}
+            </p>
+            <div className="home-discover__explore">
+              <ExploreDestinationSwitcher />
+            </div>
           </header>
 
-          <HomeRegionPicker
-            region={region}
-            source={regionSource}
-            canPick={canPickRegion}
-            regions={exploreRegions}
-            onSelect={setGuestRegion}
-            onClear={clearGuestRegion}
-          />
+          {exploring ? (
+            <HomeRegionPicker
+              region={region}
+              source={regionSource}
+              canPick={canPickRegion}
+              regions={exploreRegions}
+              countryLabel={countryLabel}
+              onSelect={setGuestRegion}
+              onClear={clearGuestRegion}
+            />
+          ) : null}
+
+          {!exploring && tasteTags.length > 0 ? (
+            <div className="home-discover__moods" role="list" aria-label="Your tastes">
+              {tasteTags.map((t) => (
+                <Link
+                  key={`${t.vertical}-${t.tag}`}
+                  to={`/search?q=${encodeURIComponent(t.tag)}`}
+                  className="ta-mood-chip"
+                  role="listitem"
+                >
+                  Because you like {t.tag}
+                </Link>
+              ))}
+            </div>
+          ) : null}
 
           <div className="home-discover__moods" role="list" aria-label="Travel moods">
             {moodChips.map((m) => (
@@ -803,13 +1037,124 @@ export function Home() {
 
           <HomeCategoryGrid
             items={
-              noFace
-                ? categoryShortcuts.filter(
+              (noFace
+                ? rankedCategories.filter(
                     (c) => c.to !== '/delvers' && c.to !== '/journeys' && c.to !== '/community',
                   )
-                : categoryShortcuts
+                : rankedCategories
+              ).map(({ to, label, Icon }) => ({ to, label, Icon }))
             }
           />
+
+          {!exploring && (continueBrowsing.length > 0 || loadingContinue) ? (
+            <HomeSection
+              id="rail-continue"
+              title="Continue browsing"
+              sub="Pick up where you left off this session."
+              seeAllTo="/search"
+              loading={loadingContinue && continueBrowsing.length === 0}
+              count={continueBrowsing.length}
+              emptyMessage="Browse a stay or food spot to resume here."
+            >
+              <div className="home-rail">
+                {continueBrowsing.map((card) => (
+                  <HomeCard
+                    key={card.key}
+                    to={card.to}
+                    imageSrc={card.imageSrc}
+                    imageAlt={card.imageAlt}
+                    title={card.title}
+                    rating={card.rating}
+                    meta={card.meta}
+                  />
+                ))}
+              </div>
+            </HomeSection>
+          ) : null}
+
+          {!exploring && profile && (savedCards.length > 0 || loadingSaved) ? (
+            <HomeSection
+              id="rail-saved"
+              title="Saved for later"
+              sub="Stays, tables, and guides you’ve bookmarked."
+              seeAllTo="/dashboard"
+              loading={loadingSaved && savedCards.length === 0}
+              count={savedCards.length}
+              emptyMessage="Save a listing to see it here."
+            >
+              <div className="home-rail">
+                {savedCards.map((card) => (
+                  <HomeCard
+                    key={card.key}
+                    to={card.to}
+                    imageSrc={card.imageSrc}
+                    imageAlt={card.imageAlt}
+                    title={card.title}
+                    rating={card.rating}
+                    meta={card.meta}
+                  />
+                ))}
+              </div>
+            </HomeSection>
+          ) : null}
+
+          {!exploring && likedCards.length > 0 ? (
+            <HomeSection
+              id="rail-liked"
+              title="You’ve liked"
+              sub="Strong signals from hearts and deep engagement."
+              seeAllTo="/search"
+              loading={false}
+              count={likedCards.length}
+              emptyMessage="Like a listing to build this rail."
+            >
+              <div className="home-rail">
+                {likedCards.map((card) => (
+                  <HomeCard
+                    key={card.key}
+                    to={card.to}
+                    imageSrc={card.imageSrc}
+                    imageAlt={card.imageAlt}
+                    title={card.title}
+                    rating={card.rating}
+                    meta={card.meta}
+                  />
+                ))}
+              </div>
+            </HomeSection>
+          ) : null}
+
+          {forYouRail ? (
+            <HomeSection
+              id="rail-for-you"
+              title={`For you · ${forYouVerticalLabel(forYouRail.vertical)}`}
+              sub={forYouSubtitle}
+              seeAllTo={forYouRail.seeAllTo}
+              loading={forYouRail.loading}
+              count={forYouRail.cards.length}
+              emptyMessage={
+                exploring
+                  ? 'Keep exploring — we’ll personalize this rail.'
+                  : 'Like, save, or watch listings — we’ll personalize this rail.'
+              }
+            >
+              <div className="home-rail">
+                {forYouRail.cards.map((card) => (
+                  <HomeCard
+                    key={card.key}
+                    to={card.to}
+                    imageSrc={card.imageSrc}
+                    imageAlt={card.imageAlt}
+                    title={card.title}
+                    rating={card.rating}
+                    meta={card.meta}
+                    featured={card.featured}
+                    partnerLabel={card.partnerLabel}
+                  />
+                ))}
+              </div>
+            </HomeSection>
+          ) : null}
 
           <section className="home-quintos" aria-labelledby="home-quintos-title">
             <div className="home-quintos__glow" aria-hidden />
@@ -850,7 +1195,11 @@ export function Home() {
           <HomeSection
             id="rail-stays"
             title="Places to stay"
-            sub="Browse what’s live right now."
+            sub={
+              exploring
+                ? `What’s live while exploring ${exploreLabel}.`
+                : 'Ranked from what you’ve liked and saved.'
+            }
             seeAllTo="/accommodation"
             loading={staysLoading}
             count={stayItems.length}
@@ -866,7 +1215,7 @@ export function Home() {
                   imageAlt={`${s.title}, ${s.city ? `${s.city}, ` : ''}${s.region}`}
                   title={s.title}
                   rating={{ avg: s.rating_avg, count: s.rating_count }}
-                  meta={`${s.city ? `${s.city}, ` : ''}${s.region} · from $${s.price_per_night}/night`}
+                  meta={`${s.city ? `${s.city}, ` : ''}${s.region} · ${formatMoney(s.price_per_night, { suffix: '/night', from: true }).replace(/^From /, 'from ')}`}
                   featured={Boolean(s.is_featured_partner)}
                   partnerLabel={s.partner_label}
                 />
@@ -915,7 +1264,11 @@ export function Home() {
           <HomeSection
             id="rail-food"
             title="Eat and drink"
-            sub="Restaurants, cafes, grills, and local food spots."
+            sub={
+              exploring
+                ? `Food in ${exploreLabel} — cafés, grills, and local spots.`
+                : 'Ranked from your tastes and what you’ve saved.'
+            }
             seeAllTo="/food"
             loading={foodLoading}
             count={foodItems.length}

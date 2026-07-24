@@ -5,6 +5,7 @@ import {
   type BusTripListingFormValues,
 } from './busTripListingTypes'
 import { TransportPhotoEditor } from './TransportPhotoEditor'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   values: BusTripListingFormValues
@@ -25,6 +26,7 @@ const SECTIONS = [
 ] as const
 
 export function BusTripListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
+  const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('route')
 
   function patch(partial: Partial<BusTripListingFormValues>) {
@@ -126,7 +128,7 @@ export function BusTripListingForm({ values, onChange, error, saving, onSubmit, 
                   <input type="number" min={8} max={60} value={values.total_seats} onChange={(e) => patch({ total_seats: Number(e.target.value) })} />
                 </label>
                 <label className="transport-form__field">
-                  Fare per passenger (N$)
+                  Fare per passenger ({currency})
                   <input value={values.price} onChange={(e) => patch({ price: e.target.value })} placeholder="180" />
                 </label>
               </div>

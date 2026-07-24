@@ -21,13 +21,22 @@ type Props = {
   open: boolean
   onClose: () => void
   onPosted: (post: FeedPost) => void
+  /** Prefill from Search empty-state / deep links. */
+  initialPlace?: string
+  initialQuestion?: string
 }
 
-export function CommunityAskModal({ open, onClose, onPosted }: Props) {
+export function CommunityAskModal({
+  open,
+  onClose,
+  onPosted,
+  initialPlace = '',
+  initialQuestion = '',
+}: Props) {
   const { profile } = useAuth()
   const qc = useQueryClient()
-  const [place, setPlace] = useState('')
-  const [question, setQuestion] = useState('')
+  const [place, setPlace] = useState(initialPlace)
+  const [question, setQuestion] = useState(initialQuestion)
   const [error, setError] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -48,8 +57,8 @@ export function CommunityAskModal({ open, onClose, onPosted }: Props) {
   const canPost = place.trim().length > 0 && question.trim().length > 0 && !tooManyTags
 
   const reset = () => {
-    setPlace('')
-    setQuestion('')
+    setPlace(initialPlace)
+    setQuestion(initialQuestion)
     setError('')
     setImageFile(null)
     setVideoFile(null)
@@ -69,7 +78,9 @@ export function CommunityAskModal({ open, onClose, onPosted }: Props) {
   useEffect(() => {
     if (!open) return
     startedAt.current = startCreateSession()
-  }, [open])
+    if (initialPlace) setPlace(initialPlace)
+    if (initialQuestion) setQuestion(initialQuestion)
+  }, [open, initialPlace, initialQuestion])
 
   useEffect(() => () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview)

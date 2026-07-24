@@ -21,9 +21,10 @@ import { useAuth } from '../../auth/AuthContext'
 import { normalizeReviews } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
-import { ListingDelversMoments, ListingReviews } from '../listing'
+import { ListingDelversMoments, ListingLocationCard, ListingReviews } from '../listing'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { ReportButton } from '../report/ReportButton'
+import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import {
   buildFoodAmenities,
   buildFoodGalleryImages,
@@ -34,6 +35,7 @@ import {
   priceLevelLabel,
   priceLevelName,
   resolveDirectionsUrl,
+  hasValidCoords,
   type FoodVenueListing,
 } from '../../utils/foodListing'
 import { VenueStoriesSection } from './stories'
@@ -223,6 +225,7 @@ export function FoodDetailView({
                 @{data.owner_username}
                 {data.is_open === true ? ' · Open now' : data.is_open === false ? ' · Closed' : ''}
               </span>
+              {data.owner_username ? <SellerTrustBadges username={data.owner_username} compact /> : null}
             </span>
           </Link>
         ) : (
@@ -452,9 +455,26 @@ export function FoodDetailView({
         </JourneySection>
       ) : null}
 
-      {displayAddress || hoursLine || data.phone || websiteHref ? (
+      {(displayAddress || latitude != null || longitude != null) && (
+        <ListingLocationCard
+          title="Find us"
+          name={data.name}
+          address={displayAddress}
+          city={data.city}
+          region={data.region}
+          latitude={latitude}
+          longitude={longitude}
+          approximateHint={
+            !hasValidCoords(latitude, longitude)
+              ? 'Area only — ask the venue for the exact pin if you need turn-by-turn directions.'
+              : null
+          }
+          className="fd-detail__location"
+        />
+      )}
+
+      {hoursLine || data.phone || websiteHref ? (
         <JourneySection title="Visit">
-          {displayAddress ? <p className="jd-story__lead">{displayAddress}</p> : null}
           {data.opening_hours?.trim() ? (
             <div className="fd-detail__hours">
               <p className="fd-detail__hours-label">
@@ -465,12 +485,6 @@ export function FoodDetailView({
             </div>
           ) : null}
           <div className="fd-detail__visit-acts">
-            {directionsHref ? (
-              <a className="jd-btn" href={directionsHref} target="_blank" rel="noopener noreferrer">
-                <Navigation size={14} strokeWidth={2.25} aria-hidden />
-                Directions
-              </a>
-            ) : null}
             {data.phone ? (
               <a className="jd-btn" href={`tel:${data.phone}`}>
                 <Phone size={14} strokeWidth={2.25} aria-hidden />

@@ -20,6 +20,13 @@ class VehicleRentalListing(models.Model):
     transmission = models.CharField(max_length=40, default="automatic")
     seats = models.PositiveSmallIntegerField(default=5)
     price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120)
     city = models.CharField(max_length=120, blank=True)
     vehicle_type = models.CharField(
@@ -144,6 +151,13 @@ class BusOperator(models.Model):
     )
     name = models.CharField(max_length=200)
     contact_phone = models.CharField(max_length=40, blank=True)
+    country_code = models.CharField(
+        max_length=2,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="ISO 3166-1 alpha-2, e.g. NA, ZA, KE.",
+    )
     region = models.CharField(max_length=120, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

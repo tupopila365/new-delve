@@ -53,6 +53,7 @@ import { EventMomentNew } from './pages/EventMomentNew'
 import { EditEvent } from './pages/EditEvent'
 import { GuidesList } from './pages/GuidesList'
 import { Home } from './pages/Home'
+import { ExplorePage } from './pages/ExplorePage'
 import { Login } from './pages/Login'
 import { Messages } from './pages/Messages'
 import { MessageThread } from './pages/MessageThread'
@@ -126,6 +127,7 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/explore" element={<ExplorePage />} />
           <Route
             path="/create"
             element={

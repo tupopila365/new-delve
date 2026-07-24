@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CreditCard, Lock, X } from 'lucide-react'
 import { apiFetch, ApiError } from '../../api/client'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import {
   formatCardNumber,
   type PayTarget,
@@ -15,13 +16,12 @@ type Props = {
   onSuccess: (intents: SimulatedPaymentIntent[]) => void
 }
 
-function moneyLabel(amount: string | number | undefined): string {
-  const n = typeof amount === 'number' ? amount : Number(amount ?? 0)
-  if (!Number.isFinite(n)) return 'N$0'
-  return `N$${n.toFixed(2).replace(/\.00$/, '')}`
-}
-
 export function StripeSimPayModal({ open, targets, onClose, onSuccess }: Props) {
+  const { format } = useDisplayMoney()
+  const moneyLabel = (amount: string | number | undefined): string => {
+    const n = typeof amount === 'number' ? amount : Number(amount ?? 0)
+    return format(Number.isFinite(n) ? n : 0)
+  }
   const [card, setCard] = useState('4242 4242 4242 4242')
   const [expMonth, setExpMonth] = useState('12')
   const [expYear, setExpYear] = useState('34')

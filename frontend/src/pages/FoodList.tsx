@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bookmark, MapPin, Search, Utensils, X } from 'lucide-react'
+import { Bookmark, List, Map as MapIcon, MapPin, Search, Utensils, X } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useFoodEngagement } from '../hooks/useFoodEngagement'
 import { useAccountActionGate } from '../hooks/useAccountActionGate'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import { useExploreNearPoint } from '../hooks/useExploreNearPoint'
+import { useForYou } from '../hooks/useForYou'
+import { listingMatchesExplore } from '../lib/exploreDestination'
+import { compareByDistance, formatDistanceKm, listingDistanceKm } from '../lib/geoDistance'
+import { listingTrustBoost } from '../lib/listingTrust'
+import { listingTasteTags } from '../lib/forYouDeep'
+import { useForYouDeep } from '../hooks/useForYouDeep'
+import { ExploreNearPointControl } from '../components/explore/ExploreNearPointControl'
+import { ExploreResultsMap } from '../components/explore/ExploreResultsMap'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
@@ -23,6 +33,8 @@ type Venue = {
   cuisine: string
   region: string
   city?: string | null
+  latitude?: number | string | null
+  longitude?: number | string | null
   owner_username?: string
   owner_display_name?: string | null
   price_level: number
@@ -46,6 +58,9 @@ type Venue = {
   is_featured_partner?: boolean
   partner_label?: string
   promotion_id?: number
+  owner_verified?: boolean
+  niche_tags?: string[] | null
+  amenities?: string[] | null
 }
 
 const CUISINE_OPTIONS: { value: string; label: string }[] = [
@@ -66,6 +81,7 @@ const CUISINE_OPTIONS: { value: string; label: string }[] = [
 const MOOD_FILTERS: { id: string; label: string }[] = [
   { id: 'open', label: 'Open now' },
   { id: 'favourites', label: 'Top rated' },
+  { id: 'verified', label: 'Verified only' },
   { id: 'cheap', label: 'Cheap eats' },
   { id: 'date', label: 'Date night' },
   { id: 'family', label: 'Family' },
@@ -76,7 +92,7 @@ const MOOD_FILTERS: { id: string; label: string }[] = [
 
 const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva', 'Lüderitz'] as const
 
-type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'name'
+type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'name' | 'distance'
 
 function cuisineMeta(value: string) {
   return CUISINE_OPTIONS.find((c) => c.value === value) ?? { label: value }
@@ -96,6 +112,11 @@ function onFoodImgError(e: React.SyntheticEvent<HTMLImageElement>, cuisine: stri
 export function FoodList() {
   const { profile } = useAuth()
   const gate = useAccountActionGate()
+  const { country, region: exploreRegion, label: exploreLabel, exploring } = useExploreDestination()
+  const { point: nearPoint } = useExploreNearPoint()
+  const { boost } = useForYou()
+  const foodAffinity = boost('food')
+  const { itemBoost } = useForYouDeep()
   const [cuisine, setCuisine] = useState('')
   const [city, setCity] = useState('')
   const [mood, setMood] = useState('')
@@ -103,24 +124,38 @@ export function FoodList() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [savedOnly, setSavedOnly] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
     return () => window.clearTimeout(t)
   }, [searchInput])
 
+  useEffect(() => {
+    if (nearPoint) setSort('distance')
+    else setSort((s) => (s === 'distance' ? 'recommended' : s))
+  }, [nearPoint?.latitude, nearPoint?.longitude, nearPoint?.label])
+
   const qs = useMemo(() => {
     const p = new URLSearchParams()
     if (cuisine) p.set('cuisine', cuisine)
     if (city) p.set('city', city)
+    if (exploring && exploreRegion) p.set('region', exploreRegion)
+    if (exploring && country) p.set('country_code', country)
     if (search) p.set('search', search)
     if (mood === 'cheap') p.set('max_price_level', '1')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [cuisine, city, search, mood])
+  }, [cuisine, city, exploreRegion, search, mood, exploring, country])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['food', savedOnly ? 'saved' : qs, profile?.username ?? 'anon'],
+    queryKey: [
+      'food',
+      savedOnly ? 'saved' : qs,
+      exploring ? country : 'my-delve',
+      exploring ? exploreRegion : '',
+      profile?.username ?? 'anon',
+    ],
     queryFn: () =>
       savedOnly
         ? apiFetch<Venue[]>('/api/food/venues/saved/', { auth: true })
@@ -132,15 +167,22 @@ export function FoodList() {
 
   const venues = useMemo(() => {
     let list = [...(data ?? [])]
+    if (!savedOnly && exploring) {
+      list = list.filter((v) => listingMatchesExplore(v, country, exploreRegion))
+    }
     if (mood === 'open') list = list.filter((v) => v.is_open === true)
     if (mood === 'date') list = list.filter((v) => (v.price_level || 1) >= 3 || v.cuisine === 'bar')
     if (mood === 'family') list = list.filter((v) => (v.price_level || 2) <= 2 && v.cuisine !== 'bar')
     if (mood === 'favourites') list = list.filter((v) => ratingValue(v) >= 4 || (v.rating_count ?? 0) >= 10)
+    if (mood === 'verified') list = list.filter((v) => Boolean(v.owner_verified))
     if (mood === 'takeaway') list = list.filter((v) => v.takeaway || v.cuisine === 'fast_food' || v.cuisine === 'bakery')
     if (mood === 'delivery') list = list.filter((v) => Boolean(v.delivery))
     if (mood === 'reserve') list = list.filter((v) => Boolean(v.reservations))
 
     list.sort((a, b) => {
+      if (sort === 'distance' && nearPoint) {
+        return compareByDistance(listingDistanceKm(nearPoint, a), listingDistanceKm(nearPoint, b))
+      }
       if (sort === 'name') return a.name.localeCompare(b.name)
       if (sort === 'price_asc') return (a.price_level || 1) - (b.price_level || 1)
       if (sort === 'price_desc') return (b.price_level || 1) - (a.price_level || 1)
@@ -149,17 +191,34 @@ export function FoodList() {
         if (diff !== 0) return diff
         return (b.rating_count ?? 0) - (a.rating_count ?? 0)
       }
-      // recommended: open + rated + partner-ish signals
+      // recommended: personalization weighs more in My Delve
+      const personalWeight = exploring ? 1 : 1.65
       const score = (v: Venue) =>
         (v.is_open === true ? 3 : 0) +
         ratingValue(v) * 2 +
         Math.min(v.rating_count ?? 0, 40) / 20 +
         (v.is_featured_partner ? 4 : 0) +
-        (v.popular_dish ? 0.5 : 0)
+        listingTrustBoost(v) +
+        itemBoost('food', v.id, listingTasteTags(v)) * personalWeight +
+        (v.popular_dish ? 0.5 : 0) +
+        foodAffinity * (exploring ? 3 : 1.2) +
+        (v.saved_by_me ? 2 : 0) +
+        (v.liked_by_me ? 1 : 0)
       return score(b) - score(a)
     })
     return list
-  }, [data, mood, sort])
+  }, [
+    data,
+    savedOnly,
+    country,
+    exploreRegion,
+    exploring,
+    mood,
+    sort,
+    foodAffinity,
+    itemBoost,
+    nearPoint,
+  ])
 
   const engagement = useFoodEngagement(venues)
 
@@ -235,6 +294,9 @@ export function FoodList() {
       ) : null}
       <header className="fd-market__hero">
         <p className="fd-market__kicker">Foodies</p>
+        <p className="fd-market__explore-hint">
+          {exploring ? `Exploring ${exploreLabel}` : 'My Delve · personalized food'}
+        </p>
         <h1 className="fd-market__title">Find your next bite</h1>
 
         <div className="fd-market__find">
@@ -310,6 +372,9 @@ export function FoodList() {
               aria-label="Sort venues"
             >
               <option value="recommended">Recommended</option>
+              <option value="distance" disabled={!nearPoint}>
+                Distance{nearPoint ? ` · ${nearPoint.label}` : ''}
+              </option>
               <option value="rating">Top rated</option>
               <option value="price_asc">Price: low to high</option>
               <option value="price_desc">Price: high to low</option>
@@ -317,6 +382,8 @@ export function FoodList() {
             </select>
           </div>
         </div>
+
+        {exploring ? <ExploreNearPointControl onPointSet={() => setSort('distance')} /> : null}
       </header>
 
       {hasFilters && !savedOnly ? (
@@ -441,24 +508,63 @@ export function FoodList() {
               <strong>{venues.length}</strong>{' '}
               {venues.length === 1 ? 'place' : 'places'}
               {savedOnly ? ' saved' : hasFilters ? ' match' : ' to explore'}
+              {nearPoint && sort === 'distance' ? ` · nearest to ${nearPoint.label}` : ''}
             </>
           )}
         </p>
-        <button
-          type="button"
-          className={`fd-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
-          aria-pressed={savedOnly}
-          onClick={toggleSavedOnly}
-        >
-          <Bookmark
-            size={15}
-            strokeWidth={2.25}
-            fill={savedOnly ? 'currentColor' : 'none'}
-            aria-hidden
-          />
-          {savedOnly ? 'Saved' : 'Saved food'}
-        </button>
+        <div className="fd-market__results-acts">
+          {nearPoint ? (
+            <div className="fd-market__view-toggle" role="group" aria-label="Results view">
+              <button
+                type="button"
+                className={viewMode === 'list' ? 'is-active' : undefined}
+                aria-pressed={viewMode === 'list'}
+                onClick={() => setViewMode('list')}
+              >
+                <List size={14} strokeWidth={2.25} aria-hidden />
+                List
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'map' ? 'is-active' : undefined}
+                aria-pressed={viewMode === 'map'}
+                onClick={() => setViewMode('map')}
+              >
+                <MapIcon size={14} strokeWidth={2.25} aria-hidden />
+                Map
+              </button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className={`fd-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
+            aria-pressed={savedOnly}
+            onClick={toggleSavedOnly}
+          >
+            <Bookmark
+              size={15}
+              strokeWidth={2.25}
+              fill={savedOnly ? 'currentColor' : 'none'}
+              aria-hidden
+            />
+            {savedOnly ? 'Saved' : 'Saved food'}
+          </button>
+        </div>
       </div>
+
+      {nearPoint && viewMode === 'map' && !isLoading && !isError ? (
+        <ExploreResultsMap
+          origin={nearPoint}
+          items={venues.map((v) => ({
+            id: v.id,
+            title: v.name,
+            href: `/food/${v.id}`,
+            latitude: v.latitude,
+            longitude: v.longitude,
+            subtitle: v.city ? `${v.city}, ${v.region}` : v.region,
+          }))}
+        />
+      ) : null}
 
       {isError ? (
         <EmptyState
@@ -471,7 +577,7 @@ export function FoodList() {
 
       {isLoading && !isError ? <ListSkeleton count={6} /> : null}
 
-      {!isLoading && !isError && venues.length > 0 ? (
+      {!isLoading && !isError && venues.length > 0 && viewMode === 'list' ? (
         <div className="fd-market__grid">
           {venues.map((v) => (
             <FoodListingCard
@@ -482,6 +588,9 @@ export function FoodList() {
               likeCount={engagement.likeCount(v)}
               likeBusy={engagement.isLikeBusy(v.id)}
               saveBusy={engagement.isSaveBusy(v.id)}
+              distanceLabel={
+                nearPoint ? formatDistanceKm(listingDistanceKm(nearPoint, v)) : null
+              }
               onToggleLike={toggleLiked}
               onToggleSave={toggleSaved}
               onShare={shareVenue}

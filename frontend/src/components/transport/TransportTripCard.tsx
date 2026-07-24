@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { isVideoUrl } from '../listing/photos/listingGalleryMedia'
 import './transport-market.css'
 
@@ -70,6 +71,7 @@ function seatsUrgency(n: number): 'low' | 'mid' | 'high' {
 }
 
 export function TransportTripCard({ trip }: Props) {
+  const { format } = useDisplayMoney()
   const coverSrc =
     mediaUrl(trip.route_detail.cover_image) || trip.route_detail.cover_image || null
   const isVideoCover =
@@ -174,7 +176,7 @@ export function TransportTripCard({ trip }: Props) {
           <div className="tm-card__fare">
             <span className="tm-card__price tm-card__price--fare">
               <BadgeDollarSign size={12} strokeWidth={2.25} aria-hidden />
-              N${trip.price}
+              {format(trip.price)}
             </span>
             <span className={`tm-card__seats tm-card__seats--${urgency}`}>
               <Users size={11} strokeWidth={2.25} aria-hidden />

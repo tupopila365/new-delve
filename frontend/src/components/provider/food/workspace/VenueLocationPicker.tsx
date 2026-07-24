@@ -18,6 +18,9 @@ export type VenueLocationPickerValue = {
 type Props = {
   value: VenueLocationPickerValue
   onChange: (patch: Partial<VenueLocationPickerValue>) => void
+  /** Search box placeholder (food vs stay copy). */
+  searchPlaceholder?: string
+  hint?: string
 }
 
 function toLatLng(value: VenueLocationPickerValue): google.maps.LatLngLiteral {
@@ -27,7 +30,12 @@ function toLatLng(value: VenueLocationPickerValue): google.maps.LatLngLiteral {
   return DEFAULT_MAP_CENTER
 }
 
-export function VenueLocationPicker({ value, onChange }: Props) {
+export function VenueLocationPicker({
+  value,
+  onChange,
+  searchPlaceholder = 'Search for your restaurant or address',
+  hint = 'Search above or click / drag the pin to set your exact location.',
+}: Props) {
   const { ready, error, hasKey } = useGoogleMapsLoader()
   const mapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -167,7 +175,7 @@ export function VenueLocationPicker({ value, onChange }: Props) {
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search for your restaurant or address"
+              placeholder={searchPlaceholder}
               disabled={!ready}
               autoComplete="off"
             />
@@ -175,9 +183,7 @@ export function VenueLocationPicker({ value, onChange }: Props) {
           {error ? <p className="venue-loc-picker__error">{error}</p> : null}
           {!ready && !error ? <p className="venue-loc-picker__loading">Loading map…</p> : null}
           <div ref={mapRef} className="venue-loc-picker__map" aria-label="Map pin picker" />
-          <p className="venue-loc-picker__hint">
-            Search above or click / drag the pin to set your exact location.
-          </p>
+          <p className="venue-loc-picker__hint">{hint}</p>
         </>
       ) : (
         <p className="venue-loc-picker__fallback">

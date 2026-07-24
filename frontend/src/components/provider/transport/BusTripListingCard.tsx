@@ -3,6 +3,7 @@ import { Bus } from 'lucide-react'
 import { busRouteTitle } from '../../../utils/transportListing'
 import type { ProviderBusTripListing } from './busTripListingTypes'
 import { busTripCompleteness } from './busTripListingTypes'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   trip: ProviderBusTripListing
@@ -16,6 +17,7 @@ function fmtWhen(iso: string) {
 }
 
 export function BusTripListingCard({ trip, canEdit, onEdit, onManageHighlights }: Props) {
+  const { format } = useDisplayMoney()
   const { percent, missing } = busTripCompleteness(trip)
   const occ = trip.occupied_seats?.length ?? 0
   const pct = trip.total_seats > 0 ? Math.round((occ / trip.total_seats) * 100) : 0
@@ -47,7 +49,7 @@ export function BusTripListingCard({ trip, canEdit, onEdit, onManageHighlights }
         </div>
         <p className="transport-list-card__meta">{trip.route_detail.operator_name}</p>
         <p className="transport-list-card__meta">
-          {fmtWhen(trip.departs_at)} · N${trip.price}/passenger · {trip.total_seats} seats
+          {fmtWhen(trip.departs_at)} · {format(trip.price, { suffix: '/passenger' })} · {trip.total_seats} seats
         </p>
         <div className="transport-capacity">
           <div className="transport-capacity__bar" aria-hidden>

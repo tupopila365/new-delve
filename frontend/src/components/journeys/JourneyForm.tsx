@@ -15,6 +15,7 @@ import {
   ChipSelector,
 } from '../create/shared'
 import '../journeys/CreateJourneyPageEnhancer.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 export const JOURNEY_WIZARD_STEPS = [
   { id: 1, label: 'Basics' },
@@ -132,6 +133,7 @@ export function JourneyForm({
   onChange,
   step,
 }: Props) {
+  const { format, symbol } = useDisplayMoney()
   const show = (id: number) => step == null || step === id
 
   const total = costs.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
@@ -242,7 +244,7 @@ export function JourneyForm({
                     <TextInput
                       type="number"
                       min="0"
-                      placeholder="N$ 0"
+                      placeholder={`${symbol} 0`}
                       value={stop.cost}
                       onChange={(e) => onChange({ stops: stops.map((s) => s.key === stop.key ? { ...s, cost: e.target.value } : s) })}
                     />
@@ -313,7 +315,7 @@ export function JourneyForm({
               />
 
               <div className="cj-cost-row__amount-wrap">
-                <span className="cj-cost-row__currency">N$</span>
+                <span className="cj-cost-row__currency">{symbol}</span>
                 <TextInput
                   type="number"
                   min="0"
@@ -338,7 +340,7 @@ export function JourneyForm({
           {total > 0 && (
             <div className="cj-budget-total">
               <span>Total estimated spend</span>
-              <strong>N${total.toLocaleString()}</strong>
+              <strong>{format(total)}</strong>
             </div>
           )}
         </>
@@ -433,7 +435,7 @@ export function JourneyForm({
                 <p className="cj-preview__meta">
                   {selectedCountries.map((c) => COUNTRY_OPTIONS.find((o) => o.code === c)?.icon).join(' ')}
                   {days > 0 && ` · ${days} days`}
-                  {total > 0 && ` · N$${total.toLocaleString()}`}
+                  {total > 0 && ` · ${format(total)}`}
                 </p>
                 <p className="cj-preview__meta">
                   {stops.filter((s) => s.place_name).map((s) => s.place_name).join(' → ')}

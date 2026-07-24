@@ -61,6 +61,17 @@ _ALL_BUCKETS = frozenset(
     }
 )
 
+# Synonyms so obscure long-tail queries still hit inventory.
+_SEARCH_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "brunch": ("breakfast", "cafe", "morning"),
+    "mechanic": ("garage", "tyre", "tire", "repair", "workshop"),
+    "hidden brunch": ("hidden", "brunch", "locals only", "local favourite"),
+    "tiny house": ("tiny", "cabin", "compact", "micro"),
+    "off-grid": ("solar", "remote", "bush", "unplugged"),
+    "street food": ("kapana", "market", "stall", "takeaway"),
+    "niche tour": ("specialist", "bespoke", "private", "hidden"),
+}
+
 
 def _parse_types(raw: str | None) -> frozenset[str] | None:
     """Return bucket keys to include, or None when all types are requested."""
@@ -84,6 +95,35 @@ def _limit_for(buckets: frozenset[str] | None) -> int:
     if buckets is not None and len(buckets) <= 2:
         return 20
     return 8
+
+
+def _search_needles(q: str) -> list[str]:
+    raw = (q or "").strip().lower()
+    if not raw:
+        return []
+    needles = {raw, *(_SEARCH_SYNONYMS.get(raw) or ())}
+    for token in raw.split():
+        if len(token) < 2:
+            continue
+        needles.add(token)
+        needles.update(_SEARCH_SYNONYMS.get(token) or ())
+    return [n for n in needles if len(n) >= 2]
+
+
+def _icontains_any(fields: list[str], needles: list[str]) -> Q:
+    clause = Q()
+    for field in fields:
+        for needle in needles:
+            clause |= Q(**{f"{field}__icontains": needle})
+    return clause
+
+
+def _country_clause(country: str, *, region_field: str = "region") -> Q:
+    """Match Explore country via country_code, or legacy rows with empty code."""
+    cc = (country or "").strip().upper()
+    if not cc:
+        return Q()
+    return Q(**{"country_code__iexact": cc}) | Q(**{"country_code": ""})
 
 
 def _serialize_search_user(user, request) -> dict:
@@ -115,10 +155,13 @@ class UnifiedSearchView(APIView):
         if len(q) < 2:
             return Response(_EMPTY)
 
+        needles = _search_needles(q)
+        country = (request.query_params.get("country_code") or "").strip().upper()[:2]
         buckets = _parse_types(request.query_params.get("types"))
         limit = _limit_for(buckets)
         viewer = request.user if request.user.is_authenticated else None
         ctx = {"request": request}
+        country_q = _country_clause(country)
 
         users = []
         if _wants(buckets, "users"):
@@ -126,39 +169,53 @@ class UnifiedSearchView(APIView):
                 User.objects.filter(is_active=True, profile__show_in_search=True)
                 .select_related("profile")
                 .filter(
-                    Q(username__icontains=q)
-                    | Q(profile__display_name__icontains=q)
-                    | Q(profile__bio__icontains=q)
-                    | Q(profile__region__icontains=q)
-                    | Q(profile__city__icontains=q)
+                    _icontains_any(
+                        [
+                            "username",
+                            "profile__display_name",
+                            "profile__bio",
+                            "profile__region",
+                            "profile__city",
+                        ],
+                        needles,
+                    )
                 )
                 .order_by("username")[:limit]
             )
 
         acc = []
         if _wants(buckets, "accommodation"):
-            acc = list(
-                AccommodationListing.objects.filter(is_active=True)
-                .filter(
-                    Q(title__icontains=q)
-                    | Q(description__icontains=q)
-                    | Q(region__icontains=q)
-                    | Q(city__icontains=q)
-                )[:limit]
+            qs = AccommodationListing.objects.filter(is_active=True).filter(
+                _icontains_any(
+                    [
+                        "title",
+                        "description",
+                        "region",
+                        "city",
+                        "address",
+                        "formatted_address",
+                        "amenities",
+                        "niche_tags",
+                        "property_type",
+                    ],
+                    needles,
+                )
             )
+            if country_q:
+                qs = qs.filter(country_q)
+            acc = list(qs[:limit])
 
         veh = []
         if _wants(buckets, "vehicles"):
-            veh = list(
-                VehicleRentalListing.objects.filter(is_active=True)
-                .filter(
-                    Q(title__icontains=q)
-                    | Q(make__icontains=q)
-                    | Q(model__icontains=q)
-                    | Q(region__icontains=q)
-                    | Q(city__icontains=q)
-                )[:limit]
+            qs = VehicleRentalListing.objects.filter(is_active=True).filter(
+                _icontains_any(
+                    ["title", "make", "model", "region", "city", "description"],
+                    needles,
+                )
             )
+            if country_q:
+                qs = qs.filter(country_q)
+            veh = list(qs[:limit])
 
         trips = []
         if _wants(buckets, "bus_trips"):
@@ -166,37 +223,52 @@ class UnifiedSearchView(APIView):
                 BusTrip.objects.filter(is_active=True)
                 .select_related("route", "route__operator")
                 .filter(
-                    Q(route__origin__icontains=q)
-                    | Q(route__destination__icontains=q)
-                    | Q(route__operator__name__icontains=q)
+                    _icontains_any(
+                        [
+                            "route__origin",
+                            "route__destination",
+                            "route__operator__name",
+                        ],
+                        needles,
+                    )
                 )[:limit]
             )
 
         events = []
         if _wants(buckets, "events"):
-            events = list(
-                Event.objects.filter(is_published=True)
-                .filter(
-                    Q(title__icontains=q)
-                    | Q(venue__icontains=q)
-                    | Q(region__icontains=q)
-                    | Q(city__icontains=q)
-                    | Q(description__icontains=q)
-                )[:limit]
+            qs = Event.objects.filter(is_published=True).filter(
+                _icontains_any(
+                    ["title", "venue", "region", "city", "description"],
+                    needles,
+                )
             )
+            if country_q:
+                qs = qs.filter(country_q)
+            events = list(qs[:limit])
 
         food = []
         if _wants(buckets, "food"):
-            food = list(
-                FoodVenue.objects.filter(is_active=True)
-                .filter(
-                    Q(name__icontains=q)
-                    | Q(description__icontains=q)
-                    | Q(region__icontains=q)
-                    | Q(city__icontains=q)
-                    | Q(address__icontains=q)
-                )[:limit]
+            qs = FoodVenue.objects.filter(is_active=True).filter(
+                _icontains_any(
+                    [
+                        "name",
+                        "description",
+                        "tagline",
+                        "popular_dish",
+                        "cuisine",
+                        "region",
+                        "city",
+                        "address",
+                        "formatted_address",
+                        "amenities",
+                        "niche_tags",
+                    ],
+                    needles,
+                )
             )
+            if country_q:
+                qs = qs.filter(country_q)
+            food = list(qs[:limit])
 
         guides = []
         if _wants(buckets, "guides"):
@@ -204,16 +276,24 @@ class UnifiedSearchView(APIView):
                 TourGuideProfile.objects.filter(is_active=True)
                 .select_related("user", "user__profile")
                 .filter(
-                    Q(headline__icontains=q)
-                    | Q(bio__icontains=q)
-                    | Q(user__username__icontains=q)
+                    _icontains_any(
+                        [
+                            "headline",
+                            "bio",
+                            "user__username",
+                            "specialities",
+                            "languages",
+                            "regions",
+                        ],
+                        needles,
+                    )
                 )[:limit]
             )
 
         posts = []
         if _wants(buckets, "posts"):
             posts_qs = Post.objects.filter(is_hidden=False).filter(
-                Q(body__icontains=q) | Q(region__icontains=q)
+                _icontains_any(["body", "region", "place_label"], needles)
             )
             # Scoped Delvers search only returns Delvers posts.
             if buckets is not None and buckets == frozenset({"posts"}):
@@ -224,7 +304,7 @@ class UnifiedSearchView(APIView):
         if _wants(buckets, "questions"):
             questions_qs = Post.objects.filter(
                 is_hidden=False, post_kind=PostKind.QUESTION, is_delvers=False
-            ).filter(Q(body__icontains=q) | Q(region__icontains=q) | Q(place_label__icontains=q))
+            ).filter(_icontains_any(["body", "region", "place_label"], needles))
             questions = list(filter_posts_for_viewer(questions_qs, viewer)[:limit])
 
         journeys = []
@@ -232,11 +312,16 @@ class UnifiedSearchView(APIView):
             journeys_qs = (
                 Journey.objects.select_related("author", "author__profile")
                 .filter(
-                    Q(title__icontains=q)
-                    | Q(summary__icontains=q)
-                    | Q(tags__icontains=q)
-                    | Q(stops__place_name__icontains=q)
-                    | Q(stops__region__icontains=q)
+                    _icontains_any(
+                        [
+                            "title",
+                            "summary",
+                            "tags",
+                            "stops__place_name",
+                            "stops__region",
+                        ],
+                        needles,
+                    )
                 )
                 .distinct()
             )

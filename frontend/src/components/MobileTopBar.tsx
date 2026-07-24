@@ -7,6 +7,7 @@ import { useNavBadges } from '../hooks/useNavBadges'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
 import { BrandLogo } from './BrandLogo'
+import { ExploreDestinationSwitcher } from './explore/ExploreDestinationSwitcher'
 import './community/community-feed-cards.css'
 
 export function MobileTopBar() {
@@ -20,6 +21,9 @@ export function MobileTopBar() {
         <Link to="/" className="mobile-topbar__logo" aria-label="DELVE home">
           <BrandLogo alt="" />
         </Link>
+        <div className="mobile-topbar__explore">
+          <ExploreDestinationSwitcher compact />
+        </div>
         <div className="mobile-topbar__actions">
           <Link to="/search" className="mobile-topbar__icon" aria-label="Search">
             <IconSearch />

@@ -7,6 +7,7 @@ import {
   type VehicleListingFormValues,
 } from './vehicleListingTypes'
 import { TransportPhotoEditor } from './TransportPhotoEditor'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   values: VehicleListingFormValues
@@ -28,6 +29,7 @@ const SECTIONS = [
 ] as const
 
 export function VehicleListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
+  const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('identity')
 
   function patch(partial: Partial<VehicleListingFormValues>) {
@@ -148,7 +150,7 @@ export function VehicleListingForm({ values, onChange, error, saving, onSubmit, 
           {section === 'pricing' && (
             <div className="transport-form__section">
               <label className="transport-form__field">
-                Daily rate (N$)
+                Daily rate ({currency})
                 <input value={values.price_per_day} onChange={(e) => patch({ price_per_day: e.target.value })} placeholder="780" />
               </label>
               <div className="transport-form__row">

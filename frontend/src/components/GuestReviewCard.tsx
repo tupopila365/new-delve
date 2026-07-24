@@ -8,6 +8,7 @@ export type ReviewItem = {
   body: string
   avatar: string | null
   sellerReply?: string
+  verifiedGuest?: boolean
 }
 
 /** Collapse long bodies; “Read more” reveals full text. */
@@ -55,7 +56,8 @@ export function normalizeReviews(raw: unknown): ReviewItem[] {
     const sellerRaw = o.seller_reply ?? o.sellerReply ?? o.response
     const sellerReply =
       typeof sellerRaw === 'string' && sellerRaw.trim() ? sellerRaw.trim() : undefined
-    if (name && body) out.push({ name, place, body, rating, avatar, sellerReply })
+    const verifiedGuest = Boolean(o.verified_guest ?? o.verifiedGuest)
+    if (name && body) out.push({ name, place, body, rating, avatar, sellerReply, verifiedGuest })
   }
   return out
 }
@@ -91,6 +93,9 @@ export function GuestReviewCard({ r }: { r: ReviewItem }) {
         <div className="acc-detail__review-main">
           <div className="acc-detail__review-head">
             <span className="acc-detail__review-name">{r.name}</span>
+            {r.verifiedGuest ? (
+              <span className="acc-detail__review-verified">Verified guest</span>
+            ) : null}
             {r.place ? <span className="acc-detail__review-place">{r.place}</span> : null}
             {r.rating > 0 ? (
               <MiniRating rating={r.rating} className="acc-detail__review-rating" />

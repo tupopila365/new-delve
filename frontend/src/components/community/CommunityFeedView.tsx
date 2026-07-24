@@ -42,10 +42,11 @@ type Props = {
 
 export function CommunityFeedView({ searchQuery, tagSlug = '' }: Props) {
   const { profile } = useAuth()
-  const { region } = useExploreRegion()
+  const { region, exploreLabel } = useExploreRegion()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [kind, setKind] = useState<FeedKind>('question')
+  const [askDraft, setAskDraft] = useState({ question: '', place: '' })
   const [composeModal, setComposeModal] = useState<ComposeModal>(null)
   const [highlightId, setHighlightId] = useState<number | null>(null)
   const [toast, setToast] = useState('')
@@ -53,6 +54,9 @@ export function CommunityFeedView({ searchQuery, tagSlug = '' }: Props) {
   const postedId = searchParams.get('posted')
   const postedTipId = searchParams.get('postedTip')
   const openId = searchParams.get('open')
+  const askParam = searchParams.get('ask')
+  const draftQ = searchParams.get('q')?.trim() ?? ''
+  const draftPlace = searchParams.get('place')?.trim() ?? ''
   const activeTag = tagSlug
   const feedQueryKey = ['feed', region, kind, activeTag] as const
 
@@ -68,6 +72,23 @@ export function CommunityFeedView({ searchQuery, tagSlug = '' }: Props) {
     const rows = asArray<FeedPost>(feedRaw)
     return rows.filter((post) => matchesSearch(post, searchQuery))
   }, [feedRaw, searchQuery])
+
+  useEffect(() => {
+    if (askParam !== '1') return
+    setKind('question')
+    setAskDraft({
+      question: draftQ,
+      place: draftPlace || exploreLabel || region || '',
+    })
+    setComposeModal('ask')
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.delete('ask')
+      next.delete('q')
+      next.delete('place')
+      return next
+    }, { replace: true })
+  }, [askParam, draftQ, draftPlace, exploreLabel, region, setSearchParams])
 
   useEffect(() => {
     if (!postedId) return
@@ -201,8 +222,13 @@ export function CommunityFeedView({ searchQuery, tagSlug = '' }: Props) {
 
       <CommunityAskModal
         open={composeModal === 'ask'}
-        onClose={() => setComposeModal(null)}
+        onClose={() => {
+          setComposeModal(null)
+          setAskDraft({ question: '', place: '' })
+        }}
         onPosted={handleAskPosted}
+        initialPlace={askDraft.place || exploreLabel || region || ''}
+        initialQuestion={askDraft.question}
       />
 
       <CommunityTipModal

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -9,6 +9,8 @@ import { AccommodationDetailView } from '../components/accommodation'
 import { EmptyState } from '../components/ui'
 import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard'
 import { useToggleStaySave } from '../hooks/useStaySave'
+import { recordForYouSignal } from '../lib/forYou'
+import { listingTasteTags, recordForYouDeep, recordSessionView } from '../lib/forYouDeep'
 import type { AccommodationListing } from '../utils/accommodationListing'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 import '../components/journeys/journey-detail.css'
@@ -29,17 +31,6 @@ export function AccommodationDetail() {
   const saveMut = useToggleStaySave()
   const queryClient = useQueryClient()
 
-  const likeMut = useMutation({
-    mutationFn: (listingId: number) =>
-      apiFetch<{ liked: boolean; likes_count: number }>(`/api/accommodation/listings/${listingId}/like/`, {
-        method: 'POST',
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['acc', id] })
-      void queryClient.invalidateQueries({ queryKey: ['accommodation'] })
-    },
-  })
-
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['acc', id, profile?.username ?? 'anon'],
     enabled: !!id,
@@ -47,6 +38,34 @@ export function AccommodationDetail() {
       apiFetch<AccommodationListing>(`/api/accommodation/listings/${id}/`, {
         auth: Boolean(profile),
       }),
+  })
+
+  const dataListingTags = useMemo(() => (data ? listingTasteTags(data) : []), [data])
+
+  useEffect(() => {
+    if (!id || !data) return
+    recordSessionView('stays', id, dataListingTags)
+    recordForYouSignal('stays', 'view')
+  }, [id, data, dataListingTags])
+
+  const likeMut = useMutation({
+    mutationFn: (listingId: number) =>
+      apiFetch<{ liked: boolean; likes_count: number }>(`/api/accommodation/listings/${listingId}/like/`, {
+        method: 'POST',
+      }),
+    onSuccess: (res) => {
+      if (res?.liked && id) {
+        recordForYouSignal('stays', 'like')
+        recordForYouDeep({
+          vertical: 'stays',
+          id,
+          kind: 'like',
+          tags: dataListingTags,
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['acc', id] })
+      void queryClient.invalidateQueries({ queryKey: ['accommodation'] })
+    },
   })
 
   const { data: reviewsData } = useQuery({

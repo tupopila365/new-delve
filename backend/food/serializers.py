@@ -72,6 +72,7 @@ def _cover_kind_for(obj: FoodVenue) -> str:
 class FoodVenueSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     owner_display_name = serializers.SerializerMethodField()
+    owner_verified = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
     cover_kind = serializers.SerializerMethodField()
     has_reviewed = serializers.SerializerMethodField()
@@ -88,11 +89,13 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "owner",
             "owner_username",
             "owner_display_name",
+            "owner_verified",
             "name",
             "description",
             "tagline",
             "popular_dish",
             "cuisine",
+            "country_code",
             "region",
             "city",
             "address",
@@ -112,6 +115,7 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "reservations",
             "is_open",
             "amenities",
+            "niche_tags",
             "photos",
             "venue_stories",
             "cover_image",
@@ -138,11 +142,20 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "liked_by_me",
             "likes_count",
             "cover_kind",
+            "owner_verified",
             "created_at",
         )
 
     def get_owner_display_name(self, obj):
         return _owner_display_name(obj.owner)
+
+    def get_owner_verified(self, obj):
+        annotated = getattr(obj, "owner_verified", None)
+        if annotated is not None:
+            return bool(annotated)
+        from accounts.seller_trust import owner_is_business_verified
+
+        return owner_is_business_verified(getattr(obj, "owner_id", None))
 
     def get_cover_image(self, obj):
         return _cover_image_url(obj, self.context.get("request"))

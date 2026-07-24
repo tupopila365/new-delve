@@ -12,6 +12,7 @@ import {
   TextInput,
   DateInput,
 } from '../create/shared'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 export const EVENT_WIZARD_STEPS = [
   { id: 1, label: 'What' },
@@ -36,6 +37,7 @@ export function EventForm({
   onPhotosChange,
   step,
 }: Props) {
+  const { format } = useDisplayMoney()
   const show = (id: number) => step == null || step === id
 
   const coverPhoto = photos[0]
@@ -338,7 +340,7 @@ export function EventForm({
                   {state.ticketingMode === 'free'
                     ? 'Free entry'
                     : state.ticketingMode === 'on_platform'
-                      ? `N$${state.price || '—'} on DELVE`
+                      ? `${format(state.price) || '—'} on DELVE`
                       : state.ticketUrl
                         ? 'External tickets'
                         : 'Tickets TBA'}

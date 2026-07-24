@@ -13,7 +13,10 @@ import {
   Utensils,
   X,
 } from 'lucide-react'
+import { formatDisplayMoney } from '../lib/displayMoney'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { useAuth } from '../auth/AuthContext'
+import { useExploreDestination } from '../hooks/useExploreDestination'
 import { apiFetch } from '../api/client'
 import { QuickFilterChips } from '../components/marketplace'
 import { SearchHit } from '../components/search'
@@ -24,6 +27,13 @@ import type { FeedPost } from '../components/IgPostCard'
 import { isDelversPost } from '../utils/postFilters'
 import { useNoFace } from '../hooks/useNoFace'
 import { HOME_ATMOSPHERE_BG, HOME_HERO_BG } from '../data/homeDefaults'
+import { recordForYouSignal, type ForYouVertical } from '../lib/forYou'
+import { recordForYouDeep } from '../lib/forYouDeep'
+import {
+  LONG_TAIL_PROMPTS,
+  askLocalsHref,
+  coinTossHref,
+} from '../lib/longTailSearch'
 import {
   buildSearchApiPath,
   isSearchType,
@@ -32,6 +42,25 @@ import {
   type SearchType,
 } from '../utils/searchParams'
 import './SearchPage.css'
+
+function searchTypeToForYou(type: SearchType | ''): ForYouVertical | null {
+  switch (type) {
+    case 'stay':
+      return 'stays'
+    case 'food':
+      return 'food'
+    case 'guides':
+      return 'guides'
+    case 'events':
+      return 'events'
+    case 'transport':
+      return 'transport'
+    case 'journeys':
+      return 'journeys'
+    default:
+      return null
+  }
+}
 
 const SEARCH_CATEGORIES = [
   { id: 'profile', label: 'People', Icon: UserRound },
@@ -53,6 +82,7 @@ const TRAIL_PROMPTS = [
   { label: 'City walk', q: 'city' },
   { label: 'First night', q: 'lodge' },
   { label: 'Local food', q: 'food' },
+  ...LONG_TAIL_PROMPTS.map((p) => ({ label: p.label, q: p.q, type: p.type as SearchType | undefined })),
 ] as const
 
 type SearchUser = {
@@ -140,11 +170,13 @@ function placeLine(item: { city?: string; region?: string }): string {
   return [item.city, item.region].filter(Boolean).join(', ') || 'Somewhere out there'
 }
 
-function priceLabel(value: string | number | null | undefined, suffix: string): string | undefined {
+function priceLabel(
+  value: string | number | null | undefined,
+  suffix: string,
+  currency: string,
+): string | undefined {
   if (value == null || value === '') return undefined
-  const n = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(n)) return `N$${value}${suffix}`
-  return `N$${n.toLocaleString()}${suffix}`
+  return formatDisplayMoney(value, currency, { suffix })
 }
 
 function ratingLabel(value: string | number | null | undefined): string | undefined {
@@ -158,6 +190,8 @@ export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { profile } = useAuth()
   const { enabled: noFace } = useNoFace()
+  const { currency } = useDisplayMoney()
+  const { country, label: exploreLabel, exploring } = useExploreDestination()
   const urlQ = searchParams.get('q')?.trim() ?? ''
   const urlType = readSearchType(searchParams)
 
@@ -199,11 +233,23 @@ export function SearchPage() {
   }, [input, type, urlQ, urlType, setSearchParams])
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ['unified-search', urlQ, urlType],
-    queryFn: () => apiFetch<SearchResults>(buildSearchApiPath(urlQ, urlType)),
+    queryKey: ['unified-search', urlQ, urlType, country],
+    queryFn: () => apiFetch<SearchResults>(buildSearchApiPath(urlQ, urlType, country)),
     enabled: urlQ.length >= 2,
     retry: 1,
   })
+
+  useEffect(() => {
+    if (urlQ.length < 2) return
+    const vertical = searchTypeToForYou(urlType)
+    recordForYouSignal(vertical ?? 'stays', 'search')
+    recordForYouDeep({
+      vertical: vertical ?? 'stays',
+      id: `q:${urlQ.toLowerCase()}`,
+      kind: 'search_tag',
+      tags: [urlQ],
+    })
+  }, [urlQ, urlType])
 
   const placeholder = useMemo(() => {
     if (type && isSearchType(type)) return PLACEHOLDERS[type]
@@ -278,15 +324,19 @@ export function SearchPage() {
     setSearchParams(writeSearchParams(input.trim(), type), { replace: true })
   }
 
-  function onTrailPrompt(q: string) {
+  function onTrailPrompt(q: string, promptType?: SearchType) {
+    const nextType = promptType ?? type
+    if (promptType) setType(promptType)
     setInput(q)
-    setSearchParams(writeSearchParams(q, type), { replace: true })
+    setSearchParams(writeSearchParams(q, nextType), { replace: true })
   }
 
   const searching = urlQ.length >= 2 && (isLoading || isFetching)
   const activeCategoryLabel = type ? (SEARCH_CATEGORIES.find((c) => c.id === type)?.label ?? type) : ''
   const hasQuery = urlQ.length >= 2
   const sceneBg = hasQuery ? HOME_ATMOSPHERE_BG : HOME_HERO_BG
+  const askHref = askLocalsHref(urlQ, exploreLabel)
+  const tossHref = coinTossHref()
 
   return (
     <div className={`search-trail${hasQuery ? ' search-trail--results' : ' search-trail--idle'}`}>
@@ -301,7 +351,9 @@ export function SearchPage() {
             <p className="search-trail__kicker">On the road</p>
             <h1 className="search-trail__title">Where to next?</h1>
             <p className="search-trail__lead">
-              Name a place, a mood, or a need — stays, food, guides, and people who’ve already been.
+              {exploring
+                ? `Exploring ${exploreLabel} — try a tiny need like “hidden brunch” or ask locals when inventory is thin.`
+                : 'My Delve — search what you’ve been into, or enter Explore to browse a destination.'}
             </p>
           </header>
         ) : (
@@ -352,11 +404,11 @@ export function SearchPage() {
             <div className="search-trail__prompts" role="list" aria-label="Trip ideas">
               {TRAIL_PROMPTS.map((prompt) => (
                 <button
-                  key={prompt.q}
+                  key={prompt.q + (prompt.type ?? '')}
                   type="button"
                   className="search-trail__prompt"
                   role="listitem"
-                  onClick={() => onTrailPrompt(prompt.q)}
+                  onClick={() => onTrailPrompt(prompt.q, 'type' in prompt ? prompt.type : undefined)}
                 >
                   {prompt.label}
                 </button>
@@ -381,10 +433,29 @@ export function SearchPage() {
             cta={{ label: 'Retry', onClick: () => void refetch() }}
           />
         ) : resultCount === 0 ? (
-          <p className="search-trail__hint">
-            Nothing turned up for “{urlQ}”
-            {activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}. Try another spelling, place, or category.
-          </p>
+          <div className="search-trail__long-tail" role="status">
+            <p className="search-trail__hint">
+              Nothing catalogued for “{urlQ}”
+              {activeCategoryLabel ? ` in ${activeCategoryLabel}` : ''}
+              {exploring ? ` while exploring ${exploreLabel}` : ''}.
+              Tiny needs often live with locals — not only in listings.
+            </p>
+            <div className="search-trail__long-tail-acts">
+              <Link to={askHref} className="search-trail__long-tail-btn search-trail__long-tail-btn--primary">
+                <MessageCircleQuestion size={15} strokeWidth={2.25} aria-hidden />
+                Ask locals
+              </Link>
+              <Link to={tossHref} className="search-trail__long-tail-btn">
+                Coin toss a nearby gem
+              </Link>
+              <Link to="/food" className="search-trail__long-tail-btn">
+                Browse food
+              </Link>
+              <Link to="/accommodation" className="search-trail__long-tail-btn">
+                Browse stays
+              </Link>
+            </div>
+          </div>
         ) : (
           <div className="search-trail__results" aria-live="polite">
             <p className="search-trail__summary">
@@ -402,7 +473,7 @@ export function SearchPage() {
                         title={listingTitle(item)}
                         subtitle={placeLine(item)}
                         meta={
-                          [priceLabel(item.price_per_night, ' / night'), ratingLabel(item.rating_avg)]
+                          [priceLabel(item.price_per_night, ' / night', currency), ratingLabel(item.rating_avg)]
                             .filter(Boolean)
                             .join(' · ') || undefined
                         }
@@ -512,7 +583,7 @@ export function SearchPage() {
                         to={`/transport/vehicle/${item.id}`}
                         title={listingTitle(item)}
                         subtitle={placeLine(item)}
-                        meta={priceLabel(item.price_per_day, ' / day')}
+                        meta={priceLabel(item.price_per_day, ' / day', currency)}
                         imageUrl={item.cover_image}
                         fallbackIcon={<Car size={18} />}
                       />

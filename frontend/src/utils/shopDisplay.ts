@@ -1,4 +1,5 @@
 import { mediaUrl } from '../api/client'
+import { formatDisplayMoney } from '../lib/displayMoney'
 import type { ListingGalleryItem } from '../components/listing/types'
 import type { ShopMediaRaw, ShopProductListing } from './shopListing'
 
@@ -66,10 +67,14 @@ export function shopMediaItems(product: ShopProductListing): ListingGalleryItem[
   return items
 }
 
-export function shopPriceLabel(price: string | number, priceNote?: string | null): string {
+export function shopPriceLabel(
+  price: string | number,
+  priceNote?: string | null,
+  currency = 'NAD',
+): string {
   const n = typeof price === 'number' ? price : Number(price)
   if (!Number.isFinite(n) || n <= 0) return 'Ask for price'
-  const base = `N$${n.toFixed(2).replace(/\.00$/, '')}`
+  const base = formatDisplayMoney(n, currency)
   const note = (priceNote || '').trim()
   return note ? `${base} ${note}` : base
 }

@@ -85,6 +85,7 @@ class ShopProductSerializer(serializers.ModelSerializer):
             "tagline",
             "category",
             "category_label",
+            "country_code",
             "region",
             "city",
             "pickup_address",

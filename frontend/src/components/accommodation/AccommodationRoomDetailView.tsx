@@ -19,6 +19,7 @@ import { buildListingImages, type AccommodationListing } from '../../utils/accom
 import '../journeys/journey-detail.css'
 import './accommodation-detail.css'
 import './accommodation-room.css'
+import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 
 type Props = {
   room: ListingRoomOption
@@ -48,6 +49,7 @@ export function AccommodationRoomDetailView({
   onSave,
   onShare,
 }: Props) {
+  const { format } = useDisplayMoney()
   const roomImages = roomGalleryImages(room).filter((img) => Boolean(img.src?.trim()))
   const stayImages = buildListingImages(listing).filter((img) => Boolean(img.src?.trim()))
   const galleryImages = roomImages.length > 0 ? roomImages : stayImages
@@ -95,7 +97,7 @@ export function AccommodationRoomDetailView({
         {nightly ? (
           <li className="jd-fact jd-fact--cost">
             <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
-            N${nightly} / night
+            {format(nightly, { suffix: '/night' })}
           </li>
         ) : null}
         {room.maxGuests != null ? (
@@ -166,7 +168,7 @@ export function AccommodationRoomDetailView({
 
       <div className="jd-mobilebar">
         <span className="jd-mobilebar__meta">
-          <span className="jd-mobilebar__title">{nightly ? `N$${nightly}` : listingTitle}</span>
+          <span className="jd-mobilebar__title">{nightly ? format(nightly) : listingTitle}</span>
           <span className="jd-mobilebar__sub">{nightly ? 'per night · check dates' : room.name}</span>
         </span>
         <div className="jd-mobilebar__actions">

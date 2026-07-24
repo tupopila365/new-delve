@@ -4,14 +4,10 @@ import { CreditCard, Minus, Plus, ShoppingCart, Store, Trash2 } from 'lucide-rea
 import { apiFetch, asArray } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useCart } from '../hooks/useCart'
+import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { EmptyState } from '../components/ui'
 import type { CartItem, Order } from '../utils/shopListing'
 import '../components/shop/shop-cart.css'
-
-function money(value: string | number): string {
-  const n = typeof value === 'number' ? value : Number(value)
-  return `N$${(Number.isFinite(n) ? n : 0).toFixed(2).replace(/\.00$/, '')}`
-}
 
 export function CartPage() {
   const navigate = useNavigate()
@@ -19,6 +15,11 @@ export function CartPage() {
   const restored = params.get('restored') === '1'
   const { profile } = useAuth()
   const { cart, itemCount, isLoading, setQuantity, removeItem, isGuest } = useCart()
+  const { format } = useDisplayMoney()
+  const money = (value: string | number) => {
+    const n = typeof value === 'number' ? value : Number(value)
+    return format(Number.isFinite(n) ? n : 0)
+  }
 
   const { data: pendingOrders = [] } = useQuery({
     queryKey: ['shop-orders-pending-payment'],

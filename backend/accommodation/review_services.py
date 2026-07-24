@@ -62,6 +62,7 @@ def listing_reviews_payload(listing: AccommodationListing) -> dict:
                 "avatar": avatar,
                 "created_at": review.created_at.isoformat(),
                 "source": "traveler",
+                "verified_guest": True,
             }
         )
 
@@ -77,6 +78,7 @@ def listing_reviews_payload(listing: AccommodationListing) -> dict:
                 "body": row.get("body") or "",
                 "avatar": row.get("avatar"),
                 "source": "host",
+                "verified_guest": bool(row.get("verified_guest", True)),
             }
         )
 

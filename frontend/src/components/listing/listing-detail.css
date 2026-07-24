@@ -688,6 +688,27 @@
   font-weight: 550;
 }
 
+.listing-location__pin-badge {
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--listing-accent, #2a6f5e) 35%, var(--listing-border));
+  background: color-mix(in srgb, var(--listing-accent, #2a6f5e) 10%, transparent);
+  color: var(--listing-accent, #2a6f5e);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.listing-location__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 /* Real embed only — never a decorative placeholder map */
 .listing-location__map--live {
   width: 100%;
@@ -710,6 +731,7 @@
 
 .listing-location__foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -737,6 +759,12 @@
   font-size: 0.76rem;
   font-weight: 800;
   text-decoration: none;
+}
+
+.listing-location__btn--primary {
+  border-color: color-mix(in srgb, var(--listing-accent, #2a6f5e) 45%, var(--listing-border));
+  background: var(--listing-accent, #2a6f5e);
+  color: #fff;
 }
 
 /* Moments */

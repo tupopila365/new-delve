@@ -48,6 +48,7 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
             "tagline",
             "popular_dish",
             "cuisine",
+            "country_code",
             "region",
             "city",
             "address",
@@ -67,6 +68,7 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
             "reservations",
             "is_open",
             "amenities",
+            "niche_tags",
             "photos",
             "venue_stories",
             "cover_image",
@@ -225,6 +227,14 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
         cover_kind = validated_data.pop("cover_kind_in", None)
         schedule = validated_data.pop("opening_hours_json", None)
 
+        user = self.context["request"].user
+        from accounts.seller_trust import enforce_service_go_live
+
+        enforce_service_go_live(
+            user=user,
+            wanting_active=bool(validated_data.get("is_active", False)),
+        )
+
         instance = super().create(validated_data)
 
         if schedule is not None:
@@ -244,6 +254,14 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
         cover_upload = validated_data.pop("cover_image_upload", None)
         cover_kind = validated_data.pop("cover_kind_in", None)
         schedule = validated_data.pop("opening_hours_json", None)
+
+        if "is_active" in validated_data:
+            from accounts.seller_trust import enforce_service_go_live
+
+            enforce_service_go_live(
+                user=self.context["request"].user,
+                wanting_active=bool(validated_data.get("is_active")),
+            )
 
         # Prefer cover_kind / kind from photos JSON when client sends Delvers-style URL payload.
         photos = validated_data.get("photos")

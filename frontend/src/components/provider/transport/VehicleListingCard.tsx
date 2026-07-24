@@ -4,6 +4,7 @@ import { renterDocLabel } from '../../../data/renterDocuments'
 import { vehicleTypeMeta } from '../../../utils/transportListing'
 import type { ProviderVehicleListing } from './vehicleListingTypes'
 import { vehicleCompleteness } from './vehicleListingTypes'
+import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 
 type Props = {
   vehicle: ProviderVehicleListing
@@ -13,6 +14,7 @@ type Props = {
 }
 
 export function VehicleListingCard({ vehicle, canEdit, onEdit, onManageHighlights }: Props) {
+  const { format } = useDisplayMoney()
   const { percent, missing } = vehicleCompleteness(vehicle)
   const typeMeta = vehicleTypeMeta(vehicle.vehicle_type)
   const highlightCount = vehicle.listing_stories?.length ?? 0
@@ -46,7 +48,7 @@ export function VehicleListingCard({ vehicle, canEdit, onEdit, onManageHighlight
           {vehicle.make} {vehicle.model} {vehicle.year} · {typeMeta.label} · {vehicle.seats} seats · {vehicle.transmission}
         </p>
         <p className="transport-list-card__meta">
-          {vehicle.city}, {vehicle.region} · N${vehicle.price_per_day}/day
+          {vehicle.city}, {vehicle.region} · {format(vehicle.price_per_day, { suffix: '/day' })}
         </p>
         <div className="transport-list-card__chips">
           {(vehicle.required_renter_documents?.length ?? 0) > 0
