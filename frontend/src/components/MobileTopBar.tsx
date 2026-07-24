@@ -6,6 +6,7 @@ import { PRIMARY_NAV_SECTIONS, SECONDARY_NAV_SECTIONS } from '../data/mainNavSec
 import { useNavBadges } from '../hooks/useNavBadges'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
+import { BrandLogo } from './BrandLogo'
 import './community/community-feed-cards.css'
 
 export function MobileTopBar() {
@@ -17,7 +18,7 @@ export function MobileTopBar() {
     <header className="mobile-topbar">
       <div className="mobile-topbar__top">
         <Link to="/" className="mobile-topbar__logo" aria-label="DELVE home">
-          DELVE
+          <BrandLogo alt="" />
         </Link>
         <div className="mobile-topbar__actions">
           <Link to="/search" className="mobile-topbar__icon" aria-label="Search">

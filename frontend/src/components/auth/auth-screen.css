@@ -61,12 +61,17 @@
 }
 
 .auth-page__logo {
-  font-family: var(--font-display, 'Syne', sans-serif);
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--auth-cream);
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
   text-decoration: none;
+}
+
+.auth-page__logo .delve-brand-logo {
+  height: 40px;
+  width: auto;
+  border-radius: 8px;
+  display: block;
 }
 
 .auth-page__back {

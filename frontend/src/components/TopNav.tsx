@@ -8,6 +8,7 @@ import { useCart } from '../hooks/useCart'
 import { isNoFaceHiddenNavTo, useNoFace } from '../hooks/useNoFace'
 import { NavBadge } from './NavBadge'
 import { ProfileMenu } from './ProfileMenu'
+import { BrandLogo } from './BrandLogo'
 import './community/community-feed-cards.css'
 
 export function TopNav() {
@@ -45,7 +46,7 @@ export function TopNav() {
   return (
     <header className="app-topnav" aria-label="Main navigation">
       <Link to="/" className="app-topnav__logo" aria-label="DELVE home">
-        DELVE
+        <BrandLogo alt="" />
       </Link>
 
       <nav className="app-topnav__links" aria-label="Site sections">

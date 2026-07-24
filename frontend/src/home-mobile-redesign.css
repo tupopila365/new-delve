@@ -770,6 +770,10 @@
     font-size: 1.95rem;
   }
 
+  .page-home .ta-hero__brand-logo {
+    height: 2.75rem;
+  }
+
   .page-home .ta-hero__title--home {
     font-size: 1.12rem;
   }
@@ -805,6 +809,13 @@
 
   .page-home .ta-hero__brand {
     font-size: clamp(2.6rem, 5vw, 3.6rem);
+  }
+
+  .page-home .ta-hero__brand-logo {
+    height: clamp(3.25rem, 8vw, 4.5rem);
+    width: auto;
+    border-radius: 12px;
+    display: block;
   }
 
   .page-home .ta-hero__title--home {

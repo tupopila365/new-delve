@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { HOME_HERO_BG } from '../../data/homeDefaults'
+import { BrandLogo } from '../BrandLogo'
 import './auth-screen.css'
 
 export type AuthScreenMode = 'login' | 'register' | 'other'
@@ -37,8 +38,8 @@ export function AuthScreen({
       </div>
 
       <header className="auth-page__top">
-        <Link to="/" className="auth-page__logo">
-          DELVE
+        <Link to="/" className="auth-page__logo" aria-label="DELVE home">
+          <BrandLogo alt="" />
         </Link>
         <Link to="/" className="auth-page__back">
           Back to home

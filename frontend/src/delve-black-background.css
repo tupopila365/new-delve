@@ -70,8 +70,7 @@ body {
 }
 
 .app-topnav__logo:hover {
-  color: #c4b5fd !important;
-  -webkit-text-fill-color: #c4b5fd !important;
+  opacity: 0.9 !important;
 }
 
 /* Nav link tabs */

@@ -25,6 +25,7 @@ import {
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { fetchTagTrending, type TagSummary } from '../api/tags'
 import { useAuth } from '../auth/AuthContext'
+import { BrandLogo } from '../components/BrandLogo'
 import type { FeedPost } from '../components/IgPostCard'
 import {
   isDelversPin,
@@ -704,7 +705,9 @@ export function Home() {
         />
         <div className="ta-hero__scrim" aria-hidden />
         <div className="ta-hero__inner ta-hero__inner--home">
-          <p className="ta-hero__brand">DELVE</p>
+          <p className="ta-hero__brand">
+            <BrandLogo className="ta-hero__brand-logo" alt="DELVE" />
+          </p>
           <h1 className="ta-hero__title ta-hero__title--home">Experience the world in one place.</h1>
           <p className="ta-hero__sub ta-hero__sub--home">
             Stays, tables, guides, and routes — shaped by people who’ve already been.
