@@ -9,6 +9,9 @@ import {
   OFFER_CATEGORY_OPTIONS,
   OFFER_ELIGIBILITY_OPTIONS,
   OFFER_KIND_OPTIONS,
+  isOpenRateEligibility,
+  offerNeedsProof,
+  offerQualityGaps,
   type TravelOffer,
   type TravelOfferEligibility,
   type TravelOfferKind,
@@ -21,6 +24,10 @@ type Draft = {
   offer_kind: TravelOfferKind
   eligibility: TravelOfferEligibility
   eligibility_label: string
+  min_age: string
+  max_age: string
+  min_party_size: string
+  max_party_size: string
   price_label: string
   categories: string[]
   details: string
@@ -38,6 +45,10 @@ const EMPTY: Draft = {
   offer_kind: 'discount',
   eligibility: 'everyone',
   eligibility_label: '',
+  min_age: '',
+  max_age: '',
+  min_party_size: '',
+  max_party_size: '',
   price_label: '',
   categories: [],
   details: '',
@@ -72,7 +83,13 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
     mutationFn: () =>
       apiFetch<TravelOffer>(`/api/accounts/me/businesses/${businessId}/offers/`, {
         method: 'POST',
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          ...draft,
+          min_age: draft.min_age.trim() ? Number(draft.min_age) : null,
+          max_age: draft.max_age.trim() ? Number(draft.max_age) : null,
+          min_party_size: draft.min_party_size.trim() ? Number(draft.min_party_size) : null,
+          max_party_size: draft.max_party_size.trim() ? Number(draft.max_party_size) : null,
+        }),
       }),
     onSuccess: async () => {
       setDraft(EMPTY)
@@ -136,14 +153,51 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
   }
 
   const coverPreview = draft.cover_image ? mediaUrl(draft.cover_image) || draft.cover_image : ''
+  const activeOffers = offers.filter((o) => o.is_active !== false)
+  const hasOpenRate = activeOffers.some((o) => isOpenRateEligibility(o.eligibility))
+  const withClaimSteps = activeOffers.filter((o) => (o.how_to_claim || '').trim()).length
+  const needsProofCount = activeOffers.filter((o) => offerNeedsProof(o.eligibility)).length
+  const withProof = activeOffers.filter(
+    (o) => offerNeedsProof(o.eligibility) && (o.proof_required || '').trim(),
+  ).length
+  const draftGaps = offerQualityGaps(draft)
+  const draftNeedsProof = offerNeedsProof(draft.eligibility)
 
   return (
-    <div className="prov-settings__offers">
+    <div className="prov-settings__offers" id="provider-accessible-offers">
       <h3 className="prov-settings__subhead">Accessible travel offers</h3>
       <p className="prov-settings__panel-sub">
-        Publish SADC rates, student packages, and discounts with photos that show the experience —
-        so travellers feel compelled to sign up.
+        Publish resident, student, and local rates with clear steps to unlock — so travellers see
+        your place as open, not exclusive.
       </p>
+
+      {canEdit && !isLoading && !hasOpenRate ? (
+        <p className="prov-settings__offer-nudge" role="status">
+          Tip: add at least one <strong>Everyone</strong>, <strong>SADC residents</strong>,{' '}
+          <strong>Students</strong>, or <strong>Local</strong> rate. It helps travellers feel the
+          trip is within reach.
+        </p>
+      ) : null}
+
+      {canEdit && !isLoading && offers.length > 0 ? (
+        <ul className="prov-settings__offer-checklist" aria-label="Offer quality checklist">
+          <li className={hasOpenRate ? 'is-done' : ''}>
+            {hasOpenRate ? 'Open rate published' : 'Add an everyone / local / SADC / student rate'}
+          </li>
+          <li className={withClaimSteps === activeOffers.length && activeOffers.length > 0 ? 'is-done' : ''}>
+            Claim steps on {withClaimSteps}/{activeOffers.length || 0} active offers
+          </li>
+          <li
+            className={
+              needsProofCount === 0 || withProof === needsProofCount ? 'is-done' : ''
+            }
+          >
+            {needsProofCount === 0
+              ? 'Proof only needed for resident / student rates'
+              : `Proof listed on ${withProof}/${needsProofCount} rates that need it`}
+          </li>
+        </ul>
+      ) : null}
 
       {isLoading ? <p className="prov-settings__panel-sub">Loading offers…</p> : null}
 
@@ -153,6 +207,7 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
             const thumb = offer.cover_image
               ? mediaUrl(offer.cover_image) || offer.cover_image
               : null
+            const gaps = offer.is_active === false ? [] : offerQualityGaps(offer)
             return (
               <li key={offer.id} className="prov-settings__offer-row">
                 {thumb ? (
@@ -171,6 +226,11 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
                       ? ` · ${offer.gallery_images!.length} gallery`
                       : ''}
                   </span>
+                  {gaps.length > 0 ? (
+                    <em className="prov-settings__offer-gap">
+                      Soft prompt: add {gaps.join(' and ')} so travellers know how to unlock this.
+                    </em>
+                  ) : null}
                 </div>
                 <div className="prov-settings__offer-actions">
                   <Link
@@ -197,7 +257,7 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
           })}
         </ul>
       ) : (
-        <p className="prov-settings__panel-sub">No offers yet — add a resident rate or package below.</p>
+        <p className="prov-settings__panel-sub">No offers yet — add a resident, student, or everyone rate below.</p>
       )}
 
       {canEdit ? (
@@ -358,6 +418,54 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
               maxLength={120}
             />
           </label>
+          <div className="prov-settings__row">
+            <label className="prov-settings__field">
+              Min age
+              <input
+                type="number"
+                min={0}
+                max={120}
+                value={draft.min_age}
+                onChange={(e) => setDraft((d) => ({ ...d, min_age: e.target.value }))}
+                placeholder="e.g. 18"
+              />
+            </label>
+            <label className="prov-settings__field">
+              Max age
+              <input
+                type="number"
+                min={0}
+                max={120}
+                value={draft.max_age}
+                onChange={(e) => setDraft((d) => ({ ...d, max_age: e.target.value }))}
+                placeholder="e.g. 24 → Under 25"
+              />
+            </label>
+          </div>
+          <div className="prov-settings__row">
+            <label className="prov-settings__field">
+              Min party size
+              <input
+                type="number"
+                min={1}
+                max={200}
+                value={draft.min_party_size}
+                onChange={(e) => setDraft((d) => ({ ...d, min_party_size: e.target.value }))}
+                placeholder="e.g. 4"
+              />
+            </label>
+            <label className="prov-settings__field">
+              Max party size
+              <input
+                type="number"
+                min={1}
+                max={200}
+                value={draft.max_party_size}
+                onChange={(e) => setDraft((d) => ({ ...d, max_party_size: e.target.value }))}
+                placeholder="e.g. 12"
+              />
+            </label>
+          </div>
           <label className="prov-settings__field">
             Proof required
             <input
@@ -367,6 +475,11 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
               maxLength={240}
             />
           </label>
+          {draftNeedsProof && !draft.proof_required.trim() ? (
+            <p className="prov-settings__offer-soft" role="status">
+              Travellers hesitate when proof is unclear — say what ID or card they should bring.
+            </p>
+          ) : null}
           <label className="prov-settings__field">
             How to sign up / claim
             <textarea
@@ -377,6 +490,12 @@ export function ProviderTravelOffersEditor({ businessId, canEdit }: Props) {
               maxLength={2000}
             />
           </label>
+          {draftGaps.includes('how to claim') ? (
+            <p className="prov-settings__offer-soft" role="status">
+              Add short numbered steps. “How locals book this” starts here — message, dates, proof,
+              pay.
+            </p>
+          ) : null}
           <label className="prov-settings__field">
             Terms / fine print (optional)
             <textarea

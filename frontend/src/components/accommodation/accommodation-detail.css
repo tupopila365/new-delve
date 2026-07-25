@@ -649,26 +649,7 @@
   background: linear-gradient(145deg, #2a1814, #080808);
 }
 
-/* Stay moments — reuse the journeys / Delvers purple highlight ring
-   (the page accent is rosewood, so pin the ring to purple explicitly). */
-.acc-detail-page .ev-story-ring__avatar {
-  box-shadow: 0 0 0 2px #7c3aed, 0 10px 22px rgba(0, 0, 0, 0.36);
-}
-
-.acc-detail-page .ev-story-ring--seen .ev-story-ring__avatar {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 10px 22px rgba(0, 0, 0, 0.36);
-}
-
-.acc-detail-page .ev-story-ring--active .ev-story-ring__avatar {
-  box-shadow:
-    0 0 0 2px #7c3aed,
-    0 0 0 4px rgba(124, 58, 237, 0.35),
-    0 10px 22px rgba(0, 0, 0, 0.36);
-}
-
-.acc-detail-page .ev-story-ring:focus-visible {
-  outline-color: rgba(167, 139, 250, 0.6);
-}
+/* Stay highlights use media tiles (see stay-highlights.css). */
 
 @keyframes acc-bar-up {
   from {

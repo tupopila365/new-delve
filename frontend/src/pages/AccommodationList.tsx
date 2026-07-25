@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BedDouble, Bookmark, Building2, List, Map as MapIcon, MapPin, Search, X } from 'lucide-react'
+import {
+  BedDouble,
+  Bookmark,
+  Building2,
+  List,
+  Map as MapIcon,
+  MapPin,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -15,19 +24,25 @@ import { useExploreDestination } from '../hooks/useExploreDestination'
 import { useExploreNearPoint } from '../hooks/useExploreNearPoint'
 import { useDisplayMoney } from '../hooks/useDisplayMoney'
 import { useForYou } from '../hooks/useForYou'
-import { formatDisplayMoney } from '../lib/displayMoney'
 import { listingMatchesExplore } from '../lib/exploreDestination'
 import { compareByDistance, formatDistanceKm, listingDistanceKm } from '../lib/geoDistance'
 import { listingTrustBoost } from '../lib/listingTrust'
 import { listingTasteTags } from '../lib/forYouDeep'
 import { useForYouDeep } from '../hooks/useForYouDeep'
-import { ExploreNearPointControl } from '../components/explore/ExploreNearPointControl'
+import {
+  AreaPlacesFilter,
+  listingMatchesAreaPoint,
+} from '../components/explore/AreaPlacesFilter'
+import { MarketSearchBar } from '../components/explore/MarketSearchBar'
 import { ExploreResultsMap } from '../components/explore/ExploreResultsMap'
+import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { HostStoriesRow } from '../components/HostStoriesRow'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
+import { listingHasActiveDeals } from '../components/deals'
 import '../components/accommodation/stay-list.css'
+import '../components/explore/market-filters-modal.css'
 
 type AccListing = AccommodationCardListing & {
   saves_count?: number
@@ -47,7 +62,16 @@ type AccListing = AccommodationCardListing & {
 type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'distance'
 
 type AmenityId = 'pool' | 'wifi' | 'parking' | 'kitchen' | 'breakfast' | 'pets'
-type GoodForId = 'budget' | 'family' | 'coast' | 'verified'
+type GoodForId =
+  | 'family'
+  | 'couples'
+  | 'solo'
+  | 'groups'
+  | 'work'
+  | 'coast'
+  | 'nature'
+  | 'walkable'
+  | 'verified'
 
 const AMENITY_OPTIONS: { value: AmenityId; label: string }[] = [
   { value: 'pool', label: 'Pool' },
@@ -62,19 +86,21 @@ const AMENITY_LABELS: Record<string, string> = Object.fromEntries(
   AMENITY_OPTIONS.map((a) => [a.value, a.label]),
 )
 
-const GOOD_FOR_OPTIONS_BASE: { value: GoodForId; label: string }[] = [
-  { value: 'budget', label: 'Budget' },
-  { value: 'family', label: 'Family-friendly' },
+const GOOD_FOR_OPTIONS: { value: GoodForId; label: string }[] = [
+  { value: 'family', label: 'Families' },
+  { value: 'couples', label: 'Couples' },
+  { value: 'solo', label: 'Solo travellers' },
+  { value: 'groups', label: 'Groups' },
+  { value: 'work', label: 'Work / remote' },
   { value: 'coast', label: 'On the coast' },
+  { value: 'nature', label: 'Nature / safari' },
+  { value: 'walkable', label: 'Walkable / city' },
   { value: 'verified', label: 'Verified hosts' },
 ]
 
-const PRICE_BUCKETS_BASE: { value: string; min: string; max: string }[] = [
-  { value: 'lt500', min: '', max: '500' },
-  { value: '500-1000', min: '500', max: '1000' },
-  { value: '1000-2000', min: '1000', max: '2000' },
-  { value: 'gt2000', min: '2000', max: '' },
-]
+const GOOD_FOR_LABELS: Record<GoodForId, string> = Object.fromEntries(
+  GOOD_FOR_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<GoodForId, string>
 
 const PROPERTY_TYPES: { value: string; label: string }[] = [
   { value: 'hotel', label: 'Hotel' },
@@ -92,19 +118,6 @@ const PROPERTY_LABELS: Record<string, string> = Object.fromEntries(
   PROPERTY_TYPES.map((p) => [p.value, p.label]),
 )
 
-const TOP_AREAS = [
-  'Windhoek',
-  'Swakopmund',
-  'Walvis Bay',
-  'Etosha',
-  'Sossusvlei',
-  'Lüderitz',
-  'Ongwediva',
-] as const
-
-/** Cities map to `city=`; destinations without a city use `search=`. */
-const CITY_AREAS = new Set(['Windhoek', 'Swakopmund', 'Walvis Bay', 'Lüderitz', 'Ongwediva'])
-
 const COLLECTIONS_BASE: { id: string; label: string; amenity?: AmenityId; need?: 'budget' | 'family' | 'coast' }[] = [
   { id: 'pool-picks', label: 'Pool picks', amenity: 'pool' },
   { id: 'pet-friendly', label: 'Pet friendly', amenity: 'pets' },
@@ -116,7 +129,13 @@ const BUDGET_MAX_PRICE = 800
 const FAMILY_GUESTS = 4
 const DISCOVERY_MIN_STAYS = 6
 const FALLBACK_STAY_PHOTO = '/images/default-journey.jpg'
-const COAST_KEYWORDS = ['erongo', 'swakop', 'walvis', 'coast', 'lüderitz', 'luderitz']
+const COAST_KEYWORDS = ['erongo', 'swakop', 'walvis', 'coast', 'lüderitz', 'luderitz', 'beach', 'seaside']
+const NATURE_KEYWORDS = ['safari', 'etosha', 'desert', 'nature', 'wildlife', 'bush', 'lodge', 'dune', 'canyon']
+const WALKABLE_KEYWORDS = ['walkable', 'city', 'cbd', 'downtown', 'centre', 'center', 'promenade', 'harbour']
+const WORK_KEYWORDS = ['work', 'remote', 'wifi', 'workspace', 'laptop', 'desk']
+const COUPLE_KEYWORDS = ['couple', 'romantic', 'honeymoon', 'intimate']
+const SOLO_KEYWORDS = ['solo', 'single', 'backpack']
+const GROUP_KEYWORDS = ['group', 'party', 'friends', 'team']
 
 function onStayImgError(e: React.SyntheticEvent<HTMLImageElement>) {
   const img = e.currentTarget
@@ -138,9 +157,49 @@ function nightlyPrice(a: AccListing): number {
   return Number.isFinite(n) ? n : Infinity
 }
 
+function stayHaystack(a: AccListing): string {
+  return [
+    a.region,
+    a.city ?? '',
+    a.title,
+    a.description ?? '',
+    a.property_type ?? '',
+    ...(a.niche_tags ?? []),
+    ...(a.amenities ?? []),
+  ]
+    .join(' ')
+    .toLowerCase()
+}
+
 function stayMatchesCoast(a: AccListing): boolean {
-  const hay = `${a.region} ${a.city ?? ''} ${a.title} ${a.description ?? ''}`.toLowerCase()
-  return COAST_KEYWORDS.some((k) => hay.includes(k))
+  return COAST_KEYWORDS.some((k) => stayHaystack(a).includes(k))
+}
+
+function stayMatchesGoodFor(a: AccListing, id: GoodForId): boolean {
+  const hay = stayHaystack(a)
+  const guests = a.max_guests ?? 0
+  switch (id) {
+    case 'family':
+      return guests >= FAMILY_GUESTS || hay.includes('family') || Boolean(a.kitchen)
+    case 'couples':
+      return COUPLE_KEYWORDS.some((k) => hay.includes(k)) || (guests > 0 && guests <= 2)
+    case 'solo':
+      return SOLO_KEYWORDS.some((k) => hay.includes(k)) || (guests > 0 && guests <= 2)
+    case 'groups':
+      return GROUP_KEYWORDS.some((k) => hay.includes(k)) || guests >= 6
+    case 'work':
+      return Boolean(a.wifi) || WORK_KEYWORDS.some((k) => hay.includes(k))
+    case 'coast':
+      return stayMatchesCoast(a)
+    case 'nature':
+      return NATURE_KEYWORDS.some((k) => hay.includes(k))
+    case 'walkable':
+      return WALKABLE_KEYWORDS.some((k) => hay.includes(k))
+    case 'verified':
+      return Boolean(a.owner_verified)
+    default:
+      return true
+  }
 }
 
 function sortStays(
@@ -192,7 +251,7 @@ export function AccommodationList() {
   const { profile } = useAuth()
   const gate = useAccountActionGate()
   const { country, region: exploreRegion, label: exploreLabel, exploring } = useExploreDestination()
-  const { point: nearPoint } = useExploreNearPoint()
+  const { point: nearPoint, clear: clearNearPoint } = useExploreNearPoint()
   const { currency, format, threshold } = useDisplayMoney()
   const { boost } = useForYou()
   const staysAffinity = boost('stays')
@@ -200,39 +259,6 @@ export function AccommodationList() {
   const queryClient = useQueryClient()
   const saveMut = useToggleStaySave()
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
-
-  const goodForOptions = useMemo(
-    () =>
-      GOOD_FOR_OPTIONS_BASE.map((o) =>
-        o.value === 'budget'
-          ? { ...o, label: `Budget (${threshold(BUDGET_MAX_PRICE, 'under').toLowerCase()})` }
-          : o,
-      ),
-    [threshold],
-  )
-
-  const priceBuckets = useMemo(
-    () =>
-      PRICE_BUCKETS_BASE.map((b) => {
-        if (b.value === 'lt500') {
-          return { ...b, label: threshold(500, 'under') }
-        }
-        if (b.value === '500-1000') {
-          return {
-            ...b,
-            label: `${formatDisplayMoney(500, currency)} – ${formatDisplayMoney(1000, currency).replace(/^[^\d]+/, '')}`,
-          }
-        }
-        if (b.value === '1000-2000') {
-          return {
-            ...b,
-            label: `${formatDisplayMoney(1000, currency)} – ${formatDisplayMoney(2000, currency).replace(/^[^\d]+/, '')}`,
-          }
-        }
-        return { ...b, label: `${formatDisplayMoney(2000, currency)}+` }
-      }),
-    [currency, threshold],
-  )
 
   const collections = useMemo(
     () =>
@@ -242,29 +268,20 @@ export function AccommodationList() {
     [threshold],
   )
 
-  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [area, setArea] = useState('')
   const [guests, setGuests] = useState('')
   const [sort, setSort] = useState<SortId>('recommended')
   const [amenities, setAmenities] = useState<Set<AmenityId>>(new Set())
-  const [budgetOnly, setBudgetOnly] = useState(false)
-  const [familyOnly, setFamilyOnly] = useState(false)
-  const [coastOnly, setCoastOnly] = useState(false)
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
+  const [goodFor, setGoodFor] = useState<Set<GoodForId>>(new Set())
   const [propType, setPropType] = useState('')
   const [minBedrooms, setMinBedrooms] = useState('')
   const [minRating, setMinRating] = useState('')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
-  const [priceBucket, setPriceBucket] = useState('')
+  const [dealsOnly, setDealsOnly] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
-    return () => window.clearTimeout(t)
-  }, [searchInput])
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
     if (nearPoint) setSort('distance')
@@ -278,32 +295,21 @@ export function AccommodationList() {
   }, [shareMsg])
 
   const effectiveGuests = useMemo(() => {
-    if (familyOnly) return String(Math.max(FAMILY_GUESTS, Number(guests) || 0 || FAMILY_GUESTS))
-    return guests
-  }, [familyOnly, guests])
-
-  const effectiveMaxPrice = useMemo(() => {
-    if (budgetOnly) {
-      const n = Number(maxPrice)
-      if (maxPrice && Number.isFinite(n)) return String(Math.min(n, BUDGET_MAX_PRICE))
-      return String(BUDGET_MAX_PRICE)
+    if (goodFor.has('family')) {
+      return String(Math.max(FAMILY_GUESTS, Number(guests) || 0 || FAMILY_GUESTS))
     }
-    return maxPrice
-  }, [budgetOnly, maxPrice])
+    return guests
+  }, [goodFor, guests])
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
     if (search) p.set('search', search)
-    if (area) {
-      if (CITY_AREAS.has(area)) p.set('city', area)
-      else p.set('search', search ? `${search} ${area}` : area)
-    }
     if (exploring && exploreRegion) p.set('region', exploreRegion)
     if (exploring && country) p.set('country_code', country)
     if (effectiveGuests) p.set('guests', effectiveGuests)
     if (propType) p.set('property_type', propType)
     if (minPrice) p.set('min_price', minPrice)
-    if (effectiveMaxPrice) p.set('max_price', effectiveMaxPrice)
+    if (maxPrice) p.set('max_price', maxPrice)
     if (minBedrooms) p.set('min_bedrooms', minBedrooms)
     if (minRating) p.set('min_rating', minRating)
     if (amenities.has('pool')) p.set('pool', 'true')
@@ -319,14 +325,13 @@ export function AccommodationList() {
     return s ? `?${s}` : ''
   }, [
     search,
-    area,
     exploreRegion,
     exploring,
     country,
     effectiveGuests,
     propType,
     minPrice,
-    effectiveMaxPrice,
+    maxPrice,
     minBedrooms,
     minRating,
     amenities,
@@ -363,14 +368,10 @@ export function AccommodationList() {
 
   const listings = useMemo(() => {
     if (savedOnly) {
-      return sortStays(
-        [...(savedQuery.data ?? [])],
-        sort,
-        staysAffinity,
-        nearPoint,
-        itemBoost,
-        exploring,
-      )
+      let saved = [...(savedQuery.data ?? [])]
+      if (nearPoint) saved = saved.filter((row) => listingMatchesAreaPoint(row, nearPoint))
+      if (dealsOnly) saved = saved.filter((row) => listingHasActiveDeals(row.deals))
+      return sortStays(saved, sort, staysAffinity, nearPoint, itemBoost, exploring)
     }
     let list = [...(data ?? [])]
     if (exploring) {
@@ -378,15 +379,18 @@ export function AccommodationList() {
         list = list.filter((row) => listingMatchesExplore(row, country, ''))
       }
     }
-    if (coastOnly) list = list.filter(stayMatchesCoast)
-    if (verifiedOnly) list = list.filter((s) => Boolean(s.owner_verified))
+    if (nearPoint) list = list.filter((row) => listingMatchesAreaPoint(row, nearPoint))
+    if (goodFor.size > 0) {
+      list = list.filter((row) => [...goodFor].every((id) => stayMatchesGoodFor(row, id)))
+    }
+    if (dealsOnly) list = list.filter((row) => listingHasActiveDeals(row.deals))
     return sortStays(list, sort, staysAffinity, nearPoint, itemBoost, exploring)
   }, [
     savedOnly,
     savedQuery.data,
     data,
-    coastOnly,
-    verifiedOnly,
+    goodFor,
+    dealsOnly,
     sort,
     country,
     exploreRegion,
@@ -403,7 +407,7 @@ export function AccommodationList() {
 
   const hasFilters = Boolean(
     search ||
-      area ||
+      nearPoint ||
       guests ||
       propType ||
       minPrice ||
@@ -411,10 +415,8 @@ export function AccommodationList() {
       minBedrooms ||
       minRating ||
       amenities.size ||
-      budgetOnly ||
-      familyOnly ||
-      coastOnly ||
-      verifiedOnly,
+      goodFor.size ||
+      dealsOnly,
   )
 
   const showDiscovery =
@@ -422,22 +424,31 @@ export function AccommodationList() {
   const showFeaturedRail = showDiscovery && featured.length > 0
 
   const clearAll = () => {
-    setSearchInput('')
     setSearch('')
-    setArea('')
+    clearNearPoint()
     setGuests('')
     setSort('recommended')
     setAmenities(new Set())
-    setBudgetOnly(false)
-    setFamilyOnly(false)
-    setCoastOnly(false)
-    setVerifiedOnly(false)
+    setGoodFor(new Set())
     setPropType('')
     setMinBedrooms('')
     setMinRating('')
     setMinPrice('')
     setMaxPrice('')
-    setPriceBucket('')
+    setDealsOnly(false)
+  }
+
+  const clearSheetFilters = () => {
+    setGuests('')
+    setAmenities(new Set())
+    setGoodFor(new Set())
+    setPropType('')
+    setMinBedrooms('')
+    setMinRating('')
+    setMinPrice('')
+    setMaxPrice('')
+    setDealsOnly(false)
+    setFiltersOpen(false)
   }
 
   const toggleAmenity = (id: AmenityId) => {
@@ -449,43 +460,45 @@ export function AccommodationList() {
     })
   }
 
-  /** Single-select amenity dropdown value (empty when 0 or many selected). */
-  const amenityValue = amenities.size === 1 ? [...amenities][0] : ''
-  const goodForValue: GoodForId | '' = budgetOnly
-    ? 'budget'
-    : familyOnly
-      ? 'family'
-      : coastOnly
-        ? 'coast'
-        : verifiedOnly
-          ? 'verified'
-          : ''
-
-  const onAmenityChange = (value: string) => {
-    setAmenities(value ? new Set([value as AmenityId]) : new Set())
+  const toggleGoodFor = (id: GoodForId) => {
+    setGoodFor((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
-  const onGoodForChange = (value: string) => {
-    setBudgetOnly(value === 'budget')
-    setFamilyOnly(value === 'family')
-    setCoastOnly(value === 'coast')
-    setVerifiedOnly(value === 'verified')
+  const pickGuests = (value: string) => {
+    setGuests((prev) => (prev === value ? '' : value))
   }
 
-  const onPriceBucketChange = (value: string) => {
-    setPriceBucket(value)
-    const bucket = priceBuckets.find((b) => b.value === value)
-    setMinPrice(bucket?.min ?? '')
-    setMaxPrice(bucket?.max ?? '')
+  const pickBedrooms = (value: string) => {
+    setMinBedrooms((prev) => (prev === value ? '' : value))
   }
+
+  const sheetFilterCount = [
+    Boolean(propType),
+    amenities.size > 0,
+    goodFor.size > 0,
+    Boolean(guests),
+    Boolean(minBedrooms),
+    Boolean(minPrice || maxPrice),
+    Boolean(minRating),
+    dealsOnly,
+  ].filter(Boolean).length
 
   const applyCollection = (c: (typeof collections)[number]) => {
     if (c.amenity) {
       setAmenities((prev) => new Set(prev).add(c.amenity!))
     }
-    if (c.need === 'budget') setBudgetOnly(true)
-    if (c.need === 'family') setFamilyOnly(true)
-    if (c.need === 'coast') setCoastOnly(true)
+    if (c.need === 'budget') setMaxPrice(String(BUDGET_MAX_PRICE))
+    if (c.need === 'family') {
+      setGoodFor((prev) => new Set(prev).add('family'))
+    }
+    if (c.need === 'coast') {
+      setGoodFor((prev) => new Set(prev).add('coast'))
+    }
   }
 
   const likeMut = useMutation({
@@ -548,136 +561,26 @@ export function AccommodationList() {
         </div>
 
         <div className="st-market__find">
-          <label className="st-market__search">
-            <Search size={18} strokeWidth={2.25} aria-hidden />
-            <input
-              id="acc-search"
-              type="search"
-              placeholder="City, lodge, hotel…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              aria-label="Search stays"
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                className="st-market__search-clear"
-                onClick={() => setSearchInput('')}
-                aria-label="Clear search"
-              >
-                <X size={14} strokeWidth={2.5} aria-hidden />
-              </button>
-            ) : null}
-          </label>
+          <MarketSearchBar
+            id="acc-search"
+            classPrefix="st-market"
+            placeholder="City, lodge, hotel…"
+            ariaLabel="Search stays or a location"
+            keyword={search}
+            onKeywordChange={setSearch}
+            onLocationSet={() => setSort('distance')}
+            onLocationCleared={() => setSort('recommended')}
+          />
 
           <div className="st-market__find-row">
-            <select
-              className="st-market__select"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              aria-label="Area"
+            <button
+              type="button"
+              className={`st-market__more${sheetFilterCount > 0 ? ' is-active' : ''}`}
+              onClick={() => setFiltersOpen(true)}
             >
-              <option value="">All areas</option>
-              {TOP_AREAS.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="st-market__select"
-              value={propType}
-              onChange={(e) => setPropType(e.target.value)}
-              aria-label="Property type"
-            >
-              <option value="">Any type</option>
-              {PROPERTY_TYPES.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="st-market__select"
-              value={amenityValue}
-              onChange={(e) => onAmenityChange(e.target.value)}
-              aria-label="Amenity"
-            >
-              <option value="">Any amenity</option>
-              {AMENITY_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="st-market__select"
-              value={goodForValue}
-              onChange={(e) => onGoodForChange(e.target.value)}
-              aria-label="Good for"
-            >
-              <option value="">Good for…</option>
-              {goodForOptions.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="st-market__select"
-              value={guests}
-              onChange={(e) => setGuests(e.target.value)}
-              aria-label="Guests"
-            >
-              <option value="">Any guests</option>
-              {[1, 2, 3, 4, 5, 6, 8].map((n) => (
-                <option key={n} value={String(n)}>
-                  {n}+ guests
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="st-market__select"
-              value={minBedrooms}
-              onChange={(e) => setMinBedrooms(e.target.value)}
-              aria-label="Bedrooms"
-            >
-              <option value="">Any beds</option>
-              <option value="1">1+ beds</option>
-              <option value="2">2+ beds</option>
-              <option value="3">3+ beds</option>
-            </select>
-
-            <select
-              className="st-market__select"
-              value={priceBucket}
-              onChange={(e) => onPriceBucketChange(e.target.value)}
-              aria-label="Price per night"
-            >
-              <option value="">Any price</option>
-              {priceBuckets.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="st-market__select"
-              value={minRating}
-              onChange={(e) => setMinRating(e.target.value)}
-              aria-label="Minimum rating"
-            >
-              <option value="">Any rating</option>
-              <option value="4">4+ stars</option>
-              <option value="4.5">4.5+ stars</option>
-              <option value="5">5 stars</option>
-            </select>
+              <SlidersHorizontal size={14} strokeWidth={2.25} aria-hidden />
+              Filters{sheetFilterCount > 0 ? ` (${sheetFilterCount})` : ''}
+            </button>
 
             <select
               className="st-market__sort"
@@ -696,7 +599,12 @@ export function AccommodationList() {
           </div>
         </div>
 
-        {exploring ? <ExploreNearPointControl onPointSet={() => setSort('distance')} /> : null}
+        <AreaPlacesFilter
+          variant="panel"
+          showSearch={false}
+          onPointSet={() => setSort('distance')}
+          onCleared={() => setSort('recommended')}
+        />
       </header>
 
       {hasFilters ? (
@@ -705,17 +613,22 @@ export function AccommodationList() {
             <button
               type="button"
               className="st-market__active-pill"
-              onClick={() => {
-                setSearch('')
-                setSearchInput('')
-              }}
+              onClick={() => setSearch('')}
             >
               “{search}” <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
-          {area ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setArea('')}>
-              {area} <X size={13} strokeWidth={2.5} aria-hidden />
+          {nearPoint ? (
+            <button
+              type="button"
+              className="st-market__active-pill"
+              onClick={() => {
+                clearNearPoint()
+                setSort('recommended')
+              }}
+            >
+              {nearPoint.kind === 'country' ? 'In' : 'Near'} {nearPoint.label}{' '}
+              <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           {guests ? (
@@ -739,26 +652,16 @@ export function AccommodationList() {
               <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ))}
-          {budgetOnly ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setBudgetOnly(false)}>
-              {threshold(BUDGET_MAX_PRICE, 'under')} <X size={13} strokeWidth={2.5} aria-hidden />
+          {[...goodFor].map((id) => (
+            <button
+              key={id}
+              type="button"
+              className="st-market__active-pill"
+              onClick={() => toggleGoodFor(id)}
+            >
+              {GOOD_FOR_LABELS[id]} <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
-          ) : null}
-          {familyOnly ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setFamilyOnly(false)}>
-              Family <X size={13} strokeWidth={2.5} aria-hidden />
-            </button>
-          ) : null}
-          {coastOnly ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setCoastOnly(false)}>
-              Coast <X size={13} strokeWidth={2.5} aria-hidden />
-            </button>
-          ) : null}
-          {verifiedOnly ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setVerifiedOnly(false)}>
-              Verified hosts <X size={13} strokeWidth={2.5} aria-hidden />
-            </button>
-          ) : null}
+          ))}
           {minBedrooms ? (
             <button type="button" className="st-market__active-pill" onClick={() => setMinBedrooms('')}>
               {minBedrooms}+ beds <X size={13} strokeWidth={2.5} aria-hidden />
@@ -769,14 +672,26 @@ export function AccommodationList() {
               {minRating}+ stars <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
-          {priceBucket ? (
+          {minPrice || maxPrice ? (
             <button
               type="button"
               className="st-market__active-pill"
-              onClick={() => onPriceBucketChange('')}
+              onClick={() => {
+                setMinPrice('')
+                setMaxPrice('')
+              }}
             >
-              {priceBuckets.find((b) => b.value === priceBucket)?.label ?? 'Price'}{' '}
+              {minPrice && maxPrice
+                ? `${format(minPrice)} – ${format(maxPrice)}`
+                : minPrice
+                  ? `From ${format(minPrice)}`
+                  : `Up to ${format(maxPrice)}`}{' '}
               <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {dealsOnly ? (
+            <button type="button" className="st-market__active-pill" onClick={() => setDealsOnly(false)}>
+              Deals <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           <button type="button" className="st-market__clear" onClick={clearAll}>
@@ -800,42 +715,27 @@ export function AccommodationList() {
       {showDiscovery ? <HostStoriesRow /> : null}
 
       <div className="st-market__results-bar">
-        <p className="st-market__count" role="status">
-          {activeLoading ? (
-            savedOnly ? 'Loading saved stays…' : 'Loading stays…'
-          ) : activeError ? (
-            'Couldn’t load stays'
-          ) : (
-            <>
-              <strong>{listings.length}</strong> {listings.length === 1 ? 'stay' : 'stays'}
-              {savedOnly ? ' saved' : hasFilters ? ' match' : ' to explore'}
-              {nearPoint && sort === 'distance' ? ` · nearest to ${nearPoint.label}` : ''}
-            </>
-          )}
-        </p>
         <div className="st-market__results-acts">
-          {nearPoint ? (
-            <div className="st-market__view-toggle" role="group" aria-label="Results view">
-              <button
-                type="button"
-                className={viewMode === 'list' ? 'is-active' : undefined}
-                aria-pressed={viewMode === 'list'}
-                onClick={() => setViewMode('list')}
-              >
-                <List size={14} strokeWidth={2.25} aria-hidden />
-                List
-              </button>
-              <button
-                type="button"
-                className={viewMode === 'map' ? 'is-active' : undefined}
-                aria-pressed={viewMode === 'map'}
-                onClick={() => setViewMode('map')}
-              >
-                <MapIcon size={14} strokeWidth={2.25} aria-hidden />
-                Map
-              </button>
-            </div>
-          ) : null}
+          <div className="st-market__view-toggle" role="group" aria-label="Results view">
+            <button
+              type="button"
+              className={viewMode === 'list' ? 'is-active' : undefined}
+              aria-pressed={viewMode === 'list'}
+              onClick={() => setViewMode('list')}
+            >
+              <List size={14} strokeWidth={2.25} aria-hidden />
+              List
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'map' ? 'is-active' : undefined}
+              aria-pressed={viewMode === 'map'}
+              onClick={() => setViewMode('map')}
+            >
+              <MapIcon size={14} strokeWidth={2.25} aria-hidden />
+              Map
+            </button>
+          </div>
           <button
             type="button"
             className={`st-market__saved-toggle${savedOnly ? ' is-active' : ''}`}
@@ -859,7 +759,7 @@ export function AccommodationList() {
         </div>
       </div>
 
-      {nearPoint && viewMode === 'map' && !activeLoading && !activeError ? (
+      {viewMode === 'map' && !activeLoading && !activeError ? (
         <ExploreResultsMap
           origin={nearPoint}
           items={listings.map((a) => ({
@@ -981,8 +881,8 @@ export function AccommodationList() {
             savedOnly
               ? 'Tap the bookmark on any stay to save it here for later.'
               : hasFilters
-                ? budgetOnly
-                  ? `No stays ${threshold(BUDGET_MAX_PRICE, 'under').toLowerCase()}/night — try another area or clear filters.`
+                ? maxPrice
+                  ? `No stays up to ${format(maxPrice)}/night — try another budget or clear filters.`
                   : 'Try another area, need, or clear filters to see more places.'
                 : 'Hotels, lodges, and guest houses will appear here once hosts add listings.'
           }
@@ -997,6 +897,199 @@ export function AccommodationList() {
         />
       ) : null}
 
+      <CommunityComposeModalShell
+        open={filtersOpen}
+        title="Filters"
+        titleId="st-filter-modal-title"
+        onClose={() => setFiltersOpen(false)}
+      >
+        <p className="cm-compose-modal__note">Narrow stays by type, amenities, guests, and price.</p>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Stay details</span>
+          <div className="mk-filter-modal__row">
+            <label className="mk-filter-modal__field">
+              <span>Property type</span>
+              <select
+                className="cm-compose-modal__select"
+                value={propType}
+                onChange={(e) => setPropType(e.target.value)}
+              >
+                <option value="">Any type</option>
+                {PROPERTY_TYPES.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mk-filter-modal__field">
+              <span>Minimum rating</span>
+              <select
+                className="cm-compose-modal__select"
+                value={minRating}
+                onChange={(e) => setMinRating(e.target.value)}
+              >
+                <option value="">Any rating</option>
+                <option value="4">4+ stars</option>
+                <option value="4.5">4.5+ stars</option>
+                <option value="5">5 stars</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Good for</span>
+          <div className="mk-filter-modal__checks" role="group" aria-label="Good for">
+            {GOOD_FOR_OPTIONS.map(({ value, label }) => {
+              const checked = goodFor.has(value)
+              return (
+                <label
+                  key={value}
+                  className={`mk-filter-modal__check${checked ? ' is-checked' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleGoodFor(value)}
+                  />
+                  <span>{label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Guests</span>
+          <div className="mk-filter-modal__chips" role="group" aria-label="Guests">
+            {[1, 2, 3, 4, 5, 6, 8].map((n) => {
+              const value = String(n)
+              const active = guests === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={`mk-filter-modal__chip${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => pickGuests(value)}
+                >
+                  {n}+
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Beds</span>
+          <div className="mk-filter-modal__chips" role="group" aria-label="Beds">
+            {[
+              { value: '1', label: '1+' },
+              { value: '2', label: '2+' },
+              { value: '3', label: '3+' },
+            ].map(({ value, label }) => {
+              const active = minBedrooms === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={`mk-filter-modal__chip${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => pickBedrooms(value)}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Budget / night ({currency})</span>
+          <div className="mk-filter-modal__row">
+            <label className="mk-filter-modal__field">
+              <span>From</span>
+              <input
+                className="mk-filter-modal__input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                placeholder="No min"
+              />
+            </label>
+            <label className="mk-filter-modal__field">
+              <span>Up to</span>
+              <input
+                className="mk-filter-modal__input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                placeholder="No max"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Deals</span>
+          <div className="mk-filter-modal__checks" role="group" aria-label="Deals">
+            <label className={`mk-filter-modal__check${dealsOnly ? ' is-checked' : ''}`}>
+              <input
+                type="checkbox"
+                checked={dealsOnly}
+                onChange={() => setDealsOnly((v) => !v)}
+              />
+              <span>Only stays with deals / open rates</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Amenities</span>
+          <p className="cm-compose-modal__note" style={{ margin: 0 }}>
+            Pick as many as you need — stays must match all selected.
+          </p>
+          <div className="mk-filter-modal__checks" role="group" aria-label="Amenities">
+            {AMENITY_OPTIONS.map(({ value, label }) => {
+              const checked = amenities.has(value)
+              return (
+                <label
+                  key={value}
+                  className={`mk-filter-modal__check${checked ? ' is-checked' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleAmenity(value)}
+                  />
+                  <span>{label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="mk-filter-modal__actions">
+          <button
+            type="button"
+            className="cm-compose-modal__submit mk-filter-modal__apply"
+            onClick={() => setFiltersOpen(false)}
+          >
+            Show results
+          </button>
+          {sheetFilterCount > 0 ? (
+            <button type="button" className="mk-filter-modal__clear" onClick={clearSheetFilters}>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+      </CommunityComposeModalShell>
     </div>
   )
 }

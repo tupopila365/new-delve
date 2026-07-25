@@ -32,7 +32,7 @@ import '../components/provider/onboarding/provider-onboarding.css'
 const NAV: { to: string; label: string; id: ManageNavId; end?: boolean }[] = [
   { to: '/provider', label: 'Overview', id: 'overview', end: true },
   { to: '/provider/listings', label: 'Listings', id: 'listings' },
-  { to: '/provider/promotions', label: 'Promotions', id: 'promotions' },
+  { to: '/provider/promotions', label: 'Boost', id: 'promotions' },
   { to: '/provider/bookings', label: 'Bookings', id: 'bookings' },
   { to: '/provider/questions', label: 'Questions', id: 'questions' },
   { to: '/provider/messages', label: 'Messages', id: 'messages' },

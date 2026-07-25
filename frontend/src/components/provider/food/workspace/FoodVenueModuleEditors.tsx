@@ -94,7 +94,7 @@ export function FoodVenueLocationModule({ values, onChange }: Props) {
     <div className="fv-module">
       <header className="fv-module__head">
         <h3>Location</h3>
-        <p>Search on the map or drop a pin — saves independently from other sections.</p>
+        <p>Pick your place on Google Maps — city, region, and pin fill in automatically.</p>
       </header>
       <VenueLocationPicker
         value={{

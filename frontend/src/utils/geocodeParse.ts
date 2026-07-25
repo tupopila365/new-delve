@@ -24,6 +24,7 @@ export function parseGoogleAddressComponents(components: AddressComponent[]): Pa
     if (types.includes('route')) route = component.long_name
     if (types.includes('locality')) city = component.long_name
     else if (!city && types.includes('postal_town')) city = component.long_name
+    else if (!city && types.includes('sublocality_level_1')) city = component.long_name
     else if (!city && types.includes('administrative_area_level_2')) city = component.long_name
     if (types.includes('administrative_area_level_1')) region = component.long_name
   }

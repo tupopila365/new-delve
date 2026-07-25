@@ -6,6 +6,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.permissions import IsEmailVerified
 
 from .models import ActivityListing, ActivitySave
@@ -38,9 +39,11 @@ class ActivityListingFilter(django_filters.FilterSet):
         return queryset.filter(Q(region__icontains=value) | Q(region=""))
 
 
-class ActivityListingViewSet(viewsets.ReadOnlyModelViewSet):
+class ActivityListingViewSet(ListingDealsContextMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = ActivityListingSerializer
     filterset_class = ActivityListingFilter
+    deal_category = "activities"
+    deal_scope = "owner"
     search_fields = (
         "title",
         "description",

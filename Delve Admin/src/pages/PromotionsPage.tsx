@@ -202,7 +202,10 @@ export function PromotionsPage() {
   if (isLoading) {
     return (
       <div className="da-page">
-        <DelveAdminPageHeader title="Featured partners" subtitle="Spotlight campaigns across homepage rails and list heroes." />
+        <DelveAdminPageHeader
+          title="Boosts & featured"
+          subtitle="Review host boost requests and manage featured placements."
+        />
         <DelveAdminLoading count={5} />
       </div>
     )
@@ -211,7 +214,10 @@ export function PromotionsPage() {
   if (isError) {
     return (
       <div className="da-page">
-        <DelveAdminPageHeader title="Featured partners" subtitle="Spotlight campaigns across homepage rails and list heroes." />
+        <DelveAdminPageHeader
+          title="Boosts & featured"
+          subtitle="Review host boost requests and manage featured placements."
+        />
         <DelveAdminError message="Could not load promotions." onRetry={() => void refetch()} />
       </div>
     )
@@ -220,15 +226,15 @@ export function PromotionsPage() {
   return (
     <div className="da-page">
       <DelveAdminPageHeader
-        title="Featured partners"
-        subtitle={`${campaigns.length} campaigns · ${liveCount} live now`}
+        title="Boosts & featured"
+        subtitle={`${requestQueue.length} awaiting review · ${liveCount} live · ${campaigns.length} total`}
         action={
           <>
             <Link to="/admin/home-pins" className="da-btn da-btn--ghost">
               Home pins
             </Link>
             <Link to="/admin/promotions/analytics" className="da-btn da-btn--ghost">
-              Promotion analytics
+              Boost analytics
             </Link>
           </>
         }
@@ -240,18 +246,18 @@ export function PromotionsPage() {
         </p>
       ) : null}
 
-      {requestQueue.length ? (
-        <DelveAdminPanel title={`Provider requests (${requestQueue.length})`}>
-          <p className="da-panel__hint">
-            Providers submit these after arranging offline payment. Approve when payment is confirmed, or reject with a
-            reason.
-          </p>
+      <DelveAdminPanel title={requestQueue.length ? `Host boost requests (${requestQueue.length})` : 'Host boost requests'}>
+        <p className="da-panel__hint">
+          Hosts send these from <strong>Boost on Delve</strong> → Request admin review (offline payment / partner deals).
+          Approve when payment or partnership is confirmed, or reject with a reason the host will see.
+        </p>
+        {requestQueue.length ? (
           <div className="da-stack">
             {requestQueue.map((item) => (
               <DelveAdminDataRow
                 key={item.id}
                 primary={item.target_label || `${item.target_type} #${item.target_id}`}
-                secondary={`${item.placement_label}${item.region ? ` · ${item.region}` : ' · National'} · ${new Date(item.starts_at).toLocaleDateString()} → ${new Date(item.ends_at).toLocaleDateString()}${item.requested_by_username ? ` · @${item.requested_by_username}` : ''}${item.provider_notes ? ` · “${item.provider_notes}”` : ''}`}
+                secondary={`${item.placement_label}${item.region ? ` · ${item.region}` : ' · National'} · ${new Date(item.starts_at).toLocaleDateString()} → ${new Date(item.ends_at).toLocaleDateString()}${item.requested_by_username ? ` · @${item.requested_by_username}` : ''}${item.provider_notes ? ` · “${item.provider_notes}”` : ''}${item.target_type === 'post' ? ' · Delvers post' : item.target_type === 'accommodation' ? ' · Stay' : ''}`}
                 badge={<DelveAdminStatusBadge status={item.status_label} variant="info" />}
                 actions={
                   <>
@@ -261,7 +267,7 @@ export function PromotionsPage() {
                       disabled={approveMut.isPending}
                       onClick={() => approveMut.mutate(item.id)}
                     >
-                      Approve
+                      Approve boost
                     </button>
                     <button
                       type="button"
@@ -279,8 +285,13 @@ export function PromotionsPage() {
               />
             ))}
           </div>
-        </DelveAdminPanel>
-      ) : null}
+        ) : (
+          <DelveAdminEmpty
+            title="Queue clear"
+            message="No boost requests waiting — paid packages go live without this queue."
+          />
+        )}
+      </DelveAdminPanel>
 
       {rejectId ? (
         <DelveAdminPanel title="Reject promotion request">
@@ -315,10 +326,10 @@ export function PromotionsPage() {
         </DelveAdminPanel>
       ) : null}
 
-      <DelveAdminPanel title="Create campaign">
+      <DelveAdminPanel title="Create complimentary spotlight">
         <p className="da-panel__hint">
-          Homepage rails show up to 2 partner slots first; category list heroes show 1. Leave region blank for national
-          reach. No payment gate in v1 — complimentary growth spotlights.
+          Admin-created campaigns for growth partners (no host checkout). Homepage rails show up to 2 partner slots;
+          category list heroes show 1. Leave region blank for national reach.
         </p>
         <form
           className="da-settings-form"

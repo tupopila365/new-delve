@@ -59,6 +59,7 @@ export function Settings() {
 
   // ── Preference fields ───────────────────────────────────────
   const [countryCode, setCountryCode] = useState('')
+  const [birthYear, setBirthYear] = useState('')
   const [preferredCurrency, setPreferredCurrency] = useState('')
 
   // ── UI state ────────────────────────────────────────────────
@@ -102,6 +103,7 @@ export function Settings() {
     setShowInSearch(profile.show_in_search ?? true)
     setNoFaceMode(profile.no_face_mode ?? false)
     setCountryCode(profile.country_code ?? '')
+    setBirthYear(profile.birth_year != null ? String(profile.birth_year) : '')
     setPreferredCurrency(profile.preferred_currency ?? '')
   }, [profile])
 
@@ -191,11 +193,21 @@ export function Settings() {
         })
       } else if (tab === 'preferences') {
         const nextCountry = countryCode.trim().toUpperCase() || ''
+        const yearRaw = birthYear.trim()
+        const nextBirthYear = yearRaw ? Number(yearRaw) : null
+        if (yearRaw) {
+          const maxYear = new Date().getFullYear() - 18
+          if (!Number.isFinite(nextBirthYear) || nextBirthYear! < 1900 || nextBirthYear! > maxYear) {
+            setError('Birth year must show you are at least 18.')
+            return
+          }
+        }
         await apiFetch('/api/accounts/me/update/', {
           method: 'PATCH',
           body: JSON.stringify({
             country_code: nextCountry,
             preferred_currency: preferredCurrency.trim().toUpperCase() || '',
+            birth_year: nextBirthYear,
           }),
           headers: { 'Content-Type': 'application/json' },
         })
@@ -516,7 +528,26 @@ export function Settings() {
                 ))}
               </select>
               <p className="sp__field-hint">
-                Changing home country does not switch Explore destination.
+                Changing home country does not switch Explore destination. Country also helps check
+                SADC / local travel deals.
+              </p>
+            </div>
+
+            <div className="sp__field">
+              <label className="sp__label" htmlFor="sp-birth-year">Birth year</label>
+              <input
+                id="sp-birth-year"
+                className="input"
+                type="number"
+                inputMode="numeric"
+                min={1900}
+                max={new Date().getFullYear() - 18}
+                placeholder="e.g. 1998"
+                value={birthYear}
+                onChange={(e) => setBirthYear(e.target.value)}
+              />
+              <p className="sp__field-hint">
+                Required at signup (18+). Used to soft-match age-gated deals. Never shown publicly.
               </p>
             </div>
 

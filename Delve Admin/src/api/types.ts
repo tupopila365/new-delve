@@ -35,6 +35,9 @@ export type AdminBusiness = {
   document_count?: number
   description?: string
   tagline?: string
+  active_offers_count?: number
+  open_rate_offers_count?: number
+  has_open_rate?: boolean
   /** Present on PATCH verification responses — provider was emailed. */
   email_sent?: boolean
   email_recipient?: string

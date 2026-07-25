@@ -77,6 +77,18 @@
   backdrop-filter: blur(6px);
 }
 
+.tm-card__deals {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  max-width: calc(100% - 88px);
+}
+
+.tm-card__deals .deal-badge {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
 .tm-card__type--bus {
   background: rgba(143, 212, 176, 0.95);
 }

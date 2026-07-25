@@ -41,7 +41,8 @@
   place-items: center;
 }
 
-.stay-card__thumb img {
+.stay-card__thumb img,
+.stay-card__thumb video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -65,6 +66,31 @@
 
 .stay-card__badge--hidden {
   color: var(--manage-ink-soft);
+}
+
+.stay-card__badge--boost {
+  top: auto;
+  bottom: 8px;
+  left: 8px;
+  color: #fffaf2;
+}
+
+.stay-card__badge--boost-live {
+  background: rgba(34, 197, 94, 0.92);
+}
+
+.stay-card__badge--boost-pending {
+  background: rgba(245, 158, 11, 0.92);
+}
+
+.stay-card__badge--boost-scheduled {
+  background: rgba(59, 130, 246, 0.92);
+}
+
+.stay-card__boost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .stay-card__body {
@@ -629,4 +655,85 @@ button.prov-ui__shortcut {
   font-family: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.stay-perf {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.stay-perf__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.stay-perf__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--manage-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.stay-perf__toggle svg {
+  transition: transform 0.16s ease;
+}
+
+.stay-perf__toggle.is-open svg {
+  transform: rotate(180deg);
+}
+
+.stay-perf__meta {
+  color: var(--manage-ink-soft);
+  font-weight: 550;
+}
+
+.stay-perf__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stay-perf__link,
+.stay-perf__promo {
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+  color: var(--manage-ink);
+}
+
+.stay-perf__promo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--manage-accent, #ff9a52);
+}
+
+.stay-perf__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--manage-line-soft);
+  background: var(--manage-paper, transparent);
+}
+
+.stay-perf__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--manage-muted);
 }

@@ -6,7 +6,7 @@ from config.home_stories import build_home_stories
 
 
 class HomeStoriesView(APIView):
-    """Public home highlights — live content per channel, stock fallback when empty."""
+    """Public home highlights — editorial + live content per channel; empty channels omitted."""
 
     permission_classes = [permissions.AllowAny]
 

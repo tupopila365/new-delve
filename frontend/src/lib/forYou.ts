@@ -214,7 +214,7 @@ export function forYouVerticalLabel(v: ForYouVertical): string {
     case 'shop':
       return 'shop finds'
     case 'activities':
-      return 'activities'
+      return 'activities and leisure'
     case 'journeys':
       return 'journeys'
     default:

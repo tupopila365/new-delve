@@ -22,6 +22,7 @@ import { normalizeReviews } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
 import { ListingDelversMoments, ListingLocationCard, ListingReviews } from '../listing'
+import { ListingDealsStrip } from '../deals'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { ReportButton } from '../report/ReportButton'
 import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
@@ -300,6 +301,8 @@ export function FoodDetailView({
           </p>
         ) : null}
       </div>
+
+      <ListingDealsStrip deals={data.deals} />
 
       <div className="jd-engage" aria-label="Venue actions">
         <div className="jd-engage__primary">

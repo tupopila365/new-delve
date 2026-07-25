@@ -34,7 +34,7 @@ const NAV = [
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/businesses', label: 'Businesses', icon: Building2 },
   { to: '/admin/listings', label: 'Listings', icon: Package },
-  { to: '/admin/promotions', label: 'Featured partners', icon: Megaphone },
+  { to: '/admin/promotions', label: 'Boosts & featured', icon: Megaphone },
   { to: '/admin/home-pins', label: 'Home pins', icon: Pin },
   { to: '/admin/home-stories', label: 'Home stories', icon: Sparkles },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },

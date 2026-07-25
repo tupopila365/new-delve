@@ -63,6 +63,7 @@ import { SearchPage } from './pages/SearchPage'
 import { Settings } from './pages/Settings'
 import { Transport } from './pages/Transport'
 import { TravelPartners } from './pages/TravelPartners'
+import { DealsPage } from './pages/DealsPage'
 import { TravelOfferDetail } from './pages/TravelOfferDetail'
 import { TripDetail } from './pages/TripDetail'
 import { TripsList } from './pages/TripsList'
@@ -184,6 +185,7 @@ export default function App() {
           <Route path="/business/:id" element={<BusinessProfile />} />
           <Route path="/business/:id/offers/:offerId" element={<TravelOfferDetail />} />
           <Route path="/partners" element={<TravelPartners />} />
+          <Route path="/deals" element={<DealsPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/accommodation" element={<AccommodationList />} />
           <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />

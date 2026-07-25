@@ -88,6 +88,7 @@ class ActivityListingSerializer(serializers.ModelSerializer):
     duration_label = serializers.SerializerMethodField()
     saved_by_me = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = ActivityListing
@@ -124,6 +125,7 @@ class ActivityListingSerializer(serializers.ModelSerializer):
             "rating_count",
             "saved_by_me",
             "saves_count",
+            "deals",
             "is_featured",
             "is_active",
             "created_at",
@@ -135,10 +137,16 @@ class ActivityListingSerializer(serializers.ModelSerializer):
             "rating_count",
             "saved_by_me",
             "saves_count",
+            "deals",
         )
 
     def get_owner_display_name(self, obj) -> str:
         return _owner_display_name(obj.owner)
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "activities")
 
     def get_owner_avatar(self, obj) -> str | None:
         return _owner_avatar(obj.owner, self.context.get("request"))

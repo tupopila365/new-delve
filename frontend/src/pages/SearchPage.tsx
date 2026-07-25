@@ -6,6 +6,7 @@ import {
   Car,
   Compass,
   MessageCircleQuestion,
+  Percent,
   Route,
   Search,
   Ticket,
@@ -20,6 +21,7 @@ import { useExploreDestination } from '../hooks/useExploreDestination'
 import { apiFetch } from '../api/client'
 import { QuickFilterChips } from '../components/marketplace'
 import { SearchHit } from '../components/search'
+import { DiscoveryDealCard, type DiscoveryDeal } from '../components/deals'
 import { messagingPaths } from '../components/messages/messageProviderUtils'
 import { EmptyState } from '../components/ui'
 import { communityPostPermalinkPath, postPermalinkPath } from '../utils/postPermalink'
@@ -72,6 +74,7 @@ const SEARCH_CATEGORIES = [
   { id: 'guides', label: 'Guides', Icon: Compass },
   { id: 'journeys', label: 'Journeys', Icon: Route },
   { id: 'transport', label: 'Transport', Icon: Car },
+  { id: 'deals', label: 'Open rates', Icon: Percent },
 ] as const
 
 /** Quick routes that feel like trip planning, not a generic filter UI. */
@@ -148,6 +151,7 @@ type SearchResults = {
     region?: string
     comments_count?: number
   }[]
+  deals?: DiscoveryDeal[]
 }
 
 const PLACEHOLDERS: Record<SearchType, string> = {
@@ -160,6 +164,7 @@ const PLACEHOLDERS: Record<SearchType, string> = {
   guides: 'Who knows this place?',
   journeys: 'Whose route should you follow?',
   transport: 'How will you get there?',
+  deals: 'Resident rate, student, sale…',
 }
 
 function listingTitle(item: NamedListing): string {
@@ -266,6 +271,8 @@ export function SearchPage() {
   const showGuides = showAll || type === 'guides'
   const showJourneys = !noFace && (showAll || type === 'journeys')
   const showTransport = showAll || type === 'transport'
+  const showDeals = showAll || type === 'deals'
+  const deals = data?.deals ?? []
 
   const delversPosts = useMemo(() => {
     const posts = data?.posts ?? []
@@ -290,15 +297,18 @@ export function SearchPage() {
     if (showJourneys) n += data.journeys.length
     if (showAskLocals) n += data.questions.length
     if (showDelvers) n += delversPosts.length
+    if (showDeals) n += deals.length
     if (showAll) n += generalPosts.length
     return n
   }, [
     data,
     delversPosts.length,
+    deals.length,
     generalPosts.length,
     showAll,
     showAskLocals,
     showDelvers,
+    showDeals,
     showEvents,
     showFood,
     showGuides,
@@ -551,6 +561,20 @@ export function SearchPage() {
                     </li>
                   ))}
                 </ul>
+              </section>
+            ) : null}
+
+            {showDeals && deals.length > 0 ? (
+              <section className="search-trail__section">
+                <h2>Open rates</h2>
+                <div className="search-trail__deals-grid">
+                  {deals.map((deal) => (
+                    <DiscoveryDealCard key={String(deal.id)} deal={deal} />
+                  ))}
+                </div>
+                <p className="search-trail__hint">
+                  <Link to="/deals">Browse all open rates</Link> — resident, student, and sales.
+                </p>
               </section>
             ) : null}
 

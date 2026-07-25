@@ -34,6 +34,8 @@
   font-size: clamp(1.7rem, 4.5vw, 2.2rem);
   font-weight: 950;
   letter-spacing: -0.03em;
+  /* Beat global h1 { color: var(--text) } on the dark hero */
+  color: var(--act-text);
 }
 
 .act-market__lead {
@@ -128,6 +130,18 @@
   color: #fafaf9;
   font-size: 0.68rem;
   font-weight: 800;
+}
+
+.act-card__deals {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  max-width: calc(100% - 56px);
+}
+
+.act-card__deals .deal-badge {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .act-card__save {
@@ -294,6 +308,7 @@
   font-size: clamp(1.55rem, 3.5vw, 2rem);
   font-weight: 950;
   letter-spacing: -0.03em;
+  color: var(--act-text);
 }
 
 .act-detail__tagline {

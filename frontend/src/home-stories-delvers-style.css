@@ -90,6 +90,11 @@
   object-fit: cover;
 }
 
+.story-bubble__avatar-video {
+  pointer-events: none;
+  background: #1a1a1a;
+}
+
 .story-bubble__label {
   display: block;
   width: 100%;

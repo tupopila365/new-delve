@@ -9,6 +9,7 @@ import {
 import { GuidePhotoEditor } from './GuidePhotoEditor'
 import { GuideStoriesEditor } from './GuideStoriesEditor'
 import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
+import { ListingSaleEditor } from '../../deals'
 
 type Props = {
   values: GuideProfileFormValues
@@ -18,6 +19,7 @@ type Props = {
   onSubmit: () => void
   onCancel: () => void
   isEdit?: boolean
+  listingId?: number | null
   /** Open on a specific section (e.g. Highlights from detail page). */
   initialSection?: (typeof SECTIONS)[number]['id']
 }
@@ -43,6 +45,7 @@ export function GuideProfileForm({
   onSubmit,
   onCancel,
   isEdit,
+  listingId,
   initialSection = 'identity',
 }: Props) {
   const { format, currency } = useDisplayMoney()
@@ -294,6 +297,9 @@ export function GuideProfileForm({
                 />
                 <span className="guide-form__hint">Shown on guide and package pages in the location section.</span>
               </label>
+              {isEdit && listingId ? (
+                <ListingSaleEditor vertical="guides" listingId={listingId} canEdit />
+              ) : null}
             </div>
           )}
 

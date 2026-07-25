@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, Clapperboard, MessageCircle, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
@@ -53,8 +53,8 @@ type ProviderBooking = {
 
 const TABS = [
   { id: 'listings', label: 'Listings' },
-  { id: 'highlights', label: 'Highlights' },
   { id: 'bookings', label: 'Bookings' },
+  { id: 'highlights', label: 'Highlights' },
   { id: 'reviews', label: 'Reviews' },
 ] as const
 
@@ -138,6 +138,41 @@ export function StaysAdmin() {
     enabled: Boolean(profile && canAccessProvider),
   })
 
+  const { data: promoCampaigns = [] } = useQuery({
+    queryKey: ['provider-promotions'],
+    queryFn: async () =>
+      asArray<{
+        target_type: string
+        target_id: string
+        status: string
+        is_live: boolean
+        status_label: string
+      }>(await apiFetch('/api/promotions/my/')),
+    enabled: Boolean(profile && canAccessProvider),
+  })
+
+  const boostByListingId = useMemo(() => {
+    const map = new Map<number, { label: string; tone: 'live' | 'pending' | 'scheduled' }>()
+    for (const c of promoCampaigns) {
+      if (c.target_type !== 'accommodation') continue
+      const id = Number(c.target_id)
+      if (!Number.isFinite(id)) continue
+      if (c.is_live || c.status === 'active') {
+        map.set(id, { label: 'Boosted', tone: 'live' })
+      } else if (c.status === 'requested' || c.status === 'pending_payment') {
+        if (!map.has(id) || map.get(id)?.tone !== 'live') {
+          map.set(id, {
+            label: c.status === 'requested' ? 'Awaiting admin' : 'Pay to boost',
+            tone: 'pending',
+          })
+        }
+      } else if (c.status === 'scheduled' && !map.has(id)) {
+        map.set(id, { label: 'Boost scheduled', tone: 'scheduled' })
+      }
+    }
+    return map
+  }, [promoCampaigns])
+
   const bookingsUrl =
     statusFilter === 'all'
       ? '/api/accommodation/provider-bookings/'
@@ -151,12 +186,13 @@ export function StaysAdmin() {
 
   const { data: analytics } = useQuery({
     queryKey: ['stay-provider-analytics'],
-    queryFn: () => apiFetch<{
-      on_platform_revenue: number
-      confirmed_bookings: number
-      pending_requests: number
-      total_bookings: number
-    }>('/api/accommodation/provider-analytics/?days=30'),
+    queryFn: () =>
+      apiFetch<{
+        on_platform_revenue: number
+        confirmed_bookings: number
+        pending_requests: number
+        total_bookings: number
+      }>('/api/accommodation/provider-analytics/?days=30'),
     enabled: Boolean(profile && canAccessProvider),
   })
 
@@ -258,7 +294,8 @@ export function StaysAdmin() {
       .reduce((s, b) => s + parseFloat(b.total_price), 0)
 
   const bookingCount = analytics?.total_bookings ?? bookings.length
-  const pendingBookings = analytics?.pending_requests ?? bookings.filter((b) => b.status === 'pending').length
+  const pendingBookings =
+    analytics?.pending_requests ?? bookings.filter((b) => b.status === 'pending').length
   const missingPhotos = listings.filter((l) => !l.cover_image).length
 
   const openCreate = () => {
@@ -278,12 +315,35 @@ export function StaysAdmin() {
 
   const attention = [
     ...(missingPhotos > 0
-      ? [{ id: 'photos', label: `${missingPhotos} propert${missingPhotos === 1 ? 'y' : 'ies'} missing cover photos`, action: 'Add photos', onClick: () => setTab('listings') }]
+      ? [
+          {
+            id: 'photos',
+            label: `${missingPhotos} propert${missingPhotos === 1 ? 'y' : 'ies'} missing cover photos`,
+            action: 'Fix listings',
+            onClick: () => setTab('listings'),
+          },
+        ]
       : []),
     ...(pendingBookings > 0
-      ? [{ id: 'pending', label: `${pendingBookings} booking request${pendingBookings === 1 ? '' : 's'} pending`, action: 'Review bookings', onClick: () => setTab('bookings') }]
+      ? [
+          {
+            id: 'pending',
+            label: `${pendingBookings} booking request${pendingBookings === 1 ? '' : 's'} pending`,
+            action: 'Review',
+            onClick: () => {
+              setStatusFilter('pending')
+              setTab('bookings')
+            },
+          },
+        ]
       : []),
   ]
+
+  const tabChips = TABS.map((t) =>
+    t.id === 'bookings' && pendingBookings > 0
+      ? { ...t, label: `Bookings (${pendingBookings})` }
+      : t,
+  )
 
   return (
     <ProviderUiPage>
@@ -291,13 +351,13 @@ export function StaysAdmin() {
         title="Stays"
         subtitle={
           isViewerOnly
-            ? 'View properties, bookings, and guest feedback.'
-            : 'Manage properties, rooms, photos, policies, highlights, and bookings.'
+            ? 'View listings, bookings, and reviews.'
+            : 'Edit listings, handle bookings, then add highlights.'
         }
         actions={
           <>
             <Link to="/accommodation" className="prov-ui__btn prov-ui__btn--ghost">
-              View public
+              Browse public
             </Link>
             {canManageListings ? (
               <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={openCreate}>
@@ -316,7 +376,12 @@ export function StaysAdmin() {
             {attention.map((item) => (
               <li key={item.id}>
                 <span>{item.label}</span>
-                <button type="button" className="prov-ui__link" style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }} onClick={item.onClick}>
+                <button
+                  type="button"
+                  className="prov-ui__link"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
+                  onClick={item.onClick}
+                >
                   {item.action}
                 </button>
               </li>
@@ -325,43 +390,28 @@ export function StaysAdmin() {
         </section>
       ) : null}
 
-      <section>
-        <h2 className="prov-ui__section-title">Quick links</h2>
-        <div className="prov-ui__shortcuts">
-          {canManageListings ? (
-            <button type="button" className="prov-ui__shortcut" onClick={openCreate}>
-              <Plus size={18} strokeWidth={2.25} aria-hidden />
-              <span>Add listing</span>
-            </button>
-          ) : null}
-          <button type="button" className="prov-ui__shortcut" onClick={() => setTab('highlights')}>
-            <Clapperboard size={18} strokeWidth={2.25} aria-hidden />
-            <span>Manage highlights</span>
-          </button>
-          <button type="button" className="prov-ui__shortcut" onClick={() => setTab('bookings')}>
-            <CalendarDays size={18} strokeWidth={2.25} aria-hidden />
-            <span>Bookings</span>
-          </button>
-          <Link to="/provider/messages" className="prov-ui__shortcut">
-            <MessageCircle size={18} strokeWidth={2.25} aria-hidden />
-            <span>Messages</span>
-          </Link>
-        </div>
-      </section>
-
       <ProviderUiStats
         columns={4}
         stats={[
           { value: listings.length, label: 'Listings' },
           { value: avgRating, label: 'Avg rating' },
-          { value: bookingCount || '—', label: 'Bookings', accent: pendingBookings > 0 },
-          { value: format(revenue), label: 'Revenue', accent: revenue > 0 },
+          {
+            value: bookingCount || '—',
+            label: pendingBookings > 0 ? `${pendingBookings} pending` : 'Bookings',
+            accent: pendingBookings > 0,
+          },
+          { value: format(revenue), label: 'Revenue · 30d', accent: revenue > 0 },
         ]}
       />
 
       <StayMonetizationSection enabled={canAccessProvider} canManage={canManageListings} />
 
-      <ProviderUiChips chips={[...TABS]} active={tab} onChange={(id) => setTab(id as typeof tab)} ariaLabel="Stays sections" />
+      <ProviderUiChips
+        chips={[...tabChips]}
+        active={tab}
+        onChange={(id) => setTab(id as typeof tab)}
+        ariaLabel="Stays sections"
+      />
 
       {tab === 'listings' && (
         <section id="listings">
@@ -370,12 +420,12 @@ export function StaysAdmin() {
           ) : listings.length === 0 ? (
             <>
               <ProviderUiEmpty
-                title="No stays added yet"
-                message="Create a full listing with photos, room types, policies, and FAQs so travellers can book."
+                title="No stays yet"
+                message="Add a listing with photos, rooms, and a map pin so travellers can book."
               />
               {canManageListings ? (
                 <button type="button" className="stay-add-btn" onClick={openCreate}>
-                  Add new listing
+                  Add your first listing
                 </button>
               ) : null}
             </>
@@ -386,6 +436,7 @@ export function StaysAdmin() {
                   key={stay.id}
                   stay={stay}
                   canEdit={canManageListings}
+                  boost={boostByListingId.get(stay.id) ?? null}
                   onEdit={() => openEdit(stay)}
                   onManageHighlights={() => {
                     setHighlightListingId(stay.id)
@@ -395,21 +446,6 @@ export function StaysAdmin() {
               ))}
             </div>
           )}
-          {canManageListings && listings.length > 0 ? (
-            <button type="button" className="stay-add-btn" onClick={openCreate}>
-              Add new listing
-            </button>
-          ) : null}
-        </section>
-      )}
-
-      {tab === 'highlights' && (
-        <section id="highlights">
-          <StayStoriesPanel
-            listings={listings}
-            canManage={canManageListings}
-            initialListingId={highlightListingId}
-          />
         </section>
       )}
 
@@ -443,6 +479,16 @@ export function StaysAdmin() {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {tab === 'highlights' && (
+        <section id="highlights">
+          <StayStoriesPanel
+            listings={listings}
+            canManage={canManageListings}
+            initialListingId={highlightListingId}
+          />
         </section>
       )}
 
@@ -482,6 +528,7 @@ export function StaysAdmin() {
           error={formErr}
           saving={saveMut.isPending}
           isEdit={Boolean(editId)}
+          listingId={editId}
           onSubmit={() => saveMut.mutate()}
           onCancel={() => {
             setShowForm(false)

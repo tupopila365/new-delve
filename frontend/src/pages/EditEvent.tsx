@@ -21,6 +21,7 @@ import {
 } from '../utils/eventForm'
 import type { ListingPhotoDraft } from '../components/listing/photos/types'
 import { resolveListingGalleryMedia } from '../components/listing/photos'
+import { ListingSaleEditor } from '../components/deals'
 import '../components/events/CreateEventPageEnhancer.css'
 import '../components/journeys/CreateJourneyPageEnhancer.css'
 
@@ -247,6 +248,9 @@ export function EditEvent() {
         photos={photos}
         onPhotosChange={setPhotos}
       />
+      {id ? (
+        <ListingSaleEditor vertical="events" listingId={Number(id)} canEdit className="ce-form__sale" />
+      ) : null}
     </CreateWizardShell>
   )
 }

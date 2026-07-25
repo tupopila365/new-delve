@@ -8,6 +8,7 @@ import {
 } from './vehicleListingTypes'
 import { TransportPhotoEditor } from './TransportPhotoEditor'
 import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
+import { ListingSaleEditor } from '../../deals'
 
 type Props = {
   values: VehicleListingFormValues
@@ -17,6 +18,7 @@ type Props = {
   onSubmit: () => void
   onCancel: () => void
   isEdit?: boolean
+  listingId?: number | null
 }
 
 const SECTIONS = [
@@ -28,7 +30,7 @@ const SECTIONS = [
   { id: 'photos', label: 'Media' },
 ] as const
 
-export function VehicleListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
+export function VehicleListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit, listingId }: Props) {
   const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('identity')
 
@@ -168,6 +170,9 @@ export function VehicleListingForm({ values, onChange, error, saving, onSubmit, 
                 <textarea rows={3} value={values.pickup_location} onChange={(e) => patch({ pickup_location: e.target.value })} placeholder="Windhoek CBD — exact street shared on confirmation." />
                 <span className="transport-form__hint">Shown on the vehicle detail page and booking sidebar.</span>
               </label>
+              {isEdit && listingId ? (
+                <ListingSaleEditor vertical="transport" listingId={listingId} canEdit />
+              ) : null}
             </div>
           )}
 

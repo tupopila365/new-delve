@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MapPin, Search } from 'lucide-react'
+import { ChevronDown, MapPin, Search } from 'lucide-react'
 import { DEFAULT_MAP_CENTER, parseGoogleAddressComponents } from '../../../../utils/geocodeParse'
 import { googleMapsPlaceUrl, hasValidCoords } from '../../../../utils/placeMap'
 import { useGoogleMapsLoader } from '../../../../hooks/useGoogleMapsLoader'
@@ -21,6 +21,11 @@ type Props = {
   /** Search box placeholder (food vs stay copy). */
   searchPlaceholder?: string
   hint?: string
+  /**
+   * Optional ISO country codes to bias Autocomplete (e.g. `['na','za']`).
+   * Omit for worldwide search — preferred for travellers listing anywhere.
+   */
+  countryCodes?: string[]
 }
 
 function toLatLng(value: VenueLocationPickerValue): google.maps.LatLngLiteral {
@@ -30,11 +35,19 @@ function toLatLng(value: VenueLocationPickerValue): google.maps.LatLngLiteral {
   return DEFAULT_MAP_CENTER
 }
 
+function fallbackCity(parsedCity: string, formatted: string, placeName?: string): string {
+  if (parsedCity.trim()) return parsedCity.trim()
+  if (placeName?.trim()) return placeName.trim()
+  const first = formatted.split(',')[0]?.trim()
+  return first || ''
+}
+
 export function VenueLocationPicker({
   value,
   onChange,
-  searchPlaceholder = 'Search for your restaurant or address',
-  hint = 'Search above or click / drag the pin to set your exact location.',
+  searchPlaceholder = 'Search Google Maps for your place',
+  hint = 'Search Google Maps, then click the map or drag the pin to fine-tune.',
+  countryCodes,
 }: Props) {
   const { ready, error, hasKey } = useGoogleMapsLoader()
   const mapRef = useRef<HTMLDivElement>(null)
@@ -43,6 +56,7 @@ export function VenueLocationPicker({
   const markerRef = useRef<google.maps.Marker | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const [searchText, setSearchText] = useState(value.formatted_address || value.address || '')
+  const [showManual, setShowManual] = useState(false)
 
   useEffect(() => {
     setSearchText(value.formatted_address || value.address || '')
@@ -58,7 +72,7 @@ export function VenueLocationPicker({
         zoom: hasValidCoords(value.latitude, value.longitude) ? 16 : 6,
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: false,
+        fullscreenControl: true,
       })
       markerRef.current = new window.google.maps.Marker({
         map: mapInstance.current,
@@ -88,18 +102,35 @@ export function VenueLocationPicker({
 
   useEffect(() => {
     if (!ready || !inputRef.current || !window.google?.maps?.places) return
-    if (autocompleteRef.current) return
 
-    const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+    if (autocompleteRef.current) {
+      window.google.maps.event.clearInstanceListeners(autocompleteRef.current)
+      autocompleteRef.current = null
+    }
+
+    const options: google.maps.places.AutocompleteOptions = {
       fields: ['place_id', 'geometry', 'formatted_address', 'address_components', 'name'],
-      componentRestrictions: { country: 'na' },
-    })
+    }
+    const codes = (countryCodes ?? [])
+      .map((c) => c.trim().toLowerCase())
+      .filter(Boolean)
+    if (codes.length > 0 && codes.length <= 5) {
+      options.componentRestrictions = { country: codes.length === 1 ? codes[0] : codes }
+    }
+
+    const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, options)
     autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace()
-      applyPlace(place)
+      applyPlace(autocomplete.getPlace())
     })
     autocompleteRef.current = autocomplete
-  }, [ready])
+
+    return () => {
+      if (autocompleteRef.current) {
+        window.google?.maps?.event.clearInstanceListeners(autocompleteRef.current)
+        autocompleteRef.current = null
+      }
+    }
+  }, [ready, countryCodes?.join(',')])
 
   function reverseGeocode(lat: number, lng: number) {
     if (!window.google?.maps) return
@@ -132,7 +163,7 @@ export function VenueLocationPicker({
       google_place_id: result.place_id ?? '',
       formatted_address: formatted,
       region: parsed.region || value.region,
-      city: parsed.city || value.city,
+      city: fallbackCity(parsed.city, formatted) || value.city,
       address: parsed.address || formatted,
     })
   }
@@ -154,7 +185,7 @@ export function VenueLocationPicker({
       google_place_id: place.place_id ?? '',
       formatted_address: formatted,
       region: parsed.region,
-      city: parsed.city,
+      city: fallbackCity(parsed.city, formatted, place.name),
       address: parsed.address || formatted,
     })
   }
@@ -164,8 +195,16 @@ export function VenueLocationPicker({
       ? googleMapsPlaceUrl(value.latitude!, value.longitude!)
       : null
 
+  const hasPlace =
+    Boolean(value.formatted_address?.trim()) ||
+    hasValidCoords(value.latitude, value.longitude)
+
   return (
     <div className="venue-loc-picker">
+      <p className="venue-loc-picker__lead">
+        Pick your place on <strong>Google Maps</strong> — city, region, and pin fill in automatically.
+      </p>
+
       {hasKey ? (
         <>
           <label className="venue-loc-picker__search">
@@ -181,55 +220,76 @@ export function VenueLocationPicker({
             />
           </label>
           {error ? <p className="venue-loc-picker__error">{error}</p> : null}
-          {!ready && !error ? <p className="venue-loc-picker__loading">Loading map…</p> : null}
-          <div ref={mapRef} className="venue-loc-picker__map" aria-label="Map pin picker" />
+          {!ready && !error ? <p className="venue-loc-picker__loading">Loading Google Maps…</p> : null}
+          <div ref={mapRef} className="venue-loc-picker__map" aria-label="Google Maps place picker" />
           <p className="venue-loc-picker__hint">{hint}</p>
         </>
       ) : (
         <p className="venue-loc-picker__fallback">
-          Map search is unavailable — enter the address below. Set{' '}
-          <code>VITE_GOOGLE_MAPS_API_KEY</code> to enable the map picker.
+          Google Maps is unavailable — enter location details below. Set{' '}
+          <code>VITE_GOOGLE_MAPS_API_KEY</code> to enable place search.
         </p>
       )}
 
-      {value.formatted_address ? (
+      {hasPlace ? (
         <div className="venue-loc-picker__summary">
           <MapPin size={15} strokeWidth={2.25} aria-hidden />
-          <span>{value.formatted_address}</span>
+          <div className="venue-loc-picker__summary-body">
+            <strong>{value.formatted_address || value.address || 'Pinned location'}</strong>
+            {(value.city || value.region) && (
+              <span>
+                {[value.city, value.region].filter(Boolean).join(', ')}
+              </span>
+            )}
+          </div>
           {previewHref ? (
             <a href={previewHref} target="_blank" rel="noopener noreferrer">
-              Preview on Google Maps
+              Open in Maps
             </a>
           ) : null}
         </div>
       ) : null}
 
-      <div className="fv-field-row">
-        <label className="fv-field">
-          <span>Region</span>
-          <input
-            value={value.region}
-            onChange={(e) => onChange({ region: e.target.value })}
-            placeholder="Khomas"
-          />
-        </label>
-        <label className="fv-field">
-          <span>City</span>
-          <input
-            value={value.city}
-            onChange={(e) => onChange({ city: e.target.value })}
-            placeholder="Windhoek"
-          />
-        </label>
-      </div>
-      <label className="fv-field">
-        <span>Street address</span>
-        <input
-          value={value.address}
-          onChange={(e) => onChange({ address: e.target.value })}
-          placeholder="123 Independence Ave"
-        />
-      </label>
+      <button
+        type="button"
+        className={`venue-loc-picker__manual-toggle${showManual || !hasKey ? ' is-open' : ''}`}
+        onClick={() => setShowManual((v) => !v)}
+        aria-expanded={showManual || !hasKey}
+      >
+        <ChevronDown size={16} strokeWidth={2.25} aria-hidden />
+        {hasKey ? 'Edit address details' : 'Enter address manually'}
+      </button>
+
+      {(showManual || !hasKey) && (
+        <div className="venue-loc-picker__manual">
+          <div className="fv-field-row">
+            <label className="fv-field">
+              <span>Region</span>
+              <input
+                value={value.region}
+                onChange={(e) => onChange({ region: e.target.value })}
+                placeholder="Auto-filled from Google"
+              />
+            </label>
+            <label className="fv-field">
+              <span>City</span>
+              <input
+                value={value.city}
+                onChange={(e) => onChange({ city: e.target.value })}
+                placeholder="Auto-filled from Google"
+              />
+            </label>
+          </div>
+          <label className="fv-field">
+            <span>Street address</span>
+            <input
+              value={value.address}
+              onChange={(e) => onChange({ address: e.target.value })}
+              placeholder="Auto-filled from Google"
+            />
+          </label>
+        </div>
+      )}
     </div>
   )
 }

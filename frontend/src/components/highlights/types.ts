@@ -19,6 +19,8 @@ export type HighlightChannel = {
   /** Owner-chosen name shown under the story ring. */
   label: string
   coverSrc: string
+  /** When omitted, rings treat cover as an image. */
+  coverKind?: 'image' | 'video'
   slides: HighlightSlide[]
 }
 

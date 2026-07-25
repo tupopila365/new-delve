@@ -597,6 +597,9 @@ let businesses: AdminBusiness[] = [
     region: 'Khomas',
     business_types: ['accommodation'],
     document_count: 2,
+    active_offers_count: 2,
+    open_rate_offers_count: 2,
+    has_open_rate: true,
   },
   {
     id: 2,
@@ -608,6 +611,9 @@ let businesses: AdminBusiness[] = [
     business_types: ['guide'],
     document_count: 3,
     tagline: 'Coastal dunes & lagoon walks',
+    active_offers_count: 0,
+    open_rate_offers_count: 0,
+    has_open_rate: false,
   },
   {
     id: 3,
@@ -619,6 +625,9 @@ let businesses: AdminBusiness[] = [
     business_types: ['transport'],
     transport_modes: ['rental', 'shared'],
     document_count: 4,
+    active_offers_count: 3,
+    open_rate_offers_count: 3,
+    has_open_rate: true,
   },
   {
     id: 4,
@@ -629,6 +638,9 @@ let businesses: AdminBusiness[] = [
     region: 'Khomas',
     business_types: ['guide'],
     document_count: 2,
+    active_offers_count: 0,
+    open_rate_offers_count: 0,
+    has_open_rate: false,
   },
   {
     id: 5,
@@ -640,6 +652,9 @@ let businesses: AdminBusiness[] = [
     business_types: ['food_drink'],
     document_count: 2,
     tagline: 'Seasonal plates & local brews',
+    active_offers_count: 1,
+    open_rate_offers_count: 1,
+    has_open_rate: true,
   },
   {
     id: 6,
@@ -651,6 +666,9 @@ let businesses: AdminBusiness[] = [
     business_types: ['guide'],
     document_count: 3,
     tagline: 'Desert trails with local experts',
+    active_offers_count: 0,
+    open_rate_offers_count: 0,
+    has_open_rate: false,
   },
 ]
 
@@ -807,6 +825,33 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
     const p = profiles[currentUser!]
     if (!p) throw new ApiError('Unauthorized', 401, { detail: 'Authentication required.' })
     return { ...publicProfile(p), email_verified: true }
+  }
+
+  if (pathname === '/api/social/media/sign' && method === 'POST') {
+    requireAuth()
+    return {
+      direct_upload: false,
+      detail: 'Mock mode uses highlight upload proxy.',
+    }
+  }
+
+  if (pathname === '/api/highlights/upload' && method === 'POST') {
+    requireAuth()
+    const body = init.body
+    let kind: 'image' | 'video' = 'image'
+    if (body instanceof FormData) {
+      const file = body.get('file')
+      if (file instanceof File) {
+        kind = file.type.startsWith('video/') ? 'video' : 'image'
+      }
+    }
+    return {
+      url:
+        kind === 'video'
+          ? 'https://res.cloudinary.com/demo/video/upload/v1/media/highlights/videos/mock-clip.mp4'
+          : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+      kind,
+    }
   }
 
   if (pathname === '/api/accounts/admin/overview' && method === 'GET') {

@@ -43,6 +43,7 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
     owner_avatar = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
     cover_kind = serializers.SerializerMethodField()
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = VehicleRentalListing
@@ -81,8 +82,9 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
             "rating_avg",
             "rating_count",
             "created_at",
+            "deals",
         )
-        read_only_fields = ("owner", "created_at", "cover_kind")
+        read_only_fields = ("owner", "created_at", "cover_kind", "deals")
 
     def validate_highlights(self, value):
         return clean_str_list(value)
@@ -108,6 +110,11 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
         if profile and getattr(profile, "display_name", "").strip():
             return profile.display_name.strip()
         return obj.owner.username
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "transport")
 
     def get_owner_bio(self, obj):
         profile = getattr(obj.owner, "profile", None)

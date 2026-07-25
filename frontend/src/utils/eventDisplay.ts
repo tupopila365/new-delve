@@ -43,6 +43,7 @@ export type EventListing = {
   external_ticket_clicks?: number
   is_featured_partner?: boolean
   partner_label?: string
+  deals?: import('../components/deals').ListingDeal[]
 }
 
 export type EventDateParts = {

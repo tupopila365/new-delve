@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_booking_for_listing
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember, IsServiceProvider
 from messaging.booking_automation import notify_booking_confirmed
 
@@ -123,7 +124,9 @@ class EventFilter(django_filters.FilterSet):
         return queryset.filter(business__slug__iexact=value)
 
 
-class EventViewSet(viewsets.ModelViewSet):
+class EventViewSet(ListingDealsContextMixin, viewsets.ModelViewSet):
+    deal_category = "events"
+    deal_scope = "business"
     serializer_class = EventSerializer
     filterset_class = EventFilter
     search_fields = ("title", "description", "venue", "region", "city", "country_code")

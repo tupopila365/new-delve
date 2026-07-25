@@ -12,7 +12,7 @@ export function Login() {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const { login } = useAuth()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -27,7 +27,7 @@ export function Login() {
     setErr(null)
     setBusy(true)
     try {
-      await login(email.trim(), password)
+      await login(identifier.trim(), password)
       const me = await apiFetch<{ user_type: string; username: string }>('/api/accounts/me/')
       if (me.user_type === 'service_provider') {
         const businesses = await apiFetch<MyBusiness[]>('/api/accounts/me/businesses/')
@@ -44,7 +44,7 @@ export function Login() {
       }
       nav(readLoginReturnPath(returnQs, '/'), { replace: true })
     } catch (e2) {
-      setErr(authFormError(e2, 'Could not sign in. Check your email and password.'))
+      setErr(authFormError(e2, 'Could not sign in. Check your email or username and password.'))
     } finally {
       setBusy(false)
     }
@@ -65,18 +65,20 @@ export function Login() {
       ) : null}
       <form className="auth-page__form" onSubmit={onSubmit}>
         <div className="auth-page__field">
-          <label className="auth-page__label" htmlFor="auth-login-email">
-            Email
+          <label className="auth-page__label" htmlFor="auth-login-identifier">
+            Email or username
           </label>
           <input
-            id="auth-login-email"
-            type="email"
+            id="auth-login-identifier"
+            type="text"
             className="auth-page__input"
-            placeholder="you@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            inputMode="email"
+            placeholder="you@email.com or username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             disabled={busy}
           />

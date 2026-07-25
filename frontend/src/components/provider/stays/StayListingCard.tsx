@@ -1,31 +1,44 @@
 import { Link } from 'react-router-dom'
-import { Hotel } from 'lucide-react'
+import { Hotel, Sparkles } from 'lucide-react'
 import { mediaUrl } from '../../../api/client'
 import { propertyTypeLabel } from '../../../utils/accommodationListing'
+import { isVideoUrl } from '../../listing/photos/listingGalleryMedia'
 import type { ProviderStayListing } from './stayListingTypes'
 import { listingCompleteness } from './stayListingTypes'
 import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
+
+export type StayBoostStatus = {
+  label: string
+  tone: 'live' | 'pending' | 'scheduled'
+}
 
 type Props = {
   stay: ProviderStayListing
   canEdit?: boolean
   onEdit: () => void
   onManageHighlights?: () => void
+  boost?: StayBoostStatus | null
 }
 
-export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: Props) {
+export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights, boost }: Props) {
   const { format } = useDisplayMoney()
   const { percent, missing } = listingCompleteness(stay)
   const cover = stay.cover_image ? mediaUrl(stay.cover_image) || stay.cover_image : null
+  const coverIsVideo = Boolean(stay.cover_image && isVideoUrl(stay.cover_image))
   const roomCount = Array.isArray(stay.room_types) ? stay.room_types.length : 0
   const photoCount = (stay.media_gallery?.length ?? 0) + (stay.cover_image ? 1 : 0)
   const highlightCount = stay.listing_stories?.length ?? 0
+  const boostHref = `/provider/promotions?listing=accommodation:${stay.id}&placement=homepage_stays`
 
   return (
     <article className="prov-ui__card stay-card">
       <div className="stay-card__thumb">
         {cover ? (
-          <img src={cover} alt="" />
+          coverIsVideo ? (
+            <video src={`${cover}#t=0.1`} muted playsInline preload="metadata" aria-hidden />
+          ) : (
+            <img src={cover} alt="" />
+          )
         ) : (
           <span className="stay-card__thumb-fallback" aria-hidden>
             <Hotel size={22} strokeWidth={2} />
@@ -33,6 +46,11 @@ export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: P
         )}
         {!stay.is_active ? <span className="stay-card__badge stay-card__badge--hidden">Hidden</span> : null}
         {percent < 100 ? <span className="stay-card__badge stay-card__badge--draft">{percent}% complete</span> : null}
+        {boost ? (
+          <span className={`stay-card__badge stay-card__badge--boost stay-card__badge--boost-${boost.tone}`}>
+            {boost.label}
+          </span>
+        ) : null}
       </div>
 
       <div className="stay-card__body">
@@ -45,35 +63,15 @@ export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: P
 
         <p className="stay-card__type">{propertyTypeLabel(stay.property_type)}</p>
         <p className="stay-card__meta">
-          {stay.city}, {stay.region} · {format(stay.price_per_night, { suffix: '/night' })} · {stay.max_guests} guests · {stay.bedrooms}{' '}
-          bed{stay.bedrooms === 1 ? '' : 's'}
+          {stay.city}, {stay.region} · {format(stay.price_per_night, { suffix: '/night' })} · {stay.max_guests} guests ·{' '}
+          {stay.bedrooms} bed{stay.bedrooms === 1 ? '' : 's'}
+          {roomCount > 0 ? ` · ${roomCount} room type${roomCount === 1 ? '' : 's'}` : ''}
+          {photoCount > 0 ? ` · ${photoCount} photo${photoCount === 1 ? '' : 's'}` : ''}
         </p>
-
-        <div className="stay-card__chips">
-          {stay.wifi ? <span>Wi-Fi</span> : null}
-          {stay.parking ? <span>Parking</span> : null}
-          {stay.breakfast ? <span>Breakfast</span> : null}
-          {stay.pool ? <span>Pool</span> : null}
-          {stay.pet_friendly ? <span>Pets</span> : null}
-          {roomCount > 0 ? <span>{roomCount} room type{roomCount === 1 ? '' : 's'}</span> : null}
-          {photoCount > 0 ? <span>{photoCount} photo{photoCount === 1 ? '' : 's'}</span> : null}
-          <span>
-            {highlightCount > 0
-              ? `${highlightCount} highlight ring${highlightCount === 1 ? '' : 's'}`
-              : 'No highlights'}
-          </span>
-        </div>
 
         <p className="stay-card__rating">
           {stay.rating_avg} rating · {stay.rating_count} review{stay.rating_count === 1 ? '' : 's'}
-          {(stay.likes_count ?? 0) > 0 || (stay.saves_count ?? 0) > 0 ? (
-            <>
-              {' · '}
-              {(stay.likes_count ?? 0) > 0 ? `${stay.likes_count} like${stay.likes_count === 1 ? '' : 's'}` : null}
-              {(stay.likes_count ?? 0) > 0 && (stay.saves_count ?? 0) > 0 ? ' · ' : null}
-              {(stay.saves_count ?? 0) > 0 ? `${stay.saves_count} save${stay.saves_count === 1 ? '' : 's'}` : null}
-            </>
-          ) : null}
+          {highlightCount > 0 ? ` · ${highlightCount} highlight${highlightCount === 1 ? '' : 's'}` : ''}
         </p>
 
         {missing.length > 0 ? (
@@ -85,19 +83,25 @@ export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights }: P
       </div>
 
       <div className="stay-card__actions">
-        <Link to={`/accommodation/${stay.id}`} className="prov-ui__btn prov-ui__btn--ghost">
-          View public
-        </Link>
-        {canEdit && onManageHighlights ? (
-          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
-            {highlightCount > 0 ? 'Manage highlights' : 'Add highlights'}
+        {canEdit ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>
+            Edit
           </button>
         ) : null}
         {canEdit ? (
-          <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>
-            Edit listing
+          <Link to={boostHref} className="prov-ui__btn prov-ui__btn--ghost stay-card__boost-btn">
+            <Sparkles size={14} strokeWidth={2.25} aria-hidden />
+            {boost ? 'Manage boost' : 'Boost'}
+          </Link>
+        ) : null}
+        {canEdit && onManageHighlights ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
+            Highlights
           </button>
         ) : null}
+        <Link to={`/accommodation/${stay.id}`} className="prov-ui__btn prov-ui__btn--ghost">
+          Preview
+        </Link>
       </div>
     </article>
   )

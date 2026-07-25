@@ -9,6 +9,7 @@ import {
   Eye,
   Hotel,
   MessageCircle,
+  Percent,
   ShoppingBag,
   Utensils,
   Mountain,
@@ -31,7 +32,7 @@ const CATEGORY_SHORTCUTS: { type: string; label: string; to: string; Icon: Lucid
   { type: 'transport', label: 'Transport', to: '/provider/transport', Icon: Car },
   { type: 'food_drink', label: 'Foodies', to: '/provider/food', Icon: Utensils },
   { type: 'retail_shop', label: 'Shop', to: '/provider/shop', Icon: ShoppingBag },
-  { type: 'activity', label: 'Activities', to: '/provider/activities', Icon: Mountain },
+  { type: 'activity', label: 'Activities and Leisure', to: '/provider/activities', Icon: Mountain },
 ]
 
 export function ProviderDashboardShortcuts({ businessTypes, businessId }: Props) {
@@ -42,6 +43,7 @@ export function ProviderDashboardShortcuts({ businessTypes, businessId }: Props)
     { to: '/provider/bookings', label: 'Bookings', Icon: CalendarDays },
     { to: '/provider/messages', label: 'Inbox', Icon: MessageCircle },
     { to: '/provider/listings', label: 'Listings', Icon: ClipboardList },
+    { to: '/provider/settings?tab=business#provider-accessible-offers', label: 'Open rates', Icon: Percent },
   ]
 
   const all = [

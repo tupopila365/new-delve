@@ -31,6 +31,7 @@ _EMPTY = {
     "posts": [],
     "questions": [],
     "journeys": [],
+    "deals": [],
 }
 
 # Public type tokens → response bucket keys.
@@ -44,6 +45,7 @@ _TYPE_TO_BUCKETS = {
     "delvers": frozenset({"posts"}),
     "ask_locals": frozenset({"questions"}),
     "journeys": frozenset({"journeys"}),
+    "deals": frozenset({"deals"}),
 }
 
 _ALL_BUCKETS = frozenset(
@@ -58,6 +60,7 @@ _ALL_BUCKETS = frozenset(
         "posts",
         "questions",
         "journeys",
+        "deals",
     }
 )
 
@@ -327,6 +330,18 @@ class UnifiedSearchView(APIView):
             )
             journeys = list(filter_journeys_for_viewer(journeys_qs, viewer)[:limit])
 
+        deals = []
+        if _wants(buckets, "deals"):
+            from accounts.deals_discovery import discover_deals
+
+            profile = getattr(viewer, "profile", None) if viewer else None
+            deals = discover_deals(
+                q=q,
+                region=country,  # soft: Explore country code not always region name
+                limit=limit,
+                viewer_profile=profile,
+            )
+
         return Response(
             {
                 "users": [_serialize_search_user(u, request) for u in users],
@@ -339,6 +354,7 @@ class UnifiedSearchView(APIView):
                 "posts": PostSerializer(posts, many=True, context=ctx).data,
                 "questions": PostSerializer(questions, many=True, context=ctx).data,
                 "journeys": JourneySearchSerializer(journeys, many=True, context=ctx).data,
+                "deals": deals,
                 "types": sorted(buckets) if buckets is not None else sorted(_ALL_BUCKETS),
             }
         )

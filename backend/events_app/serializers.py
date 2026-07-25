@@ -45,6 +45,7 @@ class EventSerializer(serializers.ModelSerializer):
         choices=[("image", "Image"), ("video", "Video")],
         required=False,
     )
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
@@ -84,12 +85,18 @@ class EventSerializer(serializers.ModelSerializer):
             "liked_by_me",
             "saved_by_me",
             "attending_by_me",
+            "deals",
             "created_at",
         )
-        read_only_fields = ("organizer", "external_ticket_clicks", "comments_count", "created_at")
+        read_only_fields = ("organizer", "external_ticket_clicks", "comments_count", "created_at", "deals")
 
     def get_ticketing_mode(self, obj):
         return event_ticketing_mode(obj)
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "events")
 
     def get_organizer_display_name(self, obj):
         profile = getattr(obj.organizer, "profile", None)

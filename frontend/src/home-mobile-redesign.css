@@ -20,8 +20,7 @@
   display: none !important;
 }
 
-.page-home > .ta-hero,
-.page-home > 
+/* Content column only — never constrain the full-bleed hero. */
 .home-content {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -29,6 +28,17 @@
   width: min(100%, 1120px);
   margin: 0 auto;
   padding: 22px 16px calc(var(--page-bottom-clearance, 110px));
+  box-sizing: border-box;
+}
+
+/* Keep the hero edge-to-edge on phones (bleed must win over content padding). */
+.page-home > .ta-hero.ta-hero--bleed,
+.page-home > .ta-hero--home {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 0;
 }
 
 /* Grid items must be allowed to shrink; otherwise horizontal scroller rows
@@ -892,3 +902,222 @@
     margin-left: -2rem;
   }
 }
+
+/* —— Mobile polish (phones & small tablets) —— */
+@media (max-width: 699px) {
+  .page-home {
+    overflow-x: clip;
+  }
+
+  .home-content {
+    gap: 22px;
+    padding: 16px 14px calc(var(--page-bottom-clearance, 110px) + 8px);
+  }
+
+  .page-home > .ta-hero--home {
+    min-height: min(72svh, 520px);
+    margin-bottom: 0;
+  }
+
+  .page-home .ta-hero__inner--home {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: min(72svh, 520px);
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 20px;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .page-home .ta-hero__title--home {
+    font-size: clamp(1.45rem, 7.2vw, 1.85rem);
+    line-height: 1.12;
+    max-width: 14ch;
+    margin-bottom: 8px;
+  }
+
+  .page-home .ta-hero__sub--home {
+    font-size: 0.88rem;
+    line-height: 1.4;
+    max-width: none;
+    margin-bottom: 14px;
+  }
+
+  .page-home .ta-hero__actions--home {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    max-width: none;
+    width: 100%;
+  }
+
+  .page-home .ta-hero__cta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 0;
+    width: 100%;
+  }
+
+  .page-home .ta-hero__cta-row .btn,
+  .page-home .ta-hero__cta-row .ta-hero__ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .page-home .ta-hero__searchform {
+    flex: none;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    padding: 5px 5px 5px 12px;
+  }
+
+  .page-home .ta-hero__searchform-submit {
+    padding: 10px 14px;
+    font-size: 0.78rem;
+  }
+
+  .home-discover__head {
+    max-width: none;
+  }
+
+  .home-discover__title {
+    font-size: clamp(1.15rem, 5.5vw, 1.4rem);
+  }
+
+  .home-discover__lead {
+    font-size: 0.84rem;
+  }
+
+  .home-discover__explore {
+    margin-top: 8px;
+  }
+
+  .home-discover__explore .explore-switch,
+  .home-discover__explore .explore-switch__trigger {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .home-discover__explore .explore-switch__panel {
+    left: 0;
+    right: 0;
+    width: min(100vw - 28px, 340px);
+  }
+
+  .home-discover__moods {
+    margin-inline: -14px;
+    padding-inline: 14px;
+  }
+
+  .page-home .home-rail,
+  .page-home .ta-mood-scroll {
+    margin-inline: -14px;
+    padding-inline: 14px;
+  }
+
+  .page-home .home-card.home-card--post,
+  .page-home .home-card--post {
+    flex: 0 0 min(72vw, 220px);
+    min-width: 168px;
+    max-width: 220px;
+  }
+
+  .page-home .ta-rail__head,
+  .page-home .home-mood-section__head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .page-home .home-section__head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .page-home .ta-rail__sub {
+    max-width: none;
+  }
+
+  .home-cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .home-cat-grid__item {
+    min-height: 46px;
+    padding: 8px;
+  }
+
+  .home-cat-grid__label {
+    font-size: 0.78rem;
+  }
+
+  .home-quintos {
+    margin-inline: 0;
+    padding: 14px 12px;
+  }
+
+  .home-quintos__title {
+    font-size: 1.2rem;
+  }
+
+  .home-quintos__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .home-quintos__btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .home-preview-qa,
+  .cm-qa-list.home-preview-qa {
+    padding-inline: 0;
+  }
+
+  .home-community-tags {
+    margin-inline: -14px;
+    padding-inline: 14px;
+  }
+
+  .page-home .home-deals-rail,
+  .page-home .home-affordable-trips,
+  .page-home .home-rates-knowhow,
+  .page-home .home-welcome-rates {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .home-moment {
+    width: calc(100% + 28px);
+    margin-left: -14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .page-home .ta-hero__cta-row {
+    grid-template-columns: 1fr;
+  }
+
+  .page-home .ta-hero__title--home {
+    font-size: 1.35rem;
+    max-width: none;
+  }
+
+  .page-home .home-card.home-card--post,
+  .page-home .home-card--post {
+    flex-basis: 78vw;
+    min-width: 160px;
+  }
+}
+

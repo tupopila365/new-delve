@@ -952,6 +952,37 @@ class Command(BaseCommand):
                     "sort_order": 1,
                 },
             )
+            TravelOffer.objects.update_or_create(
+                business=desert,
+                title="Local midweek rate",
+                defaults={
+                    "summary": "Namibia residents save on Sunday–Thursday lodge nights.",
+                    "offer_kind": "eligibility",
+                    "eligibility": "local",
+                    "eligibility_label": "",
+                    "price_label": "30% off",
+                    "categories": ["stays"],
+                    "details": (
+                        "Local / Namibian ID holders get 30% off rack rate on midweek nights "
+                        "at participating Desert Stays properties."
+                    ),
+                    "how_to_claim": (
+                        "1. Message Desert Stays and ask for the local midweek rate.\n"
+                        "2. Share dates and preferred lodge.\n"
+                        "3. Show Namibian ID or passport at check-in.\n"
+                        "4. Pay the local rate confirmed in chat."
+                    ),
+                    "proof_required": "Valid Namibian ID or passport at check-in",
+                    "terms_note": "Sunday–Thursday arrivals. Peak festival weekends excluded.",
+                    "cover_image": (
+                        "https://images.unsplash.com/photo-1566073771259-6a8506099945"
+                        "?auto=format&fit=crop&w=1200&q=70"
+                    ),
+                    "gallery_images": [],
+                    "is_active": True,
+                    "sort_order": 2,
+                },
+            )
 
         # Transport provider awaiting admin verification (Delve Admin Phase 7)
         transport_u, _ = User.objects.get_or_create(
@@ -1046,6 +1077,64 @@ class Command(BaseCommand):
                 "gallery_images": [],
                 "is_active": True,
                 "sort_order": 0,
+            },
+        )
+        TravelOffer.objects.update_or_create(
+            business=transport_biz,
+            title="Local weekday rate",
+            defaults={
+                "summary": "Namibia residents save on weekday 4×4 rentals.",
+                "offer_kind": "eligibility",
+                "eligibility": "local",
+                "price_label": "15% off",
+                "categories": ["transport"],
+                "details": (
+                    "Weekday rentals at 15% below the published daily rate for drivers with a "
+                    "Namibian licence and ID."
+                ),
+                "how_to_claim": (
+                    "1. Message Namibia Wheels with vehicle class and pickup dates.\n"
+                    "2. Ask for the local weekday rate.\n"
+                    "3. Bring your Namibian licence and ID when collecting the vehicle."
+                ),
+                "proof_required": "Valid Namibian driver’s licence and national ID",
+                "terms_note": "Weekday pickups only. Weekend rates stay at rack.",
+                "cover_image": (
+                    "https://images.unsplash.com/photo-1469854523086-cc02fe5d8804"
+                    "?auto=format&fit=crop&w=1200&q=70"
+                ),
+                "gallery_images": [],
+                "is_active": True,
+                "sort_order": 1,
+            },
+        )
+        TravelOffer.objects.update_or_create(
+            business=transport_biz,
+            title="Student shuttle package",
+            defaults={
+                "summary": "Shared Windhoek–coast shuttle seats for students.",
+                "offer_kind": "package",
+                "eligibility": "student",
+                "price_label": "From N$180",
+                "categories": ["transport"],
+                "details": (
+                    "Shared coach seats on selected Windhoek–Swakopmund runs, priced for students "
+                    "so a coastal weekend does not start with a full tourist transfer fare."
+                ),
+                "how_to_claim": (
+                    "1. Message Namibia Wheels with “Student shuttle” and your travel date.\n"
+                    "2. Confirm the seat they hold for you.\n"
+                    "3. Show your student card when boarding."
+                ),
+                "proof_required": "Current student card matching your booking name",
+                "terms_note": "Limited seats per run. Bags over 20kg may need an extra fee.",
+                "cover_image": (
+                    "https://images.unsplash.com/photo-1570125909232-eb263c188f7e"
+                    "?auto=format&fit=crop&w=1200&q=70"
+                ),
+                "gallery_images": [],
+                "is_active": True,
+                "sort_order": 2,
             },
         )
 
@@ -1152,6 +1241,52 @@ class Command(BaseCommand):
             business=food_biz,
             user=food_u,
             defaults={"role": BusinessTeamRole.OWNER},
+        )
+        food_biz.showcase_as_partner = True
+        food_biz.how_we_help = (
+            "Local lunch rates and clear table booking steps so a good meal in Windhoek "
+            "does not feel reserved for tourists only."
+        )
+        food_biz.community_impact = (
+            "We source from nearby markets and keep weekday seats priced for residents."
+        )
+        food_biz.save(
+            update_fields=[
+                "showcase_as_partner",
+                "how_we_help",
+                "community_impact",
+                "updated_at",
+            ]
+        )
+        TravelOffer.objects.update_or_create(
+            business=food_biz,
+            title="Local lunch rate",
+            defaults={
+                "summary": "Weekday lunch set for Windhoek residents.",
+                "offer_kind": "eligibility",
+                "eligibility": "local",
+                "price_label": "From N$95",
+                "categories": ["food"],
+                "details": (
+                    "A weekday lunch set (starter or salad + main) at a resident price. "
+                    "Valid Monday–Friday before 15:00 at Savanna Table."
+                ),
+                "how_to_claim": (
+                    "1. Message Windhoek Kitchen Co or reserve a lunch table and mention "
+                    "the local lunch rate.\n"
+                    "2. Show Namibian ID when you sit down.\n"
+                    "3. Order from the local lunch set — no promo code needed."
+                ),
+                "proof_required": "Valid Namibian ID or passport",
+                "terms_note": "Weekdays before 15:00. Public holidays excluded.",
+                "cover_image": (
+                    "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe"
+                    "?auto=format&fit=crop&w=1200&q=70"
+                ),
+                "gallery_images": [],
+                "is_active": True,
+                "sort_order": 0,
+            },
         )
 
         _food_doc_specs = [

@@ -43,7 +43,7 @@ const SERVICE_TABS: { id: ServiceTab; label: string; Icon: LucideIcon }[] = [
   { id: 'stays', label: 'Stays', Icon: BedDouble },
   { id: 'food', label: 'Foodies', Icon: Utensils },
   { id: 'shop', label: 'Shop', Icon: ShoppingBag },
-  { id: 'activities', label: 'Activities', Icon: Mountain },
+  { id: 'activities', label: 'Activities and Leisure', Icon: Mountain },
   { id: 'guides', label: 'Guides', Icon: Compass },
   { id: 'transport', label: 'Transport', Icon: Car },
   { id: 'events', label: 'Events', Icon: Ticket },

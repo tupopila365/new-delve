@@ -34,7 +34,7 @@ const LISTING_FILTER_MAP: Record<string, string> = {
   'Foodies': 'Food',
   Transport: 'Transport',
   Shop: 'Shop',
-  Activities: 'Activity',
+  'Activities and Leisure': 'Activity',
 }
 
 export function ProviderReviews() {

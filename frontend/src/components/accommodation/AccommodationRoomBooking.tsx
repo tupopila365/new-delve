@@ -1,17 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { BedDouble, Users } from 'lucide-react'
+import { BedDouble, CheckCircle2, Loader2, Users, XCircle } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 import {
   BookingDateFields,
   BookingGuestSelector,
   buildBookingSearchParams,
+  checkStayAvailability,
   nightsBetween,
   todayIsoDate,
+  type AvailabilityStatus,
 } from '../booking'
 import type { ListingRoomOption } from '../listing/types'
-import './accommodation-room.css'
+import { loginHrefWithReturn } from '../../utils/authRedirect'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
+import './accommodation-room.css'
 
 type Props = {
   room: ListingRoomOption
@@ -51,6 +54,9 @@ export function AccommodationRoomBooking({
   const [checkOut, setCheckOut] = useState('')
   const [guests, setGuests] = useState(1)
   const [err, setErr] = useState<string | null>(null)
+  const [availStatus, setAvailStatus] = useState<AvailabilityStatus>('idle')
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null)
+  const [apiTotal, setApiTotal] = useState<string | null>(null)
 
   const maxGuests =
     room.maxGuests != null ? Math.min(maxListingGuests, room.maxGuests) : maxListingGuests
@@ -58,31 +64,57 @@ export function AccommodationRoomBooking({
   const nights = useMemo(() => nightsBetween(checkIn, checkOut), [checkIn, checkOut])
   const today = todayIsoDate()
 
-  const total = useMemo(() => {
+  const localTotal = useMemo(() => {
     if (!nights || pricing.price == null) return null
     return (pricing.price * nights).toFixed(2)
   }, [nights, pricing.price])
 
-  const validate = (): boolean => {
+  const total = apiTotal ?? localTotal
+  const datesReady = Boolean(checkIn && checkOut && nights && guests >= 1)
+
+  // Live availability whenever dates / guests change.
+  useEffect(() => {
+    if (!datesReady) {
+      setAvailStatus('idle')
+      setUnavailableReason(null)
+      setApiTotal(null)
+      setErr(null)
+      return
+    }
+
+    let cancelled = false
+    setAvailStatus('checking')
+    setUnavailableReason(null)
     setErr(null)
-    if (!checkIn) {
-      setErr('Select a check-in date.')
-      return false
+
+    const t = window.setTimeout(() => {
+      void checkStayAvailability({
+        listingId,
+        roomTypeName: room.name,
+        checkIn,
+        checkOut,
+        guests,
+        maxGuests,
+      }).then((result) => {
+        if (cancelled) return
+        if (result.available) {
+          setAvailStatus('available')
+          setUnavailableReason(null)
+          if (result.estimatedTotal) setApiTotal(result.estimatedTotal)
+          else setApiTotal(null)
+        } else {
+          setAvailStatus('unavailable')
+          setUnavailableReason(result.reason)
+          setApiTotal(null)
+        }
+      })
+    }, 400)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
     }
-    if (!checkOut) {
-      setErr('Select a check-out date.')
-      return false
-    }
-    if (new Date(checkOut) <= new Date(checkIn)) {
-      setErr('Check-out must be after check-in.')
-      return false
-    }
-    if (guests < 1 || guests > maxGuests) {
-      setErr(`This room fits up to ${maxGuests} guests.`)
-      return false
-    }
-    return true
-  }
+  }, [datesReady, listingId, room.name, checkIn, checkOut, guests, maxGuests])
 
   const bookHref = `/accommodation/${listingId}/book${buildBookingSearchParams({
     room: room.name,
@@ -91,7 +123,31 @@ export function AccommodationRoomBooking({
     guests,
   })}`
 
-  const ctaLabel = total ? 'Reserve' : 'Check availability'
+  const canReserve = availStatus === 'available'
+  const ctaLabel =
+    availStatus === 'checking'
+      ? 'Checking…'
+      : availStatus === 'unavailable'
+        ? 'Dates not available'
+        : availStatus === 'available'
+          ? 'Reserve'
+          : 'Select dates'
+
+  const onCtaClick = (e: MouseEvent) => {
+    if (!canReserve) {
+      e.preventDefault()
+      if (!datesReady) setErr('Select check-in and check-out dates first.')
+      else if (availStatus === 'unavailable') {
+        setErr(unavailableReason || 'Those dates are not available.')
+      } else if (availStatus === 'checking') {
+        setErr('Still checking availability…')
+      }
+    }
+  }
+
+  const authHref = profile
+    ? '/verify-email'
+    : loginHrefWithReturn(bookHref)
 
   return (
     <div className={`acc-room-booking ${className}`.trim()}>
@@ -110,7 +166,7 @@ export function AccommodationRoomBooking({
             </>
           ) : null}
         </div>
-        {total ? (
+        {total && availStatus !== 'unavailable' ? (
           <div className="acc-room-booking__fees">
             <div className="acc-room-booking__fee-row">
               <span>
@@ -124,7 +180,7 @@ export function AccommodationRoomBooking({
             </div>
           </div>
         ) : (
-          <p className="acc-room-booking__hint">Select dates to see your nightly total</p>
+          <p className="acc-room-booking__hint">Select dates to check availability and see your total</p>
         )}
       </div>
 
@@ -157,6 +213,27 @@ export function AccommodationRoomBooking({
         />
       </div>
 
+      {availStatus === 'checking' ? (
+        <div className="acc-room-booking__status acc-room-booking__status--checking" role="status">
+          <Loader2 size={18} strokeWidth={2.25} className="acc-room-booking__spin" aria-hidden />
+          <span>Checking if these dates are free…</span>
+        </div>
+      ) : null}
+
+      {availStatus === 'available' ? (
+        <div className="acc-room-booking__status acc-room-booking__status--ok" role="status">
+          <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden />
+          <span>Available for your dates — you can reserve.</span>
+        </div>
+      ) : null}
+
+      {availStatus === 'unavailable' ? (
+        <div className="acc-room-booking__status acc-room-booking__status--bad" role="alert">
+          <XCircle size={18} strokeWidth={2.25} aria-hidden />
+          <span>{unavailableReason || 'Not available for those dates. Try different dates.'}</span>
+        </div>
+      ) : null}
+
       {err ? (
         <p className="acc-room-booking__error" role="alert">
           {err}
@@ -166,24 +243,38 @@ export function AccommodationRoomBooking({
       {profile && profile.email_verified ? (
         <Link
           to={bookHref}
-          className="btn btn-primary btn-block acc-room-booking__cta"
-          onClick={(e) => {
-            if (!validate()) e.preventDefault()
-          }}
+          className={`btn btn-primary btn-block acc-room-booking__cta${canReserve ? '' : ' is-disabled'}`}
+          aria-disabled={!canReserve}
+          onClick={onCtaClick}
         >
           {ctaLabel}
         </Link>
       ) : (
         <Link
-          to={profile ? '/verify-email' : '/login'}
-          className="btn btn-primary btn-block acc-room-booking__cta"
+          to={authHref}
+          className={`btn btn-primary btn-block acc-room-booking__cta${canReserve || !datesReady ? '' : ' is-disabled'}`}
+          aria-disabled={datesReady && !canReserve}
+          onClick={(e) => {
+            if (datesReady && !canReserve) {
+              e.preventDefault()
+              onCtaClick(e)
+            }
+          }}
         >
-          {profile ? 'Verify email to reserve' : 'Sign in to reserve'}
+          {profile
+            ? canReserve
+              ? 'Verify email to reserve'
+              : ctaLabel
+            : canReserve
+              ? 'Sign in to reserve'
+              : ctaLabel}
         </Link>
       )}
 
       <p className="acc-room-booking__note">
-        You won&apos;t be charged yet — {listingTitle} confirms availability first.
+        {availStatus === 'available'
+          ? `Dates are open — ${listingTitle} still confirms your request before you pay.`
+          : `We'll check the calendar as you pick dates. You won't be charged yet.`}
       </p>
     </div>
   )

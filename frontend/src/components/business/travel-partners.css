@@ -333,6 +333,15 @@
   color: rgba(255, 250, 242, 0.82);
 }
 
+.pt-card__open-rate {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #d6d3d1;
+}
+
 .pt-card__listings {
   margin: 2px 0 0;
   font-size: 0.72rem;

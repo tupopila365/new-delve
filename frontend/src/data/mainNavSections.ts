@@ -13,8 +13,9 @@ export const PRIMARY_NAV_SECTIONS: MainNavLink[] = [
 /** Secondary categories — discoverable via More menu, Home, and Search */
 export const SECONDARY_NAV_SECTIONS: MainNavLink[] = [
   { to: '/partners', label: 'Travel partners' },
+  { to: '/deals', label: 'Open rates' },
   { to: '/food', label: 'Foodies' },
-  { to: '/activities', label: 'Activities' },
+  { to: '/activities', label: 'Activities and Leisure' },
   { to: '/guides', label: 'Guides' },
   { to: '/transport', label: 'Transport' },
   { to: '/events', label: 'Events' },

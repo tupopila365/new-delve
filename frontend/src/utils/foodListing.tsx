@@ -72,6 +72,7 @@ export type FoodVenueListing = {
   saves_count?: number
   liked_by_me?: boolean
   likes_count?: number
+  deals?: import('../components/deals').ListingDeal[]
   phone?: string | null
   website?: string | null
   opening_hours?: string | null

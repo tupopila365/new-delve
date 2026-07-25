@@ -9,6 +9,8 @@ export type ProviderStoryItem = {
   channelLabel: string
   explorePath: string
   coverSrc: string | null
+  /** When cover is story media, prefer video frame over broken <img>. */
+  coverKind?: 'image' | 'video'
   fallbackInitial?: string
   slides: StorySlide[]
 }
@@ -25,6 +27,54 @@ type Props = {
 function itemInitial(label: string, fallback?: string) {
   const w = (fallback || label).trim()
   return w ? w.charAt(0).toUpperCase() : '?'
+}
+
+function StoryRingCover({
+  coverSrc,
+  coverKind,
+  label,
+  fallbackInitial,
+}: {
+  coverSrc: string | null
+  coverKind?: 'image' | 'video'
+  label: string
+  fallbackInitial?: string
+}) {
+  const [failed, setFailed] = useState(false)
+  const showMedia = Boolean(coverSrc) && !failed
+  const isVideo = showMedia && coverKind === 'video'
+
+  if (isVideo) {
+    return (
+      <video
+        src={`${coverSrc!}#t=0.1`}
+        muted
+        playsInline
+        preload="metadata"
+        className="provider-stories__img provider-stories__video"
+        aria-hidden
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+
+  if (showMedia) {
+    return (
+      <img
+        src={coverSrc!}
+        alt=""
+        className="provider-stories__img"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+
+  return (
+    <span className="provider-stories__initial" aria-hidden>
+      {itemInitial(label, fallbackInitial)}
+    </span>
+  )
 }
 
 /** Simple story rings for service-provider pages (stays & events). */
@@ -56,13 +106,12 @@ export function ProviderStoriesRow({ items, ariaLabel, ctaLabel = 'View', classN
             >
               <span className="provider-stories__ring">
                 <span className="provider-stories__media">
-                  {item.coverSrc ? (
-                    <img src={item.coverSrc} alt="" className="provider-stories__img" loading="lazy" />
-                  ) : (
-                    <span className="provider-stories__initial" aria-hidden>
-                      {itemInitial(item.label, item.fallbackInitial)}
-                    </span>
-                  )}
+                  <StoryRingCover
+                    coverSrc={item.coverSrc}
+                    coverKind={item.coverKind}
+                    label={item.label}
+                    fallbackInitial={item.fallbackInitial}
+                  />
                 </span>
               </span>
               <span className="provider-stories__label">{item.label}</span>

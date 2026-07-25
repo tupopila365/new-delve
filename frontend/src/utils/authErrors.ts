@@ -46,13 +46,19 @@ export function authFormError(error: unknown, fallback: string): string {
       if (/no account found with this username/i.test(fromBody)) {
         return 'No account found with this username.'
       }
+      if (/must be at least 18/i.test(fromBody)) {
+        return 'You must be at least 18 to create a Delve account.'
+      }
       if (/email or username is required/i.test(fromBody)) {
         return 'Enter your email or username.'
       }
       if (/provide email or username, not both/i.test(fromBody)) {
         return 'Use either email or username, not both.'
       }
-      return sanitizeUiError(fromBody, 'Wrong email or password. Try again, or reset your password.')
+      return sanitizeUiError(
+        fromBody,
+        'Wrong email/username or password. Try again, or reset your password.',
+      )
     }
 
     if (error.status === 429) {

@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from promotions.constants import MAX_HOME_STORY_SLIDES
 from promotions.models import HOME_STORY_CHANNEL_IDS, HomeStoryChannelConfig, HomeStorySlide, HomeStorySourceType
+from common.gallery_media import media_url_kind
 
 
 def ensure_channel_configs() -> list[HomeStoryChannelConfig]:
@@ -83,13 +84,16 @@ def resolve_editorial_slide(slide: HomeStorySlide, request=None) -> dict | None:
     if slide.source_type == HomeStorySourceType.CUSTOM:
         if not override_media:
             return None
+        resolved_kind = kind if kind == "video" else media_url_kind(override_media)
+        if resolved_kind not in ("image", "video"):
+            resolved_kind = "image"
         return _slide(
             sid=f"editorial-{slide.pk}",
-            kind=kind,
+            kind=resolved_kind,
             src=override_media,
             headline=override_headline or "Featured",
             sub=override_sub or None,
-            duration_ms=VIDEO_MS if kind == "video" else IMG_MS,
+            duration_ms=VIDEO_MS if resolved_kind == "video" else IMG_MS,
             cta_path=override_cta_path or "/",
             cta_label=override_cta_label or "Explore",
             source="editorial",
@@ -132,13 +136,18 @@ def resolve_editorial_slide(slide: HomeStorySlide, request=None) -> dict | None:
     src = override_media or listing["src"]
     if not src:
         return None
+    if override_media:
+        resolved_kind = kind if kind in ("image", "video") else media_url_kind(override_media)
+    else:
+        listing_kind = listing.get("kind")
+        resolved_kind = listing_kind if listing_kind in ("image", "video") else media_url_kind(src)
     return _slide(
         sid=f"editorial-{slide.pk}",
-        kind=kind if override_media else "image",
+        kind=resolved_kind,
         src=src,
         headline=override_headline or listing["headline"],
         sub=override_sub or listing.get("sub"),
-        duration_ms=VIDEO_MS if kind == "video" and override_media else IMG_MS,
+        duration_ms=VIDEO_MS if resolved_kind == "video" else IMG_MS,
         cta_path=override_cta_path or listing["cta_path"],
         cta_label=override_cta_label or listing["cta_label"],
         source="editorial",
@@ -161,6 +170,32 @@ def _post_cta(post) -> tuple[str, str]:
     return f"/delvers/posts/{post.pk}", "View pin"
 
 
+def _listing_kind_from_src(src: str | None, *, explicit: str | None = None) -> str:
+    if explicit in ("image", "video"):
+        if explicit == "image" and src and media_url_kind(src) == "video":
+            return "video"
+        return explicit
+    if src:
+        return media_url_kind(src)
+    return "image"
+
+
+def _accommodation_cover(row, request=None) -> tuple[str | None, str]:
+    src = _media_url(row.cover_image, request)
+    if src:
+        return src, _listing_kind_from_src(src)
+    for item in row.media_gallery or []:
+        if not isinstance(item, dict):
+            continue
+        raw = str(item.get("src") or item.get("url") or "").strip()
+        if not raw:
+            continue
+        resolved = _media_url(raw, request) or raw
+        kind = item.get("kind")
+        return resolved, _listing_kind_from_src(resolved, explicit=kind if kind in ("image", "video") else None)
+    return None, "image"
+
+
 def _load_listing(source_type: str, target_id: str, request=None) -> dict | None:
     try:
         lid = int(target_id)
@@ -173,8 +208,10 @@ def _load_listing(source_type: str, target_id: str, request=None) -> dict | None
         row = AccommodationListing.objects.filter(pk=lid, is_active=True).first()
         if not row:
             return None
+        src, kind = _accommodation_cover(row, request)
         return {
-            "src": _media_url(row.cover_image, request),
+            "src": src,
+            "kind": kind,
             "headline": row.title,
             "sub": " · ".join(b for b in (row.city, row.region) if b) or None,
             "cta_path": f"/accommodation/{row.pk}",
@@ -188,8 +225,10 @@ def _load_listing(source_type: str, target_id: str, request=None) -> dict | None
         row = FoodVenue.objects.filter(pk=lid, is_active=True).first()
         if not row:
             return None
+        src = _media_url(row.cover_image, request)
         return {
-            "src": _media_url(row.cover_image, request),
+            "src": src,
+            "kind": _listing_kind_from_src(src, explicit=getattr(row, "cover_kind", None)),
             "headline": row.name,
             "sub": " · ".join(b for b in (row.city, row.region) if b) or None,
             "cta_path": f"/food/{row.pk}",
@@ -206,8 +245,10 @@ def _load_listing(source_type: str, target_id: str, request=None) -> dict | None
         profile = getattr(row.user, "profile", None)
         name = (getattr(profile, "display_name", None) or "").strip() or row.user.username
         regions = row.regions or []
+        src = _media_url(row.photo, request)
         return {
-            "src": _media_url(row.photo, request),
+            "src": src,
+            "kind": _listing_kind_from_src(src),
             "headline": name,
             "sub": str(regions[0]) if regions else None,
             "cta_path": f"/guides/{row.pk}",
@@ -221,8 +262,10 @@ def _load_listing(source_type: str, target_id: str, request=None) -> dict | None
         row = Event.objects.filter(pk=lid, is_published=True).first()
         if not row:
             return None
+        src = _media_url(row.cover_image, request)
         return {
-            "src": _media_url(row.cover_image, request),
+            "src": src,
+            "kind": _listing_kind_from_src(src, explicit=getattr(row, "cover_kind", None)),
             "headline": row.title,
             "sub": " · ".join(b for b in (row.city, row.region) if b) or None,
             "cta_path": f"/events/{row.pk}",
@@ -236,8 +279,10 @@ def _load_listing(source_type: str, target_id: str, request=None) -> dict | None
         row = VehicleRentalListing.objects.filter(pk=lid, is_active=True).first()
         if not row:
             return None
+        src = _media_url(row.cover_image, request)
         return {
-            "src": _media_url(row.cover_image, request),
+            "src": src,
+            "kind": _listing_kind_from_src(src, explicit=getattr(row, "cover_kind", None)),
             "headline": row.title,
             "sub": " · ".join(b for b in (row.city, row.region) if b) or None,
             "cta_path": f"/transport/vehicle/{row.pk}",
@@ -253,8 +298,10 @@ def _load_listing(source_type: str, target_id: str, request=None) -> dict | None
             return None
         route = row.route
         headline = f"{route.origin} → {route.destination}" if route else f"Trip #{row.pk}"
+        src = _media_url(route.cover_image, request) if route else None
         return {
-            "src": _media_url(route.cover_image, request) if route else None,
+            "src": src,
+            "kind": _listing_kind_from_src(src, explicit=getattr(route, "cover_kind", None) if route else None),
             "headline": headline,
             "sub": getattr(route, "operator", None) and route.operator.name or None,
             "cta_path": f"/transport/bus/{row.pk}",

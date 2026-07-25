@@ -23,7 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   transport: 'transport',
   food_drink: 'food & drink',
   retail_shop: 'shop & makers',
-  activity: 'activities',
+  activity: 'activities and leisure',
 }
 
 export function categoriesForBusinessTypes(types: string[]): ListingCategory[] {
@@ -50,14 +50,14 @@ const CATEGORY_CHIP_LABELS: Record<ListingCategory, string> = {
   Food: 'Foodies',
   Event: 'Events',
   Shop: 'Shop',
-  Activity: 'Activities',
+  Activity: 'Activities and Leisure',
 }
 
 export function listingTypeChips(types: string[]): { id: string; label: string }[] {
   const cats = categoriesForBusinessTypes(types)
   const chips: { id: string; label: string }[] = [{ id: 'All', label: 'All' }]
   for (const c of cats) {
-    chips.push({ id: c, label: c === 'Food' ? 'Foodies' : c })
+    chips.push({ id: c, label: CATEGORY_CHIP_LABELS[c] ?? c })
   }
   return chips
 }

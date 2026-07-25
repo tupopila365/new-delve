@@ -29,6 +29,7 @@ export type Profile = {
   region: string
   city: string
   country_code: string
+  birth_year?: number | null
   preferred_currency: string
   avatar: string | null
   email_verified: boolean
@@ -43,17 +44,27 @@ type AuthState = {
   profile: Profile | null
   loading: boolean
   refreshProfile: () => Promise<void>
-  login: (email: string, password: string) => Promise<void>
+  login: (identifier: string, password: string) => Promise<void>
   logout: () => void
 }
 
 const AuthContext = createContext<AuthState | null>(null)
+
+/** Token API accepts either `email` or `username` (not both). */
+function tokenLoginBody(identifier: string, password: string) {
+  const trimmed = identifier.trim()
+  if (trimmed.includes('@')) {
+    return { email: trimmed.toLowerCase(), password }
+  }
+  return { username: trimmed, password }
+}
 
 function normalizeProfile(me: Profile): Profile {
   return {
     ...me,
     is_staff: me.is_staff ?? false,
     country_code: me.country_code ?? '',
+    birth_year: me.birth_year ?? null,
     preferred_currency: me.preferred_currency ?? '',
     is_private: me.is_private ?? false,
     posts_visibility: me.posts_visibility ?? 'public',
@@ -104,11 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshProfile])
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     const tokens = await apiFetch<{ access: string; refresh: string }>('/api/accounts/token/', {
       method: 'POST',
       auth: false,
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      body: JSON.stringify(tokenLoginBody(identifier, password)),
     })
     setTokens(tokens.access, tokens.refresh)
     const me = await apiFetch<Profile>('/api/accounts/me/')

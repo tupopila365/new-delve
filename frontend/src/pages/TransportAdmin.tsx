@@ -685,6 +685,7 @@ export function TransportAdmin() {
           error={vehicleErr}
           saving={saveVehicleMut.isPending}
           isEdit={Boolean(editVehicleId)}
+          listingId={editVehicleId}
           onSubmit={() => saveVehicleMut.mutate()}
           onCancel={() => {
             setShowVehicleForm(false)

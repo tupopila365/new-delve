@@ -14,7 +14,7 @@ class CostCategory(models.TextChoices):
     STAY = "stay", "Accommodation"
     FOOD = "food", "Foodies"
     TRANSPORT = "transport", "Transport"
-    ACTIVITY = "activity", "Activities"
+    ACTIVITY = "activity", "Activities and Leisure"
     OTHER = "other", "Other"
 
 

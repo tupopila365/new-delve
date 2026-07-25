@@ -14,7 +14,7 @@ export const JOURNEY_COST_LABELS: Record<TripCost['category'], string> = {
   stay: 'Accommodation',
   food: 'Foodies',
   transport: 'Transport',
-  activity: 'Activities',
+  activity: 'Activities and Leisure',
   other: 'Other',
 }
 

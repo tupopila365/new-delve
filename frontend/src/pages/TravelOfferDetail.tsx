@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ClipboardList,
   IdCard,
+  MapPinned,
   Play,
   ShieldCheck,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import {
   offerMediaList,
   type TravelOffer,
 } from '../components/business'
+import { localBookingTipForDeal } from '../components/deals/localBookingTips'
 import { MessageProviderLink } from '../components/messages'
 import { MediaLightbox } from '../components/media/MediaLightbox'
 import type { ListingGalleryItem } from '../components/listing/types'
@@ -135,6 +137,7 @@ export function TravelOfferDetail() {
   const terms = offer.terms_note?.trim() || ''
   const hero = galleryItems[Math.min(activeMedia, Math.max(galleryItems.length - 1, 0))]
   const galleryRest = galleryItems.slice(1)
+  const localTip = localBookingTipForDeal(offer)
 
   return (
     <BusinessProfileShell title="Accessible travel">
@@ -230,7 +233,21 @@ export function TravelOfferDetail() {
 
           <div className="tod__deal-row">
             {offer.price_label?.trim() ? (
-              <p className="tod__price">{offer.price_label.trim()}</p>
+              <div
+                className={`tod__price-block${
+                  offer.offer_kind === 'package' ? ' tod__price-block--package' : ''
+                }`}
+              >
+                {offer.offer_kind === 'package' ? (
+                  <p className="tod__price-kicker">One trip price</p>
+                ) : null}
+                <p className="tod__price">{offer.price_label.trim()}</p>
+                {offer.offer_kind === 'package' ? (
+                  <p className="tod__price-note">
+                    Clear package total — what’s included is below. Message the host to lock it in.
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <p className="tod__price tod__price--muted">Ask for rate</p>
             )}
@@ -288,18 +305,19 @@ export function TravelOfferDetail() {
         <section className="tod__section" aria-labelledby="tod-who">
           <h2 id="tod-who" className="tod__h">
             <WhoIcon size={16} strokeWidth={2.25} aria-hidden />
-            Who is eligible
+            Who this is for
           </h2>
           <p className="tod__body">
             This offer is for <strong>{who}</strong>
-            {proof ? '.' : ' — confirm with the provider if you are unsure you qualify.'}
+            {proof ? '.' : ' — if you’re unsure, ask the host kindly before you book.'}
           </p>
           {proof ? (
             <div className="tod__callout">
               <IdCard size={16} strokeWidth={2.25} aria-hidden />
               <div>
-                <strong>Proof required</strong>
+                <strong>Bring when you check in</strong>
                 <p>{proof}</p>
+                <p className="tod__callout-note">Ordinary ID checks — hosts just need to confirm the rate.</p>
               </div>
             </div>
           ) : null}
@@ -308,23 +326,35 @@ export function TravelOfferDetail() {
         <section className="tod__section" aria-labelledby="tod-how">
           <h2 id="tod-how" className="tod__h">
             <CheckCircle2 size={16} strokeWidth={2.25} aria-hidden />
-            How to sign up
+            How to unlock this
           </h2>
           {howTo ? (
             <p className="tod__body tod__body--pre">{howTo}</p>
           ) : (
             <ol className="tod__steps">
               <li>Message {business.business_name} and mention this offer by name.</li>
-              <li>Confirm dates, eligibility, and what proof you will show.</li>
-              <li>Book the stay, tour, or transfer once they confirm the rate.</li>
+              <li>Confirm dates and what you’ll bring at check-in.</li>
+              <li>Book once they confirm the rate — everyday process for them.</li>
             </ol>
           )}
+        </section>
+
+        <section className="tod__section tod__section--local" aria-labelledby="tod-local">
+          <h2 id="tod-local" className="tod__h">
+            <MapPinned size={16} strokeWidth={2.25} aria-hidden />
+            {localTip.title}
+          </h2>
+          <p className="tod__body">{localTip.body}</p>
+          <p className="tod__body tod__body--muted">
+            Need a human walkthrough?{' '}
+            <Link to="/guides">Find a guide</Link> or <Link to="/community">ask in Community</Link>.
+          </p>
         </section>
 
         {terms ? (
           <section className="tod__section" aria-labelledby="tod-terms">
             <h2 id="tod-terms" className="tod__h">
-              Terms
+              Good to know
             </h2>
             <p className="tod__body tod__body--muted tod__body--pre">{terms}</p>
           </section>
@@ -336,7 +366,7 @@ export function TravelOfferDetail() {
             businessId={business.id}
             variant="primary"
             size="block"
-            label="Message to claim"
+            label="Message to unlock"
             className="tod__msg"
           />
           <Link to={`/business/${business.id}`} className="tod__back-link">

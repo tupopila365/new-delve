@@ -15,6 +15,7 @@ import { mediaUrl } from '../../api/client'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { isVideoUrl } from '../listing/photos/listingGalleryMedia'
 import { vehicleTypeMeta } from '../../utils/transportListing'
+import { ListingDealBadges, DealAwarePrice, type ListingDeal } from '../deals'
 import './transport-market.css'
 
 export type TransportVehicleCardData = {
@@ -33,6 +34,7 @@ export type TransportVehicleCardData = {
   transmission?: string | null
   rating_avg?: string | null
   rating_count?: number | null
+  deals?: ListingDeal[]
 }
 
 type Props = {
@@ -129,6 +131,9 @@ export function TransportVehicleCard({
           <TypeIcon size={11} strokeWidth={2.5} aria-hidden />
           {typeMeta.label}
         </span>
+        {vehicle.deals?.length ? (
+          <ListingDealBadges deals={vehicle.deals} className="tm-card__deals" max={2} />
+        ) : null}
 
         <div className="tm-card__actions" aria-label="Vehicle actions">
           {onShare ? (
@@ -182,7 +187,10 @@ export function TransportVehicleCard({
           <div className="tm-card__price-block">
             <p className="tm-card__price">
               <BadgeDollarSign size={13} strokeWidth={2.25} aria-hidden />
-              {format(vehicle.price_per_day)}
+              <DealAwarePrice
+                fallback={format(vehicle.price_per_day)}
+                deals={vehicle.deals}
+              />
               <span className="tm-card__per"> / day</span>
             </p>
             {totalEst ? (

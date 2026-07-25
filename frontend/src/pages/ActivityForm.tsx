@@ -11,6 +11,7 @@ import {
   ProviderUiPage,
 } from '../components/provider/ui'
 import { ACTIVITY_CATEGORIES, type ActivityListing, type ActivityMediaItem } from '../utils/activityListing'
+import { ListingSaleEditor } from '../components/deals'
 import '../components/activities/activities.css'
 
 type FormState = {
@@ -352,8 +353,12 @@ export function ActivityForm() {
             checked={form.is_active}
             onChange={(e) => patch('is_active', e.target.checked)}
           />
-          Published (visible on Activities)
+          Published (visible on Activities and Leisure)
         </label>
+
+        {isEdit && activityId ? (
+          <ListingSaleEditor vertical="activities" listingId={Number(activityId)} canEdit />
+        ) : null}
 
         {err ? <p className="act-form__error">{err}</p> : null}
 

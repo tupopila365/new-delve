@@ -34,6 +34,7 @@ from .models import (
     BusinessTeamRole,
     BusinessVerificationDocument,
     EmailVerificationToken,
+    ListingSale,
     PasswordResetToken,
     Profile,
     TravelOffer,
@@ -46,6 +47,7 @@ from .serializers import (
     BusinessProfileSerializer,
     BusinessVerificationDocumentSerializer,
     CreateBusinessSerializer,
+    ListingSaleSerializer,
     MyBusinessSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer,
@@ -445,6 +447,46 @@ class BusinessTravelOfferDetailView(APIView):
         return Response(payload)
 
 
+class DealsDiscoveryView(APIView):
+    """Phase 4 — public deals discovery for Home rails, /deals, and search."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from accounts.deals_discovery import discover_deals
+
+        profile = None
+        user = getattr(request, "user", None)
+        if user is not None and getattr(user, "is_authenticated", False):
+            profile = getattr(user, "profile", None)
+
+        may_only = (request.query_params.get("may_qualify") or "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "only",
+        )
+        try:
+            limit = int(request.query_params.get("limit") or 24)
+        except (TypeError, ValueError):
+            limit = 24
+
+        rows = discover_deals(
+            category=(request.query_params.get("category") or request.query_params.get("vertical") or ""),
+            eligibility=request.query_params.get("eligibility") or "",
+            kind=request.query_params.get("kind") or "",
+            q=request.query_params.get("q") or "",
+            region=request.query_params.get("region") or "",
+            city=request.query_params.get("city") or "",
+            may_qualify_only=may_only,
+            include_listing_sales=(request.query_params.get("sales") or "1").strip().lower()
+            not in ("0", "false", "no"),
+            limit=limit,
+            viewer_profile=profile,
+        )
+        return Response({"results": rows, "count": len(rows)})
+
+
 class BusinessListingsView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -584,6 +626,59 @@ class MyBusinessTravelOfferDetailView(APIView):
         business = _get_owned_or_managed_business(request, pk)
         offer = get_object_or_404(TravelOffer, pk=offer_id, business=business)
         offer.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MyListingSaleView(APIView):
+    """GET / PUT / DELETE listing-level sale for a vertical + listing id (Phase 2)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _owned_listing(self, request, vertical: str, listing_id: int):
+        from accounts.listing_sales import VERTICAL_CHOICES, get_listing_for_owner
+
+        if vertical not in VERTICAL_CHOICES:
+            return None, Response({"detail": "Unknown vertical."}, status=status.HTTP_404_NOT_FOUND)
+        listing = get_listing_for_owner(vertical, listing_id, request.user)
+        if listing is None:
+            return None, Response({"detail": "Listing not found."}, status=status.HTTP_404_NOT_FOUND)
+        return listing, None
+
+    def get(self, request, vertical, listing_id):
+        _, err = self._owned_listing(request, vertical, listing_id)
+        if err is not None:
+            return err
+        sale = ListingSale.objects.filter(
+            vertical=vertical, listing_id=listing_id, owner=request.user
+        ).first()
+        if sale is None:
+            return Response(None)
+        return Response(ListingSaleSerializer(sale).data)
+
+    def put(self, request, vertical, listing_id):
+        _, err = self._owned_listing(request, vertical, listing_id)
+        if err is not None:
+            return err
+        sale = ListingSale.objects.filter(
+            vertical=vertical, listing_id=listing_id, owner=request.user
+        ).first()
+        serializer = ListingSaleSerializer(sale, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        if sale is None:
+            sale = serializer.save(owner=request.user, vertical=vertical, listing_id=listing_id)
+        else:
+            sale = serializer.save()
+        return Response(ListingSaleSerializer(sale).data)
+
+    def delete(self, request, vertical, listing_id):
+        _, err = self._owned_listing(request, vertical, listing_id)
+        if err is not None:
+            return err
+        deleted, _ = ListingSale.objects.filter(
+            vertical=vertical, listing_id=listing_id, owner=request.user
+        ).delete()
+        if not deleted:
+            return Response({"detail": "No sale set for this listing."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

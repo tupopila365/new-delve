@@ -6,6 +6,7 @@ import {
 } from './foodVenueTypes'
 import { FoodVenueStoriesEditor } from './FoodVenueStoriesEditor'
 import { FoodVenuePhotoEditor } from './FoodVenuePhotoEditor'
+import { VenueLocationPicker } from './workspace/VenueLocationPicker'
 
 type Props = {
   values: FoodVenueFormValues
@@ -40,7 +41,12 @@ export function FoodVenueForm({ values, onChange, error, saving, onSubmit, onCan
     onChange({ ...values, ...partial })
   }
 
-  const canSave = values.name.trim() && values.region.trim() && values.city.trim()
+  const canSave =
+    values.name.trim() &&
+    ((values.region.trim() && values.city.trim()) ||
+      (Boolean(values.formatted_address?.trim()) &&
+        values.latitude != null &&
+        values.longitude != null))
 
   return (
     <div className="transport-form" role="dialog" aria-modal="true" aria-labelledby="food-form-title">
@@ -106,20 +112,20 @@ export function FoodVenueForm({ values, onChange, error, saving, onSubmit, onCan
 
           {section === 'location' && (
             <div className="transport-form__section">
-              <div className="transport-form__row">
-                <label className="transport-form__field">
-                  Region
-                  <input value={values.region} onChange={(e) => patch({ region: e.target.value })} placeholder="Khomas" />
-                </label>
-                <label className="transport-form__field">
-                  City
-                  <input value={values.city} onChange={(e) => patch({ city: e.target.value })} placeholder="Windhoek" />
-                </label>
-              </div>
-              <label className="transport-form__field">
-                Street address
-                <input value={values.address} onChange={(e) => patch({ address: e.target.value })} placeholder="123 Independence Ave" />
-              </label>
+              <VenueLocationPicker
+                value={{
+                  latitude: values.latitude,
+                  longitude: values.longitude,
+                  google_place_id: values.google_place_id,
+                  formatted_address: values.formatted_address,
+                  region: values.region,
+                  city: values.city,
+                  address: values.address,
+                }}
+                onChange={(loc) => patch(loc)}
+                searchPlaceholder="Search Google Maps for your restaurant or address"
+                hint="Pick a suggestion, then drag the pin if the exact spot needs a nudge."
+              />
             </div>
           )}
 

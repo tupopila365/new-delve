@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BadgeCheck, Bookmark, Clock, Compass, MapPin, Share2, Star } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
+import { ListingDealBadges, type ListingDeal } from '../deals'
 import './guide-list.css'
 
 export type GuideCardData = {
@@ -25,6 +26,7 @@ export type GuideCardData = {
   saves_count?: number
   is_featured_partner?: boolean
   partner_label?: string
+  deals?: ListingDeal[]
 }
 
 type Props = {
@@ -89,6 +91,7 @@ export function GuideListingCard({
         {g.is_featured_partner ? (
           <span className="gl-spot__partner">{g.partner_label || 'Featured'}</span>
         ) : null}
+        {g.deals?.length ? <ListingDealBadges deals={g.deals} className="gl-spot__deals" max={2} /> : null}
 
         <div className="gl-spot__actions" aria-label="Guide actions">
           {onShare ? (

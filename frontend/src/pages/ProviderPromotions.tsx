@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useOutletContext } from 'react-router-dom'
+import { CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { friendlyApiMessage } from '../utils/friendlyError'
 import type { ProviderOutletContext } from '../components/ProviderLayout'
 import { ProviderUiHeader, ProviderUiPage, ProviderUiStats } from '../components/provider/ui'
 import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import './provider-promotions.css'
 
 type ProviderListingOption = {
   target_type: string
@@ -114,6 +116,8 @@ const PLACEMENT_TARGET: Record<string, string> = {
   delvers_feed: 'post',
 }
 
+type CheckoutMode = 'pay' | 'request'
+
 function toLocalDatetimeValue(iso: string) {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -127,6 +131,12 @@ function defaultStartDate() {
   return toLocalDatetimeValue(d.toISOString())
 }
 
+function addDaysLocal(startLocal: string, days: number) {
+  const d = new Date(startLocal)
+  d.setDate(d.getDate() + days)
+  return toLocalDatetimeValue(d.toISOString())
+}
+
 function statusPillClass(status: string) {
   if (status === 'active') return 'prov-ui__pill prov-ui__pill--ok'
   if (status === 'scheduled') return 'prov-ui__pill prov-ui__pill--warn'
@@ -136,10 +146,21 @@ function statusPillClass(status: string) {
   return 'prov-ui__pill'
 }
 
+function placementBlurb(placement: string) {
+  if (placement === 'homepage_stays') return 'Featured on the Delve homepage stays rail'
+  if (placement === 'homepage_guides') return 'Featured on the homepage guides rail'
+  if (placement === 'homepage_food') return 'Featured on the homepage food rail'
+  if (placement === 'homepage_events') return 'Featured on the homepage events rail'
+  if (placement === 'category_spotlight') return 'Hero spotlight on the category list'
+  if (placement === 'delvers_feed') return 'Sponsored slot in the Delvers feed'
+  return 'Featured placement across Delve'
+}
+
 export function ProviderPromotions() {
   const { format } = useDisplayMoney()
   const { canManageListings } = useOutletContext<ProviderOutletContext>()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [productId, setProductId] = useState<number | ''>('')
@@ -147,7 +168,9 @@ export function ProviderPromotions() {
   const [formTargetType, setFormTargetType] = useState('accommodation')
   const [formStartsAt, setFormStartsAt] = useState(defaultStartDate())
   const [providerNotes, setProviderNotes] = useState('')
+  const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>('pay')
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [prefillApplied, setPrefillApplied] = useState(false)
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ['promotion-products'],
@@ -192,11 +215,15 @@ export function ProviderPromotions() {
     return listings.filter((l) => l.target_type === type)
   }, [listings, selectedProduct, formTargetType, isFeedProduct])
 
+  const selectedListing = listingOptions.find((l) => `${l.target_type}:${l.target_id}` === formListingKey)
+
   useEffect(() => {
     if (products.length && productId === '') {
-      setProductId(products[0].id)
+      const placement = searchParams.get('placement')
+      const match = placement ? products.find((p) => p.placement === placement) : null
+      setProductId(match?.id ?? products[0].id)
     }
-  }, [products, productId])
+  }, [products, productId, searchParams])
 
   useEffect(() => {
     if (selectedProduct && isFeedProduct) {
@@ -207,10 +234,32 @@ export function ProviderPromotions() {
   }, [selectedProduct, isFeedProduct])
 
   useEffect(() => {
-    if (!listingOptions.some((l) => `${l.target_type}:${l.target_id}` === formListingKey)) {
+    if (prefillApplied || listingsLoading || !products.length || productId === '') return
+    const listingParam = searchParams.get('listing')
+    if (!listingParam) {
+      setPrefillApplied(true)
+      return
+    }
+    // Wait until package filter has loaded so stay listings are in options.
+    const exists = listings.some((l) => `${l.target_type}:${l.target_id}` === listingParam)
+    if (exists) {
+      setFormListingKey(listingParam)
+      setPrefillApplied(true)
+      if (searchParams.get('listing') || searchParams.get('placement')) {
+        setSearchParams({}, { replace: true })
+      }
+    } else if (!listingsLoading) {
+      // Listing not found for this package — still clear once.
+      setPrefillApplied(true)
+    }
+  }, [listings, listingsLoading, products.length, productId, searchParams, setSearchParams, prefillApplied])
+
+  useEffect(() => {
+    if (!prefillApplied) return
+    if (formListingKey && !listingOptions.some((l) => `${l.target_type}:${l.target_id}` === formListingKey)) {
       setFormListingKey('')
     }
-  }, [listingOptions, formListingKey])
+  }, [listingOptions, formListingKey, prefillApplied])
 
   const purchaseMut = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -219,13 +268,28 @@ export function ProviderPromotions() {
         body: JSON.stringify(payload),
       }),
     onSuccess: () => {
-      setToast('Campaign created — complete payment to schedule your slot.')
+      setToast('Campaign created — complete payment to schedule your boost.')
       setError('')
       setProviderNotes('')
       void qc.invalidateQueries({ queryKey: ['provider-promotions'] })
       void qc.invalidateQueries({ queryKey: ['provider-promotion-analytics'] })
     },
     onError: (err: unknown) => setError(friendlyApiMessage(err, 'Could not start purchase.')),
+  })
+
+  const requestMut = useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiFetch<PromotionCampaign>('/api/promotions/requests/', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      setToast('Boost request sent — a Delve admin will review and approve it.')
+      setError('')
+      setProviderNotes('')
+      void qc.invalidateQueries({ queryKey: ['provider-promotions'] })
+    },
+    onError: (err: unknown) => setError(friendlyApiMessage(err, 'Could not submit request.')),
   })
 
   const payMut = useMutation({
@@ -268,12 +332,54 @@ export function ProviderPromotions() {
   })
 
   const unpaidCount = campaigns.filter((c) => c.status === 'pending_payment').length
+  const awaitingAdmin = campaigns.filter((c) => c.status === 'requested').length
+  const busy = purchaseMut.isPending || requestMut.isPending
+
+  function submitBoost() {
+    setToast('')
+    setError('')
+    if (!selectedProduct) {
+      setError('Select a boost package.')
+      return
+    }
+    if (!selectedListing) {
+      setError('Select what you want to boost.')
+      return
+    }
+    if (checkoutMode === 'pay') {
+      purchaseMut.mutate({
+        product_id: selectedProduct.id,
+        target_type: selectedListing.target_type,
+        target_id: selectedListing.target_id,
+        target_label: selectedListing.label,
+        starts_at: new Date(formStartsAt).toISOString(),
+        provider_notes: providerNotes.trim(),
+      })
+      return
+    }
+    const endsLocal = addDaysLocal(formStartsAt, selectedProduct.duration_days)
+    requestMut.mutate({
+      placement: selectedProduct.placement,
+      target_type: selectedListing.target_type,
+      target_id: selectedListing.target_id,
+      target_label: selectedListing.label,
+      region: selectedProduct.region || selectedListing.region || '',
+      starts_at: new Date(formStartsAt).toISOString(),
+      ends_at: new Date(endsLocal).toISOString(),
+      provider_notes: providerNotes.trim(),
+    })
+  }
 
   return (
     <ProviderUiPage>
       <ProviderUiHeader
-        title="Promotions"
-        subtitle="Buy a featured package, pay online, and go live automatically — no manual invoicing for standard slots."
+        title="Boost on Delve"
+        subtitle="Feature a stay, venue, or Delvers post where travellers browse — pay online, or request a Delve admin review."
+        actions={
+          <Link to="/provider/stays" className="prov-ui__btn prov-ui__btn--ghost">
+            Back to stays
+          </Link>
+        }
       />
 
       {toast ? (
@@ -287,186 +393,217 @@ export function ProviderPromotions() {
         </p>
       ) : null}
 
+      <section className="boost-how" aria-label="How boosting works">
+        <article className="boost-how__step">
+          <span className="boost-how__num" aria-hidden>
+            1
+          </span>
+          <div>
+            <strong>Pick a package</strong>
+            <p>Homepage stays, category spotlight, or Delvers feed.</p>
+          </div>
+        </article>
+        <article className="boost-how__step">
+          <span className="boost-how__num" aria-hidden>
+            2
+          </span>
+          <div>
+            <strong>Choose content</strong>
+            <p>Your live listing or a Delvers post.</p>
+          </div>
+        </article>
+        <article className="boost-how__step">
+          <span className="boost-how__num" aria-hidden>
+            3
+          </span>
+          <div>
+            <strong>Pay or request</strong>
+            <p>Instant checkout, or Delve Admin approves offline requests.</p>
+          </div>
+        </article>
+      </section>
+
       {promoAnalytics?.totals ? (
         <section className="prov-ui__panel">
-          <h2 className="prov-ui__panel-title">Performance overview</h2>
-          <p className="prov-ui__panel-hint">Totals from your paid and live promotion campaigns.</p>
+          <h2 className="prov-ui__panel-title">Boost performance</h2>
           <ProviderUiStats
             columns={4}
             stats={[
-              {
-                label: 'Impressions',
-                value: promoAnalytics.totals.impressions.toLocaleString(),
-              },
-              {
-                label: 'CTR',
-                value: `${promoAnalytics.totals.ctr_pct}%`,
-                accent: true,
-              },
-              {
-                label: 'Listing opens',
-                value: promoAnalytics.totals.listing_opens.toLocaleString(),
-              },
-              {
-                label: 'Bookings',
-                value: promoAnalytics.totals.bookings.toLocaleString(),
-              },
+              { label: 'Impressions', value: promoAnalytics.totals.impressions.toLocaleString() },
+              { label: 'CTR', value: `${promoAnalytics.totals.ctr_pct}%`, accent: true },
+              { label: 'Listing opens', value: promoAnalytics.totals.listing_opens.toLocaleString() },
+              { label: 'Bookings', value: promoAnalytics.totals.bookings.toLocaleString() },
               ...(promoAnalytics.totals.spend_cents > 0
-                ? [
-                    {
-                      label: 'Spend',
-                      value: format(promoAnalytics.totals.spend_cents / 100),
-                    },
-                  ]
-                : []),
-              ...(promoAnalytics.totals.roi_proxy != null
-                ? [
-                    {
-                      label: 'ROI proxy',
-                      value: `${promoAnalytics.totals.roi_proxy} / ${format(100)}`,
-                      wide: true as const,
-                    },
-                  ]
+                ? [{ label: 'Spend', value: format(promoAnalytics.totals.spend_cents / 100) }]
                 : []),
             ]}
           />
         </section>
       ) : null}
 
-      <section className="prov-ui__panel">
-        <h2 className="prov-ui__panel-title">Buy a package</h2>
+      <section className="prov-ui__panel boost-create" id="boost-create">
+        <h2 className="prov-ui__panel-title">
+          <Sparkles size={18} strokeWidth={2.25} aria-hidden />
+          Create a boost
+        </h2>
         <p className="prov-ui__panel-hint">
           {canManageListings
-            ? 'Pick a product (placement, region, duration), choose your listing, and set a start date. Payment uses mock checkout in dev — Stripe / Paystack can replace this later.'
-            : 'View campaign performance here. Purchasing and managing promotions requires manager access on your business team.'}
+            ? 'Standard packages go live after payment. Offline / partner deals use Request — Delve Admin reviews and approves.'
+            : 'View campaigns here. Creating boosts needs manager access on your business team.'}
         </p>
+
         {canManageListings ? (
-        <form
-          className="prov-settings__form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            setToast('')
-            setError('')
-            const listing = listingOptions.find((l) => `${l.target_type}:${l.target_id}` === formListingKey)
-            if (!selectedProduct) {
-              setError('Select a package.')
-              return
-            }
-            if (!listing) {
-              setError('Select a listing to promote.')
-              return
-            }
-            purchaseMut.mutate({
-              product_id: selectedProduct.id,
-              target_type: listing.target_type,
-              target_id: listing.target_id,
-              target_label: listing.label,
-              starts_at: new Date(formStartsAt).toISOString(),
-              provider_notes: providerNotes.trim(),
-            })
-          }}
-        >
-          <label className="prov-settings__field">
-            <span>Package</span>
-            <select
-              value={productId}
-              onChange={(e) => setProductId(Number(e.target.value))}
-              required
-              disabled={productsLoading || !products.length}
-            >
+          <>
+            <div className="boost-mode" role="group" aria-label="Checkout mode">
+              <button
+                type="button"
+                className={`boost-mode__btn${checkoutMode === 'pay' ? ' is-active' : ''}`}
+                onClick={() => setCheckoutMode('pay')}
+              >
+                <CheckCircle2 size={16} strokeWidth={2.25} aria-hidden />
+                Pay & go live
+              </button>
+              <button
+                type="button"
+                className={`boost-mode__btn${checkoutMode === 'request' ? ' is-active' : ''}`}
+                onClick={() => setCheckoutMode('request')}
+              >
+                <ShieldCheck size={16} strokeWidth={2.25} aria-hidden />
+                Request admin review
+              </button>
+            </div>
+            {checkoutMode === 'request' ? (
+              <p className="boost-mode__note">
+                Use this when payment is arranged offline. A Delve Admin will see your request under Featured partners
+                and can approve or reject it.
+              </p>
+            ) : (
+              <p className="boost-mode__note">
+                Creates a campaign awaiting payment. After you pay, it schedules automatically — no admin step needed.
+              </p>
+            )}
+
+            <p className="boost-label">Package</p>
+            <div className="boost-packages">
               {productsLoading ? (
-                <option value="">Loading packages…</option>
+                <p className="prov-ui__muted">Loading packages…</p>
               ) : (
                 products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.price_display}
-                  </option>
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`boost-package${productId === p.id ? ' is-active' : ''}`}
+                    onClick={() => setProductId(p.id)}
+                  >
+                    <strong>{p.name}</strong>
+                    <span>{placementBlurb(p.placement)}</span>
+                    <em>
+                      {p.price_display} · {p.duration_days} days
+                      {p.region ? ` · ${p.region}` : ' · National'}
+                    </em>
+                  </button>
                 ))
               )}
-            </select>
-          </label>
+            </div>
 
-          {isFeedProduct ? (
+            {isFeedProduct ? (
+              <label className="prov-settings__field">
+                <span>Promote</span>
+                <select value={formTargetType} onChange={(e) => setFormTargetType(e.target.value)} required>
+                  {FEED_TARGET_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                {formTargetType === 'post' ? (
+                  <small className="prov-ui__muted">Pick one of your Delvers posts to sponsor in the feed.</small>
+                ) : null}
+              </label>
+            ) : null}
+
             <label className="prov-settings__field">
-              <span>Promote</span>
-              <select value={formTargetType} onChange={(e) => setFormTargetType(e.target.value)} required>
-                {FEED_TARGET_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+              <span>{isFeedProduct ? 'Content to boost' : 'Listing to boost'}</span>
+              <select
+                value={formListingKey}
+                onChange={(e) => setFormListingKey(e.target.value)}
+                required
+                disabled={listingsLoading || !listingOptions.length || !selectedProduct}
+              >
+                <option value="" disabled>
+                  {listingsLoading
+                    ? 'Loading…'
+                    : listingOptions.length
+                      ? 'Select…'
+                      : isFeedProduct && formTargetType === 'post'
+                        ? 'No Delvers posts yet'
+                        : 'No eligible listings'}
+                </option>
+                {listingOptions.map((l) => (
+                  <option key={`${l.target_type}:${l.target_id}`} value={`${l.target_type}:${l.target_id}`}>
+                    {l.label} — {l.category_label}
+                    {l.city ? ` · ${l.city}` : l.region ? ` · ${l.region}` : ''}
                   </option>
                 ))}
               </select>
-              {formTargetType === 'post' ? (
-                <small className="prov-ui__muted">Pick one of your Delvers posts to sponsor in the feed.</small>
+            </label>
+
+            <label className="prov-settings__field">
+              <span>Start date</span>
+              <input
+                type="datetime-local"
+                required
+                value={formStartsAt}
+                onChange={(e) => setFormStartsAt(e.target.value)}
+              />
+              {selectedProduct ? (
+                <small className="prov-ui__muted">Runs for {selectedProduct.duration_days} days from start.</small>
               ) : null}
             </label>
-          ) : null}
 
-          <label className="prov-settings__field">
-            <span>{isFeedProduct ? 'Target' : 'Listing'}</span>
-            <select
-              value={formListingKey}
-              onChange={(e) => setFormListingKey(e.target.value)}
-              required
-              disabled={listingsLoading || !listingOptions.length || !selectedProduct}
-            >
-              <option value="" disabled>
-                {listingsLoading
-                  ? 'Loading…'
-                  : listingOptions.length
-                    ? isFeedProduct && formTargetType === 'post'
-                      ? 'Select a post…'
-                      : 'Select a listing…'
-                    : isFeedProduct && formTargetType === 'post'
-                      ? 'No Delvers posts yet'
-                      : 'No eligible listings'}
-              </option>
-              {listingOptions.map((l) => (
-                <option key={`${l.target_type}:${l.target_id}`} value={`${l.target_type}:${l.target_id}`}>
-                  {l.label} — {l.category_label}
-                  {l.city ? ` · ${l.city}` : l.region ? ` · ${l.region}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="prov-settings__field">
+              <span>Notes for Delve Admin (optional)</span>
+              <textarea
+                rows={2}
+                value={providerNotes}
+                onChange={(e) => setProviderNotes(e.target.value)}
+                placeholder="e.g. Paid via invoice #…, prefer Windhoek region, creative notes…"
+              />
+            </label>
 
-          <label className="prov-settings__field">
-            <span>Start date</span>
-            <input
-              type="datetime-local"
-              required
-              value={formStartsAt}
-              onChange={(e) => setFormStartsAt(e.target.value)}
-            />
-            {selectedProduct ? (
-              <small className="prov-ui__muted">Runs for {selectedProduct.duration_days} days from start.</small>
+            {selectedProduct && selectedListing ? (
+              <div className="boost-summary">
+                <p>
+                  Boosting <strong>{selectedListing.label}</strong> on{' '}
+                  <strong>{selectedProduct.placement_label}</strong>
+                </p>
+                <p>
+                  {checkoutMode === 'pay' ? (
+                    <>
+                      Total due: <strong>{selectedProduct.price_display}</strong>
+                    </>
+                  ) : (
+                    <>
+                      Admin review · {selectedProduct.duration_days} days · no instant charge
+                    </>
+                  )}
+                </p>
+              </div>
             ) : null}
-          </label>
 
-          <label className="prov-settings__field">
-            <span>Notes (optional)</span>
-            <textarea
-              rows={2}
-              value={providerNotes}
-              onChange={(e) => setProviderNotes(e.target.value)}
-              placeholder="Campaign goals, creative notes…"
-            />
-          </label>
-
-          {selectedProduct ? (
-            <p className="prov-ui__muted">
-              Total due at checkout: <strong>{selectedProduct.price_display}</strong>
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            className="prov-ui__btn prov-ui__btn--primary"
-            disabled={purchaseMut.isPending || !products.length || !listingOptions.length}
-          >
-            {purchaseMut.isPending ? 'Creating…' : 'Continue to payment'}
-          </button>
-        </form>
+            <button
+              type="button"
+              className="prov-ui__btn prov-ui__btn--primary"
+              disabled={busy || !products.length || !listingOptions.length}
+              onClick={submitBoost}
+            >
+              {busy
+                ? 'Submitting…'
+                : checkoutMode === 'pay'
+                  ? 'Continue to payment'
+                  : 'Send to Delve Admin'}
+            </button>
+          </>
         ) : null}
       </section>
 
@@ -509,13 +646,14 @@ export function ProviderPromotions() {
 
       <section className="prov-ui__panel">
         <h2 className="prov-ui__panel-title">
-          Your campaigns
+          Your boosts
           {unpaidCount ? ` · ${unpaidCount} awaiting payment` : ''}
+          {awaitingAdmin ? ` · ${awaitingAdmin} with Delve Admin` : ''}
         </h2>
         {campaignsLoading ? (
           <p className="prov-ui__panel-hint">Loading…</p>
         ) : campaigns.length === 0 ? (
-          <p className="prov-ui__panel-hint">No campaigns yet — buy a package above.</p>
+          <p className="prov-ui__panel-hint">No boosts yet — create one above.</p>
         ) : (
           <ul className="prov-ui__list">
             {campaigns.map((item) => (
@@ -533,6 +671,9 @@ export function ProviderPromotions() {
                       {item.amount_display ? ` · ${item.amount_display}` : ''}
                       {item.payment_ref ? ` · ${item.payment_ref}` : ''}
                     </p>
+                  ) : null}
+                  {item.status === 'requested' ? (
+                    <p className="prov-ui__muted">Waiting for Delve Admin approval.</p>
                   ) : null}
                   {'metrics' in item && item.metrics ? (
                     <p className="prov-ui__muted">
@@ -574,7 +715,7 @@ export function ProviderPromotions() {
                       disabled={cancelMut.isPending}
                       onClick={() => {
                         const preview = item.refund_preview?.note
-                        if (window.confirm(`Cancel this campaign? ${preview || ''}`)) {
+                        if (window.confirm(`Cancel this boost? ${preview || ''}`)) {
                           cancelMut.mutate(item.id)
                         }
                       }}

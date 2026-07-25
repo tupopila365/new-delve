@@ -10,13 +10,15 @@ import {
   sanitizeRegionForCountry,
 } from '../lib/exploreDestination'
 import { HOME_ATMOSPHERE_BG } from '../data/homeDefaults'
+import { DealsRail } from '../components/deals'
 import './explore-page.css'
 
 const VERTICAL_LINKS = [
   { to: '/accommodation', label: 'Stays', hint: 'Rooms & lodges' },
   { to: '/food', label: 'Food', hint: 'Tables & tastes' },
-  { to: '/guides', label: 'Guides', hint: 'Local leads' },
+  { to: '/guides', label: 'Guides', hint: 'People who help' },
   { to: '/transport', label: 'Transport', hint: 'Cars & buses' },
+  { to: '/deals', label: 'Open rates', hint: 'Resident & student' },
   { to: '/search', label: 'Search', hint: 'Everything here' },
 ] as const
 
@@ -231,6 +233,10 @@ export function ExplorePage() {
             ) : null}
           </div>
         </section>
+
+        {exploring ? (
+          <DealsRail region={region || undefined} className="explore-page-deals" />
+        ) : null}
 
         <section className="explore-page-jumps" aria-labelledby="explore-jumps-title">
           <h2 id="explore-jumps-title" className="explore-page-jumps__title">

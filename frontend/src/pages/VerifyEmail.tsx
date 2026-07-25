@@ -73,7 +73,7 @@ export function VerifyEmail() {
               nav('/', { replace: true })
             }
           } else {
-            nav('/', { replace: true })
+            nav('/?welcome=rates', { replace: true })
           }
           return
         }

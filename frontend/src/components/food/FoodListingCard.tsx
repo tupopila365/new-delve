@@ -6,6 +6,7 @@ import { cuisineIcon, cuisineLabel, priceLevelLabel, priceLevelName } from '../.
 import { listingTrustLabel } from '../../lib/listingTrust'
 import { listingTasteTags } from '../../lib/forYouDeep'
 import { useVideoWatchSignal } from '../../hooks/useForYouDeep'
+import { ListingDealBadges, type ListingDeal } from '../deals'
 import './food-list.css'
 
 export type FoodCardVenue = {
@@ -36,6 +37,7 @@ export type FoodCardVenue = {
   likes_count?: number
   saved_by_me?: boolean
   saves_count?: number
+  deals?: ListingDeal[]
 }
 
 type Props = {
@@ -140,6 +142,9 @@ export function FoodListingCard({
             {venue.owner_verified ? <BadgeCheck size={11} strokeWidth={2.5} aria-hidden /> : null}
             {trustLabel}
           </span>
+        ) : null}
+        {venue.deals?.length ? (
+          <ListingDealBadges deals={venue.deals} className="fd-spot__deals" max={2} />
         ) : null}
         <div className="fd-spot__actions" aria-label="Venue actions">
           <button

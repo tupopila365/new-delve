@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
@@ -31,6 +31,8 @@ import { JourneyListingCard } from '../components/journeys/JourneyListingCard'
 import { JourneySectionHead } from '../components/journeys/JourneySectionHead'
 import { JourneyListDelversViewer } from '../components/journeys/JourneyDelversHighlights'
 import { EmptyState, ListSkeleton } from '../components/ui'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import { popularAreasForCountry } from '../lib/areaFilterOptions'
 import '../components/journeys/JourneysPageEnhancer.css'
 const RECENT_STORY_COUNT = 5
 
@@ -64,19 +66,9 @@ function budgetBucketLabel(currency: string, min: number, max: number, kind: 'un
   return `${symAmt(min)}–${symAmt(max).replace(/^[^0-9]+/, '')}`
 }
 
-/** Fallback shown only when the live feed has too few stops to rank places. */
-const FALLBACK_DESTINATIONS = [
-  'Etosha',
-  'Swakopmund',
-  'Sossusvlei',
-  'Windhoek',
-  'Walvis Bay',
-  'Lüderitz',
-] as const
-
 /** Rank the most-visited places from real journey stops (each place counted
- *  once per journey). Falls back to a static list when data is thin. */
-function popularDestinations(trips: MockTrip[]): string[] {
+ *  once per journey). Falls back to Explore-country towns when data is thin. */
+function popularDestinations(trips: MockTrip[], country: string): string[] {
   const counts = new Map<string, { label: string; n: number }>()
   for (const trip of trips) {
     const seen = new Set<string>()
@@ -92,7 +84,7 @@ function popularDestinations(trips: MockTrip[]): string[] {
     }
   }
   const ranked = [...counts.values()].sort((a, b) => b.n - a.n).map((c) => c.label)
-  return ranked.length >= 3 ? ranked.slice(0, 6) : [...FALLBACK_DESTINATIONS]
+  return ranked.length >= 3 ? ranked.slice(0, 6) : popularAreasForCountry(country, 6)
 }
 
 function onJourneyImgError(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -112,15 +104,21 @@ function resultsHint(count: number, filters: { quick: string; search: string; bu
 
 export function TripsList() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { profile } = useAuth()
+  const { country } = useExploreDestination()
   const { currency, format } = useDisplayMoney()
   const BUDGET_BUCKETS = BUDGET_BUCKET_DEFS.map((b) => ({
     ...b,
     label: budgetBucketLabel(currency, b.min, b.max, b.kind),
   }))
+  const initialMode = (searchParams.get('mode') || '').trim().toLowerCase()
+  const allowedModes = new Set(SOCIAL_MODES.map((m) => m.id).filter(Boolean))
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [quickFilter, setQuickFilter] = useState('')
+  const [quickFilter, setQuickFilter] = useState(
+    allowedModes.has(initialMode) ? initialMode : '',
+  )
   const [selectedBucket, setSelectedBucket] = useState<(typeof BUDGET_BUCKETS)[number] | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>('recent')
@@ -190,7 +188,7 @@ export function TripsList() {
     [allTrips],
   )
 
-  const topDestinations = useMemo(() => popularDestinations(allTrips), [allTrips])
+  const topDestinations = useMemo(() => popularDestinations(allTrips, country), [allTrips, country])
 
   const clearAll = () => {
     setQuickFilter('')
@@ -232,7 +230,7 @@ export function TripsList() {
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Etosha, coast, weekend, food…"
+              placeholder="Place, weekend, food…"
               autoComplete="off"
             />
           </label>
@@ -404,7 +402,8 @@ export function TripsList() {
               {showDiscoveryRails && curated && curated.weekendRail.length > 0 && (
                 <JourneyRail
                   id="jn-weekend"
-                  title="Short escapes people loved"
+                  title="Weekend under a clear budget"
+                  sub="Short escapes with full cost estimates — stay, food, and getting around."
                   trips={curated.weekendRail}
                   engagement={engagement}
                 />
@@ -414,7 +413,7 @@ export function TripsList() {
                 <JourneyRail
                   id="jn-budget"
                   title="Trips that won’t wreck the wallet"
-                  sub={`Full cost breakdowns under ${format(5000)}.`}
+                  sub={`Full trip estimates under ${format(5000)} — so the week feels doable.`}
                   trips={curated.budgetRail}
                   engagement={engagement}
                 />

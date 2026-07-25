@@ -21,6 +21,8 @@ import { JourneySectionHead } from '../components/journeys/JourneySectionHead'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { useEventCategoryFollows } from '../hooks/useEventCategoryFollows'
 import { useEventEngagement } from '../hooks/useEventEngagement'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import { buildAreaFilterOptions, popularAreasForCountry } from '../lib/areaFilterOptions'
 import {
   CATEGORY_OPTIONS,
   categoryMeta,
@@ -47,8 +49,6 @@ const SOCIAL_MODES = [
   { id: 'culture', label: 'Culture', Icon: Landmark },
   { id: 'food', label: 'Food', Icon: Utensils },
 ] as const
-
-const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay', 'Oshakati'] as const
 
 function whenFilterLabel(when: string): string {
   if (when === 'today') return 'Today'
@@ -79,12 +79,14 @@ function onPreviewImgError(e: React.SyntheticEvent<HTMLImageElement>) {
 export function EventsList() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { country } = useExploreDestination()
   const categoryFollows = useEventCategoryFollows()
   const [mode, setMode] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('for_you')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [findOpen, setFindOpen] = useState(false)
+  const [areaChips, setAreaChips] = useState(() => popularAreasForCountry(country, 6))
 
   const category = WHEN_MODES.has(mode) || !mode ? '' : mode
   const whenFilter = WHEN_MODES.has(mode) ? mode : ''
@@ -94,6 +96,10 @@ export function EventsList() {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
     return () => window.clearTimeout(t)
   }, [searchInput])
+
+  useEffect(() => {
+    setAreaChips(popularAreasForCountry(country, 6))
+  }, [country])
 
   const qs = useMemo(() => {
     const p = new URLSearchParams()
@@ -110,6 +116,22 @@ export function EventsList() {
     queryKey: ['events', qs, profile?.username ?? ''],
     queryFn: () => apiFetch<EventListing[]>(`/api/events/${qs}`, { auth: Boolean(profile) }),
   })
+
+  useEffect(() => {
+    if (search) return
+    const list = data ?? []
+    const fromListings = [
+      ...new Set(
+        list
+          .flatMap((e) => [e.city, e.region])
+          .map((v) => (v || '').trim())
+          .filter(Boolean),
+      ),
+    ]
+    setAreaChips(
+      buildAreaFilterOptions({ country, listingAreas: fromListings, limit: 6 }),
+    )
+  }, [data, search, country])
 
   const events = data ?? []
   const engagement = useEventEngagement(events)
@@ -186,12 +208,12 @@ export function EventsList() {
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Market, music, Windhoek, meetup…"
+              placeholder="Market, music, city, meetup…"
               autoComplete="off"
             />
           </label>
           <div className="jn-find-sheet__dests" aria-label="Popular areas">
-            {TOP_AREAS.map((city) => (
+            {areaChips.map((city) => (
               <button
                 key={city}
                 type="button"

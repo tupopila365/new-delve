@@ -6,6 +6,7 @@ import { MiniRating } from '../MiniRating'
 import { useCart } from '../../hooks/useCart'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import type { ShopProductListing } from '../../utils/shopListing'
+import { ListingDealBadges, DealAwarePrice } from '../deals'
 import './shop-list.css'
 
 type Props = {
@@ -40,13 +41,19 @@ export function ShopListingCard({ product, focused }: Props) {
         {focused && !product.is_featured ? (
           <span className="shop-card__badge shop-card__badge--focus">Popular</span>
         ) : null}
+        {product.deals?.length ? (
+          <ListingDealBadges deals={product.deals} className="shop-card__deals" max={2} />
+        ) : null}
         {soldOut ? <span className="shop-card__soldout">Sold out</span> : null}
       </div>
       <div className="shop-card__body">
         <div className="shop-card__head">
           <strong>{product.name}</strong>
           <span className="shop-card__price">
-            {product.price_label || shopPriceLabel(product.price, product.price_note, currency)}
+            <DealAwarePrice
+              fallback={product.price_label || shopPriceLabel(product.price, product.price_note, currency)}
+              deals={product.deals}
+            />
           </span>
         </div>
         {product.tagline ? <span className="shop-card__tagline">{product.tagline}</span> : null}

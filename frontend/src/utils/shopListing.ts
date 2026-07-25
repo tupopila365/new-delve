@@ -46,6 +46,7 @@ export type ShopProductListing = {
   rating_count?: number | null
   is_active?: boolean
   created_at?: string
+  deals?: import('../components/deals').ListingDeal[]
 }
 
 export type ProductReviewMedia = {

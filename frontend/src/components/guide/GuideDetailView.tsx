@@ -15,6 +15,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { GuidePackageReserveCard } from '../booking/guide'
 import '../booking/guide/guide-booking.css'
 import { ListingDelversMoments, ListingReviews } from '../listing'
+import { ListingDealsStrip } from '../deals'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { openStreetMapSearchUrl } from '../../utils/foodListing'
 import { mediaUrl } from '../../api/client'
@@ -274,6 +275,8 @@ export function GuideDetailView({
           </p>
         ) : null}
       </div>
+
+      <ListingDealsStrip deals={guide.deals} />
 
       <div className="jd-engage" aria-label="Guide actions">
         <div className="jd-engage__primary">

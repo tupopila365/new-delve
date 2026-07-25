@@ -1033,6 +1033,11 @@ button {
   display: block;
 }
 
+.story-bubble__avatar-video {
+  pointer-events: none;
+  background: #1a1a1a;
+}
+
 .delvers-stories-row {
   margin-bottom: 2px;
 }
@@ -14924,6 +14929,7 @@ a.chip.chip--accent:hover {
 }
 
 .ev-story-ring__avatar {
+  position: relative;
   width: 60px;
   height: 60px;
   flex-shrink: 0;
@@ -14938,6 +14944,8 @@ a.chip.chip--accent:hover {
 }
 
 .ev-story-ring__avatar img,
+.ev-story-ring__avatar video,
+.ev-story-ring__media,
 .ev-story-ring__fallback {
   width: 100%;
   height: 100%;
@@ -14947,6 +14955,16 @@ a.chip.chip--accent:hover {
   place-items: center;
   background: #171717;
   color: #a78bfa;
+}
+
+.ev-story-ring__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.28);
+  pointer-events: none;
 }
 
 .ev-story-ring--seen .ev-story-ring__avatar {
@@ -22529,8 +22547,10 @@ a.chip.chip--accent:hover {
 }
 
 @media (max-width: 768px) {
+  /* Padding owned by home-mobile-redesign.css — avoid fighting it. */
   .home-content {
-    padding: 16px 16px 48px;
+    padding-left: unset;
+    padding-right: unset;
   }
 }
 
@@ -22542,7 +22562,7 @@ a.chip.chip--accent:hover {
 
 @media (max-width: 768px) {
   .page-home .ta-hero--home {
-    min-height: auto;
+    min-height: min(72svh, 520px);
   }
 }
 

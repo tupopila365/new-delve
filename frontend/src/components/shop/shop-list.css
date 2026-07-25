@@ -412,6 +412,18 @@
   color: #f4d6b5;
 }
 
+.shop-card__deals {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+}
+
+.shop-card__deals .deal-badge {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
 .shop-card__body {
   min-width: 0;
   flex: 1;

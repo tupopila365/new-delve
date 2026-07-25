@@ -115,37 +115,9 @@
 
 .st-market__find-row {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 8px;
-}
-
-@media (max-width: 719px) {
-  .st-market__find-row {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .st-market__find-row::-webkit-scrollbar {
-    display: none;
-  }
-
-  .st-market__find-row .st-market__select,
-  .st-market__find-row .st-market__sort {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 8.5rem;
-    max-width: 42vw;
-  }
-}
-
-@media (min-width: 720px) {
-  .st-market__find-row {
-    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-  }
+  align-items: stretch;
 }
 
 .st-market__select,
@@ -249,15 +221,17 @@
 }
 
 .st-market__more {
+  width: 100%;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px dashed rgba(224, 154, 140, 0.4);
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
   color: var(--st-accent-bright);
   font: inherit;
   font-size: 0.8rem;

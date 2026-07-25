@@ -11,6 +11,7 @@ from accounts.business_access import (
     user_can_manage_booking_for_listing,
     user_can_manage_listing,
 )
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.permissions import IsEmailVerified, IsProviderOrBusinessMember, IsServiceProvider
 from messaging.booking_automation import notify_booking_confirmed
 
@@ -38,7 +39,9 @@ from .serializers import (
 )
 
 
-class AccommodationListingViewSet(viewsets.ModelViewSet):
+class AccommodationListingViewSet(ListingDealsContextMixin, viewsets.ModelViewSet):
+    deal_category = "stays"
+    deal_scope = "owner"
     queryset = AccommodationListing.objects.filter(is_active=True).select_related(
         "owner", "owner__profile"
     )

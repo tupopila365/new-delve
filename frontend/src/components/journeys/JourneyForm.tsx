@@ -112,7 +112,7 @@ const COST_CATEGORIES = [
   { value: 'stay', label: 'Accommodation', icon: '🏨' },
   { value: 'food', label: 'Foodies', icon: '🍽' },
   { value: 'transport', label: 'Transport', icon: '🚗' },
-  { value: 'activity', label: 'Activities', icon: '🎯' },
+  { value: 'activity', label: 'Activities and Leisure', icon: '🎯' },
   { value: 'other', label: 'Other', icon: '💼' },
 ]
 

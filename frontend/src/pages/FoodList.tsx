@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bookmark, List, Map as MapIcon, MapPin, Search, Utensils, X } from 'lucide-react'
+import { Bookmark, List, Map as MapIcon, MapPin, SlidersHorizontal, Utensils, X } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useFoodEngagement } from '../hooks/useFoodEngagement'
@@ -14,8 +14,13 @@ import { compareByDistance, formatDistanceKm, listingDistanceKm } from '../lib/g
 import { listingTrustBoost } from '../lib/listingTrust'
 import { listingTasteTags } from '../lib/forYouDeep'
 import { useForYouDeep } from '../hooks/useForYouDeep'
-import { ExploreNearPointControl } from '../components/explore/ExploreNearPointControl'
+import {
+  AreaPlacesFilter,
+  listingMatchesAreaPoint,
+} from '../components/explore/AreaPlacesFilter'
 import { ExploreResultsMap } from '../components/explore/ExploreResultsMap'
+import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
+import { MarketSearchBar } from '../components/explore/MarketSearchBar'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
@@ -24,7 +29,9 @@ import type { VenueStoryChannelInput } from '../components/food/stories/types'
 import { cuisineLabel, priceLevelLabel } from '../utils/foodListing'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { foodCoverSrc } from '../utils/foodDisplay'
+import { listingHasActiveDeals, type ListingDeal } from '../components/deals'
 import '../components/food/food-list.css'
+import '../components/explore/market-filters-modal.css'
 
 type Venue = {
   id: number
@@ -61,6 +68,7 @@ type Venue = {
   owner_verified?: boolean
   niche_tags?: string[] | null
   amenities?: string[] | null
+  deals?: ListingDeal[]
 }
 
 const CUISINE_OPTIONS: { value: string; label: string }[] = [
@@ -90,8 +98,6 @@ const MOOD_FILTERS: { id: string; label: string }[] = [
   { id: 'reserve', label: 'Reservations' },
 ]
 
-const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva', 'Lüderitz'] as const
-
 type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'name' | 'distance'
 
 function cuisineMeta(value: string) {
@@ -113,23 +119,18 @@ export function FoodList() {
   const { profile } = useAuth()
   const gate = useAccountActionGate()
   const { country, region: exploreRegion, label: exploreLabel, exploring } = useExploreDestination()
-  const { point: nearPoint } = useExploreNearPoint()
+  const { point: nearPoint, clear: clearNearPoint } = useExploreNearPoint()
   const { boost } = useForYou()
   const foodAffinity = boost('food')
   const { itemBoost } = useForYouDeep()
   const [cuisine, setCuisine] = useState('')
-  const [city, setCity] = useState('')
   const [mood, setMood] = useState('')
   const [sort, setSort] = useState<SortId>('recommended')
-  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [savedOnly, setSavedOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
-    return () => window.clearTimeout(t)
-  }, [searchInput])
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [dealsOnly, setDealsOnly] = useState(false)
 
   useEffect(() => {
     if (nearPoint) setSort('distance')
@@ -139,14 +140,13 @@ export function FoodList() {
   const qs = useMemo(() => {
     const p = new URLSearchParams()
     if (cuisine) p.set('cuisine', cuisine)
-    if (city) p.set('city', city)
     if (exploring && exploreRegion) p.set('region', exploreRegion)
     if (exploring && country) p.set('country_code', country)
     if (search) p.set('search', search)
     if (mood === 'cheap') p.set('max_price_level', '1')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [cuisine, city, exploreRegion, search, mood, exploring, country])
+  }, [cuisine, exploreRegion, search, mood, exploring, country])
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [
@@ -170,6 +170,7 @@ export function FoodList() {
     if (!savedOnly && exploring) {
       list = list.filter((v) => listingMatchesExplore(v, country, exploreRegion))
     }
+    if (nearPoint) list = list.filter((v) => listingMatchesAreaPoint(v, nearPoint))
     if (mood === 'open') list = list.filter((v) => v.is_open === true)
     if (mood === 'date') list = list.filter((v) => (v.price_level || 1) >= 3 || v.cuisine === 'bar')
     if (mood === 'family') list = list.filter((v) => (v.price_level || 2) <= 2 && v.cuisine !== 'bar')
@@ -178,6 +179,7 @@ export function FoodList() {
     if (mood === 'takeaway') list = list.filter((v) => v.takeaway || v.cuisine === 'fast_food' || v.cuisine === 'bakery')
     if (mood === 'delivery') list = list.filter((v) => Boolean(v.delivery))
     if (mood === 'reserve') list = list.filter((v) => Boolean(v.reservations))
+    if (dealsOnly) list = list.filter((v) => listingHasActiveDeals(v.deals))
 
     list.sort((a, b) => {
       if (sort === 'distance' && nearPoint) {
@@ -191,7 +193,6 @@ export function FoodList() {
         if (diff !== 0) return diff
         return (b.rating_count ?? 0) - (a.rating_count ?? 0)
       }
-      // recommended: personalization weighs more in My Delve
       const personalWeight = exploring ? 1 : 1.65
       const score = (v: Venue) =>
         (v.is_open === true ? 3 : 0) +
@@ -214,6 +215,7 @@ export function FoodList() {
     exploreRegion,
     exploring,
     mood,
+    dealsOnly,
     sort,
     foodAffinity,
     itemBoost,
@@ -227,16 +229,25 @@ export function FoodList() {
     () => (data ?? []).filter((v) => v.is_open === true).slice(0, 8),
     [data],
   )
-  const hasFilters = Boolean(cuisine || city || search || mood || savedOnly)
+  const hasFilters = Boolean(cuisine || nearPoint || search || mood || savedOnly || dealsOnly)
 
   const clearAll = () => {
     setCuisine('')
-    setCity('')
+    clearNearPoint()
     setMood('')
-    setSearchInput('')
     setSearch('')
     setSort('recommended')
     setSavedOnly(false)
+    setDealsOnly(false)
+  }
+
+  const sheetFilterCount = [Boolean(cuisine), Boolean(mood), dealsOnly].filter(Boolean).length
+
+  const clearSheetFilters = () => {
+    setCuisine('')
+    setMood('')
+    setDealsOnly(false)
+    setFiltersOpen(false)
   }
 
   const toggleSavedOnly = () => {
@@ -246,9 +257,8 @@ export function FoodList() {
       if (next) {
         // Saved is a standalone view — clear the other filters.
         setCuisine('')
-        setCity('')
+        clearNearPoint()
         setMood('')
-        setSearchInput('')
         setSearch('')
       }
       return next
@@ -300,70 +310,26 @@ export function FoodList() {
         <h1 className="fd-market__title">Find your next bite</h1>
 
         <div className="fd-market__find">
-          <label className="fd-market__search">
-            <Search size={18} strokeWidth={2.25} aria-hidden />
-            <input
-              id="fd-market-search"
-              type="search"
-              placeholder="Search coffee, sushi, braai, Windhoek…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              aria-label="Search food venues"
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                className="fd-market__search-clear"
-                onClick={() => setSearchInput('')}
-                aria-label="Clear search"
-              >
-                <X size={14} strokeWidth={2.5} aria-hidden />
-              </button>
-            ) : null}
-          </label>
+          <MarketSearchBar
+            id="fd-market-search"
+            classPrefix="fd-market"
+            placeholder="Search coffee, sushi, braai, city…"
+            ariaLabel="Search food or a location"
+            keyword={search}
+            onKeywordChange={setSearch}
+            onLocationSet={() => setSort('distance')}
+            onLocationCleared={() => setSort('recommended')}
+          />
 
           <div className="fd-market__find-row">
-            <select
-              className="fd-market__select"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              aria-label="City"
+            <button
+              type="button"
+              className={`fd-market__more${sheetFilterCount > 0 ? ' is-active' : ''}`}
+              onClick={() => setFiltersOpen(true)}
             >
-              <option value="">All cities</option>
-              {TOP_AREAS.map((area) => (
-                <option key={area} value={area}>
-                  {area}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="fd-market__select"
-              value={cuisine}
-              onChange={(e) => setCuisine(e.target.value)}
-              aria-label="Cuisine"
-            >
-              <option value="">All cuisines</option>
-              {CUISINE_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="fd-market__select"
-              value={mood}
-              onChange={(e) => setMood(e.target.value)}
-              aria-label="Mood"
-            >
-              <option value="">Any mood</option>
-              {MOOD_FILTERS.map(({ id, label }) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              <SlidersHorizontal size={14} strokeWidth={2.25} aria-hidden />
+              Filters{sheetFilterCount > 0 ? ` (${sheetFilterCount})` : ''}
+            </button>
 
             <select
               className="fd-market__sort"
@@ -383,13 +349,18 @@ export function FoodList() {
           </div>
         </div>
 
-        {exploring ? <ExploreNearPointControl onPointSet={() => setSort('distance')} /> : null}
+        <AreaPlacesFilter
+          variant="panel"
+          showSearch={false}
+          onPointSet={() => setSort('distance')}
+          onCleared={() => setSort('recommended')}
+        />
       </header>
 
       {hasFilters && !savedOnly ? (
         <div className="fd-market__active" aria-label="Active filters">
           {search ? (
-            <button type="button" className="fd-market__active-pill" onClick={() => { setSearch(''); setSearchInput('') }}>
+            <button type="button" className="fd-market__active-pill" onClick={() => setSearch('')}>
               “{search}” <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
@@ -398,14 +369,27 @@ export function FoodList() {
               {cuisineMeta(cuisine).label} <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
-          {city ? (
-            <button type="button" className="fd-market__active-pill" onClick={() => setCity('')}>
-              {city} <X size={13} strokeWidth={2.5} aria-hidden />
+          {nearPoint ? (
+            <button
+              type="button"
+              className="fd-market__active-pill"
+              onClick={() => {
+                clearNearPoint()
+                setSort('recommended')
+              }}
+            >
+              {nearPoint.kind === 'country' ? 'In' : 'Near'} {nearPoint.label}{' '}
+              <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           {mood && moodLabel ? (
             <button type="button" className="fd-market__active-pill" onClick={() => setMood('')}>
               {moodLabel} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {dealsOnly ? (
+            <button type="button" className="fd-market__active-pill" onClick={() => setDealsOnly(false)}>
+              Deals <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           <button type="button" className="fd-market__clear" onClick={clearAll}>
@@ -620,6 +604,80 @@ export function FoodList() {
           />
         )
       ) : null}
+
+      <CommunityComposeModalShell
+        open={filtersOpen}
+        title="Filters"
+        titleId="fd-filter-modal-title"
+        onClose={() => setFiltersOpen(false)}
+      >
+        <p className="cm-compose-modal__note">Pick a cuisine or mood for tonight’s bite.</p>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Food</span>
+          <div className="mk-filter-modal__row">
+            <label className="mk-filter-modal__field">
+              <span>Cuisine</span>
+              <select
+                className="cm-compose-modal__select"
+                value={cuisine}
+                onChange={(e) => setCuisine(e.target.value)}
+              >
+                <option value="">All cuisines</option>
+                {CUISINE_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mk-filter-modal__field">
+              <span>Mood</span>
+              <select
+                className="cm-compose-modal__select"
+                value={mood}
+                onChange={(e) => setMood(e.target.value)}
+              >
+                <option value="">Any mood</option>
+                {MOOD_FILTERS.map(({ id, label }) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Deals</span>
+          <div className="mk-filter-modal__checks" role="group" aria-label="Deals">
+            <label className={`mk-filter-modal__check${dealsOnly ? ' is-checked' : ''}`}>
+              <input
+                type="checkbox"
+                checked={dealsOnly}
+                onChange={() => setDealsOnly((v) => !v)}
+              />
+              <span>Only places with deals / open rates</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mk-filter-modal__actions">
+          <button
+            type="button"
+            className="cm-compose-modal__submit mk-filter-modal__apply"
+            onClick={() => setFiltersOpen(false)}
+          >
+            Show results
+          </button>
+          {sheetFilterCount > 0 ? (
+            <button type="button" className="mk-filter-modal__clear" onClick={clearSheetFilters}>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+      </CommunityComposeModalShell>
     </div>
   )
 }

@@ -28,7 +28,7 @@ const SERVICE_LABELS: Record<string, string> = {
   transport: 'Transport',
   food_drink: 'Foodies',
   retail_shop: 'Shop',
-  activity: 'Activities',
+  activity: 'Activities and Leisure',
 }
 
 function verificationPill(status?: string) {
@@ -96,6 +96,16 @@ export function ProviderSettings() {
     setRegion(profile.region ?? '')
     setCity(profile.city ?? '')
   }, [profile])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.location.hash !== '#provider-accessible-offers') return
+    setTab('business')
+    const t = window.setTimeout(() => {
+      document.getElementById('provider-accessible-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 120)
+    return () => window.clearTimeout(t)
+  }, [activeBusiness?.id])
 
   const saveBusinessMut = useMutation({
     mutationFn: async () => {

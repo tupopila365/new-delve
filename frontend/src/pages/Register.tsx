@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { AuthScreen } from '../components/auth'
 import { authFormError } from '../utils/authErrors'
 
+const MIN_ACCOUNT_AGE = 18
+
 function usernameFromEmail(email: string): string {
   const local = email.split('@')[0] ?? ''
   const cleaned = local.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 24)
   return cleaned.length >= 3 ? cleaned : ''
+}
+
+function maxBirthYear(): number {
+  return new Date().getFullYear() - MIN_ACCOUNT_AGE
 }
 
 export function Register() {
@@ -16,6 +22,8 @@ export function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [birthYear, setBirthYear] = useState('')
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
   const [isProvider, setIsProvider] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
   const [avail, setAvail] = useState<boolean | null>(null)
@@ -26,6 +34,13 @@ export function Register() {
   const returnQs = searchParams.toString()
   const registerTo = returnQs ? `/register?${returnQs}` : '/register'
   const loginTo = returnQs ? `/login?${returnQs}` : '/login'
+
+  const yearOptions = useMemo(() => {
+    const max = maxBirthYear()
+    const years: number[] = []
+    for (let y = max; y >= 1900; y -= 1) years.push(y)
+    return years
+  }, [])
 
   useEffect(() => {
     if (!usernameTouched && email.includes('@')) {
@@ -62,6 +77,7 @@ export function Register() {
     setErr(null)
     const u = username.trim()
     const em = email.trim().toLowerCase()
+    const year = Number(birthYear)
     if (u.length < 3) {
       setErr('Username must be at least 3 characters.')
       return
@@ -72,6 +88,14 @@ export function Register() {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
       setErr('Enter a valid email.')
+      return
+    }
+    if (!Number.isFinite(year) || year < 1900 || year > maxBirthYear()) {
+      setErr(`You must be at least ${MIN_ACCOUNT_AGE} to create an account.`)
+      return
+    }
+    if (!ageConfirmed) {
+      setErr(`Confirm that you are ${MIN_ACCOUNT_AGE} or older.`)
       return
     }
     if (avail === false) {
@@ -87,6 +111,7 @@ export function Register() {
           username: u,
           email: em,
           password,
+          birth_year: year,
           user_type: isProvider ? 'service_provider' : 'normal',
         }),
       })
@@ -219,6 +244,41 @@ export function Register() {
             </p>
           ) : null}
         </div>
+
+        <div className="auth-page__field">
+          <label className="auth-page__label" htmlFor="auth-register-birth-year">
+            Birth year
+          </label>
+          <select
+            id="auth-register-birth-year"
+            className="auth-page__input"
+            value={birthYear}
+            onChange={(e) => setBirthYear(e.target.value)}
+            required
+            disabled={busy}
+          >
+            <option value="">Select year</option>
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <p className="auth-page__field-hint">
+            Must be {MIN_ACCOUNT_AGE}+. Used for age checks and deals — never shown publicly.
+          </p>
+        </div>
+
+        <label className="auth-page__check">
+          <input
+            type="checkbox"
+            checked={ageConfirmed}
+            onChange={(e) => setAgeConfirmed(e.target.checked)}
+            required
+            disabled={busy}
+          />
+          <span>I confirm I am {MIN_ACCOUNT_AGE} years of age or older.</span>
+        </label>
 
         <button type="submit" className="auth-page__submit" disabled={busy || avail === false || checking}>
           {busy ? 'Creating account…' : 'Create account'}

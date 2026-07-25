@@ -59,7 +59,7 @@ export const MANAGE_MODULE_LABELS: Record<ManageModuleId, string> = {
   transport: 'Transport',
   food_drink: 'Foodies',
   retail_shop: 'Shop',
-  activity: 'Activities',
+  activity: 'Activities and Leisure',
   event_organiser: 'Events',
 }
 

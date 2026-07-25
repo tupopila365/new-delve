@@ -12,6 +12,8 @@ from accounts.models import (
     BusinessProfile,
     BusinessVerificationDocument,
     Profile,
+    TravelOffer,
+    TravelOfferEligibility,
     VerificationDocumentStatus,
     VerificationStatus,
 )
@@ -25,6 +27,14 @@ from social.models import Post
 from transport.models import BusTrip, SeatReservation, VehicleRentalBooking, VehicleRentalListing
 
 User = get_user_model()
+
+# Rates that keep travel attainable — tracked for partner / admin coverage.
+OPEN_RATE_ELIGIBILITIES = (
+    TravelOfferEligibility.EVERYONE,
+    TravelOfferEligibility.SADC,
+    TravelOfferEligibility.STUDENT,
+    TravelOfferEligibility.LOCAL,
+)
 
 
 def _pending_booking_q():
@@ -264,9 +274,34 @@ class PlatformBusinessesView(APIView):
             for b in qs
         }
         notes = {b.id: b.verification_notes for b in qs}
+        offer_rows = (
+            TravelOffer.objects.filter(is_active=True)
+            .values("business_id")
+            .annotate(
+                active_offers_count=Count("id"),
+                open_rate_offers_count=Count(
+                    "id",
+                    filter=Q(eligibility__in=OPEN_RATE_ELIGIBILITIES),
+                ),
+            )
+        )
+        offer_stats = {
+            row["business_id"]: {
+                "active_offers_count": row["active_offers_count"],
+                "open_rate_offers_count": row["open_rate_offers_count"],
+            }
+            for row in offer_rows
+        }
         for row in data:
-            row["document_count"] = doc_counts.get(row["id"], 0)
-            row["verification_notes"] = notes.get(row["id"], "")
+            biz_id = row["id"]
+            row["document_count"] = doc_counts.get(biz_id, 0)
+            row["verification_notes"] = notes.get(biz_id, "")
+            stats = offer_stats.get(biz_id, {})
+            active = int(stats.get("active_offers_count") or 0)
+            open_rates = int(stats.get("open_rate_offers_count") or 0)
+            row["active_offers_count"] = active
+            row["open_rate_offers_count"] = open_rates
+            row["has_open_rate"] = open_rates > 0
         return Response(data)
 
 

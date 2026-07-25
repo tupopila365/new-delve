@@ -83,7 +83,7 @@ export function ActivitiesList() {
     <main className="act-market">
       <header className="act-market__hero">
         <p className="act-market__kicker">Experiences worldwide</p>
-        <h1 className="act-market__title">Activities</h1>
+        <h1 className="act-market__title">Activities and Leisure</h1>
         <p className="act-market__lead">
           Book drives, adventure, water, and cultural experiences from local operators — photos and short videos
           included.

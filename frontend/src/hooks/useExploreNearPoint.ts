@@ -58,6 +58,8 @@ export function useExploreNearPoint() {
         label: town.label,
         source: 'preset',
         country,
+        kind: 'city',
+        placeCountryCode: country,
       })
     },
     [country, setNearPoint],
@@ -79,6 +81,8 @@ export function useExploreNearPoint() {
           label: 'Near me',
           source: 'geolocation',
           country,
+          kind: 'here',
+          placeCountryCode: country,
         })
         onSuccess?.()
       },

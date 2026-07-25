@@ -1,9 +1,9 @@
 import { MapPin, Navigation } from 'lucide-react'
 import { ListingSection } from './ListingSection'
+import { ListingLocationGoogleMap } from './ListingLocationGoogleMap'
 import {
   formatPlaceLine,
   hasValidCoords,
-  openStreetMapEmbedUrl,
   resolveDirectionsUrl,
   resolveMapUrl,
 } from '../../utils/placeMap'
@@ -100,14 +100,11 @@ export function ListingLocationCard({
       ) : null}
 
       {precise ? (
-        <div className="listing-location__map listing-location__map--live">
-          <iframe
-            title={`${title} map`}
-            src={openStreetMapEmbedUrl(latitude!, longitude!)}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </div>
+        <ListingLocationGoogleMap
+          latitude={latitude!}
+          longitude={longitude!}
+          title={name || title}
+        />
       ) : null}
 
       {href || directionsHref ? (

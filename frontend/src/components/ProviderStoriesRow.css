@@ -77,6 +77,11 @@
   display: block;
 }
 
+.provider-stories__video {
+  pointer-events: none;
+  background: #1a1a1a;
+}
+
 .provider-stories__initial {
   font-size: 1.1rem;
   font-weight: 800;

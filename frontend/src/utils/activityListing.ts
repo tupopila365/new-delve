@@ -38,6 +38,7 @@ export type ActivityListing = {
   saved_by_me?: boolean
   saves_count?: number | null
   is_featured?: boolean
+  deals?: import('../components/deals').ListingDeal[]
   is_active?: boolean
   created_at?: string
 }

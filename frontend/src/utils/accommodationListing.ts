@@ -82,6 +82,7 @@ export type AccommodationListing = {
   rating_count?: number
   likes_count?: number
   liked_by_me?: boolean
+  deals?: import('../components/deals').ListingDeal[]
   saves_count?: number
   saved_by_me?: boolean
 }

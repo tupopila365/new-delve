@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Compass, MapPin, Search, X } from 'lucide-react'
+import { Compass, MapPin, SlidersHorizontal, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { GuideListingCard } from '../components/guide/GuideListingCard'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import { useToggleGuideSave } from '../hooks/useGuideSave'
 import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import { useExploreNearPoint } from '../hooks/useExploreNearPoint'
 import { useForYou } from '../hooks/useForYou'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
+import {
+  AreaPlacesFilter,
+  listingMatchesAreaPoint,
+} from '../components/explore/AreaPlacesFilter'
+import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
+import { MarketSearchBar } from '../components/explore/MarketSearchBar'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
+import { listingHasActiveDeals, type ListingDeal } from '../components/deals'
 import '../components/guide/guide-list.css'
+import '../components/explore/market-filters-modal.css'
 
 type Guide = {
   id: number
@@ -35,6 +45,7 @@ type Guide = {
   is_featured_partner?: boolean
   partner_label?: string
   promotion_id?: number
+  deals?: ListingDeal[]
 }
 
 const NEED_CHIPS: { id: string; label: string }[] = [
@@ -58,16 +69,6 @@ const LANGUAGE_OPTIONS = [
   { value: 'french', label: 'French' },
   { value: 'spanish', label: 'Spanish' },
 ]
-
-const TOP_AREAS = [
-  'Windhoek',
-  'Swakopmund',
-  'Walvis Bay',
-  'Etosha',
-  'Sossusvlei',
-  'Lüderitz',
-  'Ongwediva',
-] as const
 
 const COLLECTIONS: { id: string; label: string; need: string; sub: string }[] = [
   { id: 'top-rated', label: 'Top rated', need: 'rated', sub: 'Guides travellers trust' },
@@ -190,22 +191,18 @@ export function GuidesList() {
   const { format } = useDisplayMoney()
   const { boost } = useForYou()
   const guidesAffinity = boost('guides')
+  const { country } = useExploreDestination()
+  const { point: nearPoint, clear: clearNearPoint } = useExploreNearPoint()
   const navigate = useNavigate()
   const { profile } = useAuth()
   const saveMut = useToggleGuideSave()
   const [need, setNeed] = useState('')
-  const [area, setArea] = useState('')
   const [language, setLanguage] = useState('')
   const [sort, setSort] = useState<SortId>('recommended')
-  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [shareMsg, setShareMsg] = useState('')
-  const [areaOptions, setAreaOptions] = useState<string[]>([...TOP_AREAS])
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
-    return () => window.clearTimeout(t)
-  }, [searchInput])
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [dealsOnly, setDealsOnly] = useState(false)
 
   useEffect(() => {
     if (!shareMsg) return
@@ -216,7 +213,8 @@ export function GuidesList() {
   const qs = useMemo(() => {
     const p = new URLSearchParams()
     if (search) p.set('search', search)
-    if (area) p.set('region', area)
+    // City/town only — country picks are filtered client-side (name / regions).
+    if (nearPoint?.kind !== 'country' && nearPoint?.label) p.set('region', nearPoint.label)
     if (language) p.set('language', language)
     if (need === 'licensed') p.set('licensed', '1')
     if (sort === 'rating') p.set('ordering', '-rating_avg')
@@ -224,10 +222,10 @@ export function GuidesList() {
     else if (sort === 'price_desc') p.set('ordering', '-hourly_rate')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [search, area, language, need, sort])
+  }, [search, nearPoint?.kind, nearPoint?.label, language, need, sort])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['guides', qs, profile?.username ?? 'anon'],
+    queryKey: ['guides', qs, profile?.username ?? 'anon', country],
     queryFn: () => apiFetch<Guide[]>(`/api/guides/profiles/${qs}`, { auth: Boolean(profile) }),
   })
 
@@ -239,44 +237,41 @@ export function GuidesList() {
   const guides = useMemo(() => {
     let list = [...(data ?? [])]
     if (need && need !== 'licensed') list = applyNeedFilter(list, need)
-    return sortGuides(list, sort, guidesAffinity)
-  }, [data, need, sort, guidesAffinity])
-
-  // Derive the area dropdown from guides' real regions. Only recompute from the
-  // unfiltered result set so picking an area (server-side region filter) doesn't
-  // collapse the options. Falls back to TOP_AREAS until data lands.
-  useEffect(() => {
-    if (area || search || language || need) return
-    const list = data ?? []
-    if (list.length === 0) return
-    const counts = new Map<string, number>()
-    for (const g of list) {
-      for (const r of g.regions || []) {
-        const t = r.trim()
-        if (t) counts.set(t, (counts.get(t) ?? 0) + 1)
-      }
+    if (nearPoint) {
+      list = list.filter((g) =>
+        listingMatchesAreaPoint(
+          { regions: g.regions, headline: g.headline, city: null, region: null },
+          nearPoint,
+        ),
+      )
     }
-    const sorted = [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([r]) => r)
-    if (sorted.length > 0) setAreaOptions(sorted.slice(0, 12))
-  }, [data, area, search, language, need])
+    if (dealsOnly) list = list.filter((g) => listingHasActiveDeals(g.deals))
+    return sortGuides(list, sort, guidesAffinity)
+  }, [data, need, sort, guidesAffinity, nearPoint, dealsOnly])
 
   const inventoryCount = data?.length ?? 0
   const featured = useMemo(() => featuredGuides.slice(0, 8), [featuredGuides])
 
-  const hasFilters = Boolean(search || area || language || need)
-  /** One lightweight discovery strip only when browsing a full enough catalogue. */
+  const hasFilters = Boolean(search || nearPoint || language || need || dealsOnly)
   const showDiscovery = !isLoading && !hasFilters && inventoryCount >= DISCOVERY_MIN_GUIDES
   const showFeaturedRail = showDiscovery && featured.length > 0
 
   const clearAll = () => {
     setNeed('')
-    setArea('')
+    clearNearPoint()
     setLanguage('')
-    setSearchInput('')
     setSearch('')
     setSort('recommended')
+    setDealsOnly(false)
+  }
+
+  const sheetFilterCount = [Boolean(language), Boolean(need), dealsOnly].filter(Boolean).length
+
+  const clearSheetFilters = () => {
+    setLanguage('')
+    setNeed('')
+    setDealsOnly(false)
+    setFiltersOpen(false)
   }
 
   const requireAuth = () => {
@@ -330,75 +325,33 @@ export function GuidesList() {
 
       <header className="gl-market__hero">
         <div className="gl-market__hero-head">
-          <p className="gl-market__kicker">Local guides & experiences</p>
+          <p className="gl-market__kicker">People who help you figure it out</p>
           <h1 className="gl-market__title">Find a guide</h1>
+          <p className="gl-market__lead">
+            Local guides aren’t VIPs — they’re helpers for routes, seasons, and how bookings work on
+            the ground.
+          </p>
         </div>
 
         <div className="gl-market__find">
-          <label className="gl-market__search">
-            <Search size={18} strokeWidth={2.25} aria-hidden />
-            <input
-              id="gd-search"
-              type="search"
-              placeholder="Safari, Windhoek, food tour…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              aria-label="Search guides"
-            />
-            {searchInput ? (
-              <button
-                type="button"
-                className="gl-market__search-clear"
-                onClick={() => setSearchInput('')}
-                aria-label="Clear search"
-              >
-                <X size={14} strokeWidth={2.5} aria-hidden />
-              </button>
-            ) : null}
-          </label>
+          <MarketSearchBar
+            id="gd-search"
+            classPrefix="gl-market"
+            placeholder="Safari, city, food tour…"
+            ariaLabel="Search guides or a location"
+            keyword={search}
+            onKeywordChange={setSearch}
+          />
 
           <div className="gl-market__find-row">
-            <select
-              className="gl-market__select"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              aria-label="Area"
+            <button
+              type="button"
+              className={`gl-market__more${sheetFilterCount > 0 ? ' is-active' : ''}`}
+              onClick={() => setFiltersOpen(true)}
             >
-              <option value="">All areas</option>
-              {areaOptions.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="gl-market__select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              aria-label="Language"
-            >
-              <option value="">Any language</option>
-              {LANGUAGE_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="gl-market__select"
-              value={need}
-              onChange={(e) => setNeed(e.target.value)}
-              aria-label="Need"
-            >
-              <option value="">Any need</option>
-              {NEED_CHIPS.map(({ id, label }) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              <SlidersHorizontal size={14} strokeWidth={2.25} aria-hidden />
+              Filters{sheetFilterCount > 0 ? ` (${sheetFilterCount})` : ''}
+            </button>
 
             <select
               className="gl-market__sort"
@@ -413,6 +366,8 @@ export function GuidesList() {
             </select>
           </div>
         </div>
+
+        <AreaPlacesFilter variant="panel" showSearch={false} />
       </header>
 
       {hasFilters ? (
@@ -421,17 +376,19 @@ export function GuidesList() {
             <button
               type="button"
               className="gl-market__active-pill"
-              onClick={() => {
-                setSearch('')
-                setSearchInput('')
-              }}
+              onClick={() => setSearch('')}
             >
               “{search}” <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
-          {area ? (
-            <button type="button" className="gl-market__active-pill" onClick={() => setArea('')}>
-              {area} <X size={13} strokeWidth={2.5} aria-hidden />
+          {nearPoint ? (
+            <button
+              type="button"
+              className="gl-market__active-pill"
+              onClick={() => clearNearPoint()}
+            >
+              {nearPoint.kind === 'country' ? 'In' : 'Near'} {nearPoint.label}{' '}
+              <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           {language && languageLabel ? (
@@ -442,6 +399,11 @@ export function GuidesList() {
           {need && needLabel ? (
             <button type="button" className="gl-market__active-pill" onClick={() => setNeed('')}>
               {needLabel} <X size={13} strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : null}
+          {dealsOnly ? (
+            <button type="button" className="gl-market__active-pill" onClick={() => setDealsOnly(false)}>
+              Deals <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
           <button type="button" className="gl-market__clear" onClick={clearAll}>
@@ -512,9 +474,9 @@ export function GuidesList() {
           <div className="gl-market__section-head">
             <div>
               <h2 id="gl-featured-title" className="gl-market__section-title">
-                Featured local experts
+                Guides travellers lean on
               </h2>
-              <p className="gl-market__section-sub">Promoted guides worth a look</p>
+              <p className="gl-market__section-sub">Clear replies, local routes, practical help</p>
             </div>
           </div>
           <div className="gl-market__featured-rail">
@@ -572,13 +534,87 @@ export function GuidesList() {
             hasFilters
               ? need === 'budget'
                 ? `No guides under $${BUDGET_HOURLY_MAX}/hr — try another area or clear filters.`
-                : 'Try another area, need, or clear filters to see more local experts.'
-              : 'Local experts, tour hosts, and private guides will appear here once added.'
+                : 'Try another area or need — clear filters to see more helpers nearby.'
+              : 'When guides publish, they’ll show up here to help with routes, seasons, and how to book.'
           }
           cta={hasFilters ? { label: 'Clear filters', onClick: clearAll } : undefined}
           className="gl-market__empty"
         />
       ) : null}
+
+      <CommunityComposeModalShell
+        open={filtersOpen}
+        title="Filters"
+        titleId="gl-filter-modal-title"
+        onClose={() => setFiltersOpen(false)}
+      >
+        <p className="cm-compose-modal__note">Match a language or trip need to find the right helper.</p>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Guide</span>
+          <div className="mk-filter-modal__row">
+            <label className="mk-filter-modal__field">
+              <span>Language</span>
+              <select
+                className="cm-compose-modal__select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option value="">Any language</option>
+                {LANGUAGE_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mk-filter-modal__field">
+              <span>Need</span>
+              <select
+                className="cm-compose-modal__select"
+                value={need}
+                onChange={(e) => setNeed(e.target.value)}
+              >
+                <option value="">Any need</option>
+                {NEED_CHIPS.map(({ id, label }) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="cm-compose-modal__composer-block">
+          <span>Deals</span>
+          <div className="mk-filter-modal__checks" role="group" aria-label="Deals">
+            <label className={`mk-filter-modal__check${dealsOnly ? ' is-checked' : ''}`}>
+              <input
+                type="checkbox"
+                checked={dealsOnly}
+                onChange={() => setDealsOnly((v) => !v)}
+              />
+              <span>Only guides with deals / open rates</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mk-filter-modal__actions">
+          <button
+            type="button"
+            className="cm-compose-modal__submit mk-filter-modal__apply"
+            onClick={() => setFiltersOpen(false)}
+          >
+            Show results
+          </button>
+          {sheetFilterCount > 0 ? (
+            <button type="button" className="mk-filter-modal__clear" onClick={clearSheetFilters}>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+      </CommunityComposeModalShell>
     </div>
   )
 }

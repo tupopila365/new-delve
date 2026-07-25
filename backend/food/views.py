@@ -4,6 +4,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
 from .models import FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
@@ -22,13 +23,15 @@ class FoodVenueFilter(django_filters.FilterSet):
         fields = ["cuisine", "region", "city", "country_code", "is_active"]
 
 
-class FoodVenueViewSet(viewsets.ModelViewSet):
+class FoodVenueViewSet(ListingDealsContextMixin, viewsets.ModelViewSet):
     queryset = FoodVenue.objects.filter(is_active=True).select_related("owner", "owner__profile")
     serializer_class = FoodVenueSerializer
     filterset_class = FoodVenueFilter
     search_fields = ("name", "description", "region", "city", "country_code")
     ordering_fields = ("name", "created_at")
     ordering = ["name"]
+    deal_category = "food"
+    deal_scope = "owner"
 
     def get_permissions(self):
         if self.action in ("create", "update", "partial_update", "destroy"):

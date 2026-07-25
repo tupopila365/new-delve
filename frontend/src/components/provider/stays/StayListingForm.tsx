@@ -9,6 +9,7 @@ import {
 } from './stayListingTypes'
 import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
 import { VenueLocationPicker } from '../food/workspace/VenueLocationPicker'
+import { ListingSaleEditor } from '../../deals'
 
 type Props = {
   values: StayListingFormValues
@@ -18,6 +19,7 @@ type Props = {
   onSubmit: () => void
   onCancel: () => void
   isEdit?: boolean
+  listingId?: number | null
 }
 
 const SECTIONS = [
@@ -46,7 +48,7 @@ function emptyRoom(): StayRoomForm {
   }
 }
 
-export function StayListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit }: Props) {
+export function StayListingForm({ values, onChange, error, saving, onSubmit, onCancel, isEdit, listingId }: Props) {
   const { format, currency } = useDisplayMoney()
   const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('basics')
 
@@ -89,9 +91,11 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
   const canSave =
     values.title.trim() &&
     values.description.trim() &&
-    values.region.trim() &&
-    values.city.trim() &&
-    values.price_per_night
+    values.price_per_night &&
+    ((values.region.trim() && values.city.trim()) ||
+      (Boolean(values.formatted_address?.trim()) &&
+        values.latitude != null &&
+        values.longitude != null))
 
   return (
     <div className="stay-form" role="dialog" aria-modal="true" aria-labelledby="stay-form-title">
@@ -151,7 +155,7 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                 />
               </label>
               <p className="stay-form__hint">
-                Drop an exact pin so guests get turn-by-turn directions — city/region alone is only an approximate area.
+                Search Google Maps for your property — no need to type city or region by hand.
               </p>
               <VenueLocationPicker
                 value={{
@@ -164,8 +168,8 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                   address: values.address,
                 }}
                 onChange={(loc) => patch(loc)}
-                searchPlaceholder="Search for your property or address"
-                hint="Search above or click / drag the pin to set your exact stay location."
+                searchPlaceholder="Search Google Maps for your lodge, hotel, or address"
+                hint="Pick a suggestion, then drag the pin if the exact spot needs a nudge."
               />
               <label className="stay-form__check">
                 <input
@@ -209,6 +213,9 @@ export function StayListingForm({ values, onChange, error, saving, onSubmit, onC
                 </label>
               </div>
               <p className="stay-form__hint">This is the default “from” price shown on browse cards. Set room-specific prices in the Rooms section.</p>
+              {isEdit && listingId ? (
+                <ListingSaleEditor vertical="stays" listingId={listingId} canEdit />
+              ) : null}
             </div>
           ) : null}
 

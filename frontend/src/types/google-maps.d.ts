@@ -79,6 +79,10 @@ declare namespace google.maps {
       getPlace(): PlaceResult
     }
   }
+
+  namespace event {
+    function clearInstanceListeners(instance: object): void
+  }
 }
 
 declare const google: {

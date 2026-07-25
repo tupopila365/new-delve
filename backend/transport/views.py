@@ -8,6 +8,7 @@ from rest_framework.response import Response
 
 from accommodation.models import BookingStatus
 
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.marketplace_payout import mark_booking_payment_held
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
@@ -37,12 +38,14 @@ from .serializers import (
 )
 
 
-class VehicleRentalListingViewSet(viewsets.ModelViewSet):
+class VehicleRentalListingViewSet(ListingDealsContextMixin, viewsets.ModelViewSet):
     queryset = VehicleRentalListing.objects.filter(is_active=True).select_related(
         "owner",
         "owner__profile",
     )
     serializer_class = VehicleRentalListingSerializer
+    deal_category = "transport"
+    deal_scope = "owner"
     filterset_class = VehicleFilter
     search_fields = ("title", "make", "model", "region", "city", "country_code")
     ordering_fields = ("price_per_day", "created_at")

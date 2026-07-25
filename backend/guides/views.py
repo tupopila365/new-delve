@@ -5,6 +5,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
 from .models import GuideBooking, GuideSave, TourGuideProfile
@@ -13,9 +14,11 @@ from .review_services import guide_reviews_payload
 from .serializers import GuideBookingSerializer, TourGuideProfileSerializer
 
 
-class TourGuideProfileViewSet(viewsets.ModelViewSet):
+class TourGuideProfileViewSet(ListingDealsContextMixin, viewsets.ModelViewSet):
     queryset = TourGuideProfile.objects.filter(is_active=True).select_related("user", "user__profile")
     serializer_class = TourGuideProfileSerializer
+    deal_category = "guides"
+    deal_scope = "owner"
     search_fields = ("headline", "bio", "regions", "specialities", "languages", "country_code")
     ordering_fields = ("rating_avg", "hourly_rate", "created_at")
     ordering = ["-created_at"]

@@ -190,6 +190,51 @@
   font-weight: 700;
 }
 
+.acc-room-booking__status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.acc-room-booking__status svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.acc-room-booking__status--checking {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--listing-text-muted);
+}
+
+.acc-room-booking__status--ok {
+  background: rgba(52, 168, 110, 0.14);
+  border: 1px solid rgba(52, 168, 110, 0.35);
+  color: #86efac;
+}
+
+.acc-room-booking__status--bad {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fda4a4;
+}
+
+.acc-room-booking__spin {
+  animation: acc-room-spin 0.8s linear infinite;
+}
+
+@keyframes acc-room-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .acc-room-booking__cta {
   margin-bottom: 10px;
   background: var(--accent, #c97b6b) !important;
@@ -198,9 +243,20 @@
   font-weight: 850;
 }
 
+.acc-room-booking__cta.is-disabled {
+  opacity: 0.45;
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
 .acc-room-booking__cta:hover {
   background: var(--accent-hover, #e09a8c) !important;
   border-color: var(--accent-hover, #e09a8c) !important;
+}
+
+.acc-room-booking__cta.is-disabled:hover {
+  background: var(--accent, #c97b6b) !important;
+  border-color: var(--accent, #c97b6b) !important;
 }
 
 .acc-room-booking__note {

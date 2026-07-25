@@ -72,6 +72,7 @@ class ShopProductSerializer(serializers.ModelSerializer):
     price_label = serializers.SerializerMethodField()
     category_label = serializers.SerializerMethodField()
     variants = ProductVariantSerializer(many=True, read_only=True)
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = ShopProduct
@@ -108,13 +109,19 @@ class ShopProductSerializer(serializers.ModelSerializer):
             "variants",
             "rating_avg",
             "rating_count",
+            "deals",
             "is_active",
             "created_at",
         )
-        read_only_fields = ("id", "created_at", "is_active", "rating_avg", "rating_count")
+        read_only_fields = ("id", "created_at", "is_active", "rating_avg", "rating_count", "deals")
 
     def get_owner_display_name(self, obj) -> str | None:
         return _owner_display_name(obj.owner)
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "shop")
 
     def get_owner_avatar(self, obj) -> str | None:
         return _owner_avatar(obj.owner, self.context.get("request"))

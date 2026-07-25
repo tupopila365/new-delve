@@ -158,6 +158,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
     liked_by_me = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
     saved_by_me = serializers.SerializerMethodField()
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = AccommodationListing
@@ -208,6 +209,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "liked_by_me",
             "saves_count",
             "saved_by_me",
+            "deals",
         )
         read_only_fields = (
             "owner",
@@ -216,6 +218,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "liked_by_me",
             "saves_count",
             "saved_by_me",
+            "deals",
             "owner_display_name",
             "owner_avatar",
             "owner_verified",
@@ -223,6 +226,11 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
 
     def get_owner_display_name(self, obj):
         return _owner_display_name(obj.owner)
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "stays")
 
     def get_owner_avatar(self, obj):
         return _owner_avatar_url(obj.owner, self.context.get("request"))

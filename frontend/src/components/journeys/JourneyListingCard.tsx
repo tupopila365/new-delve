@@ -225,7 +225,7 @@ export function JourneyListingCard({
         {trip.total_cost > 0 ? (
           <p className="jn-feed-card__cost-meta">
             ~{formatJourneyCost(trip.total_cost, trip.currency)}
-            <span> est. total</span>
+            <span> est. trip · stay · food · getting around</span>
           </p>
         ) : null}
       </div>

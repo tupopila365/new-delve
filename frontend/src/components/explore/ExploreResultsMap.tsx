@@ -17,9 +17,11 @@ export type ExploreMapItem = {
 }
 
 type Props = {
-  origin: ExploreNearPoint
+  /** When set, shows a ★ origin marker and distance labels. Optional for browse-all map. */
+  origin?: ExploreNearPoint | null
   items: ExploreMapItem[]
   className?: string
+  legendLabel?: string
 }
 
 type PinnedItem = ExploreMapItem & {
@@ -29,8 +31,8 @@ type PinnedItem = ExploreMapItem & {
   distanceLabel: string | null
 }
 
-export function ExploreResultsMap({ origin, items, className = '' }: Props) {
-  const { ready, hasKey } = useGoogleMapsLoader()
+export function ExploreResultsMap({ origin, items, className = '', legendLabel }: Props) {
+  const { ready, hasKey, error } = useGoogleMapsLoader()
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
@@ -41,7 +43,7 @@ export function ExploreResultsMap({ origin, items, className = '' }: Props) {
       const lat = parseCoord(item.latitude)
       const lng = parseCoord(item.longitude)
       if (!hasValidCoords(lat, lng)) continue
-      const km = listingDistanceKm(origin, item)
+      const km = origin ? listingDistanceKm(origin, item) : null
       rows.push({
         ...item,
         lat,
@@ -64,34 +66,45 @@ export function ExploreResultsMap({ origin, items, className = '' }: Props) {
     [pinned],
   )
 
+  const fallbackCenter = useMemo(() => {
+    if (origin) return { lat: origin.latitude, lng: origin.longitude }
+    if (pinned.length === 0) return { lat: 0, lng: 0 }
+    const lat = pinned.reduce((sum, p) => sum + p.lat, 0) / pinned.length
+    const lng = pinned.reduce((sum, p) => sum + p.lng, 0) / pinned.length
+    return { lat, lng }
+  }, [origin, pinned])
+
   useEffect(() => {
     if (!ready || !hasKey || !mapRef.current || !window.google?.maps) return
+    if (pinned.length === 0) return
 
     if (!mapInstance.current) {
       mapInstance.current = new window.google.maps.Map(mapRef.current, {
-        center: { lat: origin.latitude, lng: origin.longitude },
+        center: fallbackCenter,
         zoom: 12,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
       })
     } else {
-      mapInstance.current.setCenter({ lat: origin.latitude, lng: origin.longitude })
+      mapInstance.current.setCenter(fallbackCenter)
     }
 
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current = []
 
-    const originMarker = new window.google.maps.Marker({
-      map: mapInstance.current,
-      position: { lat: origin.latitude, lng: origin.longitude },
-      title: origin.label,
-      label: { text: '★', color: '#fff', fontSize: '11px' },
-    })
-    markersRef.current.push(originMarker)
-
     const bounds = new window.google.maps.LatLngBounds()
-    bounds.extend({ lat: origin.latitude, lng: origin.longitude })
+
+    if (origin) {
+      const originMarker = new window.google.maps.Marker({
+        map: mapInstance.current,
+        position: { lat: origin.latitude, lng: origin.longitude },
+        title: origin.label,
+        label: { text: '★', color: '#fff', fontSize: '11px' },
+      })
+      markersRef.current.push(originMarker)
+      bounds.extend({ lat: origin.latitude, lng: origin.longitude })
+    }
 
     for (const item of pinned) {
       const marker = new window.google.maps.Marker({
@@ -113,8 +126,11 @@ export function ExploreResultsMap({ origin, items, className = '' }: Props) {
 
     if (pinned.length > 0) {
       mapInstance.current.fitBounds(bounds, 48)
+      if (pinned.length === 1 && !origin) {
+        mapInstance.current.setZoom(13)
+      }
     }
-  }, [ready, hasKey, origin.latitude, origin.longitude, origin.label, pinKey])
+  }, [ready, hasKey, origin, fallbackCenter.lat, fallbackCenter.lng, pinKey, pinned])
 
   if (pinned.length === 0) {
     return (
@@ -124,38 +140,45 @@ export function ExploreResultsMap({ origin, items, className = '' }: Props) {
     )
   }
 
-  if (!hasKey) {
+  if (!hasKey || error) {
     return (
-      <ul className={`explore-map__fallback ${className}`.trim()}>
-        {pinned.map((item) => (
-          <li key={String(item.id)}>
-            <Link to={item.href}>
-              <MapPin size={14} strokeWidth={2.25} aria-hidden />
-              <span>
-                <strong>{item.title}</strong>
-                {item.distanceLabel ? <em>{item.distanceLabel}</em> : null}
-                {item.subtitle ? <span>{item.subtitle}</span> : null}
-              </span>
-            </Link>
-            <a
-              href={googleMapsPlaceUrl(item.lat, item.lng)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Maps
-            </a>
-          </li>
-        ))}
-      </ul>
+      <div className={`explore-map__fallback-wrap ${className}`.trim()}>
+        {error ? <p className="explore-map__error">{error}</p> : null}
+        <ul className="explore-map__fallback">
+          {pinned.map((item) => (
+            <li key={String(item.id)}>
+              <Link to={item.href}>
+                <MapPin size={14} strokeWidth={2.25} aria-hidden />
+                <span>
+                  <strong>{item.title}</strong>
+                  {item.distanceLabel ? <em>{item.distanceLabel}</em> : null}
+                  {item.subtitle ? <span>{item.subtitle}</span> : null}
+                </span>
+              </Link>
+              <a
+                href={googleMapsPlaceUrl(item.lat, item.lng)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Maps
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     )
   }
+
+  const legend =
+    legendLabel ??
+    (origin
+      ? `★ ${origin.label} · ${pinned.length} pinned ${pinned.length === 1 ? 'result' : 'results'}`
+      : `${pinned.length} pinned ${pinned.length === 1 ? 'stay' : 'stays'} on the map`)
 
   return (
     <div className={`explore-map ${className}`.trim()}>
       <div ref={mapRef} className="explore-map__canvas" aria-label="Results map" />
-      <p className="explore-map__legend">
-        ★ {origin.label} · {pinned.length} pinned {pinned.length === 1 ? 'result' : 'results'}
-      </p>
+      <p className="explore-map__legend">{legend}</p>
     </div>
   )
 }

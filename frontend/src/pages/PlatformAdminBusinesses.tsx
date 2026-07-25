@@ -21,6 +21,9 @@ type Business = {
   verification_status: string
   city: string
   region: string
+  active_offers_count?: number
+  open_rate_offers_count?: number
+  has_open_rate?: boolean
 }
 
 const STATUSES = ['unverified', 'pending', 'verified', 'suspended', 'rejected'] as const
@@ -47,7 +50,7 @@ const TYPE_LABELS: Record<string, string> = {
   event_organiser: 'Events',
   events: 'Events',
   multi_provider: 'Multi-provider',
-  activity: 'Activities',
+  activity: 'Activities and Leisure',
   retail_shop: 'Shop',
 }
 
@@ -123,12 +126,16 @@ export function PlatformAdminBusinesses() {
   }, [businesses, verifyFilter, typeFilter, search])
 
   const pending = businesses.filter((b) => b.verification_status === 'pending')
+  const withOpenRates = businesses.filter((b) => b.has_open_rate).length
+  const withOffers = businesses.filter((b) => (b.active_offers_count ?? 0) > 0).length
+  const openRatePct =
+    businesses.length > 0 ? Math.round((withOpenRates / businesses.length) * 100) : 0
 
   return (
     <div className="adm-page">
       <AdminPageHeader
         title="Businesses"
-        subtitle="Review provider businesses, verification status, and platform trust."
+        subtitle="Review provider businesses, verification status, open rates coverage, and platform trust."
       />
 
       {actionErr ? (
@@ -194,6 +201,15 @@ export function PlatformAdminBusinesses() {
               { value: businesses.length, label: 'Total businesses' },
               { value: businesses.filter((b) => b.verification_status === 'verified').length, label: 'Verified' },
               { value: pending.length, label: 'Pending review', accent: pending.length > 0 },
+              {
+                value: `${openRatePct}%`,
+                label: `Open rates (${withOpenRates}/${businesses.length})`,
+                accent: withOpenRates > 0,
+              },
+              {
+                value: withOffers,
+                label: 'With travel offers',
+              },
               { value: businesses.filter((b) => b.verification_status === 'rejected').length, label: 'Rejected' },
               {
                 value: businesses.filter((b) => b.verification_status === 'suspended').length,
@@ -251,6 +267,11 @@ export function PlatformAdminBusinesses() {
                     </span>
                     <span className="adm-data-table__types">
                       {b.business_types.map((t) => TYPE_LABELS[t] ?? t).join(' · ')}
+                      {(b.active_offers_count ?? 0) > 0
+                        ? b.has_open_rate
+                          ? ` · Open rates (${b.open_rate_offers_count ?? 0})`
+                          : ` · Offers, no open rate`
+                        : ' · No open rates yet'}
                     </span>
                   </div>
                   <AdminStatusBadge status={b.verification_status} variant={verificationVariant(b.verification_status)} />

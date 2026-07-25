@@ -17,6 +17,10 @@ export type TravelOffer = {
   eligibility: TravelOfferEligibility | string
   eligibility_label?: string
   eligibility_display?: string
+  min_age?: number | null
+  max_age?: number | null
+  min_party_size?: number | null
+  max_party_size?: number | null
   price_label?: string
   categories?: string[]
   /** Longer explanation of what the offer includes. */
@@ -38,7 +42,7 @@ export type TravelOffer = {
 }
 
 export const OFFER_KIND_OPTIONS: { value: TravelOfferKind; label: string }[] = [
-  { value: 'eligibility', label: 'Eligibility rate (e.g. SADC)' },
+  { value: 'eligibility', label: 'Resident / eligibility rate' },
   { value: 'discount', label: 'Discount' },
   { value: 'package', label: 'Package / trip' },
 ]
@@ -47,8 +51,8 @@ export const OFFER_ELIGIBILITY_OPTIONS: { value: TravelOfferEligibility; label: 
   { value: 'everyone', label: 'Everyone' },
   { value: 'sadc', label: 'SADC residents' },
   { value: 'student', label: 'Students' },
-  { value: 'local', label: 'Local / regional residents' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'local', label: 'Local residents' },
+  { value: 'custom', label: 'Custom group' },
 ]
 
 export const OFFER_CATEGORY_OPTIONS = [
@@ -112,4 +116,32 @@ export function offerMediaList(
 
 export function offerCoverSrc(offer: Pick<TravelOffer, 'cover_image' | 'gallery_images'>): string | null {
   return offerMediaList(offer.cover_image, offer.gallery_images)[0]?.src ?? null
+}
+
+/** Eligibility buckets that make travel feel attainable (not tourist-only). */
+export const OPEN_RATE_ELIGIBILITIES = ['everyone', 'sadc', 'student', 'local'] as const
+
+export type OpenRateEligibility = (typeof OPEN_RATE_ELIGIBILITIES)[number]
+
+export function isOpenRateEligibility(eligibility: string | null | undefined): boolean {
+  return OPEN_RATE_ELIGIBILITIES.includes(
+    String(eligibility || '').toLowerCase() as OpenRateEligibility,
+  )
+}
+
+/** Groups that almost always need clear proof + claim steps. */
+export function offerNeedsProof(eligibility: string | null | undefined): boolean {
+  const e = String(eligibility || '').toLowerCase()
+  return e === 'sadc' || e === 'student' || e === 'local' || e === 'custom'
+}
+
+export function offerQualityGaps(
+  offer: Pick<TravelOffer, 'eligibility' | 'how_to_claim' | 'proof_required'>,
+): string[] {
+  const gaps: string[] = []
+  if (!(offer.how_to_claim || '').trim()) gaps.push('how to claim')
+  if (offerNeedsProof(offer.eligibility) && !(offer.proof_required || '').trim()) {
+    gaps.push('proof')
+  }
+  return gaps
 }

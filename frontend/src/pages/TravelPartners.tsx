@@ -4,16 +4,21 @@ import { useQuery } from '@tanstack/react-query'
 import { Building2, MapPin, Search, ShieldCheck, Star, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { BUSINESS_TYPE_LABELS, type BusinessType } from '../data/businessProfiles'
+import { isOpenRateEligibility } from '../components/business/travelOffers'
 import type { PublicBusiness } from '../hooks/useBusinessAccess'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import {
+  buildAreaFilterOptions,
+  collectListingAreas,
+  popularAreasForCountry,
+} from '../lib/areaFilterOptions'
 import { EmptyState, ListSkeleton } from '../components/ui'
 import '../components/business/travel-partners.css'
-
-const TOP_AREAS = ['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva', 'Lüderitz'] as const
 
 const SERVICE_FILTERS: { id: string; label: string; types: string[] }[] = [
   { id: 'stays', label: 'Stays', types: ['accommodation'] },
   { id: 'food', label: 'Foodies', types: ['food_drink'] },
-  { id: 'activities', label: 'Activities', types: ['activity'] },
+  { id: 'activities', label: 'Activities and Leisure', types: ['activity'] },
   { id: 'guides', label: 'Guides', types: ['guide'] },
   { id: 'transport', label: 'Transport', types: ['transport'] },
   { id: 'events', label: 'Events', types: ['event_organiser'] },
@@ -45,9 +50,11 @@ function ratingLabel(b: PublicBusiness): string | null {
 }
 
 export function TravelPartners() {
+  const { country } = useExploreDestination()
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('')
+  const [cityOptions, setCityOptions] = useState(() => popularAreasForCountry(country))
   const [service, setService] = useState('')
 
   useEffect(() => {
@@ -55,10 +62,25 @@ export function TravelPartners() {
     return () => window.clearTimeout(t)
   }, [searchInput])
 
+  useEffect(() => {
+    setCityOptions(popularAreasForCountry(country))
+    setCity('')
+  }, [country])
+
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['travel-partners'],
     queryFn: () => apiFetch<PublicBusiness[]>('/api/accounts/businesses/?partners=1', { auth: false }),
   })
+
+  useEffect(() => {
+    if (city || search) return
+    setCityOptions(
+      buildAreaFilterOptions({
+        country,
+        listingAreas: collectListingAreas(data.filter(isTravelPartner)),
+      }),
+    )
+  }, [data, city, search, country])
 
   const partners = useMemo(() => {
     let rows = data.filter(isTravelPartner)
@@ -105,7 +127,7 @@ export function TravelPartners() {
         <p className="pt-market__kicker">Travel partners</p>
         <h1 className="pt-market__title">Find organizations that open up travel</h1>
         <p className="pt-market__sub">
-          Operators with resident rates, student packages, and clear services — so a trip feels attainable.
+          Hosts with resident, student, and local rates — so a trip feels open, not exclusive.
         </p>
 
         <div className="pt-market__find">
@@ -138,7 +160,7 @@ export function TravelPartners() {
               aria-label="City"
             >
               <option value="">All cities</option>
-              {TOP_AREAS.map((area) => (
+              {cityOptions.map((area) => (
                 <option key={area} value={area}>
                   {area}
                 </option>
@@ -211,13 +233,17 @@ export function TravelPartners() {
       {!isLoading && !isError && partners.length === 0 ? (
         <EmptyState
           iconElement={<Building2 size={28} strokeWidth={2} aria-hidden />}
-          title={hasFilters ? 'No matching partners' : 'No travel partners yet'}
+          title={hasFilters ? 'No matching partners' : 'Partners are still setting up'}
           sub={
             hasFilters
-              ? 'Try a different city, service, or search.'
-              : 'Organizations appear here when they publish accessible offers and hub stories.'
+              ? 'Try a different city, service, or search — or browse open rates on Deals.'
+              : 'When hosts publish resident and student rates, they show up here. Meanwhile, browse open rates across Delve.'
           }
-          cta={hasFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
+          cta={
+            hasFilters
+              ? { label: 'Clear filters', onClick: clearFilters }
+              : { label: 'Browse open rates', to: '/deals' }
+          }
         />
       ) : null}
 
@@ -229,7 +255,10 @@ export function TravelPartners() {
             const location = [b.city, b.region].filter(Boolean).join(', ')
             const services = serviceLabels(b.business_types)
             const offerCount = b.travel_offers?.length ?? 0
-            const topOffer = b.travel_offers?.[0]
+            const openOffers = (b.travel_offers ?? []).filter((o) =>
+              isOpenRateEligibility(o.eligibility),
+            )
+            const topOffer = openOffers[0] ?? b.travel_offers?.[0]
             const rating = ratingLabel(b)
             const listings = b.stats?.listings_count ?? 0
 
@@ -274,6 +303,12 @@ export function TravelPartners() {
                     </div>
 
                     {services ? <p className="pt-card__services">{services}</p> : null}
+
+                    {openOffers.length > 0 ? (
+                      <p className="pt-card__open-rate">
+                        Open rates · {openOffers.length} for locals & residents
+                      </p>
+                    ) : null}
 
                     {topOffer ? (
                       <p className="pt-card__offer">

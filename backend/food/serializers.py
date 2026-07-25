@@ -81,6 +81,7 @@ class FoodVenueSerializer(serializers.ModelSerializer):
     saves_count = serializers.SerializerMethodField()
     liked_by_me = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodVenue
@@ -128,6 +129,7 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "saves_count",
             "liked_by_me",
             "likes_count",
+            "deals",
             "is_active",
             "created_at",
         )
@@ -141,6 +143,7 @@ class FoodVenueSerializer(serializers.ModelSerializer):
             "saves_count",
             "liked_by_me",
             "likes_count",
+            "deals",
             "cover_kind",
             "owner_verified",
             "created_at",
@@ -148,6 +151,11 @@ class FoodVenueSerializer(serializers.ModelSerializer):
 
     def get_owner_display_name(self, obj):
         return _owner_display_name(obj.owner)
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "food")
 
     def get_owner_verified(self, obj):
         annotated = getattr(obj, "owner_verified", None)

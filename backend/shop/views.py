@@ -4,6 +4,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.listing_deals import ListingDealsContextMixin
 from accounts.permissions import IsEmailVerified, IsServiceProvider
 
 from .models import ShopProduct
@@ -39,7 +40,7 @@ class ShopProductFilter(django_filters.FilterSet):
         return queryset.filter(Q(region__icontains=value) | Q(region=""))
 
 
-class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):
+class ShopProductViewSet(ListingDealsContextMixin, viewsets.ReadOnlyModelViewSet):
     queryset = (
         ShopProduct.objects.filter(is_active=True)
         .select_related("owner", "owner__profile", "owner__shop_profile")
@@ -47,6 +48,8 @@ class ShopProductViewSet(viewsets.ReadOnlyModelViewSet):
     )
     serializer_class = ShopProductSerializer
     filterset_class = ShopProductFilter
+    deal_category = "shop"
+    deal_scope = "owner"
     search_fields = ("name", "description", "tagline", "region", "city", "country_code", "artisan_name", "pickup_address")
     ordering_fields = ("name", "created_at", "price")
     ordering = ["-created_at"]

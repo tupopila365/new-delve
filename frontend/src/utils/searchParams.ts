@@ -8,6 +8,7 @@ export const SEARCH_TYPES = [
   'guides',
   'journeys',
   'transport',
+  'deals',
 ] as const
 
 export type SearchType = (typeof SEARCH_TYPES)[number]

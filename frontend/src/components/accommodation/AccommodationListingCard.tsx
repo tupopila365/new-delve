@@ -14,6 +14,8 @@ import {
 import { mediaUrl } from '../../api/client'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { listingTrustLabel } from '../../lib/listingTrust'
+import { ListingDealBadges, DealAwarePrice, type ListingDeal } from '../deals'
+import { isVideoUrl } from '../listing/photos/listingGalleryMedia'
 import './AccommodationListingCard.css'
 
 export type AccommodationCardListing = {
@@ -39,6 +41,7 @@ export type AccommodationCardListing = {
   is_featured_partner?: boolean
   partner_label?: string
   owner_verified?: boolean
+  deals?: ListingDeal[]
 }
 
 type Props = {
@@ -84,6 +87,7 @@ export function AccommodationListingCard({
 }: Props) {
   const { format } = useDisplayMoney()
   const src = mediaUrl(listing.cover_image) || FALLBACK_STAY_PHOTO
+  const isVideoCover = Boolean(listing.cover_image && isVideoUrl(listing.cover_image))
   const ratingCount = listing.rating_count ?? 0
   const rating =
     ratingCount > 0 && listing.rating_avg ? Number.parseFloat(listing.rating_avg).toFixed(1) : null
@@ -104,12 +108,20 @@ export function AccommodationListingCard({
     <article className="stay-card-v2">
       <Link to={`/accommodation/${listing.id}`} className="stay-card-v2__link">
         <div className="stay-card-v2__media">
-          <img
-            src={src}
-            alt=""
-            loading="lazy"
-            onError={onImgError}
-          />
+          {isVideoCover ? (
+            <video
+              className="stay-card-v2__video"
+              src={`${src}#t=0.1`}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              autoPlay
+              aria-hidden
+            />
+          ) : (
+            <img src={src} alt="" loading="lazy" onError={onImgError} />
+          )}
           <span className="stay-card-v2__type">
             <Building2 size={12} strokeWidth={2.35} aria-hidden />
             {typeLabel || formatType(listing.property_type)}
@@ -119,6 +131,9 @@ export function AccommodationListingCard({
               <Star size={12} strokeWidth={2.35} aria-hidden />
               {rating}
             </span>
+          ) : null}
+          {listing.deals?.length ? (
+            <ListingDealBadges deals={listing.deals} className="stay-card-v2__deals" max={2} />
           ) : null}
         </div>
 
@@ -132,7 +147,13 @@ export function AccommodationListingCard({
                 {distanceLabel ? <span className="stay-card-v2__distance">{distanceLabel}</span> : null}
               </p>
             </div>
-            <p className="stay-card-v2__price">{priceText || 'Ask for price'}</p>
+            <p className="stay-card-v2__price">
+              <DealAwarePrice
+                fallback={priceText || 'Ask for price'}
+                deals={listing.deals}
+                suffix="/night"
+              />
+            </p>
           </div>
 
           {trustLabel ? (

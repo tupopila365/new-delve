@@ -50,7 +50,11 @@ export function ExploreNearPointControl({ className = '', onPointSet }: Props) {
       onPointSet?.()
     })
     return () => {
-      listener.remove()
+      try {
+        listener?.remove?.()
+      } catch {
+        /* Maps listener already gone */
+      }
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current)
         autocompleteRef.current = null

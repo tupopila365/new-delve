@@ -107,14 +107,34 @@
 
 .fd-market__find-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 8px;
+  align-items: stretch;
 }
 
-@media (min-width: 720px) {
-  .fd-market__find-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+.fd-market__more {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--fd-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fd-market__more.is-active {
+  border-style: solid;
+  border-color: rgba(255, 200, 120, 0.45);
+  background: rgba(255, 180, 80, 0.14);
 }
 
 .fd-market__select,
@@ -490,6 +510,18 @@
 .fd-spot__partner--verified {
   background: rgba(42, 111, 94, 0.92);
   color: #f2fff9;
+}
+
+.fd-spot__deals {
+  position: absolute;
+  left: 10px;
+  top: 42px;
+  z-index: 2;
+  max-width: calc(100% - 88px);
+}
+
+.fd-spot__deals .deal-badge {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .fd-spot__video {

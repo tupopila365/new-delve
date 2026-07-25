@@ -68,7 +68,7 @@ export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
   event_organiser: 'Events',
   food_drink: 'Foodies',
   retail_shop: 'Shop & makers',
-  activity: 'Activities',
+  activity: 'Activities and Leisure',
   guide: 'Local guide',
   journeys: 'Journeys',
   ask_locals: 'Ask locals',
@@ -175,6 +175,25 @@ export const mockBusinessProfiles: BusinessProfile[] = [
         ends_on: '2026-12-31',
         is_active: true,
       },
+      {
+        id: 103,
+        title: 'Local midweek rate',
+        summary: 'Namibia residents save on Sunday–Thursday lodge nights.',
+        offer_kind: 'eligibility',
+        eligibility: 'local',
+        eligibility_display: 'Local residents',
+        price_label: '30% off',
+        categories: ['stays'],
+        details:
+          'Local / Namibian ID holders get 30% off rack rate on midweek nights at participating Desert Stays properties.',
+        how_to_claim:
+          '1. Message Desert Stays and ask for the local midweek rate.\n2. Share dates and preferred lodge.\n3. Show Namibian ID or passport at check-in.\n4. Pay the local rate confirmed in chat.',
+        proof_required: 'Valid Namibian ID or passport at check-in',
+        terms_note: 'Sunday–Thursday arrivals. Peak festival weekends excluded.',
+        cover_image:
+          'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=70',
+        is_active: true,
+      },
     ],
   },
   {
@@ -260,6 +279,44 @@ export const mockBusinessProfiles: BusinessProfile[] = [
         ],
         is_active: true,
       },
+      {
+        id: 202,
+        title: 'Local weekday rate',
+        summary: 'Namibia residents save on weekday 4×4 rentals.',
+        offer_kind: 'eligibility',
+        eligibility: 'local',
+        eligibility_display: 'Local residents',
+        price_label: '15% off',
+        categories: ['transport'],
+        details:
+          'Weekday rentals at 15% below the published daily rate for drivers with a Namibian licence and ID.',
+        how_to_claim:
+          '1. Message Namibia Wheels with vehicle class and pickup dates.\n2. Ask for the local weekday rate.\n3. Bring your Namibian licence and ID when collecting the vehicle.',
+        proof_required: 'Valid Namibian driver’s licence and national ID',
+        terms_note: 'Weekday pickups only. Weekend rates stay at rack.',
+        cover_image:
+          'https://images.unsplash.com/photo-1469854523086-cc02fe5d8804?auto=format&fit=crop&w=1200&q=70',
+        is_active: true,
+      },
+      {
+        id: 203,
+        title: 'Student shuttle package',
+        summary: 'Shared Windhoek–coast shuttle seats for students.',
+        offer_kind: 'package',
+        eligibility: 'student',
+        eligibility_display: 'Students',
+        price_label: `From ${formatDisplayMoney(180, exploreDisplayCurrency())}`,
+        categories: ['transport'],
+        details:
+          'Shared coach seats on selected Windhoek–Swakopmund runs, priced for students so a coastal weekend does not start with a full tourist transfer fare.',
+        how_to_claim:
+          '1. Message Namibia Wheels with “Student shuttle” and your travel date.\n2. Confirm the seat they hold for you.\n3. Show your student card when boarding.',
+        proof_required: 'Current student card matching your booking name',
+        terms_note: 'Limited seats per run. Bags over 20kg may need an extra fee.',
+        cover_image:
+          'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=1200&q=70',
+        is_active: true,
+      },
     ],
   },
   {
@@ -279,6 +336,31 @@ export const mockBusinessProfiles: BusinessProfile[] = [
     rating_count: 210,
     listings_count: 3,
     response_hours: 2,
+    showcase_as_partner: true,
+    how_we_help:
+      'Local lunch rates with clear claim steps so a good meal does not feel reserved for tourists only.',
+    community_impact: 'We source from nearby markets and keep weekday seats priced for residents.',
+    travel_offers: [
+      {
+        id: 301,
+        title: 'Local lunch rate',
+        summary: 'Weekday lunch set for Windhoek residents.',
+        offer_kind: 'eligibility',
+        eligibility: 'local',
+        eligibility_display: 'Local residents',
+        price_label: `From ${formatDisplayMoney(95, exploreDisplayCurrency())}`,
+        categories: ['food'],
+        details:
+          'A weekday lunch set (starter or salad + main) at a resident price. Valid Monday–Friday before 15:00.',
+        how_to_claim:
+          '1. Message Taste of Namibia or reserve a lunch table and mention the local lunch rate.\n2. Show Namibian ID when you sit down.\n3. Order from the local lunch set — no promo code needed.',
+        proof_required: 'Valid Namibian ID or passport',
+        terms_note: 'Weekdays before 15:00. Public holidays excluded.',
+        cover_image:
+          'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=1200&q=70',
+        is_active: true,
+      },
+    ],
   },
   {
     id: 6,

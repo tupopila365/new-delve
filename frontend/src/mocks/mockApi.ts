@@ -172,6 +172,7 @@ const PROFILE_UPDATE_FIELDS = new Set([
   'region',
   'city',
   'country_code',
+  'birth_year',
   'preferred_currency',
   'avatar',
   'is_private',
@@ -194,6 +195,26 @@ function pickProfileUpdates(raw: Record<string, unknown>): Partial<MockProfile> 
       })
     }
     out.country_code = v
+  }
+  if ('birth_year' in out) {
+    const rawYear = out.birth_year
+    if (rawYear === null || rawYear === '' || rawYear === undefined) {
+      out.birth_year = null
+    } else {
+      const year = Number(rawYear)
+      const current = new Date().getFullYear()
+      if (!Number.isFinite(year) || year < 1900 || year > current) {
+        throw new ApiError('Bad request', 400, {
+          birth_year: [`Birth year must be between 1900 and ${current}.`],
+        })
+      }
+      if (year > current - 18) {
+        throw new ApiError('Bad request', 400, {
+          birth_year: ['You must be at least 18 to create a Delve account.'],
+        })
+      }
+      out.birth_year = year
+    }
   }
   if (typeof out.preferred_currency === 'string' && out.preferred_currency) {
     const v = out.preferred_currency.trim().toUpperCase()
@@ -1244,6 +1265,10 @@ type MockUserBusiness = {
     eligibility: string
     eligibility_label?: string
     eligibility_display?: string
+    min_age?: number | null
+    max_age?: number | null
+    min_party_size?: number | null
+    max_party_size?: number | null
     price_label?: string
     categories?: string[]
     details?: string
@@ -1282,17 +1307,341 @@ const ELIGIBILITY_LABELS: Record<string, string> = {
   custom: 'Custom',
 }
 
+const MOCK_SADC = new Set([
+  'AO', 'BW', 'CD', 'KM', 'LS', 'MG', 'MW', 'MU', 'MZ', 'NA', 'SC', 'SZ', 'TZ', 'ZA', 'ZM', 'ZW',
+])
+
+function mockAgeLabel(minAge?: number | null, maxAge?: number | null) {
+  if (minAge != null && maxAge != null) return `Ages ${minAge}–${maxAge}`
+  if (maxAge != null) return `Under ${maxAge + 1}`
+  if (minAge != null) return `Ages ${minAge}+`
+  return ''
+}
+
+function mockPartyLabel(minP?: number | null, maxP?: number | null) {
+  if (minP != null && maxP != null) return minP === maxP ? `Groups of ${minP}` : `Groups of ${minP}–${maxP}`
+  if (minP != null) return `Groups of ${minP}+`
+  if (maxP != null) return `Groups up to ${maxP}`
+  return ''
+}
+
 function normalizeOffer(
   offer: NonNullable<MockUserBusiness['travel_offers']>[number],
 ): NonNullable<MockUserBusiness['travel_offers']>[number] {
+  const base =
+    offer.eligibility_label?.trim() ||
+    ELIGIBILITY_LABELS[offer.eligibility] ||
+    offer.eligibility_display ||
+    offer.eligibility
+  const bits = [
+    mockAgeLabel(offer.min_age, offer.max_age),
+    mockPartyLabel(offer.min_party_size, offer.max_party_size),
+  ].filter(Boolean)
   return {
     ...offer,
-    eligibility_display:
-      offer.eligibility_label?.trim() ||
-      ELIGIBILITY_LABELS[offer.eligibility] ||
-      offer.eligibility_display ||
-      offer.eligibility,
+    eligibility_display: bits.length ? `${base} · ${bits.join(' · ')}` : base,
   }
+}
+
+function mockAssessQualify(
+  offer: NonNullable<MockUserBusiness['travel_offers']>[number],
+  viewer: { country_code?: string; birth_year?: number | null } | null | undefined,
+): { may_qualify: boolean | null; qualify_hint: string } {
+  const country = (viewer?.country_code || '').trim().toUpperCase()
+  const age =
+    viewer?.birth_year != null ? new Date().getFullYear() - Number(viewer.birth_year) : null
+  if (
+    offer.eligibility === 'everyone' &&
+    offer.min_age == null &&
+    offer.max_age == null &&
+    offer.min_party_size == null &&
+    offer.max_party_size == null
+  ) {
+    return { may_qualify: true, qualify_hint: 'Open to everyone' }
+  }
+  const signals: Array<boolean | null> = []
+  const hints: string[] = []
+  if (offer.eligibility === 'sadc') {
+    if (!country) {
+      signals.push(null)
+      hints.push('Add your country in profile to see if this SADC rate may apply')
+    } else if (MOCK_SADC.has(country)) {
+      signals.push(true)
+      hints.push('Your country is in SADC — you may qualify')
+    } else {
+      signals.push(false)
+      hints.push('This rate is for SADC residents')
+    }
+  } else if (offer.eligibility === 'local') {
+    if (!country) signals.push(null)
+    else if (country === 'NA') {
+      signals.push(true)
+      hints.push('Your profile looks local — you may qualify')
+    } else {
+      signals.push(false)
+      hints.push('This rate is for local / regional residents')
+    }
+  } else if (offer.eligibility === 'student') {
+    signals.push(null)
+    hints.push('Student rates need a valid student ID — we can’t confirm from your profile')
+  } else if (offer.eligibility === 'custom') {
+    signals.push(null)
+  } else {
+    signals.push(true)
+  }
+  if (offer.min_age != null || offer.max_age != null) {
+    if (age == null) {
+      signals.push(null)
+      hints.push(`Add your birth year in profile to check ${mockAgeLabel(offer.min_age, offer.max_age).toLowerCase()}`)
+    } else {
+      const ok =
+        (offer.min_age == null || age >= offer.min_age) &&
+        (offer.max_age == null || age <= offer.max_age)
+      signals.push(ok)
+      hints.push(
+        ok
+          ? `Your age fits (${mockAgeLabel(offer.min_age, offer.max_age)})`
+          : `This deal is for ${mockAgeLabel(offer.min_age, offer.max_age).toLowerCase()}`,
+      )
+    }
+  }
+  if (offer.min_party_size != null || offer.max_party_size != null) {
+    hints.push(mockPartyLabel(offer.min_party_size, offer.max_party_size))
+  }
+  let may: boolean | null = true
+  if (signals.some((s) => s === false)) may = false
+  else if (signals.some((s) => s === null)) may = null
+  return { may_qualify: may, qualify_hint: hints[0] || '' }
+}
+
+const DEAL_CATEGORY_ALIASES: Record<string, string[]> = {
+  stays: ['stays', 'accommodation', 'stay'],
+  food: ['food', 'foodies', 'food_drink'],
+  guides: ['guides', 'guide'],
+  transport: ['transport', 'vehicles', 'bus'],
+  events: ['events', 'event'],
+  shop: ['shop', 'shops', 'retail'],
+  activities: ['activities', 'activity'],
+}
+
+function mockDealBadge(offer: NonNullable<MockUserBusiness['travel_offers']>[number]): {
+  badge: string
+  badge_kind: string
+} {
+  const price = (offer.price_label || '').trim()
+  if (price) {
+    const kind =
+      offer.eligibility !== 'everyone'
+        ? 'eligibility'
+        : /%|off|sale/i.test(price)
+          ? 'sale'
+          : offer.offer_kind === 'package'
+            ? 'package'
+            : 'discount'
+    return { badge: price.slice(0, 40), badge_kind: kind }
+  }
+  const age = mockAgeLabel(offer.min_age, offer.max_age)
+  if (age && (offer.eligibility === 'everyone' || offer.eligibility === 'custom')) {
+    return { badge: age.slice(0, 32), badge_kind: 'eligibility' }
+  }
+  if (offer.eligibility === 'student') return { badge: 'Student', badge_kind: 'eligibility' }
+  if (offer.eligibility === 'sadc') return { badge: 'SADC', badge_kind: 'eligibility' }
+  if (offer.eligibility === 'local') return { badge: 'Local', badge_kind: 'eligibility' }
+  if (offer.offer_kind === 'package') return { badge: 'Package', badge_kind: 'package' }
+  if (offer.offer_kind === 'discount') return { badge: 'Discount', badge_kind: 'discount' }
+  return { badge: (offer.title || 'Deal').slice(0, 28), badge_kind: 'discount' }
+}
+
+function mockDealsForOwner(ownerUsername: string, category: string, limit = 4) {
+  const aliases = new Set(DEAL_CATEGORY_ALIASES[category] ?? [category])
+  const businesses = [
+    ...mockBusinessProfiles.filter((b) => b.owner_username === ownerUsername),
+    ...(mockUserBusinesses.get(ownerUsername) ?? []),
+  ]
+  const seen = new Set<number>()
+  const out: Array<Record<string, unknown>> = []
+  const s = loadState()
+  const viewer = s.currentUser ? s.profiles[s.currentUser] : null
+  for (const biz of businesses) {
+    for (const raw of businessOffers(biz)) {
+      if (raw.is_active === false) continue
+      if (seen.has(raw.id)) continue
+      const cats = (raw.categories ?? []).map((c) => String(c).toLowerCase())
+      if (cats.length && !cats.some((c) => aliases.has(c))) continue
+      seen.add(raw.id)
+      const { badge, badge_kind } = mockDealBadge(raw)
+      const n = normalizeOffer(raw)
+      const qualify = mockAssessQualify(n, viewer)
+      out.push({
+        id: n.id,
+        source: 'travel_offer',
+        business_id: biz.id,
+        title: n.title,
+        summary: n.summary || '',
+        offer_kind: n.offer_kind,
+        eligibility: n.eligibility,
+        eligibility_display: n.eligibility_display,
+        price_label: (n.price_label || '').trim(),
+        badge,
+        badge_kind,
+        how_to_claim: n.how_to_claim || '',
+        proof_required: n.proof_required || '',
+        details: n.details || '',
+        terms_note: n.terms_note || '',
+        starts_on: n.starts_on ?? null,
+        ends_on: n.ends_on ?? null,
+        min_age: n.min_age ?? null,
+        max_age: n.max_age ?? null,
+        min_party_size: n.min_party_size ?? null,
+        max_party_size: n.max_party_size ?? null,
+        age_label: mockAgeLabel(n.min_age, n.max_age) || null,
+        party_label: mockPartyLabel(n.min_party_size, n.max_party_size) || null,
+        may_qualify: qualify.may_qualify,
+        qualify_hint: qualify.qualify_hint,
+      })
+      if (out.length >= limit) return out
+    }
+  }
+  return out
+}
+
+function mockDealsForBusinessId(businessId: number | null | undefined, category: string, limit = 4) {
+  if (!businessId) return []
+  const biz =
+    mockBusinessProfiles.find((b) => b.id === businessId) ||
+    [...mockUserBusinesses.values()].flat().find((b) => b.id === businessId)
+  if (!biz) return []
+  return mockDealsForOwner(biz.owner_username, category, limit).map((d) => ({
+    ...d,
+    business_id: businessId,
+    source: 'travel_offer',
+  }))
+}
+
+type MockListingSale = {
+  id: number
+  owner_username: string
+  vertical: string
+  listing_id: number
+  title: string
+  badge: string
+  price_label: string
+  sale_price: string | null
+  compare_at_price: string | null
+  how_to_claim: string
+  proof_required: string
+  terms_note: string
+  is_active: boolean
+  starts_on: string | null
+  ends_on: string | null
+}
+
+const mockListingSales = new Map<string, MockListingSale>()
+let mockListingSaleNextId = 1
+
+function listingSaleKey(vertical: string, listingId: number) {
+  return `${vertical}:${listingId}`
+}
+
+function mockCompactListingSale(sale: MockListingSale) {
+  const paths: Record<string, string> = {
+    stays: `/accommodation/${sale.listing_id}`,
+    food: `/food/${sale.listing_id}`,
+    guides: `/guides/${sale.listing_id}`,
+    transport: `/transport/vehicle/${sale.listing_id}`,
+    events: `/events/${sale.listing_id}`,
+    shop: `/shop/${sale.listing_id}`,
+    activities: `/activities/${sale.listing_id}`,
+  }
+  let badge = (sale.badge || '').trim()
+  const priceLabel = (sale.price_label || '').trim()
+  if (!badge) {
+    if (sale.sale_price && sale.compare_at_price) {
+      const saleN = Number(sale.sale_price)
+      const cmp = Number(sale.compare_at_price)
+      if (cmp > 0 && saleN < cmp) badge = `${Math.round((1 - saleN / cmp) * 100)}% off`
+      else badge = 'Sale'
+    } else badge = priceLabel || sale.title || 'Sale'
+  }
+  return {
+    id: `sale-${sale.id}`,
+    sale_id: sale.id,
+    source: 'listing_sale',
+    business_id: 0,
+    vertical: sale.vertical,
+    listing_id: sale.listing_id,
+    title: sale.title || 'On sale',
+    summary: priceLabel,
+    offer_kind: 'discount',
+    eligibility: 'everyone',
+    eligibility_display: 'Everyone',
+    price_label: priceLabel,
+    sale_price: sale.sale_price,
+    compare_at_price: sale.compare_at_price,
+    badge: badge.slice(0, 40),
+    badge_kind: 'sale',
+    how_to_claim:
+      sale.how_to_claim ||
+      'Book this listing while the sale is active — the discounted price is shown on the listing.',
+    proof_required: sale.proof_required || '',
+    details: '',
+    terms_note: sale.terms_note || '',
+    starts_on: sale.starts_on,
+    ends_on: sale.ends_on,
+    listing_href: paths[sale.vertical] || '/',
+  }
+}
+
+function mockDealsForListing(vertical: string, listingId: number, ownerUsername: string, limit = 4) {
+  const out: Array<Record<string, unknown>> = []
+  const sale = mockListingSales.get(listingSaleKey(vertical, listingId))
+  if (sale && sale.is_active !== false) {
+    out.push(mockCompactListingSale(sale))
+  }
+  for (const d of mockDealsForOwner(ownerUsername, vertical, Math.max(0, limit - out.length))) {
+    out.push({ ...d, source: 'travel_offer' })
+    if (out.length >= limit) break
+  }
+  return out.slice(0, limit)
+}
+
+// Demo listing sale on Freesia Hotel (Phase 2)
+mockListingSales.set(listingSaleKey('stays', 101), {
+  id: mockListingSaleNextId++,
+  owner_username: 'stays_host',
+  vertical: 'stays',
+  listing_id: 101,
+  title: 'Weekend stay sale',
+  badge: '20% off',
+  price_label: '20% off',
+  sale_price: '280',
+  compare_at_price: '350',
+  how_to_claim: 'Book this stay while the sale badge is shown — the discounted rate applies automatically.',
+  proof_required: '',
+  terms_note: 'Subject to availability.',
+  is_active: true,
+  starts_on: null,
+  ends_on: null,
+})
+
+function mockSaleListingCover(vertical: string, listingId: number): string | null {
+  if (vertical === 'stays') {
+    const row = mockStays.find((x) => x.id === listingId)
+    return (row?.cover_image as string | undefined) || null
+  }
+  if (vertical === 'food') {
+    const row = mockFood.find((x) => x.id === listingId)
+    return (row?.cover_image as string | undefined) || null
+  }
+  if (vertical === 'transport') {
+    const row = mockVehicles.find((x) => x.id === listingId)
+    return (row?.cover_image as string | undefined) || null
+  }
+  if (vertical === 'events') {
+    const row = mockEvents.find((x) => x.id === listingId)
+    return (row?.cover_image as string | undefined) || null
+  }
+  return null
 }
 
 function resolveMockEditableBusiness(me: string, id: number): MockUserBusiness | undefined {
@@ -2144,6 +2493,7 @@ function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[num
     liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
     saves_count: savers?.size ?? 0,
     saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
+    deals: mockDealsForListing('stays', row.id, row.owner_username),
   }
 }
 
@@ -2162,6 +2512,7 @@ function enrichFoodVenueRow(s: MockState, row: (typeof mockFood)[number]) {
     liked_by_me: Boolean(s.currentUser && likers?.has(s.currentUser as string)),
     saves_count: savers?.size ?? 0,
     saved_by_me: Boolean(s.currentUser && savers?.has(s.currentUser as string)),
+    deals: mockDealsForListing('food', row.id, row.owner_username),
   }
 }
 
@@ -2186,6 +2537,7 @@ function enrichGuideRow(s: MockState, row: (typeof mockGuides)[number]) {
     has_reviewed: hasReviewed,
     can_review: canReview,
     attended: completed,
+    deals: mockDealsForListing('guides', row.id, row.username),
   }
 }
 
@@ -3449,11 +3801,17 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       username?: string
       email?: string
       password?: string
+      birth_year?: number | string
       user_type?: 'normal' | 'service_provider'
     }
     const u = (data.username || '').trim()
     const email = (data.email || '').trim().toLowerCase()
     const password = data.password ?? ''
+    const birthRaw = data.birth_year
+    const birthYear =
+      birthRaw === null || birthRaw === undefined || birthRaw === '' ? NaN : Number(birthRaw)
+    const currentYear = new Date().getFullYear()
+    const maxBirth = currentYear - 18
     if (u.length < 3) {
       throw new ApiError('Bad request', 400, { username: ['Ensure this field has at least 3 characters.'] })
     }
@@ -3462,6 +3820,19 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     }
     if (password.length < 8) {
       throw new ApiError('Bad request', 400, { password: ['This password is too short.'] })
+    }
+    if (!Number.isFinite(birthYear)) {
+      throw new ApiError('Bad request', 400, { birth_year: ['Birth year is required.'] })
+    }
+    if (birthYear < 1900 || birthYear > currentYear) {
+      throw new ApiError('Bad request', 400, {
+        birth_year: [`Birth year must be between 1900 and ${currentYear}.`],
+      })
+    }
+    if (birthYear > maxBirth) {
+      throw new ApiError('Bad request', 400, {
+        birth_year: ['You must be at least 18 to create a Delve account.'],
+      })
     }
     if (Object.keys(s.profiles).some((k) => k.toLowerCase() === u.toLowerCase())) {
       throw new ApiError('Bad request', 400, { username: ['Username is already taken.'] })
@@ -3478,6 +3849,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       region: '',
       city: '',
       country_code: '',
+      birth_year: birthYear,
       preferred_currency: '',
       avatar: null,
       email_verified: false,
@@ -3639,6 +4011,116 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     return snap
   }
 
+  if (pathname === '/api/accounts/deals/' && method === 'GET') {
+    const category = (q.get('category') || q.get('vertical') || '').trim().toLowerCase()
+    const eligibility = (q.get('eligibility') || '').trim().toLowerCase()
+    const kind = (q.get('kind') || '').trim().toLowerCase()
+    const needle = (q.get('q') || '').trim().toLowerCase()
+    const region = (q.get('region') || '').trim().toLowerCase()
+    const city = (q.get('city') || '').trim().toLowerCase()
+    const mayOnly = ['1', 'true', 'yes', 'only'].includes((q.get('may_qualify') || '').toLowerCase())
+    const limit = Math.min(60, Math.max(1, Number(q.get('limit') || 24) || 24))
+    const viewer = s.currentUser ? s.profiles[s.currentUser] : null
+    const aliases = new Set(DEAL_CATEGORY_ALIASES[category] ?? (category ? [category] : []))
+    const out: Array<Record<string, unknown>> = []
+    for (const biz of allPublicBusinesses()) {
+      for (const raw of publicBusinessOffers(biz)) {
+        if (raw.is_active === false) continue
+        const cats = (raw.categories ?? []).map((c) => String(c).toLowerCase())
+        if (aliases.size && cats.length && !cats.some((c) => aliases.has(c))) continue
+        if (aliases.size && !cats.length) {
+          // empty categories = all verticals — keep
+        }
+        if (eligibility && String(raw.eligibility) !== eligibility) continue
+        if (region && !`${biz.region || ''} ${biz.city || ''}`.toLowerCase().includes(region)) continue
+        if (city && !(biz.city || '').toLowerCase().includes(city)) continue
+        const n = normalizeOffer(raw)
+        const { badge, badge_kind } = mockDealBadge(n)
+        if (kind && badge_kind !== kind && String(n.offer_kind) !== kind) continue
+        const qualify = mockAssessQualify(n, viewer)
+        if (mayOnly && qualify.may_qualify === false) continue
+        const hay = [
+          n.title,
+          n.summary,
+          badge,
+          n.price_label,
+          n.eligibility_display,
+          biz.business_name,
+          biz.city,
+          biz.region,
+        ]
+          .join(' ')
+          .toLowerCase()
+        if (needle && !hay.includes(needle)) continue
+        out.push({
+          id: `offer-${n.id}`,
+          offer_id: n.id,
+          source: 'travel_offer',
+          title: n.title,
+          summary: n.summary || '',
+          offer_kind: n.offer_kind,
+          eligibility: n.eligibility,
+          eligibility_display: n.eligibility_display,
+          price_label: (n.price_label || '').trim(),
+          badge,
+          badge_kind,
+          how_to_claim: n.how_to_claim || '',
+          proof_required: n.proof_required || '',
+          categories: n.categories || [],
+          business_id: biz.id,
+          business_name: biz.business_name,
+          business_city: biz.city || '',
+          business_region: biz.region || '',
+          cover_image: n.cover_image || biz.cover_image || biz.logo || null,
+          href: `/business/${biz.id}/offers/${n.id}`,
+          may_qualify: qualify.may_qualify,
+          qualify_hint: qualify.qualify_hint,
+          min_age: n.min_age ?? null,
+          max_age: n.max_age ?? null,
+          min_party_size: n.min_party_size ?? null,
+          max_party_size: n.max_party_size ?? null,
+          age_label: mockAgeLabel(n.min_age, n.max_age) || null,
+          party_label: mockPartyLabel(n.min_party_size, n.max_party_size) || null,
+        })
+        if (out.length >= limit) break
+      }
+      if (out.length >= limit) break
+    }
+    // Listing sales
+    if ((q.get('sales') || '1').toLowerCase() !== '0' && out.length < limit) {
+      for (const sale of mockListingSales.values()) {
+        if (sale.is_active === false) continue
+        if (aliases.size && !aliases.has(sale.vertical) && sale.vertical !== category) continue
+        if (eligibility && eligibility !== 'everyone') continue
+        const compact = mockCompactListingSale(sale)
+        if (kind && kind !== 'sale' && kind !== 'discount' && compact.badge_kind !== kind) continue
+        const hay = `${compact.title} ${compact.badge} ${compact.price_label}`.toLowerCase()
+        if (needle && !hay.includes(needle)) continue
+        const biz =
+          mockBusinessProfiles.find((b) => b.owner_username === sale.owner_username) ||
+          [...mockUserBusinesses.values()].flat().find((b) => b.owner_username === sale.owner_username)
+        const cover =
+          mockSaleListingCover(sale.vertical, sale.listing_id) ||
+          biz?.cover_image ||
+          biz?.logo ||
+          null
+        out.push({
+          ...compact,
+          offer_id: null,
+          categories: [sale.vertical],
+          business_id: biz?.id ?? 0,
+          business_name: biz?.business_name || '',
+          business_city: biz?.city || '',
+          business_region: biz?.region || '',
+          cover_image: cover,
+          href: compact.listing_href,
+        })
+        if (out.length >= limit) break
+      }
+    }
+    return { results: out.slice(0, limit), count: Math.min(out.length, limit) }
+  }
+
   const businessTrustMatch = pathname.match(/^\/api\/accounts\/businesses\/(\d+)\/trust\/?$/)
   if (businessTrustMatch && method === 'GET') {
     const biz = mockBusinessProfiles.find((b) => b.id === Number(businessTrustMatch[1]))
@@ -3772,6 +4254,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       offer_kind: String(data.offer_kind || 'discount'),
       eligibility: String(data.eligibility || 'everyone'),
       eligibility_label: String(data.eligibility_label || ''),
+      min_age: data.min_age != null && data.min_age !== '' ? Number(data.min_age) : null,
+      max_age: data.max_age != null && data.max_age !== '' ? Number(data.max_age) : null,
+      min_party_size:
+        data.min_party_size != null && data.min_party_size !== '' ? Number(data.min_party_size) : null,
+      max_party_size:
+        data.max_party_size != null && data.max_party_size !== '' ? Number(data.max_party_size) : null,
       price_label: String(data.price_label || ''),
       categories: Array.isArray(data.categories) ? data.categories.map(String) : [],
       details: String(data.details || ''),
@@ -3822,6 +4310,52 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     target.travel_offers = target.travel_offers.filter((o) => o.id !== offerId)
     persistMockBusiness(me, target)
     return { ok: true }
+  }
+
+  const listingSaleMatch = pathname.match(/^\/api\/accounts\/me\/listing-sales\/([a-z]+)\/(\d+)\/?$/)
+  if (listingSaleMatch) {
+    requireAuth(s)
+    const me = s.currentUser!
+    const vertical = listingSaleMatch[1]
+    const listingId = Number(listingSaleMatch[2])
+    const key = listingSaleKey(vertical, listingId)
+    if (method === 'GET') {
+      return mockListingSales.get(key) ?? null
+    }
+    if (method === 'PUT') {
+      const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+      const existing = mockListingSales.get(key)
+      const row: MockListingSale = {
+        id: existing?.id ?? mockListingSaleNextId++,
+        owner_username: me,
+        vertical,
+        listing_id: listingId,
+        title: String(data.title || existing?.title || 'On sale').trim() || 'On sale',
+        badge: String(data.badge ?? existing?.badge ?? ''),
+        price_label: String(data.price_label ?? existing?.price_label ?? ''),
+        sale_price:
+          data.sale_price === null || data.sale_price === ''
+            ? null
+            : String(data.sale_price ?? existing?.sale_price ?? ''),
+        compare_at_price:
+          data.compare_at_price === null || data.compare_at_price === ''
+            ? null
+            : String(data.compare_at_price ?? existing?.compare_at_price ?? ''),
+        how_to_claim: String(data.how_to_claim ?? existing?.how_to_claim ?? ''),
+        proof_required: String(data.proof_required ?? existing?.proof_required ?? ''),
+        terms_note: String(data.terms_note ?? existing?.terms_note ?? ''),
+        is_active: data.is_active !== false,
+        starts_on: data.starts_on ? String(data.starts_on) : data.starts_on === null ? null : existing?.starts_on ?? null,
+        ends_on: data.ends_on ? String(data.ends_on) : data.ends_on === null ? null : existing?.ends_on ?? null,
+      }
+      mockListingSales.set(key, row)
+      return row
+    }
+    if (method === 'DELETE') {
+      if (!mockListingSales.has(key)) throw new ApiError('Not found', 404, { detail: 'No sale set for this listing.' })
+      mockListingSales.delete(key)
+      return { ok: true }
+    }
   }
 
   if (pathname === '/api/accounts/me/businesses/' && method === 'GET') {
@@ -4064,20 +4598,28 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.profiles[s.currentUser as string]
     if (!me?.is_staff) throw new ApiError('Forbidden', 403, { detail: 'Forbidden' })
-    return mockBusinessProfiles.map((b) => ({
-      id: b.id,
-      slug: b.slug,
-      owner_username: b.owner_username,
-      business_name: b.business_name,
-      business_types: b.business_types,
-      verification_status: b.verification_status,
-      description: b.description,
-      tagline: b.tagline ?? '',
-      logo: b.logo,
-      cover_image: b.cover_image,
-      region: b.region,
-      city: b.city,
-    }))
+    const openElig = new Set(['everyone', 'sadc', 'student', 'local'])
+    return mockBusinessProfiles.map((b) => {
+      const active = (b.travel_offers ?? []).filter((o) => o.is_active !== false)
+      const openRates = active.filter((o) => openElig.has(String(o.eligibility || '')))
+      return {
+        id: b.id,
+        slug: b.slug,
+        owner_username: b.owner_username,
+        business_name: b.business_name,
+        business_types: b.business_types,
+        verification_status: b.verification_status,
+        description: b.description,
+        tagline: b.tagline ?? '',
+        logo: b.logo,
+        cover_image: b.cover_image,
+        region: b.region,
+        city: b.city,
+        active_offers_count: active.length,
+        open_rate_offers_count: openRates.length,
+        has_open_rate: openRates.length > 0,
+      }
+    })
   }
 
   const adminBizVerifyMatch = pathname.match(/^\/api\/accounts\/admin\/businesses\/(\d+)\/verification\/?$/)
@@ -7604,6 +8146,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       cover_kind:
         (venue as { cover_kind?: string }).cover_kind ??
         (/\.(mp4|webm|mov|m4v)(\?|$)/i.test(String(venue.cover_image || '')) ? 'video' : 'image'),
+      deals: mockDealsForListing('food', venue.id, venue.owner_username),
     }
   }
 
@@ -10289,6 +10832,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       posts: [],
       questions: [],
       journeys: [],
+      deals: [],
     }
     if (qq.length < 2) return emptySearch
 
@@ -10323,6 +10867,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       delvers: ['posts'],
       ask_locals: ['questions'],
       journeys: ['journeys'],
+      deals: ['deals'],
     }
     let buckets: Set<string> | null = null
     if (typeTokens.length > 0) {
@@ -10455,6 +11000,49 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
             )
             .slice(0, limit)
             .map((j) => mockSerializeJourney(s, j))
+        : [],
+      deals: wants('deals')
+        ? (() => {
+            const viewer = s.currentUser ? s.profiles[s.currentUser] : null
+            const out: Array<Record<string, unknown>> = []
+            for (const biz of allPublicBusinesses()) {
+              for (const raw of publicBusinessOffers(biz)) {
+                if (raw.is_active === false) continue
+                const n = normalizeOffer(raw)
+                if (
+                  !longTailMatch(
+                    `${n.title} ${n.summary} ${n.price_label} ${biz.business_name} ${biz.city} ${biz.region}`,
+                    qq,
+                  )
+                ) {
+                  continue
+                }
+                const { badge, badge_kind } = mockDealBadge(n)
+                const qualify = mockAssessQualify(n, viewer)
+                out.push({
+                  id: `offer-${n.id}`,
+                  offer_id: n.id,
+                  source: 'travel_offer',
+                  title: n.title,
+                  badge,
+                  badge_kind,
+                  eligibility: n.eligibility,
+                  eligibility_display: n.eligibility_display,
+                  price_label: n.price_label || '',
+                  business_id: biz.id,
+                  business_name: biz.business_name,
+                  business_city: biz.city || '',
+                  business_region: biz.region || '',
+                  cover_image: n.cover_image || biz.cover_image || null,
+                  href: `/business/${biz.id}/offers/${n.id}`,
+                  may_qualify: qualify.may_qualify,
+                  qualify_hint: qualify.qualify_hint,
+                })
+                if (out.length >= limit) return out
+              }
+            }
+            return out
+          })()
         : [],
     }
   }

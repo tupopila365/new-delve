@@ -25,6 +25,7 @@ import {
 import { formatGalleryUrlsField } from '../../../listing/photos/listingGalleryMedia'
 import { FoodVenuePhotoEditor } from '../FoodVenuePhotoEditor'
 import { FoodVenueStoriesEditor } from '../FoodVenueStoriesEditor'
+import { ListingSaleEditor } from '../../../deals'
 import type { FoodVenueFormValues, ProviderFoodVenue } from '../foodVenueTypes'
 import { venueToForm } from '../foodVenueTypes'
 import { scheduleFromJson } from '../openingHoursUtils'
@@ -386,6 +387,8 @@ export function FoodVenueWorkspace({ venue, canManage }: Props) {
                 </div>
               ) : null}
             </div>
+
+            {canManage ? <ListingSaleEditor vertical="food" listingId={venue.id} canEdit /> : null}
 
             {canManage ? (
               <footer className="fv-workspace__foot">

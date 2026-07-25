@@ -36,7 +36,7 @@ export function ActivitiesAdmin() {
   return (
     <ProviderUiPage>
       <ProviderUiHeader
-        title="Activities"
+        title="Activities and Leisure"
         subtitle="List drives and experiences with photos and videos."
         actions={
           <Link to={`${base}/new`} className="act-detail__cta">

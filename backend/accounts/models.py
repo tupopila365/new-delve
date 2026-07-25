@@ -1,5 +1,6 @@
 import secrets
 import uuid
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -38,6 +39,11 @@ class Profile(models.Model):
         max_length=2,
         blank=True,
         help_text="ISO 3166-1 alpha-2; used for region and price display preferences.",
+    )
+    birth_year = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Birth year for account age verification and soft deal eligibility.",
     )
     preferred_currency = models.CharField(
         max_length=3,
@@ -119,7 +125,7 @@ class BusinessType(models.TextChoices):
     EVENT_ORGANISER = "event_organiser", "Event organiser"
     FOOD_DRINK = "food_drink", "Foodies"
     RETAIL_SHOP = "retail_shop", "Retail & shop"
-    ACTIVITY = "activity", "Activities"
+    ACTIVITY = "activity", "Activities and Leisure"
     GUIDE = "guide", "Guide"
     JOURNEYS = "journeys", "Journeys"
     ASK_LOCALS = "ask_locals", "Ask locals"
@@ -228,6 +234,26 @@ class TravelOffer(models.Model):
         blank=True,
         help_text="Optional override, e.g. 'SADC passport holders'.",
     )
+    min_age = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Minimum traveller age for this offer (inclusive).",
+    )
+    max_age = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum traveller age for this offer (inclusive). e.g. 24 → Under 25.",
+    )
+    min_party_size = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Minimum group / party size required.",
+    )
+    max_party_size = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Maximum group / party size allowed.",
+    )
     price_label = models.CharField(
         max_length=80,
         blank=True,
@@ -276,6 +302,74 @@ class TravelOffer(models.Model):
 
     def __str__(self):
         return f"{self.title} — {self.business.business_name}"
+
+
+class ListingSaleVertical(models.TextChoices):
+    STAYS = "stays", "Stays"
+    FOOD = "food", "Food"
+    GUIDES = "guides", "Guides"
+    TRANSPORT = "transport", "Transport"
+    EVENTS = "events", "Events"
+    SHOP = "shop", "Shop"
+    ACTIVITIES = "activities", "Activities and Leisure"
+
+
+class ListingSale(models.Model):
+    """Listing-level sale / discount (Phase 2) — shows as a Sale badge on that listing."""
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="listing_sales",
+    )
+    vertical = models.CharField(max_length=20, choices=ListingSaleVertical.choices)
+    listing_id = models.PositiveIntegerField()
+    title = models.CharField(max_length=160, default="On sale")
+    badge = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Short pill, e.g. 'Sale' or '−20%'. Defaults from price fields.",
+    )
+    price_label = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text="Human deal label, e.g. '−20%' or 'From N$800'.",
+    )
+    sale_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    compare_at_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Strike-through 'was' price when higher than sale_price.",
+    )
+    how_to_claim = models.TextField(
+        blank=True,
+        help_text="How travellers unlock this listing sale.",
+    )
+    proof_required = models.CharField(max_length=240, blank=True)
+    terms_note = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["vertical", "listing_id"],
+                name="listing_sale_vertical_listing_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["vertical", "listing_id", "is_active"], name="listing_sale_lookup_idx"),
+            models.Index(fields=["owner", "vertical"], name="listing_sale_owner_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.vertical}:{self.listing_id} — {self.title}"
 
 
 class VerificationDocumentType(models.TextChoices):

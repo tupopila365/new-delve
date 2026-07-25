@@ -19,6 +19,14 @@ import { EmptyState, ListSkeleton } from '../components/ui'
 import { isVideoUrl } from '../components/listing/photos/listingGalleryMedia'
 import { vehicleTypeMeta } from '../utils/transportListing'
 import { useDisplayMoney } from '../hooks/useDisplayMoney'
+import { useExploreDestination } from '../hooks/useExploreDestination'
+import {
+  buildAreaFilterOptions,
+  collectListingAreas,
+  isCityAreaForCountry,
+  popularAreasForCountry,
+} from '../lib/areaFilterOptions'
+import { regionsForCountry } from '../lib/exploreDestination'
 import '../components/transport/transport-list.css'
 
 type TransportMode = 'all' | 'rent' | 'share'
@@ -35,13 +43,8 @@ const NEED_FILTERS: { id: string; label: string }[] = [
   { id: 'coast', label: 'Coast' },
 ]
 
-const REGIONS = ['Khomas', 'Erongo', 'Oshana', 'Otjozondjupa', 'Hardap', 'Karas'] as const
-
 /** Seed areas kept even before listings load; the list grows from real data. */
-const SEED_AREAS = ['Hosea Kutako Airport'] as const
-
-/** Areas that map cleanly to VehicleFilter `city=` (exact). */
-const API_CITY_AREAS = new Set<string>(['Windhoek', 'Swakopmund', 'Walvis Bay', 'Ongwediva'])
+const SEED_EXTRA_AREAS = ['Airport'] as const
 
 const COLLECTIONS: {
   id: string
@@ -113,12 +116,8 @@ function ratingValue(v: Vehicle): number {
 
 function matchesVehicleArea(v: Vehicle, area: string): boolean {
   if (!area) return true
-  if (area === 'Hosea Kutako Airport') {
-    return (
-      /airport|kutako/i.test(`${v.title} ${v.region} ${v.city ?? ''}`) ||
-      v.region === 'Khomas' ||
-      /windhoek/i.test(`${v.city ?? ''} ${v.region}`)
-    )
+  if (/^airport$/i.test(area.trim())) {
+    return /airport/i.test(`${v.title} ${v.region} ${v.city ?? ''}`)
   }
   const needle = area.toLowerCase()
   return [v.city, v.region, v.title].filter(Boolean).some((s) => String(s).toLowerCase().includes(needle))
@@ -126,10 +125,8 @@ function matchesVehicleArea(v: Vehicle, area: string): boolean {
 
 function matchesTripArea(t: Trip, area: string): boolean {
   if (!area) return true
-  if (area === 'Hosea Kutako Airport') {
-    return /windhoek|kutako|airport/i.test(
-      `${t.route_detail.origin} ${t.route_detail.destination}`,
-    )
+  if (/^airport$/i.test(area.trim())) {
+    return /airport/i.test(`${t.route_detail.origin} ${t.route_detail.destination}`)
   }
   const needle = area.toLowerCase()
   return (
@@ -139,14 +136,13 @@ function matchesTripArea(t: Trip, area: string): boolean {
 }
 
 function isCoastalVehicle(v: Vehicle): boolean {
-  return (
-    /erongo|swakop|walvis|coast/i.test(`${v.region} ${v.city ?? ''} ${v.title}`) ||
-    v.region === 'Erongo'
+  return /coast|beach|harbour|harbor|bay|seaside|ocean|atlantic|pacific/i.test(
+    `${v.region} ${v.city ?? ''} ${v.title}`,
   )
 }
 
 function isCoastalTrip(t: Trip): boolean {
-  return /swakop|walvis|lüderitz|luderitz/i.test(
+  return /coast|beach|harbour|harbor|bay|seaside|ocean/i.test(
     `${t.route_detail.origin} ${t.route_detail.destination}`,
   )
 }
@@ -204,6 +200,7 @@ function resultsCountLabel(
 
 export function Transport() {
   const { format, currency } = useDisplayMoney()
+  const { country } = useExploreDestination()
   const [mode, setMode] = useState<TransportMode>('all')
   const [need, setNeed] = useState('')
   const [sort, setSort] = useState<SortId>('recommended')
@@ -220,7 +217,16 @@ export function Transport() {
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set())
-  const [areaOptions, setAreaOptions] = useState<string[]>([...SEED_AREAS])
+  const [areaOptions, setAreaOptions] = useState(() =>
+    buildAreaFilterOptions({ country, listingAreas: [...SEED_EXTRA_AREAS] }),
+  )
+  const regionOptions = useMemo(() => [...regionsForCountry(country)], [country])
+
+  useEffect(() => {
+    setAreaOptions(buildAreaFilterOptions({ country, listingAreas: [...SEED_EXTRA_AREAS] }))
+    setArea('')
+    setRegion('')
+  }, [country])
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350)
@@ -231,7 +237,8 @@ export function Transport() {
     const p = new URLSearchParams()
     if (search) p.set('search', search)
     if (region) p.set('region', region)
-    if (area && API_CITY_AREAS.has(area)) p.set('city', area)
+    if (area && isCityAreaForCountry(country, area)) p.set('city', area)
+    else if (area) p.set('search', search ? `${search} ${area}` : area)
     if (minP) p.set('min_price', minP)
     if (maxP) p.set('max_price', maxP)
     if (minSeats) p.set('min_seats', minSeats)
@@ -245,20 +252,14 @@ export function Transport() {
       if (!minSeats) p.set('max_seats', '5')
     }
     if (need === 'budget' && !maxP) p.set('max_price', '500')
-    if (need === 'airport' && !region) p.set('region', 'Khomas')
-    if (need === 'coast' && !region) p.set('region', 'Erongo')
     const s = p.toString()
     return s ? `?${s}` : ''
-  }, [search, region, area, minP, maxP, minSeats, vehicleType, need])
+  }, [search, region, area, minP, maxP, minSeats, vehicleType, need, country])
 
   const bQs = useMemo(() => {
     const p = new URLSearchParams()
-    let o = origin
-    let d = dest
-    if (need === 'coast' && !origin && !dest) {
-      o = 'Windhoek'
-      d = 'Swakopmund'
-    }
+    const o = origin
+    const d = dest
     if (search) p.set('search', search)
     if (o) p.set('route_origin', o)
     if (d) p.set('route_destination', d)
@@ -267,7 +268,7 @@ export function Transport() {
     if (maxP) p.set('max_price', maxP)
     else if (need === 'budget') p.set('max_price', '350')
     if (need === 'week') p.set('departing_within_days', '7')
-    if (need === 'airport' && !o && !d) p.set('search', search || 'Windhoek')
+    if (need === 'airport' && !o && !d) p.set('search', search || 'airport')
     const s = p.toString()
     return s ? `?${s}` : ''
   }, [search, origin, dest, travelDate, minP, maxP, need])
@@ -300,23 +301,14 @@ export function Transport() {
   })
 
   useEffect(() => {
-    setAreaOptions((prev) => {
-      const set = new Set(prev)
-      for (const v of vehicles ?? []) {
-        const city = (v.city || '').trim()
-        if (city) set.add(city)
-      }
-      for (const t of trips ?? []) {
-        const o = t.route_detail.origin?.trim()
-        const d = t.route_detail.destination?.trim()
-        if (o) set.add(o)
-        if (d) set.add(d)
-      }
-      set.delete('')
-      const next = [...set]
-      return next.length === prev.length && next.every((a, i) => a === prev[i]) ? prev : next
-    })
-  }, [vehicles, trips])
+    if (area || search) return
+    const listingAreas = [
+      ...SEED_EXTRA_AREAS,
+      ...collectListingAreas(vehicles ?? []),
+      ...(trips ?? []).flatMap((t) => [t.route_detail.origin, t.route_detail.destination]),
+    ]
+    setAreaOptions(buildAreaFilterOptions({ country, listingAreas }))
+  }, [vehicles, trips, area, search, country])
 
   const popularRoutes = useMemo(() => {
     const counts = new Map<string, { origin: string; destination: string; n: number }>()
@@ -337,8 +329,8 @@ export function Transport() {
 
   const displayVehicles = useMemo(() => {
     let list = [...(vehicles ?? [])]
-    // Airport (and any non-API city chip) still needs client matching
-    if (area && !API_CITY_AREAS.has(area)) {
+    // Non-city chips (e.g. Airport) still need client matching
+    if (area && !isCityAreaForCountry(country, area)) {
       list = list.filter((v) => matchesVehicleArea(v, area))
     }
 
@@ -351,11 +343,7 @@ export function Transport() {
       list = list.filter((v) => /4x4|suv/i.test(v.vehicle_type || ''))
     }
     if (need === 'airport') {
-      list = list.filter(
-        (v) =>
-          /airport|kutako/i.test(`${v.title} ${v.region} ${v.city ?? ''}`) ||
-          v.region === 'Khomas',
-      )
+      list = list.filter((v) => /airport/i.test(`${v.title} ${v.region} ${v.city ?? ''}`))
     }
     if (need === 'coast') {
       list = list.filter(isCoastalVehicle)
@@ -374,7 +362,7 @@ export function Transport() {
       return score(b) - score(a)
     })
     return list
-  }, [vehicles, area, need, sort])
+  }, [vehicles, area, need, sort, country])
 
   const displayTrips = useMemo(() => {
     let list = [...(trips ?? [])]
@@ -490,8 +478,9 @@ export function Transport() {
     setNeed(c.need)
     if (c.mode) setMode(c.mode)
     if (c.need === 'coast') {
-      setOrigin('Windhoek')
-      setDest('Swakopmund')
+      const towns = popularAreasForCountry(country, 2)
+      if (towns[0]) setOrigin(towns[0])
+      if (towns[1]) setDest(towns[1])
     }
   }
 
@@ -554,7 +543,7 @@ export function Transport() {
             <input
               id="tp-search"
               type="search"
-              placeholder="Search Windhoek, airport, Swakop bus, 4×4…"
+              placeholder="Search city, airport, bus, 4×4…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               aria-label="Search vehicles and trips"
@@ -989,7 +978,7 @@ export function Transport() {
                 onChange={(e) => setRegion(e.target.value)}
               >
                 <option value="">Any region</option>
-                {REGIONS.map((r) => (
+                {regionOptions.map((r) => (
                   <option key={r} value={r}>
                     {r}
                   </option>
@@ -1072,7 +1061,7 @@ export function Transport() {
                 className="tp-filter-modal__input"
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
-                placeholder="Windhoek"
+                placeholder="From city"
               />
             </label>
             <label className="tp-filter-modal__field">

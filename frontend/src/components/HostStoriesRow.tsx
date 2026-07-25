@@ -35,13 +35,17 @@ export function HostStoriesRow() {
       const first = userPosts[0]
       const username = first.author.username
       const displayName = first.author.display_name || username
+      const latestSlide = slides[0]
       const latest = Math.max(...userPosts.map((x) => new Date(x.created_at || 0).getTime()))
+      const avatar = first.author.avatar ? mediaUrl(first.author.avatar) || null : null
       rows.push({
         id: username,
         label: hostLabel(displayName, username),
         channelLabel: `@${username}`,
         explorePath: `/u/${encodeURIComponent(username)}`,
-        coverSrc: first.author.avatar ? mediaUrl(first.author.avatar) || null : null,
+        // Prefer newest story media; avatar/letter only if media is missing.
+        coverSrc: latestSlide?.src || avatar,
+        coverKind: latestSlide?.kind === 'video' ? 'video' : 'image',
         fallbackInitial: displayName,
         slides,
         latest,

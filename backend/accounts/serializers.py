@@ -4,10 +4,12 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from .age_gate import validate_account_birth_year
 from .models import (
     BusinessProfile,
     BusinessType,
     BusinessVerificationDocument,
+    ListingSale,
     Profile,
     TravelOffer,
     User,
@@ -32,6 +34,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "region",
             "city",
             "country_code",
+            "birth_year",
             "preferred_currency",
             "avatar",
             "email_verified",
@@ -48,6 +51,7 @@ class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(min_length=3, max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
+    birth_year = serializers.IntegerField()
     user_type = serializers.ChoiceField(choices=UserType.choices, default=UserType.NORMAL)
 
     def validate_username(self, value):
@@ -64,6 +68,12 @@ class RegisterSerializer(serializers.Serializer):
         validate_password(value)
         return value
 
+    def validate_birth_year(self, value):
+        try:
+            return validate_account_birth_year(value, required=True)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data["username"],
@@ -72,7 +82,8 @@ class RegisterSerializer(serializers.Serializer):
         )
         profile = user.profile
         profile.user_type = validated_data["user_type"]
-        profile.save(update_fields=["user_type"])
+        profile.birth_year = validated_data["birth_year"]
+        profile.save(update_fields=["user_type", "birth_year"])
         return user
 
 
@@ -100,6 +111,12 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Use a 3-letter currency code (ISO 4217).")
         return v
 
+    def validate_birth_year(self, value):
+        try:
+            return validate_account_birth_year(value, required=False)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+
     class Meta:
         model = Profile
         fields = (
@@ -108,6 +125,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             "region",
             "city",
             "country_code",
+            "birth_year",
             "preferred_currency",
             "avatar",
             "user_type",
@@ -133,6 +151,10 @@ class TravelOfferSerializer(serializers.ModelSerializer):
             "eligibility",
             "eligibility_label",
             "eligibility_display",
+            "min_age",
+            "max_age",
+            "min_party_size",
+            "max_party_size",
             "price_label",
             "categories",
             "details",
@@ -149,10 +171,22 @@ class TravelOfferSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
 
     def get_eligibility_display(self, obj: TravelOffer) -> str:
-        label = (obj.eligibility_label or "").strip()
-        if label:
-            return label
-        return obj.get_eligibility_display()
+        from accounts.deal_eligibility import enriched_eligibility_display
+
+        return enriched_eligibility_display(obj)
+
+    def validate(self, attrs):
+        min_age = attrs.get("min_age", getattr(self.instance, "min_age", None))
+        max_age = attrs.get("max_age", getattr(self.instance, "max_age", None))
+        min_party = attrs.get("min_party_size", getattr(self.instance, "min_party_size", None))
+        max_party = attrs.get("max_party_size", getattr(self.instance, "max_party_size", None))
+        if min_age is not None and max_age is not None and min_age > max_age:
+            raise serializers.ValidationError({"max_age": "Max age must be on or after min age."})
+        if min_party is not None and max_party is not None and min_party > max_party:
+            raise serializers.ValidationError(
+                {"max_party_size": "Max party size must be on or after min party size."}
+            )
+        return attrs
 
     def validate_categories(self, value):
         if value is None:
@@ -212,6 +246,47 @@ class TravelOfferSerializer(serializers.ModelSerializer):
                 continue
             raise serializers.ValidationError("Gallery items must be URLs or {src, kind} objects.")
         return cleaned[:12]
+
+
+class ListingSaleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ListingSale
+        fields = (
+            "id",
+            "vertical",
+            "listing_id",
+            "title",
+            "badge",
+            "price_label",
+            "sale_price",
+            "compare_at_price",
+            "how_to_claim",
+            "proof_required",
+            "terms_note",
+            "is_active",
+            "starts_on",
+            "ends_on",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "vertical", "listing_id", "created_at", "updated_at")
+
+    def validate_title(self, value):
+        title = (value or "").strip() or "On sale"
+        return title[:160]
+
+    def validate(self, attrs):
+        sale = attrs.get("sale_price", getattr(self.instance, "sale_price", None))
+        compare = attrs.get("compare_at_price", getattr(self.instance, "compare_at_price", None))
+        starts = attrs.get("starts_on", getattr(self.instance, "starts_on", None))
+        ends = attrs.get("ends_on", getattr(self.instance, "ends_on", None))
+        if sale is not None and compare is not None and sale > compare:
+            raise serializers.ValidationError(
+                {"compare_at_price": "Compare-at price should be higher than the sale price."}
+            )
+        if starts and ends and ends < starts:
+            raise serializers.ValidationError({"ends_on": "End date must be on or after the start date."})
+        return attrs
 
 
 class BusinessProfileSerializer(serializers.ModelSerializer):

@@ -13,6 +13,7 @@ import {
   MapPin,
   MessageCircle,
   MessageSquare,
+  Percent,
   Search,
   ShoppingBag,
   Sparkles,
@@ -40,6 +41,10 @@ import { HomeStoriesRow } from '../components/HomeStoriesRow'
 import { NoFaceInvite } from '../components/NoFaceInvite'
 import { HomeCategoryGrid } from '../components/home/HomeCategoryGrid'
 import { HomeRegionPicker } from '../components/home/HomeRegionPicker'
+import { DealsRail } from '../components/deals'
+import { RatesKnowHowStrip } from '../components/deals/RatesKnowHowStrip'
+import { WelcomeRatesTip } from '../components/deals/WelcomeRatesTip'
+import { AffordableTripsRail } from '../components/journeys/AffordableTripsRail'
 import { MiniRating } from '../components/MiniRating'
 import { ListSkeleton, EmptyState } from '../components/ui'
 import {
@@ -76,8 +81,9 @@ const moodChips = [
 const categoryShortcuts = [
   { to: '/accommodation', label: 'Stays', Icon: HomeIcon, vertical: 'stays' as ForYouVertical | null },
   { to: '/partners', label: 'Partners', Icon: HeartHandshake, vertical: null },
+  { to: '/deals', label: 'Deals', Icon: Percent, vertical: null },
   { to: '/food', label: 'Foodies', Icon: Utensils, vertical: 'food' as ForYouVertical | null },
-  { to: '/activities', label: 'Activities', Icon: Mountain, vertical: 'activities' as ForYouVertical | null },
+  { to: '/activities', label: 'Activities and Leisure', Icon: Mountain, vertical: 'activities' as ForYouVertical | null },
   { to: '/guides', label: 'Guides', Icon: Users, vertical: 'guides' as ForYouVertical | null },
   { to: '/events', label: 'Events', Icon: Ticket, vertical: 'events' as ForYouVertical | null },
   { to: '/transport', label: 'Transport', Icon: Car, vertical: 'transport' as ForYouVertical | null },
@@ -670,7 +676,7 @@ export function Home() {
   const { data: apiJourneys = [], isLoading: loadingJourneys } = useQuery({
     queryKey: ['journeys', 'home'],
     enabled: !noFace,
-    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/?limit=8', { auth: false }),
+    queryFn: () => apiFetch<ApiJourney[]>('/api/journeys/?limit=16', { auth: false }),
   })
 
   const { data: delversFeed = [], isLoading: loadingDelvers } = useQuery({
@@ -883,7 +889,7 @@ export function Home() {
   const loadingCommunity = loadingCommunityQuestions || loadingCommunityTips || loadingCommunityTags
   const hasCommunityPreview = homeQuestions.length > 0 || homeTips.length > 0 || homeTags.length > 0
   const journeyItems = useMemo(
-    () => mergeJourneyFeeds(apiJourneys, journeyListFallback()).slice(0, 8),
+    () => mergeJourneyFeeds(apiJourneys, journeyListFallback()).slice(0, 12),
     [apiJourneys],
   )
   const showAnnouncement =
@@ -898,6 +904,7 @@ export function Home() {
 
   return (
     <div className="page-home">
+      <WelcomeRatesTip className="home-welcome-rates" />
       <section className="ta-hero ta-hero--bleed ta-hero--home" aria-label="Welcome to DELVE">
         <div
           className="ta-hero__bg"
@@ -1192,6 +1199,12 @@ export function Home() {
           title="Where the night goes."
           body="Rooms and lodges from hosts — request dates when you’re ready."
         >
+          <DealsRail
+            region={exploring ? region || undefined : undefined}
+            className="home-deals-rail"
+          />
+          <RatesKnowHowStrip compact className="home-rates-knowhow" />
+          {noFace ? null : <AffordableTripsRail trips={journeyItems} className="home-affordable-trips" />}
           <HomeSection
             id="rail-stays"
             title="Places to stay"
@@ -1499,8 +1512,8 @@ export function Home() {
             <HomeSection
               id="home-journeys"
               title="Real journeys"
-              sub="Routes, costs, photos, and tips."
-              seeAllTo="/journeys"
+              sub="Full trip costs — not just one listing price."
+              seeAllTo="/journeys?mode=budget"
               loading={loadingJourneys}
               count={journeyItems.length}
               emptyMessage="No journeys yet."

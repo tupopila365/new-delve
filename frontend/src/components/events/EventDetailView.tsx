@@ -20,6 +20,7 @@ import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ListingDelversMoments, ListingReviews } from '../listing'
+import { ListingDealsStrip } from '../deals'
 import type { ReviewItem } from '../GuestReviewCard'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import {
@@ -269,6 +270,8 @@ export function EventDetailView({
           </p>
         ) : null}
       </div>
+
+      <ListingDealsStrip deals={event.deals} />
 
       <div className="jd-engage" aria-label="Event actions">
         <div className="jd-engage__primary">

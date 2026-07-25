@@ -102,12 +102,11 @@ class HomeStoryCuratorTests(TestCase):
         self.assertEqual(stays["slides"][0]["headline"], "Editor pick")
         self.assertTrue(any(s["headline"] == "Pinned host story" for s in stays["slides"]))
 
-    def test_auto_fill_off_uses_editorial_only_then_fallback(self):
+    def test_auto_fill_off_uses_editorial_only_omits_empty(self):
         HomeStoryChannelConfig.objects.create(channel_id="pins", auto_fill=False)
         public = self.client.get("/api/home/stories/")
-        pins = next(c for c in public.data["channels"] if c["id"] == "pins")
-        self.assertFalse(pins["auto_fill"])
-        self.assertEqual(pins["slides"][0]["source"], "fallback")
+        pin_ids = [c["id"] for c in public.data["channels"]]
+        self.assertNotIn("pins", pin_ids)
 
         HomeStorySlide.objects.create(
             channel_id="pins",
@@ -124,6 +123,62 @@ class HomeStoryCuratorTests(TestCase):
         self.assertEqual(len(pins2["slides"]), 1)
         self.assertEqual(pins2["slides"][0]["headline"], "Only editorial")
         self.assertEqual(pins2["slides"][0]["source"], "editorial")
+        self.assertFalse(pins2["auto_fill"])
+
+    def test_scheduled_slide_respects_24h_window(self):
+        from django.utils import timezone
+        from datetime import timedelta
+
+        now = timezone.now()
+        HomeStoryChannelConfig.objects.create(channel_id="stays", auto_fill=False)
+        HomeStorySlide.objects.create(
+            channel_id="stays",
+            source_type=HomeStorySourceType.CUSTOM,
+            media_url="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=400&q=80",
+            headline="Flash featured stay",
+            cta_path="/accommodation/1",
+            is_active=True,
+            sort_order=0,
+            starts_at=now - timedelta(hours=1),
+            ends_at=now + timedelta(hours=23),
+            created_by=self.admin,
+        )
+        HomeStorySlide.objects.create(
+            channel_id="stays",
+            source_type=HomeStorySourceType.CUSTOM,
+            media_url="https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=400&q=80",
+            headline="Already expired",
+            cta_path="/accommodation/2",
+            is_active=True,
+            sort_order=1,
+            starts_at=now - timedelta(hours=30),
+            ends_at=now - timedelta(hours=6),
+            created_by=self.admin,
+        )
+
+        public = self.client.get("/api/home/stories/")
+        stays = next(c for c in public.data["channels"] if c["id"] == "stays")
+        headlines = [s["headline"] for s in stays["slides"]]
+        self.assertIn("Flash featured stay", headlines)
+        self.assertNotIn("Already expired", headlines)
+
+        self.client.force_authenticate(user=self.admin)
+        create = self.client.post(
+            "/api/accounts/admin/home-story-slides/",
+            {
+                "channel_id": "eat",
+                "source_type": HomeStorySourceType.CUSTOM,
+                "media_url": "https://example.com/food.jpg",
+                "headline": "Tonight only",
+                "cta_path": "/food",
+                "starts_at": (now - timedelta(minutes=5)).isoformat(),
+                "ends_at": (now + timedelta(hours=24)).isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201)
+        self.assertIsNotNone(create.data["starts_at"])
+        self.assertIsNotNone(create.data["ends_at"])
 
     def test_reorder_and_delete(self):
         self.client.force_authenticate(user=self.admin)

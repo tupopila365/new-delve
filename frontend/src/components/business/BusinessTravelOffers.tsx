@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { mediaUrl } from '../../api/client'
+import { DealClaimSheet, travelOfferToListingDeal, type ListingDeal } from '../deals'
 import { offerCoverSrc, offerEligibilityIcon, offerKindIcon, type TravelOffer } from './travelOffers'
 
 type Props = {
@@ -10,13 +12,14 @@ type Props = {
 }
 
 export function BusinessTravelOffers({ offers, businessName, businessId }: Props) {
+  const [active, setActive] = useState<ListingDeal | null>(null)
   if (!offers.length) return null
 
   return (
     <div className="biz-profile__offers">
       <p className="biz-profile__offers-intro">
-        Ways {businessName} makes travel more attainable — tap an offer for photos, eligibility, and
-        how to sign up.
+        Open rates from {businessName} — resident, student, and packages that make a trip feel
+        possible. Tap how to unlock, or open the full offer.
       </p>
       <ul className="biz-profile__offer-list">
         {offers.map((offer) => {
@@ -25,13 +28,14 @@ export function BusinessTravelOffers({ offers, businessName, businessId }: Props
           const who = offer.eligibility_display || offer.eligibility_label || offer.eligibility
           const cover = offerCoverSrc(offer)
           const coverSrc = cover ? mediaUrl(cover) || cover : null
+          const deal = travelOfferToListingDeal(offer, businessId)
           return (
             <li key={offer.id}>
-              <Link
-                to={`/business/${businessId}/offers/${offer.id}`}
-                className="biz-profile__offer biz-profile__offer--link"
-              >
-                <div className="biz-profile__offer-top">
+              <div className="biz-profile__offer">
+                <Link
+                  to={`/business/${businessId}/offers/${offer.id}`}
+                  className="biz-profile__offer-top biz-profile__offer-top--link"
+                >
                   {coverSrc ? (
                     <span className="biz-profile__offer-thumb">
                       <img src={coverSrc} alt="" loading="lazy" />
@@ -48,7 +52,7 @@ export function BusinessTravelOffers({ offers, businessName, businessId }: Props
                   {offer.price_label?.trim() ? (
                     <span className="biz-profile__offer-price">{offer.price_label.trim()}</span>
                   ) : null}
-                </div>
+                </Link>
                 <div className="biz-profile__offer-meta">
                   <span>
                     <WhoIcon size={12} strokeWidth={2.25} aria-hidden />
@@ -57,16 +61,24 @@ export function BusinessTravelOffers({ offers, businessName, businessId }: Props
                   {(offer.categories?.length ?? 0) > 0 ? (
                     <span>{offer.categories!.join(' · ')}</span>
                   ) : null}
-                  <span className="biz-profile__offer-more">
+                  <button
+                    type="button"
+                    className="biz-profile__offer-claim"
+                    onClick={() => setActive(deal)}
+                  >
+                    How to unlock
+                  </button>
+                  <Link to={`/business/${businessId}/offers/${offer.id}`} className="biz-profile__offer-more">
                     Details
                     <ChevronRight size={12} strokeWidth={2.5} aria-hidden />
-                  </span>
+                  </Link>
                 </div>
-              </Link>
+              </div>
             </li>
           )
         })}
       </ul>
+      <DealClaimSheet deal={active} onClose={() => setActive(null)} />
     </div>
   )
 }

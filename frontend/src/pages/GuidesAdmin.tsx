@@ -598,6 +598,7 @@ export function GuidesAdmin() {
           error={profileErr}
           saving={saveProfileMut.isPending}
           isEdit={Boolean(guide)}
+          listingId={guide?.id ?? null}
           initialSection={profileFormSection}
           onSubmit={() => saveProfileMut.mutate()}
           onCancel={() => {

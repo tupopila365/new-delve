@@ -52,6 +52,7 @@ export type GuideProfile = {
   has_reviewed?: boolean
   can_review?: boolean
   attended?: boolean
+  deals?: import('../components/deals').ListingDeal[]
 }
 
 export type PortfolioItem = { src: string; caption?: string }

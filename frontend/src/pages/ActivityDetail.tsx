@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActivityReviewForm } from '../components/activities/ActivityReviewForm'
 import { normalizeReviews } from '../components/GuestReviewCard'
 import { ListingReviews } from '../components/listing'
+import { ListingDealsStrip } from '../components/deals'
 import { MediaLightbox } from '../components/media/MediaLightbox'
 import { EmptyState } from '../components/ui'
 import { useAccountActionGate } from '../hooks/useAccountActionGate'
@@ -93,7 +94,7 @@ export function ActivityDetail() {
           iconElement={<Mountain size={28} strokeWidth={2} aria-hidden />}
           title="Activity not found"
           sub="It may have been removed or is not published yet."
-          cta={{ label: 'Browse activities', to: '/activities' }}
+          cta={{ label: 'Browse activities and leisure', to: '/activities' }}
         />
       </main>
     )
@@ -116,7 +117,7 @@ export function ActivityDetail() {
     <main className="act-detail">
       <Link to="/activities" className="act-detail__back">
         <ChevronLeft size={16} strokeWidth={2.5} aria-hidden />
-        Activities
+        Activities and Leisure
       </Link>
 
       <div className="act-detail__grid">
@@ -194,6 +195,7 @@ export function ActivityDetail() {
           </div>
 
           <p className="act-detail__price">{data.price_label || data.price_from}</p>
+          <ListingDealsStrip deals={data.deals} className="act-detail__deals" />
           {data.description ? <p className="act-detail__body">{data.description}</p> : null}
 
           {data.includes && data.includes.length > 0 ? (

@@ -37,7 +37,7 @@ export const ONBOARDING_SERVICE_OPTIONS: ServiceOption[] = [
   },
   {
     id: 'activity',
-    label: 'Activities',
+    label: 'Activities and Leisure',
     description: 'Drives, adventure, water, and cultural experiences.',
     Icon: Mountain,
     requiresVerification: false,

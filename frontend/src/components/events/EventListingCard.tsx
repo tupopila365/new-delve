@@ -19,6 +19,7 @@ import {
   organizerLabel,
 } from '../../utils/eventDisplay'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
+import { ListingDealBadges } from '../deals'
 import '../journeys/JourneyListingCard.css'
 import './EventListingCard.css'
 
@@ -190,6 +191,9 @@ export function EventListingCard({
           <span className="jn-feed-card__burst" aria-hidden>
             <Heart size={72} strokeWidth={1.5} fill="currentColor" />
           </span>
+        ) : null}
+        {event.deals?.length ? (
+          <ListingDealBadges deals={event.deals} className="ev-feed-card__deals" max={2} />
         ) : null}
       </Link>
 

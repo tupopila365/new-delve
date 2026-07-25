@@ -16,6 +16,7 @@ import {
 import type { ListingGalleryMediaItem } from '../components/listing/photos/listingGalleryMedia'
 import { SHOP_CATEGORIES } from '../utils/shopDisplay'
 import type { ShopMediaRaw, ShopProductListing } from '../utils/shopListing'
+import { ListingSaleEditor } from '../components/deals'
 
 type VariantDraft = { label: string; price_override: string; stock_quantity: string }
 
@@ -368,6 +369,10 @@ export function ShopProductForm() {
             Publish on Shops
           </label>
         </div>
+
+        {isEdit && productId ? (
+          <ListingSaleEditor vertical="shop" listingId={Number(productId)} canEdit={canManageShop} />
+        ) : null}
 
         {err ? <p className="shop-manage__error">{err}</p> : null}
 

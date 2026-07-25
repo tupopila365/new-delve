@@ -74,6 +74,8 @@ from .views import (
     MyBusinessesView,
     MyBusinessTravelOfferDetailView,
     MyBusinessTravelOffersView,
+    MyListingSaleView,
+    DealsDiscoveryView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ProfileUpdateView,
@@ -106,6 +108,11 @@ urlpatterns = [
         "me/businesses/<int:pk>/offers/<int:offer_id>/",
         MyBusinessTravelOfferDetailView.as_view(),
         name="my-business-offer-detail",
+    ),
+    path(
+        "me/listing-sales/<str:vertical>/<int:listing_id>/",
+        MyListingSaleView.as_view(),
+        name="my-listing-sale",
     ),
     path("me/businesses/<int:pk>/documents/", MyBusinessDocumentsView.as_view(), name="my-business-documents"),
     path(
@@ -223,6 +230,7 @@ urlpatterns = [
         name="seller-trust",
     ),
     path("businesses/", BusinessProfileListView.as_view(), name="business-list"),
+    path("deals/", DealsDiscoveryView.as_view(), name="deals-discovery"),
     path("businesses/<int:pk>/", BusinessProfileDetailView.as_view(), name="business-detail"),
     path(
         "businesses/<int:pk>/offers/<int:offer_id>/",

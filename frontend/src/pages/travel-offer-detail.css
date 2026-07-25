@@ -232,9 +232,49 @@
   color: #e7e5e4;
 }
 
-.tod__price--muted {
-  font-size: 0.95rem;
+.tod__price-block--package {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 181, 122, 0.35);
+  background: rgba(226, 181, 122, 0.1);
+}
+
+.tod__price-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e2b57a;
+}
+
+.tod__price-note {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 250, 242, 0.62);
+}
+
+.tod__callout-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
   color: rgba(255, 250, 242, 0.55);
+}
+
+.tod__section--local {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 181, 122, 0.28);
+  background: rgba(226, 181, 122, 0.08);
+}
+
+.tod__section--local a {
+  color: #e2b57a;
+  font-weight: 750;
 }
 
 .tod__cats {

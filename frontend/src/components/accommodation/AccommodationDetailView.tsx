@@ -22,6 +22,7 @@ import { StayHostCard } from './StayHostCard'
 import { StayRoomPicker } from './StayRoomPicker'
 import { buildStayStoryChannels } from './stayStoriesUtils'
 import { ListingDelversMoments, ListingFaq, ListingLocationCard, ListingReviews } from '../listing'
+import { ListingDealsStrip } from '../deals'
 import type { ListingRoomOption } from '../listing/types'
 import type { ReviewItem } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
@@ -170,7 +171,7 @@ export function AccommodationDetailView({
     ? `${selectedRoom.name} · / night`
     : `${data.max_guests} guests · ${locationLine || 'Select room'}`
 
-  const mobileCtaLabel = selectedRoom ? 'Check dates' : 'Select room'
+  const mobileCtaLabel = selectedRoom ? 'Check availability' : 'Select room'
 
   const handleMobileCta = () => {
     if (selectedRoom) {
@@ -239,6 +240,8 @@ export function AccommodationDetailView({
           </p>
         ) : null}
       </div>
+
+      <ListingDealsStrip deals={data.deals} />
 
       <div className="jd-engage" aria-label="Stay actions">
         <div className="jd-engage__primary">
@@ -336,14 +339,14 @@ export function AccommodationDetailView({
             <div className="stay-reserve__actions">
               <Link
                 to={`/accommodation/${listingId}/room/${encodeURIComponent(selectedRoom.name)}`}
-                className="btn btn-primary"
+                className="btn btn-primary btn-block"
               >
-                Check dates
-              </Link>
-              <Link to={selectedRoom.bookHref} className="jd-btn">
-                Book now
+                Check dates & availability
               </Link>
             </div>
+            <p className="stay-reserve__hint">
+              Pick dates next — we’ll tell you if the room is free before you request.
+            </p>
           </div>
         ) : (
           <div className="stay-reserve">
@@ -366,9 +369,10 @@ export function AccommodationDetailView({
           listingName={data.title}
           explorePath={stayPath}
           title="Stay highlights"
-          subtitle="Spaces & moments — tap to watch"
+          subtitle="Photos & videos — tap to watch"
           ctaLabel="View stay"
           className="jd-stories"
+          variant="media"
           isOwner={Boolean(manageHighlightsHref)}
           onManageHighlights={
             manageHighlightsHref

@@ -25,7 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
   accommodation: 'Stays',
   food_drink: 'Foodies',
   retail_shop: 'Shop',
-  activity: 'Activities',
+  activity: 'Activities and Leisure',
   guide: 'Guides',
   transport: 'Transport',
   event_organiser: 'Events',
@@ -105,6 +105,9 @@ export function BusinessesPage() {
   }, [businesses, filter, search])
 
   const pending = businesses.filter((b) => b.verification_status === 'pending')
+  const withOpenRates = businesses.filter((b) => b.has_open_rate).length
+  const openRatePct =
+    businesses.length > 0 ? Math.round((withOpenRates / businesses.length) * 100) : 0
 
   if (isLoading) {
     return (
@@ -128,7 +131,7 @@ export function BusinessesPage() {
     <div className="da-page">
       <DelveAdminPageHeader
         title="Businesses"
-        subtitle="Review verification status across all providers. Status changes email the service provider."
+        subtitle="Review verification status and open-rates coverage. Status changes email the service provider."
       />
 
       {toast ? (
@@ -179,6 +182,11 @@ export function BusinessesPage() {
           { value: businesses.length, label: 'Total' },
           { value: businesses.filter((b) => b.verification_status === 'verified').length, label: 'Verified' },
           { value: pending.length, label: 'Pending', accent: pending.length > 0 },
+          {
+            value: `${openRatePct}%`,
+            label: `Open rates (${withOpenRates})`,
+            accent: withOpenRates > 0,
+          },
           { value: businesses.filter((b) => b.verification_status === 'rejected').length, label: 'Rejected' },
         ]}
       />
@@ -206,6 +214,11 @@ export function BusinessesPage() {
                     : ''}
                   {isFoodBusiness(b.business_types) ? ` · ${foodServiceLabel()}` : ''}
                   {isGuideBusiness(b.business_types) ? ` · ${guideServiceLabel()}` : ''}
+                  {(b.active_offers_count ?? 0) > 0
+                    ? b.has_open_rate
+                      ? ` · Open rates (${b.open_rate_offers_count ?? 0})`
+                      : ' · Offers, no open rate'
+                    : ' · No open rates yet'}
                 </span>
               }
               badge={

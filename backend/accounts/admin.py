@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, PlatformBookingNote, PlatformSettings, Profile, TravelOffer, User
+from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, ListingSale, PlatformBookingNote, PlatformSettings, Profile, TravelOffer, User
 
 
 @admin.register(User)
@@ -34,6 +34,23 @@ class TravelOfferAdmin(admin.ModelAdmin):
     list_display = ("title", "business", "offer_kind", "eligibility", "price_label", "is_active", "sort_order")
     list_filter = ("offer_kind", "eligibility", "is_active")
     search_fields = ("title", "business__business_name")
+
+
+@admin.register(ListingSale)
+class ListingSaleAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "vertical",
+        "listing_id",
+        "owner",
+        "sale_price",
+        "compare_at_price",
+        "badge",
+        "is_active",
+        "ends_on",
+    )
+    list_filter = ("vertical", "is_active")
+    search_fields = ("title", "owner__username", "badge", "price_label")
 
 
 @admin.register(BusinessMembership)

@@ -1,0 +1,122 @@
+.affordable-trips {
+  margin: 1.25rem 0 0.35rem;
+}
+
+.affordable-trips__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.affordable-trips__title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fffaf2;
+}
+
+.affordable-trips__sub {
+  margin: 0.3rem 0 0;
+  max-width: 36rem;
+  font-size: 0.85rem;
+  color: rgba(255, 250, 242, 0.58);
+}
+
+.affordable-trips__all {
+  font-weight: 750;
+  color: rgba(255, 250, 242, 0.82);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.affordable-trips__scroll {
+  display: flex;
+  gap: 0.85rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scroll-snap-type: x mandatory;
+}
+
+.affordable-trips__card {
+  flex: 0 0 min(240px, 78vw);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: #fffaf2;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1c1814;
+  border: 1px solid rgba(255, 250, 242, 0.12);
+}
+
+.affordable-trips__media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background-color: #2a211c;
+  background-size: cover;
+  background-position: center;
+  padding: 0.55rem;
+}
+
+.affordable-trips__badge {
+  display: inline-flex;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(28, 20, 16, 0.82);
+  color: #fffaf2;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.affordable-trips__body {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem 0.9rem;
+}
+
+.affordable-trips__name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.affordable-trips__route,
+.affordable-trips__meta,
+.affordable-trips__parts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: rgba(255, 250, 242, 0.58);
+}
+
+.affordable-trips__meta {
+  font-weight: 700;
+  color: #fdba74;
+}
+
+.affordable-trips__parts {
+  font-size: 0.72rem;
+}
+
+/* Light surfaces (Explore / journeys if reused) */
+.explore-page-deals .affordable-trips__title,
+.page:not(.page-home) .affordable-trips__title {
+  color: inherit;
+}
+
+.explore-page .affordable-trips__title {
+  color: #fffaf2;
+}
+
+.explore-page .affordable-trips__sub,
+.explore-page .affordable-trips__all {
+  color: rgba(255, 250, 242, 0.7);
+}

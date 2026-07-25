@@ -11,6 +11,7 @@ export type MockProfile = {
   region: string
   city: string
   country_code: string
+  birth_year?: number | null
   preferred_currency: string
   avatar: string | null
   email_verified: boolean

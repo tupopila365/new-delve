@@ -17,6 +17,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
     has_reviewed = serializers.SerializerMethodField()
     can_review = serializers.SerializerMethodField()
     attended = serializers.SerializerMethodField()
+    deals = serializers.SerializerMethodField()
 
     class Meta:
         model = TourGuideProfile
@@ -51,6 +52,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
             "has_reviewed",
             "can_review",
             "attended",
+            "deals",
             "is_active",
             "created_at",
         )
@@ -61,6 +63,7 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
             "has_reviewed",
             "can_review",
             "attended",
+            "deals",
             "created_at",
         )
 
@@ -69,6 +72,11 @@ class TourGuideProfileSerializer(serializers.ModelSerializer):
         if p and getattr(p, "display_name", None):
             return (p.display_name or "").strip() or obj.user.username
         return obj.user.username
+
+    def get_deals(self, obj):
+        from accounts.listing_deals import deals_for_listing
+
+        return deals_for_listing(obj, self.context, "guides")
 
     def get_photo(self, obj):
         return _photo_url(obj, self.context.get("request"))

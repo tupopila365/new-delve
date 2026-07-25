@@ -56,6 +56,15 @@
   color: var(--gl-text);
 }
 
+.gl-market__lead {
+  margin: 6px 0 0;
+  max-width: 42ch;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--gl-muted);
+}
+
 .gl-market__sub {
   margin: 4px 0 0;
   max-width: 36rem;
@@ -116,37 +125,34 @@
 
 .gl-market__find-row {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 8px;
+  align-items: stretch;
 }
 
-@media (max-width: 719px) {
-  .gl-market__find-row {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .gl-market__find-row::-webkit-scrollbar {
-    display: none;
-  }
-
-  .gl-market__find-row .gl-market__select,
-  .gl-market__find-row .gl-market__sort {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 8.5rem;
-    max-width: 42vw;
-  }
+.gl-market__more {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--gl-text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-@media (min-width: 720px) {
-  .gl-market__find-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+.gl-market__more.is-active {
+  border-style: solid;
+  border-color: rgba(120, 200, 180, 0.45);
+  background: rgba(80, 180, 140, 0.14);
 }
 
 .gl-market__select,
@@ -517,6 +523,18 @@
   color: #0c1510;
   font-size: 0.66rem;
   font-weight: 900;
+}
+
+.gl-spot__deals {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  max-width: calc(100% - 88px);
+}
+
+.gl-spot__deals .deal-badge {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 .gl-spot__actions {

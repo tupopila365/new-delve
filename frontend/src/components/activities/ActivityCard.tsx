@@ -6,6 +6,7 @@ import {
   activityLocationLine,
   type ActivityListing,
 } from '../../utils/activityListing'
+import { ListingDealBadges, DealAwarePrice } from '../deals'
 import './activities.css'
 
 type Props = {
@@ -51,6 +52,9 @@ export function ActivityCard({ activity, saved = false, saveBusy = false, onTogg
           />
         )}
         <span className="act-card__badge">{activity.category_label || activity.category}</span>
+        {activity.deals?.length ? (
+          <ListingDealBadges deals={activity.deals} className="act-card__deals" max={2} />
+        ) : null}
         {onToggleSave ? (
           <button
             type="button"
@@ -84,7 +88,12 @@ export function ActivityCard({ activity, saved = false, saveBusy = false, onTogg
             </span>
           ) : null}
         </div>
-        <span className="act-card__price">{activity.price_label || activity.price_from}</span>
+        <span className="act-card__price">
+          <DealAwarePrice
+            fallback={String(activity.price_label || activity.price_from || '')}
+            deals={activity.deals}
+          />
+        </span>
       </div>
     </Link>
   )
