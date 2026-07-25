@@ -28,6 +28,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Main bundle can exceed Workbox's 2 MiB default; Heroku build fails otherwise.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2}'],
       },
     }),
