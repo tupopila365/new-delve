@@ -3,24 +3,15 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
-import { friendlyApiMessage } from '../utils/friendlyError'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
 import { ProviderAccessGate } from '../components/provider'
 import {
-  EMPTY_STAY_LISTING_FORM,
   StayBookingCard,
   StayListingCard,
-  StayListingForm,
   StayMonetizationSection,
   StayStoriesPanel,
-  buildStayListingApiPayload,
-  nextIncompleteStayFormStep,
-  nextStayFormStep,
-  stayListingToForm,
   type ProviderStayListing,
-  type StayFormStepId,
-  type StayListingSaveMode,
 } from '../components/provider/stays'
 import {
   ProviderUiChips,
@@ -111,11 +102,6 @@ export function StaysAdmin() {
     return Number.isFinite(n) && n > 0 ? n : null
   })
   const [statusFilter, setStatusFilter] = useState('all')
-  const [showForm, setShowForm] = useState(false)
-  const [editId, setEditId] = useState<number | null>(null)
-  const [formStep, setFormStep] = useState<StayFormStepId>('basics')
-  const [form, setForm] = useState(EMPTY_STAY_LISTING_FORM)
-  const [formErr, setFormErr] = useState('')
 
   useEffect(() => {
     const fromUrl = tabFromSearchParam(searchParams.get('tab'))
@@ -197,6 +183,9 @@ export function StaysAdmin() {
         confirmed_bookings: number
         pending_requests: number
         total_bookings: number
+        total_listing_views?: number
+        total_room_views?: number
+        total_views?: number
       }>('/api/accommodation/provider-analytics/?days=30'),
     enabled: Boolean(profile && canAccessProvider),
   })
@@ -241,41 +230,6 @@ export function StaysAdmin() {
     })
   }, [listings, reviewQueries])
 
-  const saveMut = useMutation({
-    mutationFn: async (mode: StayListingSaveMode) => {
-      const body = await buildStayListingApiPayload(form)
-      const saved = editId
-        ? await apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${editId}/`, {
-            method: 'PATCH',
-            body: JSON.stringify(body),
-          })
-        : await apiFetch<ProviderStayListing>('/api/accommodation/provider-listings/', {
-            method: 'POST',
-            body: JSON.stringify(body),
-          })
-      return { saved, mode, fromStep: formStep }
-    },
-    onSuccess: ({ saved, mode, fromStep }) => {
-      void qc.invalidateQueries({ queryKey: ['provider-stays'] })
-      void qc.invalidateQueries({ queryKey: ['accommodation'] })
-      void qc.invalidateQueries({ queryKey: ['acc'] })
-      setEditId(saved.id)
-      setForm(stayListingToForm(saved))
-      setFormErr('')
-      if (mode === 'continue') {
-        const next = nextStayFormStep(fromStep)
-        setFormStep(next ?? fromStep)
-        setShowForm(true)
-        return
-      }
-      setShowForm(false)
-      setEditId(null)
-      setForm(EMPTY_STAY_LISTING_FORM)
-      setFormStep('basics')
-    },
-    onError: (e: Error) => setFormErr(friendlyApiMessage(e)),
-  })
-
   const bookingActionMut = useMutation({
     mutationFn: ({ id, action }: { id: number; action: string }) =>
       apiFetch<ProviderBooking>(`/api/accommodation/provider-bookings/${id}/${action}/`, {
@@ -298,9 +252,6 @@ export function StaysAdmin() {
     )
   }
 
-  const avgRating = listings.length
-    ? (listings.reduce((s, x) => s + parseFloat(x.rating_avg), 0) / listings.length).toFixed(1)
-    : '—'
   const revenue =
     analytics?.on_platform_revenue ??
     bookings
@@ -310,33 +261,12 @@ export function StaysAdmin() {
   const bookingCount = analytics?.total_bookings ?? bookings.length
   const pendingBookings =
     analytics?.pending_requests ?? bookings.filter((b) => b.status === 'pending').length
+  const viewCount = analytics?.total_views ?? 0
+  const listingViewCount = analytics?.total_listing_views ?? 0
+  const roomViewCount = analytics?.total_room_views ?? 0
   const missingPhotos = listings.filter((l) => !l.cover_image).length
-
-  const closeForm = () => {
-    setShowForm(false)
-    setEditId(null)
-    setForm(EMPTY_STAY_LISTING_FORM)
-    setFormStep('basics')
-    setFormErr('')
-  }
-
-  const openCreate = () => {
-    setEditId(null)
-    setForm(EMPTY_STAY_LISTING_FORM)
-    setFormStep('basics')
-    setShowForm(true)
-    setFormErr('')
-    setTab('listings')
-  }
-
-  const openEdit = (stay: ProviderStayListing, step?: StayFormStepId) => {
-    const values = stayListingToForm(stay)
-    setEditId(stay.id)
-    setForm(values)
-    setFormStep(step ?? nextIncompleteStayFormStep(values))
-    setShowForm(true)
-    setFormErr('')
-  }
+  const primaryListing = listings[0] ?? null
+  const hasListing = listings.length > 0
 
   const attention = [
     ...(missingPhotos > 0
@@ -376,19 +306,27 @@ export function StaysAdmin() {
         title="Stays"
         subtitle={
           isViewerOnly
-            ? 'View listings, bookings, and reviews.'
-            : 'Edit listings, handle bookings, then add highlights.'
+            ? 'View your accommodation, bookings, and reviews.'
+            : 'One accommodation per host — edit property details and each room on their own pages.'
         }
         actions={
           <>
             <Link to="/accommodation" className="prov-ui__btn prov-ui__btn--ghost">
               Browse public
             </Link>
-            {canManageListings ? (
-              <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={openCreate}>
+            {canManageListings && !hasListing ? (
+              <Link to="/provider/stays/new" className="prov-ui__btn prov-ui__btn--primary">
                 <Plus size={16} strokeWidth={2.25} aria-hidden />
-                Add listing
-              </button>
+                Create accommodation
+              </Link>
+            ) : null}
+            {canManageListings && primaryListing ? (
+              <Link
+                to={`/provider/stays/${primaryListing.id}/edit`}
+                className="prov-ui__btn prov-ui__btn--primary"
+              >
+                Edit accommodation
+              </Link>
             ) : null}
           </>
         }
@@ -419,7 +357,13 @@ export function StaysAdmin() {
         columns={4}
         stats={[
           { value: listings.length, label: 'Listings' },
-          { value: avgRating, label: 'Avg rating' },
+          {
+            value: viewCount || '—',
+            label:
+              viewCount > 0
+                ? `${listingViewCount} stay · ${roomViewCount} room`
+                : 'Views · 30d',
+          },
           {
             value: bookingCount || '—',
             label: pendingBookings > 0 ? `${pendingBookings} pending` : 'Bookings',
@@ -445,31 +389,35 @@ export function StaysAdmin() {
           ) : listings.length === 0 ? (
             <>
               <ProviderUiEmpty
-                title="No stays yet"
-                message="Add a listing with photos, rooms, and a map pin so travellers can book."
+                title="No accommodation yet"
+                message="Create your property details first, then add rooms one by one."
               />
               {canManageListings ? (
-                <button type="button" className="stay-add-btn" onClick={openCreate}>
-                  Add your first listing
-                </button>
+                <Link to="/provider/stays/new" className="stay-add-btn">
+                  Create your accommodation
+                </Link>
               ) : null}
             </>
           ) : (
             <div className="stay-list">
-              {listings.map((stay) => (
+              {listings.slice(0, 1).map((stay) => (
                 <StayListingCard
                   key={stay.id}
                   stay={stay}
                   canEdit={canManageListings}
                   boost={boostByListingId.get(stay.id) ?? null}
-                  onEdit={() => openEdit(stay, 'basics')}
-                  onContinue={() => openEdit(stay)}
                   onManageHighlights={() => {
                     setHighlightListingId(stay.id)
                     setTab('highlights')
                   }}
                 />
               ))}
+              {listings.length > 1 ? (
+                <p className="stay-hint">
+                  Your host account uses one accommodation. Extra listings stay hidden from this hub —
+                  contact support if you need help consolidating.
+                </p>
+              ) : null}
             </div>
           )}
         </section>
@@ -546,21 +494,6 @@ export function StaysAdmin() {
           )}
         </section>
       )}
-
-      {showForm && canManageListings ? (
-        <StayListingForm
-          values={form}
-          onChange={setForm}
-          error={formErr}
-          saving={saveMut.isPending}
-          isEdit={Boolean(editId)}
-          listingId={editId}
-          step={formStep}
-          onStepChange={setFormStep}
-          onSave={(mode) => saveMut.mutate(mode)}
-          onCancel={closeForm}
-        />
-      ) : null}
     </ProviderUiPage>
   )
 }

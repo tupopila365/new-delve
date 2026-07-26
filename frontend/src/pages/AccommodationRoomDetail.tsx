@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
@@ -6,7 +6,9 @@ import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useToggleStaySave } from '../hooks/useStaySave'
 import { AccommodationRoomDetailView } from '../components/accommodation/AccommodationRoomDetailView'
+import { ShareSheet } from '../components/share'
 import { EmptyState } from '../components/ui'
+import { recordStayPageView } from '../lib/stayPageViews'
 import {
   buildRoomOffers,
   normalizeRoomTypes,
@@ -21,7 +23,7 @@ export function AccommodationRoomDetail() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const saveMut = useToggleStaySave()
-  const [shareMsg, setShareMsg] = useState('')
+  const [shareOpen, setShareOpen] = useState(false)
   const backTo = `/accommodation/${id}`
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -41,16 +43,10 @@ export function AccommodationRoomDetail() {
     return offers.find((r) => r.name === decoded || encodeURIComponent(r.name) === roomSlug) ?? null
   }, [data, id, roomSlug])
 
-  const onShare = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      setShareMsg('Link copied')
-      window.setTimeout(() => setShareMsg(''), 1600)
-    } catch {
-      setShareMsg('Copy failed')
-      window.setTimeout(() => setShareMsg(''), 1600)
-    }
-  }
+  useEffect(() => {
+    if (!id || !room?.name) return
+    recordStayPageView(id, room.name)
+  }, [id, room?.name])
 
   const onSave = () => {
     if (!profile) {
@@ -95,13 +91,15 @@ export function AccommodationRoomDetail() {
     )
   }
 
+  const locationLine = [data.city, data.region].filter(Boolean).join(', ')
+  const roomCover =
+    room.image?.trim() ||
+    room.images?.find((img) => Boolean(img.src?.trim()))?.src ||
+    data.cover_image
+  const roomPath = `/accommodation/${id}/room/${encodeURIComponent(room.name)}`
+
   return (
     <div className="jn-detail-page acc-detail-page">
-      {shareMsg ? (
-        <p className="jn-detail-page__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
       <AccommodationRoomDetailView
         room={room}
         listing={data}
@@ -111,7 +109,18 @@ export function AccommodationRoomDetail() {
         backTo={backTo}
         saved={Boolean(data.saved_by_me)}
         onSave={onSave}
-        onShare={() => void onShare()}
+        onShare={() => setShareOpen(true)}
+      />
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        share={{
+          path: roomPath,
+          title: room.name || 'DELVE room',
+          text: `Check out ${room.name || 'this room'} at ${data.title || 'a stay'} on DELVE`,
+          previewImage: roomCover,
+          previewLabel: locationLine ? `Room · ${locationLine}` : 'Room on DELVE',
+        }}
       />
     </div>
   )

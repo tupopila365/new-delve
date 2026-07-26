@@ -30,6 +30,7 @@ import { JourneySection } from '../journeys/JourneySection'
 import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ReportButton } from '../report/ReportButton'
 import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
+import { ShareSheet } from '../share'
 import {
   amenityChipIcon,
   amenityDisplayLabel,
@@ -59,7 +60,6 @@ type Props = {
   likeCount?: number
   onSave: () => void
   onLike: () => void
-  onShare: () => void
   reviews?: ReviewItem[]
   ratingAvg?: string
   ratingCount?: number
@@ -75,7 +75,6 @@ export function AccommodationDetailView({
   likeCount,
   onSave,
   onLike,
-  onShare,
   reviews = [],
   ratingAvg,
   ratingCount,
@@ -85,6 +84,7 @@ export function AccommodationDetailView({
   const { profile } = useAuth()
   const { format } = useDisplayMoney()
   const [selectedRoom, setSelectedRoom] = useState<ListingRoomOption | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const faqs = normalizeFaqs(data.faqs)
   const roomTypes = normalizeRoomTypes(data.room_types)
@@ -94,6 +94,9 @@ export function AccommodationDetailView({
   const roomOffers = buildRoomOffers(data, roomTypes, listingId)
   const loveItems = whyGuestsLove(data)
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
+  const sharePreviewImage =
+    listingImages[0]?.src || data.cover_image || null
+  const openShare = () => setShareOpen(true)
   const latitude = parseCoord(data.latitude)
   const longitude = parseCoord(data.longitude)
   const precisePin = hasValidCoords(latitude, longitude)
@@ -189,7 +192,7 @@ export function AccommodationDetailView({
         backLabel="Stays"
         saved={saved}
         onSave={() => guardEngage(onSave)}
-        onShare={onShare}
+        onShare={openShare}
       />
 
       <div className="jd-head">
@@ -255,7 +258,7 @@ export function AccommodationDetailView({
             <Heart size={22} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
             {displayLikeCount > 0 ? <span className="jd-engage__count">{displayLikeCount}</span> : null}
           </button>
-          <button type="button" className="jd-engage__btn" onClick={onShare} aria-label="Share stay">
+          <button type="button" className="jd-engage__btn" onClick={openShare} aria-label="Share stay">
             <Share2 size={22} strokeWidth={2.25} aria-hidden />
           </button>
           {directionsHref ? (
@@ -518,11 +521,31 @@ export function AccommodationDetailView({
           >
             <Bookmark size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
           </button>
+          <button
+            type="button"
+            className="jd-mobilebar__icon"
+            onClick={openShare}
+            aria-label="Share stay"
+          >
+            <Share2 size={18} strokeWidth={2.25} aria-hidden />
+          </button>
           <button type="button" className="jd-mobilebar__btn" onClick={handleMobileCta}>
             {mobileCtaLabel}
           </button>
         </div>
       </div>
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        share={{
+          path: stayPath,
+          title: data.title || 'DELVE stay',
+          text: `Check out ${data.title || 'this stay'} on DELVE`,
+          previewImage: sharePreviewImage,
+          previewLabel: locationLine ? `Stay · ${locationLine}` : 'Stay on DELVE',
+        }}
+      />
     </>
   )
 }

@@ -76,9 +76,14 @@ export function FoodVenuePhotoEditor({ values, onChange }: Props) {
           onChangeRef.current(foodVenueFormPatchFromPhotos(drafts))
           setUploadNote('Media ready — tap Save photos to apply.')
           window.setTimeout(() => setUploadNote(''), 2200)
-        } catch {
+        } catch (err) {
           if (gen !== uploadGen.current) return
-          setUploadNote('Upload failed — try again or Save photos to retry.')
+          const detail = err instanceof Error ? err.message.trim() : ''
+          setUploadNote(
+            detail
+              ? `Upload failed — ${detail}`
+              : 'Upload failed — try again or Save photos to retry.',
+          )
         }
       })()
     }, 550)

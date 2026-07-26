@@ -1,7 +1,8 @@
 import { mediaUrl } from '../../../api/client'
 import type { MediaKind } from '../../create/types'
 import { ensureHighlightMediaUrl } from '../../highlights/highlightMediaApi'
-import { prepareDelversVideoForUpload } from '../../../utils/delversVideoUtils'
+import { loadVideoMetadata, prepareDelversVideoForUpload } from '../../../utils/delversVideoUtils'
+import { MAX_TRIM_DURATION_SEC } from '../../create/videoTrimUtils'
 import { isVideoUrl, parseGalleryMediaList, serializeGalleryMediaList, type ListingGalleryMediaItem } from './listingGalleryMedia'
 import type { ListingPhotoDraft } from './types'
 
@@ -94,12 +95,35 @@ export async function resolveListingGalleryMedia(
       const kind = photoKind(photo)
       let file = photo.file ?? null
       if (kind === 'video' && file) {
-        // Compress oversized clips; keep original codec when already web-friendly.
-        file = await prepareDelversVideoForUpload(file, { start: 0, end: 0 }, 0)
+        // Compress oversized clips only — use real duration (not a zero-length trim).
+        const objectUrl = URL.createObjectURL(file)
+        try {
+          const meta = await loadVideoMetadata(objectUrl)
+          if (meta.duration > MAX_TRIM_DURATION_SEC) {
+            throw new Error(
+              `Keep clips to ${MAX_TRIM_DURATION_SEC} seconds or shorter (this one is about ${Math.ceil(meta.duration)}s).`,
+            )
+          }
+          file = await prepareDelversVideoForUpload(file, meta.trim, meta.duration)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Could not prepare video for upload.'
+          throw new Error(msg)
+        } finally {
+          URL.revokeObjectURL(objectUrl)
+        }
       }
-      const url = await ensureHighlightMediaUrl(src, kind, file)
-      if (!url) return null
-      return { ...photo, src: url, kind, file } satisfies ListingPhotoDraft
+      try {
+        const url = await ensureHighlightMediaUrl(src, kind, file)
+        if (!url) return null
+        return { ...photo, src: url, kind, file } satisfies ListingPhotoDraft
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : 'Upload failed.'
+        throw new Error(
+          kind === 'video'
+            ? `Video upload failed: ${detail}`
+            : `Photo upload failed: ${detail}`,
+        )
+      }
     }),
   )
 

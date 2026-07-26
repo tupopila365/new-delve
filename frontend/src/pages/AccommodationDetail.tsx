@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -11,6 +11,7 @@ import { normalizeReviews, type ReviewItem } from '../components/GuestReviewCard
 import { useToggleStaySave } from '../hooks/useStaySave'
 import { recordForYouSignal } from '../lib/forYou'
 import { listingTasteTags, recordForYouDeep, recordSessionView } from '../lib/forYouDeep'
+import { recordStayPageView } from '../lib/stayPageViews'
 import type { AccommodationListing } from '../utils/accommodationListing'
 import { PromotionOpenTracker } from '../components/promotion/PromotionOpenTracker'
 import '../components/journeys/journey-detail.css'
@@ -27,7 +28,6 @@ export function AccommodationDetail() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { canManageListings, activeBusiness } = useBusinessAccess()
-  const [shareMsg, setShareMsg] = useState('')
   const saveMut = useToggleStaySave()
   const queryClient = useQueryClient()
 
@@ -46,6 +46,7 @@ export function AccommodationDetail() {
     if (!id || !data) return
     recordSessionView('stays', id, dataListingTags)
     recordForYouSignal('stays', 'view')
+    recordStayPageView(id)
   }, [id, data, dataListingTags])
 
   const likeMut = useMutation({
@@ -78,17 +79,6 @@ export function AccommodationDetail() {
     () => normalizeReviews(reviewsData?.reviews ?? []),
     [reviewsData?.reviews],
   )
-
-  const onShare = async (title: string) => {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      setShareMsg(`Link to ${title} copied`)
-      window.setTimeout(() => setShareMsg(''), 1600)
-    } catch {
-      setShareMsg('Copy failed')
-      window.setTimeout(() => setShareMsg(''), 1600)
-    }
-  }
 
   const onSave = () => {
     if (!profile) {
@@ -156,11 +146,6 @@ export function AccommodationDetail() {
 
   return (
     <div className="jn-detail-page acc-detail-page">
-      {shareMsg ? (
-        <p className="jn-detail-page__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
       <PromotionOpenTracker />
       <AccommodationDetailView
         data={data}
@@ -170,7 +155,6 @@ export function AccommodationDetail() {
         likeCount={data.likes_count}
         onSave={onSave}
         onLike={onLike}
-        onShare={() => onShare(data.title)}
         reviews={reviews}
         ratingAvg={ratingAvg != null ? String(ratingAvg) : undefined}
         ratingCount={ratingCount}

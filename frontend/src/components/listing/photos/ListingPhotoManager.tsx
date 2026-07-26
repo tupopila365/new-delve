@@ -194,7 +194,7 @@ export function ListingPhotoManager({
       {photos.length === 0 ? (
         <p className="listing-photos__empty">
           {allowVideoCover
-            ? 'Add a cover photo or short video, then more media for the gallery.'
+            ? 'Add a cover photo or short video (MP4 / MOV, up to 60 seconds), then more media for the gallery.'
             : 'Add a cover photo first, then photos or short videos for the gallery.'}
         </p>
       ) : null}

@@ -2,6 +2,7 @@ from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from common.gallery_media import media_url_kind
+from common.coords import quantize_coord
 
 from .models import FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
 from .review_services import user_can_review_food_venue
@@ -167,6 +168,22 @@ class FoodVenueSerializer(serializers.ModelSerializer):
 
     def get_cover_image(self, obj):
         return _cover_image_url(obj, self.context.get("request"))
+
+    def to_internal_value(self, data):
+        if hasattr(data, "copy"):
+            data = data.copy()
+        elif isinstance(data, dict):
+            data = dict(data)
+        else:
+            return super().to_internal_value(data)
+        for key in ("latitude", "longitude"):
+            if key in data and data[key] not in (None, ""):
+                try:
+                    q = quantize_coord(data[key])
+                    data[key] = None if q is None else format(q, "f")
+                except ValueError:
+                    pass
+        return super().to_internal_value(data)
 
     def get_cover_kind(self, obj):
         return _cover_kind_for(obj)

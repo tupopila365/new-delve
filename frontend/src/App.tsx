@@ -88,6 +88,9 @@ import { ProviderMessagingSettingsPage } from './pages/ProviderMessagingSettings
 import { ProviderMessageThread } from './pages/ProviderMessageThread'
 import { ProviderMessageUser } from './pages/ProviderMessageUser'
 import { StaysAdmin } from './pages/StaysAdmin'
+import { StayPropertyEditPage } from './pages/StayPropertyEditPage'
+import { StayRoomsPage } from './pages/StayRoomsPage'
+import { StayRoomEditPage } from './pages/StayRoomEditPage'
 import { GuidesAdmin } from './pages/GuidesAdmin'
 import { TransportAdmin } from './pages/TransportAdmin'
 import { FoodAdmin } from './pages/FoodAdmin'
@@ -337,6 +340,11 @@ export default function App() {
             <Route path="messages/u/:username" element={<ProviderMessageUser />} />
             <Route path="messages/:id" element={<ProviderMessageThread />} />
             <Route path="stays" element={<StaysAdmin />} />
+            <Route path="stays/new" element={<StayPropertyEditPage />} />
+            <Route path="stays/:listingId/edit" element={<StayPropertyEditPage />} />
+            <Route path="stays/:listingId/rooms" element={<StayRoomsPage />} />
+            <Route path="stays/:listingId/rooms/new" element={<StayRoomEditPage />} />
+            <Route path="stays/:listingId/rooms/:roomIndex" element={<StayRoomEditPage />} />
             <Route path="guides" element={<GuidesAdmin />} />
             <Route path="transport" element={<TransportAdmin />} />
             <Route path="food" element={<FoodAdmin />} />

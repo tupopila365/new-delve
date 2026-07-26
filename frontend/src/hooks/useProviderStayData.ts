@@ -67,6 +67,15 @@ export function useProviderStayAnalytics(enabled: boolean, days = 30) {
         pending_requests: number
         total_likes: number
         total_saves: number
+        total_listing_views?: number
+        total_room_views?: number
+        total_views?: number
+        views_trend?: {
+          date: string
+          listing_views: number
+          room_views: number
+          views: number
+        }[]
         promotion_impressions: number
         promotion_clicks: number
         promotion_listing_opens: number
@@ -78,6 +87,11 @@ export function useProviderStayAnalytics(enabled: boolean, days = 30) {
           revenue: number
           likes_count: number
           saves_count: number
+          views?: number
+          listing_views?: number
+          room_views?: number
+          views_count?: number
+          rooms?: { name: string; views: number }[]
         }[]
       }>(`/api/accommodation/provider-analytics/?days=${days}`),
     enabled,

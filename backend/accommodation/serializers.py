@@ -5,6 +5,7 @@ from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from common.story_channels import validate_story_channels
+from common.coords import quantize_coord
 
 from .booking_services import (
     find_overlapping_booking,
@@ -216,6 +217,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "room_types",
             "rating_avg",
             "rating_count",
+            "views_count",
             "is_active",
             "created_at",
             "likes_count",
@@ -227,6 +229,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "owner",
             "created_at",
+            "views_count",
             "likes_count",
             "liked_by_me",
             "saves_count",
@@ -262,6 +265,23 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         cover = _listing_cover_url(instance, request)
         data["cover_image"] = cover
         return data
+
+    def to_internal_value(self, data):
+        # Quantize before DecimalField rejects Google float precision.
+        if hasattr(data, "copy"):
+            data = data.copy()
+        elif isinstance(data, dict):
+            data = dict(data)
+        else:
+            return super().to_internal_value(data)
+        for key in ("latitude", "longitude"):
+            if key in data and data[key] not in (None, ""):
+                try:
+                    q = quantize_coord(data[key])
+                    data[key] = None if q is None else format(q, "f")
+                except ValueError:
+                    pass
+        return super().to_internal_value(data)
 
     def validate_cover_image(self, value):
         if value is None:

@@ -56,6 +56,8 @@ class AccommodationListingViewSet(ListingDealsContextMixin, viewsets.ModelViewSe
             return [permissions.IsAuthenticated(), IsServiceProvider()]
         if self.action in ("like", "save"):
             return [permissions.IsAuthenticated()]
+        if self.action == "record_view":
+            return [permissions.AllowAny()]
         if self.action == "saved":
             return [permissions.IsAuthenticated()]
         if self.action == "mine":
@@ -123,6 +125,30 @@ class AccommodationListingViewSet(ListingDealsContextMixin, viewsets.ModelViewSe
         qs = self.get_queryset()
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="record-view")
+    def record_view(self, request, pk=None):
+        """Public: record a stay listing or room page view for provider analytics."""
+        from .view_tracking import record_accommodation_page_view
+
+        listing = self.get_object()
+        room_name = ""
+        if isinstance(request.data, dict):
+            room_name = request.data.get("room_name") or request.data.get("room") or ""
+        viewer = request.user if request.user.is_authenticated else None
+        recorded = record_accommodation_page_view(
+            listing=listing,
+            viewer=viewer,
+            room_name=str(room_name),
+        )
+        listing.refresh_from_db(fields=["views_count"])
+        return Response(
+            {
+                "recorded": recorded,
+                "views_count": listing.views_count,
+                "room_name": (str(room_name) or "").strip()[:120],
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def like(self, request, pk=None):

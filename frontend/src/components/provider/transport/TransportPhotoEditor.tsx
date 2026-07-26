@@ -77,9 +77,14 @@ export function TransportPhotoEditor({
           onChangeRef.current(transportFormPatchFromPhotos(drafts))
           setUploadNote('Media ready — save the listing to publish.')
           window.setTimeout(() => setUploadNote(''), 2200)
-        } catch {
+        } catch (err) {
           if (gen !== uploadGen.current) return
-          setUploadNote('Upload failed — check your connection and try again.')
+          const detail = err instanceof Error ? err.message.trim() : ''
+          setUploadNote(
+            detail
+              ? `Upload failed — ${detail}`
+              : 'Upload failed — check your connection and try again.',
+          )
         }
       })()
     }, 450)

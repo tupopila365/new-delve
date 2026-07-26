@@ -7,7 +7,6 @@ import {
   Building2,
   Heart,
   MapPin,
-  Share2,
   Star,
   Users,
 } from 'lucide-react'
@@ -16,6 +15,7 @@ import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { listingTrustLabel } from '../../lib/listingTrust'
 import { ListingDealBadges, DealAwarePrice, type ListingDeal } from '../deals'
 import { isVideoUrl } from '../listing/photos/listingGalleryMedia'
+import { ShareButton } from '../share'
 import './AccommodationListingCard.css'
 
 export type AccommodationCardListing = {
@@ -54,7 +54,6 @@ type Props = {
   distanceLabel?: string | null
   onLike: (event: MouseEvent) => void
   onSave: (event: MouseEvent) => void
-  onShare: (event: MouseEvent) => void
 }
 
 const FALLBACK_STAY_PHOTO = '/images/default-journey.jpg'
@@ -83,7 +82,6 @@ export function AccommodationListingCard({
   distanceLabel,
   onLike,
   onSave,
-  onShare,
 }: Props) {
   const { format } = useDisplayMoney()
   const src = mediaUrl(listing.cover_image) || FALLBACK_STAY_PHOTO
@@ -93,6 +91,7 @@ export function AccommodationListingCard({
     ratingCount > 0 && listing.rating_avg ? Number.parseFloat(listing.rating_avg).toFixed(1) : null
   const trustLabel = listingTrustLabel(listing)
   const priceText = format(listing.price_per_night, { suffix: '/night', from: true })
+  const place = location(listing)
   const tags = [
     listing.pool ? 'Pool' : null,
     listing.wifi ? 'Wi-Fi' : null,
@@ -216,10 +215,20 @@ export function AccommodationListingCard({
           <Bookmark size={17} strokeWidth={2.35} fill={saved ? 'currentColor' : 'none'} aria-hidden />
           {saved ? 'Saved' : 'Save'}
         </button>
-        <button type="button" onClick={onShare} aria-label="Share stay">
-          <Share2 size={17} strokeWidth={2.35} aria-hidden />
-          Share
-        </button>
+        <ShareButton
+          className="stay-card-v2__action--share"
+          stopPropagation
+          label="Share"
+          ariaLabel="Share stay"
+          iconSize={17}
+          share={{
+            path: `/accommodation/${listing.id}`,
+            title: listing.title || 'DELVE stay',
+            text: `Check out ${listing.title || 'this stay'} on DELVE`,
+            previewImage: listing.cover_image,
+            previewLabel: place ? `Stay · ${place}` : 'Stay on DELVE',
+          }}
+        />
       </div>
     </article>
   )

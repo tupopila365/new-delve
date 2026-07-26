@@ -96,6 +96,7 @@ export type StayListingApi = {
   is_active?: boolean
   likes_count?: number
   saves_count?: number
+  views_count?: number
   description?: string
 }
 
@@ -103,6 +104,7 @@ export function stayToProviderListing(s: StayListingApi, bookingCount = 0): Prov
   const likes = s.likes_count ?? 0
   const saves = s.saves_count ?? 0
   const engagement = bookingCount + likes + saves
+  const realViews = s.views_count ?? 0
   return {
     id: `stay-${s.id}`,
     title: s.title,
@@ -114,7 +116,14 @@ export function stayToProviderListing(s: StayListingApi, bookingCount = 0): Prov
     rating: s.rating_avg ?? '—',
     ratingCount: s.rating_count ?? 0,
     bookings: bookingCount,
-    views: engagement > 0 ? engagement * 3 : mocksEnabled() ? demoViews(s.id) : 0,
+    views:
+      realViews > 0
+        ? realViews
+        : engagement > 0
+          ? engagement * 3
+          : mocksEnabled()
+            ? demoViews(s.id)
+            : 0,
     updated: 'Recently',
     healthIssue: !s.cover_image
       ? 'Missing cover photo'

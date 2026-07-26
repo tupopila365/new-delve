@@ -14,12 +14,20 @@ type AddressComponent = {
 }
 
 /**
- * Django `DecimalField(max_digits=9, decimal_places=6)` — round Google's
- * full-precision floats so production create/update doesn't 400.
+ * Django `DecimalField(max_digits=9, decimal_places=6)`.
+ * Use string form for API payloads — JS floats reintroduce extra decimals in JSON.
  */
 export function roundCoord(n: number | null | undefined): number | null {
   if (n == null || !Number.isFinite(Number(n))) return null
-  return Math.round(Number(n) * 1e6) / 1e6
+  return Number(Number(n).toFixed(6))
+}
+
+/** Safe for Django DecimalField — always exactly 6 decimal places as a string. */
+export function coordForApi(n: number | string | null | undefined): string | null {
+  if (n == null || n === '') return null
+  const num = typeof n === 'number' ? n : Number(n)
+  if (!Number.isFinite(num)) return null
+  return num.toFixed(6)
 }
 
 export function parseGoogleAddressComponents(components: AddressComponent[]): ParsedAddress {

@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Hotel, Sparkles } from 'lucide-react'
+import { BedDouble, Hotel, Sparkles } from 'lucide-react'
 import { mediaUrl } from '../../../api/client'
 import { propertyTypeLabel } from '../../../utils/accommodationListing'
 import { isVideoUrl } from '../../listing/photos/listingGalleryMedia'
+import { ShareButton } from '../../share'
 import type { ProviderStayListing } from './stayListingTypes'
 import { listingCompleteness } from './stayListingTypes'
 import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
@@ -15,14 +16,11 @@ export type StayBoostStatus = {
 type Props = {
   stay: ProviderStayListing
   canEdit?: boolean
-  onEdit: () => void
-  /** Resume incomplete listing at the next unfinished step. */
-  onContinue?: () => void
   onManageHighlights?: () => void
   boost?: StayBoostStatus | null
 }
 
-export function StayListingCard({ stay, canEdit, onEdit, onContinue, onManageHighlights, boost }: Props) {
+export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Props) {
   const { format } = useDisplayMoney()
   const { percent, missing } = listingCompleteness(stay)
   const cover = stay.cover_image ? mediaUrl(stay.cover_image) || stay.cover_image : null
@@ -31,7 +29,9 @@ export function StayListingCard({ stay, canEdit, onEdit, onContinue, onManageHig
   const photoCount = (stay.media_gallery?.length ?? 0) + (stay.cover_image ? 1 : 0)
   const highlightCount = stay.listing_stories?.length ?? 0
   const boostHref = `/provider/promotions?listing=accommodation:${stay.id}&placement=homepage_stays`
-  const resume = Boolean(canEdit && percent < 100 && onContinue)
+  const editHref = `/provider/stays/${stay.id}/edit`
+  const roomsHref = `/provider/stays/${stay.id}/rooms`
+  const resume = Boolean(canEdit && percent < 100)
 
   return (
     <article className="prov-ui__card stay-card">
@@ -74,6 +74,7 @@ export function StayListingCard({ stay, canEdit, onEdit, onContinue, onManageHig
 
         <p className="stay-card__rating">
           {stay.rating_avg} rating · {stay.rating_count} review{stay.rating_count === 1 ? '' : 's'}
+          {typeof stay.views_count === 'number' ? ` · ${stay.views_count} view${stay.views_count === 1 ? '' : 's'}` : ''}
           {highlightCount > 0 ? ` · ${highlightCount} highlight${highlightCount === 1 ? '' : 's'}` : ''}
         </p>
 
@@ -86,19 +87,16 @@ export function StayListingCard({ stay, canEdit, onEdit, onContinue, onManageHig
       </div>
 
       <div className="stay-card__actions">
-        {resume ? (
-          <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onContinue}>
-            Continue setup
-          </button>
+        {canEdit ? (
+          <Link to={editHref} className={`prov-ui__btn ${resume ? 'prov-ui__btn--primary' : 'prov-ui__btn--primary'}`}>
+            {resume ? 'Continue accommodation' : 'Edit accommodation'}
+          </Link>
         ) : null}
         {canEdit ? (
-          <button
-            type="button"
-            className={`prov-ui__btn ${resume ? 'prov-ui__btn--ghost' : 'prov-ui__btn--primary'}`}
-            onClick={onEdit}
-          >
-            {resume ? 'Edit all' : 'Edit'}
-          </button>
+          <Link to={roomsHref} className="prov-ui__btn prov-ui__btn--ghost">
+            <BedDouble size={14} strokeWidth={2.25} aria-hidden />
+            {roomCount > 0 ? `Rooms (${roomCount})` : 'Add rooms'}
+          </Link>
         ) : null}
         {canEdit ? (
           <Link to={boostHref} className="prov-ui__btn prov-ui__btn--ghost stay-card__boost-btn">
@@ -114,6 +112,19 @@ export function StayListingCard({ stay, canEdit, onEdit, onContinue, onManageHig
         <Link to={`/accommodation/${stay.id}`} className="prov-ui__btn prov-ui__btn--ghost">
           Preview
         </Link>
+        <ShareButton
+          className="prov-ui__btn prov-ui__btn--ghost"
+          label="Share"
+          ariaLabel="Share stay listing"
+          iconSize={14}
+          share={{
+            path: `/accommodation/${stay.id}`,
+            title: stay.title || 'DELVE stay',
+            text: `Check out ${stay.title || 'this stay'} on DELVE`,
+            previewImage: stay.cover_image,
+            previewLabel: stay.city ? `Stay · ${stay.city}, ${stay.region}` : `Stay · ${stay.region}`,
+          }}
+        />
       </div>
     </article>
   )

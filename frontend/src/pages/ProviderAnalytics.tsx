@@ -77,12 +77,31 @@ export function ProviderAnalytics() {
       )
     }
     if (stayAnalytics && includeStays) {
+      const stayViews = stayAnalytics.total_views ?? 0
+      const trendFromApi =
+        stayAnalytics.views_trend?.map((row) => ({
+          label: row.date.slice(5),
+          value: row.views,
+        })) ?? []
       base = {
         ...base,
         summary: {
           ...base.summary,
           revenue: Math.max(base.summary.revenue, stayAnalytics.on_platform_revenue ?? 0),
+          listingViews: Math.max(base.summary.listingViews, stayViews),
         },
+        viewsTrend: trendFromApi.length > 0 ? trendFromApi : base.viewsTrend,
+        topListings: base.topListings.map((row) => {
+          if (row.category !== 'Stay') return row
+          const match = stayAnalytics.listings?.find((l) => l.title === row.title)
+          if (!match) return row
+          const views = (match.listing_views ?? match.views ?? 0) + (match.room_views ?? 0)
+          return {
+            ...row,
+            views: views > 0 ? views : row.views,
+            likes: match.likes_count ?? row.likes,
+          }
+        }),
       }
     }
     return base
@@ -109,7 +128,7 @@ export function ProviderAnalytics() {
       return `"${top.title}" leads your events with ${top.bookings} bookings and ${eventAnalytics.external_ticket_clicks} external ticket clicks this period.`
     }
     if (top.category === 'Stay') {
-      return `"${top.title}" is your top stay with ${top.bookings} bookings and ${top.views} engagement points this period.`
+      return `"${top.title}" is your top stay with ${top.bookings} bookings and ${top.views} views this period.`
     }
     return `"${top.title}" is your top performer with ${top.views} views and ${top.bookings} bookings this period.`
   }, [data.topListings, eventAnalytics?.external_ticket_clicks])
@@ -163,7 +182,7 @@ export function ProviderAnalytics() {
         <ProviderAnalyticsTrendChart
           title={`Listing views · ${analyticsPeriodLabel(period)}`}
           points={data.viewsTrend}
-          emptyMessage="Weekly listing views aren't tracked yet. Engagement totals appear in the summary above."
+          emptyMessage="No stay or listing views in this period yet. Views appear when travellers open your public pages."
         />
         <ProviderAnalyticsTrendChart
           title={`Booking requests · ${analyticsPeriodLabel(period)}`}
@@ -186,4 +205,4 @@ export function ProviderAnalytics() {
     </ProviderUiPage>
   )
 }
-
+

@@ -1,6 +1,6 @@
 import type { ListingFaqItem } from '../../listing/types'
 import type { HighlightChannelInput } from '../../highlights'
-import { resolveRegionFromPlace, roundCoord } from '../../../utils/geocodeParse'
+import { coordForApi, resolveRegionFromPlace } from '../../../utils/geocodeParse'
 import { parseCoord } from '../../../utils/placeMap'
 import { normalizeHouseRules, normalizeRoomBadges } from '../../../utils/accommodationListing'
 import {
@@ -178,6 +178,7 @@ export type ProviderStayListing = {
   rating_count: number
   likes_count?: number
   saves_count?: number
+  views_count?: number
   is_active: boolean
   guest_reviews?: { name: string; body: string; rating: number }[]
 }
@@ -326,8 +327,8 @@ export function formToApiPayload(form: StayListingFormValues) {
     ),
     city: form.city.trim(),
     address: form.address.trim(),
-    latitude: roundCoord(form.latitude),
-    longitude: roundCoord(form.longitude),
+    latitude: coordForApi(form.latitude),
+    longitude: coordForApi(form.longitude),
     google_place_id: form.google_place_id.trim(),
     formatted_address: form.formatted_address.trim(),
     price_per_night: form.price_per_night,
@@ -421,6 +422,41 @@ export async function buildStayListingApiPayload(form: StayListingFormValues) {
   })
 }
 
+/** Property fields only — never sends room_types, so room pages stay intact. */
+export async function buildStayPropertyApiPayload(form: StayListingFormValues) {
+  const full = await buildStayListingApiPayload({ ...form, room_types: [] })
+  const { room_types: _omit, ...propertyBody } = full
+  return propertyBody
+}
+
+/** Resolve one room's media, then build the API room object. */
+export async function buildStayRoomApiItem(room: StayRoomForm, fallbackNightly: string) {
+  const media = await resolveStayRoomMediaForSave({
+    cover_image_url: room.image,
+    cover_image_file: room.image_file,
+    gallery_urls: room.images,
+    gallery_files: room.gallery_files,
+  })
+  const image = media.image
+  const galleryImgs = media.images.filter((url) => url !== image)
+  const images = [...new Set([image, ...galleryImgs].filter(Boolean))]
+  const compareAt = room.compare_at_price.trim()
+  const badges = room.badges.map((b) => b.trim()).filter(Boolean)
+  return {
+    name: room.name.trim(),
+    description: room.description.trim(),
+    max_guests: Number(room.max_guests),
+    bedrooms: Number(room.bedrooms),
+    bed_summary: room.bed_summary.trim(),
+    price_per_night: room.price_per_night || fallbackNightly,
+    featured: room.featured,
+    ...(compareAt ? { compare_at_price: compareAt } : {}),
+    ...(badges.length ? { badges, badge: badges[0] } : {}),
+    ...(image ? { image } : {}),
+    ...(images.length ? { images } : {}),
+  }
+}
+
 export function listingCompleteness(stay: ProviderStayListing): { percent: number; missing: string[] } {
   const checks: [boolean, string][] = [
     [Boolean(stay.title?.trim()), 'Title'],
@@ -447,7 +483,7 @@ export function listingCompleteness(stay: ProviderStayListing): { percent: numbe
   return { percent, missing }
 }
 
-/** Independent listing editor steps — finish one, save, resume later. */
+/** Independent listing editor steps — finish one, save, and come back to the rest anytime. */
 export const STAY_FORM_STEPS = [
   { id: 'basics', label: 'Basics' },
   { id: 'pricing', label: 'Capacity & pricing' },
@@ -458,7 +494,29 @@ export const STAY_FORM_STEPS = [
   { id: 'faqs', label: 'FAQs' },
 ] as const
 
+/** Property/accommodation-only steps (rooms are edited on their own pages). */
+export const STAY_PROPERTY_FORM_STEPS = STAY_FORM_STEPS.filter((s) => s.id !== 'rooms')
+
 export type StayFormStepId = (typeof STAY_FORM_STEPS)[number]['id']
+export type StayPropertyFormStepId = (typeof STAY_PROPERTY_FORM_STEPS)[number]['id']
+
+export function emptyStayRoom(): StayRoomForm {
+  return {
+    name: '',
+    description: '',
+    max_guests: 2,
+    bedrooms: 1,
+    bed_summary: '',
+    price_per_night: '',
+    compare_at_price: '',
+    badges: [],
+    featured: false,
+    image: '',
+    image_file: null,
+    images: '',
+    gallery_files: [],
+  }
+}
 
 export function isStayFormStepId(value: string | null | undefined): value is StayFormStepId {
   return Boolean(value && STAY_FORM_STEPS.some((s) => s.id === value))
@@ -537,4 +595,26 @@ export function nextStayFormStep(current: StayFormStepId): StayFormStepId | null
   const i = STAY_FORM_STEPS.findIndex((s) => s.id === current)
   if (i < 0 || i >= STAY_FORM_STEPS.length - 1) return null
   return STAY_FORM_STEPS[i + 1].id
+}
+
+/** First incomplete property step (rooms managed separately). */
+export function nextIncompleteStayPropertyStep(
+  form: StayListingFormValues,
+  from: StayPropertyFormStepId = 'basics',
+): StayPropertyFormStepId {
+  const start = STAY_PROPERTY_FORM_STEPS.findIndex((s) => s.id === from)
+  const ordered = [
+    ...STAY_PROPERTY_FORM_STEPS.slice(Math.max(0, start)),
+    ...STAY_PROPERTY_FORM_STEPS.slice(0, Math.max(0, start)),
+  ]
+  for (const step of ordered) {
+    if (!stayFormStepDone(form, step.id)) return step.id
+  }
+  return STAY_PROPERTY_FORM_STEPS[STAY_PROPERTY_FORM_STEPS.length - 1].id
+}
+
+export function nextStayPropertyStep(current: StayPropertyFormStepId): StayPropertyFormStepId | null {
+  const i = STAY_PROPERTY_FORM_STEPS.findIndex((s) => s.id === current)
+  if (i < 0 || i >= STAY_PROPERTY_FORM_STEPS.length - 1) return null
+  return STAY_PROPERTY_FORM_STEPS[i + 1].id
 }

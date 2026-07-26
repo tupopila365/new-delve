@@ -5,15 +5,29 @@ export { StayBookingCard } from './StayBookingCard'
 export { StayMonetizationSection } from './StayMonetizationSection'
 export type { StayMonetizationAnalytics } from './StayMonetizationSection'
 export { StayStoriesPanel } from './StayStoriesPanel'
-export type { ProviderStayListing, StayListingFormValues, StayFormStepId } from './stayListingTypes'
+export { StayRoomEditor } from './StayRoomEditor'
+export type {
+  ProviderStayListing,
+  StayListingFormValues,
+  StayFormStepId,
+  StayPropertyFormStepId,
+  StayRoomForm,
+} from './stayListingTypes'
 export {
   stayListingToForm,
   formToApiPayload,
   buildStayListingApiPayload,
+  buildStayPropertyApiPayload,
+  buildStayRoomApiItem,
+  emptyStayRoom,
   listingCompleteness,
   STAY_FORM_STEPS,
+  STAY_PROPERTY_FORM_STEPS,
   nextIncompleteStayFormStep,
+  nextIncompleteStayPropertyStep,
   nextStayFormStep,
+  nextStayPropertyStep,
   stayFormStepDone,
   canCreateStayDraft,
+  isStayFormStepId,
 } from './stayListingTypes'

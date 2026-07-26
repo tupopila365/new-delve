@@ -13,6 +13,15 @@ export type StayMonetizationAnalytics = {
   pending_requests: number
   total_likes: number
   total_saves: number
+  total_listing_views?: number
+  total_room_views?: number
+  total_views?: number
+  views_trend?: {
+    date: string
+    listing_views: number
+    room_views: number
+    views: number
+  }[]
   promotion_impressions: number
   promotion_clicks: number
   promotion_listing_opens: number
@@ -24,6 +33,11 @@ export type StayMonetizationAnalytics = {
     revenue: number
     likes_count: number
     saves_count: number
+    views?: number
+    listing_views?: number
+    room_views?: number
+    views_count?: number
+    rooms?: { name: string; views: number }[]
   }[]
 }
 
@@ -44,9 +58,17 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
 
   if (!enabled) return null
 
+  const listingViews = analytics?.total_listing_views ?? 0
+  const roomViews = analytics?.total_room_views ?? 0
+  const totalViews = analytics?.total_views ?? listingViews + roomViews
   const likesSaves = (analytics?.total_likes ?? 0) + (analytics?.total_saves ?? 0)
   const hasPromo = (analytics?.promotion_impressions ?? 0) > 0
   const hasRows = (analytics?.listings?.length ?? 0) > 0
+
+  const metaParts = [
+    totalViews > 0 ? `${totalViews} views` : null,
+    likesSaves > 0 ? `${likesSaves} likes & saves` : null,
+  ].filter(Boolean)
 
   return (
     <section className="stay-perf">
@@ -59,7 +81,9 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
         >
           <ChevronDown size={16} strokeWidth={2.25} aria-hidden />
           Performance details
-          {likesSaves > 0 ? <span className="stay-perf__meta">{likesSaves} likes & saves · 30d</span> : null}
+          {metaParts.length > 0 ? (
+            <span className="stay-perf__meta">{metaParts.join(' · ')} · 30d</span>
+          ) : null}
         </button>
         <div className="stay-perf__acts">
           <Link to="/provider/analytics" className="stay-perf__link">
@@ -76,14 +100,18 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
 
       {open ? (
         <div className="stay-perf__body">
-          {hasPromo ? (
+          {totalViews > 0 ? (
+            <p className="stay-perf__hint">
+              Views · 30d: {listingViews} stay pages · {roomViews} room pages
+            </p>
+          ) : hasPromo ? (
             <p className="stay-perf__hint">
               Promotions: {analytics?.promotion_impressions ?? 0} impressions · {analytics?.promotion_clicks ?? 0}{' '}
               clicks · {analytics?.promotion_listing_opens ?? 0} listing opens
             </p>
           ) : (
             <p className="stay-perf__hint">
-              Per-listing revenue and engagement for the last 30 days. Boost visibility from Promotions.
+              Per-listing views, revenue, and engagement for the last 30 days. Boost visibility from Promotions.
             </p>
           )}
 
@@ -93,6 +121,8 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
                 <thead>
                   <tr>
                     <th>Listing</th>
+                    <th>Stay views</th>
+                    <th>Room views</th>
                     <th>Revenue</th>
                     <th>Bookings</th>
                     <th>Likes</th>
@@ -100,20 +130,37 @@ export function StayMonetizationSection({ enabled, canManage = false }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {analytics!.listings.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.title}</td>
-                      <td>{row.revenue > 0 ? format(row.revenue) : '—'}</td>
-                      <td>{row.bookings}</td>
-                      <td>{row.likes_count || '—'}</td>
-                      <td>{row.saves_count || '—'}</td>
-                    </tr>
-                  ))}
+                  {analytics!.listings.map((row) => {
+                    const stayViews = row.listing_views ?? row.views ?? 0
+                    const rooms = row.rooms ?? []
+                    return (
+                      <tr key={row.id}>
+                        <td>
+                          <div>{row.title}</div>
+                          {rooms.length > 0 ? (
+                            <div className="stay-perf__rooms">
+                              {rooms.map((r) => (
+                                <span key={r.name}>
+                                  {r.name}: {r.views}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td>{stayViews || '—'}</td>
+                        <td>{row.room_views || '—'}</td>
+                        <td>{row.revenue > 0 ? format(row.revenue) : '—'}</td>
+                        <td>{row.bookings}</td>
+                        <td>{row.likes_count || '—'}</td>
+                        <td>{row.saves_count || '—'}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="stay-perf__hint">No listing performance yet — bookings and engagement will show here.</p>
+            <p className="stay-perf__hint">No listing performance yet — views and bookings will show here.</p>
           )}
         </div>
       ) : null}

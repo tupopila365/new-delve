@@ -280,19 +280,12 @@ export function AccommodationList() {
   const [maxPrice, setMaxPrice] = useState('')
   const [dealsOnly, setDealsOnly] = useState(false)
   const [savedOnly, setSavedOnly] = useState(false)
-  const [shareMsg, setShareMsg] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
     if (nearPoint) setSort('distance')
     else setSort((s) => (s === 'distance' ? 'recommended' : s))
   }, [nearPoint?.latitude, nearPoint?.longitude, nearPoint?.label])
-
-  useEffect(() => {
-    if (!shareMsg) return
-    const t = window.setTimeout(() => setShareMsg(''), 1600)
-    return () => window.clearTimeout(t)
-  }, [shareMsg])
 
   const effectiveGuests = useMemo(() => {
     if (goodFor.has('family')) {
@@ -527,30 +520,8 @@ export function AccommodationList() {
     saveMut.mutate(listingId)
   }
 
-  const shareStay = async (listing: AccListing, e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const url = `${window.location.origin}/accommodation/${listing.id}`
-    const title = listing.title || 'DELVE stay'
-    try {
-      if (navigator.share) await navigator.share({ title, url })
-      else {
-        await navigator.clipboard.writeText(url)
-        setShareMsg('Link copied')
-      }
-    } catch {
-      // cancelled share stays quiet
-    }
-  }
-
   return (
     <div className="st-market">
-      {shareMsg ? (
-        <p className="jn-detail-page__toast" role="status">
-          {shareMsg}
-        </p>
-      ) : null}
-
       <header className="st-market__hero">
         <div className="st-market__hero-head">
           <p className="st-market__kicker">Places to stay</p>
@@ -801,7 +772,6 @@ export function AccommodationList() {
               }
               onLike={(e) => onToggleLike(a.id, e)}
               onSave={(e) => onToggleSave(a.id, e)}
-              onShare={(e) => void shareStay(a, e)}
             />
           ))}
         </div>

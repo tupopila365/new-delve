@@ -14,18 +14,23 @@ export type HighlightMediaUploadResult = {
   trim_end?: number
 }
 
-/** Prefer Delvers-style Cloudinary direct upload; fall back to server proxy. */
+/** Prefer Delvers-style Cloudinary direct upload; fall back to server proxy for small images. */
 async function uploadViaCloudinaryDirect(file: File, kind: MediaKind): Promise<string | null> {
   const enabled = await getDirectUploadEnabled()
   if (!enabled) return null
+  const resourceType = kind === 'video' ? 'video' : 'image'
   try {
-    const resourceType = kind === 'video' ? 'video' : 'image'
     const result = await uploadFileToCloudinary(file, resourceType)
     return result.secure_url || null
-  } catch {
+  } catch (err) {
+    // Images can still use the Django/highlights proxy. Videos must go CDN-direct —
+    // Heroku request limits make the proxy fail with a vague network error.
+    if (kind === 'video') throw err
     return null
   }
 }
+
+const PROXY_MAX_VIDEO_BYTES = 4 * 1024 * 1024
 
 export async function uploadHighlightMedia(
   file: File,
@@ -49,6 +54,12 @@ export async function uploadHighlightMedia(
       }
       return result
     }
+  }
+
+  if (kind === 'video' && uploadFile.size > PROXY_MAX_VIDEO_BYTES) {
+    throw new Error(
+      'Video upload needs Cloudinary direct upload. Try a shorter clip, or check that video uploads are enabled for this environment.',
+    )
   }
 
   const fd = new FormData()

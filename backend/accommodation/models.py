@@ -122,6 +122,11 @@ class AccommodationListing(models.Model):
         help_text="Average guest rating 0–5 (0 until the stay has reviews).",
     )
     rating_count = models.PositiveIntegerField(default=0)
+    views_count = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+        help_text="Lifetime stay-page views (excludes owner self-views).",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -142,6 +147,42 @@ class AccommodationListing(models.Model):
     def save(self, *args, **kwargs):
         self._sync_amenity_flags_from_json()
         super().save(*args, **kwargs)
+
+
+class AccommodationPageView(models.Model):
+    """Traveller open of a stay listing page or a specific room page."""
+
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="page_views",
+    )
+    room_name = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Empty = stay listing page. Set = room page view.",
+    )
+    viewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="accommodation_page_views",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["listing", "created_at"]),
+            models.Index(fields=["listing", "room_name", "created_at"]),
+        ]
+
+    def __str__(self):
+        label = self.room_name or "listing"
+        return f"{self.listing_id}:{label}@{self.created_at:%Y-%m-%d}"
 
 
 class AccommodationListingLike(models.Model):

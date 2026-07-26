@@ -5,6 +5,7 @@ from .models import (
     AccommodationListing,
     AccommodationListingLike,
     AccommodationListingSave,
+    AccommodationPageView,
     AccommodationReview,
 )
 
@@ -21,6 +22,7 @@ class AccommodationListingAdmin(admin.ModelAdmin):
         "is_active",
         "rating_avg",
         "rating_count",
+        "views_count",
         "created_at",
     )
     list_filter = ("property_type", "is_active", "region", "pet_friendly")
@@ -58,6 +60,16 @@ class AccommodationListingLikeAdmin(admin.ModelAdmin):
 class AccommodationListingSaveAdmin(admin.ModelAdmin):
     list_display = ("listing", "user", "created_at")
     raw_id_fields = ("listing", "user")
+
+
+@admin.register(AccommodationPageView)
+class AccommodationPageViewAdmin(admin.ModelAdmin):
+    list_display = ("listing", "room_name", "viewer", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("listing__title", "room_name", "viewer__username")
+    raw_id_fields = ("listing", "viewer")
+    date_hierarchy = "created_at"
+    readonly_fields = ("created_at",)
 
 
 @admin.register(AccommodationReview)

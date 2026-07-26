@@ -4802,6 +4802,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         ['confirmed', 'checked_in', 'checked_out'].includes(b.status),
       )
       const listingRevenue = confirmed.reduce((s, b) => s + Number(b.total_price || 0), 0)
+      const listingViews = Number((st as { views_count?: number }).views_count ?? 0)
       return {
         id: st.id,
         title: st.title,
@@ -4810,9 +4811,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         revenue: listingRevenue,
         likes_count: mockListingLikes.get(st.id)?.size ?? 0,
         saves_count: mockListingSaves.get(st.id)?.size ?? 0,
+        views: listingViews,
+        listing_views: listingViews,
+        room_views: 0,
+        views_count: listingViews,
+        rooms: [],
       }
     })
     listingRows.sort((a, b) => b.revenue - a.revenue || b.bookings - a.bookings)
+    const totalListingViews = listingRows.reduce((s, r) => s + r.listing_views, 0)
     return {
       days: 30,
       on_platform_revenue: revenue,
@@ -4821,6 +4828,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       pending_requests: rows.filter((b) => b.status === 'pending').length,
       total_likes: owned.reduce((s, st) => s + (mockListingLikes.get(st.id)?.size ?? 0), 0),
       total_saves: owned.reduce((s, st) => s + (mockListingSaves.get(st.id)?.size ?? 0), 0),
+      total_listing_views: totalListingViews,
+      total_room_views: 0,
+      total_views: totalListingViews,
+      views_trend: [],
       promotion_impressions: 0,
       promotion_clicks: 0,
       promotion_listing_opens: 0,
@@ -6166,8 +6177,27 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const id = Number(staySubMatch[1])
     const action = staySubMatch[2]
     const stay = mockStays.find((x) => x.id === id)
-    if (!stay && action !== 'questions' && action !== 'moments' && action !== 'reviews' && action !== 'availability') {
+    if (!stay && action !== 'questions' && action !== 'moments' && action !== 'reviews' && action !== 'availability' && action !== 'record-view') {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (action === 'record-view' && method === 'POST') {
+      if (!stay) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+      const body = isJsonBody(init.body) ? (JSON.parse(init.body) as { room_name?: string; room?: string }) : {}
+      const roomName = String(body.room_name || body.room || '').trim()
+      const me = s.currentUser as string | null
+      if (me && stay.owner_username === me) {
+        return { recorded: false, views_count: Number((stay as { views_count?: number }).views_count ?? 0), room_name: roomName }
+      }
+      if (!roomName) {
+        const next = Number((stay as { views_count?: number }).views_count ?? 0) + 1
+        ;(stay as { views_count?: number }).views_count = next
+        return { recorded: true, views_count: next, room_name: '' }
+      }
+      return {
+        recorded: true,
+        views_count: Number((stay as { views_count?: number }).views_count ?? 0),
+        room_name: roomName,
+      }
     }
     if (action === 'availability' && method === 'GET') {
       const checkIn = (q.get('check_in') || '').trim()

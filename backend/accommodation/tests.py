@@ -250,6 +250,72 @@ class AccommodationPhase5MonetizationTests(TestCase):
         self.assertEqual(res.data["listings"][0]["revenue"], 2400.0)
 
 
+class AccommodationPageViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.host = User.objects.create_user(
+            username="view_host", email="view_host@test.local", password="pass12345"
+        )
+        Profile.objects.filter(user=self.host).update(user_type=UserType.SERVICE_PROVIDER)
+        self.host.profile.refresh_from_db()
+        self.guest = User.objects.create_user(
+            username="view_guest", email="view_guest@test.local", password="pass12345"
+        )
+        self.listing = AccommodationListing.objects.create(
+            owner=self.host,
+            title="View Lodge",
+            region="Khomas",
+            city="Windhoek",
+            price_per_night="800.00",
+        )
+
+    def test_record_listing_and_room_views(self):
+        from .models import AccommodationPageView
+
+        url = f"/api/accommodation/listings/{self.listing.pk}/record-view/"
+        anon = self.client.post(url, {}, format="json")
+        self.assertEqual(anon.status_code, 200)
+        self.assertTrue(anon.data["recorded"])
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.views_count, 1)
+
+        self.client.force_authenticate(user=self.guest)
+        room = self.client.post(url, {"room_name": "Deluxe"}, format="json")
+        self.assertEqual(room.status_code, 200)
+        self.assertTrue(room.data["recorded"])
+        self.assertEqual(AccommodationPageView.objects.filter(listing=self.listing).count(), 2)
+        self.assertEqual(
+            AccommodationPageView.objects.filter(listing=self.listing, room_name="Deluxe").count(),
+            1,
+        )
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.views_count, 1)
+
+    def test_owner_views_are_skipped(self):
+        url = f"/api/accommodation/listings/{self.listing.pk}/record-view/"
+        self.client.force_authenticate(user=self.host)
+        res = self.client.post(url, {}, format="json")
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(res.data["recorded"])
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.views_count, 0)
+
+    def test_provider_analytics_includes_views(self):
+        from .view_tracking import record_accommodation_page_view
+
+        record_accommodation_page_view(listing=self.listing, viewer=self.guest)
+        record_accommodation_page_view(listing=self.listing, viewer=self.guest, room_name="Suite")
+        self.client.force_authenticate(user=self.host)
+        res = self.client.get("/api/accommodation/provider-analytics/?days=30")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["total_listing_views"], 1)
+        self.assertEqual(res.data["total_room_views"], 1)
+        self.assertEqual(res.data["total_views"], 2)
+        self.assertEqual(res.data["listings"][0]["listing_views"], 1)
+        self.assertEqual(res.data["listings"][0]["room_views"], 1)
+        self.assertEqual(res.data["listings"][0]["rooms"][0]["name"], "Suite")
+
+
 class AccommodationPhase6HardeningTests(TestCase):
     def setUp(self):
         self.client = APIClient()

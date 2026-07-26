@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   AMENITY_OPTIONS,
   EMPTY_STAY_LISTING_FORM,
   PROPERTY_TYPES,
   ROOM_BADGE_OPTIONS,
   STAY_FORM_STEPS,
+  STAY_PROPERTY_FORM_STEPS,
   canCreateStayDraft,
+  emptyStayRoom,
   isPresetRoomBadge,
   nextStayFormStep,
+  nextStayPropertyStep,
   stayFormStepDone,
   type StayFormStepId,
   type StayListingFormValues,
+  type StayPropertyFormStepId,
   type StayRoomForm,
 } from './stayListingTypes'
 import { useDisplayMoney } from '../../../hooks/useDisplayMoney'
@@ -32,24 +37,16 @@ type Props = {
   listingId?: number | null
   step: StayFormStepId
   onStepChange: (step: StayFormStepId) => void
+  /** Property-only editor (rooms live on separate pages). Default: property. */
+  variant?: 'full' | 'property'
+  /** Modal overlay or inline page panel. */
+  presentation?: 'modal' | 'page'
+  title?: string
+  subtitle?: string
 }
 
 function emptyRoom(): StayRoomForm {
-  return {
-    name: '',
-    description: '',
-    max_guests: 2,
-    bedrooms: 1,
-    bed_summary: '',
-    price_per_night: '',
-    compare_at_price: '',
-    badges: [],
-    featured: false,
-    image: '',
-    image_file: null,
-    images: '',
-    gallery_files: [],
-  }
+  return emptyStayRoom()
 }
 
 const PRESET_AMENITY_SET = new Set(AMENITY_OPTIONS.map((a) => a.toLowerCase()))
@@ -65,17 +62,24 @@ export function StayListingForm({
   listingId,
   step,
   onStepChange,
+  variant = 'property',
+  presentation = 'modal',
+  title,
+  subtitle,
 }: Props) {
   const { format, currency } = useDisplayMoney()
   const [customAmenity, setCustomAmenity] = useState('')
   const [houseRuleDraft, setHouseRuleDraft] = useState('')
   const [badgeDrafts, setBadgeDrafts] = useState<Record<number, string>>({})
 
+  const steps = variant === 'property' ? STAY_PROPERTY_FORM_STEPS : [...STAY_FORM_STEPS]
+  const activeStep: StayFormStepId = steps.some((s) => s.id === step) ? step : steps[0].id
+
   useEffect(() => {
     setCustomAmenity('')
     setHouseRuleDraft('')
     setBadgeDrafts({})
-  }, [step])
+  }, [activeStep])
 
   function patch(partial: Partial<StayListingFormValues>) {
     onChange({ ...values, ...partial })
@@ -191,26 +195,29 @@ export function StayListingForm({
   }
 
   const canPersist = isEdit || canCreateStayDraft(values)
-  const nextStep = nextStayFormStep(step)
-  const stepIndex = STAY_FORM_STEPS.findIndex((s) => s.id === step) + 1
+  const nextStep =
+    variant === 'property'
+      ? nextStayPropertyStep(activeStep as StayPropertyFormStepId)
+      : nextStayFormStep(activeStep)
+  const stepIndex = steps.findIndex((s) => s.id === activeStep) + 1
+  const heading =
+    title ?? (isEdit ? 'Edit accommodation details' : 'Create your accommodation')
+  const sub =
+    subtitle ??
+    `Step ${stepIndex} of ${steps.length} — finish one step, save, and come back anytime.`
 
-  return (
-    <div className="stay-form" role="dialog" aria-modal="true" aria-labelledby="stay-form-title">
-      <button type="button" className="stay-form__backdrop" aria-label="Close" onClick={onCancel} />
-      <div className="stay-form__panel">
+  const body = (
+    <>
         <header className="stay-form__head">
-          <h2 id="stay-form-title">{isEdit ? 'Edit stay listing' : 'Create stay listing'}</h2>
-          <p>
-            Step {stepIndex} of {STAY_FORM_STEPS.length} — finish one step, save, and come back to the rest
-            anytime.
-          </p>
+          <h2 id="stay-form-title">{heading}</h2>
+          <p>{sub}</p>
         </header>
 
         <nav className="stay-form__nav" aria-label="Listing steps">
           <div className="stay-form__nav-track">
-            {STAY_FORM_STEPS.map((s, i) => {
+            {steps.map((s, i) => {
               const done = stayFormStepDone(values, s.id)
-              const active = step === s.id
+              const active = activeStep === s.id
               return (
                 <button
                   key={s.id}
@@ -239,7 +246,7 @@ export function StayListingForm({
         ) : null}
 
         <div className="stay-form__body">
-          {step === 'basics' ? (
+          {activeStep === 'basics' ? (
             <div className="stay-form__section">
               <label className="stay-form__field">
                 <span>Property name</span>
@@ -309,7 +316,7 @@ export function StayListingForm({
             </div>
           ) : null}
 
-          {step === 'pricing' ? (
+          {activeStep === 'pricing' ? (
             <div className="stay-form__section">
               <label className="stay-form__field">
                 <span>From price per night ({currency})</span>
@@ -346,7 +353,7 @@ export function StayListingForm({
             </div>
           ) : null}
 
-          {step === 'amenities' ? (
+          {activeStep === 'amenities' ? (
             <div className="stay-form__section">
               <p className="stay-form__hint">These appear on your listing card and detail page.</p>
               <div className="stay-form__chips">
@@ -403,7 +410,7 @@ export function StayListingForm({
             </div>
           ) : null}
 
-          {step === 'policies' ? (
+          {activeStep === 'policies' ? (
             <div className="stay-form__section">
               <div className="stay-form__row">
                 <label className="stay-form__field">
@@ -483,7 +490,7 @@ export function StayListingForm({
             </div>
           ) : null}
 
-          {step === 'rooms' ? (
+          {activeStep === 'rooms' ? (
             <div className="stay-form__section">
               <p className="stay-form__hint">Room types appear on your detail page so guests can pick and book.</p>
               {values.room_types.map((room, i) => (
@@ -723,7 +730,7 @@ export function StayListingForm({
             </div>
           ) : null}
 
-          {step === 'media' ? (
+          {activeStep === 'media' ? (
             <div className="stay-form__section">
               <StayPhotoEditor
                 values={{
@@ -738,7 +745,7 @@ export function StayListingForm({
             </div>
           ) : null}
 
-          {step === 'faqs' ? (
+          {activeStep === 'faqs' ? (
             <div className="stay-form__section">
               {values.faqs.map((faq, i) => (
                 <div key={i} className="stay-form__subcard">
@@ -792,7 +799,7 @@ export function StayListingForm({
 
         <footer className="stay-form__foot">
           <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onCancel} disabled={saving}>
-            Close
+            {presentation === 'page' ? 'Back' : 'Close'}
           </button>
           <div className="stay-form__foot-actions">
             {!canPersist ? (
@@ -826,7 +833,29 @@ export function StayListingForm({
             </button>
           </div>
         </footer>
+    </>
+  )
+
+  const panel = <div className={`stay-form__panel${presentation === 'page' ? ' stay-form__panel--page' : ''}`}>{body}</div>
+
+  if (presentation === 'page') {
+    return (
+      <div className="stay-form stay-form--page" aria-labelledby="stay-form-title">
+        {listingId ? (
+          <p className="stay-form__rooms-link">
+            Rooms are edited separately.{' '}
+            <Link to={`/provider/stays/${listingId}/rooms`}>Manage rooms</Link>
+          </p>
+        ) : null}
+        {panel}
       </div>
+    )
+  }
+
+  return (
+    <div className="stay-form" role="dialog" aria-modal="true" aria-labelledby="stay-form-title">
+      <button type="button" className="stay-form__backdrop" aria-label="Close" onClick={onCancel} />
+      {panel}
     </div>
   )
 }
