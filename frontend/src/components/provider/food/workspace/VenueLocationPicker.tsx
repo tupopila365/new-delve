@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, MapPin, Search } from 'lucide-react'
-import { DEFAULT_MAP_CENTER, parseGoogleAddressComponents } from '../../../../utils/geocodeParse'
+import {
+  DEFAULT_MAP_CENTER,
+  parseGoogleAddressComponents,
+  resolveRegionFromPlace,
+  roundCoord,
+} from '../../../../utils/geocodeParse'
 import { googleMapsPlaceUrl, hasValidCoords } from '../../../../utils/placeMap'
 import { useGoogleMapsLoader } from '../../../../hooks/useGoogleMapsLoader'
 import './VenueLocationPicker.css'
@@ -55,8 +60,13 @@ export function VenueLocationPicker({
   const mapInstance = useRef<google.maps.Map | null>(null)
   const markerRef = useRef<google.maps.Marker | null>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
+  const valueRef = useRef(value)
   const [searchText, setSearchText] = useState(value.formatted_address || value.address || '')
   const [showManual, setShowManual] = useState(false)
+
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
 
   useEffect(() => {
     setSearchText(value.formatted_address || value.address || '')
@@ -132,20 +142,41 @@ export function VenueLocationPicker({
     }
   }, [ready, countryCodes?.join(',')])
 
-  function reverseGeocode(lat: number, lng: number) {
-    if (!window.google?.maps) return
+  function reverseGeocode(lat: number, lng: number, extras?: Partial<VenueLocationPickerValue>) {
+    const roundedLat = roundCoord(lat)
+    const roundedLng = roundCoord(lng)
+    if (roundedLat == null || roundedLng == null) return
+
+    if (!window.google?.maps) {
+      onChange({
+        latitude: roundedLat,
+        longitude: roundedLng,
+        ...extras,
+      })
+      return
+    }
+
     const geocoder = new window.google.maps.Geocoder()
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+    geocoder.geocode({ location: { lat: roundedLat, lng: roundedLng } }, (results, status) => {
       if (status !== 'OK' || !results?.[0]) {
+        const prev = valueRef.current
         onChange({
-          latitude: lat,
-          longitude: lng,
-          google_place_id: '',
-          formatted_address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          latitude: roundedLat,
+          longitude: roundedLng,
+          google_place_id: extras?.google_place_id ?? '',
+          formatted_address:
+            extras?.formatted_address ||
+            `${roundedLat.toFixed(5)}, ${roundedLng.toFixed(5)}`,
+          region: resolveRegionFromPlace(
+            { region: extras?.region || prev.region, city: extras?.city || prev.city, country: '' },
+            extras?.formatted_address || '',
+          ),
+          city: extras?.city || prev.city,
+          address: extras?.address || prev.address,
         })
         return
       }
-      applyGeocoderResult(results[0], lat, lng)
+      applyGeocoderResult(results[0], roundedLat, roundedLng, extras)
     })
   }
 
@@ -153,38 +184,49 @@ export function VenueLocationPicker({
     result: google.maps.GeocoderResult,
     lat: number,
     lng: number,
+    extras?: Partial<VenueLocationPickerValue>,
   ) {
     const parsed = parseGoogleAddressComponents(result.address_components ?? [])
-    const formatted = result.formatted_address ?? ''
+    const formatted = extras?.formatted_address || result.formatted_address || ''
+    const prev = valueRef.current
     setSearchText(formatted)
     onChange({
-      latitude: lat,
-      longitude: lng,
-      google_place_id: result.place_id ?? '',
+      latitude: roundCoord(lat),
+      longitude: roundCoord(lng),
+      google_place_id: extras?.google_place_id || result.place_id || '',
       formatted_address: formatted,
-      region: parsed.region || value.region,
-      city: fallbackCity(parsed.city, formatted) || value.city,
-      address: parsed.address || formatted,
+      region: resolveRegionFromPlace(
+        {
+          region: parsed.region || extras?.region || prev.region,
+          city: parsed.city || extras?.city || prev.city,
+          country: parsed.country,
+        },
+        formatted,
+      ),
+      city: fallbackCity(parsed.city || extras?.city || '', formatted) || prev.city,
+      address: extras?.address || parsed.address || formatted,
     })
   }
 
   function applyPlace(place: google.maps.places.PlaceResult) {
     const loc = place.geometry?.location
     if (!loc) return
-    const lat = loc.lat()
-    const lng = loc.lng()
+    const lat = roundCoord(loc.lat())
+    const lng = roundCoord(loc.lng())
+    if (lat == null || lng == null) return
+
     const parsed = parseGoogleAddressComponents(place.address_components ?? [])
     const formatted = place.formatted_address ?? place.name ?? ''
     setSearchText(formatted)
     markerRef.current?.setPosition({ lat, lng })
     mapInstance.current?.panTo({ lat, lng })
     mapInstance.current?.setZoom(16)
-    onChange({
-      latitude: lat,
-      longitude: lng,
+
+    // Place autocomplete often omits admin_area_1 for lodges — reverse-geocode fills region.
+    reverseGeocode(lat, lng, {
       google_place_id: place.place_id ?? '',
       formatted_address: formatted,
-      region: parsed.region,
+      region: resolveRegionFromPlace(parsed, formatted),
       city: fallbackCity(parsed.city, formatted, place.name),
       address: parsed.address || formatted,
     })

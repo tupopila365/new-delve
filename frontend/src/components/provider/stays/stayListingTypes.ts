@@ -1,5 +1,6 @@
 import type { ListingFaqItem } from '../../listing/types'
 import type { HighlightChannelInput } from '../../highlights'
+import { resolveRegionFromPlace, roundCoord } from '../../../utils/geocodeParse'
 import { parseCoord } from '../../../utils/placeMap'
 import { normalizeHouseRules, normalizeRoomBadges } from '../../../utils/accommodationListing'
 import {
@@ -319,11 +320,14 @@ export function formToApiPayload(form: StayListingFormValues) {
     title: form.title.trim(),
     description: form.description.trim(),
     property_type: form.property_type,
-    region: form.region.trim(),
+    region: resolveRegionFromPlace(
+      { region: form.region, city: form.city, country: '' },
+      form.formatted_address || form.address,
+    ),
     city: form.city.trim(),
     address: form.address.trim(),
-    latitude: form.latitude,
-    longitude: form.longitude,
+    latitude: roundCoord(form.latitude),
+    longitude: roundCoord(form.longitude),
     google_place_id: form.google_place_id.trim(),
     formatted_address: form.formatted_address.trim(),
     price_per_night: form.price_per_night,

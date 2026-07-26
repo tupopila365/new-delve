@@ -2,6 +2,7 @@ import type { VenueStoryChannelInput } from '../../food/stories/types'
 import { emptySchedule, scheduleFromJson } from './openingHoursUtils'
 import { moduleStatus, workspaceCompleteness, type ProviderFoodVenueRecord } from './foodVenueModules'
 import { normalizeVenueStoriesForSave } from './venueStoriesFormUtils'
+import { resolveRegionFromPlace, roundCoord } from '../../../utils/geocodeParse'
 import { parseCoord } from '../../../utils/placeMap'
 import { formatGalleryUrlsField, parseGalleryUrlsField } from '../../listing/photos/listingGalleryMedia'
 
@@ -200,11 +201,14 @@ export function formToVenuePayload(values: FoodVenueFormValues) {
     tagline: values.tagline.trim(),
     popular_dish: values.popular_dish.trim(),
     cuisine: values.cuisine,
-    region: values.region.trim(),
+    region: resolveRegionFromPlace(
+      { region: values.region, city: values.city, country: '' },
+      values.formatted_address || values.address,
+    ),
     city: values.city.trim(),
     address: values.address.trim(),
-    latitude: values.latitude,
-    longitude: values.longitude,
+    latitude: roundCoord(values.latitude),
+    longitude: roundCoord(values.longitude),
     google_place_id: values.google_place_id.trim(),
     formatted_address: values.formatted_address.trim(),
     phone: values.phone.trim(),

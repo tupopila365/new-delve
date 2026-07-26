@@ -4,6 +4,7 @@ export type ParsedAddress = {
   region: string
   city: string
   address: string
+  country: string
 }
 
 type AddressComponent = {
@@ -12,9 +13,20 @@ type AddressComponent = {
   types: string[]
 }
 
+/**
+ * Django `DecimalField(max_digits=9, decimal_places=6)` — round Google's
+ * full-precision floats so production create/update doesn't 400.
+ */
+export function roundCoord(n: number | null | undefined): number | null {
+  if (n == null || !Number.isFinite(Number(n))) return null
+  return Math.round(Number(n) * 1e6) / 1e6
+}
+
 export function parseGoogleAddressComponents(components: AddressComponent[]): ParsedAddress {
   let city = ''
   let region = ''
+  let country = ''
+  let admin2 = ''
   let streetNumber = ''
   let route = ''
 
@@ -27,10 +39,36 @@ export function parseGoogleAddressComponents(components: AddressComponent[]): Pa
     else if (!city && types.includes('sublocality_level_1')) city = component.long_name
     else if (!city && types.includes('administrative_area_level_2')) city = component.long_name
     if (types.includes('administrative_area_level_1')) region = component.long_name
+    if (types.includes('administrative_area_level_2')) admin2 = component.long_name
+    if (types.includes('country')) country = component.long_name
   }
 
+  // Many lodges / POIs omit admin_area_1 — fall back before leaving region blank.
+  if (!region) region = admin2
+  if (!region) region = city
+  if (!region) region = country
+
   const address = [streetNumber, route].filter(Boolean).join(' ').trim()
-  return { region, city, address }
+  return { region, city, address, country }
+}
+
+/** Never leave region empty when Google gave us any place signal. */
+export function resolveRegionFromPlace(
+  parsed: Pick<ParsedAddress, 'region' | 'city' | 'country'>,
+  formattedAddress = '',
+): string {
+  const direct = (parsed.region || parsed.city || parsed.country || '').trim()
+  if (direct) return direct
+
+  const parts = formattedAddress
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+  if (parts.length >= 2) {
+    // Usually "…, City/Region, Country" — prefer the part before country.
+    return parts[parts.length - 2]
+  }
+  return parts[0] || ''
 }
 
 /** Default map centre — Windhoek, Namibia. */

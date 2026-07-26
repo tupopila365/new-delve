@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { VenueStoryChannelInput } from '../../food/stories/types'
+import { resolveRegionFromPlace, roundCoord } from '../../../utils/geocodeParse'
 import { ensureHighlightChannelsMediaUrls } from '../../highlights/highlightMediaApi'
 import { normalizeVenueStoriesForSave } from './venueStoriesFormUtils'
 import {
@@ -93,11 +94,14 @@ export function identityPayload(values: FoodVenueFormValues) {
 
 export function locationPayload(values: FoodVenueFormValues) {
   return {
-    region: values.region.trim(),
+    region: resolveRegionFromPlace(
+      { region: values.region, city: values.city, country: '' },
+      values.formatted_address || values.address,
+    ),
     city: values.city.trim(),
     address: values.address.trim(),
-    latitude: values.latitude,
-    longitude: values.longitude,
+    latitude: roundCoord(values.latitude),
+    longitude: roundCoord(values.longitude),
     google_place_id: values.google_place_id.trim(),
     formatted_address: values.formatted_address.trim(),
   }
