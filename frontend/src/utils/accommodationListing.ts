@@ -63,7 +63,7 @@ export type AccommodationListing = {
   listing_stories?: HighlightChannelInput[]
   check_in_from?: string
   check_out_until?: string
-  house_rules?: string
+  house_rules?: string[] | string
   cancellation_policy?: string
   faqs?: unknown
   guest_reviews?: unknown
@@ -95,10 +95,33 @@ export type RoomTypeItem = {
   bed_summary: string
   price_per_night: string | null
   compare_at_price?: string | null
+  badges: string[]
+  /** @deprecated Prefer badges — first badge kept for older call sites. */
   badge?: string | null
   featured?: boolean
   image: string | null
   images: string[]
+}
+
+/** Normalize room sale/special badges from list or legacy single string. */
+export function normalizeRoomBadges(raw: unknown, legacy?: unknown): string[] {
+  const out: string[] = []
+  const push = (value: unknown) => {
+    const text = String(value ?? '').trim().slice(0, 40)
+    if (!text) return
+    if (out.some((b) => b.toLowerCase() === text.toLowerCase())) return
+    out.push(text)
+  }
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      push(item)
+      if (out.length >= 8) return out
+    }
+  } else {
+    push(raw)
+  }
+  if (out.length === 0) push(legacy)
+  return out
 }
 
 function parseOptionalUint(v: unknown): number | null {
@@ -126,8 +149,23 @@ export function propertyTypeLabel(v: string) {
 
 export { openStreetMapSearchUrl, formatPlaceLine, hasValidCoords, parseCoord, resolveDirectionsUrl } from './placeMap'
 
-export function parseHouseRules(text: string): string[] {
-  return text.split('\n').map((l) => l.trim()).filter(Boolean)
+/** Normalize house rules from API (list) or legacy newline text. */
+export function normalizeHouseRules(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x ?? '').trim()).filter(Boolean)
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+/** @deprecated Prefer normalizeHouseRules — kept for call sites that still pass strings. */
+export function parseHouseRules(text: string | string[] | null | undefined): string[] {
+  return normalizeHouseRules(text)
 }
 
 export function normalizeFaqs(raw: unknown): ListingFaqItem[] {
@@ -164,6 +202,7 @@ export function normalizeRoomTypes(raw: unknown): RoomTypeItem[] {
     }
     if (images.length === 0 && image) images = [image]
 
+    const badges = normalizeRoomBadges(o.badges, o.badge ?? o.special_label)
     out.push({
       name,
       description,
@@ -172,7 +211,8 @@ export function normalizeRoomTypes(raw: unknown): RoomTypeItem[] {
       bed_summary,
       price_per_night: parseRoomPrice(o.price_per_night),
       compare_at_price: parseRoomPrice(o.compare_at_price ?? o.was_price ?? o.original_price),
-      badge: typeof o.badge === 'string' ? o.badge.trim() : typeof o.special_label === 'string' ? o.special_label.trim() : null,
+      badges,
+      badge: badges[0] ?? null,
       featured: o.featured === true || o.is_featured === true,
       image,
       images,
@@ -308,7 +348,8 @@ export function buildRoomOffers(
       fallbackPrice: data.price_per_night,
       image: primary,
       images: roomGallery,
-      badge: room.badge,
+      badges: room.badges,
+      badge: room.badges[0] ?? room.badge ?? null,
       featured: room.featured,
       bookHref: `/accommodation/${listingId}/book?room=${encodeURIComponent(room.name)}`,
     }
@@ -330,6 +371,7 @@ export function buildRoomOffers(
       fallbackPrice: data.price_per_night,
       image: listingCover,
       images: toListingGalleryImages(coverSources, data.title, 'default'),
+      badges: [],
       badge: null,
       featured: true,
       bookHref: `/accommodation/${listingId}/book`,

@@ -278,11 +278,19 @@
   background: linear-gradient(145deg, #2a1814, #080808);
 }
 
-.stay-rooms__badge {
+.stay-rooms__badges {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 20px);
+}
+
+.stay-rooms__badge {
+  position: static;
   padding: 4px 9px;
   border-radius: 6px;
   background: rgba(26, 14, 12, 0.78);

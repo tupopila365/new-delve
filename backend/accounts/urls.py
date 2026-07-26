@@ -13,12 +13,21 @@ from promotions.home_pin_views import (
     PlatformHomePinReorderView,
     PlatformHomePinsView,
 )
+from .explore_place_pin_views import (
+    PlatformExplorePlacePinDetailView,
+    PlatformExplorePlacePinReorderView,
+    PlatformExplorePlacePinsView,
+)
 from promotions.home_story_views import (
     PlatformHomeStoryChannelDetailView,
     PlatformHomeStoryChannelsView,
     PlatformHomeStorySlideDetailView,
     PlatformHomeStorySlideReorderView,
     PlatformHomeStorySlidesView,
+)
+from promotions.product_admin_views import (
+    PlatformPromotionProductDetailView,
+    PlatformPromotionProductsView,
 )
 from promotions.views import (
     PlatformPromotionAnalyticsView,
@@ -147,6 +156,17 @@ urlpatterns = [
     path("admin/home-pins/", PlatformHomePinsView.as_view(), name="platform-home-pins"),
     path("admin/home-pins/reorder/", PlatformHomePinReorderView.as_view(), name="platform-home-pins-reorder"),
     path("admin/home-pins/<int:pk>/", PlatformHomePinDetailView.as_view(), name="platform-home-pin-detail"),
+    path("admin/explore-place-pins/", PlatformExplorePlacePinsView.as_view(), name="platform-explore-place-pins"),
+    path(
+        "admin/explore-place-pins/reorder/",
+        PlatformExplorePlacePinReorderView.as_view(),
+        name="platform-explore-place-pins-reorder",
+    ),
+    path(
+        "admin/explore-place-pins/<int:pk>/",
+        PlatformExplorePlacePinDetailView.as_view(),
+        name="platform-explore-place-pin-detail",
+    ),
     path("admin/home-story-channels/", PlatformHomeStoryChannelsView.as_view(), name="platform-home-story-channels"),
     path(
         "admin/home-story-channels/<str:channel_id>/",
@@ -167,6 +187,12 @@ urlpatterns = [
     path("admin/promotions/", PlatformPromotionsView.as_view(), name="platform-promotions"),
     path("admin/promotions/conflicts/", PlatformPromotionConflictsView.as_view(), name="platform-promotion-conflicts"),
     path("admin/promotions/<int:pk>/", PlatformPromotionDetailView.as_view(), name="platform-promotion-detail"),
+    path("admin/promotion-products/", PlatformPromotionProductsView.as_view(), name="platform-promotion-products"),
+    path(
+        "admin/promotion-products/<int:pk>/",
+        PlatformPromotionProductDetailView.as_view(),
+        name="platform-promotion-product-detail",
+    ),
     path("admin/businesses/", PlatformBusinessesView.as_view(), name="platform-businesses"),
     path(
         "admin/businesses/<int:pk>/documents/",

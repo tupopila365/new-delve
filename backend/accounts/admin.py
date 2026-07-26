@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, ListingSale, PlatformBookingNote, PlatformSettings, Profile, TravelOffer, User
+from .models import AdminAuditLog, BusinessMembership, BusinessProfile, BusinessVerificationDocument, EmailVerificationToken, ExplorePlacePin, ListingSale, PendingRegistration, PlaceSignal, PlatformBookingNote, PlatformSettings, PopularPlace, Profile, TravelOffer, User
 
 
 @admin.register(User)
@@ -14,6 +14,13 @@ class UserAdmin(BaseUserAdmin):
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "user_type", "region", "email_verified")
     list_filter = ("user_type", "email_verified")
+
+
+@admin.register(PendingRegistration)
+class PendingRegistrationAdmin(admin.ModelAdmin):
+    list_display = ("email", "username", "user_type", "created_at", "token")
+    readonly_fields = ("token", "password_hash", "created_at")
+    search_fields = ("email", "username")
 
 
 @admin.register(EmailVerificationToken)
@@ -81,3 +88,38 @@ class PlatformBookingNoteAdmin(admin.ModelAdmin):
 @admin.register(PlatformSettings)
 class PlatformSettingsAdmin(admin.ModelAdmin):
     list_display = ("singleton_key", "announcement_active", "updated_at", "updated_by")
+
+
+@admin.register(PopularPlace)
+class PopularPlaceAdmin(admin.ModelAdmin):
+    list_display = (
+        "country_code",
+        "rank",
+        "label",
+        "region",
+        "score",
+        "listing_count",
+        "booking_count",
+        "chip_click_count",
+        "search_count",
+        "updated_at",
+    )
+    list_filter = ("country_code",)
+    search_fields = ("label", "region")
+    ordering = ("country_code", "rank")
+
+
+@admin.register(PlaceSignal)
+class PlaceSignalAdmin(admin.ModelAdmin):
+    list_display = ("country_code", "label", "kind", "created_at")
+    list_filter = ("kind", "country_code")
+    search_fields = ("label",)
+    readonly_fields = ("created_at",)
+
+
+@admin.register(ExplorePlacePin)
+class ExplorePlacePinAdmin(admin.ModelAdmin):
+    list_display = ("country_code", "sort_order", "label", "region", "is_active", "updated_at")
+    list_filter = ("country_code", "is_active")
+    search_fields = ("label", "region")
+    ordering = ("country_code", "sort_order")

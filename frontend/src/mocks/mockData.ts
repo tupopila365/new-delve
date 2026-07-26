@@ -121,7 +121,7 @@ export type MockStay = {
   }>
   check_in_from?: string
   check_out_until?: string
-  house_rules?: string
+  house_rules?: string[]
   cancellation_policy?: string
   faqs?: MockStayFaq[]
   guest_reviews?: MockStayReview[]
@@ -740,8 +740,11 @@ export const mockStays: MockStay[] = [
     breakfast: true,
     check_in_from: '14:00',
     check_out_until: '11:00',
-    house_rules:
-      'No parties or events in rooms.\nRegistered guests only after 22:00 — please advise reception if expecting visitors.\nKeep balcony doors closed when the AC is on.',
+    house_rules: [
+      'No parties or events in rooms.',
+      'Registered guests only after 22:00 — please advise reception if expecting visitors.',
+      'Keep balcony doors closed when the AC is on.',
+    ],
     cancellation_policy:
       'Free cancellation until 18:00 one day before check-in. Same-day cancellations forfeit the first night (demo pricing only).',
     faqs: [
@@ -833,8 +836,11 @@ export const mockStays: MockStay[] = [
     breakfast: false,
     check_in_from: '15:00',
     check_out_until: '10:30',
-    house_rules:
-      'No smoking inside guest rooms or shared corridors.\nQuiet hours 22:00–07:00.\nPets allowed — keep dogs leashed in the garden.',
+    house_rules: [
+      'No smoking inside guest rooms or shared corridors.',
+      'Quiet hours 22:00–07:00.',
+      'Pets allowed — keep dogs leashed in the garden.',
+    ],
     cancellation_policy:
       'Free cancellation until 48 hours before check-in. Within 48 hours, the first night is charged.',
     faqs: [
@@ -906,8 +912,11 @@ export const mockStays: MockStay[] = [
     breakfast: false,
     check_in_from: '15:00',
     check_out_until: '10:00',
-    house_rules:
-      'No open fires except the designated sunset deck brazier.\nPool closes at 21:00 — shower before entering.\nRespect wildlife — do not feed animals.',
+    house_rules: [
+      'No open fires except the designated sunset deck brazier.',
+      'Pool closes at 21:00 — shower before entering.',
+      'Respect wildlife — do not feed animals.',
+    ],
     cancellation_policy:
       'Cancel 7+ days before arrival for a full refund. Within 7 days, 50% retained; within 48 hours, full stay charged.',
     faqs: [
@@ -980,8 +989,11 @@ export const mockStays: MockStay[] = [
     breakfast: false,
     check_in_from: '15:00',
     check_out_until: '10:00',
-    house_rules:
-      'No open fires except designated fire pit.\nGenerator curfew 22:00–06:00.\nRespect wildlife — do not feed animals.',
+    house_rules: [
+      'No open fires except designated fire pit.',
+      'Generator curfew 22:00–06:00.',
+      'Respect wildlife — do not feed animals.',
+    ],
     cancellation_policy:
       'Within 7 days of arrival, 50% of the stay is retained. Within 48 hours, full stay is charged.',
     faqs: [
@@ -1049,8 +1061,11 @@ export const mockStays: MockStay[] = [
     breakfast: true,
     check_in_from: '13:00',
     check_out_until: '11:00',
-    house_rules:
-      'Residential area — no loud music outdoors.\nBreakfast 07:30–09:30 in the dining room.\nA friendly house cat lives on the property — not in guest rooms.',
+    house_rules: [
+      'Residential area — no loud music outdoors.',
+      'Breakfast 07:30–09:30 in the dining room.',
+      'A friendly house cat lives on the property — not in guest rooms.',
+    ],
     cancellation_policy:
       'Free cancellation up to 5 days before check-in. Later cancellations: first two nights retained.',
     faqs: [

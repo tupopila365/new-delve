@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { apiFetch } from '../api/client'
 import { useExploreDestination } from './useExploreDestination'
 import {
   EXPLORE_NEAR_CHANGED_EVENT,
@@ -9,12 +10,40 @@ import {
   type ExploreNearPoint,
   type TownCentrePreset,
 } from '../lib/exploreNearPoint'
+import { recordPlaceSignal } from '../lib/placeSignals'
+
+type RecommendedPlacesResponse = {
+  country: string
+  places: {
+    label: string
+    region?: string
+    latitude: number
+    longitude: number
+    score?: number
+  }[]
+}
+
+function presetsAsTowns(country: string): TownCentrePreset[] {
+  return [...townCentresForCountry(country)]
+}
+
+function mapApiPlaces(places: RecommendedPlacesResponse['places']): TownCentrePreset[] {
+  return places
+    .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude) && p.label?.trim())
+    .map((p) => ({
+      label: p.label.trim(),
+      latitude: p.latitude,
+      longitude: p.longitude,
+      region: (p.region || '').trim() || undefined,
+    }))
+}
 
 export function useExploreNearPoint() {
   const { country } = useExploreDestination()
   const [point, setPoint] = useState<ExploreNearPoint | null>(() => readExploreNearPoint(country))
   const [geoBusy, setGeoBusy] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
+  const [towns, setTowns] = useState<TownCentrePreset[]>(() => presetsAsTowns(country))
 
   useEffect(() => {
     const sync = () => setPoint(readExploreNearPoint(country))
@@ -36,13 +65,42 @@ export function useExploreNearPoint() {
     }
   }, [country])
 
-  const towns = townCentresForCountry(country)
+  // Usage-ranked places from API; fall back to hardcoded town centres.
+  useEffect(() => {
+    const fallback = presetsAsTowns(country)
+    setTowns(fallback)
+    let cancelled = false
+    void (async () => {
+      try {
+        const data = await apiFetch<RecommendedPlacesResponse>(
+          `/api/explore/recommended-places/?country=${encodeURIComponent(country)}&limit=6`,
+          { auth: false },
+        )
+        if (cancelled) return
+        const mapped = mapApiPlaces(data.places || [])
+        setTowns(mapped.length ? mapped : fallback)
+      } catch {
+        if (!cancelled) setTowns(fallback)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [country])
 
   const setNearPoint = useCallback((next: ExploreNearPoint) => {
     setExploreNearPoint(next)
     setPoint(next)
     setGeoError(null)
-  }, [])
+    // City picks from search / Places — not chips (those use source=preset).
+    if (next.source === 'places' && next.kind === 'city' && next.label.trim()) {
+      const hasCoords =
+        Number.isFinite(next.latitude) &&
+        Number.isFinite(next.longitude) &&
+        !(next.latitude === 0 && next.longitude === 0)
+      recordPlaceSignal(next.country || country, next.label, hasCoords ? 'near_point' : 'search')
+    }
+  }, [country])
 
   const clear = useCallback(() => {
     clearExploreNearPoint()
@@ -52,6 +110,7 @@ export function useExploreNearPoint() {
 
   const useTown = useCallback(
     (town: TownCentrePreset) => {
+      recordPlaceSignal(country, town.label, 'chip_click')
       setNearPoint({
         latitude: town.latitude,
         longitude: town.longitude,

@@ -84,9 +84,41 @@ class Profile(models.Model):
         return self.display_name or self.user.username
 
     def save(self, *args, **kwargs):
-        if not self.display_name:
+        # Do not invent a display name until the account is email-verified.
+        if self.email_verified and not (self.display_name or "").strip():
             self.display_name = self.user.username
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"display_name"}
+        elif not self.email_verified:
+            # Keep blank — username is not copied into display_name pre-verify.
+            self.display_name = (self.display_name or "").strip()
         super().save(*args, **kwargs)
+
+
+class PendingRegistration(models.Model):
+    """Signup intent held until the email link is confirmed — no User row yet."""
+
+    email = models.EmailField(unique=True)
+    username = models.CharField(max_length=150, unique=True)
+    password_hash = models.CharField(max_length=128)
+    birth_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    user_type = models.CharField(
+        max_length=32,
+        choices=UserType.choices,
+        default=UserType.NORMAL,
+    )
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PendingRegistration<{self.email}>"
+
+    def is_expired(self, hours: int = 48) -> bool:
+        return self.created_at < timezone.now() - timezone.timedelta(hours=hours)
 
 
 class EmailVerificationToken(models.Model):
@@ -600,6 +632,88 @@ class PlatformSettings(models.Model):
         merged.update(obj.feature_flags or {})
         obj.feature_flags = merged
         return obj
+
+
+class PopularPlace(models.Model):
+    """Cached usage-ranked city/town for Explore chips (listings, bookings, signals)."""
+
+    country_code = models.CharField(max_length=2, db_index=True)
+    label = models.CharField(max_length=120)
+    region = models.CharField(max_length=120, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    score = models.PositiveIntegerField(default=0)
+    listing_count = models.PositiveIntegerField(default=0)
+    booking_count = models.PositiveIntegerField(default=0)
+    chip_click_count = models.PositiveIntegerField(default=0)
+    search_count = models.PositiveIntegerField(default=0)
+    rank = models.PositiveSmallIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["country_code", "rank", "-score"]
+        unique_together = [("country_code", "label")]
+        indexes = [
+            models.Index(fields=["country_code", "rank"]),
+        ]
+
+    def __str__(self):
+        return f"{self.country_code}:{self.label} (#{self.rank})"
+
+
+class PlaceSignalKind(models.TextChoices):
+    CHIP_CLICK = "chip_click", "Chip click"
+    SEARCH = "search", "Search / free-text"
+    NEAR_POINT = "near_point", "Place / map pick"
+
+
+class PlaceSignal(models.Model):
+    """Anonymous Explore engagement — no user PII, only country + place + kind."""
+
+    country_code = models.CharField(max_length=2, db_index=True)
+    label = models.CharField(max_length=120)
+    kind = models.CharField(max_length=20, choices=PlaceSignalKind.choices, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["country_code", "kind", "-created_at"]),
+            models.Index(fields=["country_code", "label", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.kind} {self.country_code}:{self.label}"
+
+
+class ExplorePlacePin(models.Model):
+    """Editorial Explore chip override — pinned ahead of usage ranking (max 2 active / country)."""
+
+    country_code = models.CharField(max_length=2, db_index=True)
+    label = models.CharField(max_length=120)
+    region = models.CharField(max_length=120, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="explore_place_pins_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["country_code", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["country_code", "is_active", "sort_order"]),
+        ]
+
+    def __str__(self):
+        return f"Pin {self.country_code}:{self.label}"
 
 
 def generate_username_suggestion(base: str) -> str:

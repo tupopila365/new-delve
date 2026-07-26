@@ -138,8 +138,20 @@ const mockUserDisputes: {
 }[] = []
 let mockUserDisputeNextId = 1
 
-/** token -> username for email verification flow in mock mode */
+/** token -> username for legacy email verification (user already exists) */
 const mockVerificationTokens = new Map<string, string>()
+
+type MockPendingRegistration = {
+  email: string
+  username: string
+  password: string
+  birth_year: number
+  user_type: 'normal' | 'service_provider'
+  token: string
+}
+
+/** Pending signups — no profile until email is verified */
+const mockPendingRegistrations = new Map<string, MockPendingRegistration>()
 
 function issueMockTokens(username: string) {
   return { access: `mock_access_${username}`, refresh: `mock_refresh_${username}` }
@@ -151,6 +163,16 @@ function createMockVerificationToken(username: string) {
   if (import.meta.env.DEV) {
     // Single concise line — avoids flooding when resending.
     console.info(`[mock] verify ${username}: /verify-email?token=${token}`)
+  }
+  return token
+}
+
+function createMockPendingToken(pending: MockPendingRegistration) {
+  const token = crypto.randomUUID()
+  pending.token = token
+  mockPendingRegistrations.set(pending.email, pending)
+  if (import.meta.env.DEV) {
+    console.info(`[mock] verify pending ${pending.username}: /verify-email?token=${token}`)
   }
   return token
 }
@@ -2152,6 +2174,7 @@ const PLACEMENT_LABELS: Record<string, string> = {
   homepage_guides: 'Homepage — Featured guides',
   homepage_food: 'Homepage — Featured food',
   homepage_events: 'Homepage — Featured events',
+  homepage_transport: 'Homepage — Featured transport',
   delvers_feed: 'Delvers feed — Sponsored',
 }
 
@@ -2159,6 +2182,7 @@ type MockPromotionProduct = {
   id: number
   slug: string
   name: string
+  description: string
   placement: string
   placement_label: string
   region: string
@@ -2213,10 +2237,11 @@ type MockProviderCampaign = {
 }
 
 const MOCK_PROMOTION_PRODUCTS: MockPromotionProduct[] = [
-  { id: 1, slug: 'homepage_stays_7d_national', name: 'Homepage featured 7 days — Stays — National', placement: 'homepage_stays', placement_label: PLACEMENT_LABELS.homepage_stays, region: '', duration_days: 7, price_cents: 250_000, price_display: 'N$2,500.00', currency: 'NAD' },
-  { id: 2, slug: 'homepage_stays_7d_khomas', name: 'Homepage featured 7 days — Stays — Khomas', placement: 'homepage_stays', placement_label: PLACEMENT_LABELS.homepage_stays, region: 'Khomas', duration_days: 7, price_cents: 250_000, price_display: 'N$2,500.00', currency: 'NAD' },
-  { id: 3, slug: 'homepage_food_7d_national', name: 'Homepage featured 7 days — Food — National', placement: 'homepage_food', placement_label: PLACEMENT_LABELS.homepage_food, region: '', duration_days: 7, price_cents: 180_000, price_display: 'N$1,800.00', currency: 'NAD' },
-  { id: 4, slug: 'delvers_feed_7d_national', name: 'Sponsored 7 days — Delvers feed — National', placement: 'delvers_feed', placement_label: PLACEMENT_LABELS.delvers_feed, region: '', duration_days: 7, price_cents: 120_000, price_display: 'N$1,200.00', currency: 'NAD' },
+  { id: 1, slug: 'homepage_stays_7d_national', name: 'Homepage featured 7 days — Stays — National', description: 'Featured on the Delve homepage stays rail', placement: 'homepage_stays', placement_label: PLACEMENT_LABELS.homepage_stays, region: '', duration_days: 7, price_cents: 250_000, price_display: 'N$2,500.00', currency: 'NAD' },
+  { id: 2, slug: 'homepage_stays_7d_khomas', name: 'Homepage featured 7 days — Stays — Khomas', description: 'Featured on the Delve homepage stays rail', placement: 'homepage_stays', placement_label: PLACEMENT_LABELS.homepage_stays, region: 'Khomas', duration_days: 7, price_cents: 250_000, price_display: 'N$2,500.00', currency: 'NAD' },
+  { id: 3, slug: 'homepage_food_7d_national', name: 'Homepage featured 7 days — Food — National', description: 'Featured on the homepage food rail', placement: 'homepage_food', placement_label: PLACEMENT_LABELS.homepage_food, region: '', duration_days: 7, price_cents: 180_000, price_display: 'N$1,800.00', currency: 'NAD' },
+  { id: 4, slug: 'homepage_transport_7d_national', name: 'Homepage featured 7 days — Transport — National', description: 'Featured on the homepage transport rail', placement: 'homepage_transport', placement_label: PLACEMENT_LABELS.homepage_transport, region: '', duration_days: 7, price_cents: 200_000, price_display: 'N$2,000.00', currency: 'NAD' },
+  { id: 5, slug: 'delvers_feed_7d_national', name: 'Sponsored 7 days — Delvers feed — National', description: 'Sponsored slot in the Delvers feed', placement: 'delvers_feed', placement_label: PLACEMENT_LABELS.delvers_feed, region: '', duration_days: 7, price_cents: 120_000, price_display: 'N$1,200.00', currency: 'NAD' },
 ]
 
 let providerPromotionIdCounter = 1
@@ -3356,7 +3381,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         detail: 'Query must be at least 2 characters.',
       })
     }
-    const taken = Object.keys(s.profiles).some((u) => u.toLowerCase() === qq.toLowerCase())
+    const taken =
+      Object.keys(s.profiles).some((u) => u.toLowerCase() === qq.toLowerCase()) ||
+      [...mockPendingRegistrations.values()].some((p) => p.username.toLowerCase() === qq.toLowerCase())
     return { available: !taken, username: qq }
   }
 
@@ -3386,18 +3413,38 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       username =
         Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || ''
       if (!username) {
+        if (mockPendingRegistrations.has(email)) {
+          throw new ApiError('Bad request', 400, {
+            detail: 'Verify your email before signing in. Check your inbox for the link.',
+          })
+        }
         throw new ApiError('Bad request', 400, { email: 'No account found with this email.' })
       }
     } else {
       username =
         Object.keys(s.profiles).find((u) => u.toLowerCase() === usernameIn.toLowerCase()) || ''
       if (!username) {
+        if (
+          [...mockPendingRegistrations.values()].some(
+            (p) => p.username.toLowerCase() === usernameIn.toLowerCase(),
+          )
+        ) {
+          throw new ApiError('Bad request', 400, {
+            detail: 'Verify your email before signing in. Check your inbox for the link.',
+          })
+        }
         throw new ApiError('Bad request', 400, { username: 'No account found with this username.' })
       }
     }
     if (mockPasswordFor(username) !== password) {
       throw new ApiError('Unauthorized', 401, {
         detail: 'No active account found with the given credentials',
+      })
+    }
+    const prof = s.profiles[username]
+    if (!prof.is_staff && !prof.email_verified) {
+      throw new ApiError('Bad request', 400, {
+        detail: 'Verify your email before signing in. Check your inbox for the link.',
       })
     }
     s.currentUser = username
@@ -3837,34 +3884,29 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (Object.keys(s.profiles).some((k) => k.toLowerCase() === u.toLowerCase())) {
       throw new ApiError('Bad request', 400, { username: ['Username is already taken.'] })
     }
+    if (
+      [...mockPendingRegistrations.values()].some(
+        (p) => p.username.toLowerCase() === u.toLowerCase() && p.email !== email,
+      )
+    ) {
+      throw new ApiError('Bad request', 400, { username: ['Username is already taken.'] })
+    }
     if (Object.values(s.profiles).some((p) => p.email?.toLowerCase() === email)) {
       throw new ApiError('Bad request', 400, { email: ['Email is already registered.'] })
     }
-    s.profiles[u] = {
-      username: u,
+    const pending: MockPendingRegistration = {
       email,
-      user_type: data.user_type || 'normal',
-      display_name: u,
-      bio: '',
-      region: '',
-      city: '',
-      country_code: '',
+      username: u,
+      password,
       birth_year: birthYear,
-      preferred_currency: '',
-      avatar: null,
-      email_verified: false,
-      is_private: false,
-      posts_visibility: 'public',
-      allow_messages: true,
-      show_in_search: true,
+      user_type: data.user_type || 'normal',
+      token: '',
     }
-    setMockPassword(u, password)
-    createMockVerificationToken(u)
-    saveState(s)
-    const user_id = Object.keys(s.profiles).indexOf(u) + 1
+    createMockPendingToken(pending)
     return {
-      detail: 'Account created. Check your email (or console in dev) to verify.',
-      user_id,
+      detail:
+        'Check your email (or console in dev) to verify — your account is created only after you confirm.',
+      email,
       username: u,
     }
   }
@@ -3883,11 +3925,53 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!uuidOk) {
       throw new ApiError('Bad request', 400, { detail: 'invalid token' })
     }
+
+    const pending = [...mockPendingRegistrations.values()].find((p) => p.token === raw)
+    if (pending) {
+      if (Object.keys(s.profiles).some((k) => k.toLowerCase() === pending.username.toLowerCase())) {
+        throw new ApiError('Bad request', 400, {
+          detail: 'Username is no longer available. Register again.',
+        })
+      }
+      if (Object.values(s.profiles).some((p) => p.email?.toLowerCase() === pending.email)) {
+        throw new ApiError('Bad request', 400, { detail: 'Email is already registered.' })
+      }
+      s.profiles[pending.username] = {
+        username: pending.username,
+        email: pending.email,
+        user_type: pending.user_type,
+        display_name: pending.username,
+        bio: '',
+        region: '',
+        city: '',
+        country_code: '',
+        birth_year: pending.birth_year,
+        preferred_currency: '',
+        avatar: null,
+        email_verified: true,
+        is_private: false,
+        posts_visibility: 'public',
+        allow_messages: true,
+        show_in_search: true,
+      }
+      setMockPassword(pending.username, pending.password)
+      mockPendingRegistrations.delete(pending.email)
+      s.currentUser = pending.username
+      saveState(s)
+      return {
+        detail: 'Email verified. Your account is ready.',
+        ...issueMockTokens(pending.username),
+      }
+    }
+
     const username = mockVerificationTokens.get(raw)
     if (!username || !s.profiles[username]) {
       throw new ApiError('invalid or expired token', 400, { detail: 'invalid or expired token' })
     }
     s.profiles[username].email_verified = true
+    if (!s.profiles[username].display_name) {
+      s.profiles[username].display_name = username
+    }
     mockVerificationTokens.delete(raw)
     s.currentUser = username
     saveState(s)
@@ -3896,21 +3980,28 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accounts/resend-verification/' && method === 'POST') {
     let username = s.currentUser
+    let emailHint = ''
     if (isJsonBody(init.body)) {
       const body = JSON.parse(init.body) as { email?: string }
       const email = (body.email || '').trim().toLowerCase()
       if (email) {
+        emailHint = email
         username =
           Object.keys(s.profiles).find((u) => s.profiles[u].email?.toLowerCase() === email) || null
       }
     }
+    if (emailHint && mockPendingRegistrations.has(emailHint)) {
+      createMockPendingToken(mockPendingRegistrations.get(emailHint)!)
+      return {
+        detail: 'If an account exists and is unverified, we sent a verification email.',
+      }
+    }
     if (username && s.profiles[username] && !s.profiles[username].email_verified) {
       createMockVerificationToken(username)
+      return { detail: 'Verification email sent.' }
     }
     return {
-      detail: username
-        ? 'Verification email sent.'
-        : 'If an account exists and is unverified, we sent a verification email.',
+      detail: 'If an account exists and is unverified, we sent a verification email.',
     }
   }
 
@@ -7238,6 +7329,52 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   // ---- Public announcement (home banner) ----
   if (pathname === '/api/accounts/announcement/' && method === 'GET') {
     return { active: false, title: '', body: '' }
+  }
+
+  // ---- Explore recommended places (usage-ranked chips) ----
+  if (pathname === '/api/explore/recommended-places/' && method === 'GET') {
+    const country = (q.get('country') || '').trim().toUpperCase()
+    if (country.length !== 2) {
+      throw new ApiError('Bad request', 400, { detail: 'country query param (ISO 2-letter) is required.' })
+    }
+    const limitRaw = Number(q.get('limit') || 6)
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(12, limitRaw)) : 6
+    const { townCentresForCountry } = await import('../lib/exploreNearPoint')
+    const places = townCentresForCountry(country)
+      .slice(0, limit)
+      .map((t, i) => ({
+        label: t.label,
+        region: t.region || '',
+        latitude: t.latitude,
+        longitude: t.longitude,
+        score: Math.max(0, (limit - i) * 3),
+        listing_count: Math.max(0, limit - i),
+        booking_count: 0,
+        chip_click_count: 0,
+        search_count: 0,
+        is_pinned: false,
+      }))
+    return { country, places }
+  }
+
+  if (pathname === '/api/explore/place-signals/' && method === 'POST') {
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const body = JSON.parse(init.body) as { country?: string; label?: string; kind?: string }
+    const country = (body.country || '').trim().toUpperCase()
+    const label = (body.label || '').trim()
+    const kind = (body.kind || '').trim().toLowerCase()
+    if (country.length !== 2) {
+      throw new ApiError('Bad request', 400, { detail: 'country is required (ISO 2-letter).' })
+    }
+    if (!label) {
+      throw new ApiError('Bad request', 400, { detail: 'label is required.' })
+    }
+    if (!['chip_click', 'search', 'near_point'].includes(kind)) {
+      throw new ApiError('Bad request', 400, { detail: 'kind must be chip_click, search, or near_point.' })
+    }
+    return { ok: true }
   }
 
   // ---- Home stories (highlights row) ----

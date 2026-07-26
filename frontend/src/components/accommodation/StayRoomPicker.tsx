@@ -46,13 +46,13 @@ function resolveRoomImage(room: ListingRoomOption, fallbackCoverSrc?: string | n
 function RoomTicketMedia({
   src,
   photoCount,
-  badge,
+  badges,
   detailPath,
   name,
 }: {
   src: string | null
   photoCount: number
-  badge: string | null
+  badges: string[]
   detailPath: string
   name: string
 }) {
@@ -61,7 +61,15 @@ function RoomTicketMedia({
 
   return (
     <Link className="stay-rooms__media" to={detailPath} aria-label={`View ${name}`}>
-      {badge ? <span className="stay-rooms__badge">{badge}</span> : null}
+      {badges.length > 0 ? (
+        <span className="stay-rooms__badges">
+          {badges.map((badge) => (
+            <span key={badge} className="stay-rooms__badge">
+              {badge}
+            </span>
+          ))}
+        </span>
+      ) : null}
       {photoCount > 1 ? (
         <span className="stay-rooms__count">
           <Images size={11} strokeWidth={2.25} aria-hidden />
@@ -110,8 +118,17 @@ export function StayRoomPicker({
           const price = displayPrice(room)
           const compareAt = room.compareAtPrice?.trim() ? formatDisplayMoney(room.compareAtPrice.trim(), exploreDisplayCurrency()) : null
           const onSale = Boolean(compareAt && price && compareAt !== price)
-          const badge =
-            room.badge?.trim() || (onSale ? 'On sale' : room.featured ? 'Featured' : null)
+          const hostBadges = (room.badges?.length ? room.badges : room.badge ? [room.badge] : [])
+            .map((b) => b.trim())
+            .filter(Boolean)
+          const badges =
+            hostBadges.length > 0
+              ? hostBadges
+              : onSale
+                ? ['On sale']
+                : room.featured
+                  ? ['Featured']
+                  : []
           const photoCount = galleryImages.length
           const detailPath = `/accommodation/${listingId}/room/${encodeURIComponent(room.name)}`
 
@@ -142,7 +159,7 @@ export function StayRoomPicker({
               <RoomTicketMedia
                 src={imageSrc}
                 photoCount={photoCount}
-                badge={badge}
+                badges={badges}
                 detailPath={detailPath}
                 name={room.name}
               />

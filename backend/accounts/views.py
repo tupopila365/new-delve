@@ -21,7 +21,9 @@ from .mail import (
     PASSWORD_RESET_SENT_MESSAGE,
     VERIFICATION_SENT_MESSAGE,
     can_resend_verification,
+    refresh_pending_registration_token,
     send_password_reset_email,
+    send_pending_verification_email,
     send_verification_email,
 )
 
@@ -36,6 +38,7 @@ from .models import (
     EmailVerificationToken,
     ListingSale,
     PasswordResetToken,
+    PendingRegistration,
     Profile,
     TravelOffer,
     User,
@@ -78,15 +81,38 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
             try:
                 user = User.objects.get(email__iexact=email)
             except User.DoesNotExist as exc:
+                if PendingRegistration.objects.filter(email__iexact=email).exists():
+                    raise serializers.ValidationError(
+                        {
+                            "detail": "Verify your email before signing in. Check your inbox for the link.",
+                        }
+                    ) from exc
                 raise serializers.ValidationError({"email": "No account found with this email."}) from exc
         else:
             try:
                 user = User.objects.get(username__iexact=username)
             except User.DoesNotExist as exc:
+                if PendingRegistration.objects.filter(username__iexact=username).exists():
+                    raise serializers.ValidationError(
+                        {
+                            "detail": "Verify your email before signing in. Check your inbox for the link.",
+                        }
+                    ) from exc
                 raise serializers.ValidationError({"username": "No account found with this username."}) from exc
         attrs[self.username_field] = user.get_username()
         attrs["password"] = password
-        return super().validate(attrs)
+        data = super().validate(attrs)
+        authenticated = self.user
+        # Delve admins (staff) may sign in without email verification.
+        if authenticated.is_staff or authenticated.is_superuser:
+            return data
+        if not getattr(authenticated.profile, "email_verified", False):
+            raise serializers.ValidationError(
+                {
+                    "detail": "Verify your email before signing in. Check your inbox for the link.",
+                }
+            )
+        return data
 
 
 class RegisterThrottle(AnonRateThrottle):
@@ -112,7 +138,10 @@ class CheckUsernameView(APIView):
                 {"available": False, "detail": "Query must be at least 2 characters."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        taken = User.objects.filter(username__iexact=q).exists()
+        taken = (
+            User.objects.filter(username__iexact=q).exists()
+            or PendingRegistration.objects.filter(username__iexact=q).exists()
+        )
         return Response({"available": not taken, "username": q})
 
 
@@ -124,20 +153,38 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        send_verification_email(user, request=request)
+        pending = serializer.save()
+        send_pending_verification_email(pending, request=request)
         if settings.DEBUG and "console" in settings.EMAIL_BACKEND:
-            detail = "Account created. Check your email (or console in dev) to verify."
+            detail = "Check your email (or console in dev) to verify — your account is created only after you confirm."
         else:
-            detail = "Account created. Check your email to verify."
+            detail = "Check your email to verify — your account is created only after you confirm."
         return Response(
             {
                 "detail": detail,
-                "user_id": user.id,
-                "username": user.username,
+                "email": pending.email,
+                "username": pending.username,
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+def _activate_pending_registration(pending: PendingRegistration) -> User:
+    """Create the real User only after email confirmation."""
+    if User.objects.filter(username__iexact=pending.username).exists():
+        raise serializers.ValidationError({"detail": "Username is no longer available. Register again."})
+    if User.objects.filter(email__iexact=pending.email).exists():
+        raise serializers.ValidationError({"detail": "Email is already registered."})
+    user = User(username=pending.username, email=pending.email)
+    user.password = pending.password_hash
+    user.save()
+    profile = user.profile
+    profile.user_type = pending.user_type
+    profile.birth_year = pending.birth_year
+    profile.email_verified = True
+    profile.save()
+    pending.delete()
+    return user
 
 
 class VerifyEmailView(APIView):
@@ -153,6 +200,28 @@ class VerifyEmailView(APIView):
             UUID(str(raw))
         except ValueError:
             return Response({"detail": "invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        pending = PendingRegistration.objects.filter(token=raw).first()
+        if pending:
+            if pending.is_expired():
+                return Response({"detail": "invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                user = _activate_pending_registration(pending)
+            except serializers.ValidationError as exc:
+                detail = exc.detail
+                if isinstance(detail, dict):
+                    return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+            refresh = RefreshToken.for_user(user)
+            return Response(
+                {
+                    "detail": "Email verified. Your account is ready.",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                }
+            )
+
+        # Legacy path: User already existed and only needed email_verified flipped.
         t = EmailVerificationToken.objects.filter(token=raw, used=False).select_related("user").first()
         if not t or t.is_expired():
             return Response({"detail": "invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
@@ -189,11 +258,17 @@ class ResendVerificationView(APIView):
         email = (request.data.get("email") or "").strip().lower()
         if not email:
             return Response({"detail": "email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        pending = PendingRegistration.objects.filter(email__iexact=email).first()
+        if pending:
+            pending = refresh_pending_registration_token(pending)
+            send_pending_verification_email(pending, request=request)
+            return Response({"detail": VERIFICATION_SENT_MESSAGE})
+
         user = User.objects.filter(email__iexact=email).first()
         if user and can_resend_verification(user):
             send_verification_email(user, request=request)
         return Response({"detail": VERIFICATION_SENT_MESSAGE})
-
 
 def _can_request_password_reset(user: User) -> bool:
     if not user.is_active:

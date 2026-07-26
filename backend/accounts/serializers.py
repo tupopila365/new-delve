@@ -1,5 +1,7 @@
 import re
+import uuid
 
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.utils.text import slugify
 from rest_framework import serializers
@@ -10,6 +12,7 @@ from .models import (
     BusinessType,
     BusinessVerificationDocument,
     ListingSale,
+    PendingRegistration,
     Profile,
     TravelOffer,
     User,
@@ -57,9 +60,14 @@ class RegisterSerializer(serializers.Serializer):
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError("Username is already taken.")
+        # Same email re-register may keep the pending username; other pendings block.
+        pending = PendingRegistration.objects.filter(username__iexact=value).first()
+        if pending and pending.email.lower() != (self.initial_data.get("email") or "").strip().lower():
+            raise serializers.ValidationError("Username is already taken.")
         return value
 
     def validate_email(self, value):
+        value = value.strip().lower()
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Email is already registered.")
         return value
@@ -75,16 +83,26 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError(str(exc)) from exc
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            email=validated_data["email"],
-            password=validated_data["password"],
+        from django.utils import timezone
+
+        email = validated_data["email"].strip().lower()
+        username = validated_data["username"]
+        # Drop any other pending that held this username under a different email.
+        PendingRegistration.objects.filter(username__iexact=username).exclude(email__iexact=email).delete()
+        pending, created = PendingRegistration.objects.update_or_create(
+            email=email,
+            defaults={
+                "username": username,
+                "password_hash": make_password(validated_data["password"]),
+                "birth_year": validated_data["birth_year"],
+                "user_type": validated_data["user_type"],
+                "token": uuid.uuid4(),
+            },
         )
-        profile = user.profile
-        profile.user_type = validated_data["user_type"]
-        profile.birth_year = validated_data["birth_year"]
-        profile.save(update_fields=["user_type", "birth_year"])
-        return user
+        if not created:
+            PendingRegistration.objects.filter(pk=pending.pk).update(created_at=timezone.now())
+            pending.refresh_from_db()
+        return pending
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):

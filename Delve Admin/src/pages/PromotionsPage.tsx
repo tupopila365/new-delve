@@ -230,6 +230,9 @@ export function PromotionsPage() {
         subtitle={`${requestQueue.length} awaiting review · ${liveCount} live · ${campaigns.length} total`}
         action={
           <>
+            <Link to="/admin/promotions/packages" className="da-btn da-btn--ghost">
+              Boost packages
+            </Link>
             <Link to="/admin/home-pins" className="da-btn da-btn--ghost">
               Home pins
             </Link>

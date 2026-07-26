@@ -100,7 +100,7 @@ export function ExploreNearPointControl({ className = '', onPointSet }: Props) {
       </div>
 
       {towns.length > 0 ? (
-        <div className="explore-near__towns" role="list" aria-label="Town centres">
+        <div className="explore-near__towns" role="list" aria-label="Recommended places">
           {towns.map((town) => (
             <button
               key={town.label}

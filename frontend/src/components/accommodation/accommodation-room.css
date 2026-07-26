@@ -31,9 +31,15 @@
   margin-bottom: 14px;
 }
 
+.acc-room-booking__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
 .acc-room-booking__badge {
   display: inline-block;
-  margin-bottom: 8px;
   padding: 4px 9px;
   border-radius: 6px;
   background: rgba(201, 123, 107, 0.22);

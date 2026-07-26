@@ -16,6 +16,7 @@ import type {
   HomePin,
   HomeStoryChannel,
   HomeStorySlide,
+  ExplorePlacePin,
   ModerationItem,
   PlatformOverview,
   PlatformSettings,
@@ -26,6 +27,7 @@ import type {
 import {
   HOME_STORY_CHANNELS,
   HOME_STORY_SOURCE_TYPES,
+  MAX_EXPLORE_PLACE_PINS,
   MAX_HOME_PINS,
   MAX_HOME_STORY_SLIDES,
 } from '../api/types'
@@ -213,6 +215,26 @@ const RESOLUTIONS_LABEL: Record<string, string> = {
 let homePinIdCounter = 1
 let mockHomePins: HomePin[] = []
 
+let explorePlacePinIdCounter = 1
+let mockExplorePlacePins: ExplorePlacePin[] = []
+
+const MOCK_EXPLORE_PRESETS: Record<string, Array<{ label: string; region: string; latitude: number; longitude: number }>> = {
+  NA: [
+    { label: 'Windhoek', region: 'Khomas', latitude: -22.5609, longitude: 17.0658 },
+    { label: 'Swakopmund', region: 'Erongo', latitude: -22.6783, longitude: 14.5261 },
+    { label: 'Walvis Bay', region: 'Erongo', latitude: -22.9575, longitude: 14.5053 },
+    { label: 'Etosha', region: 'Oshikoto', latitude: -18.8556, longitude: 16.3297 },
+  ],
+  ZA: [
+    { label: 'Cape Town', region: 'Western Cape', latitude: -33.9249, longitude: 18.4241 },
+    { label: 'Johannesburg', region: 'Gauteng', latitude: -26.2041, longitude: 28.0473 },
+    { label: 'Durban', region: 'KwaZulu-Natal', latitude: -29.8587, longitude: 31.0218 },
+  ],
+  BW: [
+    { label: 'Gaborone', region: 'South-East', latitude: -24.6282, longitude: 25.9231 },
+    { label: 'Maun', region: 'North-West', latitude: -19.9833, longitude: 23.4167 },
+  ],
+}
 let homeStorySlideIdCounter = 1
 let mockHomeStorySlides: HomeStorySlide[] = []
 let mockHomeStoryChannels: HomeStoryChannel[] = HOME_STORY_CHANNELS.map((c) => ({
@@ -731,8 +753,121 @@ const PLACEMENT_LABELS: Record<string, string> = {
   homepage_guides: 'Homepage — Featured guides',
   homepage_food: 'Homepage — Featured food',
   homepage_events: 'Homepage — Featured events',
+  homepage_transport: 'Homepage — Featured transport',
+  category_spotlight: 'Category list — Hero spotlight',
   delvers_feed: 'Delvers feed — Sponsored',
   community_feed: 'Community feed — Sponsored',
+}
+
+type MockPromotionProduct = {
+  id: number
+  slug: string
+  name: string
+  description: string
+  placement: string
+  placement_label: string
+  region: string
+  duration_days: number
+  price_cents: number
+  price_display: string
+  currency: string
+  is_active: boolean
+  is_provider_purchasable: boolean
+  created_at: string
+  updated_at: string
+}
+
+let promotionProductIdCounter = 5
+let mockPromotionProducts: MockPromotionProduct[] = [
+  {
+    id: 1,
+    slug: 'homepage_stays_7d_national',
+    name: 'Homepage featured 7 days — Stays — National',
+    description: 'Featured on the Delve homepage stays rail',
+    placement: 'homepage_stays',
+    placement_label: PLACEMENT_LABELS.homepage_stays,
+    region: '',
+    duration_days: 7,
+    price_cents: 250_000,
+    price_display: 'N$2,500.00',
+    currency: 'NAD',
+    is_active: true,
+    is_provider_purchasable: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    slug: 'homepage_food_7d_erongo',
+    name: 'Homepage featured 7 days — Food — Erongo',
+    description: 'Featured on the homepage food rail',
+    placement: 'homepage_food',
+    placement_label: PLACEMENT_LABELS.homepage_food,
+    region: 'Erongo',
+    duration_days: 7,
+    price_cents: 180_000,
+    price_display: 'N$1,800.00',
+    currency: 'NAD',
+    is_active: true,
+    is_provider_purchasable: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 3,
+    slug: 'homepage_transport_7d_national',
+    name: 'Homepage featured 7 days — Transport — National',
+    description: 'Featured on the homepage transport rail',
+    placement: 'homepage_transport',
+    placement_label: PLACEMENT_LABELS.homepage_transport,
+    region: '',
+    duration_days: 7,
+    price_cents: 200_000,
+    price_display: 'N$2,000.00',
+    currency: 'NAD',
+    is_active: true,
+    is_provider_purchasable: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    slug: 'delvers_feed_7d_national',
+    name: 'Sponsored 7 days — Delvers feed — National',
+    description: 'Sponsored slot in the Delvers feed',
+    placement: 'delvers_feed',
+    placement_label: PLACEMENT_LABELS.delvers_feed,
+    region: '',
+    duration_days: 7,
+    price_cents: 120_000,
+    price_display: 'N$1,200.00',
+    currency: 'NAD',
+    is_active: true,
+    is_provider_purchasable: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
+
+function formatMockMoney(cents: number, currency = 'NAD') {
+  const amount = (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return currency === 'NAD' ? `N$${amount}` : `${currency} ${amount}`
+}
+
+function serializeMockProduct(p: MockPromotionProduct): MockPromotionProduct {
+  return {
+    ...p,
+    placement_label: PLACEMENT_LABELS[p.placement] || p.placement,
+    price_display: formatMockMoney(p.price_cents, p.currency),
+    is_provider_purchasable: [
+      'homepage_stays',
+      'homepage_guides',
+      'homepage_food',
+      'homepage_events',
+      'homepage_transport',
+      'delvers_feed',
+    ].includes(p.placement),
+  }
 }
 
 const PLACEMENT_MAX: Record<string, number> = {
@@ -1787,6 +1922,143 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
     return undefined
   }
 
+  if (pathname === '/api/accounts/admin/explore-place-pins' && method === 'GET') {
+    requireStaff()
+    const country = (params.get('country') || '').trim().toUpperCase()
+    const countries = Array.from(
+      new Set([...Object.keys(MOCK_EXPLORE_PRESETS), ...mockExplorePlacePins.map((p) => p.country_code)]),
+    ).sort()
+    if (country.length !== 2) {
+      return { max_pins: MAX_EXPLORE_PLACE_PINS, countries, pins: [], presets: [] }
+    }
+    const pins = mockExplorePlacePins
+      .filter((p) => p.country_code === country)
+      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+    return {
+      country,
+      max_pins: MAX_EXPLORE_PLACE_PINS,
+      countries,
+      pins,
+      presets: MOCK_EXPLORE_PRESETS[country] || [],
+    }
+  }
+
+  if (pathname === '/api/accounts/admin/explore-place-pins' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      country: string
+      label: string
+      region?: string
+      latitude?: number
+      longitude?: number
+      is_active?: boolean
+    }
+    const country = (body.country || '').trim().toUpperCase()
+    const label = (body.label || '').trim()
+    if (country.length !== 2) throw new ApiError('Bad request', 400, { detail: 'country is required (ISO 2-letter).' })
+    if (!label) throw new ApiError('Bad request', 400, { detail: 'label is required.' })
+    const preset = (MOCK_EXPLORE_PRESETS[country] || []).find(
+      (p) => p.label.toLowerCase() === label.toLowerCase(),
+    )
+    if (!preset && (body.latitude == null || body.longitude == null)) {
+      throw new ApiError('Bad request', 400, {
+        detail: 'latitude and longitude are required for non-preset places.',
+      })
+    }
+    const is_active = body.is_active !== false
+    if (is_active) {
+      const activeCount = mockExplorePlacePins.filter((p) => p.country_code === country && p.is_active).length
+      if (activeCount >= MAX_EXPLORE_PLACE_PINS) {
+        throw new ApiError('Bad request', 400, {
+          detail: `At most ${MAX_EXPLORE_PLACE_PINS} active Explore pins per country.`,
+        })
+      }
+    }
+    const maxOrder = mockExplorePlacePins
+      .filter((p) => p.country_code === country)
+      .reduce((m, p) => Math.max(m, p.sort_order), -1)
+    const now = new Date().toISOString()
+    const row: ExplorePlacePin = {
+      id: explorePlacePinIdCounter++,
+      country_code: country,
+      label: preset?.label || label,
+      region: body.region?.trim() || preset?.region || '',
+      latitude: Number(body.latitude ?? preset?.latitude ?? 0),
+      longitude: Number(body.longitude ?? preset?.longitude ?? 0),
+      sort_order: maxOrder + 1,
+      is_active,
+      created_by_username: currentUser,
+      created_at: now,
+      updated_at: now,
+    }
+    mockExplorePlacePins = [...mockExplorePlacePins, row]
+    pushAudit(`Explore place pin created — ${country}:${row.label}`, 'system')
+    return row
+  }
+
+  if (pathname === '/api/accounts/admin/explore-place-pins/reorder' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as { country: string; ordered_ids: number[] }
+    const country = (body.country || '').trim().toUpperCase()
+    const orderedIds = body.ordered_ids || []
+    orderedIds.forEach((id, index) => {
+      const idx = mockExplorePlacePins.findIndex((p) => p.id === id && p.country_code === country)
+      if (idx >= 0) {
+        mockExplorePlacePins[idx] = {
+          ...mockExplorePlacePins[idx],
+          sort_order: index,
+          updated_at: new Date().toISOString(),
+        }
+      }
+    })
+    pushAudit(`Explore place pins reordered — ${country}`, 'system')
+    return mockExplorePlacePins
+      .filter((p) => p.country_code === country)
+      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+  }
+
+  const explorePinDetailMatch = pathname.match(/^\/api\/accounts\/admin\/explore-place-pins\/(\d+)$/)
+  if (explorePinDetailMatch && method === 'PATCH') {
+    requireStaff()
+    const id = Number(explorePinDetailMatch[1])
+    const idx = mockExplorePlacePins.findIndex((p) => p.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as Partial<ExplorePlacePin>
+    if (body.is_active === true && !mockExplorePlacePins[idx].is_active) {
+      const activeCount = mockExplorePlacePins.filter(
+        (p) => p.country_code === mockExplorePlacePins[idx].country_code && p.is_active && p.id !== id,
+      ).length
+      if (activeCount >= MAX_EXPLORE_PLACE_PINS) {
+        throw new ApiError('Bad request', 400, {
+          detail: `At most ${MAX_EXPLORE_PLACE_PINS} active Explore pins per country.`,
+        })
+      }
+    }
+    mockExplorePlacePins[idx] = {
+      ...mockExplorePlacePins[idx],
+      label: body.label ?? mockExplorePlacePins[idx].label,
+      region: body.region ?? mockExplorePlacePins[idx].region,
+      latitude: body.latitude ?? mockExplorePlacePins[idx].latitude,
+      longitude: body.longitude ?? mockExplorePlacePins[idx].longitude,
+      sort_order: body.sort_order ?? mockExplorePlacePins[idx].sort_order,
+      is_active: body.is_active ?? mockExplorePlacePins[idx].is_active,
+      updated_at: new Date().toISOString(),
+    }
+    pushAudit(`Explore place pin updated — ${mockExplorePlacePins[idx].label}`, 'system')
+    return mockExplorePlacePins[idx]
+  }
+
+  if (explorePinDetailMatch && method === 'DELETE') {
+    requireStaff()
+    const id = Number(explorePinDetailMatch[1])
+    const idx = mockExplorePlacePins.findIndex((p) => p.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const label = mockExplorePlacePins[idx].label
+    mockExplorePlacePins = mockExplorePlacePins.filter((p) => p.id !== id)
+    pushAudit(`Explore place pin removed — ${label}`, 'system')
+    return undefined
+  }
+
   const refreshStoryChannels = () => {
     mockHomeStoryChannels = mockHomeStoryChannels.map((c) => ({
       ...c,
@@ -1969,6 +2241,100 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
     if (statusFilter) rows = rows.filter((c) => c.status === statusFilter)
     if (placement) rows = rows.filter((c) => c.placement === placement)
     return rows.sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())
+  }
+
+  if (pathname === '/api/accounts/admin/promotion-products' && method === 'GET') {
+    requireStaff()
+    let rows = mockPromotionProducts.map(serializeMockProduct)
+    const placement = params.get('placement')
+    const active = (params.get('active') || '').toLowerCase()
+    if (placement) rows = rows.filter((p) => p.placement === placement)
+    if (active === '1' || active === 'true' || active === 'yes') rows = rows.filter((p) => p.is_active)
+    if (active === '0' || active === 'false' || active === 'no') rows = rows.filter((p) => !p.is_active)
+    return rows
+  }
+
+  if (pathname === '/api/accounts/admin/promotion-products' && method === 'POST') {
+    requireStaff()
+    const body = JSON.parse(String(init.body)) as {
+      name: string
+      description?: string
+      placement: string
+      region?: string
+      duration_days: number
+      price_cents: number
+      currency?: string
+      slug?: string
+      is_active?: boolean
+    }
+    const region = (body.region || '').trim()
+    const slugRegion = region ? region.toLowerCase().replace(/\s+/g, '-') : 'national'
+    const slug =
+      (body.slug || '').trim() ||
+      `${body.placement}_${Number(body.duration_days) || 7}d_${slugRegion}`
+    if (mockPromotionProducts.some((p) => p.slug === slug)) {
+      throw new ApiError('Bad request', 400, { slug: ['Slug is already in use.'] })
+    }
+    const now = new Date().toISOString()
+    const row: MockPromotionProduct = {
+      id: promotionProductIdCounter++,
+      slug,
+      name: body.name.trim(),
+      description: (body.description || '').trim(),
+      placement: body.placement,
+      placement_label: PLACEMENT_LABELS[body.placement] || body.placement,
+      region,
+      duration_days: Number(body.duration_days) || 7,
+      price_cents: Number(body.price_cents) || 0,
+      price_display: '',
+      currency: (body.currency || 'NAD').toUpperCase(),
+      is_active: body.is_active !== false,
+      is_provider_purchasable: true,
+      created_at: now,
+      updated_at: now,
+    }
+    mockPromotionProducts = [row, ...mockPromotionProducts]
+    pushAudit(`Promotion package created — ${row.name}`, 'promotion')
+    return serializeMockProduct(row)
+  }
+
+  const promotionProductDetail = pathname.match(/^\/api\/accounts\/admin\/promotion-products\/(\d+)$/)
+  if (promotionProductDetail && method === 'PATCH') {
+    requireStaff()
+    const id = Number(promotionProductDetail[1])
+    const idx = mockPromotionProducts.findIndex((p) => p.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const body = JSON.parse(String(init.body)) as Partial<MockPromotionProduct>
+    const current = mockPromotionProducts[idx]
+    const next: MockPromotionProduct = {
+      ...current,
+      name: body.name ?? current.name,
+      description: body.description ?? current.description,
+      placement: body.placement ?? current.placement,
+      region: body.region ?? current.region,
+      duration_days: body.duration_days ?? current.duration_days,
+      price_cents: body.price_cents ?? current.price_cents,
+      currency: body.currency ?? current.currency,
+      slug: body.slug ?? current.slug,
+      is_active: body.is_active ?? current.is_active,
+      updated_at: new Date().toISOString(),
+    }
+    mockPromotionProducts[idx] = next
+    pushAudit(`Promotion package updated — ${next.name}`, 'promotion')
+    return serializeMockProduct(next)
+  }
+  if (promotionProductDetail && method === 'DELETE') {
+    requireStaff()
+    const id = Number(promotionProductDetail[1])
+    const idx = mockPromotionProducts.findIndex((p) => p.id === id)
+    if (idx < 0) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    mockPromotionProducts[idx] = {
+      ...mockPromotionProducts[idx],
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    }
+    pushAudit(`Promotion package deactivated — ${mockPromotionProducts[idx].name}`, 'promotion')
+    return serializeMockProduct(mockPromotionProducts[idx])
   }
 
   if (pathname === '/api/accounts/admin/promotions/conflicts' && method === 'GET') {

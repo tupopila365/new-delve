@@ -174,8 +174,8 @@ export function Register() {
           </div>
           <p className="auth-page__field-hint">
             {isProvider
-              ? 'You’ll verify email, then finish business onboarding. You can also upgrade later in Settings.'
-              : 'You can become a provider later from Settings — no need to decide forever now.'}
+              ? 'You’ll verify by email first (account is created only after you confirm), then finish business onboarding.'
+              : 'You’ll verify by email before your account is created. You can become a provider later from Settings.'}
           </p>
         </div>
 

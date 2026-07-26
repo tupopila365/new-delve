@@ -57,15 +57,15 @@
   padding: 3px 8px;
   border-radius: 999px;
   background: rgba(12, 10, 9, 0.85);
-  color: var(--manage-ink);
+  color: #faf8f4;
 }
 
 .stay-card__badge--draft {
-  color: var(--manage-ink);
+  color: #faf8f4;
 }
 
 .stay-card__badge--hidden {
-  color: var(--manage-ink-soft);
+  color: #ebe6dc;
 }
 
 .stay-card__badge--boost {
@@ -190,8 +190,9 @@
 .stay-form__backdrop {
   position: absolute;
   inset: 0;
+  z-index: 0;
   border: none;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.55);
   cursor: pointer;
 }
 
@@ -208,7 +209,8 @@
   border: 1px solid var(--manage-line, #ddd6ca);
   color: var(--manage-ink, #1a1814);
   box-shadow: 0 20px 50px rgba(26, 24, 20, 0.18);
-  overflow: hidden;
+  /* Clip rounded corners on head/foot only ? avoid clipping section pills */
+  overflow: clip;
 }
 
 @media (min-width: 640px) {
@@ -219,6 +221,7 @@
 }
 
 .stay-form__head {
+  flex-shrink: 0;
   padding: 16px 16px 0;
 }
 
@@ -237,34 +240,66 @@
 }
 
 .stay-form__nav {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 12px 16px;
-  scrollbar-width: none;
+  /* Outer pad keeps pills clear of panel clip; scroll lives on the track */
+  flex-shrink: 0;
+  padding: 10px 16px 14px;
+  overflow: visible;
 }
 
-.stay-form__nav::-webkit-scrollbar {
+.stay-form__nav-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stay-form__nav-track::-webkit-scrollbar {
   display: none;
 }
 
 .stay-form__nav-btn {
   flex-shrink: 0;
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid var(--manage-line);
-  background: var(--manage-card);
-  color: var(--manage-ink-soft);
+  border: 1px solid var(--manage-line, #ddd6ca);
+  background: var(--manage-card, #ffffff);
+  color: var(--manage-ink-soft, #3d3933);
   font-size: 0.78rem;
   font-weight: 600;
   font-family: inherit;
+  line-height: 1.25;
+  white-space: nowrap;
   cursor: pointer;
 }
 
+.stay-form__nav-num {
+  font-size: 0.68rem;
+  font-weight: 800;
+  opacity: 0.65;
+}
+
 .stay-form__nav-btn--active {
-  background: var(--manage-ink);
-  border-color: var(--manage-ink);
-  color: var(--manage-paper);
+  background: var(--manage-ink, #1a1814);
+  border-color: var(--manage-ink, #1a1814);
+  color: var(--manage-paper, #faf8f4);
+}
+
+.stay-form__nav-btn--active .stay-form__nav-num {
+  opacity: 1;
+}
+
+.stay-form__nav-btn--done:not(.stay-form__nav-btn--active) {
+  border-color: var(--manage-ink-soft, #3d3933);
+  color: var(--manage-ink, #1a1814);
 }
 
 .stay-form__error {
@@ -278,6 +313,7 @@
 
 .stay-form__body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0 16px 16px;
 }
@@ -368,6 +404,76 @@
   color: var(--manage-ink);
 }
 
+.stay-form__chip--custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stay-form__chip--custom span {
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.stay-form__amenity-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.stay-form__amenity-add .stay-form__field {
+  flex: 1;
+  min-width: 160px;
+}
+
+.stay-form__amenity-add-btn {
+  flex-shrink: 0;
+  min-height: 42px;
+}
+
+.stay-form__list-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stay-form__list-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--manage-ink-soft, #3d3933);
+}
+
+.stay-form__rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stay-form__rule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--manage-line-soft, #ebe6dc);
+  background: var(--manage-paper, #faf8f4);
+  color: var(--manage-ink, #1a1814);
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.stay-form__rule-item span {
+  flex: 1;
+  min-width: 0;
+}
+
 .stay-form__subcard {
   padding: 12px;
   border-radius: 12px;
@@ -421,12 +527,32 @@
 }
 
 .stay-form__foot {
+  flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--manage-line-soft, #ebe6dc);
+  background: var(--manage-paper, #faf8f4);
+}
+
+.stay-form__foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--manage-line-soft);
-  background: rgba(0, 0, 0, 0.2);
+  margin-left: auto;
+}
+
+.stay-form__foot-hint {
+  margin: 0;
+  width: 100%;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--manage-muted, #6f695f);
 }
 
 /* Stories panel */
@@ -736,4 +862,46 @@ button.prov-ui__shortcut {
   font-size: 0.8rem;
   line-height: 1.45;
   color: var(--manage-muted);
+}
+
+/* Stay photo editor ? light manage theme overrides for listing-photos */
+.stay-photo-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stay-photo-editor__head strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--manage-ink, #1a1814);
+}
+
+.stay-photo-editor__head p {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--manage-muted, #6f695f);
+}
+
+.stay-form .listing-photos__tile {
+  background: var(--manage-paper, #faf8f4);
+  box-shadow: inset 0 0 0 1px var(--manage-line, #ddd6ca);
+}
+
+.stay-form .listing-photos__add {
+  border: 1px dashed var(--manage-ink-soft, #3d3933);
+  background: var(--manage-paper, #faf8f4);
+  color: var(--manage-ink, #1a1814);
+}
+
+.stay-form .listing-photos__add:hover {
+  background: var(--manage-chip, #efeae1);
+  border-color: var(--manage-ink, #1a1814);
+}
+
+.stay-form .listing-photos__hint,
+.stay-form .listing-photos__empty {
+  color: var(--manage-muted, #6f695f);
 }

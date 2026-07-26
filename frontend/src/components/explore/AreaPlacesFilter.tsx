@@ -206,7 +206,7 @@ export function AreaPlacesFilter({
           ) : null}
         </div>
         {towns.length > 0 ? (
-          <div className="area-places__towns" role="list" aria-label="Popular towns">
+          <div className="area-places__towns" role="list" aria-label="Recommended places">
             {towns.slice(0, 6).map((town) => (
               <button
                 key={town.label}

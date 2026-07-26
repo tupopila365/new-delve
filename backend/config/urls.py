@@ -25,6 +25,7 @@ urlpatterns = [
     path("api/payments/", include("payments.urls")),
     path("api/search/", include("config.search_urls")),
     path("api/home/", include("config.home_urls")),
+    path("api/explore/", include("config.explore_urls")),
 ]
 
 if settings.DEBUG or settings.SERVE_LOCAL_MEDIA:

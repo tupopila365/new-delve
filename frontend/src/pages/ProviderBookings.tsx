@@ -175,15 +175,14 @@ export function ProviderBookings() {
         ariaLabel="Filter by status"
       />
 
-      <label className="prov-ui__search">
-        <span className="sr-only">Search bookings</span>
-        <input
-          type="search"
-          placeholder="Search guest or service…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </label>
+      <input
+        type="search"
+        className="prov-ui__search"
+        placeholder="Search guest or service…"
+        aria-label="Search bookings"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
       {bookings.length === 0 ? (
         <ProviderUiEmpty

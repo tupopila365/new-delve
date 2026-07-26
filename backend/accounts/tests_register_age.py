@@ -1,17 +1,23 @@
-"""Registration requires birth year (18+)."""
+"""Registration requires birth year (18+). Account is pending until email verify."""
 
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.age_gate import MIN_ACCOUNT_AGE, max_birth_year_for_min_age
+from accounts.models import PendingRegistration
 from accounts.views import RegisterView
 
 User = get_user_model()
 
+_EMAIL_TEST_SETTINGS = {
+    "EMAIL_BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+}
 
+
+@override_settings(**_EMAIL_TEST_SETTINGS)
 class RegisterAgeGateTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -57,11 +63,13 @@ class RegisterAgeGateTests(TestCase):
         self.assertIn("birth_year", res.data)
         self.assertIn(str(MIN_ACCOUNT_AGE), str(res.data["birth_year"]))
 
-    def test_register_accepts_adult_and_saves_birth_year(self):
+    def test_register_accepts_adult_and_saves_pending_not_user(self):
         res = self.client.post("/api/accounts/register/", self._payload(), format="json")
         self.assertEqual(res.status_code, 201)
-        user = User.objects.get(username="new_traveller")
-        self.assertEqual(user.profile.birth_year, self.adult_year)
+        self.assertFalse(User.objects.filter(username="new_traveller").exists())
+        pending = PendingRegistration.objects.get(email="new@test.local")
+        self.assertEqual(pending.username, "new_traveller")
+        self.assertEqual(pending.birth_year, self.adult_year)
 
     def test_register_rejects_future_year(self):
         res = self.client.post(

@@ -39,3 +39,7 @@ class ResendVerificationThrottle(AnonRateThrottle):
 
 class AccountDeleteThrottle(UserRateThrottle):
     scope = "account_delete"
+
+
+class PlaceSignalThrottle(AnonRateThrottle):
+    scope = "place_signal"

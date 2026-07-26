@@ -626,15 +626,75 @@ export const PLACEMENT_OPTIONS = [
   { value: 'homepage_guides', label: 'Homepage — Featured guides', targetType: 'guide', listingType: 'guide', maxSlots: 2, defaultLabel: 'Featured Partner' },
   { value: 'homepage_food', label: 'Homepage — Featured food', targetType: 'food', listingType: 'food', maxSlots: 2, defaultLabel: 'Featured Partner' },
   { value: 'homepage_events', label: 'Homepage — Featured events', targetType: 'event', listingType: 'event', maxSlots: 2, defaultLabel: 'Featured Partner' },
+  { value: 'homepage_transport', label: 'Homepage — Featured transport', targetType: 'vehicle', listingType: 'vehicle', maxSlots: 2, defaultLabel: 'Featured Partner' },
   { value: 'category_spotlight', label: 'Category list — Hero spotlight', targetType: 'food', listingType: 'food', maxSlots: 1, defaultLabel: 'Featured Partner' },
   { value: 'delvers_feed', label: 'Delvers feed — Sponsored', targetType: 'post', listingType: 'post', maxSlots: 2, defaultLabel: 'Sponsored' },
   { value: 'community_feed', label: 'Community feed — Sponsored', targetType: 'post', listingType: 'community', maxSlots: 2, defaultLabel: 'Sponsored' },
 ] as const
 
+/** Packages hosts can purchase — managed under Boost packages. */
+export const PACKAGE_PLACEMENT_OPTIONS = [
+  { value: 'homepage_stays', label: 'Homepage — Featured stays', shortLabel: 'Stays' },
+  { value: 'homepage_guides', label: 'Homepage — Featured guides', shortLabel: 'Guides' },
+  { value: 'homepage_food', label: 'Homepage — Featured food', shortLabel: 'Food' },
+  { value: 'homepage_events', label: 'Homepage — Featured events', shortLabel: 'Events' },
+  { value: 'homepage_transport', label: 'Homepage — Featured transport', shortLabel: 'Transport' },
+  { value: 'delvers_feed', label: 'Delvers feed — Sponsored', shortLabel: 'Delvers' },
+] as const
+
+export type PromotionProduct = {
+  id: number
+  slug: string
+  name: string
+  description: string
+  placement: string
+  placement_label: string
+  region: string
+  duration_days: number
+  price_cents: number
+  price_display: string
+  currency: string
+  is_active: boolean
+  is_provider_purchasable?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 /** Homepage rails only — editorial pins (max 2 active per rail). */
 export const HOME_PIN_PLACEMENTS = PLACEMENT_OPTIONS.filter((p) => p.value.startsWith('homepage_'))
 
 export const MAX_HOME_PINS = 2
+
+export const MAX_EXPLORE_PLACE_PINS = 2
+
+export type ExplorePlacePin = {
+  id: number
+  country_code: string
+  label: string
+  region: string
+  latitude: number
+  longitude: number
+  sort_order: number
+  is_active: boolean
+  created_by_username: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ExplorePlacePinPreset = {
+  label: string
+  region: string
+  latitude: number
+  longitude: number
+}
+
+export type ExplorePlacePinsResponse = {
+  country?: string
+  max_pins: number
+  countries: string[]
+  pins: ExplorePlacePin[]
+  presets: ExplorePlacePinPreset[]
+}
 
 export const FEED_TARGET_TYPES = [
   { value: 'post', label: 'Social post' },

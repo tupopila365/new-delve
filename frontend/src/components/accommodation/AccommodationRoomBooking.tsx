@@ -36,9 +36,18 @@ function roomPricing(room: ListingRoomOption) {
   const onSale = compareAt != null && price != null && compareAt > price + 0.001
   const discountPct =
     onSale && compareAt && price ? Math.round((1 - price / compareAt) * 100) : null
-  const badge =
-    room.badge?.trim() || (onSale && discountPct ? `${discountPct}% off` : room.featured ? 'Special' : null)
-  return { price, compareAt, onSale, discountPct, badge }
+  const hostBadges = (room.badges?.length ? room.badges : room.badge ? [room.badge] : [])
+    .map((b) => b.trim())
+    .filter(Boolean)
+  const badges =
+    hostBadges.length > 0
+      ? hostBadges
+      : onSale && discountPct
+        ? [`${discountPct}% off`]
+        : room.featured
+          ? ['Special']
+          : []
+  return { price, compareAt, onSale, discountPct, badges }
 }
 
 export function AccommodationRoomBooking({
@@ -154,7 +163,15 @@ export function AccommodationRoomBooking({
       <p className="acc-room-booking__kicker">Request this room</p>
 
       <div className="acc-room-booking__price-block">
-        {pricing.badge ? <span className="acc-room-booking__badge">{pricing.badge}</span> : null}
+        {pricing.badges.length > 0 ? (
+          <span className="acc-room-booking__badges">
+            {pricing.badges.map((badge) => (
+              <span key={badge} className="acc-room-booking__badge">
+                {badge}
+              </span>
+            ))}
+          </span>
+        ) : null}
         <div className="acc-room-booking__price-row">
           {pricing.onSale && pricing.compareAt != null ? (
             <span className="acc-room-booking__was">{format(pricing.compareAt)}</span>

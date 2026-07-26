@@ -4,6 +4,41 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def seed_initial_promotion_products(apps, schema_editor):
+    """Historical seed — must not import the live PromotionProduct model."""
+    PromotionProduct = apps.get_model("promotions", "PromotionProduct")
+    placements = {
+        "homepage_stays": ("Stays", 250_000),
+        "homepage_guides": ("Guides", 200_000),
+        "homepage_food": ("Food", 180_000),
+        "homepage_events": ("Events", 150_000),
+        "delvers_feed": ("Delvers feed", 120_000),
+    }
+    regions = ["", "Khomas", "Erongo"]
+    duration_days = 7
+    for placement, (vertical, price_cents) in placements.items():
+        for region in regions:
+            slug_region = region.lower().replace(" ", "-") if region else "national"
+            slug = f"{placement}_{duration_days}d_{slug_region}"
+            region_label = region or "National"
+            if placement == "delvers_feed":
+                name = f"Sponsored {duration_days} days — Delvers feed — {region_label}"
+            else:
+                name = f"Homepage featured {duration_days} days — {vertical} — {region_label}"
+            PromotionProduct.objects.get_or_create(
+                slug=slug,
+                defaults={
+                    "name": name,
+                    "placement": placement,
+                    "region": region,
+                    "duration_days": duration_days,
+                    "price_cents": price_cents,
+                    "currency": "NAD",
+                    "is_active": True,
+                },
+            )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -91,9 +126,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='campaigns', to='promotions.promotionproduct'),
         ),
         migrations.RunPython(
-            lambda apps, schema_editor: __import__(
-                "promotions.product_seed", fromlist=["seed_promotion_products"]
-            ).seed_promotion_products(),
+            seed_initial_promotion_products,
             migrations.RunPython.noop,
         ),
     ]

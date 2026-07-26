@@ -57,7 +57,17 @@ export function ListingRoomPicker({
           const price = displayPrice(room)
           const compareAt = room.compareAtPrice?.trim() ? formatDisplayMoney(room.compareAtPrice.trim(), exploreDisplayCurrency()) : null
           const onSale = Boolean(compareAt && price && compareAt !== price)
-          const badge = room.badge?.trim() || (onSale ? 'On sale' : room.featured ? 'Special' : null)
+          const hostBadges = (room.badges?.length ? room.badges : room.badge ? [room.badge] : [])
+            .map((b) => b.trim())
+            .filter(Boolean)
+          const badges =
+            hostBadges.length > 0
+              ? hostBadges
+              : onSale
+                ? ['On sale']
+                : room.featured
+                  ? ['Special']
+                  : []
           const photoCount = galleryImages.length
           const detailPath =
             listingType === 'accommodation'
@@ -79,7 +89,15 @@ export function ListingRoomPicker({
                 }
                 aria-label={`View details and ${photoCount} photos of ${room.name}`}
               >
-                {badge ? <span className="listing-rooms__badge">{badge}</span> : null}
+                {badges.length > 0 ? (
+                  <span className="listing-rooms__badges">
+                    {badges.map((badge) => (
+                      <span key={badge} className="listing-rooms__badge">
+                        {badge}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
                 {photoCount > 1 ? (
                   <span className="listing-rooms__count">
                     <Images size={11} strokeWidth={2.25} aria-hidden />

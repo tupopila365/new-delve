@@ -14,9 +14,13 @@ import {
   StayListingForm,
   StayMonetizationSection,
   StayStoriesPanel,
-  formToApiPayload,
+  buildStayListingApiPayload,
+  nextIncompleteStayFormStep,
+  nextStayFormStep,
   stayListingToForm,
   type ProviderStayListing,
+  type StayFormStepId,
+  type StayListingSaveMode,
 } from '../components/provider/stays'
 import {
   ProviderUiChips,
@@ -109,6 +113,7 @@ export function StaysAdmin() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
+  const [formStep, setFormStep] = useState<StayFormStepId>('basics')
   const [form, setForm] = useState(EMPTY_STAY_LISTING_FORM)
   const [formErr, setFormErr] = useState('')
 
@@ -237,27 +242,36 @@ export function StaysAdmin() {
   }, [listings, reviewQueries])
 
   const saveMut = useMutation({
-    mutationFn: async () => {
-      const body = formToApiPayload(form)
-      if (editId) {
-        return apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${editId}/`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
-        })
-      }
-      return apiFetch<ProviderStayListing>('/api/accommodation/provider-listings/', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
+    mutationFn: async (mode: StayListingSaveMode) => {
+      const body = await buildStayListingApiPayload(form)
+      const saved = editId
+        ? await apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${editId}/`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+          })
+        : await apiFetch<ProviderStayListing>('/api/accommodation/provider-listings/', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          })
+      return { saved, mode, fromStep: formStep }
     },
-    onSuccess: () => {
+    onSuccess: ({ saved, mode, fromStep }) => {
       void qc.invalidateQueries({ queryKey: ['provider-stays'] })
       void qc.invalidateQueries({ queryKey: ['accommodation'] })
       void qc.invalidateQueries({ queryKey: ['acc'] })
+      setEditId(saved.id)
+      setForm(stayListingToForm(saved))
+      setFormErr('')
+      if (mode === 'continue') {
+        const next = nextStayFormStep(fromStep)
+        setFormStep(next ?? fromStep)
+        setShowForm(true)
+        return
+      }
       setShowForm(false)
       setEditId(null)
       setForm(EMPTY_STAY_LISTING_FORM)
-      setFormErr('')
+      setFormStep('basics')
     },
     onError: (e: Error) => setFormErr(friendlyApiMessage(e)),
   })
@@ -298,17 +312,28 @@ export function StaysAdmin() {
     analytics?.pending_requests ?? bookings.filter((b) => b.status === 'pending').length
   const missingPhotos = listings.filter((l) => !l.cover_image).length
 
+  const closeForm = () => {
+    setShowForm(false)
+    setEditId(null)
+    setForm(EMPTY_STAY_LISTING_FORM)
+    setFormStep('basics')
+    setFormErr('')
+  }
+
   const openCreate = () => {
     setEditId(null)
     setForm(EMPTY_STAY_LISTING_FORM)
+    setFormStep('basics')
     setShowForm(true)
     setFormErr('')
     setTab('listings')
   }
 
-  const openEdit = (stay: ProviderStayListing) => {
+  const openEdit = (stay: ProviderStayListing, step?: StayFormStepId) => {
+    const values = stayListingToForm(stay)
     setEditId(stay.id)
-    setForm(stayListingToForm(stay))
+    setForm(values)
+    setFormStep(step ?? nextIncompleteStayFormStep(values))
     setShowForm(true)
     setFormErr('')
   }
@@ -437,7 +462,8 @@ export function StaysAdmin() {
                   stay={stay}
                   canEdit={canManageListings}
                   boost={boostByListingId.get(stay.id) ?? null}
-                  onEdit={() => openEdit(stay)}
+                  onEdit={() => openEdit(stay, 'basics')}
+                  onContinue={() => openEdit(stay)}
                   onManageHighlights={() => {
                     setHighlightListingId(stay.id)
                     setTab('highlights')
@@ -529,13 +555,10 @@ export function StaysAdmin() {
           saving={saveMut.isPending}
           isEdit={Boolean(editId)}
           listingId={editId}
-          onSubmit={() => saveMut.mutate()}
-          onCancel={() => {
-            setShowForm(false)
-            setEditId(null)
-            setForm(EMPTY_STAY_LISTING_FORM)
-            setFormErr('')
-          }}
+          step={formStep}
+          onStepChange={setFormStep}
+          onSave={(mode) => saveMut.mutate(mode)}
+          onCancel={closeForm}
         />
       ) : null}
     </ProviderUiPage>

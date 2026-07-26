@@ -132,6 +132,18 @@ def normalize_room_type(row) -> dict:
         compare_at = None
 
     badge = str(row.get("badge") or row.get("special_label") or "").strip() or None
+    badges: list[str] = []
+    raw_badges = row.get("badges")
+    if isinstance(raw_badges, (list, tuple)):
+        for item in raw_badges:
+            text = str(item or "").strip()[:40]
+            if text and text.lower() not in {b.lower() for b in badges}:
+                badges.append(text)
+            if len(badges) >= 8:
+                break
+    if not badges and badge:
+        badges = [badge]
+    badge = badges[0] if badges else None
 
     return {
         "name": name,
@@ -141,6 +153,7 @@ def normalize_room_type(row) -> dict:
         "bed_summary": str(row.get("bed_summary") or "").strip(),
         "price_per_night": price,
         "compare_at_price": compare_at,
+        "badges": badges,
         "badge": badge,
         "featured": bool(row.get("featured") or row.get("is_featured")),
         "image": image or None,
@@ -254,6 +267,23 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         if value is None:
             return ""
         return str(value).strip()
+
+    def validate_house_rules(self, value):
+        if value in (None, ""):
+            return []
+        if isinstance(value, str):
+            # Legacy clients may still send newline-joined text.
+            return [line.strip() for line in value.splitlines() if line.strip()][:40]
+        if not isinstance(value, list):
+            raise serializers.ValidationError("house_rules must be a list of strings.")
+        out: list[str] = []
+        for item in value:
+            text = str(item or "").strip()
+            if text:
+                out.append(text[:160])
+            if len(out) >= 40:
+                break
+        return out
 
     def validate_room_types(self, value):
         if value in (None, ""):

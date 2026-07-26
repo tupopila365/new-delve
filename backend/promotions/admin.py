@@ -7,7 +7,7 @@ from promotions.models import PromotionCampaign, PromotionProduct
 class PromotionProductAdmin(admin.ModelAdmin):
     list_display = ("name", "placement", "region", "duration_days", "price_cents", "currency", "is_active")
     list_filter = ("placement", "is_active")
-    search_fields = ("name", "slug", "region")
+    search_fields = ("name", "slug", "region", "description")
 
 
 @admin.register(PromotionCampaign)

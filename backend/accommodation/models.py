@@ -88,7 +88,11 @@ class AccommodationListing(models.Model):
         default="10:00",
         help_text="Latest check-out (24h), e.g. 10:00",
     )
-    house_rules = models.TextField(blank=True, help_text="One rule per line is supported in the UI.")
+    house_rules = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='House rules as a list of strings, e.g. ["No smoking", "Quiet hours after 22:00"].',
+    )
     cancellation_policy = models.TextField(blank=True)
     faqs = models.JSONField(
         default=list,
@@ -106,8 +110,9 @@ class AccommodationListing(models.Model):
         help_text=(
             "Room/unit categories. Each item supports: name (required), description, "
             "max_guests, bedrooms, bed_summary, price_per_night, compare_at_price "
-            "(strike-through 'was' price for a sale), badge (short sale/special label), "
-            "featured (bool), image (cover URL), images (gallery URLs)."
+            "(strike-through 'was' price for a sale), badges (list of short sale/special "
+            "labels; legacy 'badge' string still accepted), featured (bool), image "
+            "(cover URL), images (gallery URLs)."
         ),
     )
     rating_avg = models.DecimalField(

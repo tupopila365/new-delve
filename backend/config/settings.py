@@ -192,6 +192,7 @@ REST_FRAMEWORK = {
         "password_reset_confirm": "10/hour",
         "resend_verification": "5/hour",
         "account_delete": "3/day",
+        "place_signal": "120/hour",
     },
 }
 

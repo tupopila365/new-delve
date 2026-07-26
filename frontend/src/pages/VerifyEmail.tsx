@@ -104,7 +104,7 @@ export function VerifyEmail() {
     ? `Verify your email to ${reason}. Paste the token below, or open the link from your email.`
     : hint
       ? `We sent a link to ${hint}. Paste the token below, or open the link from your email.`
-      : 'Confirm your email to unlock bookings and provider tools. You can browse and sign in before verifying.'
+      : 'Confirm your email to create your account. You can browse Delve, but you cannot sign in until you verify.'
 
   return (
     <AuthScreen

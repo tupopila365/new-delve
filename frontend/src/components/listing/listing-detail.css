@@ -301,11 +301,19 @@
   color: var(--listing-text-subtle);
 }
 
-.listing-rooms__badge {
+.listing-rooms__badges {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 16px);
+}
+
+.listing-rooms__badge {
+  position: static;
   padding: 4px 8px;
   border-radius: 999px;
   background: rgba(255, 138, 61, 0.92);

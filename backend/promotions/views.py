@@ -934,6 +934,8 @@ class PromotionProductSerializer(serializers.ModelSerializer):
 
     price_display = serializers.SerializerMethodField()
 
+    description = serializers.SerializerMethodField()
+
 
 
     class Meta:
@@ -944,6 +946,7 @@ class PromotionProductSerializer(serializers.ModelSerializer):
             "id",
             "slug",
             "name",
+            "description",
             "placement",
             "placement_label",
             "region",
@@ -958,6 +961,15 @@ class PromotionProductSerializer(serializers.ModelSerializer):
     def get_price_display(self, obj) -> str:
 
         return format_money(obj.price_cents, obj.currency)
+
+
+
+    def get_description(self, obj) -> str:
+        if (obj.description or "").strip():
+            return obj.description.strip()
+        from promotions.product_admin_views import _default_description
+
+        return _default_description(obj.placement)
 
 
 

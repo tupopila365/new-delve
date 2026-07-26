@@ -16,11 +16,13 @@ type Props = {
   stay: ProviderStayListing
   canEdit?: boolean
   onEdit: () => void
+  /** Resume incomplete listing at the next unfinished step. */
+  onContinue?: () => void
   onManageHighlights?: () => void
   boost?: StayBoostStatus | null
 }
 
-export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights, boost }: Props) {
+export function StayListingCard({ stay, canEdit, onEdit, onContinue, onManageHighlights, boost }: Props) {
   const { format } = useDisplayMoney()
   const { percent, missing } = listingCompleteness(stay)
   const cover = stay.cover_image ? mediaUrl(stay.cover_image) || stay.cover_image : null
@@ -29,6 +31,7 @@ export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights, boo
   const photoCount = (stay.media_gallery?.length ?? 0) + (stay.cover_image ? 1 : 0)
   const highlightCount = stay.listing_stories?.length ?? 0
   const boostHref = `/provider/promotions?listing=accommodation:${stay.id}&placement=homepage_stays`
+  const resume = Boolean(canEdit && percent < 100 && onContinue)
 
   return (
     <article className="prov-ui__card stay-card">
@@ -83,9 +86,18 @@ export function StayListingCard({ stay, canEdit, onEdit, onManageHighlights, boo
       </div>
 
       <div className="stay-card__actions">
+        {resume ? (
+          <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onContinue}>
+            Continue setup
+          </button>
+        ) : null}
         {canEdit ? (
-          <button type="button" className="prov-ui__btn prov-ui__btn--primary" onClick={onEdit}>
-            Edit
+          <button
+            type="button"
+            className={`prov-ui__btn ${resume ? 'prov-ui__btn--ghost' : 'prov-ui__btn--primary'}`}
+            onClick={onEdit}
+          >
+            {resume ? 'Edit all' : 'Edit'}
           </button>
         ) : null}
         {canEdit ? (

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 from urllib.parse import urlparse
 
@@ -9,7 +10,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
-from .models import BusinessProfile, EmailVerificationToken, PasswordResetToken, User, VerificationStatus
+from .models import BusinessProfile, EmailVerificationToken, PasswordResetToken, PendingRegistration, User, VerificationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -109,12 +110,46 @@ def send_verification_email(user: User, request: Any | None = None) -> EmailVeri
     return token
 
 
+def send_pending_verification_email(
+    pending: PendingRegistration, request: Any | None = None
+) -> PendingRegistration:
+    frontend = resolve_frontend_url(request)
+    verify_url = f"{frontend}/verify-email?token={pending.token}"
+    context = {
+        "username": pending.username,
+        "verify_url": verify_url,
+        "token": str(pending.token),
+        "expires_hours": VERIFICATION_EXPIRES_HOURS,
+    }
+    delivered = deliver_mail(
+        subject="Verify your DELVE account",
+        message=render_to_string("emails/verify_email.txt", context).strip(),
+        html_message=render_to_string("emails/verify_email.html", context),
+        recipient_list=[pending.email],
+    )
+    if not delivered:
+        logger.error("Verification email not delivered for pending email=%s", pending.email)
+    return pending
+
+
 def can_resend_verification(user: User) -> bool:
     if not user.is_active:
         return False
     if user.username.startswith("deleted_"):
         return False
     return not getattr(user.profile, "email_verified", False)
+
+
+def refresh_pending_registration_token(pending: PendingRegistration) -> PendingRegistration:
+    """Issue a fresh verify link and extend the pending window."""
+    from django.utils import timezone
+
+    PendingRegistration.objects.filter(pk=pending.pk).update(
+        token=uuid.uuid4(),
+        created_at=timezone.now(),
+    )
+    pending.refresh_from_db()
+    return pending
 
 
 def send_password_reset_email(user: User, request: Any | None = None) -> PasswordResetToken:

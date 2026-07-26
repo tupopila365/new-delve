@@ -27,6 +27,8 @@ export type ListingRoomOption = {
   fallbackPrice?: string | null
   image?: string | null
   images?: ListingGalleryItem[]
+  badges?: string[]
+  /** @deprecated Prefer badges */
   badge?: string | null
   featured?: boolean
   bookHref: string

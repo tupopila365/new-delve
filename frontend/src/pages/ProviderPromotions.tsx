@@ -22,6 +22,7 @@ type PromotionProduct = {
   id: number
   slug: string
   name: string
+  description?: string
   placement: string
   placement_label: string
   region: string
@@ -108,11 +109,12 @@ const FEED_TARGET_TYPES = [
   { value: 'bus_trip', label: 'Bus trip' },
 ] as const
 
-const PLACEMENT_TARGET: Record<string, string> = {
+const PLACEMENT_TARGET: Record<string, string | string[]> = {
   homepage_stays: 'accommodation',
   homepage_guides: 'guide',
   homepage_food: 'food',
   homepage_events: 'event',
+  homepage_transport: ['vehicle', 'bus_trip'],
   delvers_feed: 'post',
 }
 
@@ -146,11 +148,13 @@ function statusPillClass(status: string) {
   return 'prov-ui__pill'
 }
 
-function placementBlurb(placement: string) {
+function placementBlurb(placement: string, description?: string) {
+  if (description?.trim()) return description.trim()
   if (placement === 'homepage_stays') return 'Featured on the Delve homepage stays rail'
   if (placement === 'homepage_guides') return 'Featured on the homepage guides rail'
   if (placement === 'homepage_food') return 'Featured on the homepage food rail'
   if (placement === 'homepage_events') return 'Featured on the homepage events rail'
+  if (placement === 'homepage_transport') return 'Featured on the homepage transport rail'
   if (placement === 'category_spotlight') return 'Hero spotlight on the category list'
   if (placement === 'delvers_feed') return 'Sponsored slot in the Delvers feed'
   return 'Featured placement across Delve'
@@ -212,6 +216,9 @@ export function ProviderPromotions() {
       return listings.filter((l) => l.target_type === formTargetType)
     }
     const type = PLACEMENT_TARGET[selectedProduct.placement]
+    if (Array.isArray(type)) {
+      return listings.filter((l) => type.includes(l.target_type))
+    }
     return listings.filter((l) => l.target_type === type)
   }, [listings, selectedProduct, formTargetType, isFeedProduct])
 
@@ -229,7 +236,8 @@ export function ProviderPromotions() {
     if (selectedProduct && isFeedProduct) {
       setFormTargetType('post')
     } else if (selectedProduct && !isFeedProduct) {
-      setFormTargetType(PLACEMENT_TARGET[selectedProduct.placement] ?? 'accommodation')
+      const type = PLACEMENT_TARGET[selectedProduct.placement]
+      setFormTargetType(Array.isArray(type) ? type[0] : type ?? 'accommodation')
     }
   }, [selectedProduct, isFeedProduct])
 
@@ -487,6 +495,10 @@ export function ProviderPromotions() {
             <div className="boost-packages">
               {productsLoading ? (
                 <p className="prov-ui__muted">Loading packages…</p>
+              ) : products.length === 0 ? (
+                <p className="prov-ui__muted">
+                  No boost packages are published yet. Delve Admin can create them under Boost packages.
+                </p>
               ) : (
                 products.map((p) => (
                   <button
@@ -496,7 +508,7 @@ export function ProviderPromotions() {
                     onClick={() => setProductId(p.id)}
                   >
                     <strong>{p.name}</strong>
-                    <span>{placementBlurb(p.placement)}</span>
+                    <span>{placementBlurb(p.placement, p.description)}</span>
                     <em>
                       {p.price_display} · {p.duration_days} days
                       {p.region ? ` · ${p.region}` : ' · National'}

@@ -12,11 +12,13 @@ import { EmailVerificationPage } from './pages/EmailVerificationPage'
 import { ListingsPage } from './pages/ListingsPage'
 import { LoginPage } from './pages/LoginPage'
 import { HomePinsPage } from './pages/HomePinsPage'
+import { ExplorePlacesPage } from './pages/ExplorePlacesPage'
 import { HomeStoriesPage } from './pages/HomeStoriesPage'
 import { PaymentsPage } from './pages/PaymentsPage'
 import { DisputesPage } from './pages/DisputesPage'
 import { ReviewsModerationPage } from './pages/ReviewsModerationPage'
 import { PromotionsAnalyticsPage } from './pages/PromotionsAnalyticsPage'
+import { PromotionPackagesPage } from './pages/PromotionPackagesPage'
 import { PromotionsPage } from './pages/PromotionsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -54,8 +56,10 @@ function AppRoutes() {
         <Route path="businesses" element={<BusinessesPage />} />
         <Route path="listings" element={<ListingsPage />} />
         <Route path="promotions" element={<PromotionsPage />} />
+        <Route path="promotions/packages" element={<PromotionPackagesPage />} />
         <Route path="promotions/analytics" element={<PromotionsAnalyticsPage />} />
         <Route path="home-pins" element={<HomePinsPage />} />
+        <Route path="explore-places" element={<ExplorePlacesPage />} />
         <Route path="home-stories" element={<HomeStoriesPage />} />
         <Route path="bookings" element={<BookingsPage />} />
         <Route path="payments" element={<PaymentsPage />} />

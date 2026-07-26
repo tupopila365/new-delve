@@ -41,7 +41,7 @@ import {
   normalizeRoomTypes,
   hasValidCoords,
   parseCoord,
-  parseHouseRules,
+  normalizeHouseRules,
   propertyTypeLabel,
   resolveDirectionsUrl,
   sortAmenities,
@@ -88,7 +88,7 @@ export function AccommodationDetailView({
 
   const faqs = normalizeFaqs(data.faqs)
   const roomTypes = normalizeRoomTypes(data.room_types)
-  const rules = data.house_rules ? parseHouseRules(data.house_rules) : []
+  const rules = normalizeHouseRules(data.house_rules)
 
   const listingImages = buildListingImages(data).filter((img) => Boolean(img.src?.trim()))
   const roomOffers = buildRoomOffers(data, roomTypes, listingId)

@@ -225,7 +225,12 @@ class Command(BaseCommand):
             "Coastal guesthouse": {
                 "check_in_from": "15:00",
                 "check_out_until": "10:30",
-                "house_rules": "No smoking inside guest rooms or shared corridors.\nQuiet hours 22:00–07:00; please keep balcony doors closed after 22:00.\nRegistered guests only; visitors by arrangement with the host.\nPets allowed only when the listing is marked pet-friendly — keep dogs leashed in the garden.",
+                "house_rules": [
+                    "No smoking inside guest rooms or shared corridors.",
+                    "Quiet hours 22:00–07:00; please keep balcony doors closed after 22:00.",
+                    "Registered guests only; visitors by arrangement with the host.",
+                    "Pets allowed only when the listing is marked pet-friendly — keep dogs leashed in the garden.",
+                ],
                 "cancellation_policy": "Free cancellation until 48 hours before check-in (local time). Within 48 hours, the first night is charged. No-shows are charged for the full booked stay.",
                 "faqs": [
                     {
@@ -281,7 +286,11 @@ class Command(BaseCommand):
             "Independence Ave Hotel": {
                 "check_in_from": "14:00",
                 "check_out_until": "11:00",
-                "house_rules": "No parties or events in rooms.\nExtra guests beyond the booking must be registered at reception.\nPool area closes at 21:00.",
+                "house_rules": [
+                    "No parties or events in rooms.",
+                    "Extra guests beyond the booking must be registered at reception.",
+                    "Pool area closes at 21:00.",
+                ],
                 "cancellation_policy": "Flexible: cancel until 18:00 one day before check-in for a full refund of the demo rate. Same-day cancellations forfeit one night.",
                 "faqs": [
                     {
@@ -335,7 +344,11 @@ class Command(BaseCommand):
             "Desert Quiver Camp": {
                 "check_in_from": "15:00",
                 "check_out_until": "10:00",
-                "house_rules": "No open fires except designated fire pit.\nRespect wildlife — do not feed animals.\nGenerator curfew 22:00–06:00 (battery lights provided).",
+                "house_rules": [
+                    "No open fires except designated fire pit.",
+                    "Respect wildlife — do not feed animals.",
+                    "Generator curfew 22:00–06:00 (battery lights provided).",
+                ],
                 "cancellation_policy": "Within 7 days of arrival, 50% of the stay is retained. Within 48 hours, full stay is charged (desert logistics).",
                 "faqs": [
                     {
@@ -380,7 +393,11 @@ class Command(BaseCommand):
             "Klein Windhoek B&B": {
                 "check_in_from": "13:00",
                 "check_out_until": "11:00",
-                "house_rules": "This is a residential area — no loud music outdoors.\nBreakfast is served 07:30–09:30 in the dining room.\nOne cat lives on the property — not in guest rooms.",
+                "house_rules": [
+                    "This is a residential area — no loud music outdoors.",
+                    "Breakfast is served 07:30–09:30 in the dining room.",
+                    "One cat lives on the property — not in guest rooms.",
+                ],
                 "cancellation_policy": "Free cancellation up to 5 days before check-in. Later cancellations: first two nights retained.",
                 "faqs": [
                     {

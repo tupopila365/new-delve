@@ -1,6 +1,16 @@
 import type { ListingFaqItem } from '../../listing/types'
 import type { HighlightChannelInput } from '../../highlights'
 import { parseCoord } from '../../../utils/placeMap'
+import { normalizeHouseRules, normalizeRoomBadges } from '../../../utils/accommodationListing'
+import {
+  formatGalleryUrlsField,
+  isVideoUrl,
+  parseGalleryUrlsField,
+} from '../../listing/photos/listingGalleryMedia'
+import {
+  resolveStayPhotosForSave,
+  resolveStayRoomMediaForSave,
+} from './stayPhotosCloudinary'
 
 export const PROPERTY_TYPES = [
   { value: 'hotel', label: 'Hotel' },
@@ -28,6 +38,24 @@ export const AMENITY_OPTIONS = [
   'Workspace',
 ] as const
 
+/** Suggested room sale/special badges — hosts can also add custom labels. */
+export const ROOM_BADGE_OPTIONS = [
+  'Deal',
+  'Popular',
+  'On sale',
+  'Early bird',
+  'Best value',
+  'Limited',
+  'New',
+  'Featured',
+] as const
+
+const ROOM_BADGE_PRESET_SET = new Set(ROOM_BADGE_OPTIONS.map((b) => b.toLowerCase()))
+
+export function isPresetRoomBadge(label: string): boolean {
+  return ROOM_BADGE_PRESET_SET.has(label.trim().toLowerCase())
+}
+
 export type StayRoomForm = {
   name: string
   description: string
@@ -36,10 +64,14 @@ export type StayRoomForm = {
   bed_summary: string
   price_per_night: string
   compare_at_price: string
-  badge: string
+  badges: string[]
   featured: boolean
+  /** Cover media URL (image or video). */
   image: string
+  image_file?: File | null
+  /** Extra gallery — newline URLs or JSON when videos are present. */
   images: string
+  gallery_files?: File[]
 }
 
 export type StayListingFormValues = {
@@ -66,10 +98,12 @@ export type StayListingFormValues = {
   amenities: string[]
   check_in_from: string
   check_out_until: string
-  house_rules: string
+  house_rules: string[]
   cancellation_policy: string
   cover_image_url: string
+  cover_image_file?: File | null
   gallery_urls: string
+  gallery_files?: File[]
   faqs: ListingFaqItem[]
   room_types: StayRoomForm[]
 }
@@ -88,7 +122,7 @@ export const EMPTY_STAY_LISTING_FORM: StayListingFormValues = {
   price_per_night: '',
   max_guests: 2,
   bedrooms: 1,
-  is_active: true,
+  is_active: false,
   wifi: false,
   parking: false,
   pool: false,
@@ -98,10 +132,12 @@ export const EMPTY_STAY_LISTING_FORM: StayListingFormValues = {
   amenities: [],
   check_in_from: '14:00',
   check_out_until: '10:00',
-  house_rules: '',
+  house_rules: [],
   cancellation_policy: '',
   cover_image_url: '',
+  cover_image_file: null,
   gallery_urls: '',
+  gallery_files: [],
   faqs: [],
   room_types: [],
 }
@@ -127,7 +163,7 @@ export type ProviderStayListing = {
   listing_stories?: HighlightChannelInput[]
   check_in_from?: string
   check_out_until?: string
-  house_rules?: string
+  house_rules?: string[] | string
   cancellation_policy?: string
   faqs?: ListingFaqItem[]
   room_types?: unknown[]
@@ -181,15 +217,27 @@ export function booleansFromAmenities(amenities: string[]) {
 
 export function stayListingToForm(stay: ProviderStayListing): StayListingFormValues {
   const flags = booleansFromAmenities(stay.amenities ?? [])
-  const gallery = (stay.media_gallery ?? []).map((m) => m.src).join('\n')
+  const galleryItems = (stay.media_gallery ?? [])
+    .map((m) => {
+      const src = String(m.src ?? '').trim()
+      if (!src) return null
+      const kind = m.kind === 'video' || isVideoUrl(src) ? ('video' as const) : ('image' as const)
+      return { url: src, kind }
+    })
+    .filter((item): item is { url: string; kind: 'image' | 'video' } => item != null)
+  // Cover is stored separately — don't duplicate as the first gallery tile when identical.
+  const cover = (stay.cover_image ?? '').trim()
+  const galleryWithoutCover = galleryItems.filter((g) => g.url !== cover)
   const faqs = Array.isArray(stay.faqs) ? stay.faqs : []
   const rooms = Array.isArray(stay.room_types)
     ? (stay.room_types as Record<string, unknown>[]).map((r) => {
         const galleryImgs = Array.isArray(r.images)
-          ? (r.images as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+          ? (r.images as unknown[])
+              .map((x) => String(x ?? '').trim())
+              .filter(Boolean)
           : []
-        const cover = String(r.image ?? (galleryImgs[0] ?? '') ?? '')
-        const extraImgs = galleryImgs.filter((x) => x !== cover)
+        const coverImg = String(r.image ?? (galleryImgs[0] ?? '') ?? '')
+        const extraImgs = galleryImgs.filter((x) => x !== coverImg)
         return {
           name: String(r.name ?? ''),
           description: String(r.description ?? ''),
@@ -198,10 +246,17 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
           bed_summary: String(r.bed_summary ?? ''),
           price_per_night: String(r.price_per_night ?? ''),
           compare_at_price: String(r.compare_at_price ?? r.was_price ?? r.original_price ?? ''),
-          badge: String(r.badge ?? r.special_label ?? ''),
+          badges: normalizeRoomBadges(r.badges, r.badge ?? r.special_label),
           featured: r.featured === true || r.is_featured === true,
-          image: cover,
-          images: extraImgs.join('\n'),
+          image: coverImg,
+          image_file: null,
+          images: formatGalleryUrlsField(
+            extraImgs.map((url) => ({
+              url,
+              kind: isVideoUrl(url) ? ('video' as const) : ('image' as const),
+            })),
+          ),
+          gallery_files: [],
         }
       })
     : []
@@ -230,22 +285,35 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
     amenities: flags.amenities,
     check_in_from: stay.check_in_from ?? '14:00',
     check_out_until: stay.check_out_until ?? '10:00',
-    house_rules: stay.house_rules ?? '',
+    house_rules: normalizeHouseRules(stay.house_rules),
     cancellation_policy: stay.cancellation_policy ?? '',
-    cover_image_url: stay.cover_image ?? '',
-    gallery_urls: gallery,
+    cover_image_url: cover,
+    cover_image_file: null,
+    gallery_urls: formatGalleryUrlsField(galleryWithoutCover),
+    gallery_files: [],
     faqs,
     room_types: rooms,
   }
 }
 
+/** Sync payload builder — use buildStayListingApiPayload when files may still be uploading. */
 export function formToApiPayload(form: StayListingFormValues) {
   const amenities = amenitiesFromBooleans(form)
-  const galleryLines = form.gallery_urls
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-  const media_gallery = galleryLines.map((src) => ({ kind: 'image', src }))
+  const galleryItems = parseGalleryUrlsField(form.gallery_urls)
+  const cover = form.cover_image_url.trim()
+  const media_gallery = [
+    ...(cover
+      ? [
+          {
+            kind: (isVideoUrl(cover) ? 'video' : 'image') as 'image' | 'video',
+            src: cover,
+          },
+        ]
+      : []),
+    ...galleryItems
+      .filter((item) => item.url !== cover)
+      .map((item) => ({ kind: item.kind, src: item.url })),
+  ]
 
   return {
     title: form.title.trim(),
@@ -271,22 +339,19 @@ export function formToApiPayload(form: StayListingFormValues) {
     pet_friendly: form.pet_friendly,
     check_in_from: form.check_in_from,
     check_out_until: form.check_out_until,
-    house_rules: form.house_rules.trim(),
+    house_rules: form.house_rules.map((r) => r.trim()).filter(Boolean),
     cancellation_policy: form.cancellation_policy.trim(),
-    cover_image: form.cover_image_url.trim() || null,
+    cover_image: cover || null,
     media_gallery,
     faqs: form.faqs.filter((f) => f.question.trim() && f.answer.trim()),
     room_types: form.room_types
       .filter((r) => r.name.trim())
       .map((r) => {
         const image = r.image.trim()
-        const galleryImgs = r.images
-          .split('\n')
-          .map((l) => l.trim())
-          .filter(Boolean)
+        const galleryImgs = parseGalleryUrlsField(r.images).map((item) => item.url)
         const images = [...new Set([image, ...galleryImgs].filter(Boolean))]
         const compareAt = r.compare_at_price.trim()
-        const badge = r.badge.trim()
+        const badges = r.badges.map((b) => b.trim()).filter(Boolean)
         return {
           name: r.name.trim(),
           description: r.description.trim(),
@@ -296,12 +361,60 @@ export function formToApiPayload(form: StayListingFormValues) {
           price_per_night: r.price_per_night || form.price_per_night,
           featured: r.featured,
           ...(compareAt ? { compare_at_price: compareAt } : {}),
-          ...(badge ? { badge } : {}),
+          ...(badges.length ? { badges, badge: badges[0] } : {}),
           ...(image ? { image } : {}),
           ...(images.length ? { images } : {}),
         }
       }),
   }
+}
+
+/** Resolve local files to Cloudinary URLs, then build the API body. */
+export async function buildStayListingApiPayload(form: StayListingFormValues) {
+  const listingMedia = await resolveStayPhotosForSave({
+    cover_image_url: form.cover_image_url,
+    cover_image_file: form.cover_image_file,
+    gallery_urls: form.gallery_urls,
+    gallery_files: form.gallery_files,
+  })
+
+  const rooms = await Promise.all(
+    form.room_types.map(async (room) => {
+      const media = await resolveStayRoomMediaForSave({
+        cover_image_url: room.image,
+        cover_image_file: room.image_file,
+        gallery_urls: room.images,
+        gallery_files: room.gallery_files,
+      })
+      return {
+        ...room,
+        image: media.image,
+        image_file: null,
+        images: formatGalleryUrlsField(
+          media.images
+            .filter((url) => url !== media.image)
+            .map((url) => ({
+              url,
+              kind: isVideoUrl(url) ? ('video' as const) : ('image' as const),
+            })),
+        ),
+        gallery_files: [],
+      }
+    }),
+  )
+
+  return formToApiPayload({
+    ...form,
+    cover_image_url: listingMedia.cover_image,
+    cover_image_file: null,
+    gallery_urls: formatGalleryUrlsField(
+      listingMedia.media_gallery
+        .filter((item) => item.src !== listingMedia.cover_image)
+        .map((item) => ({ url: item.src, kind: item.kind })),
+    ),
+    gallery_files: [],
+    room_types: rooms,
+  })
 }
 
 export function listingCompleteness(stay: ProviderStayListing): { percent: number; missing: string[] } {
@@ -328,4 +441,96 @@ export function listingCompleteness(stay: ProviderStayListing): { percent: numbe
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)
   return { percent, missing }
+}
+
+/** Independent listing editor steps — finish one, save, resume later. */
+export const STAY_FORM_STEPS = [
+  { id: 'basics', label: 'Basics' },
+  { id: 'pricing', label: 'Capacity & pricing' },
+  { id: 'amenities', label: 'Amenities' },
+  { id: 'policies', label: 'Policies' },
+  { id: 'rooms', label: 'Rooms' },
+  { id: 'media', label: 'Photos & video' },
+  { id: 'faqs', label: 'FAQs' },
+] as const
+
+export type StayFormStepId = (typeof STAY_FORM_STEPS)[number]['id']
+
+export function isStayFormStepId(value: string | null | undefined): value is StayFormStepId {
+  return Boolean(value && STAY_FORM_STEPS.some((s) => s.id === value))
+}
+
+/** Minimum fields required to create a draft listing (API + form). */
+export function canCreateStayDraft(form: StayListingFormValues): boolean {
+  return Boolean(
+    form.title.trim() &&
+      form.description.trim() &&
+      form.price_per_night &&
+      ((form.region.trim() && form.city.trim()) ||
+        (Boolean(form.formatted_address?.trim()) &&
+          form.latitude != null &&
+          form.longitude != null)),
+  )
+}
+
+export function stayFormStepDone(form: StayListingFormValues, step: StayFormStepId): boolean {
+  switch (step) {
+    case 'basics':
+      return Boolean(
+        form.title.trim() &&
+          form.description.trim() &&
+          ((form.region.trim() && form.city.trim()) ||
+            (Boolean(form.formatted_address?.trim()) &&
+              form.latitude != null &&
+              form.longitude != null)),
+      )
+    case 'pricing':
+      return Boolean(form.price_per_night && form.max_guests > 0)
+    case 'amenities':
+      return (
+        form.amenities.length > 0 ||
+        form.wifi ||
+        form.parking ||
+        form.pool ||
+        form.kitchen ||
+        form.breakfast ||
+        form.pet_friendly
+      )
+    case 'policies':
+      return Boolean(form.check_in_from && form.check_out_until && form.cancellation_policy.trim())
+    case 'rooms':
+      return form.room_types.some((r) => r.name.trim())
+    case 'media':
+      return Boolean(form.cover_image_url.trim() || form.cover_image_file)
+    case 'faqs':
+      return form.faqs.some((f) => f.question.trim() && f.answer.trim())
+    default:
+      return false
+  }
+}
+
+export function stayFormStepDoneFromListing(stay: ProviderStayListing, step: StayFormStepId): boolean {
+  return stayFormStepDone(stayListingToForm(stay), step)
+}
+
+/** First incomplete step, or last step when everything in the editor is done. */
+export function nextIncompleteStayFormStep(
+  form: StayListingFormValues,
+  from: StayFormStepId = 'basics',
+): StayFormStepId {
+  const start = STAY_FORM_STEPS.findIndex((s) => s.id === from)
+  const ordered = [
+    ...STAY_FORM_STEPS.slice(Math.max(0, start)),
+    ...STAY_FORM_STEPS.slice(0, Math.max(0, start)),
+  ]
+  for (const step of ordered) {
+    if (!stayFormStepDone(form, step.id)) return step.id
+  }
+  return STAY_FORM_STEPS[STAY_FORM_STEPS.length - 1].id
+}
+
+export function nextStayFormStep(current: StayFormStepId): StayFormStepId | null {
+  const i = STAY_FORM_STEPS.findIndex((s) => s.id === current)
+  if (i < 0 || i >= STAY_FORM_STEPS.length - 1) return null
+  return STAY_FORM_STEPS[i + 1].id
 }

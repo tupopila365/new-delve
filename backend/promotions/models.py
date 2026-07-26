@@ -48,10 +48,15 @@ DEFAULT_SPONSORED_LABEL = "Sponsored"
 
 
 class PromotionProduct(models.Model):
-    """Purchasable promotion package."""
+    """Purchasable promotion package — created/managed by Delve Admin."""
 
     slug = models.SlugField(max_length=80, unique=True)
     name = models.CharField(max_length=255)
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Short blurb shown on the provider package picker.",
+    )
     placement = models.CharField(max_length=40, choices=PromotionPlacement.choices)
     region = models.CharField(max_length=120, blank=True, help_text="Blank = national reach.")
     duration_days = models.PositiveSmallIntegerField(default=7)
@@ -189,6 +194,7 @@ HOMEPAGE_PIN_PLACEMENTS = frozenset(
         PromotionPlacement.HOMEPAGE_GUIDES,
         PromotionPlacement.HOMEPAGE_FOOD,
         PromotionPlacement.HOMEPAGE_EVENTS,
+        PromotionPlacement.HOMEPAGE_TRANSPORT,
     }
 )
 
