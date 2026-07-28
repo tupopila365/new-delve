@@ -17,7 +17,15 @@ SECRET_KEY = os.environ.get(
     "django-insecure-dev-only-change-in-production",
 )
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in ("1", "true", "yes")
+# Fail closed: anything that looks like a deployed environment (Heroku dyno or a
+# managed database) defaults to DEBUG off, so a missing DJANGO_DEBUG config var
+# cannot expose tracebacks and settings in production.
+_DEPLOYED = bool(os.environ.get("DYNO") or os.environ.get("DATABASE_URL"))
+DEBUG = os.environ.get("DJANGO_DEBUG", "false" if _DEPLOYED else "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 ALLOWED_HOSTS = [
     h.strip()
@@ -248,6 +256,11 @@ if not DEBUG:
     )
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", str(60 * 60 * 24 * 365)))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
     if SECRET_KEY.startswith("django-insecure-"):
         raise ValueError(
             "DJANGO_SECRET_KEY must be set to a non-default value when DJANGO_DEBUG=false."

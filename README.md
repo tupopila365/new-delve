@@ -111,6 +111,7 @@ heroku run -a YOUR_API_APP python manage.py ensure_platform_admin --email you@ex
 
 ### Environment
 
+- `DJANGO_DEBUG` defaults to `true` for local dev and to `false` on deployed environments (`DYNO` or `DATABASE_URL` present).
 - `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL` (verification and password-reset links), `EMAIL_BACKEND` for real SMTP, `CLOUDINARY_URL` for verification documents.
 
 ## Features (MVP)

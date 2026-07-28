@@ -51,6 +51,19 @@ class PublicProfilePrivacyTests(TestCase):
         self.assertEqual(res.status_code, 200)
 
 
+class MeEndpointAuthTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_anonymous_me_returns_401(self):
+        res = self.client.get("/api/accounts/me/")
+        self.assertEqual(res.status_code, 401)
+
+    def test_anonymous_profile_update_returns_401(self):
+        res = self.client.patch("/api/accounts/me/update/", {"display_name": "x"}, format="json")
+        self.assertEqual(res.status_code, 401)
+
+
 class EventCreatePermissionTests(TestCase):
     def setUp(self):
         self.client = APIClient()
