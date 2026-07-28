@@ -9,14 +9,231 @@ from rest_framework.test import APIClient
 from accounts.models import BusinessProfile, Profile, UserType, VerificationStatus
 
 from .models import (
+    AccommodationAvailability,
     AccommodationBooking,
     AccommodationListing,
     AccommodationListingSave,
+    AccommodationReview,
     AccommodationRoomType,
     BookingStatus,
 )
 
 User = get_user_model()
+
+
+class AccommodationAvailabilitySearchTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.host = User.objects.create_user(
+            username="availability_host",
+            email="availability_host@test.local",
+            password="pass12345",
+        )
+        self.guest = User.objects.create_user(
+            username="availability_guest",
+            email="availability_guest@test.local",
+            password="pass12345",
+        )
+        self.check_in = date.today() + timedelta(days=20)
+        self.check_out = self.check_in + timedelta(days=2)
+        self.available_listing = AccommodationListing.objects.create(
+            owner=self.host,
+            title="Coastal Availability Lodge",
+            region="Erongo",
+            city="Swakopmund",
+            price_per_night="999.00",
+            max_guests=4,
+        )
+        self.cheap_room = AccommodationRoomType.objects.create(
+            listing=self.available_listing,
+            name="Courtyard room",
+            quantity_available=2,
+            max_guests=2,
+            price_per_night="150.00",
+        )
+        self.expensive_room = AccommodationRoomType.objects.create(
+            listing=self.available_listing,
+            name="Sea-view room",
+            quantity_available=1,
+            max_guests=2,
+            price_per_night="250.00",
+        )
+        self.sold_out_room = AccommodationRoomType.objects.create(
+            listing=self.available_listing,
+            name="Corner suite",
+            quantity_available=1,
+            max_guests=2,
+            price_per_night="300.00",
+        )
+        for room in (self.cheap_room, self.sold_out_room):
+            AccommodationBooking.objects.create(
+                listing=self.available_listing,
+                room_type=room,
+                room_type_name=room.name,
+                guest=self.guest,
+                check_in=self.check_in,
+                check_out=self.check_out,
+                guests=2,
+                total_price="300.00",
+                status=BookingStatus.CONFIRMED,
+            )
+        AccommodationAvailability.objects.create(
+            listing=self.available_listing,
+            room_type=self.cheap_room,
+            date=self.check_in,
+            price_override="100.00",
+        )
+        AccommodationAvailability.objects.create(
+            listing=self.available_listing,
+            room_type=self.cheap_room,
+            date=self.check_in + timedelta(days=1),
+            price_override="200.00",
+        )
+
+        self.unavailable_listing = AccommodationListing.objects.create(
+            owner=self.host,
+            title="Coastal Sold Out Inn",
+            region="Erongo",
+            city="Swakopmund",
+            price_per_night="80.00",
+            max_guests=2,
+        )
+        unavailable_room = AccommodationRoomType.objects.create(
+            listing=self.unavailable_listing,
+            name="Only room",
+            quantity_available=1,
+            max_guests=2,
+            price_per_night="80.00",
+        )
+        AccommodationBooking.objects.create(
+            listing=self.unavailable_listing,
+            room_type=unavailable_room,
+            room_type_name=unavailable_room.name,
+            guest=self.guest,
+            check_in=self.check_in,
+            check_out=self.check_out,
+            guests=2,
+            total_price="160.00",
+            status=BookingStatus.CONFIRMED,
+        )
+
+    def search_url(self, **overrides):
+        params = {
+            "search": "Coastal",
+            "check_in": self.check_in.isoformat(),
+            "check_out": self.check_out.isoformat(),
+            "guests": "2",
+            **overrides,
+        }
+        return "/api/accommodation/listings/search/?" + "&".join(
+            f"{key}={value}" for key, value in params.items()
+        )
+
+    def test_dated_search_returns_only_bookable_inventory_and_true_prices(self):
+        response = self.client.get(self.search_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["sold_out_count"], 1)
+        self.assertEqual(
+            [row["id"] for row in response.data["results"]],
+            [self.available_listing.pk],
+        )
+        row = response.data["results"][0]
+        self.assertTrue(row["availability_searched"])
+        self.assertEqual(row["available_room_count"], 2)
+        self.assertEqual(row["total_room_count"], 4)
+        self.assertEqual(row["lowest_available_room_price"], "150.00")
+        self.assertEqual(row["total_price"], "300.00")
+        self.assertEqual(row["search_nights"], 2)
+        self.assertTrue(row["limited_availability"])
+        self.assertEqual(row["sold_out_room_types_count"], 1)
+        self.assertEqual(row["availability_status"], "limited")
+        self.assertIn("Only 2 rooms left", row["availability_message"])
+
+    def test_search_rejects_partial_invalid_and_past_dates(self):
+        missing_checkout = self.client.get(
+            f"/api/accommodation/listings/search/?check_in={self.check_in.isoformat()}&guests=2"
+        )
+        self.assertEqual(missing_checkout.status_code, 400)
+
+        reversed_dates = self.client.get(
+            self.search_url(check_out=self.check_in.isoformat())
+        )
+        self.assertEqual(reversed_dates.status_code, 400)
+
+        past = date.today() - timedelta(days=2)
+        past_response = self.client.get(
+            self.search_url(
+                check_in=past.isoformat(),
+                check_out=(past + timedelta(days=1)).isoformat(),
+            )
+        )
+        self.assertEqual(past_response.status_code, 400)
+
+        invalid_guests = self.client.get(self.search_url(guests="0"))
+        self.assertEqual(invalid_guests.status_code, 400)
+
+    def test_search_applies_price_filters_to_available_room_price(self):
+        under_limit = self.client.get(self.search_url(max_price="160"))
+        self.assertEqual(under_limit.status_code, 200)
+        self.assertEqual(under_limit.data["count"], 1)
+
+        above_floor = self.client.get(self.search_url(min_price="200"))
+        self.assertEqual(above_floor.status_code, 200)
+        self.assertEqual(above_floor.data["count"], 0)
+
+    def test_property_closure_excludes_the_property_as_sold_out(self):
+        AccommodationAvailability.objects.create(
+            listing=self.available_listing,
+            date=self.check_in,
+            is_available=False,
+            note="Private event",
+        )
+        response = self.client.get(self.search_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["sold_out_count"], 2)
+
+    def test_expired_hold_is_released_before_search(self):
+        listing = AccommodationListing.objects.create(
+            owner=self.host,
+            title="Expired Hold Retreat",
+            region="Khomas",
+            city="Windhoek",
+            price_per_night="120.00",
+            max_guests=2,
+        )
+        room = AccommodationRoomType.objects.create(
+            listing=listing,
+            name="Garden room",
+            quantity_available=1,
+            max_guests=2,
+            price_per_night="120.00",
+        )
+        booking = AccommodationBooking.objects.create(
+            listing=listing,
+            room_type=room,
+            room_type_name=room.name,
+            guest=self.guest,
+            check_in=self.check_in,
+            check_out=self.check_out,
+            guests=2,
+            total_price="240.00",
+            status=BookingStatus.PENDING,
+            hold_expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        response = self.client.get(self.search_url(search="Expired"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["available_room_count"], 1)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, BookingStatus.EXPIRED)
+
+    def test_plain_discovery_list_remains_a_plain_array(self):
+        response = self.client.get("/api/accommodation/listings/?search=Coastal")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertNotIn("results", response.data)
 
 
 class AccommodationListingSaveTests(TestCase):
@@ -112,11 +329,13 @@ class AccommodationPhase3SocialTests(TestCase):
         reviews_url = f"/api/accommodation/listings/{self.listing.pk}/reviews/"
         payload = self.client.get(reviews_url)
         self.assertEqual(payload.status_code, 200)
-        self.assertEqual(payload.data["rating_count"], 2)
+        self.assertEqual(payload.data["rating_count"], 1)
+        self.assertTrue(all(r.get("verified_guest") for r in payload.data["reviews"]))
+        self.assertFalse(any(r.get("source") == "host" for r in payload.data["reviews"]))
         self.assertTrue(any(r.get("source") == "traveler" for r in payload.data["reviews"]))
 
         self.listing.refresh_from_db()
-        self.assertEqual(self.listing.rating_count, 2)
+        self.assertEqual(self.listing.rating_count, 1)
 
         dup = self.client.post(review_url, {"rating": 4, "body": "Again"}, format="json")
         self.assertEqual(dup.status_code, 400)
@@ -141,6 +360,25 @@ class AccommodationPhase3SocialTests(TestCase):
         self.assertEqual(res.data[0]["body"], "Sunset from the deck")
         self.assertEqual(res.data[0]["listing"]["id"], self.listing.pk)
         self.assertTrue(res.data[0]["verified_stay"])
+
+    def test_review_rejects_checked_out_status_before_checkout_date(self):
+        future_booking = AccommodationBooking.objects.create(
+            listing=self.listing,
+            guest=self.traveler,
+            check_in=date.today() + timedelta(days=2),
+            check_out=date.today() + timedelta(days=4),
+            guests=1,
+            total_price="2400.00",
+            status=BookingStatus.CHECKED_OUT,
+        )
+        self.client.force_authenticate(user=self.traveler)
+        response = self.client.post(
+            f"/api/accommodation/bookings/{future_booking.pk}/review/",
+            {"rating": 5, "body": "Too early"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("completed check-out date", str(response.data))
 
 
 class AccommodationPhase4BookingTests(TestCase):
@@ -988,6 +1226,130 @@ class AccommodationPhase6HardeningTests(TestCase):
             self.client.get(f"/api/accommodation/listings/{self.listing.pk}/").status_code,
             404,
         )
+
+    def test_booking_rejects_past_dates_and_every_non_live_publication_state(self):
+        self.client.force_authenticate(user=self.traveler)
+        past = self.client.post(
+            "/api/accommodation/bookings/",
+            {
+                "listing": self.listing.pk,
+                "check_in": (date.today() - timedelta(days=2)).isoformat(),
+                "check_out": (date.today() - timedelta(days=1)).isoformat(),
+                "guests": 1,
+            },
+            format="json",
+        )
+        self.assertEqual(past.status_code, 400)
+        self.assertIn("past", str(past.data).lower())
+
+        check_in = date.today() + timedelta(days=40)
+        payload = {
+            "listing": self.listing.pk,
+            "check_in": check_in.isoformat(),
+            "check_out": (check_in + timedelta(days=1)).isoformat(),
+            "guests": 1,
+        }
+        for verification, is_active, expected_state in (
+            (VerificationStatus.VERIFIED, False, "draft"),
+            (VerificationStatus.PENDING, True, "pending_verification"),
+            (VerificationStatus.SUSPENDED, True, "suspended"),
+        ):
+            with self.subTest(state=expected_state):
+                self.business.verification_status = verification
+                self.business.save(update_fields=["verification_status"])
+                self.listing.is_active = is_active
+                self.listing.save(update_fields=["is_active"])
+                response = self.client.post(
+                    "/api/accommodation/bookings/",
+                    payload,
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("not accepting bookings", str(response.data))
+
+    def test_public_ratings_and_reviews_require_completed_booking_proof(self):
+        from accommodation.review_services import sync_listing_rating_from_reviews
+
+        self.listing.guest_reviews = [
+            {"name": "Provider seed", "rating": 5, "body": "Entered by provider"}
+        ]
+        self.listing.save(update_fields=["guest_reviews"])
+        today = date.today()
+        valid_booking = AccommodationBooking.objects.create(
+            listing=self.listing,
+            guest=self.traveler,
+            check_in=today - timedelta(days=3),
+            check_out=today - timedelta(days=1),
+            guests=1,
+            total_price="1800.00",
+            status=BookingStatus.CHECKED_OUT,
+        )
+        valid_review = AccommodationReview.objects.create(
+            listing=self.listing,
+            booking=valid_booking,
+            reviewer=self.traveler,
+            rating=4,
+            body="A proven stay",
+        )
+        other_guest = User.objects.create_user(
+            username="phase6_forged_guest",
+            email="phase6_forged_guest@test.local",
+            password="pass12345",
+        )
+        mismatched_booking = AccommodationBooking.objects.create(
+            listing=self.listing,
+            guest=other_guest,
+            check_in=today - timedelta(days=4),
+            check_out=today - timedelta(days=2),
+            guests=1,
+            total_price="1800.00",
+            status=BookingStatus.CHECKED_OUT,
+        )
+        AccommodationReview.objects.create(
+            listing=self.listing,
+            booking=mismatched_booking,
+            reviewer=self.traveler,
+            rating=5,
+            body="No matching guest proof",
+        )
+        future_booking = AccommodationBooking.objects.create(
+            listing=self.listing,
+            guest=self.traveler,
+            check_in=today + timedelta(days=3),
+            check_out=today + timedelta(days=4),
+            guests=1,
+            total_price="900.00",
+            status=BookingStatus.CHECKED_OUT,
+        )
+        AccommodationReview.objects.create(
+            listing=self.listing,
+            booking=future_booking,
+            reviewer=self.traveler,
+            rating=1,
+            body="Not completed by date",
+        )
+
+        sync_listing_rating_from_reviews(self.listing)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.rating_avg, 4)
+        self.assertEqual(self.listing.rating_count, 1)
+
+        public = self.client.get(f"/api/accommodation/listings/{self.listing.pk}/reviews/")
+        self.assertEqual(public.status_code, 200)
+        self.assertEqual(public.data["rating_avg"], 4)
+        self.assertEqual(public.data["rating_count"], 1)
+        self.assertEqual([row["id"] for row in public.data["reviews"]], [f"traveler-{valid_review.pk}"])
+
+        detail = self.client.get(f"/api/accommodation/listings/{self.listing.pk}/")
+        self.assertEqual(detail.data["guest_reviews"], [])
+        self.client.force_authenticate(user=self.host)
+        provider = self.client.get(
+            f"/api/accommodation/provider-listings/{self.listing.pk}/"
+        )
+        self.assertEqual(provider.status_code, 200)
+        self.assertFalse(provider.data["guest_reviews"][0]["verified_guest"])
+        self.assertTrue(provider.data["guest_reviews"][0]["excluded_from_rating"])
+        self.assertIn("unverified", provider.data["guest_reviews"][0]["trust_label"].lower())
 
     def test_provider_analytics_includes_occupancy_rooms_and_expiring_alerts(self):
         room = AccommodationRoomType.objects.create(

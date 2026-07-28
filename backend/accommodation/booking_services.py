@@ -5,6 +5,8 @@ from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 
+from accounts.models import VerificationStatus
+
 from .models import (
     AccommodationAvailability,
     AccommodationBooking,
@@ -15,6 +17,19 @@ from .models import (
 
 DEFAULT_HOST_APPROVAL_HOLD_HOURS = 24
 DEFAULT_PAYMENT_HOLD_MINUTES = 30
+
+
+def listing_accepts_bookings(listing: AccommodationListing) -> bool:
+    """Match the public Live state used by stay discovery."""
+    if not listing.is_active:
+        return False
+    if listing.business_id is None:
+        return True
+    business = getattr(listing, "business", None)
+    return bool(
+        business is not None
+        and business.verification_status == VerificationStatus.VERIFIED
+    )
 
 
 def host_approval_hold_deadline(*, now=None):
@@ -145,6 +160,37 @@ def blocking_bookings_qs(
     return qs
 
 
+def blocking_search_bookings_qs(check_in: date, check_out: date):
+    """All live inventory holds overlapping a dated multi-property search."""
+    return (
+        AccommodationBooking.objects.filter(
+            check_in__lt=check_out,
+            check_out__gt=check_in,
+        )
+        .filter(
+            Q(status=BookingStatus.CHECKED_IN)
+            | (
+                Q(status__in=(BookingStatus.PENDING, BookingStatus.CONFIRMED))
+                & (
+                    Q(hold_expires_at__isnull=True)
+                    | Q(hold_expires_at__gt=timezone.now())
+                    | Q(paid_at__isnull=False)
+                    | ~Q(mock_payment_ref="")
+                )
+            )
+        )
+        .only(
+            "id",
+            "listing_id",
+            "check_in",
+            "check_out",
+            "status",
+            "room_type_id",
+            "room_type_name",
+        )
+    )
+
+
 def _night_dates(check_in: date, check_out: date):
     current = check_in
     while current < check_out:
@@ -158,11 +204,20 @@ def _calendar_by_date(
     check_in: date,
     check_out: date,
 ) -> tuple[dict[date, AccommodationAvailability], dict[date, AccommodationAvailability]]:
-    rows = AccommodationAvailability.objects.filter(
-        listing=listing,
-        date__gte=check_in,
-        date__lt=check_out,
-    ).filter(models_q_for_room(room_type))
+    prefetched = getattr(listing, "_search_availability_rows", None)
+    if prefetched is None:
+        rows = AccommodationAvailability.objects.filter(
+            listing=listing,
+            date__gte=check_in,
+            date__lt=check_out,
+        ).filter(models_q_for_room(room_type))
+    else:
+        rows = [
+            row
+            for row in prefetched
+            if row.room_type_id is None
+            or (room_type is not None and row.room_type_id == room_type.id)
+        ]
     property_rows: dict[date, AccommodationAvailability] = {}
     room_rows: dict[date, AccommodationAvailability] = {}
     for row in rows:
@@ -189,6 +244,22 @@ def _overlapping_bookings(
     *,
     exclude_booking_id: int | None = None,
 ):
+    prefetched = getattr(listing, "_search_blocking_bookings", None)
+    if prefetched is not None:
+        rows = [
+            booking
+            for booking in prefetched
+            if booking.check_in < check_out and booking.check_out > check_in
+        ]
+        if exclude_booking_id:
+            rows = [booking for booking in rows if booking.pk != exclude_booking_id]
+        if room_type is not None:
+            return [booking for booking in rows if booking.room_type_id == room_type.id]
+        return [
+            booking
+            for booking in rows
+            if booking.room_type_id is None and not booking.room_type_name
+        ]
     return list(
         blocking_bookings_qs(
             listing,
@@ -241,6 +312,133 @@ def _inventory_conflict(
     return None
 
 
+def _available_inventory_count(
+    listing: AccommodationListing,
+    check_in: date,
+    check_out: date,
+    room_type: AccommodationRoomType | None,
+) -> int:
+    """Units that remain bookable for every night in the requested range."""
+    bookings = _overlapping_bookings(listing, check_in, check_out, room_type)
+    property_rows, room_rows = _calendar_by_date(listing, room_type, check_in, check_out)
+    base_quantity = room_type.quantity_available if room_type else 1
+    remaining_for_stay: list[int] = []
+
+    for night in _night_dates(check_in, check_out):
+        property_override = property_rows.get(night)
+        room_override = room_rows.get(night)
+        if (property_override and not property_override.is_available) or (
+            room_override and not room_override.is_available
+        ):
+            return 0
+        quantity = base_quantity
+        if room_override and room_override.quantity_available is not None:
+            quantity = room_override.quantity_available
+        elif (
+            property_override
+            and property_override.quantity_available is not None
+            and room_type is None
+        ):
+            quantity = property_override.quantity_available
+        occupying = sum(
+            1 for booking in bookings if booking.check_in <= night < booking.check_out
+        )
+        remaining_for_stay.append(max(0, quantity - occupying))
+
+    return min(remaining_for_stay, default=0)
+
+
+def listing_search_availability_payload(
+    listing: AccommodationListing,
+    check_in: date,
+    check_out: date,
+    guests: int,
+) -> dict:
+    """Truthful card-level inventory and price data for a dated stay search."""
+    nights = (check_out - check_in).days
+    active_rooms = [
+        room for room in listing.room_type_records.all() if room.is_active
+    ]
+    candidates: list[AccommodationRoomType | None]
+    if active_rooms:
+        candidates = [room for room in active_rooms if room.max_guests >= guests]
+    else:
+        candidates = [None] if listing.max_guests >= guests else []
+
+    available_room_count = 0
+    total_room_count = 0
+    sold_out_room_types_count = 0
+    lowest_total: Decimal | None = None
+
+    for room in candidates:
+        base_quantity = room.quantity_available if room else 1
+        total_room_count += base_quantity
+        available_units = _available_inventory_count(
+            listing,
+            check_in,
+            check_out,
+            room,
+        )
+        if available_units <= 0:
+            sold_out_room_types_count += 1
+            continue
+        available_room_count += available_units
+        room_total = sum(
+            (
+                Decimal(row["price"])
+                for row in nightly_price_breakdown(
+                    listing,
+                    check_in,
+                    check_out,
+                    room_type=room,
+                )
+            ),
+            Decimal("0"),
+        )
+        if lowest_total is None or room_total < lowest_total:
+            lowest_total = room_total
+
+    available = available_room_count > 0 and lowest_total is not None
+    limited = bool(available and available_room_count < total_room_count)
+    if not candidates:
+        message = f"No rooms fit {guests} guest{'s' if guests != 1 else ''}."
+    elif not available:
+        message = "Sold out for these dates."
+    elif limited:
+        message = (
+            f"Only {available_room_count} room"
+            f"{'' if available_room_count == 1 else 's'} left for these dates."
+        )
+    else:
+        message = (
+            f"{available_room_count} room"
+            f"{'' if available_room_count == 1 else 's'} available."
+        )
+
+    average_nightly = (
+        (lowest_total / nights).quantize(Decimal("0.01"))
+        if lowest_total is not None and nights > 0
+        else None
+    )
+    return {
+        "availability_searched": True,
+        "available": available,
+        "available_room_count": available_room_count,
+        "total_room_count": total_room_count,
+        "lowest_available_room_price": (
+            f"{average_nightly:.2f}" if average_nightly is not None else None
+        ),
+        "total_price": f"{lowest_total:.2f}" if lowest_total is not None else None,
+        "nights": nights,
+        "limited_availability": limited,
+        "sold_out_room_types_count": sold_out_room_types_count,
+        "availability_status": (
+            "limited" if limited else "available" if available else "sold_out"
+        ),
+        "availability_message": message,
+    }
+
+
 def find_overlapping_booking(
     listing: AccommodationListing,
     check_in: date,
@@ -276,6 +474,10 @@ def stay_availability_unavailable_reason(
     room_type_name: str = "",
     exclude_booking_id: int | None = None,
 ) -> str | None:
+    if not listing_accepts_bookings(listing):
+        return "This property is not accepting bookings."
+    if check_in < timezone.localdate():
+        return "Check-in cannot be in the past."
     if check_out <= check_in:
         return "Check-out must be after check-in."
     if guests < 1:

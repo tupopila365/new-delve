@@ -1,11 +1,13 @@
 import uuid
+from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Count, Exists, F, OuterRef, Q
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -38,8 +40,10 @@ from .qa_serializers import (
 from .analytics_services import provider_stay_monetization_analytics
 from .booking_services import (
     booking_hold_is_expired,
+    blocking_search_bookings_qs,
     expire_stale_booking_holds,
     listing_availability_payload,
+    listing_search_availability_payload,
     payment_hold_deadline,
 )
 from .review_services import listing_reviews_payload
@@ -153,6 +157,141 @@ class AccommodationListingViewSet(ListingDealsContextMixin, viewsets.ModelViewSe
         if self.action in ("update", "partial_update", "destroy"):
             return qs.filter(owner=user)
         return qs
+
+    @action(detail=False, methods=["get"])
+    def search(self, request):
+        from datetime import datetime
+
+        check_in_raw = (request.query_params.get("check_in") or "").strip()
+        check_out_raw = (request.query_params.get("check_out") or "").strip()
+        if not (check_in_raw and check_out_raw):
+            return Response(
+                {"detail": "Select both check-in and check-out dates."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            check_in = datetime.strptime(check_in_raw, "%Y-%m-%d").date()
+            check_out = datetime.strptime(check_out_raw, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"detail": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if check_in < timezone.localdate():
+            return Response(
+                {"check_in": "Check-in cannot be in the past."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if check_out <= check_in:
+            return Response(
+                {"check_out": "Check-out must be after check-in."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            guests = int(request.query_params.get("guests") or 0)
+        except (TypeError, ValueError):
+            return Response(
+                {"guests": "Guests must be a whole number."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if guests < 1:
+            return Response(
+                {"guests": "Select at least 1 guest."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        min_price_raw = (request.query_params.get("min_price") or "").strip()
+        max_price_raw = (request.query_params.get("max_price") or "").strip()
+        try:
+            min_price = Decimal(min_price_raw) if min_price_raw else None
+            max_price = Decimal(max_price_raw) if max_price_raw else None
+            if (min_price is not None and not min_price.is_finite()) or (
+                max_price is not None and not max_price.is_finite()
+            ):
+                raise InvalidOperation
+        except InvalidOperation:
+            return Response(
+                {"detail": "Price filters must be valid numbers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        static_params = request.query_params.copy()
+        static_params.pop("min_price", None)
+        static_params.pop("max_price", None)
+        static_params.pop("ordering", None)
+        filterset = self.filterset_class(
+            data=static_params,
+            queryset=self.get_queryset(),
+            request=request,
+        )
+        if not filterset.is_valid():
+            return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
+        queryset = SearchFilter().filter_queryset(request, filterset.qs, self)
+        ordering = (request.query_params.get("ordering") or "").strip()
+        if ordering not in ("price_per_night", "-price_per_night"):
+            queryset = OrderingFilter().filter_queryset(request, queryset, self)
+
+        expire_stale_booking_holds()
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "bookings",
+                queryset=blocking_search_bookings_qs(check_in, check_out),
+                to_attr="_search_blocking_bookings",
+            ),
+            Prefetch(
+                "availability_calendar",
+                queryset=AccommodationAvailability.objects.filter(
+                    date__gte=check_in,
+                    date__lt=check_out,
+                ).select_related("room_type"),
+                to_attr="_search_availability_rows",
+            ),
+        )
+        available_listings = []
+        sold_out_count = 0
+        for listing in queryset:
+            payload = listing_search_availability_payload(
+                listing,
+                check_in,
+                check_out,
+                guests,
+            )
+            if not payload["available"]:
+                sold_out_count += 1
+                continue
+            available_price = Decimal(payload["lowest_available_room_price"])
+            if min_price is not None and available_price < min_price:
+                continue
+            if max_price is not None and available_price > max_price:
+                continue
+            listing._search_availability = payload
+            available_listings.append(listing)
+
+        if ordering in ("price_per_night", "-price_per_night"):
+            reverse = ordering.startswith("-")
+            available_listings.sort(
+                key=lambda row: Decimal(
+                    row._search_availability["lowest_available_room_price"]
+                ),
+                reverse=reverse,
+            )
+
+        return Response(
+            {
+                "query": {
+                    "destination": (request.query_params.get("search") or "").strip(),
+                    "check_in": check_in.isoformat(),
+                    "check_out": check_out.isoformat(),
+                    "guests": guests,
+                    "nights": (check_out - check_in).days,
+                },
+                "count": len(available_listings),
+                "sold_out_count": sold_out_count,
+                "results": self.get_serializer(available_listings, many=True).data,
+            }
+        )
 
     @action(detail=False, methods=["get"])
     def mine(self, request):

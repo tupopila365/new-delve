@@ -1,44 +1,39 @@
 from decimal import Decimal
 
+from django.db.models import F
+from django.utils import timezone
+
 from .models import AccommodationListing, AccommodationReview
+from .models import BookingStatus
 
 
-def _json_review_ratings(listing: AccommodationListing) -> list[float]:
-    ratings: list[float] = []
-    for row in listing.guest_reviews or []:
-        if not isinstance(row, dict):
-            continue
-        raw = row.get("rating")
-        if raw is None:
-            continue
-        try:
-            ratings.append(float(raw))
-        except (TypeError, ValueError):
-            continue
-    return ratings
+def verified_listing_reviews(listing: AccommodationListing):
+    """Reviews backed by a completed booking belonging to the reviewer and listing."""
+    return AccommodationReview.objects.filter(
+        listing=listing,
+        is_hidden=False,
+        booking__status=BookingStatus.CHECKED_OUT,
+        booking__check_out__lte=timezone.localdate(),
+        booking__guest_id=F("reviewer_id"),
+        booking__listing_id=F("listing_id"),
+    )
 
 
 def sync_listing_rating_from_reviews(listing: AccommodationListing) -> None:
-    """Merge seeded JSON reviews with traveler-submitted reviews for listing aggregates."""
-    ratings = _json_review_ratings(listing)
-    ratings.extend(
-        float(r)
-        for r in AccommodationReview.objects.filter(listing=listing, is_hidden=False).values_list(
-            "rating", flat=True
-        )
+    """Persist aggregates using completed-booking reviews only."""
+    ratings = [float(r) for r in verified_listing_reviews(listing).values_list("rating", flat=True)]
+    listing.rating_avg = (
+        Decimal(str(round(sum(ratings) / len(ratings), 2))) if ratings else Decimal("0.00")
     )
-    if not ratings:
-        return
-    listing.rating_avg = Decimal(str(round(sum(ratings) / len(ratings), 2)))
     listing.rating_count = len(ratings)
     listing.save(update_fields=["rating_avg", "rating_count"])
 
 
 def listing_reviews_payload(listing: AccommodationListing) -> dict:
-    """API reviews list: traveler reviews plus seeded host JSON entries."""
+    """Public review data backed exclusively by completed DELVE bookings."""
     rows = []
     for review in (
-        AccommodationReview.objects.filter(listing=listing, is_hidden=False)
+        verified_listing_reviews(listing)
         .select_related("reviewer", "reviewer__profile")
         .order_by("-created_at")[:50]
     ):
@@ -66,28 +61,9 @@ def listing_reviews_payload(listing: AccommodationListing) -> dict:
             }
         )
 
-    for i, row in enumerate(listing.guest_reviews or []):
-        if not isinstance(row, dict):
-            continue
-        rows.append(
-            {
-                "id": f"seed-{i}",
-                "name": row.get("name") or "Guest",
-                "place": row.get("place") or listing.region,
-                "rating": row.get("rating"),
-                "body": row.get("body") or "",
-                "avatar": row.get("avatar"),
-                "source": "host",
-                "verified_guest": bool(row.get("verified_guest", True)),
-            }
-        )
-
     rated = [float(r["rating"]) for r in rows if r.get("rating") is not None]
-    if rated:
-        avg = round(sum(rated) / len(rated), 2)
-        count = len(rated)
-    else:
-        avg = float(listing.rating_avg or 0)
-        count = listing.rating_count or 0
-
-    return {"reviews": rows, "rating_avg": avg, "rating_count": count}
+    return {
+        "reviews": rows,
+        "rating_avg": round(sum(rated) / len(rated), 2) if rated else 0,
+        "rating_count": len(rated),
+    }

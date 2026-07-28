@@ -10,7 +10,6 @@ import {
   StayBookingCard,
   StayListingCard,
   StayMonetizationSection,
-  StayHighlightsPanel,
   type StayMonetizationAnalytics,
   type ProviderStayListing,
 } from '../components/provider/stays'
@@ -159,13 +158,12 @@ function StayReviewCard({
 const TABS = [
   { id: 'listings', label: 'Listings' },
   { id: 'bookings', label: 'Bookings' },
-  { id: 'highlights', label: 'Host Highlights' },
   { id: 'reviews', label: 'Reviews' },
 ] as const
 
 function tabFromSearchParam(raw: string | null): (typeof TABS)[number]['id'] | null {
   if (!raw) return null
-  if (raw === 'stories' || raw === 'highlights') return 'highlights'
+  if (raw === 'stories' || raw === 'highlights') return 'listings'
   if (TABS.some((t) => t.id === raw)) return raw as (typeof TABS)[number]['id']
   return null
 }
@@ -213,22 +211,11 @@ export function StaysAdmin() {
 
   const initialTab = tabFromSearchParam(searchParams.get('tab')) ?? 'listings'
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>(initialTab)
-  const [highlightListingId, setHighlightListingId] = useState<number | null>(() => {
-    const raw = searchParams.get('listing')
-    const n = raw ? Number(raw) : NaN
-    return Number.isFinite(n) && n > 0 ? n : null
-  })
   const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     const fromUrl = tabFromSearchParam(searchParams.get('tab'))
     if (fromUrl) setTab(fromUrl)
-    const raw = searchParams.get('listing')
-    const n = raw ? Number(raw) : NaN
-    if (Number.isFinite(n) && n > 0) {
-      setHighlightListingId(n)
-      setTab('highlights')
-    }
   }, [searchParams])
 
   useEffect(() => {
@@ -521,10 +508,6 @@ export function StaysAdmin() {
                   stay={stay}
                   canEdit={canManageListings}
                   boost={boostByListingId.get(stay.id) ?? null}
-                  onManageHighlights={() => {
-                    setHighlightListingId(stay.id)
-                    setTab('highlights')
-                  }}
                 />
               ))}
             </div>
@@ -569,16 +552,6 @@ export function StaysAdmin() {
               ))}
             </div>
           )}
-        </section>
-      )}
-
-      {tab === 'highlights' && (
-        <section id="highlights">
-          <StayHighlightsPanel
-            listings={listings}
-            canManage={canManageListings}
-            initialListingId={highlightListingId}
-          />
         </section>
       )}
 

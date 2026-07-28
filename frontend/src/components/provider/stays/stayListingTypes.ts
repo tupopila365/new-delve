@@ -494,7 +494,6 @@ export function listingCompleteness(stay: ProviderStayListing): { percent: numbe
     [Array.isArray(stay.room_types) && stay.room_types.length > 0, 'Room types'],
     [(stay.media_gallery?.length ?? 0) > 0, 'Photo gallery'],
     [Array.isArray(stay.faqs) && stay.faqs.length > 0, 'FAQs'],
-    [(stay.listing_stories?.length ?? 0) > 0, 'Host Highlights'],
   ]
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)

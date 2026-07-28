@@ -374,10 +374,17 @@ const GUEST_REVIEW_AVATARS = {
 }
 
 /** Demo provider stories on Transport — rings + viewer; no API. */
+const PROVIDER_AVATARS = {
+  desertStays:
+    'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=128&h=128&q=80',
+  windhoekInns:
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=128&h=128&q=80',
+}
+
 export const mockTransportStoryPins: TransportStoryPost[] = [
   {
     id: 9601,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: PROVIDER_AVATARS.desertStays },
     body: 'Hilux back from service — diff lock checked, tyres fresh for gravel runs.',
     region: 'Khomas',
     image: U.wheel,
@@ -387,7 +394,7 @@ export const mockTransportStoryPins: TransportStoryPost[] = [
   },
   {
     id: 9602,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: PROVIDER_AVATARS.desertStays },
     body: 'Coast-to-dune run tips: tyre pressures, spare water, and where we refuel.',
     region: 'Erongo',
     image: U.map,
@@ -397,7 +404,7 @@ export const mockTransportStoryPins: TransportStoryPost[] = [
   },
   {
     id: 9603,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
+    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: PROVIDER_AVATARS.desertStays },
     body: 'Weekend handover: walk-around checklist with every renter.',
     region: 'Erongo',
     image: null,
@@ -407,7 +414,7 @@ export const mockTransportStoryPins: TransportStoryPost[] = [
   },
   {
     id: 9610,
-    author: { username: 'windhoek_inns', display_name: 'Windhoek Inns', avatar: HOST_STORY_AVATARS.windhoekInns },
+    author: { username: 'windhoek_inns', display_name: 'Windhoek Inns', avatar: PROVIDER_AVATARS.windhoekInns },
     body: 'Airport runs and day hires — keys sanitized, tanks topped before pickup.',
     region: 'Khomas',
     image: U.city,
@@ -530,7 +537,7 @@ export const mockProfiles: Record<string, MockProfile> = {
     city: 'Swakopmund',
     country_code: 'NA',
     preferred_currency: 'NAD',
-    avatar: HOST_STORY_AVATARS.desertStays,
+    avatar: PROVIDER_AVATARS.desertStays,
     email_verified: true,
     is_private: false,
     posts_visibility: 'public',

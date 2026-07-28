@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
@@ -68,6 +69,12 @@ class AccommodationReviewCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "You can review after your stay is checked out."
             )
+        if booking.check_out > timezone.localdate():
+            raise serializers.ValidationError(
+                "You can review only after the completed check-out date."
+            )
+        if booking.guest_id != self.context["request"].user.id:
+            raise serializers.ValidationError("You can review only your own stay.")
         if AccommodationReview.objects.filter(booking=booking).exists():
             raise serializers.ValidationError("You already reviewed this stay.")
         return attrs

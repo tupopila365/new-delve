@@ -14,7 +14,7 @@ export function ProviderAnalyticsPosts({ posts }: Props) {
       <section className="prov-analytics__card">
         <h2 className="prov-analytics__card-title">Delvers Moments & posts</h2>
         <p className="prov-analytics__insight">
-          Host Highlights are managed in Stay Admin. Share Delvers Moments or posts to see engagement here.
+          Share Delvers Moments or posts to see engagement here.
         </p>
       </section>
     )

@@ -191,13 +191,15 @@ let mockAccNextBookingId = 9003
 
 function mockCompletedStayBooking(username: string | null, listingId: number) {
   if (!username) return null
+  const today = new Date().toISOString().slice(0, 10)
   return (
     [...mockAccBookings.values()]
       .filter(
         (booking) =>
           booking.guest === username &&
           booking.listing === listingId &&
-          booking.status === 'checked_out',
+          booking.status === 'checked_out' &&
+          booking.check_out <= today,
       )
       .sort((a, b) => b.check_out.localeCompare(a.check_out))[0] ?? null
   )
@@ -345,8 +347,17 @@ type MockAccReviewRow = {
   body: string
   created_at: string
 }
-const mockAccReviews: MockAccReviewRow[] = []
-const mockAccReviewedBookings = new Set<number>()
+const mockAccReviews: MockAccReviewRow[] = [
+  {
+    listing: 103,
+    booking: 9001,
+    name: 'Kaoko Explorer',
+    rating: 5,
+    body: 'The stay matched the listing, and the dune-view deck was exceptional.',
+    created_at: '2026-06-14T10:00:00.000Z',
+  },
+]
+const mockAccReviewedBookings = new Set<number>([9001])
 
 type MockTransportReviewRow = {
   listing: number
@@ -480,6 +491,21 @@ function mockAccBlockedRanges(listingId: number, roomType = '', roomTypeId?: num
         ? b.room_type === roomTypeId
         : (b.room_type_name || '').trim() === roomType.trim()),
   )
+}
+
+function mockStayIsLive(stay: (typeof mockStays)[number]) {
+  if (stay.is_active === false) return false
+  const business = mockBusinessProfiles.find(
+    (row) => row.owner_username === stay.owner_username,
+  )
+  return !business || business.verification_status === 'verified'
+}
+
+function mockVerifiedStayRatings(listingId: number) {
+  return mockAccReviews
+    .filter((review) => review.listing === listingId)
+    .map((review) => Number(review.rating))
+    .filter((rating) => Number.isFinite(rating))
 }
 
 function mockAccOverlapCount(
@@ -2619,8 +2645,15 @@ function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[num
   const savers = mockListingSaves.get(row.id)
   const profile = s.profiles[row.owner_username]
   const biz = mockBusinessProfiles.find((b) => b.owner_username === row.owner_username)
+  const verifiedRatings = mockVerifiedStayRatings(row.id)
   return {
     ...row,
+    // Provider-entered fixture reviews are legacy content, not public trust proof.
+    guest_reviews: [],
+    rating_avg: verifiedRatings.length
+      ? (verifiedRatings.reduce((sum, rating) => sum + rating, 0) / verifiedRatings.length).toFixed(2)
+      : '0.00',
+    rating_count: verifiedRatings.length,
     room_types: ensureMockStayRooms(row),
     is_active: row.is_active !== false,
     owner_display_name: row.owner_display_name ?? profile?.display_name ?? null,
@@ -4926,7 +4959,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         verification_status: verification,
         publication_status: publicationStatus,
         publication_status_label: publicationLabel,
-        guest_reviews: st.guest_reviews ?? [],
+        guest_reviews: (st.guest_reviews ?? []).map((review) => ({
+          ...review,
+          source: 'provider_legacy',
+          verified_guest: false,
+          excluded_from_rating: true,
+          trust_label: 'Legacy provider-entered review — unverified',
+        })),
         likes_count: mockListingLikes.get(st.id)?.size ?? 0,
         saves_count: mockListingSaves.get(st.id)?.size ?? 0,
       }
@@ -5867,6 +5906,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           throw new ApiError('Bad request', 400, { detail: 'Audio uploads are not allowed on posts.' })
         }
       }
+      if (String(init.body.get('is_accommodation_story') || 'false') === 'true') {
+        throw new ApiError('Bad request', 400, {
+          is_accommodation_story:
+            'Accommodation stories are no longer supported. Share a verified Delvers Moment after your stay.',
+        })
+      }
     }
     const base: MockPost = {
       id: s.nextPostId++,
@@ -5899,7 +5944,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const body = String(init.body.get('body') || '')
       const region = String(init.body.get('region') || '')
       const is_delvers = String(init.body.get('is_delvers') || 'false') === 'true'
-      const is_accommodation_story = String(init.body.get('is_accommodation_story') || 'false') === 'true'
       const is_delvers_highlight = String(init.body.get('is_delvers_highlight') || 'false') === 'true'
       const board = String(init.body.get('delvers_board') || '')
       const postKind = String(init.body.get('post_kind') || 'tip')
@@ -5915,14 +5959,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       base.body = body
       base.region = region
       base.is_delvers = is_delvers
-      base.is_accommodation_story = is_accommodation_story
       base.is_delvers_highlight = is_delvers_highlight
       base.delvers_board = board
       base.post_kind = postKind === 'question' ? 'question' : 'tip'
       base.place_label = placeLabel
       if (base.post_kind === 'question') {
         base.is_delvers = false
-        base.is_accommodation_story = false
       }
       if (hasVideo) {
         const videoFile = init.body.get('video')
@@ -5953,15 +5995,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           ...extraSlides,
         ]
       }
-      if (is_accommodation_story) {
-        throw new ApiError('Bad request', 400, {
-          is_accommodation_story:
-            'Host stories have moved to Host Highlights. Manage them in Stay Admin.',
-        })
-      }
       if (is_delvers_highlight) {
         base.is_delvers = true
-        base.is_accommodation_story = false
         if (!hasVideo && !hasImage) {
           base.image = 'https://images.unsplash.com/photo-1543248939-ff40856f65d2?auto=format&fit=crop&w=1200&q=70'
         }
@@ -6035,7 +6070,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     } else if (isJsonBody(init.body)) {
       const data = JSON.parse(init.body) as Partial<MockPost> & {
         is_delvers?: boolean
-        is_accommodation_story?: boolean
         is_delvers_highlight?: boolean
         post_kind?: 'tip' | 'question'
         place_label?: string
@@ -6043,12 +6077,11 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       base.body = data.body || ''
       base.region = data.region || base.region
       base.is_delvers = Boolean(data.is_delvers)
-      base.is_accommodation_story = Boolean(data.is_accommodation_story)
       base.is_delvers_highlight = Boolean(data.is_delvers_highlight)
-      if (base.is_accommodation_story) {
+      if (data.is_accommodation_story === true) {
         throw new ApiError('Bad request', 400, {
           is_accommodation_story:
-            'Host stories have moved to Host Highlights. Manage them in Stay Admin.',
+            'Accommodation stories are no longer supported. Share a verified Delvers Moment after your stay.',
         })
       }
       base.delvers_board = data.delvers_board || ''
@@ -6056,7 +6089,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       base.place_label = data.place_label || ''
       if (base.post_kind === 'question') {
         base.is_delvers = false
-        base.is_accommodation_story = false
       }
       if (data.listing) {
         const listingId =
@@ -6078,7 +6110,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       }
       if (base.is_delvers_highlight) {
         base.is_delvers = true
-        base.is_accommodation_story = false
       }
     }
     s.posts.unshift(base)
@@ -6102,7 +6133,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (data.is_accommodation_story === true) {
       throw new ApiError('Bad request', 400, {
         is_accommodation_story:
-          'Host stories have moved to Host Highlights. Manage them in Stay Admin.',
+          'Accommodation stories are no longer supported. Share a verified Delvers Moment after your stay.',
       })
     }
 
@@ -6602,8 +6633,145 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     requireAuth(s)
     const me = s.currentUser as string
     return mockStays
-      .filter((row) => mockListingSaves.get(row.id)?.has(me))
+      .filter((row) => mockStayIsLive(row) && mockListingSaves.get(row.id)?.has(me))
       .map((row) => enrichAccommodationListingRow(s, row))
+  }
+
+  if (pathname === '/api/accommodation/listings/search/' && method === 'GET') {
+    const destination = (q.get('search') || '').trim()
+    const checkIn = (q.get('check_in') || '').trim()
+    const checkOut = (q.get('check_out') || '').trim()
+    const guests = Number(q.get('guests') || 0)
+    const today = new Date().toISOString().slice(0, 10)
+    if (!checkIn || !checkOut) {
+      throw new ApiError('Choose check-in and check-out dates.', 400, {
+        detail: 'Choose check-in and check-out dates.',
+      })
+    }
+    if (checkIn < today) {
+      throw new ApiError('Check-in cannot be in the past.', 400, {
+        check_in: ['Check-in cannot be in the past.'],
+      })
+    }
+    if (checkOut <= checkIn) {
+      throw new ApiError('Check-out must be after check-in.', 400, {
+        check_out: ['Check-out must be after check-in.'],
+      })
+    }
+    if (!Number.isInteger(guests) || guests < 1) {
+      throw new ApiError('Add at least one guest.', 400, {
+        guests: ['Guests must be at least 1.'],
+      })
+    }
+
+    const dateCursor = new Date(`${checkIn}T12:00:00`)
+    const endDate = new Date(`${checkOut}T12:00:00`)
+    const dates: string[] = []
+    while (dateCursor < endDate) {
+      dates.push(dateCursor.toISOString().slice(0, 10))
+      dateCursor.setDate(dateCursor.getDate() + 1)
+    }
+    const nights = dates.length
+    const minPrice = Number(q.get('min_price') || 0)
+    const maxPrice = Number(q.get('max_price') || Number.MAX_SAFE_INTEGER)
+    const ordering = (q.get('ordering') || '').trim()
+    const propertyTypes = q.getAll('property_type').filter(Boolean)
+
+    const candidates = mockStays
+      .filter(mockStayIsLive)
+      .filter((stay) =>
+        destination
+          ? textMatch(stay.title, destination) ||
+            textMatch(stay.region, destination) ||
+            textMatch(stay.city, destination) ||
+            textMatch(stay.description, destination)
+          : true,
+      )
+      .filter((stay) => (propertyTypes.length ? propertyTypes.includes(stay.property_type) : true))
+      .filter((stay) => (q.get('pool') === 'true' ? stay.pool : true))
+      .filter((stay) => (q.get('wifi') === 'true' ? stay.wifi : true))
+      .filter((stay) => (q.get('parking') === 'true' ? stay.parking : true))
+      .filter((stay) => (q.get('kitchen') === 'true' ? stay.kitchen : true))
+      .filter((stay) => (q.get('breakfast') === 'true' ? stay.breakfast : true))
+      .filter((stay) => (q.get('pet_friendly') === 'true' ? stay.pet_friendly : true))
+
+    let soldOutCount = 0
+    const results = candidates.flatMap((stay) => {
+      const rooms = ensureMockStayRooms(stay).filter(
+        (room) =>
+          room.is_active !== false &&
+          Number(room.max_guests ?? stay.max_guests) >= guests,
+      )
+      const availableRooms = rooms.flatMap((room) => {
+        const roomId = Number(room.id)
+        const roomName = String(room.name || '')
+        const quantity = Math.max(1, Number(room.quantity_available ?? 1))
+        const booked = mockAccOverlapCount(stay.id, checkIn, checkOut, roomName, roomId)
+        const hasClosedDate = dates.some((date) => {
+          const override = mockStayCalendar.get(mockStayCalendarKey(stay.id, roomId, date))
+          return override?.is_available === false
+        })
+        const remaining = hasClosedDate ? 0 : Math.max(0, quantity - booked)
+        if (remaining < 1) return []
+        const baseNightly = Number(room.price_per_night ?? stay.price_per_night)
+        const total = dates.reduce((sum, date) => {
+          const roomOverride = mockStayCalendar.get(mockStayCalendarKey(stay.id, roomId, date))
+          const propertyOverride = mockStayCalendar.get(mockStayCalendarKey(stay.id, null, date))
+          const overridePrice =
+            roomOverride?.price_override ?? propertyOverride?.price_override ?? baseNightly
+          return sum + Number(overridePrice)
+        }, 0)
+        return [{ remaining, total, average: total / nights }]
+      })
+      if (!availableRooms.length) {
+        soldOutCount += 1
+        return []
+      }
+      const availableRoomCount = availableRooms.reduce((sum, room) => sum + room.remaining, 0)
+      const lowest = Math.min(...availableRooms.map((room) => room.average))
+      const total = Math.min(...availableRooms.map((room) => room.total))
+      if (lowest < minPrice || lowest > maxPrice) return []
+      const limited = availableRoomCount <= 2
+      const row = enrichAccommodationListingRow(s, stay)
+      return [{
+        ...row,
+        availability_searched: true,
+        available_room_count: availableRoomCount,
+        total_room_count: rooms.reduce(
+          (sum, room) => sum + Math.max(1, Number(room.quantity_available ?? 1)),
+          0,
+        ),
+        lowest_available_room_price: lowest.toFixed(2),
+        total_price: total.toFixed(2),
+        search_nights: nights,
+        limited_availability: limited,
+        sold_out_room_types_count: Math.max(0, rooms.length - availableRooms.length),
+        availability_status: limited ? 'limited' : 'available',
+        availability_message: limited
+          ? `Only ${availableRoomCount} room${availableRoomCount === 1 ? '' : 's'} left for these dates`
+          : `${availableRoomCount} rooms available for these dates`,
+      }]
+    })
+
+    if (ordering === 'price_per_night' || ordering === '-price_per_night') {
+      results.sort((a, b) => {
+        const difference =
+          Number(a.lowest_available_room_price) - Number(b.lowest_available_room_price)
+        return ordering.startsWith('-') ? -difference : difference
+      })
+    }
+    return {
+      query: {
+        destination,
+        check_in: checkIn,
+        check_out: checkOut,
+        guests,
+        nights,
+      },
+      count: results.length,
+      sold_out_count: soldOutCount,
+      results,
+    }
   }
 
   if (pathname === '/api/accommodation/listings/' && method === 'GET') {
@@ -6627,7 +6795,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const ordering = (q.get('ordering') || '').trim()
 
     let list = mockStays
-      .filter((s2) => s2.is_active !== false)
+      .filter(mockStayIsLive)
       .filter((s2) => (region ? textMatch(s2.region, region) || textMatch(s2.city, region) : true))
       .filter((s2) => (cityQ ? textMatch(s2.city, cityQ) : true))
       .filter((s2) =>
@@ -6641,7 +6809,14 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       .filter((s2) => Number(s2.price_per_night) >= min && Number(s2.price_per_night) <= max)
       .filter((s2) => (guests > 0 ? s2.max_guests >= guests : true))
       .filter((s2) => (propertyTypes.length ? propertyTypes.includes(s2.property_type) : true))
-      .filter((s2) => (minRating > 0 ? Number(s2.rating_avg) >= minRating : true))
+      .filter((s2) => {
+        if (minRating <= 0) return true
+        const ratings = mockVerifiedStayRatings(s2.id)
+        const average = ratings.length
+          ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+          : 0
+        return average >= minRating
+      })
       .filter((s2) => (minBed > 0 ? s2.bedrooms >= minBed : true))
       .filter((s2) => (maxBed > 0 ? s2.bedrooms <= maxBed : true))
       .filter((s2) => (petFriendly ? s2.pet_friendly : true))
@@ -6652,9 +6827,29 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       .filter((s2) => (wantBreakfast ? s2.breakfast : true))
 
     if (ordering === '-rating_avg') {
-      list = [...list].sort((a, b) => Number(b.rating_avg) - Number(a.rating_avg))
+      list = [...list].sort((a, b) => {
+        const aRatings = mockVerifiedStayRatings(a.id)
+        const bRatings = mockVerifiedStayRatings(b.id)
+        const aAverage = aRatings.length
+          ? aRatings.reduce((sum, rating) => sum + rating, 0) / aRatings.length
+          : 0
+        const bAverage = bRatings.length
+          ? bRatings.reduce((sum, rating) => sum + rating, 0) / bRatings.length
+          : 0
+        return bAverage - aAverage
+      })
     } else if (ordering === 'rating_avg') {
-      list = [...list].sort((a, b) => Number(a.rating_avg) - Number(b.rating_avg))
+      list = [...list].sort((a, b) => {
+        const aRatings = mockVerifiedStayRatings(a.id)
+        const bRatings = mockVerifiedStayRatings(b.id)
+        const aAverage = aRatings.length
+          ? aRatings.reduce((sum, rating) => sum + rating, 0) / aRatings.length
+          : 0
+        const bAverage = bRatings.length
+          ? bRatings.reduce((sum, rating) => sum + rating, 0) / bRatings.length
+          : 0
+        return aAverage - bAverage
+      })
     } else if (ordering === 'price_per_night') {
       list = [...list].sort((a, b) => Number(a.price_per_night) - Number(b.price_per_night))
     } else if (ordering === '-price_per_night') {
@@ -6668,8 +6863,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (staySubMatch) {
     const id = Number(staySubMatch[1])
     const action = staySubMatch[2]
-    const stay = mockStays.find((x) => x.id === id)
-    if (!stay && action !== 'questions' && action !== 'moments' && action !== 'reviews' && action !== 'availability' && action !== 'record-view' && action !== 'moment-eligibility') {
+    const stay = mockStays.find((x) => x.id === id && mockStayIsLive(x))
+    if (!stay) {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
     }
     if (action === 'moment-eligibility' && method === 'GET') {
@@ -6727,6 +6922,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       }
       if (checkOut <= checkIn) {
         return { available: false, reason: 'Check-out must be after check-in.', blocked_ranges }
+      }
+      if (checkIn < new Date().toISOString().slice(0, 10)) {
+        return { available: false, reason: 'Check-in cannot be in the past.', blocked_ranges }
       }
       const maxGuests = Math.min(
         stay?.max_guests ?? 1,
@@ -6796,19 +6994,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           avatar: null,
           source: 'traveler',
         }))
-      const seeded = (stay?.guest_reviews ?? []).map((r, i) => ({
-        id: `seed-${i}`,
-        name: r.name,
-        place: r.place || stay?.region || '',
-        rating: r.rating,
-        body: r.body,
-        avatar: r.avatar ?? null,
-        source: 'host',
-      }))
-      const reviews = [...traveler, ...seeded]
+      const reviews = traveler.map((review) => ({ ...review, verified_guest: true }))
       const rated = reviews.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n))
       const rating_avg = rated.length ? Math.round((rated.reduce((a, b) => a + b, 0) / rated.length) * 100) / 100 : 0
-      return { reviews, rating_avg, rating_count: rated.length || stay?.rating_count || 0 }
+      return { reviews, rating_avg, rating_count: rated.length }
     }
     if (action === 'like' && method === 'POST') {
       requireAuth(s)
@@ -6828,7 +7017,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   const stayMatch = pathname.match(/^\/api\/accommodation\/listings\/(\d+)\/$/)
   if (stayMatch && method === 'GET') {
     const id = Number(stayMatch[1])
-    const s2 = mockStays.find((x) => x.id === id && x.is_active !== false)
+    const s2 = mockStays.find((x) => x.id === id && mockStayIsLive(x))
     return s2 ? enrichAccommodationListingRow(s, s2) : { detail: 'Not found' }
   }
 
@@ -6895,11 +7084,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const reviewBody = (body.body || '').trim()
     let listingId = 101
     const sessionRow = mockAccBookings.get(bookingId)
-    if (sessionRow) {
-      listingId = sessionRow.listing
-    } else if (bookingId === 9001) {
-      listingId = 101
+    const today = new Date().toISOString().slice(0, 10)
+    if (
+      !sessionRow ||
+      sessionRow.guest !== s.currentUser ||
+      sessionRow.status !== 'checked_out' ||
+      sessionRow.check_out > today
+    ) {
+      throw new ApiError('Stay not completed', 400, {
+        detail: 'You can review after your completed check-out date.',
+      })
     }
+    listingId = sessionRow.listing
     mockAccReviews.unshift({
       listing: listingId,
       booking: bookingId,
@@ -6941,10 +7137,21 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!checkIn || !checkOut) {
       throw new ApiError('Invalid dates', 400, { detail: 'check_in and check_out required.' })
     }
+    const business = mockBusinessProfiles.find((row) => row.owner_username === listing.owner_username)
+    const publicationIsLive =
+      listing.is_active !== false && (!business || business.verification_status === 'verified')
+    if (!publicationIsLive) {
+      throw new ApiError('Property unavailable', 400, {
+        detail: 'This property is not accepting bookings.',
+      })
+    }
     const t0 = new Date(`${checkIn}T12:00:00`).getTime()
     const t1 = new Date(`${checkOut}T12:00:00`).getTime()
     if (!(t1 > t0)) {
       throw new ApiError('Invalid dates', 400, { detail: 'check_out must be after check_in.' })
+    }
+    if (checkIn < new Date().toISOString().slice(0, 10)) {
+      throw new ApiError('Invalid dates', 400, { check_in: 'Check-in cannot be in the past.' })
     }
     const roomTypeId = Number(body.room_type || 0) || null
     const rooms = ensureMockStayRooms(listing)

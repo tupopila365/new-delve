@@ -5,10 +5,13 @@ import {
   BedDouble,
   Bookmark,
   Building2,
+  CalendarDays,
   List,
   Map as MapIcon,
   MapPin,
+  Search,
   SlidersHorizontal,
+  Users,
   X,
 } from 'lucide-react'
 import { apiFetch, asArray, mediaUrl } from '../api/client'
@@ -33,7 +36,6 @@ import {
   AreaPlacesFilter,
   listingMatchesAreaPoint,
 } from '../components/explore/AreaPlacesFilter'
-import { MarketSearchBar } from '../components/explore/MarketSearchBar'
 import { ExploreResultsMap } from '../components/explore/ExploreResultsMap'
 import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
@@ -57,6 +59,33 @@ type AccListing = AccommodationCardListing & {
   owner_verified?: boolean
   niche_tags?: string[] | null
   amenities?: string[] | null
+}
+
+type AppliedTrip = {
+  destination: string
+  checkIn: string
+  checkOut: string
+  guests: number
+}
+
+type StaySearchResponse = {
+  query: {
+    destination: string
+    check_in: string
+    check_out: string
+    guests: number
+    nights: number
+  }
+  count: number
+  sold_out_count: number
+  results: AccListing[]
+}
+
+type StayQueryResult = {
+  results: AccListing[]
+  soldOutCount: number
+  count: number
+  nights: number | null
 }
 
 type SortId = 'recommended' | 'rating' | 'price_asc' | 'price_desc' | 'distance'
@@ -153,8 +182,19 @@ function ratingValue(a: AccListing): number {
 }
 
 function nightlyPrice(a: AccListing): number {
-  const n = parseFloat(a.price_per_night ?? '')
+  const n = parseFloat(a.lowest_available_room_price ?? a.price_per_night ?? '')
   return Number.isFinite(n) ? n : Infinity
+}
+
+function localDateString(date = new Date()) {
+  const offset = date.getTimezoneOffset()
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10)
+}
+
+function formatTripDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(
+    new Date(`${value}T12:00:00`),
+  )
 }
 
 function stayHaystack(a: AccListing): string {
@@ -269,7 +309,12 @@ export function AccommodationList() {
   )
 
   const [search, setSearch] = useState('')
-  const [guests, setGuests] = useState('')
+  const [destinationDraft, setDestinationDraft] = useState('')
+  const [checkInDraft, setCheckInDraft] = useState('')
+  const [checkOutDraft, setCheckOutDraft] = useState('')
+  const [guests, setGuests] = useState('1')
+  const [appliedTrip, setAppliedTrip] = useState<AppliedTrip | null>(null)
+  const [tripError, setTripError] = useState('')
   const [sort, setSort] = useState<SortId>('recommended')
   const [amenities, setAmenities] = useState<Set<AmenityId>>(new Set())
   const [goodFor, setGoodFor] = useState<Set<GoodForId>>(new Set())
@@ -294,12 +339,51 @@ export function AccommodationList() {
     return guests
   }, [goodFor, guests])
 
+  const today = localDateString()
+  const datedSearch = Boolean(appliedTrip)
+
+  const submitTripSearch = (event: React.FormEvent) => {
+    event.preventDefault()
+    const destination = destinationDraft.trim()
+    const guestCount = Number(guests)
+    if (!checkInDraft || !checkOutDraft) {
+      setTripError('Choose both check-in and check-out dates.')
+      return
+    }
+    if (checkInDraft < today) {
+      setTripError('Check-in cannot be in the past.')
+      return
+    }
+    if (checkOutDraft <= checkInDraft) {
+      setTripError('Check-out must be after check-in.')
+      return
+    }
+    if (!Number.isInteger(guestCount) || guestCount < 1) {
+      setTripError('Add at least one guest.')
+      return
+    }
+    setTripError('')
+    setSearch(destination)
+    setAppliedTrip({
+      destination,
+      checkIn: checkInDraft,
+      checkOut: checkOutDraft,
+      guests: guestCount,
+    })
+  }
+
   const qs = useMemo(() => {
     const p = new URLSearchParams()
     if (search) p.set('search', search)
     if (exploring && exploreRegion) p.set('region', exploreRegion)
     if (exploring && country) p.set('country_code', country)
-    if (effectiveGuests) p.set('guests', effectiveGuests)
+    if (appliedTrip) {
+      p.set('check_in', appliedTrip.checkIn)
+      p.set('check_out', appliedTrip.checkOut)
+      p.set('guests', String(appliedTrip.guests))
+    } else if (effectiveGuests) {
+      p.set('guests', effectiveGuests)
+    }
     if (propType) p.set('property_type', propType)
     if (minPrice) p.set('min_price', minPrice)
     if (maxPrice) p.set('max_price', maxPrice)
@@ -322,6 +406,7 @@ export function AccommodationList() {
     exploring,
     country,
     effectiveGuests,
+    appliedTrip,
     propType,
     minPrice,
     maxPrice,
@@ -331,7 +416,7 @@ export function AccommodationList() {
     sort,
   ])
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<StayQueryResult>({
     queryKey: [
       'accommodation',
       qs,
@@ -339,10 +424,24 @@ export function AccommodationList() {
       exploring ? exploreRegion : '',
       profile?.username ?? 'anon',
     ],
-    queryFn: async () =>
-      asArray<AccListing>(
+    queryFn: async () => {
+      if (appliedTrip) {
+        const response = await apiFetch<StaySearchResponse>(
+          `/api/accommodation/listings/search/${qs}`,
+          { auth: Boolean(profile) },
+        )
+        return {
+          results: response.results,
+          soldOutCount: response.sold_out_count,
+          count: response.count,
+          nights: response.query.nights,
+        }
+      }
+      const results = asArray<AccListing>(
         await apiFetch(`/api/accommodation/listings/${qs}`, { auth: Boolean(profile) }),
-      ),
+      )
+      return { results, soldOutCount: 0, count: results.length, nights: null }
+    },
   })
 
   const savedQuery = useQuery({
@@ -351,7 +450,7 @@ export function AccommodationList() {
       asArray<AccListing>(
         await apiFetch('/api/accommodation/listings/saved/', { auth: true }),
       ),
-    enabled: savedOnly && Boolean(profile),
+    enabled: savedOnly && !appliedTrip && Boolean(profile),
   })
 
   const { data: featuredStays = [] } = useFeaturedPlacement<AccListing>(
@@ -361,12 +460,18 @@ export function AccommodationList() {
 
   const listings = useMemo(() => {
     if (savedOnly) {
+      if (appliedTrip) {
+        let saved = [...(data?.results ?? [])].filter((row) => row.saved_by_me)
+        if (nearPoint) saved = saved.filter((row) => listingMatchesAreaPoint(row, nearPoint))
+        if (dealsOnly) saved = saved.filter((row) => listingHasActiveDeals(row.deals))
+        return sortStays(saved, sort, staysAffinity, nearPoint, itemBoost, exploring)
+      }
       let saved = [...(savedQuery.data ?? [])]
       if (nearPoint) saved = saved.filter((row) => listingMatchesAreaPoint(row, nearPoint))
       if (dealsOnly) saved = saved.filter((row) => listingHasActiveDeals(row.deals))
       return sortStays(saved, sort, staysAffinity, nearPoint, itemBoost, exploring)
     }
-    let list = [...(data ?? [])]
+    let list = [...(data?.results ?? [])]
     if (exploring) {
       if (!exploreRegion) {
         list = list.filter((row) => listingMatchesExplore(row, country, ''))
@@ -382,6 +487,7 @@ export function AccommodationList() {
     savedOnly,
     savedQuery.data,
     data,
+    appliedTrip,
     goodFor,
     dealsOnly,
     sort,
@@ -393,15 +499,16 @@ export function AccommodationList() {
     nearPoint,
   ])
 
-  const activeLoading = savedOnly ? savedQuery.isLoading : isLoading
-  const activeError = savedOnly ? savedQuery.isError : isError
-  const inventoryCount = data?.length ?? 0
+  const activeLoading = savedOnly && !appliedTrip ? savedQuery.isLoading : isLoading
+  const activeError = savedOnly && !appliedTrip ? savedQuery.isError : isError
+  const inventoryCount = data?.results.length ?? 0
   const featured = useMemo(() => featuredStays.slice(0, 8), [featuredStays])
 
   const hasFilters = Boolean(
-    search ||
+    appliedTrip ||
+      search ||
       nearPoint ||
-      guests ||
+      guests !== '1' ||
       propType ||
       minPrice ||
       maxPrice ||
@@ -418,8 +525,13 @@ export function AccommodationList() {
 
   const clearAll = () => {
     setSearch('')
+    setDestinationDraft('')
+    setCheckInDraft('')
+    setCheckOutDraft('')
+    setAppliedTrip(null)
+    setTripError('')
     clearNearPoint()
-    setGuests('')
+    setGuests('1')
     setSort('recommended')
     setAmenities(new Set())
     setGoodFor(new Set())
@@ -432,7 +544,7 @@ export function AccommodationList() {
   }
 
   const clearSheetFilters = () => {
-    setGuests('')
+    setGuests('1')
     setAmenities(new Set())
     setGoodFor(new Set())
     setPropType('')
@@ -463,7 +575,7 @@ export function AccommodationList() {
   }
 
   const pickGuests = (value: string) => {
-    setGuests((prev) => (prev === value ? '' : value))
+    setGuests((prev) => (prev === value ? '1' : value))
   }
 
   const pickBedrooms = (value: string) => {
@@ -474,7 +586,7 @@ export function AccommodationList() {
     Boolean(propType),
     amenities.size > 0,
     goodFor.size > 0,
-    Boolean(guests),
+    !appliedTrip && guests !== '1',
     Boolean(minBedrooms),
     Boolean(minPrice || maxPrice),
     Boolean(minRating),
@@ -531,17 +643,93 @@ export function AccommodationList() {
           </p>
         </div>
 
+        <form className="st-market__trip-search" onSubmit={submitTripSearch} noValidate>
+          <label className="st-market__trip-field st-market__trip-field--destination">
+            <span>Destination</span>
+            <div>
+              <MapPin size={17} aria-hidden />
+              <input
+                id="acc-search"
+                value={destinationDraft}
+                onChange={(event) => {
+                  setDestinationDraft(event.target.value)
+                  setTripError('')
+                }}
+                placeholder="Where are you going?"
+                autoComplete="address-level2"
+              />
+            </div>
+          </label>
+          <label className="st-market__trip-field">
+            <span>Check in</span>
+            <div>
+              <CalendarDays size={17} aria-hidden />
+              <input
+                id="acc-check-in"
+                type="date"
+                min={today}
+                value={checkInDraft}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setCheckInDraft(value)
+                  if (checkOutDraft && checkOutDraft <= value) setCheckOutDraft('')
+                  setTripError('')
+                }}
+              />
+            </div>
+          </label>
+          <label className="st-market__trip-field">
+            <span>Check out</span>
+            <div>
+              <CalendarDays size={17} aria-hidden />
+              <input
+                type="date"
+                min={checkInDraft || today}
+                value={checkOutDraft}
+                onChange={(event) => {
+                  setCheckOutDraft(event.target.value)
+                  setTripError('')
+                }}
+              />
+            </div>
+          </label>
+          <label className="st-market__trip-field st-market__trip-field--guests">
+            <span>Guests</span>
+            <div>
+              <Users size={17} aria-hidden />
+              <input
+                type="number"
+                min="1"
+                max="30"
+                inputMode="numeric"
+                value={guests}
+                onChange={(event) => {
+                  setGuests(event.target.value)
+                  setTripError('')
+                }}
+              />
+            </div>
+          </label>
+          <button type="submit" className="st-market__trip-submit">
+            <Search size={18} strokeWidth={2.4} aria-hidden />
+            Search
+          </button>
+        </form>
+        {tripError ? (
+          <p className="st-market__trip-error" role="alert">{tripError}</p>
+        ) : appliedTrip ? (
+          <p className="st-market__trip-note st-market__trip-note--applied">
+            Live trip · {appliedTrip.destination || exploreLabel} ·{' '}
+            {formatTripDate(appliedTrip.checkIn)}–{formatTripDate(appliedTrip.checkOut)} ·{' '}
+            {appliedTrip.guests} guest{appliedTrip.guests === 1 ? '' : 's'}
+          </p>
+        ) : (
+          <p className="st-market__trip-note">
+            Choose dates to see live room availability and exact totals.
+          </p>
+        )}
+
         <div className="st-market__find">
-          <MarketSearchBar
-            id="acc-search"
-            classPrefix="st-market"
-            placeholder="City, lodge, hotel…"
-            ariaLabel="Search stays or a location"
-            keyword={search}
-            onKeywordChange={setSearch}
-            onLocationSet={() => setSort('distance')}
-            onLocationCleared={() => setSort('recommended')}
-          />
 
           <div className="st-market__find-row">
             <button
@@ -572,6 +760,7 @@ export function AccommodationList() {
 
         <AreaPlacesFilter
           variant="panel"
+          tone="light"
           showSearch={false}
           onPointSet={() => setSort('distance')}
           onCleared={() => setSort('recommended')}
@@ -584,7 +773,11 @@ export function AccommodationList() {
             <button
               type="button"
               className="st-market__active-pill"
-              onClick={() => setSearch('')}
+              onClick={() => {
+                setSearch('')
+                setDestinationDraft('')
+                setAppliedTrip((trip) => trip ? { ...trip, destination: '' } : null)
+              }}
             >
               “{search}” <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
@@ -602,8 +795,8 @@ export function AccommodationList() {
               <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
-          {guests ? (
-            <button type="button" className="st-market__active-pill" onClick={() => setGuests('')}>
+          {!appliedTrip && guests !== '1' ? (
+            <button type="button" className="st-market__active-pill" onClick={() => setGuests('1')}>
               {guests}+ guests <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           ) : null}
@@ -686,6 +879,18 @@ export function AccommodationList() {
       {showDiscovery ? <HostHighlightsRow /> : null}
 
       <div className="st-market__results-bar">
+        <p className="st-market__count" aria-live="polite">
+          {datedSearch && data ? (
+            <>
+              <strong>{data.count} available stay{data.count === 1 ? '' : 's'}</strong>
+              {data.soldOutCount > 0
+                ? ` · ${data.soldOutCount} unavailable stay${data.soldOutCount === 1 ? '' : 's'} hidden`
+                : ' · live availability checked'}
+            </>
+          ) : (
+            <><strong>{listings.length}</strong> stay{listings.length === 1 ? '' : 's'} to explore</>
+          )}
+        </p>
         <div className="st-market__results-acts">
           <div className="st-market__view-toggle" role="group" aria-label="Results view">
             <button
@@ -736,7 +941,7 @@ export function AccommodationList() {
           items={listings.map((a) => ({
             id: a.id,
             title: a.title,
-            href: `/accommodation/${a.id}`,
+            href: `/accommodation/${a.id}${appliedTrip ? `?check_in=${appliedTrip.checkIn}&check_out=${appliedTrip.checkOut}&guests=${appliedTrip.guests}` : ''}`,
             latitude: a.latitude,
             longitude: a.longitude,
             subtitle: a.city ? `${a.city}, ${a.region}` : a.region,
@@ -769,6 +974,11 @@ export function AccommodationList() {
               likeBusy={likeMut.isPending && likeMut.variables === a.id}
               distanceLabel={
                 nearPoint ? formatDistanceKm(listingDistanceKm(nearPoint, a)) : null
+              }
+              bookingQuery={
+                appliedTrip
+                  ? `check_in=${appliedTrip.checkIn}&check_out=${appliedTrip.checkOut}&guests=${appliedTrip.guests}`
+                  : undefined
               }
               onLike={(e) => onToggleLike(a.id, e)}
               onSave={(e) => onToggleSave(a.id, e)}
@@ -843,6 +1053,8 @@ export function AccommodationList() {
           title={
             savedOnly
               ? 'No saved stays yet'
+              : datedSearch
+                ? 'No stays are available for this trip'
               : hasFilters
                 ? 'No stays match those filters'
                 : 'No stays listed yet'
@@ -850,6 +1062,8 @@ export function AccommodationList() {
           sub={
             savedOnly
               ? 'Tap the bookmark on any stay to save it here for later.'
+              : datedSearch
+                ? `Nothing fits ${appliedTrip?.guests ?? 1} guest${appliedTrip?.guests === 1 ? '' : 's'} for those dates. Try shifting your check-in or check-out.`
               : hasFilters
                 ? maxPrice
                   ? `No stays up to ${format(maxPrice)}/night — try another budget or clear filters.`
@@ -859,6 +1073,11 @@ export function AccommodationList() {
           cta={
             savedOnly
               ? { label: 'Browse stays', onClick: () => setSavedOnly(false) }
+              : datedSearch
+                ? {
+                    label: 'Adjust dates',
+                    onClick: () => document.getElementById('acc-check-in')?.focus(),
+                  }
               : hasFilters
                 ? { label: 'Clear filters', onClick: clearAll }
                 : undefined

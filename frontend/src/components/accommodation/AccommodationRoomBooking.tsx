@@ -22,6 +22,7 @@ type Props = {
   listingTitle: string
   maxListingGuests: number
   className?: string
+  initialCtaLabel?: string
 }
 
 function parsePrice(raw: string | null | undefined): number | null {
@@ -56,6 +57,7 @@ export function AccommodationRoomBooking({
   listingTitle,
   maxListingGuests,
   className = '',
+  initialCtaLabel = 'Select dates',
 }: Props) {
   const { format } = useDisplayMoney()
   const { profile } = useAuth()
@@ -148,7 +150,7 @@ export function AccommodationRoomBooking({
         ? 'Dates not available'
         : availStatus === 'available'
           ? 'Review request'
-          : 'Select dates'
+          : initialCtaLabel
 
   const onCtaClick = (e: MouseEvent) => {
     if (!canReserve) {
@@ -205,29 +207,42 @@ export function AccommodationRoomBooking({
             </div>
           </div>
         ) : (
-          <p className="acc-room-booking__hint">Select dates to check availability and see your total</p>
+          <div className="acc-room-booking__fees">
+            <div className="acc-room-booking__fee-row acc-room-booking__fee-row--total">
+              <span>Stay total</span>
+              <strong>Add dates</strong>
+            </div>
+            <p className="acc-room-booking__hint">
+              Select dates to check live availability and calculate the total.
+            </p>
+          </div>
         )}
       </div>
 
       <div className="acc-room-booking__fields">
-        <BookingDateFields
-          className="acc-room-booking__dates"
-          mode="range"
-          checkIn={{
-            id: `room-${listingId}-in`,
-            label: 'Check-in',
-            value: checkIn,
-            min: today,
-            onChange: setCheckIn,
-          }}
-          checkOut={{
-            id: `room-${listingId}-out`,
-            label: 'Check-out',
-            value: checkOut,
-            min: checkIn || today,
-            onChange: setCheckOut,
-          }}
-        />
+        <div className="acc-room-booking__date-group">
+          <p className="acc-room-booking__field-title">
+            {checkIn || checkOut ? 'Edit dates' : 'Add dates'}
+          </p>
+          <BookingDateFields
+            className="acc-room-booking__dates"
+            mode="range"
+            checkIn={{
+              id: `room-${listingId}-in`,
+              label: 'Check-in',
+              value: checkIn,
+              min: today,
+              onChange: setCheckIn,
+            }}
+            checkOut={{
+              id: `room-${listingId}-out`,
+              label: 'Check-out',
+              value: checkOut,
+              min: checkIn || today,
+              onChange: setCheckOut,
+            }}
+          />
+        </div>
         <BookingGuestSelector
           id={`room-${listingId}-guests`}
           value={guests}

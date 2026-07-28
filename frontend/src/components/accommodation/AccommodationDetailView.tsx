@@ -1,17 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  BadgeDollarSign,
+  BadgeCheck,
   BedDouble,
-  Bookmark,
   Clock,
-  Heart,
   MapPin,
   MessageCircle,
-  Navigation,
-  Share2,
   ShieldCheck,
-  Star,
   Users,
 } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
@@ -19,15 +14,14 @@ import { mediaUrl } from '../../api/client'
 import { useDisplayMoney } from '../../hooks/useDisplayMoney'
 import { messageProviderPath } from '../messages/messageProviderUtils'
 import { StayHostCard } from './StayHostCard'
+import { AccommodationRoomBooking } from './AccommodationRoomBooking'
 import { StayRoomPicker } from './StayRoomPicker'
-import { buildStayStoryChannels } from './stayStoriesUtils'
 import { ListingDelversMoments, ListingFaq, ListingLocationCard, ListingReviews } from '../listing'
 import { ListingDealsStrip } from '../deals'
 import type { ListingRoomOption } from '../listing/types'
 import type { ReviewItem } from '../GuestReviewCard'
 import { JourneyHero } from '../journeys/JourneyHero'
 import { JourneySection } from '../journeys/JourneySection'
-import { HighlightStoriesSection } from '../highlights/HighlightStoriesSection'
 import { ReportButton } from '../report/ReportButton'
 import { SellerTrustBadges } from '../marketplace/SellerTrustBadges'
 import { ShareSheet } from '../share'
@@ -44,7 +38,6 @@ import {
   parseCoord,
   normalizeHouseRules,
   propertyTypeLabel,
-  resolveDirectionsUrl,
   sortAmenities,
   whyGuestsLove,
   type AccommodationListing,
@@ -63,22 +56,16 @@ type Props = {
   reviews?: ReviewItem[]
   ratingAvg?: string
   ratingCount?: number
-  /** Deep-link to provider highlights when owner is viewing. */
-  manageHighlightsHref?: string
 }
 
 export function AccommodationDetailView({
   data,
   listingId,
   saved,
-  liked,
-  likeCount,
   onSave,
-  onLike,
   reviews = [],
   ratingAvg,
   ratingCount,
-  manageHighlightsHref,
 }: Props) {
   const navigate = useNavigate()
   const { profile } = useAuth()
@@ -92,6 +79,7 @@ export function AccommodationDetailView({
 
   const listingImages = buildListingImages(data).filter((img) => Boolean(img.src?.trim()))
   const roomOffers = buildRoomOffers(data, roomTypes, listingId)
+  const bookingRoom = selectedRoom ?? roomOffers[0] ?? null
   const loveItems = whyGuestsLove(data)
   const locationLine = [data.city, data.region].filter(Boolean).join(', ')
   const sharePreviewImage =
@@ -103,14 +91,7 @@ export function AccommodationDetailView({
   const displayAddress =
     data.formatted_address?.trim() || data.address?.trim() || locationLine || null
   const sortedAmenities = sortAmenities(data.amenities ?? [])
-  const directionsHref = resolveDirectionsUrl({
-    name: data.title,
-    address: data.address,
-    city: data.city,
-    region: data.region,
-    latitude,
-    longitude,
-  })
+  const hasDeals = Array.isArray(data.deals) && data.deals.length > 0
   const stayPath = `/accommodation/${listingId}`
   const profileHref = `/u/${encodeURIComponent(data.owner_username)}`
   const messageHref = messageProviderPath(data.owner_username, {
@@ -136,12 +117,6 @@ export function AccommodationDetailView({
   const hostName = data.owner_display_name?.trim() || data.owner_username
   const initial = hostName.charAt(0).toUpperCase() || 'H'
   const hostAvatar = data.owner_avatar ? mediaUrl(data.owner_avatar) || data.owner_avatar : null
-  const displayLikeCount = likeCount ?? data.likes_count ?? 0
-
-  const storyChannels = useMemo(
-    () => buildStayStoryChannels(data, { listingId, stayPath }),
-    [data, listingId, stayPath],
-  )
 
   function guardEngage(action: () => void) {
     if (!profile) {
@@ -162,22 +137,22 @@ export function AccommodationDetailView({
   }
 
   const selectedPrice =
-    selectedRoom?.pricePerNight?.trim() ||
-    selectedRoom?.fallbackPrice?.trim() ||
+    bookingRoom?.pricePerNight?.trim() ||
+    bookingRoom?.fallbackPrice?.trim() ||
     data.price_per_night
 
-  const mobilePrice = selectedRoom
+  const mobilePrice = bookingRoom
     ? format(selectedPrice)
     : format(data.price_per_night, { from: true })
 
-  const mobileSub = selectedRoom
-    ? `${selectedRoom.name} · / night`
+  const mobileSub = bookingRoom
+    ? `${bookingRoom.name} · / night`
     : `${data.max_guests} guests · ${locationLine || 'Select room'}`
 
-  const mobileCtaLabel = selectedRoom ? 'Check availability' : 'Select room'
+  const mobileCtaLabel = bookingRoom ? 'Check availability' : 'Select room'
 
   const handleMobileCta = () => {
-    if (selectedRoom) {
+    if (bookingRoom) {
       scrollToReserve()
       return
     }
@@ -195,6 +170,26 @@ export function AccommodationDetailView({
         onShare={openShare}
       />
 
+      <div className="jd-titleblock">
+        <span className="jd-badge">{typeLabel}</span>
+        <h1 className="jd-title">{data.title}</h1>
+        <div className="acc-detail__identity-meta">
+          {locationLine ? (
+            <span className="jd-hook">
+              <MapPin size={15} strokeWidth={2.25} aria-hidden />
+              {locationLine}
+            </span>
+          ) : null}
+          {ratingLabel ? (
+            <span className="acc-detail__verified-rating">
+              <BadgeCheck size={15} strokeWidth={2.3} aria-hidden />
+              {ratingLabel} verified
+              {displayReviewCount ? ` · ${displayReviewCount} ${displayReviewCount === 1 ? 'stay' : 'stays'}` : ''}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
       <div className="jd-head">
         <Link to={profileHref} className="jd-author">
           <span className="jd-author__avatar jd-author__avatar--fallback" aria-hidden>
@@ -202,16 +197,13 @@ export function AccommodationDetailView({
           </span>
           <span className="jd-author__copy">
             <span className="jd-author__name">{data.owner_display_name?.trim() || `@${data.owner_username}`}</span>
-            <span className="jd-author__sub">
-              Host
-              {ratingLabel ? ` · ★ ${ratingLabel}` : ''}
-            </span>
+            <span className="jd-author__sub">Local host</span>
             <SellerTrustBadges username={data.owner_username} compact />
           </span>
         </Link>
 
         <div className="jd-head__actions">
-          <Link to={messageHref} className="jd-btn jd-btn--primary">
+          <Link to={messageHref} className="jd-btn">
             <MessageCircle size={14} strokeWidth={2.25} aria-hidden />
             <span className="jd-btn--label">Message</span>
           </Link>
@@ -228,69 +220,7 @@ export function AccommodationDetailView({
         </div>
       </div>
 
-      <div className="jd-titleblock">
-        <span className="jd-badge">{typeLabel}</span>
-        <h1 className="jd-title">{data.title}</h1>
-        {locationLine ? (
-          <p className="jd-hook">
-            <MapPin
-              size={15}
-              strokeWidth={2.25}
-              aria-hidden
-              style={{ display: 'inline', verticalAlign: '-0.15em', marginRight: 6 }}
-            />
-            {locationLine}
-          </p>
-        ) : null}
-      </div>
-
-      <ListingDealsStrip deals={data.deals} />
-
-      <div className="jd-engage" aria-label="Stay actions">
-        <div className="jd-engage__primary">
-          <button
-            type="button"
-            className={`jd-engage__btn jd-engage__btn--like${liked ? ' is-active' : ''}`}
-            onClick={() => guardEngage(onLike)}
-            aria-label={liked ? 'Unlike stay' : 'Like stay'}
-            aria-pressed={liked}
-          >
-            <Heart size={22} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
-            {displayLikeCount > 0 ? <span className="jd-engage__count">{displayLikeCount}</span> : null}
-          </button>
-          <button type="button" className="jd-engage__btn" onClick={openShare} aria-label="Share stay">
-            <Share2 size={22} strokeWidth={2.25} aria-hidden />
-          </button>
-          {directionsHref ? (
-            <a
-              href={directionsHref}
-              className="jd-engage__btn"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={precisePin ? 'Get directions' : 'Open area in maps'}
-            >
-              <Navigation size={22} strokeWidth={2.25} aria-hidden />
-            </a>
-          ) : null}
-        </div>
-        <div className="jd-engage__secondary">
-          <button
-            type="button"
-            className={`jd-engage__btn jd-engage__btn--save${saved ? ' is-active' : ''}`}
-            onClick={() => guardEngage(onSave)}
-            aria-label={saved ? 'Remove saved stay' : 'Save stay'}
-            aria-pressed={saved}
-          >
-            <Bookmark size={22} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-          </button>
-        </div>
-      </div>
-
       <ul className="jd-facts">
-        <li className="jd-fact jd-fact--cost">
-          <BadgeDollarSign size={15} strokeWidth={2.25} aria-hidden />
-          {format(data.price_per_night, { suffix: '/ night', from: true })}
-        </li>
         <li className="jd-fact">
           <Users size={15} strokeWidth={2.25} aria-hidden />
           {data.max_guests} guests
@@ -301,27 +231,45 @@ export function AccommodationDetailView({
             {data.bedrooms} {data.bedrooms === 1 ? 'bedroom' : 'bedrooms'}
           </li>
         ) : null}
-        {ratingLabel ? (
-          <li className="jd-fact">
-            <Star size={15} strokeWidth={2.25} aria-hidden />
-            {ratingLabel}
-            {displayReviewCount ? ` (${displayReviewCount})` : ''}
-          </li>
-        ) : null}
-        {data.region ? (
-          <li className="jd-fact">
-            <MapPin size={15} strokeWidth={2.25} aria-hidden />
-            {data.region}
-          </li>
-        ) : null}
       </ul>
 
+      <div className="acc-detail__content-layout">
+        {bookingRoom ? (
+        <aside className="acc-detail__booking-column">
+        <section
+          className="acc-detail__trip-ledger"
+          id="stay-reserve-panel"
+          aria-labelledby="trip-ledger-title"
+        >
+          <div className="acc-detail__trip-ledger-head">
+            <h2 id="trip-ledger-title">Plan your stay.</h2>
+            <p><span>Selected room</span>{bookingRoom.name}</p>
+          </div>
+          <AccommodationRoomBooking
+            room={bookingRoom}
+            listingId={listingId}
+            listingTitle={data.title}
+            maxListingGuests={data.max_guests}
+            className="acc-room-booking--ledger"
+            initialCtaLabel="Check availability"
+          />
+          {hasDeals ? (
+            <details className="acc-detail__deals-disclosure">
+              <summary>Deals & discounts</summary>
+              <ListingDealsStrip deals={data.deals} />
+            </details>
+          ) : null}
+        </section>
+        </aside>
+        ) : null}
+
+      <main className="acc-detail__main-column">
       <div id="stay-rooms" className="acc-detail__rooms">
         <StayRoomPicker
           rooms={roomOffers}
           listingId={listingId}
-          selectedId={selectedRoom ? String(selectedRoom.id ?? selectedRoom.name) : null}
-          onSelect={setSelectedRoom}
+          selectedId={bookingRoom ? String(bookingRoom.id ?? bookingRoom.name) : null}
+          onSelect={(room) => setSelectedRoom(room ?? roomOffers[0] ?? null)}
           fallbackCoverSrc={data.cover_image}
           title={roomTypes.length > 0 ? 'Rooms & rates' : 'Book this stay'}
           subtitle={
@@ -330,65 +278,8 @@ export function AccommodationDetailView({
         />
       </div>
 
-      <div className="acc-detail__reserve-block" id="stay-reserve-panel">
-        {selectedRoom ? (
-          <div className="stay-reserve">
-            <p className="stay-reserve__kicker">Continue with this room</p>
-            <p className="stay-reserve__price">
-              {format(selectedPrice)}
-              <small> / night</small>
-            </p>
-            <p className="stay-reserve__meta">{selectedRoom.name}</p>
-            <div className="stay-reserve__actions">
-              <Link
-                to={`/accommodation/${listingId}/room/${encodeURIComponent(String(selectedRoom.id ?? selectedRoom.name))}`}
-                className="btn btn-primary btn-block"
-              >
-                Check dates & availability
-              </Link>
-            </div>
-            <p className="stay-reserve__hint">
-              Pick dates next — we’ll tell you if the room is free before you request.
-            </p>
-          </div>
-        ) : (
-          <div className="stay-reserve">
-            <p className="stay-reserve__kicker">Reserve a stay</p>
-            <p className="stay-reserve__price">
-              {format(data.price_per_night, { from: true })}
-              <small> / night</small>
-            </p>
-            <p className="stay-reserve__hint">Choose a room above to continue with dates and guests.</p>
-            <button type="button" className="btn btn-primary btn-block" onClick={scrollToRooms}>
-              Select room
-            </button>
-          </div>
-        )}
-      </div>
-
-      {storyChannels.length > 0 || manageHighlightsHref ? (
-        <HighlightStoriesSection
-          channels={storyChannels}
-          listingName={data.title}
-          explorePath={stayPath}
-          title="Host Highlights"
-          subtitle={`Curated by ${data.owner_display_name?.trim() || data.title} — rooms, facilities, atmosphere and location.`}
-          ctaLabel="View stay"
-          className="jd-stories"
-          variant="media"
-          isOwner={Boolean(manageHighlightsHref)}
-          onManageHighlights={
-            manageHighlightsHref
-              ? () => {
-                  navigate(manageHighlightsHref)
-                }
-              : undefined
-          }
-        />
-      ) : null}
-
-      {(data.description?.trim() || loveItems.length > 0 || policyRows.length > 0) && (
-        <JourneySection title="About this stay">
+      {(data.description?.trim() || loveItems.length > 0) && (
+        <JourneySection title="Why stay here">
           {data.description?.trim() ? (
             <p className="jd-story__lead">{data.description.trim()}</p>
           ) : null}
@@ -405,24 +296,40 @@ export function AccommodationDetailView({
               })}
             </ul>
           ) : null}
-          {policyRows.length > 0 ? (
-            <ul className="jd-story__rows" style={{ marginTop: 14 }}>
-              {policyRows.map((row) => (
-                <li key={row.label} className="jd-story__row">
-                  <span className="jd-story__row-label">
-                    {row.icon}
-                    {row.label}
-                  </span>
-                  <span className="jd-story__row-value">{row.value}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </JourneySection>
       )}
 
+      <ListingDelversMoments
+        listingType="accommodation"
+        listingId={listingId}
+        listingTitle={data.title}
+        title="From Delvers"
+        className="acc-detail__from-delvers"
+        showWhenEmpty
+        emptyMessage="No moments yet. Travellers can share one after a completed stay."
+      />
+
+      <div className="acc-detail__verified-reviews">
+        <p className="acc-detail__reviews-trust-cue">
+          <BadgeCheck size={16} strokeWidth={2.3} aria-hidden />
+          Completed stays only
+        </p>
+        <ListingReviews
+          listingType="accommodation"
+          listingId={listingId}
+          reviews={reviews}
+          title="Verified stay reviews"
+          rating={hasReviews ? displayRating : null}
+          count={displayReviewCount}
+          emptyMessage="Ratings and written reviews will appear here after guests complete their stay."
+          className="acc-detail__reviews"
+        />
+      </div>
+
+      <div className="acc-detail__disclosures" aria-label="Stay details">
       {sortedAmenities.length > 0 ? (
-        <JourneySection title="Amenities">
+        <details className="acc-detail__disclosure">
+          <summary>Amenities</summary>
           <ul className="jd-amenity-grid">
             {sortedAmenities.map((raw) => {
               const label = amenityDisplayLabel(raw)
@@ -435,20 +342,33 @@ export function AccommodationDetailView({
               )
             })}
           </ul>
-        </JourneySection>
+        </details>
       ) : null}
 
-      {rules.length > 0 ? (
-        <JourneySection title="House rules">
+      {rules.length > 0 || policyRows.length > 0 ? (
+        <details className="acc-detail__disclosure">
+          <summary>Rules</summary>
           <ul className="jd-rules">
             {rules.map((rule) => (
               <li key={rule}>{rule}</li>
             ))}
           </ul>
-        </JourneySection>
+          {policyRows.length > 0 ? (
+            <ul className="jd-story__rows">
+              {policyRows.map((row) => (
+                <li key={row.label} className="jd-story__row">
+                  <span className="jd-story__row-label">{row.icon}{row.label}</span>
+                  <span className="jd-story__row-value">{row.value}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </details>
       ) : null}
 
       {(displayAddress || precisePin) && (
+        <details className="acc-detail__disclosure">
+          <summary>Location</summary>
         <ListingLocationCard
           title="Location"
           name={data.title}
@@ -464,39 +384,31 @@ export function AccommodationDetailView({
           }
           className="acc-detail__location"
         />
+        </details>
       )}
 
-      <StayHostCard
-        username={data.owner_username}
-        listingId={listingId}
-        listingTitle={data.title}
-        regionLine={locationLine}
-        displayName={data.owner_display_name}
-        photo={data.owner_avatar}
-        className="acc-detail__provider"
-      />
+      <details className="acc-detail__disclosure">
+        <summary>Host</summary>
+        <StayHostCard
+          username={data.owner_username}
+          listingId={listingId}
+          listingTitle={data.title}
+          regionLine={locationLine}
+          displayName={data.owner_display_name}
+          photo={data.owner_avatar}
+          className="acc-detail__provider"
+        />
+      </details>
 
-      <ListingDelversMoments
-        listingType="accommodation"
-        listingId={listingId}
-        listingTitle={data.title}
-        title="Delvers Moments"
-        className="acc-detail__moments"
-        showWhenEmpty
-        emptyMessage="No Delvers Moments yet. Travellers can share one after a completed stay."
-      />
-
-      <ListingReviews
-        listingType="accommodation"
-        listingId={listingId}
-        reviews={reviews}
-        rating={hasReviews ? displayRating : null}
-        count={displayReviewCount}
-        emptyMessage="Ratings and written reviews will appear here after guests complete their stay."
-        className="acc-detail__reviews"
-      />
-
-      <ListingFaq items={faqs} title="FAQ" className="acc-detail__faq" />
+      {faqs.length > 0 ? (
+        <details className="acc-detail__disclosure">
+          <summary>FAQ</summary>
+          <ListingFaq items={faqs} title="FAQ" className="acc-detail__faq" />
+        </details>
+      ) : null}
+      </div>
+      </main>
+      </div>
 
       <div className="jd-mobilebar">
         <span className="jd-mobilebar__meta">
@@ -504,31 +416,6 @@ export function AccommodationDetailView({
           <span className="jd-mobilebar__sub">{mobileSub}</span>
         </span>
         <div className="jd-mobilebar__actions">
-          <button
-            type="button"
-            className={`jd-mobilebar__icon jd-mobilebar__icon--like${liked ? ' is-active' : ''}`}
-            onClick={() => guardEngage(onLike)}
-            aria-label={liked ? 'Unlike' : 'Like'}
-            aria-pressed={liked}
-          >
-            <Heart size={18} strokeWidth={2.25} fill={liked ? 'currentColor' : 'none'} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className={`jd-mobilebar__icon${saved ? ' is-active' : ''}`}
-            onClick={() => guardEngage(onSave)}
-            aria-label={saved ? 'Unsave' : 'Save'}
-          >
-            <Bookmark size={18} strokeWidth={2.25} fill={saved ? 'currentColor' : 'none'} aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="jd-mobilebar__icon"
-            onClick={openShare}
-            aria-label="Share stay"
-          >
-            <Share2 size={18} strokeWidth={2.25} aria-hidden />
-          </button>
           <button type="button" className="jd-mobilebar__btn" onClick={handleMobileCta}>
             {mobileCtaLabel}
           </button>

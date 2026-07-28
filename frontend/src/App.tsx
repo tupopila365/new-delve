@@ -9,7 +9,6 @@ import { BookingDetail } from './pages/BookingDetail'
 import { AccommodationDetail } from './pages/AccommodationDetail'
 import { AccommodationRoomDetail } from './pages/AccommodationRoomDetail'
 import { AccommodationList } from './pages/AccommodationList'
-import { AccommodationStoryNew } from './pages/AccommodationStoryNew'
 import { BusTripDetail } from './pages/BusTripDetail'
 import { Community } from './pages/Community'
 import { CommunityTag } from './pages/CommunityTag'
@@ -192,7 +191,7 @@ export default function App() {
           <Route path="/deals" element={<DealsPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/accommodation" element={<AccommodationList />} />
-          <Route path="/accommodation/stories/new" element={<AccommodationStoryNew />} />
+          <Route path="/accommodation/stories/new" element={<Navigate to="/provider/stays" replace />} />
           <Route path="/accommodation/:id" element={<AccommodationDetail />} />
           <Route path="/accommodation/:id/room/:roomSlug" element={<AccommodationRoomDetail />} />
           <Route path="/accommodation/:id/book" element={<AccommodationBook />} />

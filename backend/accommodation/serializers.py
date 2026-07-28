@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from common.story_channels import validate_story_channels
@@ -14,6 +15,7 @@ from .booking_services import (
     expire_stale_booking_holds,
     find_overlapping_booking,
     host_approval_hold_deadline,
+    listing_accepts_bookings,
     nightly_price_breakdown,
     resolve_room_type,
 )
@@ -260,6 +262,16 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
     verification_status = serializers.SerializerMethodField()
     publication_status = serializers.SerializerMethodField()
     publication_status_label = serializers.SerializerMethodField()
+    availability_searched = serializers.SerializerMethodField()
+    available_room_count = serializers.SerializerMethodField()
+    total_room_count = serializers.SerializerMethodField()
+    lowest_available_room_price = serializers.SerializerMethodField()
+    total_price = serializers.SerializerMethodField()
+    search_nights = serializers.SerializerMethodField()
+    limited_availability = serializers.SerializerMethodField()
+    sold_out_room_types_count = serializers.SerializerMethodField()
+    availability_status = serializers.SerializerMethodField()
+    availability_message = serializers.SerializerMethodField()
     room_types = AccommodationRoomTypeSerializer(
         source="room_type_records",
         many=True,
@@ -322,6 +334,16 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "saves_count",
             "saved_by_me",
             "deals",
+            "availability_searched",
+            "available_room_count",
+            "total_room_count",
+            "lowest_available_room_price",
+            "total_price",
+            "search_nights",
+            "limited_availability",
+            "sold_out_room_types_count",
+            "availability_status",
+            "availability_message",
         )
         read_only_fields = (
             "owner",
@@ -339,7 +361,60 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
             "owner_display_name",
             "owner_avatar",
             "owner_verified",
+            "guest_reviews",
+            "availability_searched",
+            "available_room_count",
+            "total_room_count",
+            "lowest_available_room_price",
+            "total_price",
+            "search_nights",
+            "limited_availability",
+            "sold_out_room_types_count",
+            "availability_status",
+            "availability_message",
         )
+
+    def _search_availability(self, obj):
+        return getattr(obj, "_search_availability", None)
+
+    def get_availability_searched(self, obj):
+        return self._search_availability(obj) is not None
+
+    def get_available_room_count(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("available_room_count") if payload else None
+
+    def get_total_room_count(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("total_room_count") if payload else None
+
+    def get_lowest_available_room_price(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("lowest_available_room_price") if payload else None
+
+    def get_total_price(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("total_price") if payload else None
+
+    def get_search_nights(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("nights") if payload else None
+
+    def get_limited_availability(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("limited_availability") if payload else False
+
+    def get_sold_out_room_types_count(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("sold_out_room_types_count") if payload else None
+
+    def get_availability_status(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("availability_status") if payload else None
+
+    def get_availability_message(self, obj):
+        payload = self._search_availability(obj)
+        return payload.get("availability_message") if payload else ""
 
     def get_owner_display_name(self, obj):
         return _owner_display_name(obj.owner)
@@ -405,7 +480,24 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         cover = _listing_cover_url(instance, request)
         data["cover_image"] = cover
-        if request and "/provider-listings/" not in request.path:
+        is_provider_view = bool(request and "/provider-listings/" in request.path)
+        if is_provider_view:
+            data["guest_reviews"] = [
+                {
+                    **row,
+                    "source": "provider_legacy",
+                    "verified_guest": False,
+                    "excluded_from_rating": True,
+                    "trust_label": "Legacy provider-entered review — unverified",
+                }
+                for row in (instance.guest_reviews or [])
+                if isinstance(row, dict)
+            ]
+        else:
+            # Provider-entered legacy reviews are retained for audit/history but are
+            # never exposed as traveller reviews on public listing APIs.
+            data["guest_reviews"] = []
+        if not is_provider_view:
             data["room_types"] = [
                 room for room in data.get("room_types", []) if room.get("is_active", True)
             ]
@@ -654,6 +746,10 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             attrs["room_type"] = room_type
         if check_out <= check_in:
             raise serializers.ValidationError("check_out must be after check_in.")
+        if check_in < timezone.localdate():
+            raise serializers.ValidationError({"check_in": "Check-in cannot be in the past."})
+        if not listing_accepts_bookings(listing):
+            raise serializers.ValidationError("This property is not accepting bookings.")
         max_guests_allowed = listing.max_guests
         if room_type is not None:
             max_guests_allowed = min(max_guests_allowed, room_type.max_guests)
@@ -682,7 +778,7 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             listing = AccommodationListing.objects.select_for_update().get(
                 pk=validated_data["listing"].pk
             )
-            if not listing.is_active:
+            if not listing_accepts_bookings(listing):
                 raise serializers.ValidationError("This property is not accepting bookings.")
             validated_data["listing"] = listing
             expire_stale_booking_holds(

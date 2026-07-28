@@ -648,3 +648,240 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Phase 2: quiet, availability-first marketplace */
+.st-market {
+  --st-accent: #c96f5e;
+  --st-accent-bright: #c96f5e;
+  --st-cost: #2b2724;
+  --st-surface: #fffdf8;
+  --st-border: rgba(48, 39, 33, 0.12);
+  --st-text: #292522;
+  --st-muted: #746c66;
+  max-width: 1180px;
+  color: var(--st-text);
+}
+
+body:has(.st-market) {
+  background: #f5efe5 !important;
+}
+
+.app-shell:has(.st-market),
+.app-main:has(.st-market) {
+  background: #f5efe5 !important;
+  color-scheme: light;
+}
+
+.app-main:has(.st-market) {
+  padding-bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 64px) !important;
+  scroll-padding-bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 40px);
+}
+
+.st-market__hero {
+  padding: clamp(18px, 3vw, 30px);
+  border: 1px solid var(--st-border);
+  border-radius: 28px;
+  background: #f8f2e8;
+  box-shadow: 0 20px 60px rgba(52, 39, 29, 0.07);
+}
+
+.st-market__kicker { color: var(--st-accent); }
+.st-market__title { color: var(--st-text); font-size: clamp(1.8rem, 4vw, 3rem); }
+.st-market__explore-hint { color: var(--st-muted); }
+
+.st-market__trip-search {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.5fr) 1fr 1fr minmax(100px, .62fr) auto;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(48, 39, 33, 0.16);
+  border-radius: 18px;
+  background: #fffdf8;
+  box-shadow: 0 12px 32px rgba(52, 39, 29, 0.08);
+}
+
+.st-market__trip-field {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 16px;
+  border-right: 1px solid rgba(48, 39, 33, 0.1);
+  cursor: text;
+}
+
+.st-market__trip-field > span {
+  color: #675f58;
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.st-market__trip-field > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #8b8179;
+}
+
+.st-market__trip-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--st-text);
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 720;
+}
+
+.st-market__trip-field:focus-within {
+  box-shadow: inset 0 -3px 0 var(--st-accent);
+}
+
+.st-market__trip-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 112px;
+  margin: 7px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--st-accent);
+  color: #fff;
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 850;
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+
+.st-market__trip-submit:hover { background: #b95f50; transform: translateY(-1px); }
+.st-market__trip-submit:focus-visible { outline: 3px solid rgba(215, 111, 95, .28); outline-offset: 2px; }
+
+.st-market__trip-note,
+.st-market__trip-error {
+  margin: 9px 2px 0;
+  font-size: .76rem;
+  font-weight: 680;
+}
+.st-market__trip-note { color: var(--st-muted); }
+.st-market__trip-note--applied { color: #356b59; }
+.st-market__trip-error { color: #9c473b; }
+
+.st-market__find { margin-top: 10px; }
+.st-market__find-row { grid-template-columns: auto minmax(170px, 230px); justify-content: end; }
+.st-market__more,
+.st-market__select,
+.st-market__sort {
+  border-color: var(--st-border);
+  background: rgba(255, 253, 248, .72);
+  color: var(--st-text);
+}
+.st-market__more { border-style: solid; color: #5d554f; }
+.st-market__chip,
+.st-market__saved-toggle {
+  border-color: var(--st-border);
+  background: #fffdf8;
+  color: #5d554f;
+}
+.st-market__chip:hover,
+.st-market__saved-toggle:hover { border-color: rgba(215,111,95,.4); background: #fff9f3; color: var(--st-text); }
+.st-market__chip.is-active,
+.st-market__saved-toggle.is-active {
+  border-color: rgba(215,111,95,.3);
+  background: #fae5df;
+  color: #8f443a;
+}
+.st-market__active-pill { background: #fae5df; color: #8f443a; border-color: rgba(215,111,95,.28); }
+.st-market__clear,
+.st-market__count,
+.st-market__section-sub { color: var(--st-muted); }
+.st-market__count strong,
+.st-market__section-title { color: var(--st-text); }
+.st-market__results-bar { align-items: center; }
+.st-market__count,
+.st-market__count strong,
+.st-market__section-title,
+.st-market__featured-title {
+  color: #292522 !important;
+}
+.st-market__section-sub,
+.st-market__featured-meta {
+  color: #6d655e !important;
+}
+.st-market__featured {
+  border-color: rgba(48, 39, 33, .11);
+  background: #fffdf8;
+  color: #292522;
+  box-shadow: 0 10px 28px rgba(52, 39, 29, .06);
+}
+.st-market__featured:visited { color: #292522; }
+.st-market__featured-type { color: #9b4f43; }
+.st-market__featured-media,
+.st-market__featured-media .st-spot__placeholder {
+  background: #e8dfd2;
+}
+.st-market .provider-stories__title { color: #292522; }
+.st-market .provider-stories__sub { color: #6d655e; }
+.st-market .provider-stories__item { color: #514a44; }
+.st-market .provider-stories__ring { background: #c96f5e; }
+.st-market .provider-stories__media {
+  border-color: #f5efe5;
+  background: #ded3c6;
+}
+.st-market .provider-stories__initial { color: #514a44; }
+.st-market .provider-stories__item:focus-visible .provider-stories__ring {
+  outline-color: #9b4f43;
+}
+
+.st-market .area-places--panel {
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 7px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(48, 39, 33, .09);
+  border-radius: 0;
+  background: transparent;
+}
+.st-market .area-places__btn,
+.st-market .area-places__chip {
+  border-color: rgba(48, 39, 33, .16);
+  background: #fffdf8;
+  color: #5f5750;
+}
+.st-market .area-places__btn:hover,
+.st-market .area-places__chip:hover {
+  border-color: rgba(201, 111, 94, .38);
+  color: #292522;
+}
+.st-market .area-places__hint,
+.st-market .area-places__status { color: #6d655e; }
+.st-market .area-places__status strong { color: #292522; }
+
+@media (max-width: 840px) {
+  .st-market__trip-search {
+    grid-template-columns: 1fr 1fr;
+    overflow: visible;
+  }
+  .st-market__trip-field--destination { grid-column: 1 / -1; }
+  .st-market__trip-field--guests { border-top: 1px solid rgba(48,39,33,.1); }
+  .st-market__trip-submit { min-height: 50px; }
+}
+
+@media (max-width: 520px) {
+  .st-market__hero { padding: 18px 14px; border-radius: 20px; }
+  .st-market__trip-search { grid-template-columns: 1fr 1fr; }
+  .st-market__trip-field { padding: 10px 11px; }
+  .st-market__trip-field--guests { grid-column: 1 / -1; }
+  .st-market__trip-submit { grid-column: 1 / -1; min-height: 48px; }
+  .st-market__find-row { grid-template-columns: 1fr 1fr; }
+  .st-market {
+    padding-bottom: calc(var(--bottom-nav-h, 56px) + var(--safe-bottom, 0px) + 96px);
+  }
+}

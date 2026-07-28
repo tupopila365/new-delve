@@ -437,7 +437,8 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
             is_delvers: true,
             is_delvers_highlight: input.publishAsHighlight,
             delvers_board: input.delversBoard,
-            verified_stay: input.placeLink.kind === 'accommodation',
+            // Never show a trust badge before the server verifies booking proof.
+            verified_stay: false,
             listing:
               input.placeLink.kind === 'accommodation'
                 ? { id: input.placeLink.id, title: input.placeLink.title }
@@ -535,7 +536,8 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
             is_delvers: stored.input.postsToDelvers,
             is_delvers_highlight: stored.input.publishAsHighlight,
             delvers_board: stored.input.delversBoard,
-            verified_stay: stored.input.placeLink.kind === 'accommodation',
+            // Retry previews remain unverified until replaced by the API response.
+            verified_stay: false,
             listing:
               stored.input.placeLink.kind === 'accommodation'
                 ? { id: stored.input.placeLink.id, title: stored.input.placeLink.title }

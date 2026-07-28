@@ -16,18 +16,16 @@ export type StayBoostStatus = {
 type Props = {
   stay: ProviderStayListing
   canEdit?: boolean
-  onManageHighlights?: () => void
   boost?: StayBoostStatus | null
 }
 
-export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Props) {
+export function StayListingCard({ stay, canEdit, boost }: Props) {
   const { format } = useDisplayMoney()
   const { percent, missing } = listingCompleteness(stay)
   const cover = stay.cover_image ? mediaUrl(stay.cover_image) || stay.cover_image : null
   const coverIsVideo = Boolean(stay.cover_image && isVideoUrl(stay.cover_image))
   const roomCount = Array.isArray(stay.room_types) ? stay.room_types.length : 0
   const photoCount = (stay.media_gallery?.length ?? 0) + (stay.cover_image ? 1 : 0)
-  const highlightCount = stay.listing_stories?.length ?? 0
   const boostHref = `/provider/promotions?listing=accommodation:${stay.id}&placement=homepage_stays`
   const editHref = `/provider/stays/${stay.id}/edit`
   const roomsHref = `/provider/stays/${stay.id}/rooms`
@@ -53,7 +51,6 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
     'Room types',
     'Photo gallery',
     'FAQs',
-    'Host Highlights',
   ]
   const missingSet = new Set(missing)
 
@@ -98,7 +95,6 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
         <p className="stay-card__rating">
           {stay.rating_avg} rating · {stay.rating_count} review{stay.rating_count === 1 ? '' : 's'}
           {typeof stay.views_count === 'number' ? ` · ${stay.views_count} view${stay.views_count === 1 ? '' : 's'}` : ''}
-          {highlightCount > 0 ? ` · ${highlightCount} Host Highlight${highlightCount === 1 ? '' : 's'}` : ''}
         </p>
 
         <details className="stay-card__readiness">
@@ -159,11 +155,6 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
             <Sparkles size={14} strokeWidth={2.25} aria-hidden />
             {boost ? 'Manage boost' : 'Boost'}
           </Link>
-        ) : null}
-        {canEdit && onManageHighlights ? (
-          <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
-            Host Highlights
-          </button>
         ) : null}
         <Link to={`/accommodation/${stay.id}?preview=1`} className="prov-ui__btn prov-ui__btn--ghost">
           Preview
