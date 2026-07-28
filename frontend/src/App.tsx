@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
+import './design-system/tokens.css'
+import './design-system/components.css'
 import { AppLayout } from './components/AppLayout'
 import { useNoFace } from './hooks/useNoFace'
 import { ProfileMessageLinkInterceptor } from './components/ProfileMessageLinkInterceptor'
