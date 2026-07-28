@@ -10,13 +10,13 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: rgba(255, 250, 242, 0.68);
+  color: rgba(var(--home-ink-rgb), 0.68);
   font-size: 0.78rem;
   font-weight: 650;
 }
 
 .home-region--locked strong {
-  color: #fffaf2;
+  color: var(--home-ink);
   font-weight: 800;
 }
 
@@ -25,7 +25,7 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: rgba(255, 250, 242, 0.55);
+  color: rgba(var(--home-ink-rgb), 0.55);
   font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0.1em;
@@ -51,10 +51,10 @@
   flex: 0 0 auto;
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 250, 242, 0.14);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.14);
   border-radius: 999px;
-  background: #1c1814;
-  color: rgba(255, 250, 242, 0.78);
+  background: rgba(var(--home-ink-rgb), 0.06);
+  color: rgba(var(--home-ink-rgb), 0.78);
   font-family: inherit;
   font-size: 0.76rem;
   font-weight: 750;
@@ -63,17 +63,17 @@
 }
 
 .home-region__chip:hover {
-  border-color: rgba(255, 250, 242, 0.28);
-  color: #fffaf2;
+  border-color: rgba(var(--home-ink-rgb), 0.28);
+  color: var(--home-ink);
 }
 
 .home-region__chip--active {
-  border-color: #fffaf2;
-  background: #fffaf2;
-  color: #1a1510;
+  border-color: var(--home-ink);
+  background: var(--home-ink);
+  color: var(--home-on-ink);
 }
 
 .home-region__chip--active:hover {
-  background: #f3ebe0;
-  color: #1a1510;
+  background: rgba(var(--home-ink-rgb), 0.85);
+  color: var(--home-on-ink);
 }

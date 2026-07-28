@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { FoodCardsEnhancer } from './food/FoodCardsEnhancer'
 import { GuidesCardsEnhancer } from './guides/GuidesCardsEnhancer'
@@ -17,6 +18,17 @@ import { TopNav } from './TopNav'
 import { ExploreModeChrome } from './explore/ExploreModeChrome'
 import { useMigrateStaySaves } from '../hooks/useStaySave'
 
+/**
+ * Routes migrated to the light surface. Everything else still renders on the
+ * dark canvas, which stays the permanent home of the immersive social
+ * surfaces (Delvers feed, stories, create studio).
+ */
+const LIGHT_SURFACE_ROUTES = ['/']
+
+function surfaceFor(pathname: string) {
+  return LIGHT_SURFACE_ROUTES.includes(pathname) ? 'light' : 'dark'
+}
+
 export function AppLayout() {
   useMigrateStaySaves()
   const loc = useLocation()
@@ -26,11 +38,16 @@ export function AppLayout() {
     loc.pathname === '/create/highlight' ||
     loc.pathname === '/journeys/new' ||
     /^\/journeys\/\d+\/edit$/.test(loc.pathname)
+
   const createStudioLight =
     loc.pathname === '/create/ask' ||
     loc.pathname === '/create/tip' ||
     loc.pathname === '/events/new' ||
     /^\/events\/\d+\/edit$/.test(loc.pathname)
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.surface = surfaceFor(loc.pathname)
+  }, [loc.pathname])
 
   if (createStudioDark || createStudioLight) {
     return (

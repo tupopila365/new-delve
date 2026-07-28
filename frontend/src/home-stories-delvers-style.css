@@ -26,7 +26,7 @@
   gap: 8px;
   border: 0;
   background: transparent;
-  color: rgba(255, 250, 242, 0.9);
+  color: rgba(var(--home-ink-rgb), 0.9);
   text-align: center;
   cursor: pointer;
   scroll-snap-align: start;
@@ -45,7 +45,7 @@
   height: 68px;
   border-radius: 50%;
   padding: 2px;
-  background: rgba(255, 250, 242, 0.35);
+  background: rgba(var(--home-ink-rgb), 0.35);
   box-shadow: none;
 }
 
@@ -55,10 +55,10 @@
   width: 60px;
   height: 60px;
   overflow: hidden;
-  border: 2px solid #14110e;
+  border: 2px solid var(--home-canvas);
   border-radius: 50%;
   background: #2a241e;
-  color: #fffaf2;
+  color: var(--home-ink);
   font-family: var(--font-display, 'Syne', sans-serif);
   font-size: 1.1rem;
   font-weight: 750;
@@ -100,7 +100,7 @@
   width: 100%;
   max-width: 74px;
   overflow: hidden;
-  color: rgba(255, 250, 242, 0.72);
+  color: rgba(var(--home-ink-rgb), 0.72);
   font-family: var(--font-sans, 'DM Sans', sans-serif);
   font-size: 0.7rem;
   font-weight: 700;
@@ -110,7 +110,7 @@
 }
 
 .story-bubble:focus-visible .story-bubble__ring {
-  outline: 2px solid rgba(255, 250, 242, 0.75);
+  outline: 2px solid rgba(var(--home-ink-rgb), 0.75);
   outline-offset: 3px;
 }
 
@@ -126,12 +126,12 @@
 }
 
 .story-bubble--sk .story-bubble__inner {
-  background: rgba(255, 250, 242, 0.08);
+  background: rgba(var(--home-ink-rgb), 0.08);
   animation: story-bubble-pulse 1.2s ease-in-out infinite;
 }
 
 .story-bubble--sk .story-bubble__label {
-  color: rgba(255, 250, 242, 0.28);
+  color: rgba(var(--home-ink-rgb), 0.28);
 }
 
 @keyframes story-bubble-pulse {

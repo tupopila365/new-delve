@@ -556,41 +556,41 @@ button.deal-badge {
   font-size: 0.72rem;
 }
 
-/* Home sits on dark museum panels — self-contained cream type + charcoal cards */
+/* Home rail follows the surface tokens (see styles/surface.css). */
 .home-deals-rail .deals-rail__title {
-  color: #fffaf2;
+  color: var(--home-ink);
 }
 
 .home-deals-rail .deals-rail__sub {
-  color: rgba(255, 250, 242, 0.58);
+  color: rgba(var(--home-ink-rgb), 0.58);
 }
 
 .home-deals-rail .deals-rail__all {
-  color: rgba(255, 250, 242, 0.82);
+  color: rgba(var(--home-ink-rgb), 0.82);
 }
 
 .home-deals-rail .discovery-deal {
-  background: #1c1814;
-  border-color: rgba(255, 250, 242, 0.12);
-  color: #fffaf2;
+  background: var(--home-surface);
+  border-color: rgba(var(--home-ink-rgb), 0.12);
+  color: var(--home-ink);
 }
 
 .home-deals-rail .discovery-deal__title {
-  color: #fffaf2;
+  color: var(--home-ink);
 }
 
 .home-deals-rail .discovery-deal__biz,
 .home-deals-rail .discovery-deal__place,
 .home-deals-rail .discovery-deal__who {
-  color: rgba(255, 250, 242, 0.58);
+  color: rgba(var(--home-ink-rgb), 0.58);
 }
 
 .home-deals-rail .discovery-deal__price {
-  color: #fdba74;
+  color: var(--home-amber-ink);
 }
 
 .home-deals-rail .discovery-deal__price-label {
-  color: rgba(255, 250, 242, 0.55);
+  color: rgba(var(--home-ink-rgb), 0.55);
 }
 
 .deals-page__trip-links {

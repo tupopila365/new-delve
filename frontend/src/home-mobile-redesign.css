@@ -4,12 +4,12 @@
   isolation: isolate;
   min-height: 100%;
   overflow-x: clip;
-  background: #12100e !important;
-  color: rgba(255, 250, 242, 0.92);
+  background: var(--home-canvas);
+  color: rgba(var(--home-ink-rgb), 0.92);
 }
 
 .app-main--home {
-  background: #12100e !important;
+  background: var(--home-canvas);
   overflow-x: clip;
 }
 
@@ -65,7 +65,7 @@
 
 .home-act__index {
   margin: 0;
-  color: rgba(255, 250, 242, 0.42);
+  color: rgba(var(--home-ink-rgb), 0.42);
   font-family: var(--font-sans, 'DM Sans', sans-serif);
   font-size: 0.68rem;
   font-weight: 750;
@@ -75,9 +75,9 @@
 
 .home-act__title {
   margin: 0;
-  color: #fffaf2;
+  color: var(--home-ink);
   font-family: var(--font-display, 'Syne', sans-serif);
-  font-size: clamp(1.3rem, 5vw, 1.7rem);
+  font-size: var(--home-title-section);
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: -0.03em;
@@ -86,7 +86,7 @@
 .home-act__body {
   margin: 0;
   max-width: 42ch;
-  color: rgba(255, 250, 242, 0.62);
+  color: rgba(var(--home-ink-rgb), 0.62);
   font-family: var(--font-sans, 'DM Sans', sans-serif);
   font-size: 0.88rem;
   font-weight: 600;
@@ -112,7 +112,7 @@
   width: 100%;
   height: clamp(140px, 28vw, 220px);
   min-height: 140px;
-  background-color: #1a1612;
+  background-color: rgba(var(--home-ink-rgb), 0.08);
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -121,8 +121,8 @@
 .home-moment__caption {
   margin: 0;
   padding: 12px 16px 14px;
-  background: #161310;
-  color: #fffaf2;
+  background: var(--home-surface-raised);
+  color: var(--home-ink);
   font-family: var(--font-display, 'Syne', sans-serif);
   font-size: clamp(0.92rem, 3vw, 1.1rem);
   font-weight: 700;
@@ -144,16 +144,16 @@
 
 .home-discover__title {
   margin: 0;
-  color: #fffaf2;
+  color: var(--home-ink);
   font-family: var(--font-display, 'Syne', sans-serif);
-  font-size: clamp(1.2rem, 4vw, 1.55rem);
+  font-size: var(--home-title-section);
   font-weight: 750;
   letter-spacing: -0.03em;
 }
 
 .home-discover__lead {
   margin: 0;
-  color: rgba(255, 250, 242, 0.58);
+  color: rgba(var(--home-ink-rgb), 0.58);
   font-size: 0.86rem;
   font-weight: 600;
   line-height: 1.35;
@@ -180,7 +180,7 @@
 
 .home-discover__label {
   margin: 0 0 8px;
-  color: rgba(255, 250, 242, 0.44);
+  color: rgba(var(--home-ink-rgb), 0.44);
   font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0.12em;
@@ -260,8 +260,8 @@
   gap: 12px;
   padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 250, 242, 0.12);
-  background: #1c1814;
+  border: 1px solid rgba(var(--home-ink-rgb), 0.12);
+  background: rgba(var(--home-ink-rgb), 0.06);
 }
 
 .home-announcement__copy {
@@ -271,14 +271,14 @@
 }
 
 .home-announcement__title {
-  color: #fffaf2;
+  color: var(--home-ink);
   font-size: 0.9rem;
   font-weight: 900;
 }
 
 .home-announcement__body {
   margin: 0;
-  color: rgba(255, 250, 242, 0.68);
+  color: rgba(var(--home-ink-rgb), 0.68);
   font-size: 0.82rem;
   line-height: 1.45;
   font-weight: 600;
@@ -293,8 +293,8 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 250, 242, 0.08);
-  color: rgba(255, 250, 242, 0.72);
+  background: rgba(var(--home-ink-rgb), 0.08);
+  color: rgba(var(--home-ink-rgb), 0.72);
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
@@ -307,9 +307,9 @@
   z-index: 2;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 250, 242, 0.22);
-  background: #161310;
-  color: #fffaf2;
+  border: 1px solid rgba(var(--home-ink-rgb), 0.22);
+  background: var(--home-surface-raised);
+  color: var(--home-ink);
   font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0.03em;
@@ -344,7 +344,7 @@
 .page-home .ta-rail__title,
 .page-home .home-mood-section__title {
   margin: 0;
-  color: #fffaf2;
+  color: var(--home-ink);
   font-family: var(--font-display, 'Syne', sans-serif);
   font-size: 1.15rem;
   font-weight: 750;
@@ -354,7 +354,7 @@
 .page-home .ta-rail__sub {
   margin: 5px 0 0;
   max-width: 36ch;
-  color: rgba(255, 250, 242, 0.58);
+  color: rgba(var(--home-ink-rgb), 0.58);
   font-size: 0.82rem;
   font-weight: 600;
   line-height: 1.4;
@@ -369,9 +369,9 @@
   min-height: 34px;
   padding: 0 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 250, 242, 0.14);
-  background: rgba(255, 250, 242, 0.06);
-  color: #fffaf2;
+  border: 1px solid rgba(var(--home-ink-rgb), 0.14);
+  background: rgba(var(--home-ink-rgb), 0.06);
+  color: var(--home-ink);
   font-size: 0.78rem;
   font-weight: 750;
   text-decoration: none;
@@ -379,20 +379,20 @@
 }
 
 .page-home .home-section-cta {
-  background: #fffaf2;
+  background: var(--accent);
   border-color: transparent;
-  color: #1a1510;
+  color: #fff;
 }
 
 .page-home .section-see-all:hover,
 .page-home .home-section-cta:hover {
-  border-color: rgba(255, 250, 242, 0.28);
-  background: rgba(255, 250, 242, 0.12);
+  border-color: rgba(var(--home-ink-rgb), 0.28);
+  background: rgba(var(--home-ink-rgb), 0.12);
   opacity: 1;
 }
 
 .page-home .home-section-cta:hover {
-  background: #f3ebe0;
+  background: rgba(var(--home-ink-rgb), 0.18);
 }
 
 .page-home .home-section__head-actions {
@@ -433,10 +433,10 @@
   justify-content: center;
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid rgba(255, 250, 242, 0.12);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.12);
   border-radius: 12px;
-  background: rgba(255, 250, 242, 0.04);
-  color: rgba(255, 250, 242, 0.88);
+  background: rgba(var(--home-ink-rgb), 0.04);
+  color: rgba(var(--home-ink-rgb), 0.88);
   font-family: var(--font-sans, 'DM Sans', sans-serif);
   font-size: 0.82rem;
   font-weight: 700;
@@ -446,8 +446,8 @@
 }
 
 .page-home .ta-mood-chip:hover {
-  background: rgba(255, 250, 242, 0.08);
-  border-color: rgba(255, 250, 242, 0.22);
+  background: rgba(var(--home-ink-rgb), 0.08);
+  border-color: rgba(var(--home-ink-rgb), 0.22);
   opacity: 1;
   transform: translateY(-1px);
 }
@@ -460,17 +460,17 @@
   min-width: 190px;
   overflow: hidden;
   scroll-snap-align: start;
-  border: 1px solid rgba(255, 250, 242, 0.12);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.12);
   border-radius: 16px;
-  background: #14110e !important;
+  background: var(--home-surface-raised);
   box-shadow: none;
   text-decoration: none;
-  color: #fffaf2;
+  color: var(--home-ink);
   transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
 .page-home .home-card--post:hover {
-  border-color: rgba(255, 250, 242, 0.28);
+  border-color: rgba(var(--home-ink-rgb), 0.28);
   transform: translateY(-2px);
   opacity: 1;
 }
@@ -482,7 +482,7 @@
   min-height: 0;
   overflow: hidden;
   border-radius: inherit;
-  background: #1a1612;
+  background: rgba(var(--home-ink-rgb), 0.08);
 }
 
 .page-home .home-card__img {
@@ -527,7 +527,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0;
-  color: #fffaf2 !important;
+  color: var(--home-ink) !important;
   font-family: var(--font-display, 'Syne', sans-serif);
   font-size: 0.95rem;
   font-weight: 750;
@@ -542,7 +542,7 @@
 
 .page-home .home-card__rating .mini-rating,
 .page-home .home-card__rating .mini-rating--on-dark {
-  color: rgba(255, 250, 242, 0.9);
+  color: rgba(var(--home-ink-rgb), 0.9);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -553,7 +553,7 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: rgba(255, 250, 242, 0.78) !important;
+  color: rgba(var(--home-ink-rgb), 0.78) !important;
   font-family: var(--font-sans, 'DM Sans', sans-serif);
   font-size: 0.8rem;
   font-weight: 650;
@@ -592,7 +592,7 @@
 }
 
 .page-home .mini-rating {
-  color: rgba(255, 250, 242, 0.82);
+  color: rgba(var(--home-ink-rgb), 0.82);
 }
 
 .home-preview-qa,
@@ -636,10 +636,10 @@
   flex: 0 0 auto;
   min-height: 32px;
   padding: 0 11px;
-  border: 1px solid rgba(255, 250, 242, 0.14);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.14);
   border-radius: 999px;
-  background: #1c1814;
-  color: rgba(255, 250, 242, 0.82);
+  background: rgba(var(--home-ink-rgb), 0.06);
+  color: rgba(var(--home-ink-rgb), 0.82);
   font-size: 0.74rem;
   font-weight: 750;
   text-decoration: none;
@@ -647,8 +647,8 @@
 }
 
 .home-community-tags__chip:hover {
-  border-color: rgba(255, 250, 242, 0.28);
-  color: #fffaf2;
+  border-color: rgba(var(--home-ink-rgb), 0.28);
+  color: var(--home-ink);
   opacity: 1;
 }
 
@@ -657,18 +657,18 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid rgba(255, 250, 242, 0.1);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.1);
   border-radius: 16px;
-  background: rgba(255, 250, 242, 0.035);
-  color: rgba(255, 250, 242, 0.92);
+  background: rgba(var(--home-ink-rgb), 0.035);
+  color: rgba(var(--home-ink-rgb), 0.92);
   text-decoration: none;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .home-qa-card:hover,
 .cm-qa-card.home-qa-card:hover {
-  border-color: rgba(255, 250, 242, 0.2);
-  background: rgba(255, 250, 242, 0.055);
+  border-color: rgba(var(--home-ink-rgb), 0.2);
+  background: rgba(var(--home-ink-rgb), 0.055);
   opacity: 1;
 }
 
@@ -676,9 +676,9 @@
   flex: 0 0 auto;
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 250, 242, 0.12);
-  background: rgba(255, 250, 242, 0.06);
-  color: rgba(255, 250, 242, 0.72);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.12);
+  background: rgba(var(--home-ink-rgb), 0.06);
+  color: rgba(var(--home-ink-rgb), 0.72);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -688,23 +688,23 @@
 .home-qa-card__kind--tip {
   border-color: rgba(154, 91, 24, 0.35);
   background: rgba(154, 91, 24, 0.16);
-  color: #e2b57a;
+  color: var(--home-amber-ink);
 }
 
 .home-qa-card__answer {
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 250, 242, 0.1);
-  background: rgba(255, 250, 242, 0.05);
-  color: rgba(255, 250, 242, 0.78);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.1);
+  background: rgba(var(--home-ink-rgb), 0.05);
+  color: rgba(var(--home-ink-rgb), 0.78);
   font-size: 0.8rem;
   font-weight: 650;
   line-height: 1.4;
 }
 
 .home-qa-card__answer strong {
-  color: #fffaf2;
+  color: var(--home-ink);
   font-weight: 800;
 }
 
@@ -721,9 +721,9 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 250, 242, 0.14);
-  background: rgba(255, 250, 242, 0.1);
-  color: #fffaf2;
+  border: 1px solid rgba(var(--home-ink-rgb), 0.14);
+  background: rgba(var(--home-ink-rgb), 0.1);
+  color: var(--home-ink);
   font-family: var(--font-display, 'Syne', sans-serif);
   font-size: 0.85rem;
   font-weight: 750;
@@ -735,14 +735,14 @@
 }
 
 .cm-qa-card__name {
-  color: #fffaf2;
+  color: var(--home-ink);
   font-size: 0.84rem;
   font-weight: 800;
 }
 
 .cm-qa-card__time,
 .cm-qa-card__region-tag {
-  color: rgba(255, 250, 242, 0.52);
+  color: rgba(var(--home-ink-rgb), 0.52);
   font-size: 0.72rem;
   font-weight: 650;
 }
@@ -751,14 +751,14 @@
   margin-left: auto;
   padding: 4px 9px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 250, 242, 0.1);
-  background: rgba(255, 250, 242, 0.05);
-  color: rgba(255, 250, 242, 0.75);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.1);
+  background: rgba(var(--home-ink-rgb), 0.05);
+  color: rgba(var(--home-ink-rgb), 0.75);
 }
 
 .cm-qa-card__question {
   margin: 0;
-  color: rgba(255, 250, 242, 0.88);
+  color: rgba(var(--home-ink-rgb), 0.88);
   font-size: 0.9rem;
   font-weight: 650;
   line-height: 1.45;
@@ -769,7 +769,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: rgba(255, 250, 242, 0.7);
+  color: rgba(var(--home-ink-rgb), 0.7);
   font-size: 0.78rem;
   font-weight: 750;
 }
@@ -786,10 +786,6 @@
 
   .page-home .ta-hero__brand-logo {
     height: 2.75rem;
-  }
-
-  .page-home .ta-hero__title--home {
-    font-size: 1.12rem;
   }
 
   .page-home .home-card--post {
@@ -833,7 +829,6 @@
   }
 
   .page-home .ta-hero__title--home {
-    font-size: clamp(1.35rem, 2.4vw, 1.75rem);
     max-width: 18ch;
   }
 
@@ -850,9 +845,6 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .home-act__title {
-    font-size: clamp(1.45rem, 2.6vw, 1.85rem);
-  }
 
   .page-home .home-rail,
   .page-home .ta-mood-scroll {
@@ -930,7 +922,6 @@
   }
 
   .page-home .ta-hero__title--home {
-    font-size: clamp(1.45rem, 7.2vw, 1.85rem);
     line-height: 1.12;
     max-width: 14ch;
     margin-bottom: 8px;
@@ -952,25 +943,6 @@
     width: 100%;
   }
 
-  .page-home .ta-hero__cta-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 0;
-    width: 100%;
-  }
-
-  .page-home .ta-hero__cta-row .btn,
-  .page-home .ta-hero__cta-row .ta-hero__ghost {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 44px;
-    margin: 0;
-    text-align: center;
-    box-sizing: border-box;
-  }
 
   .page-home .ta-hero__searchform {
     flex: none;
@@ -1105,15 +1077,6 @@
 }
 
 @media (max-width: 380px) {
-  .page-home .ta-hero__cta-row {
-    grid-template-columns: 1fr;
-  }
-
-  .page-home .ta-hero__title--home {
-    font-size: 1.35rem;
-    max-width: none;
-  }
-
   .page-home .home-card.home-card--post,
   .page-home .home-card--post {
     flex-basis: 78vw;
@@ -1121,3 +1084,58 @@
   }
 }
 
+
+/* ── Shared rails on the home surface ───────────────────────
+   DealsRail, RatesKnowHowStrip and AffordableTripsRail ship a cream-on-
+   charcoal palette for the dark pages. On home they follow the surface
+   tokens instead. */
+.page-home .deals-rail__title,
+.page-home .rates-knowhow__title,
+.page-home .affordable-trips__title,
+.page-home .discovery-deal,
+.page-home .discovery-deal__title,
+.page-home .rates-knowhow__card,
+.page-home .rates-knowhow__card strong,
+.page-home .affordable-trips__card,
+.page-home .affordable-trips__name {
+  color: var(--home-ink);
+}
+
+.page-home .deals-rail__sub,
+.page-home .rates-knowhow__sub,
+.page-home .affordable-trips__sub,
+.page-home .discovery-deal__biz,
+.page-home .discovery-deal__place,
+.page-home .discovery-deal__who,
+.page-home .discovery-deal__price-label,
+.page-home .rates-knowhow__card span:last-child,
+.page-home .affordable-trips__route,
+.page-home .affordable-trips__meta,
+.page-home .affordable-trips__parts {
+  color: rgba(var(--home-ink-rgb), 0.6);
+}
+
+.page-home .deals-rail__all,
+.page-home .affordable-trips__all {
+  color: rgba(var(--home-ink-rgb), 0.82);
+}
+
+.page-home .discovery-deal,
+.page-home .rates-knowhow__card,
+.page-home .affordable-trips__card {
+  border-color: rgba(var(--home-ink-rgb), 0.12);
+  background: var(--home-surface);
+}
+
+.page-home .affordable-trips__media {
+  background-color: rgba(var(--home-ink-rgb), 0.08);
+}
+
+.page-home .discovery-deal__price,
+.page-home .affordable-trips__meta {
+  color: var(--home-amber-ink);
+}
+
+.page-home .rates-knowhow__icon {
+  color: var(--home-amber-ink);
+}

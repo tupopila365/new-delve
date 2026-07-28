@@ -651,8 +651,8 @@
 
 /* Phase 2: quiet, availability-first marketplace */
 .st-market {
-  --st-accent: #c96f5e;
-  --st-accent-bright: #c96f5e;
+  --st-accent: var(--accent);
+  --st-accent-bright: var(--accent-hover);
   --st-cost: #2b2724;
   --st-surface: #fffdf8;
   --st-border: rgba(48, 39, 33, 0.12);
@@ -761,8 +761,8 @@ body:has(.st-market) {
   transition: background .16s ease, transform .16s ease;
 }
 
-.st-market__trip-submit:hover { background: #b95f50; transform: translateY(-1px); }
-.st-market__trip-submit:focus-visible { outline: 3px solid rgba(215, 111, 95, .28); outline-offset: 2px; }
+.st-market__trip-submit:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.st-market__trip-submit:focus-visible { outline: 3px solid var(--accent-ring); outline-offset: 2px; }
 
 .st-market__trip-note,
 .st-market__trip-error {

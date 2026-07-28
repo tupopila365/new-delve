@@ -22578,7 +22578,12 @@ a.chip.chip--accent:hover {
 }
 
 .page-home .ta-hero--home .ta-hero__scrim {
-  background: rgba(8, 6, 4, 0.46);
+  background: linear-gradient(
+    100deg,
+    rgba(8, 6, 4, 0.78) 0%,
+    rgba(8, 6, 4, 0.62) 45%,
+    rgba(8, 6, 4, 0.34) 100%
+  );
 }
 
 .page-home .ta-hero__inner--home {
@@ -22600,7 +22605,7 @@ a.chip.chip--accent:hover {
 }
 
 .page-home .ta-hero__title--home {
-  font-size: clamp(1.5rem, 4.5vw, 2.35rem);
+  font-size: var(--home-title-hero);
   margin-bottom: 10px;
   color: #fff;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
@@ -22627,11 +22632,18 @@ a.chip.chip--accent:hover {
   opacity: 0.75;
 }
 
-.page-home .ta-hero__cta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.page-home .ta-hero__ghost-link {
+  display: inline-block;
   margin-top: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.page-home .ta-hero__ghost-link:hover {
+  color: #fff;
 }
 
 .category-grid {
@@ -23084,7 +23096,7 @@ a.chip.chip--accent:hover {
 }
 
 .page-home .ta-rail__title {
-  font-size: clamp(1.15rem, 2.5vw, 1.35rem);
+  font-size: var(--home-title-rail);
 }
 
 .page-home .ta-rail__sub {

@@ -68,6 +68,9 @@ import { ExploreDestinationSwitcher } from '../components/explore/ExploreDestina
 import { useNoFace } from '../hooks/useNoFace'
 import './home-quintos.css'
 
+/** Keep the first row short — the rest live on Explore. */
+const VISIBLE_MOODS = 5
+
 const moodChips = [
   { label: 'Weekend away', q: 'weekend' },
   { label: 'With family', q: 'family' },
@@ -921,14 +924,6 @@ export function Home() {
               : 'Stays, tables, guides, and routes — shaped by what you’ve liked, saved, and watched.'}
           </p>
           <div className="ta-hero__actions ta-hero__actions--home">
-            <div className="ta-hero__cta-row">
-              <Link to={exploring ? '/search' : '/explore'} className="btn btn-primary">
-                {exploring ? 'Search this place' : 'Start exploring'}
-              </Link>
-              <Link to={exploring ? '/accommodation' : '/food'} className="ta-hero__ghost">
-                {exploring ? 'Browse stays' : 'For you'}
-              </Link>
-            </div>
             <form className="ta-hero__searchform" onSubmit={onHeroSearch} role="search" aria-label="Search DELVE">
               <label htmlFor="home-hero-search" className="visually-hidden">
                 {exploring ? 'Search this destination' : 'Search your Delve'}
@@ -951,13 +946,14 @@ export function Home() {
                 Search
               </button>
             </form>
+            <Link to={exploring ? '/accommodation' : '/explore'} className="ta-hero__ghost-link">
+              {exploring ? 'Or browse stays' : 'Or start exploring a destination'}
+            </Link>
           </div>
         </div>
       </section>
 
       <div className="home-content">
-        <NoFaceInvite />
-
         {showAnnouncement && announcement ? (
           <aside className="home-announcement" role="status">
             <div className="home-announcement__copy">
@@ -1030,7 +1026,7 @@ export function Home() {
           ) : null}
 
           <div className="home-discover__moods" role="list" aria-label="Travel moods">
-            {moodChips.map((m) => (
+            {moodChips.slice(0, VISIBLE_MOODS).map((m) => (
               <Link
                 key={m.q}
                 to={`/search?q=${encodeURIComponent(m.q)}`}
@@ -1040,8 +1036,12 @@ export function Home() {
                 {m.label}
               </Link>
             ))}
+            {moodChips.length > VISIBLE_MOODS ? (
+              <Link to="/explore" className="ta-mood-chip ta-mood-chip--more" role="listitem">
+                More moods
+              </Link>
+            ) : null}
           </div>
-
           <HomeCategoryGrid
             items={
               (noFace
@@ -1567,6 +1567,8 @@ export function Home() {
             </div>
           </HomeSection>
         </HomeAct>
+
+        <NoFaceInvite />
       </div>
     </div>
   )
