@@ -2,13 +2,10 @@
 
 from rest_framework import serializers
 
+from common.user_display import display_name_or_username, profile_avatar_url
+
 from .models import ActivityListing
-from .serializers import (
-    _cover_from_listing,
-    _normalize_gallery,
-    _owner_avatar,
-    _owner_display_name,
-)
+from .serializers import _cover_from_listing, _normalize_gallery
 
 
 class ProviderActivityListingSerializer(serializers.ModelSerializer):
@@ -76,10 +73,10 @@ class ProviderActivityListingSerializer(serializers.ModelSerializer):
         }
 
     def get_owner_display_name(self, obj) -> str:
-        return _owner_display_name(obj.owner)
+        return display_name_or_username(obj.owner)
 
     def get_owner_avatar(self, obj) -> str | None:
-        return _owner_avatar(obj.owner, self.context.get("request"))
+        return profile_avatar_url(obj.owner, self.context.get("request"))
 
     def get_category_label(self, obj) -> str:
         return obj.get_category_display()

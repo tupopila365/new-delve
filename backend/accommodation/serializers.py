@@ -1,13 +1,14 @@
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
 from common.story_channels import validate_story_channels
 from common.coords import quantize_coord
+from common.media_urls import absolute_media_url
+from common.user_display import display_name_or_none, profile_avatar_url
 from accounts.business_access import business_permissions, user_has_listing_manager_access
 from accounts.models import BusinessProfile, VerificationStatus
 
@@ -31,49 +32,10 @@ from .models import (
 )
 
 
-def _owner_display_name(user) -> str | None:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", None):
-        name = (profile.display_name or "").strip()
-        return name or None
-    return None
-
-
-def _owner_avatar_url(user, request=None) -> str | None:
-    profile = getattr(user, "profile", None)
-    avatar = getattr(profile, "avatar", None) if profile else None
-    if not avatar:
-        return None
-    try:
-        url = avatar.url
-    except Exception:
-        return None
-    if request and url.startswith("/"):
-        return request.build_absolute_uri(url)
-    return url
-
-
-def _absolute_media_url(url: str, request=None) -> str:
-    text = (url or "").strip()
-    if not text:
-        return ""
-    if text.startswith(("http://", "https://", "data:", "blob:")):
-        return text
-    if text.startswith("/") and request:
-        return request.build_absolute_uri(text)
-    try:
-        storage_url = default_storage.url(text)
-    except Exception:
-        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
-    if request and storage_url.startswith("/"):
-        return request.build_absolute_uri(storage_url)
-    return storage_url
-
-
 def _listing_cover_url(obj: AccommodationListing, request=None) -> str | None:
     raw = (getattr(obj, "cover_image", None) or "").strip()
     if raw:
-        url = _absolute_media_url(raw, request)
+        url = absolute_media_url(raw, request)
         if url:
             return url
     for item in obj.media_gallery or []:
@@ -81,7 +43,7 @@ def _listing_cover_url(obj: AccommodationListing, request=None) -> str | None:
             continue
         src = str(item.get("src") or "").strip()
         if src:
-            return _absolute_media_url(src, request) or src
+            return absolute_media_url(src, request) or src
     return None
 
 
@@ -417,7 +379,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         return payload.get("availability_message") if payload else ""
 
     def get_owner_display_name(self, obj):
-        return _owner_display_name(obj.owner)
+        return display_name_or_none(obj.owner)
 
     def get_deals(self, obj):
         from accounts.listing_deals import deals_for_listing
@@ -425,7 +387,7 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         return deals_for_listing(obj, self.context, "stays")
 
     def get_owner_avatar(self, obj):
-        return _owner_avatar_url(obj.owner, self.context.get("request"))
+        return profile_avatar_url(obj.owner, self.context.get("request"))
 
     def _verification_status(self, obj):
         business = getattr(obj, "business", None)

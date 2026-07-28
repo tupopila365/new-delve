@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from common.review_aggregates import apply_rating_aggregate
+from common.user_display import display_name_or_username
 
 from accommodation.models import BookingStatus
 
@@ -11,13 +12,6 @@ from .models import FoodReservation, FoodVenue, FoodVenueReview
 VISITED_RESERVATION_STATUSES = frozenset(
     {BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT}
 )
-
-
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", "").strip():
-        return profile.display_name.strip()
-    return user.username
 
 
 def eligible_food_reservation(user, venue: FoodVenue) -> FoodReservation | None:
@@ -67,13 +61,7 @@ def sync_food_venue_rating(venue: FoodVenue) -> None:
         float(r)
         for r in FoodVenueReview.objects.filter(venue=venue, is_hidden=False).values_list("rating", flat=True)
     )
-    if not ratings:
-        venue.rating_avg = Decimal("0")
-        venue.rating_count = 0
-    else:
-        venue.rating_avg = Decimal(str(round(sum(ratings) / len(ratings), 2)))
-        venue.rating_count = len(ratings)
-    venue.save(update_fields=["rating_avg", "rating_count"])
+    apply_rating_aggregate(venue, ratings)
 
 
 def food_venue_reviews_payload(venue: FoodVenue) -> dict:
@@ -92,7 +80,7 @@ def food_venue_reviews_payload(venue: FoodVenue) -> dict:
             {
                 "id": f"traveler-{review.pk}",
                 "source": "traveler",
-                "name": _author_label(review.reviewer),
+                "name": display_name_or_username(review.reviewer),
                 "place": place or venue.name,
                 "rating": review.rating,
                 "body": review.body,

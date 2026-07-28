@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
+from common.user_display import display_name_or_username
+
 from .models import FoodVenueReview
 from .review_services import (
-    _author_label,
     eligible_food_reservation,
     sync_food_venue_rating,
     user_can_review_food_venue,
@@ -20,7 +21,7 @@ class FoodVenueReviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_name(self, obj):
-        return _author_label(obj.reviewer)
+        return display_name_or_username(obj.reviewer)
 
     def get_place(self, obj):
         venue = obj.venue

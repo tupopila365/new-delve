@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
+from common.user_display import display_name_or_username
+
 from .models import (
     AccommodationBooking,
     AccommodationReview,
@@ -10,13 +12,6 @@ from .models import (
 from .review_services import sync_listing_rating_from_reviews
 
 User = get_user_model()
-
-
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and profile.display_name:
-        return profile.display_name
-    return user.username
 
 
 class AccommodationReviewSerializer(serializers.ModelSerializer):
@@ -40,7 +35,7 @@ class AccommodationReviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_name(self, obj):
-        return _author_label(obj.reviewer)
+        return display_name_or_username(obj.reviewer)
 
     def get_place(self, obj):
         parts = [obj.listing.city, obj.listing.region]

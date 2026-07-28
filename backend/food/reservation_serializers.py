@@ -2,6 +2,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accommodation.models import BookingStatus
+from common.user_display import display_name_or_username
 
 from .models import FoodReservation, FoodVenue
 
@@ -32,10 +33,7 @@ class FoodReservationSerializer(serializers.ModelSerializer):
         read_only_fields = ("status", "created_at")
 
     def get_owner_display_name(self, obj):
-        profile = getattr(obj.venue.owner, "profile", None)
-        if profile and profile.display_name:
-            return profile.display_name
-        return obj.venue.owner.username
+        return display_name_or_username(obj.venue.owner)
 
 
 class FoodReservationCreateSerializer(serializers.ModelSerializer):

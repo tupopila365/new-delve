@@ -2,16 +2,11 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
+from common.user_display import display_name_or_username
+
 from .models import EventBooking, EventBookingStatus, EventQuestion, EventReview
 
 User = get_user_model()
-
-
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and profile.display_name:
-        return profile.display_name
-    return user.username
 
 
 def _time_ago(dt) -> str:
@@ -161,7 +156,7 @@ class EventReviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_name(self, obj):
-        return _author_label(obj.reviewer)
+        return display_name_or_username(obj.reviewer)
 
     def get_place(self, obj):
         parts = [obj.event.city, obj.event.region]

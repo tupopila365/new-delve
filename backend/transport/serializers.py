@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from accommodation.models import BookingStatus
 from common.story_channels import validate_story_channels
+from common.user_display import display_name_or_username
 
 from .models import (
     BusOperator,
@@ -106,10 +107,7 @@ class VehicleRentalListingSerializer(serializers.ModelSerializer):
         return vehicle_cover_kind(obj)
 
     def get_owner_display_name(self, obj):
-        profile = getattr(obj.owner, "profile", None)
-        if profile and getattr(profile, "display_name", "").strip():
-            return profile.display_name.strip()
-        return obj.owner.username
+        return display_name_or_username(obj.owner)
 
     def get_deals(self, obj):
         from accounts.listing_deals import deals_for_listing
@@ -204,10 +202,7 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
             return False
 
     def get_owner_display_name(self, obj):
-        profile = getattr(obj.listing.owner, "profile", None)
-        if profile and profile.display_name:
-            return profile.display_name
-        return obj.listing.owner.username
+        return display_name_or_username(obj.listing.owner)
 
     def validate(self, attrs):
         listing = attrs["listing"]

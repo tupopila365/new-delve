@@ -8,7 +8,9 @@ from rest_framework import serializers
 
 from .models import ProductVariant, ShopProduct, ShopProfile
 from .seller_gates import can_publish_product, get_or_create_shop_profile, seller_readiness
-from .serializers import ProductVariantSerializer, _absolute_media_url, _cover_image_url
+from common.media_urls import absolute_media_url
+
+from .serializers import ProductVariantSerializer, _cover_image_url
 
 
 class ProviderShopProfileSerializer(serializers.ModelSerializer):
@@ -52,7 +54,7 @@ class ProviderShopProfileSerializer(serializers.ModelSerializer):
             return None
         request = self.context.get("request")
         try:
-            return _absolute_media_url(obj.avatar.url, request)
+            return absolute_media_url(obj.avatar.url, request)
         except Exception:
             return None
 

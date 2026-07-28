@@ -1,13 +1,10 @@
 from rest_framework import serializers
 
+from common.review_aggregates import normalize_review_media
+from common.user_display import display_name_or_username, profile_avatar_url
+
 from .models import ActivityReview
-from .review_services import (
-    normalize_review_media,
-    sync_activity_rating,
-    user_can_review_activity,
-    _author_label,
-    _reviewer_avatar,
-)
+from .review_services import sync_activity_rating, user_can_review_activity
 
 MAX_REVIEW_MEDIA = 8
 
@@ -86,10 +83,10 @@ class ActivityReviewSerializer(serializers.ModelSerializer):
         return self.context.get("request")
 
     def get_name(self, obj):
-        return _author_label(obj.reviewer)
+        return display_name_or_username(obj.reviewer)
 
     def get_avatar(self, obj):
-        return _reviewer_avatar(obj.reviewer, self._request())
+        return profile_avatar_url(obj.reviewer, self._request())
 
     def get_media(self, obj):
         return normalize_review_media(obj.media, self._request())

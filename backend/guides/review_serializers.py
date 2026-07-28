@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
+from common.user_display import display_name_or_username
+
 from .models import GuideReview
 from .review_services import (
-    _author_label,
     eligible_guide_booking,
     sync_guide_rating,
     user_can_review_guide,
@@ -20,7 +21,7 @@ class GuideReviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_name(self, obj):
-        return _author_label(obj.reviewer)
+        return display_name_or_username(obj.reviewer)
 
     def get_place(self, obj):
         guide = obj.guide

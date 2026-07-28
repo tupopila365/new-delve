@@ -7,6 +7,7 @@ from django.utils import timezone
 from accommodation.models import AccommodationReview
 from accounts.business_access import provider_listing_owner_ids, user_can_manage_listing
 from activities.models import ActivityReview
+from common.user_display import display_name_or_username
 from food.models import FoodVenueReview
 from guides.models import GuideReview
 from shop.models import ProductReview
@@ -33,13 +34,6 @@ CATEGORY_BY_SOURCE = {
 }
 
 MAX_REPLY_LEN = 2000
-
-
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", "").strip():
-        return profile.display_name.strip()
-    return getattr(user, "username", "") or ""
 
 
 def _listing_owner_id(source: str, review) -> int | None:
@@ -102,7 +96,7 @@ def _row(source: str, review) -> dict:
         "review_id": review.pk,
         "category": CATEGORY_BY_SOURCE.get(source, ""),
         "listing_title": _listing_title(source, review),
-        "guest": _author_label(review.reviewer),
+        "guest": display_name_or_username(review.reviewer),
         "rating": review.rating,
         "body": review.body or "",
         "created_at": review.created_at.isoformat() if review.created_at else "",
