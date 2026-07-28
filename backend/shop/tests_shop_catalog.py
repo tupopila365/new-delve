@@ -4,10 +4,11 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import UserType
-from shop.models import ShopProduct
+from shop.models import ShopProduct, ShopProfile
 
 User = get_user_model()
 
@@ -21,7 +22,17 @@ class ShopPublicCatalogTests(TestCase):
             password="pass12345",
         )
         self.seller.profile.user_type = UserType.NORMAL
+        self.seller.profile.email_verified = True
         self.seller.profile.save()
+        self.shop = ShopProfile.objects.create(
+            owner=self.seller,
+            display_name="Catalog Shop",
+            region="Khomas",
+            city="Windhoek",
+            fulfillment_notes="Pickup at the market stall.",
+            phone="+264811111111",
+            phone_verified_at=timezone.now(),
+        )
 
         self.khomas = ShopProduct.objects.create(
             owner=self.seller,
@@ -121,9 +132,8 @@ class ShopPublicCatalogTests(TestCase):
         self.assertEqual(res.data["item_count"], 4)
 
     def test_sellers_list_uses_shop_display_name(self):
-        from shop.models import ShopProfile
-
-        ShopProfile.objects.create(owner=self.seller, display_name="Vicious Craft Co")
+        self.shop.display_name = "Vicious Craft Co"
+        self.shop.save(update_fields=["display_name"])
         res = self.client.get("/api/shop/sellers/")
         self.assertEqual(res.status_code, 200)
         row = next(r for r in res.data if r["username"] == self.seller.username)

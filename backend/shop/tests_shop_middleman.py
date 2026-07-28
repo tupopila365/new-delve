@@ -5,10 +5,19 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import UserType
-from shop.models import Cart, CartItem, Order, OrderStatus, PayoutStatus, ShopProduct
+from shop.models import (
+    Cart,
+    CartItem,
+    Order,
+    OrderStatus,
+    PayoutStatus,
+    ShopProduct,
+    ShopProfile,
+)
 
 User = get_user_model()
 
@@ -24,7 +33,21 @@ class ShopMiddlemanFlowTests(TestCase):
         )
         # Traveller seller — not a service provider.
         self.seller.profile.user_type = UserType.NORMAL
+        self.seller.profile.email_verified = True
         self.seller.profile.save()
+        ShopProfile.objects.create(
+            owner=self.seller,
+            display_name="Maker Shop",
+            region="Khomas",
+            city="Windhoek",
+            fulfillment_notes="Ships nationwide.",
+            phone="+264811111111",
+            phone_verified_at=timezone.now(),
+            payout_method=ShopProfile.PayoutMethod.BANK,
+            payout_account_name="Maker Seller",
+            payout_account_number="1234567890",
+            payout_details_set_at=timezone.now(),
+        )
 
         self.buyer = User.objects.create_user(
             username="buyer",
