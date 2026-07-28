@@ -2,16 +2,10 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from common.review_aggregates import apply_rating_aggregate
+from common.user_display import display_name_or_username
 
 from .models import GuideBooking, GuideReview, TourGuideProfile
-
-
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", "").strip():
-        return profile.display_name.strip()
-    return user.username
 
 
 def eligible_guide_booking(user, guide: TourGuideProfile) -> GuideBooking | None:
@@ -76,13 +70,7 @@ def sync_guide_rating(guide: TourGuideProfile) -> None:
         float(r)
         for r in GuideReview.objects.filter(guide=guide, is_hidden=False).values_list("rating", flat=True)
     )
-    if not ratings:
-        guide.rating_avg = Decimal("0")
-        guide.rating_count = 0
-    else:
-        guide.rating_avg = Decimal(str(round(sum(ratings) / len(ratings), 2)))
-        guide.rating_count = len(ratings)
-    guide.save(update_fields=["rating_avg", "rating_count"])
+    apply_rating_aggregate(guide, ratings)
 
 
 def guide_reviews_payload(guide: TourGuideProfile) -> dict:
@@ -101,7 +89,7 @@ def guide_reviews_payload(guide: TourGuideProfile) -> dict:
             {
                 "id": f"traveler-{review.pk}",
                 "source": "traveler",
-                "name": _author_label(review.reviewer),
+                "name": display_name_or_username(review.reviewer),
                 "place": place or guide.headline,
                 "rating": review.rating,
                 "body": review.body,

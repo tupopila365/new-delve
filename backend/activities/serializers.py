@@ -1,24 +1,9 @@
-from django.core.files.storage import default_storage
 from rest_framework import serializers
 
+from common.media_urls import absolute_media_url
+from common.user_display import display_name_or_username, profile_avatar_url
+
 from .models import ActivityListing, ActivitySave
-
-
-def _absolute_media_url(url: str, request=None) -> str:
-    text = (url or "").strip()
-    if not text:
-        return ""
-    if text.startswith(("http://", "https://")):
-        return text
-    if text.startswith("/") and request:
-        return request.build_absolute_uri(text)
-    try:
-        storage_url = default_storage.url(text)
-    except Exception:
-        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
-    if request and storage_url.startswith("/"):
-        return request.build_absolute_uri(storage_url)
-    return storage_url
 
 
 def _normalize_gallery(raw, request=None) -> list[dict]:
@@ -27,7 +12,7 @@ def _normalize_gallery(raw, request=None) -> list[dict]:
         return items
     for row in raw:
         if isinstance(row, str) and row.strip():
-            items.append({"kind": "image", "src": _absolute_media_url(row, request), "caption": ""})
+            items.append({"kind": "image", "src": absolute_media_url(row, request), "caption": ""})
             continue
         if not isinstance(row, dict):
             continue
@@ -40,7 +25,7 @@ def _normalize_gallery(raw, request=None) -> list[dict]:
         items.append(
             {
                 "kind": kind,
-                "src": _absolute_media_url(src, request),
+                "src": absolute_media_url(src, request),
                 "caption": (row.get("caption") or "")[:200],
             }
         )
@@ -51,29 +36,11 @@ def _cover_from_listing(obj: ActivityListing, request=None) -> tuple[str | None,
     cover = (obj.cover_image or "").strip()
     kind = (obj.cover_kind or "image").lower()
     if cover:
-        return _absolute_media_url(cover, request) or None, kind if kind in ("image", "video") else "image"
+        return absolute_media_url(cover, request) or None, kind if kind in ("image", "video") else "image"
     gallery = _normalize_gallery(obj.media_gallery, request)
     if gallery:
         return gallery[0]["src"], gallery[0]["kind"]
     return None, "image"
-
-
-def _owner_display_name(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and profile.display_name and profile.display_name.strip():
-        return profile.display_name.strip()
-    return user.username
-
-
-def _owner_avatar(user, request=None) -> str | None:
-    profile = getattr(user, "profile", None)
-    avatar = getattr(profile, "avatar", None) if profile else None
-    if not avatar:
-        return None
-    try:
-        return _absolute_media_url(avatar.url, request)
-    except Exception:
-        return None
 
 
 class ActivityListingSerializer(serializers.ModelSerializer):
@@ -141,7 +108,7 @@ class ActivityListingSerializer(serializers.ModelSerializer):
         )
 
     def get_owner_display_name(self, obj) -> str:
-        return _owner_display_name(obj.owner)
+        return display_name_or_username(obj.owner)
 
     def get_deals(self, obj):
         from accounts.listing_deals import deals_for_listing
@@ -149,7 +116,7 @@ class ActivityListingSerializer(serializers.ModelSerializer):
         return deals_for_listing(obj, self.context, "activities")
 
     def get_owner_avatar(self, obj) -> str | None:
-        return _owner_avatar(obj.owner, self.context.get("request"))
+        return profile_avatar_url(obj.owner, self.context.get("request"))
 
     def get_cover_image(self, obj) -> str | None:
         cover, _ = _cover_from_listing(obj, self.context.get("request"))

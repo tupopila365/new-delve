@@ -9,7 +9,9 @@ from common.gallery_media import media_url_kind
 
 from .hours_utils import apply_schedule_fields, normalize_schedule
 from .models import FoodVenue
-from .serializers import _absolute_media_url, _cover_image_url, _cover_kind_for
+from common.media_urls import absolute_media_url
+
+from .serializers import _cover_image_url, _cover_kind_for
 
 
 def _file_media_kind(uploaded) -> str:
@@ -145,7 +147,7 @@ class ProviderFoodVenueSerializer(serializers.ModelSerializer):
         if not url:
             return
         resolved_kind = kind if kind in ("image", "video") else media_url_kind(url)
-        absolute = _absolute_media_url(url, self.context.get("request")) or url
+        absolute = absolute_media_url(url, self.context.get("request")) or url
         instance.cover_image = absolute
         instance.cover_kind = resolved_kind
         instance.save(update_fields=["cover_image", "cover_kind"])

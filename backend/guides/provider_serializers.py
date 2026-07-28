@@ -5,6 +5,8 @@ import uuid
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
+from common.user_display import display_name_or_username
+
 from .models import GuideBooking, TourGuideProfile
 
 
@@ -18,13 +20,6 @@ def _photo_url(obj: TourGuideProfile, request=None) -> str | None:
         if isinstance(item, dict) and item.get("is_profile") and item.get("src"):
             return str(item["src"])
     return None
-
-
-def _display_name(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", None):
-        return (profile.display_name or "").strip() or user.username
-    return user.username
 
 
 def _package_title(guide: TourGuideProfile, package_id: str) -> str:
@@ -104,7 +99,7 @@ class ProviderGuideProfileSerializer(serializers.ModelSerializer):
         )
 
     def get_display_name(self, obj):
-        return _display_name(obj.user)
+        return display_name_or_username(obj.user)
 
     def get_photo(self, obj):
         return _photo_url(obj, self.context.get("request"))
@@ -470,4 +465,4 @@ class ProviderGuideBookingSerializer(serializers.ModelSerializer):
         return _package_title(obj.guide, obj.package_id)
 
     def get_guest_display_name(self, obj):
-        return _display_name(obj.client)
+        return display_name_or_username(obj.client)

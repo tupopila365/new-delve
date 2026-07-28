@@ -2,48 +2,24 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-
-from django.core.files.storage import default_storage
+from common.review_aggregates import (
+    apply_rating_aggregate,
+    normalize_review_media,
+    rating_distribution,
+)
+from common.user_display import display_name_or_username, profile_avatar_url
 
 from .models import Order, OrderStatus, ProductReview, ShopProduct
 
 PURCHASED_ORDER_STATUSES = frozenset({OrderStatus.FULFILLED})
 
-
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", "").strip():
-        return profile.display_name.strip()
-    return user.username
-
-
-def _absolute_media_url(url: str, request=None) -> str:
-    text = (url or "").strip()
-    if not text:
-        return ""
-    if text.startswith(("http://", "https://", "data:")):
-        return text
-    if text.startswith("/") and request:
-        return request.build_absolute_uri(text)
-    try:
-        storage_url = default_storage.url(text)
-    except Exception:
-        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
-    if request and storage_url.startswith("/"):
-        return request.build_absolute_uri(storage_url)
-    return storage_url
-
-
-def _reviewer_avatar(user, request=None) -> str | None:
-    profile = getattr(user, "profile", None)
-    avatar = getattr(profile, "avatar", None)
-    if avatar:
-        try:
-            return _absolute_media_url(avatar.url, request)
-        except Exception:
-            return None
-    return None
+__all__ = [
+    "normalize_review_media",
+    "product_reviews_payload",
+    "purchase_order_for",
+    "sync_product_rating",
+    "user_can_review_product",
+]
 
 
 def purchase_order_for(user, product: ShopProduct) -> Order | None:
@@ -72,44 +48,17 @@ def user_can_review_product(user, product: ShopProduct) -> bool:
 
 
 def sync_product_rating(product: ShopProduct) -> None:
-    ratings = list(
-        ProductReview.objects.filter(product=product, is_hidden=False).values_list("rating", flat=True)
+    ratings = ProductReview.objects.filter(product=product, is_hidden=False).values_list(
+        "rating", flat=True
     )
-    if not ratings:
-        product.rating_avg = Decimal("0")
-        product.rating_count = 0
-    else:
-        avg = round(sum(ratings) / len(ratings), 2)
-        product.rating_avg = Decimal(str(avg))
-        product.rating_count = len(ratings)
-    product.save(update_fields=["rating_avg", "rating_count", "updated_at"])
-
-
-def normalize_review_media(raw, request=None) -> list[dict]:
-    """Coerce stored review media into [{url, kind}] with absolute urls."""
-    out: list[dict] = []
-    if not isinstance(raw, list):
-        return out
-    for item in raw:
-        if isinstance(item, str):
-            url = item.strip()
-            kind = "image"
-        elif isinstance(item, dict):
-            url = str(item.get("url") or item.get("image") or "").strip()
-            kind = "video" if item.get("kind") == "video" else "image"
-        else:
-            continue
-        if not url:
-            continue
-        out.append({"url": _absolute_media_url(url, request), "kind": kind})
-    return out
+    apply_rating_aggregate(product, ratings, update_fields=["updated_at"])
 
 
 def _review_row(review: ProductReview, request=None) -> dict:
     return {
         "id": review.pk,
-        "name": _author_label(review.reviewer),
-        "avatar": _reviewer_avatar(review.reviewer, request),
+        "name": display_name_or_username(review.reviewer),
+        "avatar": profile_avatar_url(review.reviewer, request),
         "rating": review.rating,
         "body": review.body,
         "seller_reply": (review.seller_reply or "").strip(),
@@ -130,18 +79,12 @@ def product_reviews_payload(product: ShopProduct, request=None) -> dict:
     )
     rows = [_review_row(r, request) for r in reviews]
 
-    distribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
-    for r in rows:
-        star = int(r["rating"]) if r["rating"] else 0
-        if star in distribution:
-            distribution[star] += 1
-
     user = getattr(request, "user", None)
     return {
         "reviews": rows,
         "rating_avg": float(product.rating_avg or 0),
         "rating_count": product.rating_count or 0,
-        "distribution": {str(k): distribution[k] for k in (5, 4, 3, 2, 1)},
+        "distribution": rating_distribution(r["rating"] for r in rows),
         "can_review": user_can_review_product(user, product),
         "has_reviewed": bool(
             user

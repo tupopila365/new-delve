@@ -1,7 +1,8 @@
-from decimal import Decimal
-
 from django.db.models import F
 from django.utils import timezone
+
+from common.review_aggregates import apply_rating_aggregate
+from common.user_display import display_name_or_username
 
 from .models import AccommodationListing, AccommodationReview
 from .models import BookingStatus
@@ -21,12 +22,8 @@ def verified_listing_reviews(listing: AccommodationListing):
 
 def sync_listing_rating_from_reviews(listing: AccommodationListing) -> None:
     """Persist aggregates using completed-booking reviews only."""
-    ratings = [float(r) for r in verified_listing_reviews(listing).values_list("rating", flat=True)]
-    listing.rating_avg = (
-        Decimal(str(round(sum(ratings) / len(ratings), 2))) if ratings else Decimal("0.00")
-    )
-    listing.rating_count = len(ratings)
-    listing.save(update_fields=["rating_avg", "rating_count"])
+    ratings = verified_listing_reviews(listing).values_list("rating", flat=True)
+    apply_rating_aggregate(listing, ratings)
 
 
 def listing_reviews_payload(listing: AccommodationListing) -> dict:
@@ -38,7 +35,7 @@ def listing_reviews_payload(listing: AccommodationListing) -> dict:
         .order_by("-created_at")[:50]
     ):
         profile = getattr(review.reviewer, "profile", None)
-        name = profile.display_name if profile and profile.display_name else review.reviewer.username
+        name = display_name_or_username(review.reviewer)
         avatar = None
         if profile and profile.avatar:
             avatar = profile.avatar.url if hasattr(profile.avatar, "url") else str(profile.avatar)

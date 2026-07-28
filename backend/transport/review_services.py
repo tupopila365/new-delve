@@ -2,42 +2,24 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from common.review_aggregates import apply_rating_aggregate
+from common.user_display import display_name_or_username
 
 from transport.models import BusTrip, SeatReservationReview, VehicleRentalListing, VehicleRentalReview
 
 
-def _author_label(user) -> str:
-    profile = getattr(user, "profile", None)
-    if profile and getattr(profile, "display_name", "").strip():
-        return profile.display_name.strip()
-    return user.username
-
-
 def sync_vehicle_listing_rating(listing: VehicleRentalListing) -> None:
-    ratings = list(
-        VehicleRentalReview.objects.filter(listing=listing, is_hidden=False).values_list("rating", flat=True)
+    ratings = VehicleRentalReview.objects.filter(listing=listing, is_hidden=False).values_list(
+        "rating", flat=True
     )
-    if not ratings:
-        listing.rating_avg = Decimal("0")
-        listing.rating_count = 0
-    else:
-        listing.rating_avg = round(sum(ratings) / len(ratings), 2)
-        listing.rating_count = len(ratings)
-    listing.save(update_fields=["rating_avg", "rating_count"])
+    apply_rating_aggregate(listing, ratings)
 
 
 def sync_bus_trip_rating(trip: BusTrip) -> None:
-    ratings = list(
-        SeatReservationReview.objects.filter(trip=trip, is_hidden=False).values_list("rating", flat=True)
+    ratings = SeatReservationReview.objects.filter(trip=trip, is_hidden=False).values_list(
+        "rating", flat=True
     )
-    if not ratings:
-        trip.rating_avg = Decimal("0")
-        trip.rating_count = 0
-    else:
-        trip.rating_avg = round(sum(ratings) / len(ratings), 2)
-        trip.rating_count = len(ratings)
-    trip.save(update_fields=["rating_avg", "rating_count"])
+    apply_rating_aggregate(trip, ratings)
 
 
 def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
@@ -51,7 +33,7 @@ def vehicle_reviews_payload(listing: VehicleRentalListing) -> dict:
             {
                 "id": f"traveler-{review.pk}",
                 "source": "traveler",
-                "name": _author_label(review.reviewer),
+                "name": display_name_or_username(review.reviewer),
                 "place": listing.city or listing.region,
                 "rating": review.rating,
                 "body": review.body,
@@ -77,7 +59,7 @@ def bus_trip_reviews_payload(trip: BusTrip) -> dict:
             {
                 "id": f"traveler-{review.pk}",
                 "source": "traveler",
-                "name": _author_label(review.reviewer),
+                "name": display_name_or_username(review.reviewer),
                 "place": trip.route.origin,
                 "rating": review.rating,
                 "body": review.body,

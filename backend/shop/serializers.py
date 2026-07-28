@@ -1,39 +1,23 @@
-from django.core.files.storage import default_storage
 from rest_framework import serializers
+
+from common.media_urls import absolute_media_url
 
 from .models import ProductVariant, ShopProduct
 from .shop_identity import shop_avatar_url, shop_display_name
 
 
-def _absolute_media_url(url: str, request=None) -> str:
-    text = (url or "").strip()
-    if not text:
-        return ""
-    if text.startswith(("http://", "https://")):
-        return text
-    if text.startswith("/") and request:
-        return request.build_absolute_uri(text)
-    try:
-        storage_url = default_storage.url(text)
-    except Exception:
-        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
-    if request and storage_url.startswith("/"):
-        return request.build_absolute_uri(storage_url)
-    return storage_url
-
-
 def _cover_image_url(obj: ShopProduct, request=None) -> str | None:
     raw = getattr(obj, "cover_image", None)
     if raw:
-        url = _absolute_media_url(str(raw), request)
+        url = absolute_media_url(str(raw), request)
         if url:
             return url
     photos = obj.photos or []
     for photo in photos:
         if isinstance(photo, dict) and photo.get("is_cover") and photo.get("image"):
-            return _absolute_media_url(str(photo["image"]), request) or photo["image"]
+            return absolute_media_url(str(photo["image"]), request) or photo["image"]
     if photos and isinstance(photos[0], dict) and photos[0].get("image"):
-        return _absolute_media_url(str(photos[0]["image"]), request) or photos[0]["image"]
+        return absolute_media_url(str(photos[0]["image"]), request) or photos[0]["image"]
     return None
 
 

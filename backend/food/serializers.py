@@ -1,49 +1,26 @@
-from django.core.files.storage import default_storage
 from rest_framework import serializers
 
 from common.gallery_media import media_url_kind
 from common.coords import quantize_coord
+from common.media_urls import absolute_media_url
+from common.user_display import display_name_or_none
 
 from .models import FoodVenue, FoodVenueLike, FoodVenueReview, FoodVenueSave
 from .review_services import user_can_review_food_venue
 
 
-def _owner_display_name(user) -> str | None:
-    profile = getattr(user, "profile", None)
-    if profile and profile.display_name:
-        return profile.display_name.strip() or None
-    return None
-
-
-def _absolute_media_url(url: str, request=None) -> str:
-    text = (url or "").strip()
-    if not text:
-        return ""
-    if text.startswith(("http://", "https://")):
-        return text
-    if text.startswith("/") and request:
-        return request.build_absolute_uri(text)
-    try:
-        storage_url = default_storage.url(text)
-    except Exception:
-        storage_url = text if text.startswith("/") else f"/media/{text.lstrip('/')}"
-    if request and storage_url.startswith("/"):
-        return request.build_absolute_uri(storage_url)
-    return storage_url
-
-
 def _cover_image_url(obj: FoodVenue, request=None) -> str | None:
     raw = getattr(obj, "cover_image", None)
     if raw:
-        url = _absolute_media_url(str(raw), request)
+        url = absolute_media_url(str(raw), request)
         if url:
             return url
     photos = obj.photos or []
     for photo in photos:
         if isinstance(photo, dict) and photo.get("is_cover") and photo.get("image"):
-            return _absolute_media_url(str(photo["image"]), request) or photo["image"]
+            return absolute_media_url(str(photo["image"]), request) or photo["image"]
     if photos and isinstance(photos[0], dict) and photos[0].get("image"):
-        return _absolute_media_url(str(photos[0]["image"]), request) or photos[0]["image"]
+        return absolute_media_url(str(photos[0]["image"]), request) or photos[0]["image"]
     return None
 
 
@@ -151,7 +128,7 @@ class FoodVenueSerializer(serializers.ModelSerializer):
         )
 
     def get_owner_display_name(self, obj):
-        return _owner_display_name(obj.owner)
+        return display_name_or_none(obj.owner)
 
     def get_deals(self, obj):
         from accounts.listing_deals import deals_for_listing
