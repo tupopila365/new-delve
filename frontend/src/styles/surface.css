@@ -1,0 +1,214 @@
+/* Surface scopes.
+   Light is the product default (discovery, marketplace, booking, provider).
+   Dark is reserved for the immersive social surfaces: the Delvers feed,
+   stories, and the create studio. Both scopes drive the same token names so
+   components never need to know which surface they render on. */
+
+:root {
+  --home-ink: #1c1410;
+  --home-ink-rgb: 28, 20, 16;
+  --home-on-ink: #ffffff;
+  --home-canvas: #f4eee4;
+  --home-surface: #ffffff;
+  --home-surface-raised: #fbf7f0;
+  --home-accent-ink: #6d28d9;
+  --home-amber-ink: #9a5b18;
+
+  /* Home type scale — hero, section, rail. Three levels, no more. */
+  --home-title-hero: clamp(2rem, 5.5vw, 3rem);
+  --home-title-section: clamp(1.5rem, 4vw, 1.9rem);
+  --home-title-rail: clamp(1rem, 2vw, 1.12rem);
+}
+
+:root[data-surface='dark'] {
+  --bg: #181614;
+  --bg-elevated: #221f1c;
+  --bg-nav: rgba(24, 22, 20, 0.94);
+  --bg-nav-solid: #1e1b18;
+  --home-ink: #fffaf2;
+  --home-ink-rgb: 255, 250, 242;
+  --home-on-ink: #1a1510;
+  --home-canvas: #12100e;
+  --home-surface: #1a1612;
+  --home-surface-raised: #14110e;
+  --home-accent-ink: #a78bfa;
+  --home-amber-ink: #e2b57a;
+}
+
+:root[data-surface='dark'],
+:root[data-surface='dark'] body,
+:root[data-surface='dark'] #root,
+:root[data-surface='dark'] .app-shell,
+:root[data-surface='dark'] .app-main {
+  background: var(--bg);
+}
+
+:root[data-surface='dark'] .app-main {
+  color-scheme: dark;
+}
+
+:root[data-surface='dark'] .mobile-topbar,
+:root[data-surface='dark'] .mobile-topbar__sections,
+:root[data-surface='dark'] .mobile-topbar__more-panel {
+  background: var(--bg-nav);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-surface='dark'] .mobile-topbar__logo,
+:root[data-surface='dark'] .mobile-topbar__sect,
+:root[data-surface='dark'] .mobile-topbar__more-item {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+:root[data-surface='dark'] .mobile-topbar__icon,
+:root[data-surface='dark'] .bottom-nav {
+  background: rgba(30, 27, 24, 0.94);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-surface='dark'] .bottom-nav a,
+:root[data-surface='dark'] .bottom-nav__action,
+:root[data-surface='dark'] .bottom-nav__label {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+:root[data-surface='dark'] .bottom-nav a svg,
+:root[data-surface='dark'] .bottom-nav__action svg,
+:root[data-surface='dark'] .mobile-topbar__icon svg {
+  stroke: rgba(255, 255, 255, 0.88);
+}
+
+/* ── Top nav (desktop) — dark skin ─────────────────────────── */
+:root[data-surface='dark'] .app-topnav {
+  background: rgba(20, 18, 16, 0.82);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+
+:root[data-surface='dark'] .app-topnav__logo {
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+}
+
+:root[data-surface='dark'] .app-topnav__logo:hover {
+  opacity: 0.9;
+}
+
+:root[data-surface='dark'] .app-topnav__link {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+:root[data-surface='dark'] .app-topnav__link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-surface='dark'] .app-topnav__link--active,
+:root[data-surface='dark'] .app-topnav__link--active:hover,
+:root[data-surface='dark'] .app-topnav__more-btn--open {
+  color: #c4b5fd;
+  background: var(--accent-soft);
+}
+
+:root[data-surface='dark'] .app-topnav__more-panel {
+  background: rgba(28, 25, 22, 0.98);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-surface='dark'] .app-topnav__more-item {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+:root[data-surface='dark'] .app-topnav__more-item:hover {
+  color: #c4b5fd;
+  background: var(--accent-soft);
+}
+
+:root[data-surface='dark'] .app-topnav__icon-btn {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-surface='dark'] .app-topnav__icon-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-surface='dark'] .app-topnav__divider {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-surface='dark'] .app-topnav__post {
+  color: #fff;
+}
+
+:root[data-surface='dark'] .app-topnav__avatar {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--accent-soft);
+}
+
+:root[data-surface='dark'] .app-topnav__avatar:hover {
+  border-color: rgba(196, 181, 253, 0.7);
+}
+
+:root[data-surface='dark'] .app-topnav__avatar-letter {
+  color: #d6c9ff;
+}
+
+/* ── Profile menu dropdown — flat dark skin ────────────────── */
+:root[data-surface='dark'] .profile-menu__panel {
+  background: rgba(28, 25, 22, 0.98);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-surface='dark'] .profile-menu__head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-surface='dark'] .profile-menu__head strong {
+  color: #fff;
+}
+
+:root[data-surface='dark'] .profile-menu__head span {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-surface='dark'] .profile-menu__section-label {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+:root[data-surface='dark'] .profile-menu__item {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+:root[data-surface='dark'] .profile-menu__item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-surface='dark'] .profile-menu__item--accent {
+  color: #c4b5fd;
+}
+
+:root[data-surface='dark'] .profile-menu__item--accent:hover {
+  background: var(--accent-soft);
+}
+
+:root[data-surface='dark'] .profile-menu__item--sub {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+:root[data-surface='dark'] .profile-menu__item--danger {
+  color: #ff6b5c;
+}
+
+:root[data-surface='dark'] .profile-menu__item--danger:hover {
+  background: rgba(255, 107, 92, 0.14);
+}
+
+:root[data-surface='dark'] .profile-menu__divider {
+  background: rgba(255, 255, 255, 0.08);
+}

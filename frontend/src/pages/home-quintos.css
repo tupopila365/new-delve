@@ -9,7 +9,7 @@
   background:
     linear-gradient(rgba(124, 58, 237, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(124, 58, 237, 0.06) 1px, transparent 1px),
-    #14110e;
+    var(--home-surface-raised);
   background-size: 28px 28px, 28px 28px, auto;
 }
 
@@ -28,7 +28,7 @@
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #a78bfa;
+  color: var(--home-accent-ink);
 }
 
 .home-quintos__title {
@@ -37,7 +37,7 @@
   font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: -0.03em;
-  color: #f3ebe1;
+  color: var(--home-ink);
 }
 
 .home-quintos__lead {
@@ -45,7 +45,7 @@
   max-width: 34rem;
   font-size: 0.88rem;
   line-height: 1.45;
-  color: rgba(243, 235, 225, 0.65);
+  color: rgba(var(--home-ink-rgb), 0.65);
 }
 
 .home-quintos__actions {
@@ -61,9 +61,9 @@
   min-height: 40px;
   padding: 0 14px;
   border-radius: 8px;
-  border: 1px solid rgba(243, 235, 225, 0.16);
+  border: 1px solid rgba(var(--home-ink-rgb), 0.2);
   background: transparent;
-  color: #f3ebe1;
+  color: var(--home-ink);
   font-size: 0.84rem;
   font-weight: 750;
   text-decoration: none;
@@ -71,17 +71,17 @@
 
 .home-quintos__btn:hover {
   border-color: rgba(167, 139, 250, 0.55);
-  color: #a78bfa;
+  color: var(--home-accent-ink);
 }
 
 .home-quintos__btn--primary {
-  background: #7c3aed;
-  border-color: #7c3aed;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
 .home-quintos__btn--primary:hover {
-  background: #6d28d9;
-  border-color: #6d28d9;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
   color: #fff;
 }

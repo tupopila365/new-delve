@@ -1,6 +1,17 @@
 # DELVE Design System
 
-Premium travel-social marketplace UI. Warm ivory backgrounds, soft cards, coral CTAs.
+Premium travel-social marketplace UI. Warm ivory backgrounds, soft cards, violet CTAs.
+
+## Surfaces
+
+The app renders on one of two surfaces, set by `AppLayout` on `<html data-surface>`
+and defined in [`styles/surface.css`](styles/surface.css). Both drive the same
+`--home-*` token names, so components never need to know which one they're on.
+
+| Surface | Where | Canvas |
+|---------|-------|--------|
+| `light` | Home (more transactional routes to follow) | ivory `#f4eee4` |
+| `dark` | Everything else — permanently the Delvers feed, stories and the create studio | `#12100e` |
 
 ## Packages
 
@@ -22,6 +33,9 @@ Premium travel-social marketplace UI. Warm ivory backgrounds, soft cards, coral 
 | `--detail-sidebar-width` | Sticky action card column (360px) |
 | `--detail-section-radius` | Section cards (30px) |
 | `--mobile-cta-offset` | Bottom padding when sticky CTA visible |
+| `--home-ink`, `--home-ink-rgb`, `--home-on-ink` | Surface-aware foreground |
+| `--home-canvas`, `--home-surface`, `--home-surface-raised` | Surface-aware backgrounds |
+| `--home-title-hero/section/rail` | Three-level home type scale |
 
 ## Buttons
 
