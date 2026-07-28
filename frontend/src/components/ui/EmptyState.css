@@ -1,13 +1,15 @@
-/* Shared empty state — neutral surface used across list / detail / cart pages */
+/* EmptyState — uses Delve design system tokens */
+
+@import '../design-system/tokens.css';
 
 .ui-empty {
   position: relative;
   text-align: center;
-  padding: 36px 22px 32px;
-  border-radius: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #f4f2ef;
-  color: #1a1714;
+  padding: var(--spacing-2xl) var(--spacing-lg);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
 }
 
 .ui-empty__inner {
@@ -19,14 +21,14 @@
 }
 
 .ui-empty--compact {
-  padding: 24px 18px 22px;
-  border-radius: 14px;
+  padding: var(--spacing-lg) var(--spacing-md);
+  border-radius: var(--radius-lg);
 }
 
 .ui-empty__icon-wrap {
   display: grid;
   place-items: center;
-  margin-bottom: 14px;
+  margin-bottom: var(--spacing-md);
 }
 
 .ui-empty__icon-glow {
@@ -34,8 +36,8 @@
 }
 
 .ui-empty__icon {
-  font-size: 2.4rem;
-  margin-bottom: 10px;
+  font-size: var(--text-2xl);
+  margin-bottom: var(--spacing-sm);
   opacity: 0.45;
 }
 
@@ -46,10 +48,10 @@
   width: 52px;
   height: 52px;
   margin: 0;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
-  color: #4a453f;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: white;
+  color: var(--color-text-secondary);
   font-size: inherit;
   opacity: 1;
 }
@@ -59,106 +61,79 @@
 }
 
 .ui-empty__title {
-  margin: 0 0 8px;
+  margin: 0 0 var(--spacing-sm);
   max-width: 28ch;
-  font-family: var(--font-sans);
-  font-size: 1.02rem;
-  font-weight: 800;
-  line-height: 1.25;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
   letter-spacing: -0.02em;
-  color: #1a1714;
+  color: var(--color-text);
 }
 
 .ui-empty--compact .ui-empty__title {
-  font-size: 0.92rem;
+  font-size: var(--text-base);
 }
 
 .ui-empty__sub {
-  margin: 0 0 18px;
+  margin: 0 0 var(--spacing-lg);
   max-width: 36ch;
-  font-size: 0.88rem;
-  font-weight: 500;
-  line-height: 1.5;
-  color: #6b6560;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
 }
 
 .ui-empty--compact .ui-empty__sub {
-  margin-bottom: 14px;
-  font-size: 0.82rem;
+  margin-bottom: var(--spacing-md);
+  font-size: var(--text-xs);
 }
 
 .ui-empty__cta.btn,
 .ui-empty__cta.btn-primary {
   margin-top: 2px;
   padding: 11px 18px;
-  border: 1px solid #1a1714;
-  border-radius: 10px;
-  background: #1a1714;
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 750;
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
   text-decoration: none;
   box-shadow: none;
   filter: none;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
-.ui-empty__cta.btn:hover,
-.ui-empty__cta.btn-primary:hover {
-  background: #2e2924;
-  border-color: #2e2924;
-  color: #fff;
-  filter: none;
-  box-shadow: none;
-  opacity: 1;
-}
-
-.ui-empty__cta.btn:active,
-.ui-empty__cta.btn-primary:active {
-  background: #0f0d0b;
-}
-
-.ui-empty__cta.btn:focus-visible,
-.ui-empty__cta.btn-primary:focus-visible {
-  outline: 2px solid #1a1714;
-  outline-offset: 3px;
-}
-
-/* Dark page contexts — still neutral, inverted */
+/* Dark page contexts */
 .shop-cart .ui-empty,
 .page-home .ui-empty,
 .coin-toss-page .ui-empty,
 [data-theme='dark'] .ui-empty {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: #1c1916;
-  color: #f3ebe1;
+  border-color: var(--color-border);
+  background: var(--color-neutral-800);
+  color: var(--color-neutral-100);
 }
 
 .shop-cart .ui-empty__icon--graphic,
 .page-home .ui-empty__icon--graphic,
 .coin-toss-page .ui-empty__icon--graphic,
 [data-theme='dark'] .ui-empty__icon--graphic {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: #12100e;
-  color: #c9c2b8;
+  border-color: var(--color-border);
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-400);
 }
 
 .shop-cart .ui-empty__title,
 .page-home .ui-empty__title,
 .coin-toss-page .ui-empty__title,
 [data-theme='dark'] .ui-empty__title {
-  color: #f3ebe1;
+  color: var(--color-neutral-100);
 }
 
 .shop-cart .ui-empty__sub,
 .page-home .ui-empty__sub,
 .coin-toss-page .ui-empty__sub,
 [data-theme='dark'] .ui-empty__sub {
-  color: rgba(243, 235, 225, 0.62);
+  color: var(--color-neutral-400);
 }
 
 .shop-cart .ui-empty__cta.btn,
@@ -169,9 +144,9 @@
 .coin-toss-page .ui-empty__cta.btn-primary,
 [data-theme='dark'] .ui-empty__cta.btn,
 [data-theme='dark'] .ui-empty__cta.btn-primary {
-  border-color: #f3ebe1;
-  background: #f3ebe1;
-  color: #1a1714;
+  background: var(--color-neutral-100);
+  color: var(--color-text);
+  border: 1px solid var(--color-neutral-100);
 }
 
 .shop-cart .ui-empty__cta.btn:hover,
@@ -182,17 +157,17 @@
 .coin-toss-page .ui-empty__cta.btn-primary:hover,
 [data-theme='dark'] .ui-empty__cta.btn:hover,
 [data-theme='dark'] .ui-empty__cta.btn-primary:hover {
-  background: #fff;
-  border-color: #fff;
-  color: #1a1714;
+  background: white;
+  border-color: white;
+  color: var(--color-text);
 }
 
-/* Legacy page hooks — keep layout, inherit new surface */
+/* Legacy page hooks */
 .acc-page__empty,
 .ev-page__empty,
 .fd-page__empty,
 .gd-page__empty,
 .tp-page__empty,
 .home-section__empty {
-  margin-top: 12px;
+  margin-top: var(--spacing-sm);
 }
