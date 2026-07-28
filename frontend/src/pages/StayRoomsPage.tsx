@@ -31,17 +31,13 @@ export function StayRoomsPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: async (index: number) => {
-      if (!listing) throw new Error('Missing listing')
-      const form = stayListingToForm(listing)
-      const nextRooms = form.room_types.filter((_, i) => i !== index)
-      const body = await import('../components/provider/stays').then((m) =>
-        m.buildStayListingApiPayload({ ...form, room_types: nextRooms }),
+    mutationFn: async (roomId: number) => {
+      return apiFetch<void>(
+        `/api/accommodation/provider-listings/${listingId}/rooms/${roomId}/`,
+        {
+          method: 'DELETE',
+        },
       )
-      return apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${listingId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ room_types: body.room_types }),
-      })
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['provider-stay', listingId] })
@@ -91,6 +87,9 @@ export function StayRoomsPage() {
             <Link to={`/provider/stays/${listingId}/edit`} className="prov-ui__btn prov-ui__btn--ghost">
               Accommodation details
             </Link>
+            <Link to={`/provider/stays/${listingId}/calendar`} className="prov-ui__btn prov-ui__btn--ghost">
+              Availability calendar
+            </Link>
             {canManageListings ? (
               <Link to={`/provider/stays/${listingId}/rooms/new`} className="prov-ui__btn prov-ui__btn--primary">
                 <Plus size={16} strokeWidth={2.25} aria-hidden />
@@ -113,7 +112,7 @@ export function StayRoomsPage() {
             const coverIsVideo = Boolean(room.image && isVideoUrl(room.image))
             const price = room.price_per_night || listing.price_per_night
             return (
-              <article key={`${index}-${room.name}`} className="prov-ui__card stay-room-card">
+              <article key={room.id ?? `${index}-${room.name}`} className="prov-ui__card stay-room-card">
                 <div className="stay-room-card__thumb">
                   {cover ? (
                     coverIsVideo ? (
@@ -133,7 +132,9 @@ export function StayRoomsPage() {
                     {room.max_guests} guests · {room.bedrooms} bed
                     {room.bedrooms === 1 ? '' : 's'}
                     {price ? ` · ${format(price, { suffix: '/night' })}` : ''}
+                    {` · ${room.quantity_available} available`}
                     {room.featured ? ' · Featured' : ''}
+                    {!room.is_active ? ' · Inactive' : ''}
                   </p>
                   {room.description.trim() ? <p className="stay-room-card__desc">{room.description}</p> : null}
                 </div>
@@ -141,7 +142,7 @@ export function StayRoomsPage() {
                   {canManageListings ? (
                     <>
                       <Link
-                        to={`/provider/stays/${listingId}/rooms/${index}`}
+                        to={`/provider/stays/${listingId}/rooms/${room.id}`}
                         className="prov-ui__btn prov-ui__btn--primary"
                       >
                         Edit room
@@ -152,7 +153,11 @@ export function StayRoomsPage() {
                         disabled={deleteMut.isPending}
                         onClick={() => {
                           if (!window.confirm(`Remove “${room.name || `Room ${index + 1}`}”?`)) return
-                          deleteMut.mutate(index, {
+                          if (!room.id) {
+                            window.alert('This room needs a stable ID before it can be removed.')
+                            return
+                          }
+                          deleteMut.mutate(room.id, {
                             onError: (e: Error) => window.alert(friendlyApiMessage(e)),
                           })
                         }}

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, EyeOff, Redo2, Undo2 } from 'lucide-react'
+import { BadgeCheck, Eye, EyeOff, Redo2, Undo2 } from 'lucide-react'
+import { apiFetch } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { startCreateSession } from '../../utils/createAnalytics'
 import { CreateStudioHeader } from './CreateStudioHeader'
@@ -42,7 +44,7 @@ import {
   aspectRatioValue,
 } from './mediaUtils'
 import { useCropStage } from './useCropStage'
-import { isFullVideoTrim, MAX_TRIM_DURATION_SEC } from './videoTrimUtils'
+import { MAX_TRIM_DURATION_SEC } from './videoTrimUtils'
 import {
   computeSlideFingerprint,
   ensureSlideUploaded,
@@ -58,6 +60,12 @@ import './SocialCreateComposer.css'
 
 type Props = {
   mode: CreateStudioMode
+}
+
+type StayMomentEligibility = {
+  eligible: boolean
+  reason: string
+  completed_on?: string
 }
 
 const TOOL_TITLES: Record<CreateTool, string> = {
@@ -399,9 +407,25 @@ export function SocialCreateComposer({ mode }: Props) {
     }
   }, [profile])
 
-  const hostStory =
-    searchParams.get('host_story') === '1' || searchParams.get('host_story') === 'true'
   const returnTo = searchParams.get('return')?.trim() || ''
+  const selectedStayId = placeLink.kind === 'accommodation' ? placeLink.id : null
+  const {
+    data: stayEligibility,
+    isLoading: stayEligibilityLoading,
+    isError: stayEligibilityError,
+  } = useQuery({
+    queryKey: ['stay-moment-eligibility', selectedStayId],
+    queryFn: () =>
+      apiFetch<StayMomentEligibility>(
+        `/api/accommodation/listings/${selectedStayId}/moment-eligibility/`,
+      ),
+    enabled: Boolean(profile && selectedStayId),
+    staleTime: 30_000,
+  })
+
+  useEffect(() => {
+    if (selectedStayId) setPostAsHighlight(false)
+  }, [selectedStayId])
 
   // Revoke every slide's object URL only on unmount (switching slides must not
   // revoke a preview we still need).
@@ -431,7 +455,7 @@ export function SocialCreateComposer({ mode }: Props) {
     const food = searchParams.get('food')
     const guide = searchParams.get('guide')
     if (listing && Number.isFinite(Number(listing)) && Number(listing) > 0) {
-      if (!hostStory) setDestination('delvers')
+      setDestination('delvers')
       setPlaceLink({ kind: 'accommodation', id: Number(listing), title: '' })
       return
     }
@@ -459,10 +483,12 @@ export function SocialCreateComposer({ mode }: Props) {
       setDestination('delvers')
       setPlaceLink({ kind: 'guide', id: Number(guide), title: '' })
     }
-  }, [hostStory, searchParams])
+  }, [searchParams])
 
-  const postsToDelvers = !hostStory && (mode === 'story' || destination === 'delvers')
-  const publishAsHighlight = !hostStory && (mode === 'story' || (mode === 'post' && postAsHighlight && destination === 'delvers'))
+  const postsToDelvers = mode === 'story' || destination === 'delvers'
+  const publishAsHighlight =
+    !selectedStayId &&
+    (mode === 'story' || (mode === 'post' && postAsHighlight && destination === 'delvers'))
   const isDirty = Boolean(
     file || slides.length > 0 || caption.trim() || placeLink.kind !== 'none' || ringHashtags.trim() || postAsHighlight ||
     textOverlays.length > 0 || stickers.length > 0 || strokes.length > 0 ||
@@ -815,8 +841,8 @@ export function SocialCreateComposer({ mode }: Props) {
       setError('Add a photo or video first.')
       return
     }
-    if (hostStory && (placeLink.kind !== 'accommodation' || placeLink.id <= 0)) {
-      setError('Link a stay listing for this host story.')
+    if (selectedStayId && (!stayEligibility?.eligible || stayEligibilityLoading || stayEligibilityError)) {
+      setError('Complete a stay before sharing a Delvers Moment.')
       return
     }
     if (
@@ -849,9 +875,7 @@ export function SocialCreateComposer({ mode }: Props) {
 
     const dest = returnTo
       ? returnTo
-      : hostStory
-        ? '/provider/stays'
-        : postsToDelvers
+      : postsToDelvers
           ? '/delvers'
           : profile
             ? `/u/${encodeURIComponent(profile.username)}`
@@ -864,7 +888,6 @@ export function SocialCreateComposer({ mode }: Props) {
         bodyText,
         region: region.trim() || profile.region || '',
         postsToDelvers,
-        hostStory,
         publishAsHighlight,
         placeLink,
         delversBoard: postsToDelvers ? boardName : undefined,
@@ -874,7 +897,7 @@ export function SocialCreateComposer({ mode }: Props) {
           avatar: profile.avatar ?? null,
         },
         analytics: {
-          format: hostStory ? 'host_story' : mode === 'story' ? 'highlight' : 'post',
+          format: mode === 'story' ? 'highlight' : 'post',
           has_place: placeLink.kind !== 'none',
           startedAt: startedAt.current,
         },
@@ -905,7 +928,7 @@ export function SocialCreateComposer({ mode }: Props) {
     return (
       <main className="create-studio create-studio--gate">
         <section className="create-studio-gate">
-          <h1>{hostStory ? 'Host story' : mode === 'story' ? 'Add a highlight' : 'Create a post'}</h1>
+          <h1>{mode === 'story' ? 'Add a highlight' : 'Create a post'}</h1>
           <p>Sign in to share photos and videos with filters, captions, and trim.</p>
           <div className="create-studio-gate__actions">
             <Link to="/login" className="btn btn-primary">
@@ -920,10 +943,12 @@ export function SocialCreateComposer({ mode }: Props) {
     )
   }
 
-  const title = hostStory ? 'Host story' : mode === 'story' ? 'New highlight' : 'New post'
-  const subtitle = hostStory
-    ? 'Stay story rings'
-    : mode === 'story'
+  const title = selectedStayId
+      ? 'New Delvers Moment'
+      : mode === 'story'
+        ? 'New highlight'
+        : 'New post'
+  const subtitle = mode === 'story'
       ? 'Delvers highlights'
       : destination === 'delvers'
         ? 'Show on Delvers'
@@ -931,12 +956,15 @@ export function SocialCreateComposer({ mode }: Props) {
 
   const shareDisabled =
     !file ||
-    (hostStory && (placeLink.kind !== 'accommodation' || placeLink.id <= 0)) ||
+    Boolean(
+      selectedStayId &&
+        (stayEligibilityLoading || stayEligibilityError || !stayEligibility?.eligible),
+    ) ||
     (mediaKind === 'video' &&
       videoDuration > 0 &&
       videoTrim.end - videoTrim.start > MAX_TRIM_DURATION_SEC)
 
-  const leaveTarget = returnTo || (hostStory ? '/provider/stays' : '/create')
+  const leaveTarget = returnTo || '/create'
 
   const canUndo = historyIndex > 0
   const canRedo = historyIndex < history.length - 1
@@ -1226,7 +1254,7 @@ export function SocialCreateComposer({ mode }: Props) {
             </button>
           </div>
 
-          {mode === 'post' && !hostStory ? (
+          {mode === 'post' ? (
             <div className="create-studio__dest" role="tablist" aria-label="Where to share">
               <button
                 type="button"
@@ -1248,11 +1276,11 @@ export function SocialCreateComposer({ mode }: Props) {
             </div>
           ) : null}
 
-          {(postsToDelvers || hostStory) ? (
+          {postsToDelvers ? (
             <details className="create-studio__details" open>
               <summary>Post details</summary>
               <div className="create-studio__details-body">
-                {mode === 'post' && !hostStory && destination === 'delvers' ? (
+                {mode === 'post' && destination === 'delvers' && !selectedStayId ? (
                   <label className="create-studio__highlight-toggle">
                     <input
                       type="checkbox"
@@ -1263,12 +1291,12 @@ export function SocialCreateComposer({ mode }: Props) {
                   </label>
                 ) : null}
 
-                {(mode === 'post' && !hostStory) || mode === 'story' ? (
+                {mode === 'post' || mode === 'story' ? (
                   <RingHashtagPicker
                     value={ringHashtags}
                     onChange={setRingHashtags}
                     disabled={shareBusy}
-                    isHighlight={mode === 'story' || postAsHighlight}
+                    isHighlight={(mode === 'story' && !selectedStayId) || postAsHighlight}
                     onLimit={() => setError(`Use up to ${MAX_RING_HASHTAGS} hashtags.`)}
                   />
                 ) : null}
@@ -1277,9 +1305,30 @@ export function SocialCreateComposer({ mode }: Props) {
                   value={placeLink}
                   onChange={setPlaceLink}
                   disabled={shareBusy}
-                  allowedKinds={hostStory ? ['accommodation'] : undefined}
-                  triggerLabel={hostStory ? 'Link a stay' : 'Link a place'}
+                  triggerLabel="Link a place"
                 />
+                {selectedStayId ? (
+                  <p
+                    className={`create-studio__stay-trust${
+                      stayEligibility?.eligible ? ' is-verified' : ''
+                    }`}
+                    role={stayEligibilityError || stayEligibility?.eligible === false ? 'alert' : 'status'}
+                  >
+                    {stayEligibility?.eligible ? (
+                      <BadgeCheck size={16} strokeWidth={2.25} aria-hidden />
+                    ) : null}
+                    {stayEligibilityLoading
+                      ? 'Checking your completed stay…'
+                      : stayEligibility?.eligible
+                        ? 'Verified stay — this Moment will show your completed-stay badge.'
+                        : 'Complete a stay before sharing a Delvers Moment.'}
+                  </p>
+                ) : null}
+                {selectedStayId && mode === 'story' ? (
+                  <p className="create-studio__stay-trust" role="note">
+                    Stay content is shared as a Delvers Moment, not an ephemeral highlight.
+                  </p>
+                ) : null}
               </div>
             </details>
           ) : null}

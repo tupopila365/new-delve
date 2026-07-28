@@ -22,6 +22,7 @@ export type DelversFeedPost = {
   post_kind?: 'tip' | 'question'
   is_delvers?: boolean
   is_delvers_highlight?: boolean
+  verified_stay?: boolean
   is_author_followed?: boolean
   is_sponsored?: boolean
   sponsor_label?: string

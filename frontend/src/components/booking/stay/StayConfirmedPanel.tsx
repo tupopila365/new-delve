@@ -2,21 +2,28 @@ import type { ReactNode } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import type { BookingDetailItem } from '../BookingDetailsList'
 
+type NextStep = {
+  title: string
+  text: string
+}
+
 type Props = {
   title?: string
   message?: string
   statusLabel?: string
   details: BookingDetailItem[]
   reference?: number | string
+  nextSteps?: NextStep[]
   actions: ReactNode
 }
 
 export function StayConfirmedPanel({
   title = 'Request sent',
-  message = 'The host will review your dates and confirm your stay. We’ll notify you when it’s approved.',
+  message = 'The host will review your dates. We will notify you when they respond.',
   statusLabel = 'Pending confirmation',
   details,
   reference,
+  nextSteps,
   actions,
 }: Props) {
   return (
@@ -39,6 +46,23 @@ export function StayConfirmedPanel({
           </li>
         ))}
       </ul>
+
+      {nextSteps?.length ? (
+        <div className="stay-confirmed__next">
+          <h3>What happens next</h3>
+          <ol>
+            {nextSteps.map((step, index) => (
+              <li key={step.title}>
+                <span aria-hidden>{index + 1}</span>
+                <p>
+                  <strong>{step.title}</strong>
+                  {step.text}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
 
       {reference != null ? (
         <p className="stay-confirmed__ref">

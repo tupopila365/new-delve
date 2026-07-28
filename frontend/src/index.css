@@ -1455,6 +1455,17 @@ button {
   color: var(--text);
 }
 
+.ig-post__verified-stay {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: #218b77;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
 .ig-post__meta {
   font-size: 12px;
   color: var(--text-secondary);
@@ -33546,4 +33557,3 @@ a.chip.chip--accent:hover {
     padding: 1.5rem 1rem;
   }
 }
-

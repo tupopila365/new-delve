@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { BedDouble, CheckCircle2, Loader2, Users, XCircle } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 import {
@@ -59,9 +59,15 @@ export function AccommodationRoomBooking({
 }: Props) {
   const { format } = useDisplayMoney()
   const { profile } = useAuth()
-  const [checkIn, setCheckIn] = useState('')
-  const [checkOut, setCheckOut] = useState('')
-  const [guests, setGuests] = useState(1)
+  const [searchParams] = useSearchParams()
+  const [checkIn, setCheckIn] = useState(() => searchParams.get('check_in') ?? '')
+  const [checkOut, setCheckOut] = useState(() => searchParams.get('check_out') ?? '')
+  const [guests, setGuests] = useState(() => {
+    const raw = searchParams.get('guests')
+    if (!raw || !/^\d+$/.test(raw)) return 1
+    const parsed = parseInt(raw, 10)
+    return Math.min(Math.max(parsed, 1), maxListingGuests)
+  })
   const [err, setErr] = useState<string | null>(null)
   const [availStatus, setAvailStatus] = useState<AvailabilityStatus>('idle')
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null)
@@ -99,6 +105,7 @@ export function AccommodationRoomBooking({
     const t = window.setTimeout(() => {
       void checkStayAvailability({
         listingId,
+        roomTypeId: room.id,
         roomTypeName: room.name,
         checkIn,
         checkOut,
@@ -123,9 +130,10 @@ export function AccommodationRoomBooking({
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [datesReady, listingId, room.name, checkIn, checkOut, guests, maxGuests])
+  }, [datesReady, listingId, room.id, room.name, checkIn, checkOut, guests, maxGuests])
 
   const bookHref = `/accommodation/${listingId}/book${buildBookingSearchParams({
+    roomTypeId: room.id,
     room: room.name,
     checkIn,
     checkOut,
@@ -139,7 +147,7 @@ export function AccommodationRoomBooking({
       : availStatus === 'unavailable'
         ? 'Dates not available'
         : availStatus === 'available'
-          ? 'Reserve'
+          ? 'Review request'
           : 'Select dates'
 
   const onCtaClick = (e: MouseEvent) => {
@@ -240,7 +248,7 @@ export function AccommodationRoomBooking({
       {availStatus === 'available' ? (
         <div className="acc-room-booking__status acc-room-booking__status--ok" role="status">
           <CheckCircle2 size={18} strokeWidth={2.25} aria-hidden />
-          <span>Available for your dates — you can reserve.</span>
+          <span>Available for your dates — ready to review.</span>
         </div>
       ) : null}
 
@@ -280,18 +288,18 @@ export function AccommodationRoomBooking({
         >
           {profile
             ? canReserve
-              ? 'Verify email to reserve'
+              ? 'Verify email to review'
               : ctaLabel
             : canReserve
-              ? 'Sign in to reserve'
+              ? 'Sign in to review'
               : ctaLabel}
         </Link>
       )}
 
       <p className="acc-room-booking__note">
         {availStatus === 'available'
-          ? `Dates are open — ${listingTitle} still confirms your request before you pay.`
-          : `We'll check the calendar as you pick dates. You won't be charged yet.`}
+          ? `No charge now — ${listingTitle} confirms your request before you pay.`
+          : 'We will check the calendar as you pick dates. No payment is taken now.'}
       </p>
     </div>
   )

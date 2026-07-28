@@ -908,6 +908,17 @@
   font-weight: 800;
 }
 
+.listing-moments__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+  color: #3da791;
+  font-size: 0.61rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
 .listing-moments__tag {
   display: block;
   margin-top: 3px;

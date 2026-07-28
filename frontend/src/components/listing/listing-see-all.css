@@ -241,6 +241,17 @@
   font-weight: 850;
 }
 
+.listing-see-all__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 7px;
+  color: #329983;
+  font-size: 0.7rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
 .listing-see-all__moment-tag {
   display: block;
   margin-top: 4px;

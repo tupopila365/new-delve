@@ -1,5 +1,5 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Building2, Bus, CalendarDays, Car, Compass, MessageCircle, Utensils } from 'lucide-react'
 import { apiFetch, asArray } from '../api/client'
@@ -46,6 +46,11 @@ type StayBooking = {
   mock_payment_ref?: string
   payout_status?: string
   has_review?: boolean
+  hold_expires_at?: string | null
+  expired_at?: string | null
+  listing_title_snapshot?: string
+  room_snapshot?: Record<string, unknown>
+  nightly_price_snapshot?: { date: string; price: string }[]
 }
 
 type GuideBooking = {
@@ -84,7 +89,13 @@ function stageIndexForStatus(status: string): number {
   if (key === 'pending') return 1
   if (key === 'confirmed' || key === 'checked_in' || key === 'accepted' || key === 'paid') return 2
   if (key === 'completed' || key === 'checked_out' || key === 'seated') return 3
-  if (key === 'cancelled' || key === 'declined' || key === 'disputed' || key === 'no_show') return 1
+  if (
+    key === 'cancelled' ||
+    key === 'expired' ||
+    key === 'declined' ||
+    key === 'disputed' ||
+    key === 'no_show'
+  ) return 1
   return 0
 }
 
@@ -299,14 +310,35 @@ export function BookingDetail() {
                 .join(' · ')
             : ''
 
-  const details = useMemo((): DetailRow[] => {
+  const details: DetailRow[] = (() => {
     if (stay) {
       return [
         { label: 'Check in', value: stay.check_in },
         { label: 'Check out', value: stay.check_out },
         { label: 'Guests', value: `${stay.guests}` },
         ...(stay.room_type_name?.trim() ? [{ label: 'Room', value: stay.room_type_name.trim() }] : []),
+        ...(stay.nightly_price_snapshot?.length
+          ? [
+              {
+                label: 'Nightly rates',
+                value: stay.nightly_price_snapshot
+                  .map((night) => `${night.date}: ${format(night.price)}`)
+                  .join(' · '),
+              },
+            ]
+          : []),
         { label: 'Total', value: stay.total_price ? format(stay.total_price) : 'TBD' },
+        ...(stay.hold_expires_at
+          ? [
+              {
+                label: stay.status === 'confirmed' ? 'Payment due by' : 'Host response by',
+                value: new Date(stay.hold_expires_at).toLocaleString(),
+              },
+            ]
+          : []),
+        ...(stay.expired_at
+          ? [{ label: 'Inventory released', value: new Date(stay.expired_at).toLocaleString() }]
+          : []),
         ...(buyerPaymentLabel(stay.payout_status, 'host')
           ? [{ label: 'Payment', value: buyerPaymentLabel(stay.payout_status, 'host')! }]
           : []),
@@ -401,7 +433,7 @@ export function BookingDetail() {
     }
 
     return []
-  }, [stay, guide, vehicle, busGroup, food])
+  })()
 
   const canReviewStay =
     Boolean(stay) &&

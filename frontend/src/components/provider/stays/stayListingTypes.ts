@@ -58,8 +58,10 @@ export function isPresetRoomBadge(label: string): boolean {
 }
 
 export type StayRoomForm = {
+  id?: number
   name: string
   description: string
+  quantity_available: number
   max_guests: number
   bedrooms: number
   bed_summary: string
@@ -67,6 +69,7 @@ export type StayRoomForm = {
   compare_at_price: string
   badges: string[]
   featured: boolean
+  is_active: boolean
   /** Cover media URL (image or video). */
   image: string
   image_file?: File | null
@@ -145,6 +148,8 @@ export const EMPTY_STAY_LISTING_FORM: StayListingFormValues = {
 
 export type ProviderStayListing = {
   id: number
+  business?: number | null
+  business_name?: string | null
   title: string
   description: string
   region: string
@@ -180,6 +185,9 @@ export type ProviderStayListing = {
   saves_count?: number
   views_count?: number
   is_active: boolean
+  verification_status?: 'unverified' | 'pending' | 'verified' | 'suspended' | 'rejected'
+  publication_status?: 'draft' | 'pending_verification' | 'live' | 'suspended'
+  publication_status_label?: 'Draft' | 'Pending verification' | 'Live' | 'Suspended'
   guest_reviews?: { name: string; body: string; rating: number }[]
 }
 
@@ -238,11 +246,13 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
               .map((x) => String(x ?? '').trim())
               .filter(Boolean)
           : []
-        const coverImg = String(r.image ?? (galleryImgs[0] ?? '') ?? '')
+        const coverImg = String(r.image ?? galleryImgs[0] ?? '')
         const extraImgs = galleryImgs.filter((x) => x !== coverImg)
         return {
+          id: Number(r.id) || undefined,
           name: String(r.name ?? ''),
           description: String(r.description ?? ''),
+          quantity_available: Math.max(1, Number(r.quantity_available ?? 1)),
           max_guests: Number(r.max_guests ?? 2),
           bedrooms: Number(r.bedrooms ?? 1),
           bed_summary: String(r.bed_summary ?? ''),
@@ -250,6 +260,7 @@ export function stayListingToForm(stay: ProviderStayListing): StayListingFormVal
           compare_at_price: String(r.compare_at_price ?? r.was_price ?? r.original_price ?? ''),
           badges: normalizeRoomBadges(r.badges, r.badge ?? r.special_label),
           featured: r.featured === true || r.is_featured === true,
+          is_active: r.is_active !== false,
           image: coverImg,
           image_file: null,
           images: formatGalleryUrlsField(
@@ -358,13 +369,16 @@ export function formToApiPayload(form: StayListingFormValues) {
         const compareAt = r.compare_at_price.trim()
         const badges = r.badges.map((b) => b.trim()).filter(Boolean)
         return {
+          ...(r.id ? { id: r.id } : {}),
           name: r.name.trim(),
           description: r.description.trim(),
+          quantity_available: Math.max(1, Number(r.quantity_available)),
           max_guests: Number(r.max_guests),
           bedrooms: Number(r.bedrooms),
           bed_summary: r.bed_summary.trim(),
           price_per_night: r.price_per_night || form.price_per_night,
           featured: r.featured,
+          is_active: r.is_active,
           ...(compareAt ? { compare_at_price: compareAt } : {}),
           ...(badges.length ? { badges, badge: badges[0] } : {}),
           ...(image ? { image } : {}),
@@ -425,7 +439,8 @@ export async function buildStayListingApiPayload(form: StayListingFormValues) {
 /** Property fields only — never sends room_types, so room pages stay intact. */
 export async function buildStayPropertyApiPayload(form: StayListingFormValues) {
   const full = await buildStayListingApiPayload({ ...form, room_types: [] })
-  const { room_types: _omit, ...propertyBody } = full
+  const { room_types, ...propertyBody } = full
+  void room_types
   return propertyBody
 }
 
@@ -443,13 +458,16 @@ export async function buildStayRoomApiItem(room: StayRoomForm, fallbackNightly: 
   const compareAt = room.compare_at_price.trim()
   const badges = room.badges.map((b) => b.trim()).filter(Boolean)
   return {
+    ...(room.id ? { id: room.id } : {}),
     name: room.name.trim(),
     description: room.description.trim(),
+    quantity_available: Math.max(1, Number(room.quantity_available)),
     max_guests: Number(room.max_guests),
     bedrooms: Number(room.bedrooms),
     bed_summary: room.bed_summary.trim(),
     price_per_night: room.price_per_night || fallbackNightly,
     featured: room.featured,
+    is_active: room.is_active,
     ...(compareAt ? { compare_at_price: compareAt } : {}),
     ...(badges.length ? { badges, badge: badges[0] } : {}),
     ...(image ? { image } : {}),
@@ -476,7 +494,7 @@ export function listingCompleteness(stay: ProviderStayListing): { percent: numbe
     [Array.isArray(stay.room_types) && stay.room_types.length > 0, 'Room types'],
     [(stay.media_gallery?.length ?? 0) > 0, 'Photo gallery'],
     [Array.isArray(stay.faqs) && stay.faqs.length > 0, 'FAQs'],
-    [(stay.listing_stories?.length ?? 0) > 0, 'Highlights'],
+    [(stay.listing_stories?.length ?? 0) > 0, 'Host Highlights'],
   ]
   const missing = checks.filter(([ok]) => !ok).map(([, label]) => label)
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100)
@@ -502,8 +520,10 @@ export type StayPropertyFormStepId = (typeof STAY_PROPERTY_FORM_STEPS)[number]['
 
 export function emptyStayRoom(): StayRoomForm {
   return {
+    id: undefined,
     name: '',
     description: '',
+    quantity_available: 1,
     max_guests: 2,
     bedrooms: 1,
     bed_summary: '',
@@ -511,6 +531,7 @@ export function emptyStayRoom(): StayRoomForm {
     compare_at_price: '',
     badges: [],
     featured: false,
+    is_active: true,
     image: '',
     image_file: null,
     images: '',

@@ -136,10 +136,10 @@ export function AccommodationRoomDetailView({
             listingType="accommodation"
             listingId={listingId}
             listingTitle={listingTitle}
-            title="From Delvers"
+            title="Delvers Moments"
             className="acc-detail__moments"
             showWhenEmpty
-            emptyMessage="No guest moments yet."
+            emptyMessage="No Delvers Moments yet. Travellers can share one after a completed stay."
           />
 
           <StayHostCard

@@ -2,20 +2,28 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.core.files.storage import default_storage
+from django.db import transaction
 from rest_framework import serializers
 
 from common.story_channels import validate_story_channels
 from common.coords import quantize_coord
+from accounts.business_access import business_permissions, user_has_listing_manager_access
+from accounts.models import BusinessProfile, VerificationStatus
 
 from .booking_services import (
+    expire_stale_booking_holds,
     find_overlapping_booking,
-    normalize_room_type_name,
+    host_approval_hold_deadline,
+    nightly_price_breakdown,
+    resolve_room_type,
 )
 from .models import (
+    AccommodationAvailability,
     AccommodationBooking,
     AccommodationListing,
     AccommodationListingLike,
     AccommodationListingSave,
+    AccommodationRoomType,
     AccommodationReview,
     BookingStatus,
 )
@@ -162,6 +170,81 @@ def normalize_room_type(row) -> dict:
     }
 
 
+class AccommodationRoomTypeSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+    price_per_night = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = AccommodationRoomType
+        fields = (
+            "id",
+            "name",
+            "description",
+            "quantity_available",
+            "max_guests",
+            "bedrooms",
+            "bed_summary",
+            "price_per_night",
+            "compare_at_price",
+            "badges",
+            "featured",
+            "image",
+            "images",
+            "is_active",
+            "sort_order",
+        )
+        extra_kwargs = {
+            "quantity_available": {"min_value": 1},
+            "max_guests": {"min_value": 1},
+            "bedrooms": {"min_value": 0},
+            "image": {"allow_blank": True, "required": False},
+            "badges": {"required": False},
+            "images": {"required": False},
+            "is_active": {"required": False},
+            "sort_order": {"required": False},
+        }
+
+    def validate(self, attrs):
+        price = attrs.get("price_per_night")
+        compare_at = attrs.get("compare_at_price")
+        if price is not None and compare_at is not None and compare_at <= price:
+            attrs["compare_at_price"] = None
+        badges = attrs.get("badges")
+        if badges is not None:
+            attrs["badges"] = _room_str_list(badges)[:8]
+        images = attrs.get("images")
+        if images is not None:
+            attrs["images"] = _room_str_list(images)
+        return attrs
+
+
+class AccommodationAvailabilitySerializer(serializers.ModelSerializer):
+    room_type_name = serializers.CharField(source="room_type.name", read_only=True)
+
+    class Meta:
+        model = AccommodationAvailability
+        fields = (
+            "id",
+            "listing",
+            "room_type",
+            "room_type_name",
+            "date",
+            "is_available",
+            "quantity_available",
+            "price_override",
+            "note",
+        )
+        read_only_fields = ("id", "listing", "room_type_name")
+        extra_kwargs = {
+            "quantity_available": {"min_value": 0},
+        }
+
+
 class AccommodationListingSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     owner_display_name = serializers.SerializerMethodField()
@@ -173,12 +256,26 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
     saves_count = serializers.SerializerMethodField()
     saved_by_me = serializers.SerializerMethodField()
     deals = serializers.SerializerMethodField()
+    business_name = serializers.CharField(source="business.business_name", read_only=True)
+    verification_status = serializers.SerializerMethodField()
+    publication_status = serializers.SerializerMethodField()
+    publication_status_label = serializers.SerializerMethodField()
+    room_types = AccommodationRoomTypeSerializer(
+        source="room_type_records",
+        many=True,
+        required=False,
+    )
 
     class Meta:
         model = AccommodationListing
         fields = (
             "id",
             "owner",
+            "business",
+            "business_name",
+            "verification_status",
+            "publication_status",
+            "publication_status_label",
             "owner_username",
             "owner_display_name",
             "owner_avatar",
@@ -228,6 +325,10 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "owner",
+            "business_name",
+            "verification_status",
+            "publication_status",
+            "publication_status_label",
             "created_at",
             "views_count",
             "likes_count",
@@ -251,6 +352,46 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
     def get_owner_avatar(self, obj):
         return _owner_avatar_url(obj.owner, self.context.get("request"))
 
+    def _verification_status(self, obj):
+        business = getattr(obj, "business", None)
+        if business is not None:
+            return business.verification_status
+        fallback = (
+            BusinessProfile.objects.filter(owner_id=obj.owner_id)
+            .order_by("-updated_at", "-id")
+            .first()
+        )
+        return (
+            fallback.verification_status
+            if fallback is not None
+            else VerificationStatus.UNVERIFIED
+        )
+
+    def get_verification_status(self, obj):
+        return self._verification_status(obj)
+
+    def get_publication_status(self, obj):
+        # Legacy listings without a BusinessProfile remain publishable. Migration
+        # 0027 attaches every listing whose owner already has a business.
+        if obj.business_id is None:
+            return "live" if obj.is_active else "draft"
+        verification = self._verification_status(obj)
+        if verification == VerificationStatus.SUSPENDED:
+            return "suspended"
+        if obj.is_active and verification == VerificationStatus.VERIFIED:
+            return "live"
+        if verification == VerificationStatus.PENDING:
+            return "pending_verification"
+        return "draft"
+
+    def get_publication_status_label(self, obj):
+        return {
+            "draft": "Draft",
+            "pending_verification": "Pending verification",
+            "live": "Live",
+            "suspended": "Suspended",
+        }[self.get_publication_status(obj)]
+
     def get_owner_verified(self, obj):
         annotated = getattr(obj, "owner_verified", None)
         if annotated is not None:
@@ -264,6 +405,10 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         cover = _listing_cover_url(instance, request)
         data["cover_image"] = cover
+        if request and "/provider-listings/" not in request.path:
+            data["room_types"] = [
+                room for room in data.get("room_types", []) if room.get("is_active", True)
+            ]
         return data
 
     def to_internal_value(self, data):
@@ -305,15 +450,16 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
                 break
         return out
 
-    def validate_room_types(self, value):
-        if value in (None, ""):
-            return []
-        if not isinstance(value, list):
-            raise serializers.ValidationError("room_types must be a list.")
-        return [normalize_room_type(row) for row in value]
+    def validate_business(self, business):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("Sign in to select a business.")
+        if not business_permissions(request.user, business)["manage_listings"]:
+            raise serializers.ValidationError("You cannot manage properties for this business.")
+        return business
 
     def validate_listing_stories(self, value):
-        return validate_story_channels(value, field_label="Highlights")
+        return validate_story_channels(value, field_label="Host Highlights")
 
     def get_likes_count(self, obj):
         v = getattr(obj, "likes_count", None)
@@ -347,17 +493,35 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
-        if not hasattr(user, "profile") or user.profile.user_type != "service_provider":
+        if not user_has_listing_manager_access(user):
             raise serializers.ValidationError("Only service providers can create listings.")
+        rooms_data = validated_data.pop("room_type_records", None)
+        business = validated_data.get("business")
+        if business is None:
+            owned = list(BusinessProfile.objects.filter(owner=user).order_by("id"))
+            business = next(
+                (row for row in owned if "accommodation" in (row.business_types or [])),
+                owned[0] if owned else None,
+            )
+            if business:
+                validated_data["business"] = business
         from accounts.seller_trust import enforce_service_go_live
 
-        enforce_service_go_live(user=user, wanting_active=bool(validated_data.get("is_active", True)))
-        validated_data["owner"] = user
+        owner = business.owner if business else user
+        enforce_service_go_live(
+            user=owner,
+            wanting_active=bool(validated_data.get("is_active", True)),
+        )
+        validated_data["owner"] = owner
         if validated_data.get("cover_image") is None:
             validated_data["cover_image"] = ""
-        return super().create(validated_data)
+        listing = super().create(validated_data)
+        if rooms_data is not None:
+            self._sync_room_types(listing, rooms_data)
+        return listing
 
     def update(self, instance, validated_data):
+        rooms_data = validated_data.pop("room_type_records", None)
         if "cover_image" in validated_data and validated_data["cover_image"] is None:
             validated_data["cover_image"] = ""
         if "is_active" in validated_data:
@@ -367,11 +531,44 @@ class AccommodationListingSerializer(serializers.ModelSerializer):
                 user=instance.owner,
                 wanting_active=bool(validated_data.get("is_active")),
             )
-        return super().update(instance, validated_data)
+        listing = super().update(instance, validated_data)
+        if rooms_data is not None:
+            self._sync_room_types(listing, rooms_data)
+        return listing
+
+    def _sync_room_types(self, listing, rooms_data):
+        """Compatibility path for older clients that still submit nested room_types."""
+        existing = {room.id: room for room in listing.room_type_records.all()}
+        kept_ids: set[int] = set()
+        for index, raw in enumerate(rooms_data):
+            data = dict(raw)
+            room_id = data.pop("id", None)
+            room = existing.get(room_id) if room_id else None
+            if room_id and room is None:
+                raise serializers.ValidationError(
+                    {"room_types": f"Room type {room_id} does not belong to this property."}
+                )
+            if data.get("price_per_night") is None:
+                data["price_per_night"] = listing.price_per_night
+            data.setdefault("sort_order", index)
+            if room is None:
+                room = AccommodationRoomType.objects.create(listing=listing, **data)
+            else:
+                for field, value in data.items():
+                    setattr(room, field, value)
+                room.save()
+            kept_ids.add(room.id)
+
+        for room in listing.room_type_records.exclude(id__in=kept_ids):
+            if room.bookings.exists():
+                room.is_active = False
+                room.save(update_fields=["is_active", "updated_at"])
+            else:
+                room.delete()
 
 
 class AccommodationBookingSerializer(serializers.ModelSerializer):
-    listing_title = serializers.CharField(source="listing.title", read_only=True)
+    listing_title = serializers.SerializerMethodField()
     listing_owner_username = serializers.CharField(source="listing.owner.username", read_only=True)
     has_review = serializers.SerializerMethodField()
 
@@ -393,7 +590,13 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "paid_at",
             "payout_released_at",
             "special_requests",
+            "room_type",
             "room_type_name",
+            "listing_title_snapshot",
+            "room_snapshot",
+            "nightly_price_snapshot",
+            "hold_expires_at",
+            "expired_at",
             "status",
             "mock_payment_ref",
             "has_review",
@@ -409,6 +612,11 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
             "payout_released_at",
             "status",
             "mock_payment_ref",
+            "listing_title_snapshot",
+            "room_snapshot",
+            "nightly_price_snapshot",
+            "hold_expires_at",
+            "expired_at",
             "has_review",
             "created_at",
         )
@@ -421,39 +629,45 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
                 pass
         return AccommodationReview.objects.filter(booking_id=obj.pk).exists()
 
+    def get_listing_title(self, obj):
+        return obj.listing_title_snapshot or obj.listing.title
+
     def validate(self, attrs):
         listing = attrs["listing"]
         check_in = attrs["check_in"]
         check_out = attrs["check_out"]
         guests = attrs.get("guests", 1)
+        room_type = attrs.get("room_type")
         room_type_name = (attrs.get("room_type_name") or "").strip()
+        if room_type is not None and room_type.listing_id != listing.id:
+            raise serializers.ValidationError(
+                {"room_type": "This room type does not belong to the selected property."}
+            )
+        if room_type is not None and not room_type.is_active:
+            raise serializers.ValidationError({"room_type": "This room type is not bookable."})
+        if room_type is None and room_type_name:
+            room_type = resolve_room_type(listing, room_type_name=room_type_name)
+            if room_type is None:
+                raise serializers.ValidationError(
+                    {"room_type_name": "Use the room type ID; this room name is missing or ambiguous."}
+                )
+            attrs["room_type"] = room_type
         if check_out <= check_in:
             raise serializers.ValidationError("check_out must be after check_in.")
         max_guests_allowed = listing.max_guests
-        if room_type_name:
-            found = False
-            for row in listing.room_types or []:
-                if not isinstance(row, dict):
-                    continue
-                name = str(row.get("name", "")).strip()
-                if name != room_type_name:
-                    continue
-                found = True
-                mg = row.get("max_guests")
-                if mg is not None:
-                    try:
-                        max_guests_allowed = min(max_guests_allowed, int(mg))
-                    except (TypeError, ValueError):
-                        pass
-                break
-            if not found:
-                raise serializers.ValidationError(
-                    {"room_type_name": "Unknown room type for this listing."}
-                )
+        if room_type is not None:
+            max_guests_allowed = min(max_guests_allowed, room_type.max_guests)
+            attrs["room_type_name"] = room_type.name
+        elif listing.room_type_records.filter(is_active=True).exists():
+            raise serializers.ValidationError({"room_type": "Select a room type."})
         if guests > max_guests_allowed:
             raise serializers.ValidationError("Too many guests for this listing.")
-        room_key = normalize_room_type_name(room_type_name)
-        conflict = find_overlapping_booking(listing, check_in, check_out, room_type_name=room_key)
+        conflict = find_overlapping_booking(
+            listing,
+            check_in,
+            check_out,
+            room_type=room_type,
+        )
         if conflict:
             raise serializers.ValidationError(
                 "Those dates are no longer available. Please choose different dates."
@@ -464,35 +678,78 @@ class AccommodationBookingSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         if not request.user.profile.email_verified:
             raise serializers.ValidationError("Verify your email before booking.")
-        listing = validated_data["listing"]
-        check_in: date = validated_data["check_in"]
-        check_out: date = validated_data["check_out"]
-        nights = (check_out - check_in).days
-        if nights < 1:
-            nights = 1
-        nightly = listing.price_per_night
-        room_type_name = (validated_data.get("room_type_name") or "").strip()
-        if room_type_name:
-            for row in listing.room_types or []:
-                if not isinstance(row, dict):
-                    continue
-                if str(row.get("name", "")).strip() != room_type_name:
-                    continue
-                p = row.get("price_per_night")
-                if p is not None and str(p).strip() != "":
-                    nightly = Decimal(str(p))
-                break
-        total = nightly * nights
-        validated_data["guest"] = request.user
-        validated_data["total_price"] = total
-        validated_data["status"] = BookingStatus.PENDING
-        if "room_type_name" in validated_data and not validated_data["room_type_name"]:
-            validated_data["room_type_name"] = ""
-        return super().create(validated_data)
+        with transaction.atomic():
+            listing = AccommodationListing.objects.select_for_update().get(
+                pk=validated_data["listing"].pk
+            )
+            if not listing.is_active:
+                raise serializers.ValidationError("This property is not accepting bookings.")
+            validated_data["listing"] = listing
+            expire_stale_booking_holds(
+                queryset=AccommodationBooking.objects.filter(listing=listing)
+            )
+            check_in: date = validated_data["check_in"]
+            check_out: date = validated_data["check_out"]
+            room_type = validated_data.get("room_type")
+            if room_type is not None:
+                room_type = AccommodationRoomType.objects.select_for_update().get(pk=room_type.pk)
+                if room_type.listing_id != listing.id or not room_type.is_active:
+                    raise serializers.ValidationError(
+                        {"room_type": "This room type is no longer bookable."}
+                    )
+                validated_data["room_type"] = room_type
+            conflict = find_overlapping_booking(
+                listing,
+                check_in,
+                check_out,
+                room_type=room_type,
+            )
+            if conflict:
+                raise serializers.ValidationError(
+                    "Those dates are no longer available. Please choose different dates."
+                )
+
+            nightly_prices = nightly_price_breakdown(
+                listing,
+                check_in,
+                check_out,
+                room_type=room_type,
+            )
+            total = sum(
+                (Decimal(row["price"]) for row in nightly_prices),
+                Decimal("0"),
+            )
+            validated_data["guest"] = request.user
+            validated_data["total_price"] = total
+            validated_data["status"] = BookingStatus.PENDING
+            validated_data["room_type_name"] = room_type.name if room_type else ""
+            validated_data["listing_title_snapshot"] = listing.title
+            validated_data["room_snapshot"] = (
+                {
+                    "id": room_type.id,
+                    "name": room_type.name,
+                    "max_guests": room_type.max_guests,
+                    "bedrooms": room_type.bedrooms,
+                    "bed_summary": room_type.bed_summary,
+                    "quantity_available": room_type.quantity_available,
+                    "price_per_night": f"{room_type.price_per_night:.2f}",
+                }
+                if room_type
+                else {
+                    "id": None,
+                    "name": "",
+                    "max_guests": listing.max_guests,
+                    "bedrooms": listing.bedrooms,
+                    "price_per_night": f"{listing.price_per_night:.2f}",
+                }
+            )
+            validated_data["nightly_price_snapshot"] = nightly_prices
+            validated_data["hold_expires_at"] = host_approval_hold_deadline()
+            return super().create(validated_data)
 
 
 class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
-    listing_title = serializers.CharField(source="listing.title", read_only=True)
+    listing_title = serializers.SerializerMethodField()
     guest_username = serializers.CharField(source="guest.username", read_only=True)
     guest_display_name = serializers.SerializerMethodField()
 
@@ -515,7 +772,13 @@ class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
             "paid_at",
             "payout_released_at",
             "special_requests",
+            "room_type",
             "room_type_name",
+            "listing_title_snapshot",
+            "room_snapshot",
+            "nightly_price_snapshot",
+            "hold_expires_at",
+            "expired_at",
             "status",
             "mock_payment_ref",
             "created_at",
@@ -533,7 +796,13 @@ class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
             "paid_at",
             "payout_released_at",
             "special_requests",
+            "room_type",
             "room_type_name",
+            "listing_title_snapshot",
+            "room_snapshot",
+            "nightly_price_snapshot",
+            "hold_expires_at",
+            "expired_at",
             "mock_payment_ref",
             "created_at",
         )
@@ -543,6 +812,9 @@ class ProviderAccommodationBookingSerializer(serializers.ModelSerializer):
         if profile and profile.display_name:
             return profile.display_name
         return obj.guest.username
+
+    def get_listing_title(self, obj):
+        return obj.listing_title_snapshot or obj.listing.title
 
 
 PROVIDER_STATUS_TRANSITIONS: dict[str, set[str]] = {
@@ -555,6 +827,7 @@ PROVIDER_STATUS_TRANSITIONS: dict[str, set[str]] = {
     BookingStatus.CHECKED_IN: {BookingStatus.CHECKED_OUT},
     BookingStatus.CHECKED_OUT: set(),
     BookingStatus.CANCELLED: {BookingStatus.REFUNDED},
+    BookingStatus.EXPIRED: set(),
     BookingStatus.REFUNDED: set(),
 }
 

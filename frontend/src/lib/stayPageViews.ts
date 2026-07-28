@@ -1,4 +1,4 @@
-import { apiFetch, getAccessToken } from '../../api/client'
+import { apiFetch, getAccessToken } from '../api/client'
 
 /** Fire-and-forget stay/room page view for provider analytics. */
 export function recordStayPageView(listingId: string | number, roomName?: string | null) {

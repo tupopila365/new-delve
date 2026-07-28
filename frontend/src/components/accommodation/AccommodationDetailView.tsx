@@ -341,7 +341,7 @@ export function AccommodationDetailView({
             <p className="stay-reserve__meta">{selectedRoom.name}</p>
             <div className="stay-reserve__actions">
               <Link
-                to={`/accommodation/${listingId}/room/${encodeURIComponent(selectedRoom.name)}`}
+                to={`/accommodation/${listingId}/room/${encodeURIComponent(String(selectedRoom.id ?? selectedRoom.name))}`}
                 className="btn btn-primary btn-block"
               >
                 Check dates & availability
@@ -371,8 +371,8 @@ export function AccommodationDetailView({
           channels={storyChannels}
           listingName={data.title}
           explorePath={stayPath}
-          title="Stay highlights"
-          subtitle="Photos & videos — tap to watch"
+          title="Host Highlights"
+          subtitle={`Curated by ${data.owner_display_name?.trim() || data.title} — rooms, facilities, atmosphere and location.`}
           ctaLabel="View stay"
           className="jd-stories"
           variant="media"
@@ -480,10 +480,10 @@ export function AccommodationDetailView({
         listingType="accommodation"
         listingId={listingId}
         listingTitle={data.title}
-        title="From Delvers"
+        title="Delvers Moments"
         className="acc-detail__moments"
         showWhenEmpty
-        emptyMessage="No guest moments yet."
+        emptyMessage="No Delvers Moments yet. Travellers can share one after a completed stay."
       />
 
       <ListingReviews

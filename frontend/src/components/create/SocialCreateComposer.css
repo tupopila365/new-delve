@@ -1380,6 +1380,28 @@
   pointer-events: none;
 }
 
+.create-studio__stay-trust {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.create-studio__stay-trust.is-verified {
+  border-color: #49b9a5;
+  color: #bcefe5;
+}
+
+.create-studio__stay-trust svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
 @media (min-width: 641px) {
   .create-studio__details > summary {
     display: none;

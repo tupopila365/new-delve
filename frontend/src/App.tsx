@@ -91,6 +91,7 @@ import { StaysAdmin } from './pages/StaysAdmin'
 import { StayPropertyEditPage } from './pages/StayPropertyEditPage'
 import { StayRoomsPage } from './pages/StayRoomsPage'
 import { StayRoomEditPage } from './pages/StayRoomEditPage'
+import { StayAvailabilityPage } from './pages/StayAvailabilityPage'
 import { GuidesAdmin } from './pages/GuidesAdmin'
 import { TransportAdmin } from './pages/TransportAdmin'
 import { FoodAdmin } from './pages/FoodAdmin'
@@ -344,7 +345,8 @@ export default function App() {
             <Route path="stays/:listingId/edit" element={<StayPropertyEditPage />} />
             <Route path="stays/:listingId/rooms" element={<StayRoomsPage />} />
             <Route path="stays/:listingId/rooms/new" element={<StayRoomEditPage />} />
-            <Route path="stays/:listingId/rooms/:roomIndex" element={<StayRoomEditPage />} />
+            <Route path="stays/:listingId/rooms/:roomId" element={<StayRoomEditPage />} />
+            <Route path="stays/:listingId/calendar" element={<StayAvailabilityPage />} />
             <Route path="guides" element={<GuidesAdmin />} />
             <Route path="transport" element={<TransportAdmin />} />
             <Route path="food" element={<FoodAdmin />} />

@@ -40,7 +40,14 @@ export function AccommodationRoomDetail() {
     const roomTypes = normalizeRoomTypes(data.room_types)
     const offers = buildRoomOffers(data, roomTypes, id)
     const decoded = decodeURIComponent(roomSlug)
-    return offers.find((r) => r.name === decoded || encodeURIComponent(r.name) === roomSlug) ?? null
+    return (
+      offers.find(
+        (room) =>
+          String(room.id) === decoded ||
+          room.name === decoded ||
+          encodeURIComponent(room.name) === roomSlug,
+      ) ?? null
+    )
   }, [data, id, roomSlug])
 
   useEffect(() => {
@@ -96,7 +103,7 @@ export function AccommodationRoomDetail() {
     room.image?.trim() ||
     room.images?.find((img) => Boolean(img.src?.trim()))?.src ||
     data.cover_image
-  const roomPath = `/accommodation/${id}/room/${encodeURIComponent(room.name)}`
+  const roomPath = `/accommodation/${id}/room/${encodeURIComponent(String(room.id ?? room.name))}`
 
   return (
     <div className="jn-detail-page acc-detail-page">

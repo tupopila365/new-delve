@@ -1,4 +1,3 @@
-import type { HostStoryPost } from '../data/hostAccommodationStories'
 import type { TransportStoryPost } from '../data/hostTransportStories'
 
 export type MockProfile = {
@@ -41,6 +40,7 @@ export type MockPost = {
   is_delvers: boolean
   is_accommodation_story?: boolean
   is_delvers_highlight?: boolean
+  verified_stay?: boolean
   is_hidden?: boolean
   post_kind?: 'tip' | 'question'
   place_label?: string
@@ -362,14 +362,6 @@ const V = {
   fun: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
 }
 
-/** Profile photos for story rings (full URLs so `mediaUrl` passes them through). */
-const HOST_STORY_AVATARS = {
-  desertStays:
-    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=256&h=256&q=80',
-  windhoekInns:
-    'https://images.unsplash.com/photo-1573496359142-b8d87734a14a?auto=format&fit=crop&w=256&h=256&q=80',
-}
-
 /** Square crops for guest reviews on accommodation detail. */
 const GUEST_REVIEW_AVATARS = {
   rv1: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=128&h=128&q=80',
@@ -380,60 +372,6 @@ const GUEST_REVIEW_AVATARS = {
   rv6: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&h=128&q=80',
   rv7: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=128&h=128&q=80',
 }
-
-/** Demo host stories for the accommodation page (rings + viewer; no API). */
-export const mockHostAccommodationStoryPins: HostStoryPost[] = [
-  {
-    id: 9501,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
-    body: 'New linen, sea breeze, coffee on the deck — coastal rooms ready for you.',
-    region: 'Erongo',
-    image: U.coast,
-    video: null,
-    listing: { id: 102, title: 'Coastal Guesthouse' },
-    created_at: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-  },
-  {
-    id: 9502,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
-    body: 'Golden hour from the dune-view deck — slow mornings, quiet nights.',
-    region: 'Hardap',
-    image: U.dunes,
-    video: null,
-    listing: { id: 103, title: 'Dune View Lodge' },
-    created_at: new Date(Date.now() - 1000 * 60 * 200).toISOString(),
-  },
-  {
-    id: 9503,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: HOST_STORY_AVATARS.desertStays },
-    body: 'Behind the scenes: prepping the pool deck for summer stays.',
-    region: 'Hardap',
-    image: null,
-    video: V.flower,
-    listing: { id: 104, title: 'Desert Quiver Camp' },
-    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-  },
-  {
-    id: 9504,
-    author: { username: 'windhoek_inns', display_name: 'Windhoek Inns', avatar: HOST_STORY_AVATARS.windhoekInns },
-    body: 'City centre rooms — walk to cafés, quiet enough to sleep well.',
-    region: 'Khomas',
-    image: U.stay1,
-    video: null,
-    listing: { id: 101, title: 'Freesia Hotel' },
-    created_at: new Date(Date.now() - 1000 * 60 * 400).toISOString(),
-  },
-  {
-    id: 9505,
-    author: { username: 'windhoek_inns', display_name: 'Windhoek Inns', avatar: HOST_STORY_AVATARS.windhoekInns },
-    body: 'Breakfast spread is live — fresh fruit, vetkoek, and good coffee.',
-    region: 'Khomas',
-    image: U.food,
-    video: null,
-    listing: { id: 105, title: 'Klein Windhoek B&B' },
-    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-  },
-]
 
 /** Demo provider stories on Transport — rings + viewer; no API. */
 export const mockTransportStoryPins: TransportStoryPost[] = [
@@ -899,6 +837,29 @@ export const mockStays: MockStay[] = [
       { kind: 'image', src: STAY.lodgeExterior },
       { kind: 'image', src: STAY.pool },
       { kind: 'image', src: STAY.bedroomTwin },
+    ],
+    listing_stories: [
+      {
+        id: 'host-spaces',
+        label: 'Rooms & views',
+        coverSrc: STAY.balcony,
+        slides: [
+          {
+            id: 'host-spaces-1',
+            kind: 'image',
+            src: STAY.balcony,
+            headline: 'Private decks at golden hour',
+            sub: 'Curated by Dune View Lodge',
+          },
+          {
+            id: 'host-spaces-2',
+            kind: 'image',
+            src: STAY.pool,
+            headline: 'Pool and sunset deck',
+            sub: 'Facilities at the property',
+          },
+        ],
+      },
     ],
     owner_username: 'demo_provider',
     rating_avg: '4.90',
@@ -2596,42 +2557,6 @@ export const mockPosts: MockPost[] = [
     saved_by_me: false,
   },
   {
-    id: 850,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
-    body: 'New coastal rooms — soft light, sea breeze, coffee on the deck.',
-    region: 'Erongo',
-    image: U.coast,
-    video: null,
-    delvers_board: '',
-    is_delvers: false,
-    is_accommodation_story: true,
-    listing: { id: 102, title: 'Coastal Guesthouse' },
-    created_at: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-    likes_count: 12,
-    saves_count: 4,
-    comments_count: 0,
-    liked_by_me: false,
-    saved_by_me: false,
-  },
-  {
-    id: 851,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
-    body: 'Behind the scenes: getting the dune-view rooms ready for guests.',
-    region: 'Hardap',
-    image: null,
-    video: V.flower,
-    delvers_board: '',
-    is_delvers: false,
-    is_accommodation_story: true,
-    listing: { id: 103, title: 'Dune View Lodge' },
-    created_at: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
-    likes_count: 8,
-    saves_count: 2,
-    comments_count: 0,
-    liked_by_me: false,
-    saved_by_me: false,
-  },
-  {
     id: 860,
     author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
     body: 'Stayed here last weekend — the dune-view deck at sunset is unreal. Swipe through 👉',
@@ -2646,6 +2571,7 @@ export const mockPosts: MockPost[] = [
     ],
     delvers_board: '',
     is_delvers: true,
+    verified_stay: true,
     listing: { id: 103, title: 'Dune View Lodge' },
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     likes_count: 143,
@@ -2656,13 +2582,14 @@ export const mockPosts: MockPost[] = [
   },
   {
     id: 861,
-    author: { username: 'demo_provider', display_name: 'Desert Stays', avatar: null },
-    body: 'Morning walk clip from the lodge — worth waking up early for.',
+    author: { username: 'demo_user', display_name: 'Kaoko Explorer', avatar: null },
+    body: 'Morning walk after checkout — worth waking up early for.',
     region: 'Hardap',
     image: null,
     video: V.escapes,
     delvers_board: '',
     is_delvers: true,
+    verified_stay: true,
     listing: { id: 103, title: 'Dune View Lodge' },
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
     likes_count: 88,
@@ -2680,6 +2607,7 @@ export const mockPosts: MockPost[] = [
     video: null,
     delvers_board: '',
     is_delvers: true,
+    verified_stay: true,
     listing: { id: 103, title: 'Dune View Lodge' },
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
     likes_count: 54,
@@ -2728,4 +2656,3 @@ export const mockPosts: MockPost[] = [
     saved_by_me: false,
   },
 ]
-

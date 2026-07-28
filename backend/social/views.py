@@ -259,7 +259,7 @@ def _comment_list_response(request, qs):
 def _base_post_queryset():
     return (
         Post.objects.filter(is_hidden=False)
-        .select_related("author", "author__profile")
+        .select_related("author", "author__profile", "listing", "verified_stay_booking")
         .prefetch_related("media")
     )
 
@@ -551,7 +551,10 @@ class UserPublicPostsView(APIView):
 
         qs = (
             _annotate_post_counts(
-                _base_post_queryset().filter(author=author).exclude(is_delvers_highlight=True)
+                _base_post_queryset()
+                .filter(author=author)
+                .exclude(is_delvers_highlight=True)
+                .exclude(is_accommodation_story=True)
             )
             .order_by("-created_at")[:60]
         )
@@ -615,26 +618,13 @@ class UserFollowingView(APIView):
         return Response(UserSummarySerializer(users, many=True, context={"request": request}).data)
 
 
-class AccommodationStoriesFeedView(APIView):
-    """Instagram-style story sources for the Stays module (hosts with photo/video)."""
-
-    permission_classes = [permissions.AllowAny]
-
-    def get(self, request):
-        qs = filter_posts_for_viewer(
-            _base_post_queryset()
-            .filter(is_accommodation_story=True)
-            .filter(Q(image__isnull=False) | Q(video__isnull=False))
-            .select_related("listing"),
-            request.user if request.user.is_authenticated else None,
-        )
-        qs = _annotate_post_counts(qs).order_by("-created_at")[:120]
-        ser = PostSerializer(qs, many=True, context={"request": request})
-        return Response(ser.data)
-
-
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.select_related("author", "author__profile", "listing").prefetch_related("media").annotate(
+    queryset = Post.objects.select_related(
+        "author",
+        "author__profile",
+        "listing",
+        "verified_stay_booking",
+    ).prefetch_related("media").annotate(
         likes_count=Count("likes", distinct=True),
         saves_count=Count("saves", distinct=True),
         fires_count=Count("fires", distinct=True),

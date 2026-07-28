@@ -106,15 +106,102 @@ type MockAccBookingRow = {
   guests: number
   total_price: string
   special_requests: string
+  room_type?: number | null
   room_type_name: string
-  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'refunded'
+  status:
+    | 'pending'
+    | 'confirmed'
+    | 'checked_in'
+    | 'checked_out'
+    | 'cancelled'
+    | 'expired'
+    | 'refunded'
   mock_payment_ref: string
+  hold_expires_at?: string | null
+  expired_at?: string | null
+  listing_title_snapshot?: string
+  room_snapshot?: Record<string, unknown>
+  nightly_price_snapshot?: { date: string; price: string }[]
   platform_fee?: string
   seller_payout?: string
   payout_status?: 'none' | 'held' | 'released' | 'refunded'
 }
-const mockAccBookings = new Map<number, MockAccBookingRow>()
-let mockAccNextBookingId = 1
+const mockAccBookings = new Map<number, MockAccBookingRow>([
+  [
+    9001,
+    {
+      id: 9001,
+      listing: 103,
+      listing_title: 'Dune View Lodge',
+      guest: 'demo_user',
+      check_in: '2026-06-10',
+      check_out: '2026-06-13',
+      guests: 2,
+      total_price: '4200.00',
+      special_requests: '',
+      room_type: 103001,
+      room_type_name: 'Dune-view chalet',
+      status: 'checked_out',
+      mock_payment_ref: 'mock_paid_verified_stay',
+      platform_fee: '420.00',
+      seller_payout: '3780.00',
+      payout_status: 'released',
+    },
+  ],
+  [
+    9002,
+    {
+      id: 9002,
+      listing: 103,
+      listing_title: 'Dune View Lodge',
+      guest: 'demo_user',
+      check_in: '2026-08-02',
+      check_out: '2026-08-04',
+      guests: 2,
+      total_price: '2800.00',
+      special_requests: 'Late arrival after the evening drive.',
+      room_type: 103001,
+      room_type_name: 'Dune-view chalet',
+      status: 'pending',
+      mock_payment_ref: '',
+      hold_expires_at: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+      platform_fee: '0.00',
+      seller_payout: '0.00',
+      payout_status: 'none',
+    },
+  ],
+])
+const mockStayCalendar = new Map<string, Record<string, unknown>>()
+
+function ensureMockStayRooms(stay: (typeof mockStays)[number]): Record<string, unknown>[] {
+  const rooms = Array.isArray(stay.room_types) ? stay.room_types : []
+  return rooms.map((room, index) => {
+    const record = room as unknown as Record<string, unknown>
+    if (!Number(record.id)) record.id = stay.id * 1000 + index + 1
+    if (!Number(record.quantity_available)) record.quantity_available = 1
+    if (record.is_active === undefined) record.is_active = true
+    return record
+  })
+}
+
+function mockStayCalendarKey(listingId: number, roomTypeId: number | null, date: string) {
+  return `${listingId}:${roomTypeId ?? 'property'}:${date}`
+}
+let mockAccNextBookingId = 9003
+
+function mockCompletedStayBooking(username: string | null, listingId: number) {
+  if (!username) return null
+  return (
+    [...mockAccBookings.values()]
+      .filter(
+        (booking) =>
+          booking.guest === username &&
+          booking.listing === listingId &&
+          booking.status === 'checked_out',
+      )
+      .sort((a, b) => b.check_out.localeCompare(a.check_out))[0] ?? null
+  )
+}
 
 const mockUserDisputes: {
   id: number
@@ -368,19 +455,43 @@ function mockAccDatesOverlap(aIn: string, aOut: string, bIn: string, bOut: strin
   return aIn < bOut && aOut > bIn
 }
 
-function mockAccBlockedRanges(listingId: number, roomType = '') {
+function expireMockAccommodationHolds() {
+  const now = Date.now()
+  for (const booking of mockAccBookings.values()) {
+    if (
+      (booking.status === 'pending' || booking.status === 'confirmed') &&
+      !booking.mock_payment_ref &&
+      booking.hold_expires_at &&
+      new Date(booking.hold_expires_at).getTime() <= now
+    ) {
+      booking.status = 'expired'
+      booking.expired_at = new Date(now).toISOString()
+    }
+  }
+}
+
+function mockAccBlockedRanges(listingId: number, roomType = '', roomTypeId?: number | null) {
+  expireMockAccommodationHolds()
   return [...mockAccBookings.values()].filter(
     (b) =>
       b.listing === listingId &&
       MOCK_ACC_BLOCKING.has(b.status) &&
-      (b.room_type_name || '').trim() === roomType.trim(),
+      (roomTypeId
+        ? b.room_type === roomTypeId
+        : (b.room_type_name || '').trim() === roomType.trim()),
   )
 }
 
-function mockAccHasOverlap(listingId: number, checkIn: string, checkOut: string, roomType = '') {
-  return mockAccBlockedRanges(listingId, roomType.trim()).some((b) =>
+function mockAccOverlapCount(
+  listingId: number,
+  checkIn: string,
+  checkOut: string,
+  roomType = '',
+  roomTypeId?: number | null,
+) {
+  return mockAccBlockedRanges(listingId, roomType.trim(), roomTypeId).filter((b) =>
     mockAccDatesOverlap(checkIn, checkOut, b.check_in, b.check_out),
-  )
+  ).length
 }
 
 /** Mock guide bookings (session only). */
@@ -2510,6 +2621,7 @@ function enrichAccommodationListingRow(s: MockState, row: (typeof mockStays)[num
   const biz = mockBusinessProfiles.find((b) => b.owner_username === row.owner_username)
   return {
     ...row,
+    room_types: ensureMockStayRooms(row),
     is_active: row.is_active !== false,
     owner_display_name: row.owner_display_name ?? profile?.display_name ?? null,
     owner_avatar: row.owner_avatar ?? profile?.avatar ?? null,
@@ -4751,10 +4863,39 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/accommodation/provider-listings/' && method === 'GET') {
     requireAuth(s)
     const me = s.currentUser as string
+    const businessId = Number(q.get('business') || 0)
+    const scopedBusiness = businessId
+      ? mockBusinessProfiles.find((business) => business.id === businessId)
+      : null
     return mockStays
-      .filter((st) => st.owner_username === me)
-      .map((st) => ({
+      .filter(
+        (st) =>
+          st.owner_username === me &&
+          (!businessId || scopedBusiness?.owner_username === st.owner_username),
+      )
+      .map((st) => {
+        const business =
+          scopedBusiness ??
+          mockBusinessProfiles.find((row) => row.owner_username === st.owner_username)
+        const verification = business?.verification_status ?? 'unverified'
+        const publicationStatus =
+          verification === 'suspended'
+            ? 'suspended'
+            : st.is_active !== false && verification === 'verified'
+              ? 'live'
+              : verification === 'pending'
+                ? 'pending_verification'
+                : 'draft'
+        const publicationLabel = {
+          draft: 'Draft',
+          pending_verification: 'Pending verification',
+          live: 'Live',
+          suspended: 'Suspended',
+        }[publicationStatus]
+        return {
         id: st.id,
+        business: business?.id ?? null,
+        business_name: business?.business_name ?? null,
         title: st.title,
         description: st.description,
         region: st.region,
@@ -4772,7 +4913,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         house_rules: st.house_rules,
         cancellation_policy: st.cancellation_policy,
         faqs: st.faqs ?? [],
-        room_types: st.room_types ?? [],
+        room_types: ensureMockStayRooms(st),
         pet_friendly: st.pet_friendly,
         wifi: st.wifi,
         parking: st.parking,
@@ -4782,16 +4923,28 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         rating_avg: st.rating_avg,
         rating_count: st.rating_count,
         is_active: st.is_active !== false,
+        verification_status: verification,
+        publication_status: publicationStatus,
+        publication_status_label: publicationLabel,
         guest_reviews: st.guest_reviews ?? [],
         likes_count: mockListingLikes.get(st.id)?.size ?? 0,
         saves_count: mockListingSaves.get(st.id)?.size ?? 0,
-      }))
+      }
+      })
   }
 
   if (pathname === '/api/accommodation/provider-analytics/' && method === 'GET') {
     requireAuth(s)
     const me = s.currentUser as string
-    const owned = mockStays.filter((st) => st.owner_username === me)
+    const businessId = Number(q.get('business') || 0)
+    const scopedBusiness = businessId
+      ? mockBusinessProfiles.find((business) => business.id === businessId)
+      : null
+    const owned = mockStays.filter(
+      (st) =>
+        st.owner_username === me &&
+        (!businessId || scopedBusiness?.owner_username === st.owner_username),
+    )
     const ownedIds = new Set(owned.map((st) => st.id))
     const rows = [...mockAccBookings.values()].filter((b) => ownedIds.has(b.listing))
     const paid = rows.filter((b) => ['confirmed', 'checked_in', 'checked_out'].includes(b.status))
@@ -4820,6 +4973,91 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     })
     listingRows.sort((a, b) => b.revenue - a.revenue || b.bookings - a.bookings)
     const totalListingViews = listingRows.reduce((s, r) => s + r.listing_views, 0)
+    const trendStart = new Date()
+    trendStart.setHours(12, 0, 0, 0)
+    trendStart.setDate(trendStart.getDate() - 29)
+    const roomPerformance = owned.flatMap((stay) => {
+      const rooms = ensureMockStayRooms(stay)
+      return rooms.map((room) => {
+        const roomId = Number(room.id)
+        const units = Math.max(1, Number(room.quantity_available || 1))
+        const roomBookings = paid.filter(
+          (booking) => booking.listing === stay.id && Number(booking.room_type) === roomId,
+        )
+        const bookedNights = roomBookings.reduce((sum, booking) => {
+          const nights = Math.max(
+            1,
+            Math.round(
+              (new Date(`${booking.check_out}T12:00:00`).getTime() -
+                new Date(`${booking.check_in}T12:00:00`).getTime()) /
+                86400000,
+            ),
+          )
+          return sum + nights
+        }, 0)
+        const roomRevenue = roomBookings.reduce(
+          (sum, booking) => sum + Number(booking.total_price || 0),
+          0,
+        )
+        const availableNights = units * 30
+        return {
+          listing_id: stay.id,
+          listing_title: stay.title,
+          room_id: roomId,
+          room_name: String(room.name || 'Room'),
+          units,
+          bookings: roomBookings.length,
+          booked_nights: bookedNights,
+          available_room_nights: availableNights,
+          revenue: roomRevenue,
+          occupancy_rate: Math.round((bookedNights / Math.max(1, availableNights)) * 1000) / 10,
+        }
+      })
+    })
+    const availableRoomNights = roomPerformance.reduce(
+      (sum, room) => sum + room.available_room_nights,
+      0,
+    )
+    const occupiedRoomNights = roomPerformance.reduce(
+      (sum, room) => sum + room.booked_nights,
+      0,
+    )
+    const occupancyRevenueTrend = Array.from({ length: 30 }, (_, index) => {
+      const date = new Date(trendStart)
+      date.setDate(date.getDate() + index)
+      const wave = roomPerformance.length > 0 ? (index * 7 + owned.length * 11) % 58 : 0
+      const occupancyRate = roomPerformance.length > 0 ? 22 + wave : 0
+      const capacity = Math.max(1, Math.round(availableRoomNights / 30))
+      const occupied = Math.round((capacity * occupancyRate) / 100)
+      return {
+        date: date.toISOString().slice(0, 10),
+        occupied_room_nights: occupied,
+        available_room_nights: capacity,
+        occupancy_rate: occupancyRate,
+        revenue: index % 5 === 2 ? Math.round(revenue / Math.max(1, paid.length)) : 0,
+      }
+    })
+    const expiringRequests = rows
+      .filter(
+        (booking) =>
+          ['pending', 'confirmed'].includes(booking.status) &&
+          booking.hold_expires_at &&
+          new Date(booking.hold_expires_at).getTime() > Date.now(),
+      )
+      .map((booking) => ({
+        id: booking.id,
+        listing_id: booking.listing,
+        listing_title: booking.listing_title,
+        guest: booking.guest || 'Guest',
+        guest_display_name:
+          (booking.guest && s.profiles[booking.guest]?.display_name) || booking.guest || 'Guest',
+        status: booking.status,
+        hold_expires_at: booking.hold_expires_at,
+        minutes_remaining: Math.max(
+          1,
+          Math.ceil((new Date(booking.hold_expires_at!).getTime() - Date.now()) / 60000),
+        ),
+      }))
     return {
       days: 30,
       on_platform_revenue: revenue,
@@ -4831,6 +5069,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       total_listing_views: totalListingViews,
       total_room_views: 0,
       total_views: totalListingViews,
+      occupancy_rate:
+        Math.round((occupiedRoomNights / Math.max(1, availableRoomNights)) * 1000) / 10,
+      occupied_room_nights: occupiedRoomNights,
+      available_room_nights: availableRoomNights,
+      occupancy_revenue_trend: occupancyRevenueTrend,
+      room_performance: roomPerformance,
+      expiring_requests: expiringRequests,
       views_trend: [],
       promotion_impressions: 0,
       promotion_clicks: 0,
@@ -4860,27 +5105,175 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   }
 
   const providerListingMatch = pathname.match(/^\/api\/accommodation\/provider-listings\/(\d+)\/?$/)
+  if (providerListingMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const st = mockStays.find(
+      (row) => row.id === Number(providerListingMatch[1]) && row.owner_username === me,
+    )
+    if (!st) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return {
+      ...st,
+      room_types: ensureMockStayRooms(st),
+      likes_count: mockListingLikes.get(st.id)?.size ?? 0,
+      saves_count: mockListingSaves.get(st.id)?.size ?? 0,
+    }
+  }
+
   if (providerListingMatch && method === 'PATCH') {
     requireAuth(s)
+    const me = s.currentUser as string
     const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
-    const st = mockStays.find((x) => x.id === Number(providerListingMatch[1]))
-    if (st) Object.assign(st, data)
+    const st = mockStays.find(
+      (row) => row.id === Number(providerListingMatch[1]) && row.owner_username === me,
+    )
+    if (!st) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    Object.assign(st, data)
     return {
-      id: Number(providerListingMatch[1]),
       ...st,
       ...data,
-      rating_avg: st?.rating_avg ?? '0.00',
-      rating_count: st?.rating_count ?? 0,
+      rating_avg: st.rating_avg ?? '0.00',
+      rating_count: st.rating_count ?? 0,
     }
+  }
+
+  const providerRoomsMatch = pathname.match(
+    /^\/api\/accommodation\/provider-listings\/(\d+)\/rooms\/?$/,
+  )
+  if (providerRoomsMatch && method === 'GET') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const st = mockStays.find(
+      (row) => row.id === Number(providerRoomsMatch[1]) && row.owner_username === me,
+    )
+    if (!st) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    return ensureMockStayRooms(st)
+  }
+  if (providerRoomsMatch && method === 'POST') {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const st = mockStays.find(
+      (row) => row.id === Number(providerRoomsMatch[1]) && row.owner_username === me,
+    )
+    if (!st) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const room = {
+      id: Date.now(),
+      quantity_available: 1,
+      is_active: true,
+      ...data,
+    }
+    const rooms = ensureMockStayRooms(st)
+    ;(st as unknown as { room_types: Record<string, unknown>[] }).room_types = [...rooms, room]
+    return room
+  }
+
+  const providerRoomDetailMatch = pathname.match(
+    /^\/api\/accommodation\/provider-listings\/(\d+)\/rooms\/(\d+)\/?$/,
+  )
+  if (providerRoomDetailMatch) {
+    requireAuth(s)
+    const me = s.currentUser as string
+    const st = mockStays.find(
+      (row) => row.id === Number(providerRoomDetailMatch[1]) && row.owner_username === me,
+    )
+    if (!st) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    const rooms = ensureMockStayRooms(st)
+    const roomIndex = rooms.findIndex((row) => Number(row.id) === Number(providerRoomDetailMatch[2]))
+    if (roomIndex < 0) throw new ApiError('Not found', 404, { detail: 'Room type not found.' })
+    if (method === 'GET') return rooms[roomIndex]
+    if (method === 'PATCH') {
+      const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+      rooms[roomIndex] = { ...rooms[roomIndex], ...data, id: rooms[roomIndex].id }
+      ;(st as unknown as { room_types: Record<string, unknown>[] }).room_types = rooms
+      return rooms[roomIndex]
+    }
+    if (method === 'DELETE') {
+      ;(st as unknown as { room_types: Record<string, unknown>[] }).room_types = rooms.filter(
+        (_, index) => index !== roomIndex,
+      )
+      return null
+    }
+  }
+
+  const providerCalendarMatch = pathname.match(
+    /^\/api\/accommodation\/provider-listings\/(\d+)\/calendar\/?$/,
+  )
+  if (providerCalendarMatch && method === 'GET') {
+    requireAuth(s)
+    const listingId = Number(providerCalendarMatch[1])
+    const dateFrom = q.get('date_from') || ''
+    const dateTo = q.get('date_to') || ''
+    return [...mockStayCalendar.values()].filter((row) => {
+      const rowDate = String(row.date || '')
+      return (
+        Number(row.listing) === listingId &&
+        (!dateFrom || rowDate >= dateFrom) &&
+        (!dateTo || rowDate <= dateTo)
+      )
+    })
+  }
+  if (providerCalendarMatch && method === 'PUT') {
+    requireAuth(s)
+    const listingId = Number(providerCalendarMatch[1])
+    const data = isJsonBody(init.body) ? JSON.parse(init.body) : {}
+    const roomTypeId = data.room_type ? Number(data.room_type) : null
+    const key = mockStayCalendarKey(listingId, roomTypeId, String(data.date || ''))
+    if (data.reset === true) {
+      mockStayCalendar.delete(key)
+      return null
+    }
+    const room = mockStays
+      .find((row) => row.id === listingId)
+      ?.room_types?.find(
+        (row) => Number((row as unknown as Record<string, unknown>).id) === roomTypeId,
+      ) as unknown as Record<string, unknown> | undefined
+    const calendarRow = {
+      id: Number(String(Date.now()).slice(-9)),
+      listing: listingId,
+      room_type: roomTypeId,
+      room_type_name: room ? String(room.name || '') : '',
+      ...data,
+    }
+    mockStayCalendar.set(key, calendarRow)
+    return calendarRow
   }
 
   if (pathname === '/api/accommodation/provider-bookings/' && method === 'GET') {
     requireAuth(s)
+    expireMockAccommodationHolds()
     const me = s.currentUser as string
-    const myTitles = new Set(mockStays.filter((st) => st.owner_username === me).map((st) => st.title))
+    const businessId = Number(q.get('business') || 0)
+    const scopedBusiness = businessId
+      ? mockBusinessProfiles.find((business) => business.id === businessId)
+      : null
+    const myTitles = new Set(
+      mockStays
+        .filter(
+          (st) =>
+            st.owner_username === me &&
+            (!businessId || scopedBusiness?.owner_username === st.owner_username),
+        )
+        .map((st) => st.title),
+    )
+    const sessionRows = [...mockAccBookings.values()]
+      .filter((booking) => {
+        const stay = mockStays.find((row) => row.id === booking.listing)
+        return stay?.owner_username === me
+      })
+      .map((booking) => {
+        const guestProfile = booking.guest ? s.profiles[booking.guest] : undefined
+        return {
+          ...booking,
+          guest_display_name: guestProfile?.display_name || booking.guest || 'Guest',
+          guest_username: booking.guest || '',
+          created_at: nowIso(),
+        }
+      })
     const all = [
+      ...sessionRows,
       { id: 1, listing_title: 'Coastal guesthouse', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-10', check_out: '2026-05-13', guests: 2, total_price: '2850', status: 'confirmed', platform_fee: '285.00', seller_payout: '2565.00', payout_status: 'held', created_at: '2026-04-28T10:00:00Z' },
-      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending', platform_fee: '0.00', seller_payout: '0.00', payout_status: 'none', created_at: '2026-05-01T14:30:00Z' },
+      { id: 2, listing_title: 'Independence Ave Hotel', guest_display_name: 'Demo Explorer', guest_username: 'demo_user', check_in: '2026-05-20', check_out: '2026-05-22', guests: 1, total_price: '1240', status: 'pending', hold_expires_at: new Date(Date.now() + 90 * 60 * 1000).toISOString(), platform_fee: '0.00', seller_payout: '0.00', payout_status: 'none', created_at: '2026-05-01T14:30:00Z' },
       { id: 3, listing_title: 'Freesia Hotel', guest_display_name: 'Anna K.', guest_username: 'anna', check_in: '2026-05-14', check_out: '2026-05-16', guests: 2, total_price: '700', status: 'confirmed', platform_fee: '0.00', seller_payout: '0.00', payout_status: 'none', created_at: '2026-04-30T09:15:00Z' },
     ]
     const status = (q.get('status') || '').trim()
@@ -4902,7 +5295,16 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const action = providerBookingActionMatch[2]
     const session = mockAccBookings.get(Number(providerBookingActionMatch[1]))
     if (session) {
+      expireMockAccommodationHolds()
+      if (session.status === 'expired') {
+        throw new ApiError('Expired', 409, {
+          detail: 'This booking request has expired and no longer holds inventory.',
+        })
+      }
       session.status = (statusMap[action] ?? session.status) as MockAccBookingRow['status']
+      if (action === 'confirm') {
+        session.hold_expires_at = new Date(Date.now() + 30 * 60 * 1000).toISOString()
+      }
       if (action === 'check_out') markMockBookingPayoutReleased(session)
       if (action === 'refund') markMockBookingPayoutRefunded(session)
       mockAccBookings.set(session.id, session)
@@ -4920,6 +5322,8 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       platform_fee: session?.platform_fee ?? '0.00',
       seller_payout: session?.seller_payout ?? '0.00',
       payout_status: session?.payout_status ?? 'none',
+      hold_expires_at: session?.hold_expires_at ?? null,
+      expired_at: session?.expired_at ?? null,
     }
   }
 
@@ -5044,13 +5448,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const organic = withMeFlags(s, ranked).slice(0, limit) as Record<string, unknown>[]
     if (kind === 'question') return organic
     return injectMockFeedPromotions(s, organic, 'community_feed', region, false)
-  }
-
-  if (pathname === '/api/social/accommodation-stories/' && method === 'GET') {
-    const list = postsForViewer(s, s.posts)
-      .filter((p) => Boolean(p.is_accommodation_story) && (p.image || p.video))
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    return withMeFlags(s, list).slice(0, 120)
   }
 
   if (pathname === '/api/social/delvers/' && method === 'GET') {
@@ -5228,7 +5625,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       return []
     }
     const unLower = slug.toLowerCase()
-    const list = postsForViewer(s, s.posts).filter((p) => p.author.username.toLowerCase() === unLower && !p.is_delvers_highlight)
+    const list = postsForViewer(s, s.posts).filter(
+      (p) =>
+        p.author.username.toLowerCase() === unLower &&
+        !p.is_delvers_highlight &&
+        !p.is_accommodation_story,
+    )
     const sorted = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return withMeFlags(s, sorted).slice(0, 60)
   }
@@ -5477,6 +5879,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       is_delvers: false,
       is_accommodation_story: false,
       is_delvers_highlight: false,
+      verified_stay: false,
       post_kind: 'tip',
       place_label: '',
       listing: null,
@@ -5551,8 +5954,10 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         ]
       }
       if (is_accommodation_story) {
-        base.is_delvers = false
-        base.is_delvers_highlight = false
+        throw new ApiError('Bad request', 400, {
+          is_accommodation_story:
+            'Host stories have moved to Host Highlights. Manage them in Stay Admin.',
+        })
       }
       if (is_delvers_highlight) {
         base.is_delvers = true
@@ -5564,10 +5969,19 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (listingRaw) {
         const lid = Number(listingRaw)
         const stay = mockStays.find((st) => st.id === lid)
-        if (is_accommodation_story && stay && stay.owner_username !== me) {
-          throw new ApiError('Forbidden', 403, { detail: 'You can only link stories to your own listings.' })
+        if (is_delvers_highlight) {
+          throw new ApiError('Bad request', 400, {
+            is_delvers_highlight: 'Stay content is shared as a Delvers Moment, not a highlight.',
+          })
+        }
+        if (!mockCompletedStayBooking(me, lid)) {
+          throw new ApiError('Bad request', 400, {
+            listing: 'Complete a stay before sharing a Delvers Moment.',
+          })
         }
         base.listing = stay ? { id: stay.id, title: stay.title } : { id: lid, title: 'Listing' }
+        base.is_delvers = true
+        base.verified_stay = true
       }
       if (eventRaw) {
         const eid = Number(eventRaw)
@@ -5618,9 +6032,6 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           : { id: gpid, title: 'Guide' }
         base.is_delvers = true
       }
-      if (is_accommodation_story && profile.user_type !== 'service_provider') {
-        throw new ApiError('Forbidden', 403, { detail: 'Only hosts can post accommodation stories.' })
-      }
     } else if (isJsonBody(init.body)) {
       const data = JSON.parse(init.body) as Partial<MockPost> & {
         is_delvers?: boolean
@@ -5634,6 +6045,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       base.is_delvers = Boolean(data.is_delvers)
       base.is_accommodation_story = Boolean(data.is_accommodation_story)
       base.is_delvers_highlight = Boolean(data.is_delvers_highlight)
+      if (base.is_accommodation_story) {
+        throw new ApiError('Bad request', 400, {
+          is_accommodation_story:
+            'Host stories have moved to Host Highlights. Manage them in Stay Admin.',
+        })
+      }
       base.delvers_board = data.delvers_board || ''
       base.post_kind = data.post_kind === 'question' ? 'question' : 'tip'
       base.place_label = data.place_label || ''
@@ -5641,10 +6058,23 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         base.is_delvers = false
         base.is_accommodation_story = false
       }
-      if (data.listing) base.listing = data.listing
-      if (base.is_accommodation_story) {
-        base.is_delvers = false
-        base.is_delvers_highlight = false
+      if (data.listing) {
+        const listingId =
+          typeof data.listing === 'object' && data.listing ? Number(data.listing.id) : Number(data.listing)
+        if (base.is_delvers_highlight) {
+          throw new ApiError('Bad request', 400, {
+            is_delvers_highlight: 'Stay content is shared as a Delvers Moment, not a highlight.',
+          })
+        }
+        if (!mockCompletedStayBooking(me, listingId)) {
+          throw new ApiError('Bad request', 400, {
+            listing: 'Complete a stay before sharing a Delvers Moment.',
+          })
+        }
+        const stay = mockStays.find((row) => row.id === listingId)
+        base.listing = stay ? { id: stay.id, title: stay.title } : null
+        base.is_delvers = true
+        base.verified_stay = true
       }
       if (base.is_delvers_highlight) {
         base.is_delvers = true
@@ -5654,6 +6084,68 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     s.posts.unshift(base)
     saveState(s)
     return base
+  }
+
+  const socialPostDetailMatch = pathname.match(/^\/api\/social\/posts\/(\d+)\/$/)
+  if (socialPostDetailMatch && method === 'PATCH') {
+    requireAuth(s)
+    if (!isJsonBody(init.body)) {
+      throw new ApiError('Bad request', 400, { detail: 'Invalid body.' })
+    }
+    const me = s.currentUser as string
+    const post = s.posts.find((row) => row.id === Number(socialPostDetailMatch[1]))
+    if (!post) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    if (post.author.username !== me) {
+      throw new ApiError('Forbidden', 403, { detail: 'You can only edit your own posts.' })
+    }
+    const data = JSON.parse(init.body) as Record<string, unknown>
+    if (data.is_accommodation_story === true) {
+      throw new ApiError('Bad request', 400, {
+        is_accommodation_story:
+          'Host stories have moved to Host Highlights. Manage them in Stay Admin.',
+      })
+    }
+
+    const listingWasSupplied = Object.prototype.hasOwnProperty.call(data, 'listing')
+    if (listingWasSupplied) {
+      if (data.listing === null || data.listing === '') {
+        post.listing = null
+        post.verified_stay = false
+      } else {
+        const rawListing = data.listing
+        const listingId =
+          typeof rawListing === 'object' && rawListing
+            ? Number((rawListing as { id?: unknown }).id)
+            : Number(rawListing)
+        const stay = mockStays.find((row) => row.id === listingId)
+        if (!stay) {
+          throw new ApiError('Bad request', 400, { listing: 'That stay is not available.' })
+        }
+        if (data.is_delvers_highlight === true || post.is_delvers_highlight) {
+          throw new ApiError('Bad request', 400, {
+            is_delvers_highlight: 'Stay content is shared as a Delvers Moment, not a highlight.',
+          })
+        }
+        if (!mockCompletedStayBooking(me, listingId)) {
+          throw new ApiError('Bad request', 400, {
+            listing: 'Complete a stay before sharing a Delvers Moment.',
+          })
+        }
+        post.listing = { id: stay.id, title: stay.title }
+        post.is_delvers = true
+        post.is_delvers_highlight = false
+        post.verified_stay = true
+      }
+    }
+    if (typeof data.body === 'string') post.body = data.body
+    if (typeof data.region === 'string') post.region = data.region
+    if (typeof data.place_label === 'string') post.place_label = data.place_label
+    if (!post.listing && typeof data.is_delvers_highlight === 'boolean') {
+      post.is_delvers_highlight = data.is_delvers_highlight
+      if (data.is_delvers_highlight) post.is_delvers = true
+    }
+    saveState(s)
+    return post
   }
 
   const likeMatch = pathname.match(/^\/api\/social\/posts\/(\d+)\/like\/$/)
@@ -6177,8 +6669,20 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     const id = Number(staySubMatch[1])
     const action = staySubMatch[2]
     const stay = mockStays.find((x) => x.id === id)
-    if (!stay && action !== 'questions' && action !== 'moments' && action !== 'reviews' && action !== 'availability' && action !== 'record-view') {
+    if (!stay && action !== 'questions' && action !== 'moments' && action !== 'reviews' && action !== 'availability' && action !== 'record-view' && action !== 'moment-eligibility') {
       throw new ApiError('Not found', 404, { detail: 'Not found.' })
+    }
+    if (action === 'moment-eligibility' && method === 'GET') {
+      requireAuth(s)
+      if (!stay) throw new ApiError('Not found', 404, { detail: 'Not found.' })
+      const booking = mockCompletedStayBooking(s.currentUser, id)
+      return booking
+        ? {
+            eligible: true,
+            reason: 'Verified stay — your Moment will show a completed-stay badge.',
+            completed_on: booking.check_out,
+          }
+        : { eligible: false, reason: 'Complete a stay before sharing a Delvers Moment.' }
     }
     if (action === 'record-view' && method === 'POST') {
       if (!stay) throw new ApiError('Not found', 404, { detail: 'Not found.' })
@@ -6203,11 +6707,19 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const checkIn = (q.get('check_in') || '').trim()
       const checkOut = (q.get('check_out') || '').trim()
       const roomType = (q.get('room') || q.get('room_type_name') || '').trim()
+      const roomTypeId = Number(q.get('room_type') || 0) || null
+      const roomRecord = stay
+        ? ensureMockStayRooms(stay).find((row) =>
+            roomTypeId ? Number(row.id) === roomTypeId : String(row.name || '').trim() === roomType,
+          )
+        : undefined
+      const resolvedRoomName = String(roomRecord?.name || roomType).trim()
       const guests = Math.max(1, Number(q.get('guests') || 1) || 1)
-      const blocked_ranges = mockAccBlockedRanges(id, roomType).map((b) => ({
+      const blocked_ranges = mockAccBlockedRanges(id, resolvedRoomName, roomTypeId).map((b) => ({
         check_in: b.check_in,
         check_out: b.check_out,
         status: b.status,
+        room_type: b.room_type ?? null,
         room_type_name: b.room_type_name || '',
       }))
       if (!checkIn || !checkOut) {
@@ -6216,17 +6728,22 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       if (checkOut <= checkIn) {
         return { available: false, reason: 'Check-out must be after check-in.', blocked_ranges }
       }
-      if (guests > (stay?.max_guests ?? 1)) {
+      const maxGuests = Math.min(
+        stay?.max_guests ?? 1,
+        Number(roomRecord?.max_guests ?? stay?.max_guests ?? 1),
+      )
+      if (guests > maxGuests) {
         return {
           available: false,
-          reason: `This room fits up to ${stay?.max_guests ?? 1} guests.`,
+          reason: `This room fits up to ${maxGuests} guests.`,
           blocked_ranges,
         }
       }
-      if (mockAccHasOverlap(id, checkIn, checkOut, roomType)) {
+      const quantity = Math.max(1, Number(roomRecord?.quantity_available ?? 1))
+      if (mockAccOverlapCount(id, checkIn, checkOut, resolvedRoomName, roomTypeId) >= quantity) {
         return {
           available: false,
-          reason: 'This stay is already booked for part of those dates. Try different dates.',
+          reason: 'This room type is sold out for part of those dates. Try different dates.',
           blocked_ranges,
         }
       }
@@ -6234,12 +6751,9 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       const t1 = new Date(`${checkOut}T12:00:00`).getTime()
       const nights = Math.max(1, Math.round((t1 - t0) / (1000 * 60 * 60 * 24)))
       let nightly = Number(stay?.price_per_night ?? 0)
-      if (roomType && Array.isArray(stay?.room_types)) {
-        const match = (stay!.room_types as { name?: string; price_per_night?: string | number }[]).find(
-          (r) => r && typeof r.name === 'string' && r.name.trim() === roomType,
-        )
-        if (match?.price_per_night != null && String(match.price_per_night).trim() !== '') {
-          nightly = Number(match.price_per_night)
+      if (roomRecord) {
+        if (roomRecord.price_per_night != null && String(roomRecord.price_per_night).trim() !== '') {
+          nightly = Number(roomRecord.price_per_night)
         }
       }
       return {
@@ -6255,6 +6769,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           (p) =>
             p.is_delvers &&
             !p.is_accommodation_story &&
+            p.verified_stay === true &&
             p.listing?.id === id,
         )
         .slice(0, 24)
@@ -6266,6 +6781,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
           media: p.media,
           author: { username: p.author.username, display_name: p.author.display_name },
           listing: p.listing,
+          verified_stay: p.verified_stay,
         }))
     }
     if (action === 'reviews' && method === 'GET') {
@@ -6318,6 +6834,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
 
   if (pathname === '/api/accommodation/bookings/' && method === 'GET') {
     requireAuth(s)
+    expireMockAccommodationHolds()
     const sessionRows = [...mockAccBookings.values()].map((row) => {
       const listing = mockStays.find((st) => st.id === row.listing)
       return {
@@ -6330,12 +6847,18 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         guests: row.guests,
         total_price: row.total_price,
         special_requests: row.special_requests,
+        room_type: row.room_type ?? null,
         room_type_name: row.room_type_name,
         status: row.status,
         mock_payment_ref: row.mock_payment_ref,
         platform_fee: row.platform_fee ?? '0.00',
         seller_payout: row.seller_payout ?? '0.00',
         payout_status: row.payout_status ?? 'none',
+        hold_expires_at: row.hold_expires_at ?? null,
+        expired_at: row.expired_at ?? null,
+        listing_title_snapshot: row.listing_title_snapshot ?? row.listing_title,
+        room_snapshot: row.room_snapshot ?? {},
+        nightly_price_snapshot: row.nightly_price_snapshot ?? [],
         has_review: mockAccReviewedBookings.has(row.id),
       }
     })
@@ -6404,6 +6927,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       check_out?: string
       guests?: number
       special_requests?: string
+      room_type?: number
       room_type_name?: string
     }
     const listingId = Number(body.listing)
@@ -6422,33 +6946,46 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!(t1 > t0)) {
       throw new ApiError('Invalid dates', 400, { detail: 'check_out must be after check_in.' })
     }
-    const roomTypeName = typeof body.room_type_name === 'string' ? body.room_type_name.trim() : ''
+    const roomTypeId = Number(body.room_type || 0) || null
+    const rooms = ensureMockStayRooms(listing)
+    const roomRecord = rooms.find((room) =>
+      roomTypeId
+        ? Number(room.id) === roomTypeId
+        : String(room.name || '').trim() === String(body.room_type_name || '').trim(),
+    )
+    const roomTypeName = String(roomRecord?.name || body.room_type_name || '').trim()
     let maxGuests = listing.max_guests
     let nightly = Number(listing.price_per_night)
-    if (roomTypeName && Array.isArray(listing.room_types)) {
-      const match = (listing.room_types as { name?: string; max_guests?: number; price_per_night?: string | number }[]).find(
-        (r) => r && typeof r.name === 'string' && r.name.trim() === roomTypeName,
-      )
-      if (!match) {
+    if (roomTypeId || roomTypeName) {
+      if (!roomRecord) {
         throw new ApiError('Invalid room', 400, { detail: 'Unknown room type for this listing.' })
       }
-      if (match.max_guests != null && Number.isFinite(Number(match.max_guests))) {
-        maxGuests = Math.min(maxGuests, Number(match.max_guests))
+      if (roomRecord.max_guests != null && Number.isFinite(Number(roomRecord.max_guests))) {
+        maxGuests = Math.min(maxGuests, Number(roomRecord.max_guests))
       }
-      if (match.price_per_night != null && String(match.price_per_night).trim() !== '') {
-        nightly = Number(match.price_per_night)
+      if (roomRecord.price_per_night != null && String(roomRecord.price_per_night).trim() !== '') {
+        nightly = Number(roomRecord.price_per_night)
       }
     }
     if (guests > maxGuests) {
       throw new ApiError('Too many guests', 400, { detail: 'Too many guests for this listing.' })
     }
-    if (mockAccHasOverlap(listingId, checkIn, checkOut, roomTypeName)) {
+    const quantity = Math.max(1, Number(roomRecord?.quantity_available ?? 1))
+    if (mockAccOverlapCount(listingId, checkIn, checkOut, roomTypeName, roomTypeId) >= quantity) {
       throw new ApiError('Unavailable', 400, {
         detail: 'Those dates are no longer available. Please choose different dates.',
       })
     }
     const nights = Math.max(1, Math.round((t1 - t0) / (1000 * 60 * 60 * 24)))
     const total = (nightly * nights).toFixed(2)
+    const nightlyPriceSnapshot = Array.from({ length: nights }, (_, index) => {
+      const night = new Date(`${checkIn}T12:00:00`)
+      night.setDate(night.getDate() + index)
+      return {
+        date: night.toISOString().slice(0, 10),
+        price: nightly.toFixed(2),
+      }
+    })
     const special_requests = typeof body.special_requests === 'string' ? body.special_requests.trim() : ''
     const id = mockAccNextBookingId++
     const row: MockAccBookingRow = {
@@ -6461,9 +6998,31 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       guests,
       total_price: total,
       special_requests,
+      room_type: roomTypeId,
       room_type_name: roomTypeName,
       status: 'pending',
       mock_payment_ref: '',
+      hold_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expired_at: null,
+      listing_title_snapshot: listing.title,
+      room_snapshot: roomRecord
+        ? {
+            id: roomTypeId,
+            name: roomTypeName,
+            max_guests: Number(roomRecord.max_guests ?? maxGuests),
+            bedrooms: Number(roomRecord.bedrooms ?? 1),
+            bed_summary: String(roomRecord.bed_summary ?? ''),
+            quantity_available: quantity,
+            price_per_night: nightly.toFixed(2),
+          }
+        : {
+            id: null,
+            name: '',
+            max_guests: maxGuests,
+            bedrooms: Number(listing.bedrooms ?? 1),
+            price_per_night: nightly.toFixed(2),
+          },
+      nightly_price_snapshot: nightlyPriceSnapshot,
     }
     mockAccBookings.set(id, row)
     return {
@@ -6477,9 +7036,15 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       guests: row.guests,
       total_price: row.total_price,
       special_requests: row.special_requests,
+      room_type: row.room_type ?? null,
       room_type_name: row.room_type_name,
       status: row.status,
       mock_payment_ref: row.mock_payment_ref,
+      hold_expires_at: row.hold_expires_at,
+      expired_at: row.expired_at,
+      listing_title_snapshot: row.listing_title_snapshot,
+      room_snapshot: row.room_snapshot,
+      nightly_price_snapshot: row.nightly_price_snapshot,
       created_at: nowIso(),
     }
   }
@@ -6492,7 +7057,13 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!b) {
       throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
     }
-    if (b.status === 'cancelled' || b.status === 'refunded' || b.status === 'checked_out') {
+    expireMockAccommodationHolds()
+    if (
+      b.status === 'cancelled' ||
+      b.status === 'expired' ||
+      b.status === 'refunded' ||
+      b.status === 'checked_out'
+    ) {
       throw new ApiError('Bad request', 400, { detail: 'Booking cannot be cancelled.' })
     }
     b.status = 'cancelled'
@@ -6515,6 +7086,12 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
     if (!b) {
       throw new ApiError('Not found', 404, { detail: 'Booking not found.' })
     }
+    expireMockAccommodationHolds()
+    if (b.status === 'expired') {
+      throw new ApiError('Expired', 409, {
+        detail: 'This payment hold expired. Please request the stay again.',
+      })
+    }
     if (b.status !== 'confirmed') {
       throw new ApiError('Bad request', 400, { detail: 'Payment is available after the host confirms your stay.' })
     }
@@ -6522,6 +7099,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
       throw new ApiError('Bad request', 400, { detail: 'Payment already recorded.' })
     }
     b.mock_payment_ref = `mock_${Math.random().toString(36).slice(2, 18)}`
+    b.hold_expires_at = null
     markMockBookingPayoutHeld(b)
     mockAccBookings.set(bid, b)
     const listing = mockStays.find((st) => st.id === b.listing)
@@ -6542,6 +7120,7 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
         platform_fee: b.platform_fee,
         seller_payout: b.seller_payout,
         payout_status: b.payout_status,
+        hold_expires_at: b.hold_expires_at,
       },
     }
   }
@@ -7411,39 +7990,31 @@ export async function mockApiFetch(path: string, init: RequestInit & { auth?: bo
   if (pathname === '/api/home/stories/' && method === 'GET') {
     const { buildSlidesForChannel, STORY_CHANNELS } = await import('../data/homeStories')
     const region = (q.get('region') || '').trim().toLowerCase()
-    const hostStories = postsForViewer(s, s.posts)
-      .filter((p) => p.is_accommodation_story && (p.image || p.video))
-      .filter((p) => (region ? p.region.toLowerCase().includes(region) : true))
-      .slice(0, 6)
     const delversPins = postsForViewer(s, s.posts)
       .filter((p) => p.is_delvers && !p.is_accommodation_story && (p.image || p.video))
       .filter((p) => (region ? p.region.toLowerCase().includes(region) : true))
       .slice(0, 6)
 
-    const staysSlides =
-      hostStories.length > 0
-        ? hostStories.map((p) => ({
-            id: `host-story-${p.id}`,
-            kind: p.video ? 'video' : 'image',
-            src: p.video || p.image || '',
-            headline: (p.body || 'Host story').slice(0, 100),
-            sub: p.region || 'Host update',
-            duration_ms: p.video ? 15000 : 5200,
-            cta_path: p.listing?.id ? `/accommodation/${p.listing.id}` : `/u/${p.author.username}`,
-            cta_label: p.listing?.id ? 'View stay' : 'View host',
-            source: 'host_story',
-          }))
-        : buildSlidesForChannel('stays', {}).map((slide) => ({
-            id: slide.id,
-            kind: slide.kind,
+    const staysSlides = mockStays
+      .filter((stay) =>
+        region ? `${stay.city} ${stay.region}`.toLowerCase().includes(region) : true,
+      )
+      .flatMap((stay) =>
+        (stay.listing_stories ?? []).flatMap((channel, channelIndex) =>
+          channel.slides.map((slide, slideIndex) => ({
+            id: `host-highlight-${stay.id}-${channelIndex}-${slideIndex}`,
+            kind: slide.kind ?? 'image',
             src: slide.src,
-            headline: slide.headline,
-            sub: slide.sub ?? '',
-            duration_ms: slide.durationMs ?? 5200,
-            cta_path: slide.ctaPath ?? '/accommodation',
-            cta_label: slide.ctaLabel ?? 'Explore',
-            source: 'fallback',
-          }))
+            headline: slide.headline || channel.label,
+            sub: `${stay.title} · ${slide.sub || `${stay.city}, ${stay.region}`}`,
+            duration_ms: slide.kind === 'video' ? 15000 : 5200,
+            cta_path: `/accommodation/${stay.id}`,
+            cta_label: 'View stay',
+            source: 'host_highlight',
+          })),
+        ),
+      )
+      .slice(0, 6)
 
     const pinsSlides =
       delversPins.length > 0

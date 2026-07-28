@@ -1,4 +1,4 @@
-import { Camera } from 'lucide-react'
+import { BadgeCheck, Camera } from 'lucide-react'
 import type { ListingMomentItem } from './types'
 import { useListingMomentsViewer } from './useListingMomentsViewer'
 
@@ -45,7 +45,14 @@ export function ListingSeeAllMomentsView({
               </div>
             )}
             <p className="listing-see-all__moment-body">
-              <strong>@{moment.author}</strong> {moment.body}
+              <strong>@{moment.author}</strong>
+              {moment.verifiedStay ? (
+                <span className="listing-see-all__verified" aria-label="Verified stay">
+                  <BadgeCheck size={13} strokeWidth={2.4} aria-hidden />
+                  Verified stay
+                </span>
+              ) : null}{' '}
+              {moment.body}
               {moment.taggedListing ? (
                 <span className="listing-see-all__moment-tag">@{moment.taggedListing}</span>
               ) : null}

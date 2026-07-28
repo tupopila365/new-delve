@@ -34,6 +34,7 @@ const STATUS_VARIANT: Record<string, BookingStatusVariant> = {
   paid: 'success',
   seated: 'success',
   cancelled: 'neutral',
+  expired: 'neutral',
   refunded: 'info',
   disputed: 'danger',
   declined: 'danger',
@@ -54,6 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
   paid: 'Paid',
   seated: 'Seated',
   cancelled: 'Cancelled',
+  expired: 'Expired',
   refunded: 'Refunded',
   disputed: 'Disputed',
   declined: 'Declined',
@@ -101,6 +103,7 @@ export function bookingNextStep(status: string, serviceType?: BookingServiceType
     return isGuide ? 'Tour complete — thanks for exploring with DELVE' : 'Your booking is complete'
   }
   if (key === 'cancelled' || key === 'declined') return 'This request was cancelled'
+  if (key === 'expired') return 'This request expired and the dates were released'
   if (key === 'refunded') return 'This booking was refunded'
   if (key === 'disputed') return 'This booking has an open issue'
   return undefined

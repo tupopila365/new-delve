@@ -18,10 +18,10 @@ import { friendlyApiMessage } from '../utils/friendlyError'
 import '../components/provider/stays/stay-listing.css'
 
 export function StayRoomEditPage() {
-  const { listingId: rawListingId, roomIndex: rawRoomIndex } = useParams()
+  const { listingId: rawListingId, roomId: rawRoomId } = useParams()
   const listingId = Number(rawListingId)
-  const isNew = rawRoomIndex === 'new'
-  const roomIndex = isNew ? -1 : Number(rawRoomIndex)
+  const isNew = rawRoomId === 'new'
+  const roomId = isNew ? null : Number(rawRoomId)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
@@ -43,13 +43,14 @@ export function StayRoomEditPage() {
       return
     }
     const rooms = stayListingToForm(listing).room_types
-    if (roomIndex < 0 || roomIndex >= rooms.length) {
+    const existingRoom = rooms.find((item) => item.id === roomId)
+    if (!existingRoom) {
       setHydrated(false)
       return
     }
-    setRoom(rooms[roomIndex])
+    setRoom(existingRoom)
     setHydrated(true)
-  }, [listing, isNew, roomIndex])
+  }, [listing, isNew, roomId])
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -57,16 +58,12 @@ export function StayRoomEditPage() {
       if (!room.name.trim()) throw new Error('Room name is required.')
       const form = stayListingToForm(listing)
       const apiRoom = await buildStayRoomApiItem(room, form.price_per_night)
-      const nextRooms = [...form.room_types]
-      // Convert current form rooms to API shape for unchanged siblings
-      const { buildStayListingApiPayload } = await import('../components/provider/stays')
-      const currentPayload = await buildStayListingApiPayload(form)
-      const siblingRooms = [...(currentPayload.room_types as unknown[])]
-      if (isNew) siblingRooms.push(apiRoom)
-      else siblingRooms[roomIndex] = apiRoom
-      return apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${listingId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ room_types: siblingRooms }),
+      const endpoint = isNew
+        ? `/api/accommodation/provider-listings/${listingId}/rooms/`
+        : `/api/accommodation/provider-listings/${listingId}/rooms/${roomId}/`
+      return apiFetch(endpoint, {
+        method: isNew ? 'POST' : 'PATCH',
+        body: JSON.stringify(apiRoom),
       })
     },
     onSuccess: () => {
@@ -88,7 +85,7 @@ export function StayRoomEditPage() {
   }
   if (!canManageListings) return <Navigate to="/provider/stays" replace />
   if (!listingId || Number.isNaN(listingId)) return <Navigate to="/provider/stays" replace />
-  if (!isNew && (Number.isNaN(roomIndex) || roomIndex < 0)) {
+  if (!isNew && (!roomId || Number.isNaN(roomId))) {
     return <Navigate to={`/provider/stays/${listingId}/rooms`} replace />
   }
 

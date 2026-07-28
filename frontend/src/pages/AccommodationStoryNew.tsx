@@ -1,14 +1,10 @@
 import { Navigate, useSearchParams } from 'react-router-dom'
 
-/** Legacy route — host stories use the shared highlight studio. */
+/** Legacy route — Stay provider media now lives in Stay Admin Host Highlights. */
 export function AccommodationStoryNew() {
   const [searchParams] = useSearchParams()
   const listing = searchParams.get('listing')?.trim()
-  const returnTo = searchParams.get('return')?.trim() || '/provider/stays'
-  const params = new URLSearchParams({
-    host_story: '1',
-    return: returnTo,
-  })
+  const params = new URLSearchParams({ tab: 'highlights' })
   if (listing) params.set('listing', listing)
-  return <Navigate to={`/create/highlight?${params.toString()}`} replace />
+  return <Navigate to={`/provider/stays?${params.toString()}`} replace />
 }

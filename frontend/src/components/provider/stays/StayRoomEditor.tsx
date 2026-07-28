@@ -63,6 +63,16 @@ export function StayRoomEditor({ room, onChange, fallbackNightly = '' }: Props) 
           placeholder="What makes this room special?"
         />
       </label>
+      <label className="stay-form__field">
+        <span>Rooms available</span>
+        <input
+          type="number"
+          min={1}
+          value={room.quantity_available}
+          onChange={(e) => patch({ quantity_available: Math.max(1, Number(e.target.value)) })}
+        />
+        <small>How many interchangeable rooms or units of this type can be booked at once.</small>
+      </label>
       <div className="stay-form__row">
         <label className="stay-form__field">
           <span>Guests</span>
@@ -194,6 +204,14 @@ export function StayRoomEditor({ room, onChange, fallbackNightly = '' }: Props) 
           onChange={(e) => patch({ featured: e.target.checked })}
         />
         Feature this room (highlight it on the detail page)
+      </label>
+      <label className="stay-form__check">
+        <input
+          type="checkbox"
+          checked={room.is_active}
+          onChange={(e) => patch({ is_active: e.target.checked })}
+        />
+        Available for new bookings
       </label>
 
       <div className="stay-form__list-block">

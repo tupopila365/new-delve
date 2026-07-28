@@ -1,13 +1,28 @@
 from django.contrib import admin
 
 from .models import (
+    AccommodationAvailability,
     AccommodationBooking,
     AccommodationListing,
     AccommodationListingLike,
     AccommodationListingSave,
     AccommodationPageView,
+    AccommodationRoomType,
     AccommodationReview,
 )
+
+
+class AccommodationRoomTypeInline(admin.TabularInline):
+    model = AccommodationRoomType
+    extra = 0
+    fields = (
+        "name",
+        "quantity_available",
+        "max_guests",
+        "price_per_night",
+        "is_active",
+        "sort_order",
+    )
 
 
 @admin.register(AccommodationListing)
@@ -18,6 +33,7 @@ class AccommodationListingAdmin(admin.ModelAdmin):
         "region",
         "city",
         "owner",
+        "business",
         "price_per_night",
         "is_active",
         "rating_avg",
@@ -27,7 +43,8 @@ class AccommodationListingAdmin(admin.ModelAdmin):
     )
     list_filter = ("property_type", "is_active", "region", "pet_friendly")
     search_fields = ("title", "city", "region", "owner__username")
-    raw_id_fields = ("owner",)
+    raw_id_fields = ("owner", "business")
+    inlines = (AccommodationRoomTypeInline,)
     date_hierarchy = "created_at"
 
 
@@ -41,13 +58,50 @@ class AccommodationBookingAdmin(admin.ModelAdmin):
         "guests",
         "status",
         "total_price",
+        "hold_expires_at",
         "mock_payment_ref",
         "created_at",
     )
     list_filter = ("status",)
     search_fields = ("listing__title", "guest__username", "mock_payment_ref", "room_type_name")
-    raw_id_fields = ("listing", "guest")
+    raw_id_fields = ("listing", "room_type", "guest")
+    readonly_fields = (
+        "listing_title_snapshot",
+        "room_snapshot",
+        "nightly_price_snapshot",
+        "expired_at",
+    )
     date_hierarchy = "check_in"
+
+
+@admin.register(AccommodationRoomType)
+class AccommodationRoomTypeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "listing",
+        "quantity_available",
+        "max_guests",
+        "price_per_night",
+        "is_active",
+    )
+    list_filter = ("is_active",)
+    search_fields = ("name", "listing__title")
+    raw_id_fields = ("listing",)
+
+
+@admin.register(AccommodationAvailability)
+class AccommodationAvailabilityAdmin(admin.ModelAdmin):
+    list_display = (
+        "date",
+        "listing",
+        "room_type",
+        "is_available",
+        "quantity_available",
+        "price_override",
+    )
+    list_filter = ("is_available", "date")
+    search_fields = ("listing__title", "room_type__name", "note")
+    raw_id_fields = ("listing", "room_type")
 
 
 @admin.register(AccommodationListingLike)

@@ -85,11 +85,14 @@ export type AccommodationListing = {
   deals?: import('../components/deals').ListingDeal[]
   saves_count?: number
   saved_by_me?: boolean
+  is_active?: boolean
 }
 
 export type RoomTypeItem = {
+  id: number | null
   name: string
   description: string
+  quantity_available: number
   max_guests: number | null
   bedrooms: number | null
   bed_summary: string
@@ -99,6 +102,7 @@ export type RoomTypeItem = {
   /** @deprecated Prefer badges — first badge kept for older call sites. */
   badge?: string | null
   featured?: boolean
+  is_active?: boolean
   image: string | null
   images: string[]
 }
@@ -204,8 +208,10 @@ export function normalizeRoomTypes(raw: unknown): RoomTypeItem[] {
 
     const badges = normalizeRoomBadges(o.badges, o.badge ?? o.special_label)
     out.push({
+      id: parseOptionalUint(o.id),
       name,
       description,
+      quantity_available: parseOptionalUint(o.quantity_available) ?? 1,
       max_guests: parseOptionalUint(o.max_guests),
       bedrooms: parseOptionalUint(o.bedrooms),
       bed_summary,
@@ -214,6 +220,7 @@ export function normalizeRoomTypes(raw: unknown): RoomTypeItem[] {
       badges,
       badge: badges[0] ?? null,
       featured: o.featured === true || o.is_featured === true,
+      is_active: o.is_active !== false,
       image,
       images,
     })
@@ -337,9 +344,10 @@ export function buildRoomOffers(
       `room-${i}`,
     )
     return {
-      id: `${i}-${room.name}`,
+      id: room.id ?? `${i}-${room.name}`,
       name: room.name,
       description: room.description,
+      quantityAvailable: room.quantity_available,
       maxGuests: room.max_guests,
       bedrooms: room.bedrooms,
       bedSummary: room.bed_summary,
@@ -351,7 +359,9 @@ export function buildRoomOffers(
       badges: room.badges,
       badge: room.badges[0] ?? room.badge ?? null,
       featured: room.featured,
-      bookHref: `/accommodation/${listingId}/book?room=${encodeURIComponent(room.name)}`,
+      bookHref: room.id
+        ? `/accommodation/${listingId}/book?room_type=${room.id}`
+        : `/accommodation/${listingId}/book?room=${encodeURIComponent(room.name)}`,
     }
   })
 

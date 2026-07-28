@@ -19,6 +19,7 @@ export type ListingRoomOption = {
   id?: string | number
   name: string
   description?: string | null
+  quantityAvailable?: number | null
   maxGuests?: number | null
   bedrooms?: number | null
   bedSummary?: string | null
@@ -68,6 +69,7 @@ export type ListingMomentItem = {
   author: string
   body: string
   taggedListing?: string
+  verifiedStay?: boolean
 }
 
 export type ListingGalleryPageState = {

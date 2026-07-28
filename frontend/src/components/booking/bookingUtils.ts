@@ -11,6 +11,7 @@ export type AvailabilityCheckInput = {
 
 export type StayAvailabilityCheckInput = AvailabilityCheckInput & {
   listingId: string | number
+  roomTypeId?: string | number | null
   roomTypeName?: string
 }
 
@@ -43,6 +44,9 @@ export async function checkStayAvailability(
     check_out: input.checkOut,
     guests: String(input.guests),
   })
+  if (input.roomTypeId != null && String(input.roomTypeId).trim()) {
+    params.set('room_type', String(input.roomTypeId))
+  }
   if (input.roomTypeName?.trim()) params.set('room', input.roomTypeName.trim())
 
   try {
@@ -117,12 +121,16 @@ export function googleCalendarUrl(opts: {
 }
 
 export function buildBookingSearchParams(opts: {
+  roomTypeId?: string | number | null
   room?: string | null
   checkIn?: string
   checkOut?: string
   guests?: number
 }) {
   const params = new URLSearchParams()
+  if (opts.roomTypeId != null && String(opts.roomTypeId).trim()) {
+    params.set('room_type', String(opts.roomTypeId))
+  }
   if (opts.room?.trim()) params.set('room', opts.room.trim())
   if (opts.checkIn) params.set('check_in', opts.checkIn)
   if (opts.checkOut) params.set('check_out', opts.checkOut)

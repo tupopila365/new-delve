@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useBusinessAccess } from '../hooks/useBusinessAccess'
@@ -25,29 +25,34 @@ type StayReviewsResponse = {
 
 export function AccommodationDetail() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { profile } = useAuth()
+  const { profile, loading: authLoading } = useAuth()
   const { canManageListings, activeBusiness } = useBusinessAccess()
   const saveMut = useToggleStaySave()
   const queryClient = useQueryClient()
+  const previewMode = searchParams.get('preview') === '1'
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['acc', id, profile?.username ?? 'anon'],
-    enabled: !!id,
+    queryKey: ['acc', id, profile?.username ?? 'anon', previewMode ? 'provider-preview' : 'public'],
+    enabled: Boolean(id && (!previewMode || profile)),
     queryFn: () =>
-      apiFetch<AccommodationListing>(`/api/accommodation/listings/${id}/`, {
-        auth: Boolean(profile),
-      }),
+      apiFetch<AccommodationListing>(
+        previewMode
+          ? `/api/accommodation/provider-listings/${id}/`
+          : `/api/accommodation/listings/${id}/`,
+        { auth: Boolean(profile) },
+      ),
   })
 
   const dataListingTags = useMemo(() => (data ? listingTasteTags(data) : []), [data])
 
   useEffect(() => {
-    if (!id || !data) return
+    if (!id || !data || previewMode) return
     recordSessionView('stays', id, dataListingTags)
     recordForYouSignal('stays', 'view')
     recordStayPageView(id)
-  }, [id, data, dataListingTags])
+  }, [id, data, dataListingTags, previewMode])
 
   const likeMut = useMutation({
     mutationFn: (listingId: number) =>
@@ -72,7 +77,7 @@ export function AccommodationDetail() {
   const { data: reviewsData } = useQuery({
     queryKey: ['stay-reviews', id],
     queryFn: () => apiFetch<StayReviewsResponse>(`/api/accommodation/listings/${id}/reviews/`, { auth: false }),
-    enabled: Boolean(id),
+    enabled: Boolean(id && (!previewMode || data?.is_active)),
   })
 
   const reviews = useMemo(
@@ -96,6 +101,18 @@ export function AccommodationDetail() {
     }
     if (!id) return
     likeMut.mutate(Number(id))
+  }
+
+  if (previewMode && authLoading) {
+    return (
+      <div className="jn-detail-page acc-detail-page">
+        <div className="skeleton" style={{ height: 320, borderRadius: 24, marginTop: 12 }} aria-busy="true" />
+      </div>
+    )
+  }
+
+  if (previewMode && !profile) {
+    return <Navigate to="/login" replace state={{ from: `/accommodation/${id}?preview=1` }} />
   }
 
   if (isLoading) {

@@ -43,6 +43,7 @@ export function feedPostToDelversItem(post: FeedPost): DelversFeedPost {
     post_kind: post.post_kind,
     is_delvers: post.is_delvers,
     is_delvers_highlight: post.is_delvers_highlight,
+    verified_stay: post.verified_stay,
     listing: post.listing ?? null,
     event: post.event ?? null,
     processing_status: post.processing_status ?? 'ready',
@@ -62,6 +63,8 @@ export function buildOptimisticDelversPost(input: {
   is_delvers_highlight?: boolean
   delvers_board?: string
   processing_status?: 'ready' | 'processing' | 'failed'
+  verified_stay?: boolean
+  listing?: { id: number; title: string } | null
 }): DelversFeedPost {
   return {
     id: input.tempId,
@@ -81,6 +84,8 @@ export function buildOptimisticDelversPost(input: {
     is_delvers_highlight: input.is_delvers_highlight ?? false,
     delvers_board: input.delvers_board,
     processing_status: input.processing_status ?? 'ready',
+    verified_stay: input.verified_stay,
+    listing: input.listing ?? null,
   }
 }
 
@@ -150,8 +155,6 @@ export async function invalidateSocialCaches(
   }
 
   if (options.accommodationStories) {
-    tasks.push(qc.invalidateQueries({ queryKey: ['accommodation-stories'] }))
-    tasks.push(qc.invalidateQueries({ queryKey: ['provider-accommodation-stories'] }))
   }
 
   if (options.listingId) {

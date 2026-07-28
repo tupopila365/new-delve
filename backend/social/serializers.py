@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 from accommodation.models import AccommodationListing
-from accounts.models import UserType
 from events_app.models import Event
 from food.models import FoodVenue
 from guides.models import TourGuideProfile
@@ -84,6 +84,7 @@ class PostSerializer(serializers.ModelSerializer):
     media = serializers.SerializerMethodField()
     processing_status = serializers.SerializerMethodField()
     processing_error = serializers.SerializerMethodField()
+    verified_stay = serializers.SerializerMethodField()
     listing = serializers.PrimaryKeyRelatedField(
         queryset=AccommodationListing.objects.none(),
         required=False,
@@ -139,6 +140,7 @@ class PostSerializer(serializers.ModelSerializer):
             "bus_trip",
             "food_venue",
             "guide_profile",
+            "verified_stay",
             "created_at",
             "likes_count",
             "saves_count",
@@ -151,7 +153,23 @@ class PostSerializer(serializers.ModelSerializer):
             "accepted_answer",
             "tag_slugs",
         )
-        read_only_fields = ("author", "created_at", "processing_status", "processing_error")
+        read_only_fields = (
+            "author",
+            "created_at",
+            "processing_status",
+            "processing_error",
+            "verified_stay",
+        )
+
+    def get_verified_stay(self, obj):
+        booking = getattr(obj, "verified_stay_booking", None)
+        return bool(
+            booking
+            and booking.status == "checked_out"
+            and booking.check_out <= timezone.localdate()
+            and booking.guest_id == obj.author_id
+            and booking.listing_id == obj.listing_id
+        )
 
     def get_processing_status(self, obj):
         return aggregate_processing_status(obj)
@@ -255,7 +273,7 @@ class PostSerializer(serializers.ModelSerializer):
         if remote_image and remote_video:
             raise serializers.ValidationError("Use either an image or a video, not both.")
 
-        if video is not None:
+        if video:
             try:
                 validate_post_video_file(video)
             except DjangoValidationError as exc:
@@ -267,6 +285,15 @@ class PostSerializer(serializers.ModelSerializer):
 
         if is_highlight and is_acc:
             raise serializers.ValidationError("Accommodation stories cannot be Delvers highlights.")
+
+        if is_acc:
+            raise serializers.ValidationError(
+                {
+                    "is_accommodation_story": (
+                        "Host stories have moved to Host Highlights. Manage them in Stay Admin."
+                    )
+                }
+            )
 
         if is_highlight and post_kind == PostKind.QUESTION:
             raise serializers.ValidationError("Ask-locals questions cannot be Delvers highlights.")
@@ -305,18 +332,9 @@ class PostSerializer(serializers.ModelSerializer):
             if not has_media:
                 raise serializers.ValidationError("Add a photo or short video for your highlight.")
 
-        if is_acc:
-            user = getattr(request, "user", None)
-            if not user or not user.is_authenticated:
-                raise serializers.ValidationError("Sign in to post an accommodation story.")
-            profile = getattr(user, "profile", None)
-            if not profile or profile.user_type != UserType.SERVICE_PROVIDER:
-                raise serializers.ValidationError("Only hosts and providers can post accommodation stories.")
-            if not has_media:
-                raise serializers.ValidationError("Add a photo or short video for your story.")
-
+        listing_was_supplied = "listing" in attrs
         listing = attrs.get("listing")
-        if listing is None and instance is not None:
+        if not listing_was_supplied and instance is not None:
             listing = instance.listing
 
         vehicle_listing = attrs.get("vehicle_listing")
@@ -348,6 +366,28 @@ class PostSerializer(serializers.ModelSerializer):
         if listing is not None and request and request.user.is_authenticated:
             if is_acc and listing.owner_id != request.user.id:
                 raise serializers.ValidationError("You can only link stories to your own listings.")
+
+        if listing is not None:
+            if is_highlight:
+                raise serializers.ValidationError(
+                    {
+                        "is_delvers_highlight": (
+                            "Stay content is shared as a Delvers Moment, not a highlight."
+                        )
+                    }
+                )
+            from accommodation.moment_services import (
+                INELIGIBLE_MOMENT_REASON,
+                latest_completed_stay_booking,
+            )
+
+            user = getattr(request, "user", None)
+            booking = latest_completed_stay_booking(user, listing)
+            if booking is None:
+                raise serializers.ValidationError({"listing": INELIGIBLE_MOMENT_REASON})
+            attrs["verified_stay_booking"] = booking
+        elif listing_was_supplied:
+            attrs["verified_stay_booking"] = None
 
         if (
             listing is not None

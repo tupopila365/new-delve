@@ -12,6 +12,7 @@
     "build": "npx vite build",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
+    "check:stay-admin": "node --max-old-space-size=4096 scripts/check-stay-admin.mjs",
     "preview": "npx vite preview",
     "start": "serve -s dist",
     "heroku-postbuild": "npm run build"

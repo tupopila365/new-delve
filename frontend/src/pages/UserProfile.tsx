@@ -546,7 +546,6 @@ function PostsTab({
             { id: 'all', label: 'All' },
             { id: 'delvers', label: 'Delvers' },
             { id: 'community', label: 'Feed' },
-            { id: 'host', label: 'Host stories' },
           ] as const
         ).map((chip) => (
           <button

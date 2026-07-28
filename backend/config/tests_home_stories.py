@@ -8,7 +8,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accommodation.models import AccommodationListing
-from accounts.models import UserType
+from accounts.models import BusinessProfile, UserType, VerificationStatus
 from social.models import Post
 
 User = get_user_model()
@@ -53,23 +53,39 @@ class HomeStoriesApiTests(TestCase):
         for channel in channels:
             self.assertFalse(any(s.get("source") == "fallback" for s in channel.get("slides", [])))
 
-    def test_stays_channel_prefers_host_stories(self):
-        Post.objects.create(
-            author=self.host,
-            body="Sunset at the lodge",
+    def test_stays_channel_uses_host_highlights(self):
+        listing = AccommodationListing.objects.create(
+            owner=self.host,
+            title="Sunset Lodge",
             region="Khomas",
-            is_accommodation_story=True,
-            image=_image(),
+            city="Windhoek",
+            price_per_night="450.00",
+            is_active=True,
+            listing_stories=[
+                {
+                    "id": "spaces",
+                    "label": "Spaces",
+                    "slides": [
+                        {
+                            "id": "pool",
+                            "kind": "image",
+                            "src": "https://cdn.example/pool.jpg",
+                            "headline": "Pool at sunset",
+                        }
+                    ],
+                }
+            ],
         )
         res = self.client.get("/api/home/stories/")
         self.assertEqual(res.status_code, 200)
         stays = next(c for c in res.data["channels"] if c["id"] == "stays")
-        self.assertEqual(stays["slides"][0]["source"], "host_story")
-        self.assertEqual(stays["slides"][0]["headline"], "Sunset at the lodge")
-        self.assertTrue(stays["slides"][0]["id"].startswith("host-story-"))
+        self.assertEqual(stays["slides"][0]["source"], "host_highlight")
+        self.assertEqual(stays["slides"][0]["headline"], "Pool at sunset")
+        self.assertTrue(stays["slides"][0]["id"].startswith("host-highlight-"))
+        self.assertEqual(stays["slides"][0]["cta_path"], f"/accommodation/{listing.pk}")
         self.assertNotEqual(stays["slides"][0]["source"], "fallback")
 
-    def test_stays_pads_host_stories_with_listing_covers(self):
+    def test_stays_ignores_legacy_host_stories_and_listing_covers(self):
         listing = AccommodationListing.objects.create(
             owner=self.host,
             title="Coast Lodge",
@@ -87,7 +103,7 @@ class HomeStoriesApiTests(TestCase):
             image=_image(),
             listing=listing,
         )
-        other = AccommodationListing.objects.create(
+        AccommodationListing.objects.create(
             owner=self.host,
             title="Desert Cabin",
             region="Hardap",
@@ -97,14 +113,40 @@ class HomeStoriesApiTests(TestCase):
             is_active=True,
         )
         res = self.client.get("/api/home/stories/")
-        stays = next(c for c in res.data["channels"] if c["id"] == "stays")
-        sources = [s["source"] for s in stays["slides"]]
-        self.assertEqual(sources[0], "host_story")
-        self.assertTrue(any(s["source"] == "listing" for s in stays["slides"]))
-        self.assertTrue(any(s["cta_path"] == f"/accommodation/{other.pk}" for s in stays["slides"]))
-        # Same listing already covered by host story CTA — do not duplicate
-        listing_ctas = [s["cta_path"] for s in stays["slides"] if s["cta_path"] == f"/accommodation/{listing.pk}"]
-        self.assertEqual(len(listing_ctas), 1)
+        self.assertFalse(any(c["id"] == "stays" for c in res.data["channels"]))
+
+    def test_stays_channel_hides_suspended_business_highlights(self):
+        business = BusinessProfile.objects.create(
+            owner=self.host,
+            business_name="Suspended Stay",
+            slug="suspended-stay",
+            business_types=["accommodation"],
+            verification_status=VerificationStatus.SUSPENDED,
+        )
+        AccommodationListing.objects.create(
+            owner=self.host,
+            business=business,
+            title="Unavailable Lodge",
+            region="Khomas",
+            city="Windhoek",
+            price_per_night="450.00",
+            is_active=True,
+            listing_stories=[
+                {
+                    "id": "spaces",
+                    "label": "Spaces",
+                    "slides": [
+                        {
+                            "id": "pool",
+                            "kind": "image",
+                            "src": "https://cdn.example/pool.jpg",
+                        }
+                    ],
+                }
+            ],
+        )
+        res = self.client.get("/api/home/stories/")
+        self.assertFalse(any(c["id"] == "stays" for c in res.data["channels"]))
 
     def test_pins_channel_uses_delvers_posts(self):
         Post.objects.create(

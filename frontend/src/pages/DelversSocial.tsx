@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Bell, Bookmark, Camera, Compass, Flame, Heart, Home, Hash, MapPin, MessageCircle, Play, Plus, Search, Share2, UserRound, Volume2, VolumeX, X } from 'lucide-react'
+import { BadgeCheck, Bell, Bookmark, Camera, Compass, Flame, Heart, Home, Hash, MapPin, MessageCircle, Play, Plus, Search, Share2, UserRound, Volume2, VolumeX, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { useExploreRegion } from '../hooks/useExploreRegion'
@@ -1113,6 +1113,12 @@ function DelversReelSlide({
         <Link to={`/u/${post.author.username}`} className="dsr-meta__user">
           @{post.author.username}
         </Link>
+        {post.verified_stay ? (
+          <span className="ds-post__verified-stay ds-post__verified-stay--reel">
+            <BadgeCheck size={14} strokeWidth={2.4} aria-hidden />
+            Verified stay
+          </span>
+        ) : null}
         {post.delvers_board || post.region ? (
           <p className="dsr-meta__sub">
             {post.delvers_board ? <span>{post.delvers_board}</span> : null}
@@ -1309,6 +1315,12 @@ function SocialPost({ post, signedIn, currentUsername, likeBusy, saveBusy, follo
           <UserAvatar src={post.author.avatar} name={name} className="ds-post__author-avatar" fill />
           <strong>
             <span className="ds-post__author-name">{name}</span>
+            {post.verified_stay ? (
+              <span className="ds-post__verified-stay" aria-label="Verified stay">
+                <BadgeCheck size={13} strokeWidth={2.4} aria-hidden />
+                Verified stay
+              </span>
+            ) : null}
             {post.is_sponsored ? (
               <small className="ds-post__sponsored">{post.sponsor_label || 'Sponsored'}</small>
             ) : (

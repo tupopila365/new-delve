@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { BedDouble, Hotel, Sparkles } from 'lucide-react'
+import { BedDouble, CalendarDays, Check, ChevronDown, Circle, Hotel, Sparkles } from 'lucide-react'
 import { mediaUrl } from '../../../api/client'
 import { propertyTypeLabel } from '../../../utils/accommodationListing'
 import { isVideoUrl } from '../../listing/photos/listingGalleryMedia'
@@ -32,6 +32,30 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
   const editHref = `/provider/stays/${stay.id}/edit`
   const roomsHref = `/provider/stays/${stay.id}/rooms`
   const resume = Boolean(canEdit && percent < 100)
+  const publicationStatus = stay.publication_status ?? (stay.is_active ? 'live' : 'draft')
+  const publicationLabel =
+    stay.publication_status_label ??
+    (publicationStatus === 'pending_verification'
+      ? 'Pending verification'
+      : publicationStatus.charAt(0).toUpperCase() + publicationStatus.slice(1))
+  const readinessItems = [
+    'Title',
+    'Description',
+    'Location',
+    'Map pin',
+    'Cover photo',
+    'Nightly price',
+    'Guest capacity',
+    'Bedrooms',
+    'Amenities',
+    'Check-in / check-out',
+    'Cancellation policy',
+    'Room types',
+    'Photo gallery',
+    'FAQs',
+    'Host Highlights',
+  ]
+  const missingSet = new Set(missing)
 
   return (
     <article className="prov-ui__card stay-card">
@@ -47,7 +71,6 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
             <Hotel size={22} strokeWidth={2} />
           </span>
         )}
-        {!stay.is_active ? <span className="stay-card__badge stay-card__badge--hidden">Hidden</span> : null}
         {percent < 100 ? <span className="stay-card__badge stay-card__badge--draft">{percent}% complete</span> : null}
         {boost ? (
           <span className={`stay-card__badge stay-card__badge--boost stay-card__badge--boost-${boost.tone}`}>
@@ -59,8 +82,8 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
       <div className="stay-card__body">
         <div className="stay-card__head">
           <h3 className="stay-card__title">{stay.title}</h3>
-          <span className={`stay-card__status${stay.is_active ? ' stay-card__status--live' : ''}`}>
-            {stay.is_active ? 'Live' : 'Draft'}
+          <span className={`stay-card__status stay-card__status--${publicationStatus}`}>
+            {publicationLabel}
           </span>
         </div>
 
@@ -75,15 +98,42 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
         <p className="stay-card__rating">
           {stay.rating_avg} rating · {stay.rating_count} review{stay.rating_count === 1 ? '' : 's'}
           {typeof stay.views_count === 'number' ? ` · ${stay.views_count} view${stay.views_count === 1 ? '' : 's'}` : ''}
-          {highlightCount > 0 ? ` · ${highlightCount} highlight${highlightCount === 1 ? '' : 's'}` : ''}
+          {highlightCount > 0 ? ` · ${highlightCount} Host Highlight${highlightCount === 1 ? '' : 's'}` : ''}
         </p>
 
-        {missing.length > 0 ? (
-          <p className="stay-card__missing">
-            Still needed: {missing.slice(0, 3).join(', ')}
-            {missing.length > 3 ? ` +${missing.length - 3} more` : ''}
-          </p>
-        ) : null}
+        <details className="stay-card__readiness">
+          <summary>
+            <span>
+              Preview checklist
+              <small>
+                {readinessItems.length - missing.length}/{readinessItems.length} ready
+              </small>
+            </span>
+            <ChevronDown size={16} strokeWidth={2.25} aria-hidden />
+          </summary>
+          <ul>
+            {readinessItems.map((item) => {
+              const complete = !missingSet.has(item)
+              return (
+                <li key={item} className={complete ? 'is-complete' : 'is-missing'}>
+                  {complete ? (
+                    <Check size={14} strokeWidth={2.6} aria-hidden />
+                  ) : (
+                    <Circle size={12} strokeWidth={2} aria-hidden />
+                  )}
+                  {item}
+                </li>
+              )
+            })}
+          </ul>
+          {missing.length > 0 ? (
+            <Link to={editHref} className="stay-card__readiness-link">
+              Complete {missing[0].toLowerCase()}
+            </Link>
+          ) : (
+            <span className="stay-card__ready-note">Ready for public preview</span>
+          )}
+        </details>
       </div>
 
       <div className="stay-card__actions">
@@ -99,6 +149,12 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
           </Link>
         ) : null}
         {canEdit ? (
+          <Link to={`/provider/stays/${stay.id}/calendar`} className="prov-ui__btn prov-ui__btn--ghost">
+            <CalendarDays size={14} strokeWidth={2.25} aria-hidden />
+            Calendar
+          </Link>
+        ) : null}
+        {canEdit ? (
           <Link to={boostHref} className="prov-ui__btn prov-ui__btn--ghost stay-card__boost-btn">
             <Sparkles size={14} strokeWidth={2.25} aria-hidden />
             {boost ? 'Manage boost' : 'Boost'}
@@ -106,10 +162,10 @@ export function StayListingCard({ stay, canEdit, onManageHighlights, boost }: Pr
         ) : null}
         {canEdit && onManageHighlights ? (
           <button type="button" className="prov-ui__btn prov-ui__btn--ghost" onClick={onManageHighlights}>
-            Highlights
+            Host Highlights
           </button>
         ) : null}
-        <Link to={`/accommodation/${stay.id}`} className="prov-ui__btn prov-ui__btn--ghost">
+        <Link to={`/accommodation/${stay.id}?preview=1`} className="prov-ui__btn prov-ui__btn--ghost">
           Preview
         </Link>
         <ShareButton

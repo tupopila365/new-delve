@@ -105,6 +105,14 @@ class Post(models.Model):
         related_name="story_posts",
         help_text="Optional link to a listing shown from the story CTA.",
     )
+    verified_stay_booking = models.ForeignKey(
+        "accommodation.AccommodationBooking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="verified_moments",
+        help_text="Checked-out booking that verifies this stay-linked Delvers Moment.",
+    )
     event = models.ForeignKey(
         "events_app.Event",
         on_delete=models.SET_NULL,

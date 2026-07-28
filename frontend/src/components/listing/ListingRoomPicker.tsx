@@ -22,6 +22,9 @@ type Props = {
 function roomMeta(room: ListingRoomOption): string {
   const parts: string[] = []
   if (room.maxGuests != null) parts.push(`${room.maxGuests} guests`)
+  if (room.quantityAvailable != null) {
+    parts.push(`${room.quantityAvailable} room${room.quantityAvailable === 1 ? '' : 's'}`)
+  }
   if (room.bedSummary?.trim()) parts.push(room.bedSummary.trim())
   else if (room.bedrooms != null) {
     parts.push(`${room.bedrooms} ${room.bedrooms === 1 ? 'bed' : 'beds'}`)
@@ -71,7 +74,7 @@ export function ListingRoomPicker({
           const photoCount = galleryImages.length
           const detailPath =
             listingType === 'accommodation'
-              ? `/accommodation/${listingId}/room/${encodeURIComponent(room.name)}`
+              ? `/accommodation/${listingId}/room/${encodeURIComponent(String(room.id ?? room.name))}`
               : `/listing/${listingType}/${listingId}/gallery`
 
           return (

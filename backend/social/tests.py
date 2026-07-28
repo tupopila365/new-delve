@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -790,6 +792,17 @@ class PostPlaceLinkTests(TestCase):
             city="Sesriem",
             price_per_night="950.00",
         )
+        from accommodation.models import AccommodationBooking, BookingStatus
+
+        self.completed_booking = AccommodationBooking.objects.create(
+            listing=self.listing,
+            guest=self.traveler,
+            check_in=date.today() - timedelta(days=3),
+            check_out=date.today() - timedelta(days=1),
+            guests=1,
+            total_price="1900.00",
+            status=BookingStatus.CHECKED_OUT,
+        )
         from events_app.models import Event
 
         self.event = Event.objects.create(
@@ -817,6 +830,7 @@ class PostPlaceLinkTests(TestCase):
         )
         self.assertEqual(res.status_code, 201)
         self.assertTrue(res.data["is_delvers"])
+        self.assertTrue(res.data["verified_stay"])
         self.assertEqual(res.data["listing"]["id"], self.listing.pk)
 
         moments = self.client.get(f"/api/accommodation/listings/{self.listing.pk}/moments/")

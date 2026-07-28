@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Camera, Copy, Play } from 'lucide-react'
+import { BadgeCheck, Camera, Copy, Play } from 'lucide-react'
 import { useListingMoments } from '../../hooks/useListingMoments'
 import { isRealPostId } from '../../utils/postPermalink'
 import { listingSeeAllPath } from '../../utils/listingSeeAll'
@@ -111,7 +111,14 @@ export function ListingDelversMoments({
                     </div>
                   )}
                   <p className="listing-moments__body">
-                    <strong>@{moment.author}</strong> {moment.body}
+                    <strong>@{moment.author}</strong>
+                    {moment.verifiedStay ? (
+                      <span className="listing-moments__verified" aria-label="Verified stay">
+                        <BadgeCheck size={12} strokeWidth={2.4} aria-hidden />
+                        Verified stay
+                      </span>
+                    ) : null}{' '}
+                    {moment.body}
                     {moment.taggedListing ? (
                       <span className="listing-moments__tag">@{moment.taggedListing}</span>
                     ) : null}

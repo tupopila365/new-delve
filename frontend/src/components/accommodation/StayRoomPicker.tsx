@@ -130,7 +130,7 @@ export function StayRoomPicker({
                   ? ['Featured']
                   : []
           const photoCount = galleryImages.length
-          const detailPath = `/accommodation/${listingId}/room/${encodeURIComponent(room.name)}`
+          const detailPath = `/accommodation/${listingId}/room/${encodeURIComponent(String(room.id ?? room.name))}`
 
           const toggleSelect = () => onSelect(active ? null : room)
 

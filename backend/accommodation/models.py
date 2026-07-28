@@ -24,6 +24,14 @@ class AccommodationListing(models.Model):
         on_delete=models.CASCADE,
         related_name="accommodation_listings",
     )
+    business = models.ForeignKey(
+        "accounts.BusinessProfile",
+        on_delete=models.CASCADE,
+        related_name="accommodation_properties",
+        null=True,
+        blank=True,
+        help_text="Business that operates this property.",
+    )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     property_type = models.CharField(
@@ -104,17 +112,6 @@ class AccommodationListing(models.Model):
         blank=True,
         help_text='Reviews: [{"name": "...", "place": "...", "rating": 4.5, "body": "..."}]',
     )
-    room_types = models.JSONField(
-        default=list,
-        blank=True,
-        help_text=(
-            "Room/unit categories. Each item supports: name (required), description, "
-            "max_guests, bedrooms, bed_summary, price_per_night, compare_at_price "
-            "(strike-through 'was' price for a sale), badges (list of short sale/special "
-            "labels; legacy 'badge' string still accepted), featured (bool), image "
-            "(cover URL), images (gallery URLs)."
-        ),
-    )
     rating_avg = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -149,6 +146,96 @@ class AccommodationListing(models.Model):
         super().save(*args, **kwargs)
 
 
+class AccommodationRoomType(models.Model):
+    """A stable, bookable inventory category belonging to one property."""
+
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="room_type_records",
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    quantity_available = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Number of interchangeable rooms/units available for this category.",
+    )
+    max_guests = models.PositiveSmallIntegerField(default=2)
+    bedrooms = models.PositiveSmallIntegerField(default=1)
+    bed_summary = models.CharField(max_length=200, blank=True)
+    price_per_night = models.DecimalField(max_digits=10, decimal_places=2)
+    compare_at_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    badges = models.JSONField(default=list, blank=True)
+    featured = models.BooleanField(default=False)
+    image = models.TextField(blank=True, default="")
+    images = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        indexes = [
+            models.Index(fields=["listing", "is_active"], name="acc_room_listing_active_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.listing.title} — {self.name}"
+
+
+class AccommodationAvailability(models.Model):
+    """Per-day property or room-type inventory override."""
+
+    listing = models.ForeignKey(
+        AccommodationListing,
+        on_delete=models.CASCADE,
+        related_name="availability_calendar",
+    )
+    room_type = models.ForeignKey(
+        AccommodationRoomType,
+        on_delete=models.CASCADE,
+        related_name="availability_calendar",
+        null=True,
+        blank=True,
+        help_text="Empty applies the override to the whole property.",
+    )
+    date = models.DateField(db_index=True)
+    is_available = models.BooleanField(default=True)
+    quantity_available = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional inventory override for this date.",
+    )
+    price_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["date", "room_type_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("listing", "date"),
+                condition=models.Q(room_type__isnull=True),
+                name="accommodation_property_day_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("room_type", "date"),
+                condition=models.Q(room_type__isnull=False),
+                name="accommodation_room_day_unique",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["listing", "date"], name="acc_avail_listing_date_idx"),
+            models.Index(fields=["room_type", "date"], name="acc_avail_room_date_idx"),
+        ]
+
+    def __str__(self):
+        target = self.room_type.name if self.room_type_id else self.listing.title
+        return f"{target} — {self.date}"
+
+
 class AccommodationPageView(models.Model):
     """Traveller open of a stay listing page or a specific room page."""
 
@@ -176,8 +263,14 @@ class AccommodationPageView(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["listing", "created_at"]),
-            models.Index(fields=["listing", "room_name", "created_at"]),
+            models.Index(
+                fields=["listing", "created_at"],
+                name="accommodati_listing_4c2e1a_idx",
+            ),
+            models.Index(
+                fields=["listing", "room_name", "created_at"],
+                name="accommodati_listing_9b7f2c_idx",
+            ),
         ]
 
     def __str__(self):
@@ -239,6 +332,7 @@ class BookingStatus(models.TextChoices):
     CHECKED_IN = "checked_in", "Checked in"
     CHECKED_OUT = "checked_out", "Checked out"
     CANCELLED = "cancelled", "Cancelled"
+    EXPIRED = "expired", "Expired"
     REFUNDED = "refunded", "Refunded"
 
 
@@ -273,15 +367,51 @@ class AccommodationBooking(models.Model):
     paid_at = models.DateTimeField(null=True, blank=True)
     payout_released_at = models.DateTimeField(null=True, blank=True)
     special_requests = models.TextField(blank=True)
+    room_type = models.ForeignKey(
+        AccommodationRoomType,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+        null=True,
+        blank=True,
+        help_text="Stable room type selected for this booking.",
+    )
     room_type_name = models.CharField(
         max_length=200,
         blank=True,
-        help_text="Selected room/unit category from the listing's room_types JSON, if any.",
+        help_text="Snapshot of the room type name at booking time.",
     )
+    listing_title_snapshot = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Property title at the time this booking was created.",
+    )
+    room_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Immutable room details at the time this booking was created.",
+    )
+    nightly_price_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Immutable nightly rates: [{"date": "YYYY-MM-DD", "price": "0.00"}].',
+    )
+    hold_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="When an unpaid pending or confirmed inventory hold is released.",
+    )
+    expired_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["status", "hold_expires_at"],
+                name="acc_booking_hold_expiry_idx",
+            ),
+        ]
 
 
 class AccommodationReview(models.Model):

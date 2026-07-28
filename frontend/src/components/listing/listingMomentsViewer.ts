@@ -27,6 +27,7 @@ export function listingMomentToFeedPost(moment: ListingMomentItem, index: number
     liked_by_me: false,
     saved_by_me: false,
     comments_count: 0,
+    verified_stay: moment.verifiedStay,
   }
 }
 

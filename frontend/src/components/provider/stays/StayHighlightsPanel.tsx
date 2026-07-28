@@ -29,7 +29,7 @@ function channelsFromListing(listing: ProviderStayListing | null): HighlightChan
   }))
 }
 
-export function StayStoriesPanel({ listings, canManage = true, initialListingId = null }: Props) {
+export function StayHighlightsPanel({ listings, canManage = true, initialListingId = null }: Props) {
   const qc = useQueryClient()
   const defaultId =
     initialListingId && listings.some((l) => l.id === initialListingId)
@@ -72,13 +72,13 @@ export function StayStoriesPanel({ listings, canManage = true, initialListingId 
     onSuccess: async (saved) => {
       setError('')
       setChannels(channelsFromListing(saved))
-      setSavedFlash('Highlights saved')
+      setSavedFlash('Host Highlights saved')
       window.setTimeout(() => setSavedFlash(''), 2200)
       await qc.invalidateQueries({ queryKey: ['provider-stays'] })
       await qc.invalidateQueries({ queryKey: ['acc'] })
       await qc.invalidateQueries({ queryKey: ['accommodation'] })
     },
-    onError: (e) => setError(friendlyApiMessage(e, 'Could not save highlights.')),
+    onError: (e) => setError(friendlyApiMessage(e, 'Could not save Host Highlights.')),
   })
 
   if (listings.length === 0) {
@@ -86,15 +86,15 @@ export function StayStoriesPanel({ listings, canManage = true, initialListingId 
       <div className="stay-stories">
         <header className="stay-stories__head">
           <div>
-            <h2 className="stay-stories__title">Highlights</h2>
+            <h2 className="stay-stories__title">Host Highlights</h2>
             <p className="stay-stories__sub">
-              Organize photos and videos travellers see on each stay detail page.
+              Curate rooms, facilities, atmosphere and location for each property.
             </p>
           </div>
         </header>
         <div className="stay-stories__empty">
           <strong>Add a property first</strong>
-          <p>Highlights are managed per listing — create a stay, then come back here.</p>
+          <p>Host Highlights are managed per property — create a stay, then come back here.</p>
         </div>
       </div>
     )
@@ -104,9 +104,9 @@ export function StayStoriesPanel({ listings, canManage = true, initialListingId 
     <div className="stay-stories">
       <header className="stay-stories__head">
         <div>
-          <h2 className="stay-stories__title">Highlights</h2>
+          <h2 className="stay-stories__title">Host Highlights</h2>
           <p className="stay-stories__sub">
-            Organize photos and videos travellers can tap through on your stay pages — not social posts.
+            Provider-controlled media about rooms, facilities, atmosphere and location — not traveller posts.
           </p>
         </div>
         {canManage && selected ? (
@@ -116,7 +116,7 @@ export function StayStoriesPanel({ listings, canManage = true, initialListingId 
             disabled={saveMut.isPending}
             onClick={() => saveMut.mutate()}
           >
-            {saveMut.isPending ? 'Saving…' : 'Save highlights'}
+            {saveMut.isPending ? 'Saving…' : 'Save Host Highlights'}
           </button>
         ) : null}
       </header>
@@ -139,7 +139,7 @@ export function StayStoriesPanel({ listings, canManage = true, initialListingId 
               {l.title}
               {(l.listing_stories?.length ?? 0) > 0
                 ? ` · ${l.listing_stories!.length} ring${l.listing_stories!.length === 1 ? '' : 's'}`
-                : ' · no highlights'}
+                : ' · no Host Highlights'}
             </option>
           ))}
         </select>
@@ -165,11 +165,11 @@ export function StayStoriesPanel({ listings, canManage = true, initialListingId 
         <HighlightChannelEditor
           channels={channels}
           onChange={setChannels}
-          hint="Highlight rings on this stay page — rooms, amenities, location, or behind-the-scenes. Organize media travellers can tap through."
-          emptyCopy="No custom highlights yet. Auto-generated rings still use your cover and gallery photos."
+          hint="Host Highlight rings for rooms, facilities, atmosphere and location. Travellers can tap through them on the property page."
+          emptyCopy="No Host Highlights yet. Add a ring to start curating this property."
         />
       ) : selected ? (
-        <p className="stay-stories__empty">View only — you cannot edit highlights for this listing.</p>
+        <p className="stay-stories__empty">View only — you cannot edit Host Highlights for this property.</p>
       ) : null}
 
       {canManage && selected && channels.length === 0 ? (

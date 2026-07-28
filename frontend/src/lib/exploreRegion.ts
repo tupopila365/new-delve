@@ -3,7 +3,6 @@
  * Kept so existing imports keep working.
  */
 export {
-import {
   EXPLORE_REGION_STORAGE_KEY,
   EXPLORE_REGIONS,
   type ExploreRegion,

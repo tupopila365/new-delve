@@ -12,9 +12,9 @@ export function ProviderAnalyticsPosts({ posts }: Props) {
   if (posts.length === 0) {
     return (
       <section className="prov-analytics__card">
-        <h2 className="prov-analytics__card-title">Posts & stories</h2>
+        <h2 className="prov-analytics__card-title">Delvers Moments & posts</h2>
         <p className="prov-analytics__insight">
-          Share host stories or Delvers posts to see likes, saves, and comments here.
+          Host Highlights are managed in Stay Admin. Share Delvers Moments or posts to see engagement here.
         </p>
       </section>
     )
@@ -22,7 +22,7 @@ export function ProviderAnalyticsPosts({ posts }: Props) {
 
   return (
     <section className="prov-analytics__card">
-      <h2 className="prov-analytics__card-title">Posts & stories</h2>
+      <h2 className="prov-analytics__card-title">Delvers Moments & posts</h2>
       <div className="prov-ui__list">
         {posts.map((post) => (
           <article key={post.id} className="prov-analytics__post-row">

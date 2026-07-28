@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../../api/client'
-import { useAuth } from '../../auth/AuthContext'
-import { useBusinessAccess } from '../../hooks/useBusinessAccess'
-import { ProviderAccessGate } from '../../components/provider'
+import { apiFetch } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { useBusinessAccess } from '../hooks/useBusinessAccess'
+import { ProviderAccessGate } from '../components/provider'
 import {
   EMPTY_STAY_LISTING_FORM,
   StayListingForm,
@@ -17,10 +17,10 @@ import {
   type StayFormStepId,
   type StayListingSaveMode,
   type StayPropertyFormStepId,
-} from '../../components/provider/stays'
-import { ProviderUiHeader, ProviderUiPage } from '../../components/provider/ui'
-import { friendlyApiMessage } from '../../utils/friendlyError'
-import '../../components/provider/stays/stay-listing.css'
+} from '../components/provider/stays'
+import { ProviderUiHeader, ProviderUiPage } from '../components/provider/ui'
+import { friendlyApiMessage } from '../utils/friendlyError'
+import '../components/provider/stays/stay-listing.css'
 
 export function StayPropertyEditPage() {
   const { listingId: listingIdParam } = useParams()
@@ -30,7 +30,7 @@ export function StayPropertyEditPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()
-  const { canManageListings, canAccessProvider } = useBusinessAccess()
+  const { activeBusiness, canManageListings, canAccessProvider } = useBusinessAccess()
 
   const [form, setForm] = useState(EMPTY_STAY_LISTING_FORM)
   const [step, setStep] = useState<StayFormStepId>('basics')
@@ -41,12 +41,6 @@ export function StayPropertyEditPage() {
     queryKey: ['provider-stay', listingId],
     queryFn: () => apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${listingId}/`),
     enabled: Boolean(profile && canAccessProvider && listingId),
-  })
-
-  const { data: existingListings = [] } = useQuery({
-    queryKey: ['provider-stays'],
-    queryFn: () => apiFetch<ProviderStayListing[]>('/api/accommodation/provider-listings/'),
-    enabled: Boolean(profile && canAccessProvider && isNew),
   })
 
   useEffect(() => {
@@ -63,7 +57,11 @@ export function StayPropertyEditPage() {
 
   const saveMut = useMutation({
     mutationFn: async (mode: StayListingSaveMode) => {
-      const body = await buildStayPropertyApiPayload(form)
+      const propertyBody = await buildStayPropertyApiPayload(form)
+      const body =
+        !listingId && activeBusiness?.id
+          ? { ...propertyBody, business: activeBusiness.id }
+          : propertyBody
       const saved = listingId
         ? await apiFetch<ProviderStayListing>(`/api/accommodation/provider-listings/${listingId}/`, {
             method: 'PATCH',
@@ -107,9 +105,6 @@ export function StayPropertyEditPage() {
   if (!canManageListings) {
     return <Navigate to="/provider/stays" replace />
   }
-  if (isNew && existingListings.length > 0) {
-    return <Navigate to={`/provider/stays/${existingListings[0].id}/edit`} replace />
-  }
   if (!isNew && (!listingId || Number.isNaN(listingId))) {
     return <Navigate to="/provider/stays" replace />
   }
@@ -142,9 +137,14 @@ export function StayPropertyEditPage() {
               Hub
             </Link>
             {listingId ? (
-              <Link to={`/provider/stays/${listingId}/rooms`} className="prov-ui__btn prov-ui__btn--primary">
-                Manage rooms
-              </Link>
+              <>
+                <Link to={`/accommodation/${listingId}?preview=1`} className="prov-ui__btn prov-ui__btn--ghost">
+                  Preview
+                </Link>
+                <Link to={`/provider/stays/${listingId}/rooms`} className="prov-ui__btn prov-ui__btn--primary">
+                  Manage rooms
+                </Link>
+              </>
             ) : null}
           </>
         }

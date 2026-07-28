@@ -1,18 +1,20 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from promotions.models import PromotionCampaign, PromotionStatus, PromotionTargetType
 
 from .models import (
+    AccommodationAvailability,
     AccommodationBooking,
     AccommodationListing,
     AccommodationListingLike,
     AccommodationListingSave,
     AccommodationPageView,
+    AccommodationRoomType,
     BookingStatus,
 )
 
@@ -23,19 +25,273 @@ def _decimal_sum(value) -> Decimal:
     return Decimal(str(value))
 
 
-def provider_stay_monetization_analytics(*, owner_ids: list[int], days: int = 30) -> dict:
-    since = timezone.now() - timedelta(days=max(1, days))
+def _night_dates(check_in: date, check_out: date):
+    current = check_in
+    while current < check_out:
+        yield current
+        current += timedelta(days=1)
+
+
+def _booking_revenue_by_night(booking: AccommodationBooking) -> dict[date, Decimal]:
+    """Use immutable nightly snapshots when present, with a proportional fallback."""
+    prices: dict[date, Decimal] = {}
+    for row in booking.nightly_price_snapshot or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            night = date.fromisoformat(str(row.get("date") or ""))
+            prices[night] = Decimal(str(row.get("price") or "0"))
+        except (TypeError, ValueError, ArithmeticError):
+            continue
+    if prices:
+        return prices
+
+    nights = max(1, (booking.check_out - booking.check_in).days)
+    per_night = Decimal(booking.total_price) / Decimal(nights)
+    return {night: per_night for night in _night_dates(booking.check_in, booking.check_out)}
+
+
+def _stay_operations_analytics(
+    *,
+    listings,
+    listing_ids: list[int],
+    days: int,
+    now,
+) -> dict:
+    """Calendar occupancy, earned revenue, room comparison, and expiring holds."""
+    today = timezone.localdate()
+    period_start = today - timedelta(days=max(1, days) - 1)
+    period_end = today + timedelta(days=1)
+    period_dates = list(_night_dates(period_start, period_end))
+
+    rooms = list(
+        AccommodationRoomType.objects.filter(listing_id__in=listing_ids)
+        .select_related("listing")
+        .order_by("listing_id", "sort_order", "id")
+    )
+    rooms_by_listing: dict[int, list[AccommodationRoomType]] = {}
+    for room in rooms:
+        rooms_by_listing.setdefault(room.listing_id, []).append(room)
+
+    stay_qs = (
+        AccommodationBooking.objects.filter(
+            listing_id__in=listing_ids,
+            check_in__lt=period_end,
+            check_out__gt=period_start,
+            status__in=(
+                BookingStatus.CONFIRMED,
+                BookingStatus.CHECKED_IN,
+                BookingStatus.CHECKED_OUT,
+            ),
+        )
+        .select_related("listing", "room_type", "guest", "guest__profile")
+        .order_by("check_in", "id")
+    )
+    stay_bookings = list(stay_qs)
+
+    overrides = list(
+        AccommodationAvailability.objects.filter(
+            listing_id__in=listing_ids,
+            date__gte=period_start,
+            date__lt=period_end,
+        ).only(
+            "listing_id",
+            "room_type_id",
+            "date",
+            "is_available",
+            "quantity_available",
+        )
+    )
+    property_overrides = {
+        (row.listing_id, row.date): row for row in overrides if row.room_type_id is None
+    }
+    room_overrides = {
+        (row.room_type_id, row.date): row for row in overrides if row.room_type_id is not None
+    }
+
+    daily = {
+        night: {
+            "occupied_room_nights": 0,
+            "available_room_nights": 0,
+            "revenue": Decimal("0"),
+        }
+        for night in period_dates
+    }
+    room_metrics: dict[tuple[int, int | None], dict] = {}
+
+    for listing in listings:
+        listing_rooms = rooms_by_listing.get(listing.pk, [])
+        metric_rows = listing_rooms or [None]
+        capacity_rows = [room for room in listing_rooms if room.is_active]
+        if not capacity_rows:
+            capacity_rows = [None]
+        for room in metric_rows:
+            key = (listing.pk, room.pk if room else None)
+            room_metrics[key] = {
+                "listing_id": listing.pk,
+                "listing_title": listing.title,
+                "room_id": room.pk if room else None,
+                "room_name": room.name if room else "Whole property",
+                "units": room.quantity_available if room else 1,
+                "bookings": 0,
+                "booked_nights": 0,
+                "available_room_nights": 0,
+                "revenue": Decimal("0"),
+            }
+        for room in capacity_rows:
+            key = (listing.pk, room.pk if room else None)
+            for night in period_dates:
+                property_override = property_overrides.get((listing.pk, night))
+                room_override = room_overrides.get((room.pk, night)) if room else None
+                if property_override and not property_override.is_available:
+                    quantity = 0
+                elif room_override and not room_override.is_available:
+                    quantity = 0
+                elif room_override and room_override.quantity_available is not None:
+                    quantity = room_override.quantity_available
+                elif room is None and property_override and property_override.quantity_available is not None:
+                    quantity = property_override.quantity_available
+                else:
+                    quantity = room.quantity_available if room else 1
+                daily[night]["available_room_nights"] += quantity
+                room_metrics[key]["available_room_nights"] += quantity
+
+    for booking in stay_bookings:
+        key = (booking.listing_id, booking.room_type_id)
+        if key not in room_metrics:
+            key = (booking.listing_id, None)
+        metric = room_metrics.get(key)
+        if metric is not None:
+            metric["bookings"] += 1
+
+        paid = bool(booking.paid_at or booking.mock_payment_ref)
+        nightly_revenue = _booking_revenue_by_night(booking) if paid else {}
+        for night in _night_dates(
+            max(booking.check_in, period_start),
+            min(booking.check_out, period_end),
+        ):
+            daily[night]["occupied_room_nights"] += 1
+            if metric is not None:
+                metric["booked_nights"] += 1
+            revenue = nightly_revenue.get(night, Decimal("0"))
+            daily[night]["revenue"] += revenue
+            if metric is not None:
+                metric["revenue"] += revenue
+
+    occupancy_revenue_trend = []
+    for night in period_dates:
+        row = daily[night]
+        available = row["available_room_nights"]
+        occupied = row["occupied_room_nights"]
+        occupancy_revenue_trend.append(
+            {
+                "date": night.isoformat(),
+                "occupied_room_nights": occupied,
+                "available_room_nights": available,
+                "occupancy_rate": round((occupied / available) * 100, 1) if available else 0.0,
+                "revenue": float(row["revenue"]),
+            }
+        )
+
+    room_performance = []
+    for metric in room_metrics.values():
+        available = metric["available_room_nights"]
+        booked = metric["booked_nights"]
+        room_performance.append(
+            {
+                **metric,
+                "revenue": float(metric["revenue"]),
+                "occupancy_rate": round((booked / available) * 100, 1) if available else 0.0,
+            }
+        )
+    room_performance.sort(
+        key=lambda row: (row["revenue"], row["occupancy_rate"], row["booked_nights"]),
+        reverse=True,
+    )
+
+    alert_deadline = now + timedelta(hours=4)
+    expiring_qs = (
+        AccommodationBooking.objects.filter(
+            listing_id__in=listing_ids,
+            status__in=(BookingStatus.PENDING, BookingStatus.CONFIRMED),
+            hold_expires_at__gt=now,
+            hold_expires_at__lte=alert_deadline,
+            paid_at__isnull=True,
+            mock_payment_ref="",
+        )
+        .select_related("listing", "guest", "guest__profile")
+        .order_by("hold_expires_at")[:20]
+    )
+    expiring_requests = []
+    for booking in expiring_qs:
+        profile = getattr(booking.guest, "profile", None)
+        guest_name = (
+            str(getattr(profile, "display_name", "") or "").strip()
+            if profile
+            else ""
+        ) or booking.guest.username
+        expiring_requests.append(
+            {
+                "id": booking.pk,
+                "listing_id": booking.listing_id,
+                "listing_title": booking.listing_title_snapshot or booking.listing.title,
+                "guest": guest_name,
+                "guest_display_name": guest_name,
+                "status": booking.status,
+                "hold_expires_at": booking.hold_expires_at.isoformat(),
+                "minutes_remaining": max(
+                    0,
+                    int((booking.hold_expires_at - now).total_seconds() // 60),
+                ),
+            }
+        )
+
+    occupied_total = sum(row["occupied_room_nights"] for row in daily.values())
+    available_total = sum(row["available_room_nights"] for row in daily.values())
+    return {
+        "occupancy_rate": (
+            round((occupied_total / available_total) * 100, 1) if available_total else 0.0
+        ),
+        "occupied_room_nights": occupied_total,
+        "available_room_nights": available_total,
+        "occupancy_revenue_trend": occupancy_revenue_trend,
+        "room_performance": room_performance,
+        "expiring_requests": expiring_requests,
+    }
+
+
+def provider_stay_monetization_analytics(
+    *,
+    owner_ids: list[int],
+    days: int = 30,
+    business_id: int | None = None,
+) -> dict:
+    from .booking_services import expire_stale_booking_holds
+
+    expire_stale_booking_holds()
+    now = timezone.now()
+    since = now - timedelta(days=max(1, days))
     listings = AccommodationListing.objects.filter(owner_id__in=owner_ids)
+    if business_id is not None:
+        listings = listings.filter(business_id=business_id)
     listing_ids = list(listings.values_list("pk", flat=True))
 
     bookings = (
         AccommodationBooking.objects.filter(listing_id__in=listing_ids, created_at__gte=since)
-        .exclude(status__in=[BookingStatus.CANCELLED, BookingStatus.REFUNDED])
+        .exclude(
+            status__in=[
+                BookingStatus.CANCELLED,
+                BookingStatus.EXPIRED,
+                BookingStatus.REFUNDED,
+            ]
+        )
         .select_related("listing")
     )
 
     paid_bookings = bookings.filter(
         status__in=[BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT]
+    ).filter(
+        Q(paid_at__isnull=False) | ~Q(mock_payment_ref="")
     )
     revenue_agg = paid_bookings.aggregate(total=Sum("total_price"))
     on_platform_revenue = _decimal_sum(revenue_agg["total"])
@@ -116,7 +372,7 @@ def provider_stay_monetization_analytics(*, owner_ids: list[int], days: int = 30
         confirmed = listing_bookings.filter(
             status__in=[BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT]
         )
-        rev = confirmed.aggregate(t=Sum("total_price"))["t"]
+        rev = paid_bookings.filter(listing_id=listing.pk).aggregate(t=Sum("total_price"))["t"]
         period_listing_views = views_by_listing.get(listing.pk, 0)
         room_rows = room_views_by_listing.get(listing.pk, [])[:8]
         period_room_views = sum(r["views"] for r in room_rows)
@@ -141,6 +397,13 @@ def provider_stay_monetization_analytics(*, owner_ids: list[int], days: int = 30
         reverse=True,
     )
 
+    operations = _stay_operations_analytics(
+        listings=list(listings),
+        listing_ids=listing_ids,
+        days=days,
+        now=now,
+    )
+
     return {
         "days": days,
         "on_platform_revenue": float(on_platform_revenue),
@@ -157,4 +420,5 @@ def provider_stay_monetization_analytics(*, owner_ids: list[int], days: int = 30
         "promotion_clicks": int(promo_totals["clicks"] or 0),
         "promotion_listing_opens": int(promo_totals["listing_opens"] or 0),
         "listings": listing_rows[:12],
+        **operations,
     }

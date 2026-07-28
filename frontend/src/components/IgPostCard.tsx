@@ -7,6 +7,7 @@ import { invalidatePostEngagementCaches } from '../utils/socialCache'
 import { renderTextWithHashtags } from '../utils/hashtags'
 import { communityPostPermalinkPath } from '../utils/postPermalink'
 import { PostMedia, type PostMediaItem } from './PostMedia'
+import { BadgeCheck } from 'lucide-react'
 
 export type PostMediaVariant = 'feed' | 'pin' | 'detail'
 
@@ -28,6 +29,7 @@ export type FeedPost = {
   is_delvers?: boolean
   is_accommodation_story?: boolean
   is_delvers_highlight?: boolean
+  verified_stay?: boolean
   post_kind?: 'tip' | 'question'
   place_label?: string
   listing?: { id: number; title: string } | null
@@ -98,6 +100,12 @@ export function IgPostCard({
           />
           <div className="ig-post__user">
             <div className="ig-post__name">{name}</div>
+            {post.verified_stay ? (
+              <span className="ig-post__verified-stay" aria-label="Verified stay">
+                <BadgeCheck size={13} strokeWidth={2.4} aria-hidden />
+                Verified stay
+              </span>
+            ) : null}
             <div className="ig-post__meta">
               @{post.author.username}
               {post.place_label ? ` · ${post.place_label}` : post.region ? ` · ${post.region}` : ''}

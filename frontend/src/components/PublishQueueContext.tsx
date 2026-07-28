@@ -73,7 +73,6 @@ export type EnqueueSocialPublishInput = {
   bodyText: string
   region: string
   postsToDelvers: boolean
-  hostStory: boolean
   publishAsHighlight: boolean
   placeLink: PlaceLink
   delversBoard?: string
@@ -154,7 +153,6 @@ async function buildPostFormData(
   fd.append('body', input.bodyText)
   fd.append('region', input.region.trim())
   fd.append('is_delvers', input.postsToDelvers ? 'true' : 'false')
-  fd.append('is_accommodation_story', input.hostStory ? 'true' : 'false')
   fd.append('is_delvers_highlight', input.publishAsHighlight ? 'true' : 'false')
   if (input.postsToDelvers && input.delversBoard) {
     fd.append('delvers_board', input.delversBoard)
@@ -304,7 +302,6 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
 
         await invalidateSocialCaches(qc, {
           username: input.author.username,
-          accommodationStories: input.hostStory,
           listingId:
             data.listing?.id ??
             (input.placeLink.kind === 'accommodation' ? input.placeLink.id : undefined),
@@ -408,10 +405,6 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
       if (input.slides.length === 0) {
         throw new Error('Add a photo or video first.')
       }
-      if (input.hostStory && (input.placeLink.kind !== 'accommodation' || input.placeLink.id <= 0)) {
-        throw new Error('Link a stay listing for this host story.')
-      }
-
       const jobId = `pub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
       const tempPostId = -Date.now()
       const slides: PublishSlideSnapshot[] = input.slides.map((slide) => ({
@@ -444,6 +437,11 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
             is_delvers: true,
             is_delvers_highlight: input.publishAsHighlight,
             delvers_board: input.delversBoard,
+            verified_stay: input.placeLink.kind === 'accommodation',
+            listing:
+              input.placeLink.kind === 'accommodation'
+                ? { id: input.placeLink.id, title: input.placeLink.title }
+                : null,
             processing_status: first.mediaKind === 'video' && needsBake ? 'processing' : 'ready',
           }),
         )
@@ -537,6 +535,11 @@ export function PublishQueueProvider({ children }: { children: ReactNode }) {
             is_delvers: stored.input.postsToDelvers,
             is_delvers_highlight: stored.input.publishAsHighlight,
             delvers_board: stored.input.delversBoard,
+            verified_stay: stored.input.placeLink.kind === 'accommodation',
+            listing:
+              stored.input.placeLink.kind === 'accommodation'
+                ? { id: stored.input.placeLink.id, title: stored.input.placeLink.title }
+                : null,
             processing_status: 'ready',
           }),
         )

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bookmark, CheckCircle2, Heart, MessageCircle, ThumbsUp, UserRound, X } from 'lucide-react'
+import { BadgeCheck, Bookmark, CheckCircle2, Heart, MessageCircle, ThumbsUp, UserRound, X } from 'lucide-react'
 import { apiFetch, mediaUrl } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import type { FeedPost } from '../IgPostCard'
@@ -277,6 +277,12 @@ function ProfilePostSlide({
             </span>
             @{post.author.username}
           </Link>
+          {post.verified_stay ? (
+            <span className="ppv__verified-stay" aria-label="Verified stay">
+              <BadgeCheck size={14} strokeWidth={2.4} aria-hidden />
+              Verified stay
+            </span>
+          ) : null}
           {post.body?.trim() ? <p className="ppv__caption">{post.body.trim()}</p> : null}
           {post.place_label ? <p className="ppv__region">{post.place_label}</p> : post.region ? <p className="ppv__region">{post.region}</p> : null}
           {isQuestion && post.accepted_answer ? (

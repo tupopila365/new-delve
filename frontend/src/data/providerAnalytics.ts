@@ -38,7 +38,7 @@ export type TopListingMetric = {
 export type PostEngagement = {
   id: number
   title: string
-  type: 'Post' | 'Story'
+  type: 'Post' | 'Delvers Moment'
   likes: number
   saves: number
   comments: number
@@ -176,6 +176,7 @@ export type UserPostAnalytics = {
   created_at: string
   is_accommodation_story?: boolean
   is_delvers?: boolean
+  verified_stay?: boolean
 }
 
 export function getProviderAnalytics(
@@ -275,7 +276,7 @@ export function getProviderAnalytics(
     .map((p) => ({
       id: p.id,
       title: p.body.length > 56 ? `${p.body.slice(0, 56)}…` : p.body,
-      type: (p.is_accommodation_story ? 'Story' : p.is_delvers ? 'Post' : 'Post') as PostEngagement['type'],
+      type: p.verified_stay ? 'Delvers Moment' : 'Post',
       likes: p.likes_count,
       saves: p.saves_count,
       comments: p.comments_count ?? 0,

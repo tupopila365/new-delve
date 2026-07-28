@@ -64,7 +64,7 @@ function shellClassName() {
 }
 
 export function ProviderLayout() {
-  const { profile } = useAuth()
+  const { profile, loading: authLoading } = useAuth()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -125,7 +125,16 @@ export function ProviderLayout() {
 
   const { pendingProviderBookings } = useNavBadges()
 
-  if (!profile) return <Navigate to={loginHrefWithReturn('/provider')} replace />
+  if (authLoading) {
+    return (
+      <div className={shellClassName()}>
+        <div className="prov-content prov-page">
+          <p className="prov-page__sub">Loading provider dashboard...</p>
+          <ListSkeleton count={4} variant="row" />
+        </div>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (
@@ -137,6 +146,8 @@ export function ProviderLayout() {
       </div>
     )
   }
+
+  if (!profile) return <Navigate to={loginHrefWithReturn('/provider')} replace />
 
   if (!canAccessProvider) {
     return (

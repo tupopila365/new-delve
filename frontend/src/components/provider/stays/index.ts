@@ -4,7 +4,7 @@ export { StayListingCard } from './StayListingCard'
 export { StayBookingCard } from './StayBookingCard'
 export { StayMonetizationSection } from './StayMonetizationSection'
 export type { StayMonetizationAnalytics } from './StayMonetizationSection'
-export { StayStoriesPanel } from './StayStoriesPanel'
+export { StayHighlightsPanel } from './StayHighlightsPanel'
 export { StayRoomEditor } from './StayRoomEditor'
 export type {
   ProviderStayListing,

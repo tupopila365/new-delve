@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from promotions.models import PromotionPlacement
@@ -186,66 +186,62 @@ def _pad_with_slides(slides: list[dict], extras: list[dict]) -> list[dict]:
 
 
 def _stays_slides(*, region: str, user, request) -> list[dict]:
-    """Host stories first, then featured/organic stay covers to fill the channel."""
-    from accounts.profile_access import filter_posts_for_viewer
-    from social.models import Post
+    """Flatten provider-controlled Host Highlights from active Stay listings."""
+    from accounts.models import VerificationStatus
+    from accommodation.models import AccommodationListing
 
     qs = (
-        Post.objects.filter(is_hidden=False, is_accommodation_story=True)
-        .filter(Q(image__isnull=False) | Q(video__isnull=False))
-        .select_related("author", "author__profile", "listing")
+        AccommodationListing.objects.filter(is_active=True)
+        .filter(
+            Q(business__isnull=True)
+            | Q(business__verification_status=VerificationStatus.VERIFIED)
+        )
+        .exclude(listing_stories=[])
         .order_by("-created_at")
     )
-    qs = filter_posts_for_viewer(qs, user if getattr(user, "is_authenticated", False) else None)
     if region:
-        qs = qs.filter(
-            Q(region__icontains=region)
-            | Q(listing__region__icontains=region)
-            | Q(listing__city__icontains=region)
-        )
+        qs = qs.filter(Q(region__icontains=region) | Q(city__icontains=region))
 
     slides: list[dict] = []
-    for post in qs[:MAX_SLIDES]:
-        is_video = bool(post.video)
-        src = _media_url(post.video if is_video else post.image, request)
-        if not src:
-            continue
-        body = _clip(post.body) or "Host story"
-        listing = post.listing
-        bits = []
-        if listing and listing.title:
-            bits.append(listing.title)
-        if post.region:
-            bits.append(post.region)
-        has_listing = listing is not None and listing.pk is not None
-        cta_path = f"/accommodation/{listing.pk}" if has_listing else f"/u/{post.author.username}"
-        cta_label = "View stay" if has_listing else "View host"
-        slides.append(
-            _slide(
-                sid=f"host-story-{post.pk}",
-                kind="video" if is_video else "image",
-                src=src,
-                headline=body,
-                sub=" · ".join(bits) if bits else "Host update",
-                duration_ms=VIDEO_MS if is_video else IMG_MS,
-                cta_path=cta_path,
-                cta_label=cta_label,
-                source="host_story",
-            )
-        )
-
-    return _pad_with_slides(
-        slides,
-        _slides_from_featured(
-            PromotionPlacement.HOMEPAGE_STAYS,
-            region=region,
-            user=user,
-            id_prefix="stay",
-            headline_keys=("title",),
-            cta_path_fn=lambda row: f"/accommodation/{row.get('id')}",
-            cta_label="View stay",
-        ),
-    )
+    for listing in qs[:MAX_SLIDES]:
+        channels = listing.listing_stories if isinstance(listing.listing_stories, list) else []
+        for channel_index, channel in enumerate(channels):
+            if not isinstance(channel, dict):
+                continue
+            channel_slides = channel.get("slides")
+            if not isinstance(channel_slides, list):
+                continue
+            for slide_index, raw in enumerate(channel_slides):
+                if not isinstance(raw, dict):
+                    continue
+                src = str(raw.get("src") or "").strip()
+                if not src:
+                    continue
+                if request is not None and src.startswith("/"):
+                    src = request.build_absolute_uri(src)
+                kind = raw.get("kind")
+                if kind not in ("image", "video"):
+                    kind = media_url_kind(src)
+                channel_label = str(channel.get("label") or "Host Highlight").strip()
+                headline = str(raw.get("headline") or channel_label).strip()
+                location = ", ".join(bit for bit in (listing.city, listing.region) if bit)
+                sub = str(raw.get("sub") or location or listing.title).strip()
+                slides.append(
+                    _slide(
+                        sid=f"host-highlight-{listing.pk}-{channel_index}-{slide_index}",
+                        kind="video" if kind == "video" else "image",
+                        src=src,
+                        headline=headline,
+                        sub=f"{listing.title} · {sub}" if sub != listing.title else listing.title,
+                        duration_ms=VIDEO_MS if kind == "video" else IMG_MS,
+                        cta_path=f"/accommodation/{listing.pk}",
+                        cta_label="View stay",
+                        source="host_highlight",
+                    )
+                )
+                if len(slides) >= MAX_SLIDES:
+                    return slides
+    return slides
 
 
 def _pins_slides(*, region: str, user, request) -> list[dict]:
@@ -257,11 +253,21 @@ def _pins_slides(*, region: str, user, request) -> list[dict]:
         .exclude(is_accommodation_story=True)
         .exclude(is_delvers_highlight=True)
         .exclude(post_kind=PostKind.QUESTION)
+        .filter(
+            Q(listing__isnull=True)
+            | Q(
+                verified_stay_booking__status="checked_out",
+                verified_stay_booking__check_out__lte=timezone.localdate(),
+                verified_stay_booking__guest_id=F("author_id"),
+                verified_stay_booking__listing_id=F("listing_id"),
+            )
+        )
         .filter(Q(image__isnull=False) | Q(video__isnull=False))
         .select_related(
             "author",
             "author__profile",
             "listing",
+            "verified_stay_booking",
             "event",
             "food_venue",
             "vehicle_listing",

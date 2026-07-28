@@ -15,6 +15,7 @@ export type ListingMomentPost = {
   bus_trip?: { id: number; title: string } | null
   food_venue?: { id: number; title: string } | null
   guide_profile?: { id: number; title: string } | null
+  verified_stay?: boolean
 }
 
 /** Normalize carousel slides, resolving every image/video URL. */
@@ -65,6 +66,7 @@ export function postsToListingMoments(
         post.food_venue?.title ||
         post.guide_profile?.title ||
         taggedTitle,
+      verifiedStay: Boolean(post.verified_stay),
     }
   })
 }
