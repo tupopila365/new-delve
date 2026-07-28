@@ -336,6 +336,7 @@ class PasswordResetConfirmView(APIView):
 
 
 class MeView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = ProfileSerializer
 
     def get_object(self):
@@ -360,6 +361,7 @@ class BecomeProviderView(APIView):
 
 
 class ProfileUpdateView(generics.UpdateAPIView):
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = ProfileUpdateSerializer
     http_method_names = ["patch"]
 
