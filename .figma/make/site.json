@@ -1,0 +1,10 @@
+{
+  "description": "Connect with friends and share moments in a vibrant social media platform designed for seamless interaction and community engagement.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

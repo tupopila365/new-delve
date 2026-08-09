@@ -15,3 +15,16 @@ scripts/heroku-apps.env
 .env.local
 .env.development.local
 .env.production.local
+node_modules/
+dist/
+build/
+.cache/
+.env*
+.vite/
+vite.config.*.timestamp-*
+*.tsbuildinfo
+*-debug.log*
+logs/
+*.log
+.claude-replay.*
+.tmp-*
