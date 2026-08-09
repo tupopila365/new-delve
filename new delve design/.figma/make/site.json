@@ -1,5 +1,9 @@
 {
+  "title": "DELVE",
   "description": "Connect with travelers worldwide through a responsive social media platform that shares experiences, tips, and travel inspiration on any device.",
+  "icons": {
+    "icon": "/DELVE.png"
+  },
   "robots": {
     "index": false
   },

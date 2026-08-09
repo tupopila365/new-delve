@@ -1,4 +1,4 @@
-import { Compass } from 'lucide-react'
+import delveMark from '../../assets/brand/DELVE.png'
 
 export interface DelveLogoProps {
   size?: 'sm' | 'md' | 'lg'
@@ -11,9 +11,9 @@ export interface DelveLogoProps {
 }
 
 const sizes = {
-  sm: { text: 18, mark: 26, icon: 14 },
-  md: { text: 24, mark: 34, icon: 18 },
-  lg: { text: 32, mark: 44, icon: 24 },
+  sm: { text: 18, mark: 26 },
+  md: { text: 22, mark: 32 },
+  lg: { text: 28, mark: 40 },
 }
 
 export default function DelveLogo({
@@ -22,29 +22,30 @@ export default function DelveLogo({
   showMark = true,
   showWordmark = true,
   onClick,
-  ariaLabel = 'Delve home',
+  ariaLabel = 'DELVE home',
 }: DelveLogoProps) {
   const s = sizes[size]
   const foreground = tone === 'onImage' ? '#FFFAF2' : tone === 'mono' ? 'var(--fg)' : 'var(--primary)'
-  const markBackground =
-    tone === 'onImage' ? 'rgba(255,250,242,0.18)' : 'rgba(140,82,255,0.12)'
 
   const content = (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-center gap-2 min-w-0">
       {showMark && (
-        <span
-          className="inline-flex items-center justify-center rounded-xl"
-          style={{ width: s.mark, height: s.mark, background: markBackground, color: foreground }}
-        >
-          <Compass size={s.icon} strokeWidth={2.2} />
-        </span>
+        <img
+          src={delveMark}
+          alt=""
+          width={s.mark}
+          height={s.mark}
+          className="rounded-full object-cover shrink-0"
+          style={{ width: s.mark, height: s.mark }}
+          draggable={false}
+        />
       )}
       {showWordmark && (
         <span
-          className="font-display font-extrabold tracking-tight"
-          style={{ fontSize: s.text, color: foreground, lineHeight: 1 }}
+          className="font-display font-extrabold tracking-tight uppercase"
+          style={{ fontFamily: 'Syne, sans-serif', fontSize: s.text, color: foreground, lineHeight: 1 }}
         >
-          Delve
+          DELVE
         </span>
       )}
     </span>

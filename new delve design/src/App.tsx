@@ -29,7 +29,7 @@ import type { CompanyRoute } from './pages/CompanyPage'
 import BusinessAdminPage from './business/BusinessAdminPage'
 import AuthFlow from './pages/auth/AuthFlow'
 import type { AuthRoute } from './pages/auth/AuthFlow'
-import { AuthRequiredBottomSheet, AuthRequiredModal } from './components/auth'
+import { AuthRequiredBottomSheet, AuthRequiredModal, DelveLogo } from './components/auth'
 import type { GuestAction } from './components/auth/AuthRequiredModal'
 import BookingSetupPage from './pages/booking/BookingSetupPage'
 import TravelerDetailsPage from './pages/booking/TravelerDetailsPage'
@@ -1036,12 +1036,7 @@ export default function App() {
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', paddingTop: 'var(--safe-top)' }}>
         {/* Primary header row — never wraps into unpredictable rows */}
         <div className="max-w-[1280px] mx-auto px-3 md:px-6 h-14 flex items-center gap-2 md:gap-4 min-w-0">
-          <button type="button" onClick={() => setActiveNav('Home')}
-            className="text-xl font-extrabold tracking-tight flex-shrink-0"
-            style={{ fontFamily: 'Syne, sans-serif', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
-            aria-label="Delve Home">
-            Delve
-          </button>
+          <DelveLogo size="sm" onClick={() => setActiveNav('Home')} ariaLabel="DELVE Home" />
 
           <button type="button" onClick={() => setMobileMenuOpen(true)}
             className="lg:hidden p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0"
