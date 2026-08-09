@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>37 Traveler Details — Delve Traveler Design Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   37 Traveler Details — Delve Traveler tokens (match board 36)
+   ═══════════════════════════════════════════════════════════ */
+:root, [data-theme="light"] {
+  --canvas: #F4F1EA;
+  --surface: #FFFFFF;
+  --subtle: #FAF8F4;
+  --nav: #FFFFFF;
+  --elevated: #FFFFFF;
+  --primary: #5F2FC9;
+  --brand: #8C52FF;
+  --focus: #8C52FF;
+  --text: #1A1814;
+  --muted: #6F695F;
+  --border: #DDD6CA;
+  --success: #16845B;
+  --warning: #B76808;
+  --error: #C83B3B;
+  --info: #2769C7;
+  --primary-fg: #FFFFFF;
+  --brand-soft: #F1E9FF;
+  --success-soft: #E6F5EE;
+  --warning-soft: #FBF0E0;
+  --error-soft: #FBEAEA;
+  --info-soft: #E8F0FB;
+  --shadow: 0 8px 28px rgba(26,24,20,.08);
+  --shadow-sm: 0 2px 8px rgba(26,24,20,.06);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --font-display: "Syne", system-ui, sans-serif;
+  --font-ui: "DM Sans", system-ui, sans-serif;
+  --header-h: 56px;
+  --sticky-cta-h: 72px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="dark"] {
+  --canvas: #0C0A09;
+  --surface: #1B1816;
+  --subtle: #12100F;
+  --nav: #12100F;
+  --elevated: #24201E;
+  --primary: #8C52FF;
+  --brand: #8C52FF;
+  --focus: #C7ACFF;
+  --text: #FFFAF2;
+  --muted: #B8ADA3;
+  --border: #39322E;
+  --success: #3DB88A;
+  --warning: #E09A3A;
+  --error: #E06A6A;
+  --info: #6B9BE0;
+  --primary-fg: #FFFAF2;
+  --brand-soft: rgba(140,82,255,.18);
+  --success-soft: rgba(61,184,138,.14);
+  --warning-soft: rgba(224,154,58,.14);
+  --error-soft: rgba(224,106,106,.14);
+  --info-soft: rgba(107,155,224,.14);
+  --shadow: 0 12px 40px rgba(0,0,0,.45);
+  --shadow-sm: 0 2px 10px rgba(0,0,0,.3);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  background: var(--canvas);
+  color: var(--text);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+h1,h2,h3,h4,.display { font-family: var(--font-display); letter-spacing: -0.02em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--primary); }
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space:nowrap; border:0;
+}
+.live-region { position:absolute; left:-9999px; }
+
+/* Board chrome */
+.board-nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; gap: 12px;
+  min-height: var(--header-h);
+  padding: 8px 20px;
+  background: color-mix(in srgb, var(--nav) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.board-nav__brand {
+  font-family: var(--font-display);
+  font-weight: 800; font-size: 1.1rem;
+  text-decoration: none; color: var(--text); white-space: nowrap;
+}
+.board-nav__brand span { color: var(--brand); }
+.board-nav__links {
+  display: flex; gap: 4px; flex: 1; overflow-x: auto;
+  scrollbar-width: none; padding: 4px 0;
+}
+.board-nav__links::-webkit-scrollbar { display: none; }
+.board-nav__links a {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: .72rem; font-weight: 600;
+  color: var(--muted); text-decoration: none;
+  white-space: nowrap;
+}
+.board-nav__links a:hover { color: var(--text); background: var(--subtle); }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); cursor: pointer; font-size: .75rem; font-weight: 650;
+}
+.theme-toggle svg { width: 16px; height: 16px; }
+
+.board { max-width: 1280px; margin: 0 auto; padding: 28px 20px 80px; }
+.board-hero { margin-bottom: 36px; }
+.board-hero .kicker {
+  margin: 0 0 8px; font-size: .7rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--brand);
+}
+.board-hero h1 {
+  margin: 0 0 10px; font-size: clamp(1.85rem, 4vw, 2.6rem); font-weight: 800;
+}
+.board-hero .lead {
+  margin: 0; max-width: 680px; color: var(--muted); font-size: .95rem;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 28px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--subtle); font-size: .72rem; font-weight: 600; color: var(--muted);
+}
+
+.sec {
+  margin: 48px 0 0; padding-top: 28px;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: calc(var(--header-h) + 12px);
+  animation: fadeUp .5s ease both;
+}
+.sec:nth-of-type(odd) { animation-delay: .04s; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.sec__label {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 0 0 6px; font-size: .68rem; font-weight: 750;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--brand);
+}
+.sec__label .num {
+  display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--brand-soft); color: var(--primary); font-size: .65rem;
+}
+.sec h2 { margin: 0 0 8px; font-size: 1.45rem; font-weight: 800; }
+.sec__desc { margin: 0 0 20px; color: var(--muted); font-size: .9rem; max-width: 720px; }
+
+.grid-2 { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+.grid-3 { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0,1fr)); }
+.grid-4 { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0,1fr)); }
+@media (max-width: 1024px) {
+  .grid-3, .grid-4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 640px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.panel__title {
+  margin: 0 0 12px; font-size: .72rem; font-weight: 750;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.anno {
+  margin-top: 10px; padding: 10px 12px;
+  border-left: 3px solid var(--brand);
+  background: var(--brand-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: .78rem; color: var(--text); line-height: 1.4;
+}
+.anno strong { font-weight: 700; }
+.placeholder-note {
+  font-size: .72rem; color: var(--muted); font-style: italic;
+}
+
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch {
+  width: 88px; border-radius: var(--radius-sm); overflow: hidden;
+  border: 1px solid var(--border); background: var(--subtle);
+}
+.swatch__color { height: 40px; }
+.swatch__meta { padding: 6px 8px; font-size: .65rem; line-height: 1.3; }
+.swatch__meta b { display: block; font-weight: 700; }
+
+.type-sample .display { font-size: 1.6rem; font-weight: 800; margin: 0 0 4px; }
+.type-sample p { margin: 0; font-size: .88rem; color: var(--muted); }
+
+.steps-row {
+  display: grid; grid-template-columns: repeat(5, minmax(0,1fr));
+  gap: 0; list-style: none; margin: 0; padding: 8px 0;
+}
+.step-item {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; text-align: center;
+  font-size: .65rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.step-item::after {
+  content: ""; position: absolute; top: 11px; left: calc(50% + 14px);
+  width: calc(100% - 28px); height: 2px; background: var(--border);
+}
+.step-item:last-child::after { display: none; }
+.step-dot {
+  position: relative; z-index: 1;
+  width: 24px; height: 24px; border-radius: 999px;
+  border: 2px solid var(--border); background: var(--surface);
+  display: grid; place-items: center; font-size: .65rem;
+}
+.step-item.is-done .step-dot {
+  background: var(--success); border-color: var(--success); color: #fff;
+}
+.step-item.is-current { color: var(--primary); }
+.step-item.is-current .step-dot {
+  border-color: var(--brand); background: var(--brand-soft);
+  color: var(--primary); transform: scale(1.08);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+.step-item.is-current::after { background: linear-gradient(90deg, var(--brand), var(--border)); }
+.step-item.is-done::after { background: var(--success); }
+
+.shell-demo {
+  display: grid; grid-template-columns: 1fr 300px; gap: 16px;
+  background: var(--subtle); border: 1px dashed var(--border);
+  border-radius: var(--radius-lg); padding: 12px; min-height: 280px;
+}
+.shell-demo__main {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; min-height: 240px;
+}
+.shell-demo__side {
+  background: var(--elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+  position: sticky; top: calc(var(--header-h) + 16px); align-self: start;
+}
+.shell-label {
+  font-size: .65rem; font-weight: 750; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--brand); margin-bottom: 8px;
+}
+@media (max-width: 800px) {
+  .shell-demo { grid-template-columns: 1fr; }
+}
+
+.bk-header {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; background: var(--nav);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.bk-header__logo {
+  font-family: var(--font-display); font-weight: 800; font-size: 1rem;
+  text-decoration: none; color: var(--text);
+}
+.bk-header__logo span { color: var(--brand); }
+.bk-header__secure {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .7rem; font-weight: 650; color: var(--success);
+  margin-left: auto;
+}
+.icon-btn {
+  display: inline-grid; place-items: center;
+  width: 40px; height: 40px; min-width: 44px; min-height: 44px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); cursor: pointer; color: var(--text);
+}
+.icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.text-btn {
+  min-height: 40px; padding: 0 12px; border: 0; background: transparent;
+  color: var(--muted); font-weight: 650; font-size: .8rem; cursor: pointer;
+}
+.text-btn:hover { color: var(--text); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 18px;
+  border: 1px solid transparent; border-radius: 999px;
+  font-weight: 700; font-size: .88rem; cursor: pointer;
+  transition: transform .15s, background .2s, box-shadow .2s;
+}
+.btn:active { transform: scale(.98); }
+.btn--primary {
+  background: var(--primary); color: var(--primary-fg);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--brand) 35%, transparent);
+}
+.btn--primary:hover { filter: brightness(1.06); }
+.btn--primary:disabled, .btn:disabled {
+  opacity: .45; cursor: not-allowed; filter: none; box-shadow: none;
+}
+.btn--ghost {
+  background: transparent; border-color: var(--border); color: var(--text);
+}
+.btn--ghost:hover { background: var(--subtle); }
+.btn--sm { min-height: 36px; padding: 0 12px; font-size: .78rem; }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: .78rem; font-weight: 650; }
+.field .req { color: var(--error); }
+.field .opt { font-weight: 500; color: var(--muted); }
+.field input, .field select, .field textarea {
+  min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.field textarea { min-height: 96px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--focus); outline: 2px solid color-mix(in srgb, var(--focus) 35%, transparent);
+  outline-offset: 0;
+}
+.field--error input, .field--error select, .field--error textarea { border-color: var(--error); }
+.field__hint { font-size: .72rem; color: var(--muted); }
+.field__error { font-size: .72rem; color: var(--error); }
+.phone-row { display: flex; gap: 8px; }
+.phone-row select { width: 100px; flex-shrink: 0; }
+
+.choice-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+@media (max-width: 560px) { .choice-grid { grid-template-columns: 1fr; } }
+.choice {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 56px; padding: 12px 14px; width: 100%; text-align: left;
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  background: var(--subtle); cursor: pointer; font-weight: 650; font-size: .88rem;
+  transition: border-color .2s, background .2s;
+}
+.choice:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); }
+.choice.is-selected {
+  border-color: var(--brand); background: var(--brand-soft); color: var(--primary);
+}
+.choice svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+.choice-stack { display: flex; flex-direction: column; gap: 8px; }
+.choice-stack .choice { min-height: 48px; }
+
+.traveler-card {
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--surface); overflow: hidden;
+}
+.traveler-card__head {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px; border: 0; background: transparent; cursor: pointer; text-align: left; color: inherit;
+}
+.traveler-card__avatar {
+  width: 40px; height: 40px; border-radius: 999px;
+  display: grid; place-items: center; flex-shrink: 0;
+  background: var(--brand-soft); color: var(--primary); font-weight: 750; font-size: .85rem;
+}
+.traveler-card__body { flex: 1; min-width: 0; }
+.traveler-card__body strong { display: block; font-size: .9rem; }
+.traveler-card__body span { font-size: .72rem; color: var(--muted); }
+.traveler-card__panel {
+  display: none; padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+}
+.traveler-card.is-open .traveler-card__panel { display: block; padding-top: 14px; }
+.lead-tag {
+  display: inline-block; margin-left: 6px;
+  font-size: .62rem; font-weight: 750; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--primary);
+}
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 24px; padding: 0 8px; border-radius: 6px;
+  font-size: .68rem; font-weight: 750;
+}
+.badge--ok { background: var(--success-soft); color: var(--success); }
+.badge--warn { background: var(--warning-soft); color: var(--warning); }
+.badge--err { background: var(--error-soft); color: var(--error); }
+.badge--info { background: var(--info-soft); color: var(--info); }
+.badge--brand { background: var(--brand-soft); color: var(--primary); }
+.badge--muted { background: var(--subtle); color: var(--muted); border: 1px solid var(--border); }
+
+.alert {
+  display: flex; gap: 10px; padding: 12px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  font-size: .82rem; line-height: 1.4;
+}
+.alert svg { flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; stroke: currentColor; fill: none; stroke-width: 2; }
+.alert--warn { background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
+.alert--err { background: var(--error-soft); border-color: color-mix(in srgb, var(--error) 35%, var(--border)); }
+.alert--ok { background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
+.alert--info { background: var(--info-soft); border-color: color-mix(in srgb, var(--info) 35%, var(--border)); }
+
+.why-box {
+  margin-top: 8px; padding: 10px 12px;
+  background: var(--subtle); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: .75rem; color: var(--muted);
+}
+.why-box strong { color: var(--text); font-weight: 700; }
+
+.matrix {
+  width: 100%; border-collapse: collapse; font-size: .78rem;
+}
+.matrix th, .matrix td {
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.matrix th {
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); font-weight: 750; background: var(--subtle);
+}
+.matrix .yes { color: var(--success); font-weight: 700; }
+.matrix .opt { color: var(--info); font-weight: 650; }
+.matrix .no { color: var(--muted); }
+
+.pill-toggle {
+  display: inline-flex; flex-wrap: wrap; gap: 8px;
+}
+.pill {
+  min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1.5px solid var(--border); background: var(--subtle);
+  font-size: .75rem; font-weight: 650; cursor: pointer; color: var(--text);
+}
+.pill.is-on {
+  border-color: var(--brand); background: var(--brand-soft); color: var(--primary);
+}
+
+.check-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--subtle); font-size: .85rem;
+}
+.check-row input { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; }
+
+.summary {
+  background: var(--elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.summary__media {
+  height: 100px;
+  background: linear-gradient(135deg, #c9bba8 0%, #7a6b5a 40%, #5a4a78 100%);
+}
+.summary__body { padding: 14px; }
+.summary__type {
+  display: inline-block; margin-bottom: 6px;
+  font-size: .65rem; font-weight: 750; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--brand);
+}
+.summary h3 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 800; }
+.summary__meta { margin: 0; font-size: .78rem; color: var(--muted); }
+.price-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-top: 8px; padding-top: 10px; border-top: 2px solid var(--border);
+}
+.price-total strong {
+  font-family: var(--font-display); font-size: 1.15rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.example-tag {
+  display: inline-block; margin-left: 6px;
+  font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px;
+  vertical-align: middle;
+}
+.compact-sum {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.compact-sum__thumb {
+  width: 44px; height: 44px; border-radius: 8px;
+  background: linear-gradient(135deg, #c4b5a0, #5c4e78);
+}
+.compact-sum__total {
+  margin-left: auto; font-family: var(--font-display);
+  font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.sticky-cta {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px calc(12px + var(--safe-b));
+  background: var(--nav); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.sticky-cta .btn { flex: 1; }
+
+.skel {
+  background: linear-gradient(90deg, var(--subtle), var(--border), var(--subtle));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 6px;
+  height: 14px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.frames { display: grid; gap: 20px; }
+.frame-group { margin-bottom: 8px; }
+.frame-group h3 { margin: 0 0 12px; font-size: 1rem; }
+.frame-row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.device {
+  border: 1px solid var(--border); border-radius: 16px;
+  background: var(--canvas); overflow: hidden; box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+.device__chrome {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; background: var(--subtle);
+  font-size: .65rem; font-weight: 700; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.device--1440 { width: min(100%, 720px); }
+.device--1024 { width: min(100%, 520px); }
+.device--390 { width: 320px; }
+.device__screen { transform-origin: top left; }
+.device--1440 .device__screen { zoom: .55; width: 1440px; min-height: 820px; }
+.device--1024 .device__screen { zoom: .55; width: 1024px; min-height: 780px; }
+.device--390 .device__screen { zoom: .72; width: 390px; min-height: 720px; }
+@supports not (zoom: 1) {
+  .device--1440 .device__screen { transform: scale(.55); width: 1440px; margin-bottom: calc(-820px * .45); }
+  .device--1024 .device__screen { transform: scale(.55); width: 1024px; margin-bottom: calc(-780px * .45); }
+  .device--390 .device__screen { transform: scale(.72); width: 390px; margin-bottom: calc(-720px * .28); }
+}
+
+.mini-app { min-height: 100%; background: var(--canvas); display: flex; flex-direction: column; }
+.mini-app__hdr {
+  display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+  background: var(--nav); border-bottom: 1px solid var(--border);
+}
+.mini-app__body {
+  display: grid; grid-template-columns: 1fr 320px; gap: 20px;
+  padding: 20px; flex: 1; align-items: start;
+}
+.mini-app--tablet .mini-app__body { grid-template-columns: 1fr 260px; gap: 14px; padding: 14px; }
+.mini-app--mobile .mini-app__body { grid-template-columns: 1fr; padding: 12px; padding-bottom: 90px; }
+.mini-app--mobile .mini-side { display: none; }
+.mini-app--mobile .mini-mobile-sum { display: block; }
+.mini-mobile-sum { display: none; margin-bottom: 12px; }
+.mini-app--mobile .mini-sticky { display: flex; position: sticky; bottom: 0; margin-top: auto; }
+.mini-sticky { display: none; }
+.mini-form h2 { margin: 0 0 4px; font-size: 1.35rem; }
+.mini-form .sub { margin: 0 0 16px; color: var(--muted); font-size: .85rem; }
+.mini-block {
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); margin-bottom: 10px;
+}
+.mini-block h4 { margin: 0 0 8px; font-size: .8rem; font-weight: 750; }
+
+.variant-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.variant {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.variant__bar {
+  padding: 8px 12px; background: var(--subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: .7rem; font-weight: 750; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.variant__body { padding: 14px; }
+.variant__body h4 { margin: 0 0 8px; font-size: .95rem; font-weight: 800; }
+
+.proto-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+}
+.proto-tab {
+  min-height: 36px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: .78rem; font-weight: 650; cursor: pointer; color: var(--muted);
+}
+.proto-tab.is-active {
+  background: var(--primary); color: var(--primary-fg); border-color: var(--primary);
+}
+.proto-stage {
+  display: grid; grid-template-columns: 1fr 340px; gap: 20px;
+  background: var(--subtle); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 16px; min-height: 560px;
+}
+@media (max-width: 900px) {
+  .proto-stage { grid-template-columns: 1fr; }
+  .proto-stage .bk-summary-col { order: -1; }
+}
+.proto-panel { display: none; }
+.proto-panel.is-active { display: block; animation: fadeUp .35s ease; }
+.proto-flow { display: flex; flex-direction: column; gap: 14px; max-height: 640px; overflow: auto; padding-right: 4px; }
+.proto-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.hidden-by-branch { display: none !important; }
+.branch-show { display: block; }
+
+.dialog-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(12,10,9,.55); align-items: center; justify-content: center; padding: 20px;
+}
+.dialog-backdrop.is-open { display: flex; }
+.dialog {
+  width: min(100%, 420px); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 20px; box-shadow: var(--shadow);
+}
+.dialog h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.dialog p { margin: 0 0 16px; color: var(--muted); font-size: .88rem; }
+.dialog__actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.contract {
+  width: 100%; border-collapse: collapse; font-size: .8rem;
+}
+.contract th, .contract td {
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.contract th {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); font-weight: 750; background: var(--subtle);
+}
+.contract code {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: .75rem; background: var(--subtle); padding: 1px 5px; border-radius: 4px;
+}
+.auth-banner {
+  padding: 10px 12px; border-radius: var(--radius);
+  background: var(--info-soft); border: 1px solid color-mix(in srgb, var(--info) 30%, var(--border));
+  font-size: .8rem; margin-bottom: 12px;
+}
+.a11y-list { margin: 0; padding-left: 18px; font-size: .84rem; color: var(--muted); }
+.a11y-list li { margin-bottom: 6px; }
+
+.toc {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px; margin-top: 20px;
+}
+.toc a {
+  display: block; padding: 10px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface);
+  text-decoration: none; color: var(--text); font-size: .8rem; font-weight: 650;
+}
+.toc a:hover { border-color: var(--brand); background: var(--brand-soft); }
+.toc a small { display: block; font-weight: 500; color: var(--muted); font-size: .7rem; margin-top: 2px; }
+
+.privacy-panel { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+.privacy-panel__btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 14px; border: 0; background: transparent; cursor: pointer;
+  font-weight: 750; font-size: .9rem; color: var(--text); text-align: left;
+}
+.privacy-panel__body {
+  display: none; padding: 0 14px 14px; border-top: 1px solid var(--border);
+  font-size: .8rem; color: var(--muted);
+}
+.privacy-panel.is-open .privacy-panel__body { display: block; padding-top: 12px; }
+.privacy-panel__body h5 { margin: 10px 0 4px; font-size: .78rem; color: var(--text); font-family: var(--font-ui); }
+
+.mask-sample {
+  font-family: ui-monospace, monospace; font-size: .85rem;
+  letter-spacing: .04em; padding: 8px 10px; background: var(--subtle);
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+}
+
+.svg-inline { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.char-count { font-size: .72rem; color: var(--muted); text-align: right; }
+</style>
+</head>
+<body>
+<div class="live-region" id="liveRegion" aria-live="polite" aria-atomic="true"></div>
+
+<nav class="board-nav" aria-label="Design board navigation">
+  <a class="board-nav__brand" href="#top">DEL<span>VE</span></a>
+  <div class="board-nav__links">
+    <a href="#s1">01 Foundations</a>
+    <a href="#s2">02 Contact</a>
+    <a href="#s3">03 Guests</a>
+    <a href="#s4">04 Stay</a>
+    <a href="#s5">05 Activity / Event</a>
+    <a href="#s6">06 Road</a>
+    <a href="#s7">07 Air</a>
+    <a href="#s8">08 Water</a>
+    <a href="#s9">09 Accessibility</a>
+    <a href="#s10">10 Special</a>
+    <a href="#s11">11 Emergency</a>
+    <a href="#s12">12 Privacy</a>
+    <a href="#s13">13 States</a>
+    <a href="#s14">14 Responsive</a>
+    <a href="#s15">15 Prototype</a>
+    <a href="#s16">16 Handoff</a>
+  </div>
+  <button type="button" class="theme-toggle" id="themeToggle" aria-pressed="false" title="Toggle light / dark">
+    <svg class="svg-inline" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <span id="themeLabel">Light</span>
+  </button>
+</nav>
+
+<main class="board" id="top">
+  <header class="board-hero">
+    <p class="kicker">Delve Traveler · Figma page map</p>
+    <h1>37 Traveler Details</h1>
+    <p class="lead">Second booking stage after Booking Setup. Adaptive guest and passenger forms by service type — privacy-first, minimum required fields, every section explains why it’s needed and who sees it. Calm workspace, not marketing.</p>
+    <div class="chip-row">
+      <span class="chip">Syne + DM Sans</span>
+      <span class="chip">Warm paper / dark stone</span>
+      <span class="chip">Step 2 of 5</span>
+      <span class="chip">Adaptive · not one mega-form</span>
+      <span class="chip">Masked documents in summaries</span>
+      <span class="chip">Backend authoritative</span>
+    </div>
+    <nav class="toc" aria-label="Section index">
+      <a href="#s1">01 Foundations <small>Tokens, steps, shell</small></a>
+      <a href="#s2">02 Contact <small>Booking contact only</small></a>
+      <a href="#s3">03 Guest / Passenger <small>Accordion travelers</small></a>
+      <a href="#s4">04 Accommodation <small>Stay extras</small></a>
+      <a href="#s5">05 Activity / Event <small>Dietary · tickets</small></a>
+      <a href="#s6">06 Road <small>Car · ride · bus · transfer</small></a>
+      <a href="#s7">07 Air <small>Flight documents</small></a>
+      <a href="#s8">08 Water <small>Ferry / charter</small></a>
+      <a href="#s9">09 Accessibility <small>Respectful assistance</small></a>
+      <a href="#s10">10 Special requests <small>Not guaranteed</small></a>
+      <a href="#s11">11 Emergency <small>When required</small></a>
+      <a href="#s12">12 Privacy / consent <small>Who sees what</small></a>
+      <a href="#s13">13 Form states <small>Empty · error · loading</small></a>
+      <a href="#s14">14 Responsive <small>1440 / 1024 / 390</small></a>
+      <a href="#s15">15 Prototype <small>10 clickable branches</small></a>
+      <a href="#s16">16 Backend handoff <small>Payload contract</small></a>
+    </nav>
+  </header>
+
+  <!-- ═══════════════ 01 FOUNDATIONS ═══════════════ -->
+  <section class="sec" id="s1">
+    <p class="sec__label"><span class="num">01</span> Foundations</p>
+    <h2>Tokens, type, step model, shell anatomy</h2>
+    <p class="sec__desc">Same Delve Traveler tokens as Booking Setup. Brand purple for actions and focus; canvas is warm paper or dark stone. No Fraunces, no ember accents.</p>
+
+    <div class="grid-2">
+      <div class="panel">
+        <p class="panel__title">Color · Light / Dark</p>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch__color" style="background:#F4F1EA"></div><div class="swatch__meta"><b>Canvas</b>#F4F1EA</div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#FFFFFF;border-bottom:1px solid #DDD6CA"></div><div class="swatch__meta"><b>Surface</b>#FFFFFF</div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#5F2FC9"></div><div class="swatch__meta"><b>Primary</b>#5F2FC9</div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#8C52FF"></div><div class="swatch__meta"><b>Brand</b>#8C52FF</div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#1A1814"></div><div class="swatch__meta"><b>Text</b>#1A1814</div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#16845B"></div><div class="swatch__meta"><b>Success</b></div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#B76808"></div><div class="swatch__meta"><b>Warning</b></div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#C83B3B"></div><div class="swatch__meta"><b>Error</b></div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#0C0A09"></div><div class="swatch__meta"><b>Dark canvas</b></div></div>
+          <div class="swatch"><div class="swatch__color" style="background:#C7ACFF"></div><div class="swatch__meta"><b>Dark focus</b>#C7ACFF</div></div>
+        </div>
+      </div>
+      <div class="panel type-sample">
+        <p class="panel__title">Typography</p>
+        <p class="display">Syne · Traveler details</p>
+        <p style="margin-top:10px">DM Sans for labels, helpers, privacy copy, and form controls. Helper text always explains purpose — never legal invention.</p>
+        <div class="anno" style="margin-top:14px"><strong>Privacy tone:</strong> calm, private, respectful. Marketing opt-in never lives inside required contact.</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <p class="panel__title">Step model · Booking journey</p>
+      <ol class="steps-row" aria-label="Booking steps">
+        <li class="step-item is-done"><span class="step-dot">✓</span>Setup</li>
+        <li class="step-item is-current"><span class="step-dot">2</span>Travelers</li>
+        <li class="step-item"><span class="step-dot">3</span>Checkout</li>
+        <li class="step-item"><span class="step-dot">4</span>Payment</li>
+        <li class="step-item"><span class="step-dot">5</span>Confirm</li>
+      </ol>
+      <p class="placeholder-note" style="margin-top:8px">This board covers step 2. Continue advances to Checkout · Back returns to Booking Setup.</p>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <p class="panel__title">TravelerDetailsShell anatomy · Desktop 1440</p>
+      <div class="bk-header" style="margin-bottom:12px">
+        <button type="button" class="icon-btn" aria-label="Back to booking setup">
+          <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <a class="bk-header__logo" href="#">DEL<span>VE</span></a>
+        <span class="badge badge--brand">Step 2 of 5 · Travelers</span>
+        <span class="bk-header__secure">
+          <svg class="svg-inline" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Secure booking
+        </span>
+        <button type="button" class="text-btn">Save &amp; exit</button>
+        <button type="button" class="text-btn">Help</button>
+      </div>
+      <div class="shell-demo">
+        <div class="shell-demo__main">
+          <div class="shell-label">Main · adaptive traveler form</div>
+          <p style="margin:0;font-size:.85rem;color:var(--muted)">Who’s traveling → contact → guests → service extras → accessibility → special → emergency (if required) → privacy → Continue</p>
+          <div class="choice-grid" style="margin-top:12px">
+            <button type="button" class="choice is-selected"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> I am traveling</button>
+            <button type="button" class="choice"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Booking for someone else</button>
+          </div>
+        </div>
+        <aside class="shell-demo__side">
+          <div class="shell-label">Sticky summary</div>
+          <div class="summary">
+            <div class="summary__media" role="img" aria-label="Listing media placeholder"></div>
+            <div class="summary__body">
+              <span class="summary__type">Stay</span>
+              <h3>Dune View Lodge</h3>
+              <p class="summary__meta">2 guests · Deluxe double</p>
+              <div class="price-total"><span>Due now</span><strong>N$2,168<span class="example-tag">Ex.</span></strong></div>
+              <button type="button" class="btn btn--primary" style="width:100%;margin-top:10px">Continue to checkout</button>
+              <button type="button" class="btn btn--ghost btn--sm" style="width:100%;margin-top:8px">Back to booking setup</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;overflow:auto">
+      <p class="panel__title">Adaptive field matrix · illustrative</p>
+      <table class="matrix">
+        <thead>
+          <tr><th>Field group</th><th>Stay</th><th>Activity</th><th>Event</th><th>Car</th><th>Ride</th><th>Bus</th><th>Transfer</th><th>Flight</th><th>Ferry</th><th>Charter</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Contact</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td></tr>
+          <tr><td>Guest names</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td></tr>
+          <tr><td>Travel docs</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">Req</td><td class="no">—</td><td class="yes">Req</td><td class="yes">Req</td><td class="opt">Cfg</td></tr>
+          <tr><td>Driver licence</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">Req</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+          <tr><td>Flight number</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">Req</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+          <tr><td>Arrival time</td><td class="opt">Opt</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+          <tr><td>Dietary</td><td class="opt">Opt</td><td class="opt">Opt</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+          <tr><td>Emergency</td><td class="no">—</td><td class="yes">Req</td><td class="no">—</td><td class="no">—</td><td class="yes">Req</td><td class="no">—</td><td class="no">—</td><td class="yes">Req</td><td class="yes">Req</td><td class="yes">Req</td></tr>
+          <tr><td>Accessibility</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td><td class="yes">Ask</td></tr>
+        </tbody>
+      </table>
+      <p class="placeholder-note" style="margin-top:8px">Backend configuration decides required vs optional. UI must not invent document or legal requirements as authoritative.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 02 CONTACT ═══════════════ -->
+  <section class="sec" id="s2">
+    <p class="sec__label"><span class="num">02</span> Contact</p>
+    <h2>Who should we contact about this booking?</h2>
+    <p class="sec__desc">Used for confirmation, tickets, schedule changes, provider messages, and refunds. Shared with the provider only as needed to deliver the service. Marketing preferences are not collected here.</p>
+
+    <div class="grid-2">
+      <div class="panel">
+        <p class="panel__title">Who is traveling?</p>
+        <div class="choice-grid">
+          <button type="button" class="choice is-selected" data-demo-choice="myself"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> I am traveling</button>
+          <button type="button" class="choice" data-demo-choice="else"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Booking for someone else</button>
+        </div>
+        <div class="why-box"><strong>Why:</strong> Routes updates to the right person. Lead traveler is contacted only when needed to deliver the service.</div>
+      </div>
+      <div class="panel">
+        <p class="panel__title">Account prefill (optional)</p>
+        <label class="check-row">
+          <input type="checkbox" checked/>
+          <span><strong>Use my Delve account details</strong><br/><span style="font-size:.75rem;color:var(--muted)">Review before applying. Prefill is always editable.</span></span>
+        </label>
+        <div class="anno" style="margin-top:12px"><strong>Constraint:</strong> No marketing opt-in inside required contact. Optional offers stay on a separate surface.</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <p class="panel__title">Contact fields</p>
+      <div class="grid-2">
+        <div class="field"><label>First name <span class="req">*</span></label><input value="Amara" autocomplete="given-name"/></div>
+        <div class="field"><label>Last name <span class="req">*</span></label><input value="Shikongo" autocomplete="family-name"/></div>
+        <div class="field">
+          <label>Email <span class="req">*</span></label>
+          <p class="field__hint">We send booking updates here.</p>
+          <input type="email" value="amara@example.com" autocomplete="email"/>
+        </div>
+        <div class="field">
+          <label>Phone <span class="req">*</span></label>
+          <p class="field__hint">For urgent schedule or pickup changes.</p>
+          <div class="phone-row">
+            <select aria-label="Country dialing code"><option>+264</option><option>+27</option><option>+44</option><option>+1</option></select>
+            <input value="81 123 4567" inputmode="tel" autocomplete="tel"/>
+          </div>
+        </div>
+      </div>
+      <p class="placeholder-note">Marketing preferences are not collected on this screen.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 03 GUESTS ═══════════════ -->
+  <section class="sec" id="s3">
+    <p class="sec__label"><span class="num">03</span> Guest / Passenger forms</p>
+    <h2>Travelers &amp; guests</h2>
+    <p class="sec__desc">Accordion cards per traveler. Fields shown depend on service type. Document numbers are masked in booking summaries.</p>
+
+    <div class="grid-2">
+      <div class="traveler-card is-open">
+        <button type="button" class="traveler-card__head" aria-expanded="true">
+          <span class="traveler-card__avatar">1</span>
+          <span class="traveler-card__body">
+            <strong>Amara Shikongo <span class="lead-tag">Lead</span></strong>
+            <span>Adult · Complete</span>
+          </span>
+          <span class="badge badge--ok">Complete</span>
+        </button>
+        <div class="traveler-card__panel">
+          <div class="grid-2">
+            <div class="field"><label>First name <span class="req">*</span></label><input value="Amara"/></div>
+            <div class="field"><label>Last name <span class="req">*</span></label><input value="Shikongo"/></div>
+          </div>
+          <label class="check-row" style="margin-top:4px">
+            <input type="radio" name="lead-demo" checked/>
+            <span>Set as lead traveler (may present ID / receive service instructions)</span>
+          </label>
+        </div>
+      </div>
+      <div class="traveler-card">
+        <button type="button" class="traveler-card__head" aria-expanded="false">
+          <span class="traveler-card__avatar">2</span>
+          <span class="traveler-card__body">
+            <strong>Traveler 2</strong>
+            <span>Adult · In progress</span>
+          </span>
+          <span class="badge badge--warn">In progress</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:16px">
+      <div class="panel">
+        <p class="panel__title">Document masking in summaries</p>
+        <p style="margin:0 0 8px;font-size:.85rem;color:var(--muted)">Full number collected securely for the operator. Summaries show masked form only.</p>
+        <div class="mask-sample">Passport · ****4821</div>
+        <div class="why-box"><strong>Who sees full number:</strong> Delve booking systems and the operator for this booking. Not shown publicly or in marketing.</div>
+      </div>
+      <div class="panel">
+        <p class="panel__title">Save for future (optional)</p>
+        <label class="check-row">
+          <input type="checkbox"/>
+          <span><strong>Save these details for future bookings</strong><br/><span style="font-size:.75rem;color:var(--muted)">Off by default. Special requests, emergency contacts, and document uploads are not saved without separate consent.</span></span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 04 ACCOMMODATION ═══════════════ -->
+  <section class="sec" id="s4">
+    <p class="sec__label"><span class="num">04</span> Accommodation</p>
+    <h2>Stay extras</h2>
+    <p class="sec__desc">Shown for stay bookings. Arrival time helps the property prepare — it is not a guaranteed check-in slot.</p>
+    <div class="panel" style="max-width:520px">
+      <div class="field">
+        <label>Estimated arrival time <span class="opt">(optional)</span></label>
+        <p class="field__hint">Helps the property prepare. Not a guaranteed check-in slot.</p>
+        <input placeholder="e.g. After 15:00" value="After 16:00"/>
+      </div>
+      <div class="why-box"><strong>Shared with:</strong> property host / front desk for this reservation only.</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 05 ACTIVITY / EVENT ═══════════════ -->
+  <section class="sec" id="s5">
+    <p class="sec__label"><span class="num">05</span> Activity / Event</p>
+    <h2>Dietary needs &amp; ticket holders</h2>
+    <p class="sec__desc">Dietary chips appear for activity (and stays / food). Events focus on named ticket holders matching quantity from Booking Setup.</p>
+    <div class="grid-2">
+      <div class="panel">
+        <p class="panel__title">Dietary needs · Activity</p>
+        <p style="margin:0 0 10px;font-size:.78rem;color:var(--muted)">Submitting a dietary request does not guarantee an allergen-free environment unless the provider confirms it.</p>
+        <div class="pill-toggle" data-pills>
+          <button type="button" class="pill is-on">Vegetarian</button>
+          <button type="button" class="pill">Vegan</button>
+          <button type="button" class="pill">Halal</button>
+          <button type="button" class="pill">Gluten-free</button>
+          <button type="button" class="pill">Allergy — add details</button>
+          <button type="button" class="pill">Prefer to discuss</button>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="panel__title">Event · ticket holders</p>
+        <p style="margin:0 0 10px;font-size:.78rem;color:var(--muted)">Names for 2 tickets (A2, A3). No travel documents unless backend config requires them.</p>
+        <div class="traveler-card is-open" style="margin-bottom:8px">
+          <div class="traveler-card__head" style="cursor:default">
+            <span class="traveler-card__avatar">1</span>
+            <span class="traveler-card__body"><strong>Ticket 1 · Seat A2</strong><span>Adult</span></span>
+          </div>
+        </div>
+        <div class="traveler-card">
+          <div class="traveler-card__head" style="cursor:default">
+            <span class="traveler-card__avatar">2</span>
+            <span class="traveler-card__body"><strong>Ticket 2 · Seat A3</strong><span>Adult</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 06 ROAD ═══════════════ -->
+  <section class="sec" id="s6">
+    <p class="sec__label"><span class="num">06</span> Road transport</p>
+    <h2>Car rental · community ride · bus · airport transfer</h2>
+    <p class="sec__desc">Each road mode asks only what delivery needs. Licence verification at pickup is operator-side — Delve does not claim legal verification of uploads in this prototype.</p>
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant__bar">Car rental</div>
+        <div class="variant__body">
+          <h4>Main driver</h4>
+          <div class="field"><label>Driving licence number <span class="req">*</span></label><input placeholder="Licence number" autocomplete="off"/></div>
+          <div class="why-box"><strong>Why:</strong> Checked at vehicle pickup. Masked in summaries (e.g. ****7842).</div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Community ride</div>
+        <div class="variant__body">
+          <h4>Passenger + emergency</h4>
+          <p style="margin:0 0 8px;font-size:.8rem;color:var(--muted)">Not licensed transport chrome. Passenger name + emergency contact required for safety.</p>
+          <span class="badge badge--muted">Contribution · not a taxi fare</span>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Bus / minibus</div>
+        <div class="variant__body">
+          <h4>Passenger documents</h4>
+          <div class="alert alert--info" style="margin-bottom:10px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div>Enter each name exactly as it appears on the travel document.</div></div>
+          <div class="field"><label>Document number <span class="req">*</span></label><input value="••••••••4821" autocomplete="off"/></div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Airport transfer</div>
+        <div class="variant__body">
+          <h4>Flight details</h4>
+          <div class="field">
+            <label>Flight number <span class="req">*</span></label>
+            <p class="field__hint">Shared with the assigned driver for pickup timing.</p>
+            <input value="WW123" placeholder="e.g. WW123"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 07 AIR ═══════════════ -->
+  <section class="sec" id="s7">
+    <p class="sec__label"><span class="num">07</span> Air</p>
+    <h2>Regional flight passengers</h2>
+    <p class="sec__desc">Travel documents and emergency contact typically required. Exact document types come from operator / backend config — not invented as law here.</p>
+    <div class="panel">
+      <div class="alert alert--info" style="margin-bottom:14px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div>Enter each name exactly as it appears on the travel document.</div></div>
+      <div class="grid-2">
+        <div class="field"><label>Date of birth <span class="req">*</span></label><p class="field__hint">Used to confirm passenger category.</p><input type="date" value="1994-06-12"/></div>
+        <div class="field"><label>Nationality <span class="req">*</span></label><p class="field__hint">Shared with the operator for this booking only.</p><input value="Namibian"/></div>
+        <div class="field"><label>Document number <span class="req">*</span></label><p class="field__hint">Stored securely for this booking. Masked in summaries.</p><input value="N1234821" autocomplete="off"/></div>
+        <div class="field"><label>Document expiration <span class="req">*</span></label><input type="date" value="2030-03-01"/></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 08 WATER ═══════════════ -->
+  <section class="sec" id="s8">
+    <p class="sec__label"><span class="num">08</span> Water</p>
+    <h2>Ferry passengers &amp; charter requests</h2>
+    <p class="sec__desc">Ferry often mirrors flight document needs. Charter is a quote path — submitting details does not confirm the service until the provider accepts.</p>
+    <div class="grid-2">
+      <div class="panel">
+        <p class="panel__title">Ferry</p>
+        <p style="margin:0 0 8px;font-size:.85rem;color:var(--muted)">Passenger names + documents when configured. Weather-dependent departures noted in summary from Booking Setup.</p>
+        <span class="badge badge--warn">Weather-dependent</span>
+      </div>
+      <div class="panel">
+        <p class="panel__title">Charter request</p>
+        <div class="alert alert--warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg><div>This is part of a quote or availability request. Submitting details does not confirm the service until the provider accepts.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 09 ACCESSIBILITY ═══════════════ -->
+  <section class="sec" id="s9">
+    <p class="sec__label"><span class="num">09</span> Accessibility</p>
+    <h2>Would you like to request accessibility assistance?</h2>
+    <p class="sec__desc">Used only to arrange assistance for this booking. Not used for advertising or public profiles. A medical diagnosis is never required.</p>
+    <div class="panel" style="max-width:560px">
+      <div class="choice-stack" data-access-demo>
+        <button type="button" class="choice">No assistance needed</button>
+        <button type="button" class="choice is-selected">Yes, select assistance</button>
+        <button type="button" class="choice">Prefer to discuss with the provider</button>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label>Assistance details <span class="opt">(optional)</span></label>
+        <p class="field__hint">Describe the assistance you need. A medical diagnosis is not required.</p>
+        <textarea rows="3" placeholder="e.g. Wheelchair-accessible vehicle, extra time boarding…">Wheelchair-accessible room preferred</textarea>
+      </div>
+      <div class="why-box"><strong>Shared with:</strong> provider operations for this booking only. <strong>Not shared:</strong> publicly or for marketing.</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 10 SPECIAL ═══════════════ -->
+  <section class="sec" id="s10">
+    <p class="sec__label"><span class="num">10</span> Special requests</p>
+    <h2>Requests are not guaranteed until confirmed</h2>
+    <p class="sec__desc">Sent to the provider. Do not enter card numbers, passwords, or OTPs.</p>
+    <div class="panel" style="max-width:560px">
+      <textarea id="specialDemo" rows="4" placeholder="Arrival notes, seating preference, pickup instructions…" maxlength="400">Quiet room away from the pool if possible</textarea>
+      <p class="char-count"><span id="specialCount">361</span> characters remaining</p>
+      <div class="alert alert--err" id="specialWarn" style="display:none;margin-top:10px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><div>Remove payment or password details from this field.</div></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 11 EMERGENCY ═══════════════ -->
+  <section class="sec" id="s11">
+    <p class="sec__label"><span class="num">11</span> Emergency contact</p>
+    <h2>Required only for selected service types</h2>
+    <p class="sec__desc">Typically flight, activity, ferry, charter, and community ride. Used only for safety and emergencies — not marketing or routine messages.</p>
+    <div class="panel" style="max-width:560px">
+      <div class="grid-2">
+        <div class="field"><label>Full name <span class="req">*</span></label><input placeholder="Contact name"/></div>
+        <div class="field"><label>Relationship <span class="req">*</span></label><input placeholder="e.g. Partner, parent"/></div>
+        <div class="field"><label>Phone <span class="req">*</span></label><input inputmode="tel" placeholder="Phone number"/></div>
+      </div>
+      <div class="why-box"><strong>Who sees this:</strong> Delve support and the operator for emergencies only. Never used for marketing.</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 12 PRIVACY ═══════════════ -->
+  <section class="sec" id="s12">
+    <p class="sec__label"><span class="num">12</span> Privacy / consent</p>
+    <h2>Who sees what</h2>
+    <p class="sec__desc">Plain-language summary on the form. Full retention rules come from Delve Privacy Policy — this screen does not invent legal requirements.</p>
+    <div class="privacy-panel is-open" id="privacyDemo">
+      <button type="button" class="privacy-panel__btn" id="privacyToggle" aria-expanded="true">
+        <span>Privacy summary</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      <div class="privacy-panel__body">
+        <h5>Used by Delve</h5>
+        <p>Account and booking management, support, safety and legal obligations.</p>
+        <h5>Shared with the provider</h5>
+        <p>Contact and traveler details needed to deliver the service, accessibility and special requests, emergency contact only when required.</p>
+        <h5>Not shared publicly</h5>
+        <p>Travel documents, emergency contacts, private accessibility details, booking contact information.</p>
+        <p style="margin-top:12px" class="placeholder-note">Full retention and processing rules come from Delve Privacy Policy (backend authoritative).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 13 FORM STATES ═══════════════ -->
+  <section class="sec" id="s13">
+    <p class="sec__label"><span class="num">13</span> Form states</p>
+    <h2>Empty · incomplete · error · loading · success</h2>
+    <p class="sec__desc">Continue validates required fields for the active service branch. Error summary lists issues; fields expand to the first failing traveler.</p>
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant__bar">Empty / start</div>
+        <div class="variant__body">
+          <div class="field"><label>First name <span class="req">*</span></label><input placeholder=""/></div>
+          <div class="field"><label>Email <span class="req">*</span></label><input placeholder=""/></div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Field error</div>
+        <div class="variant__body">
+          <div class="field field--error">
+            <label>Email <span class="req">*</span></label>
+            <input value="amara@" aria-invalid="true" aria-describedby="email-err"/>
+            <p class="field__error" id="email-err" role="alert">Enter a valid email for booking updates</p>
+          </div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Error summary</div>
+        <div class="variant__body">
+          <div class="alert alert--err" role="alert">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <div><strong>Fix 3 items before continuing</strong><ul style="margin:6px 0 0;padding-left:16px;font-size:.75rem"><li>Enter a booking contact first name</li><li>Traveler 2: enter first and last name</li><li>Choose an accessibility assistance option</li></ul></div>
+          </div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Loading session</div>
+        <div class="variant__body">
+          <div class="skel" style="width:60%;margin-bottom:10px"></div>
+          <div class="skel" style="width:90%;margin-bottom:10px"></div>
+          <div class="skel" style="width:40%"></div>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Ready to continue</div>
+        <div class="variant__body">
+          <div class="alert alert--ok"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg><div>Required details complete for this service type.</div></div>
+          <button type="button" class="btn btn--primary btn--sm" style="margin-top:10px;width:100%">Continue to checkout</button>
+        </div>
+      </div>
+      <div class="variant">
+        <div class="variant__bar">Quote path</div>
+        <div class="variant__body">
+          <div class="alert alert--warn"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg><div>Details submitted with the quote request — not a confirmed booking.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 14 RESPONSIVE ═══════════════ -->
+  <section class="sec" id="s14">
+    <p class="sec__label"><span class="num">14</span> Responsive</p>
+    <h2>1440 · 1024 · 390 · light &amp; dark</h2>
+    <p class="sec__desc">Toggle the board theme to preview dark. Frames show layout: desktop sticky summary, tablet compact columns, mobile compact summary + sticky dual CTAs.</p>
+
+    <div class="frames">
+      <div class="frame-group">
+        <h3>Desktop 1440</h3>
+        <div class="frame-row">
+          <div class="device device--1440">
+            <div class="device__chrome"><span>1440 · light/dark via board toggle</span><span>Two-column</span></div>
+            <div class="device__screen">
+              <div class="mini-app">
+                <div class="mini-app__hdr">
+                  <button type="button" class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+                  <span class="bk-header__logo">DEL<span>VE</span></span>
+                  <span class="badge badge--brand">Travelers</span>
+                  <span class="bk-header__secure">Secure booking</span>
+                </div>
+                <div class="mini-app__body">
+                  <div class="mini-form">
+                    <h2>Traveler details</h2>
+                    <p class="sub">We only ask for what this booking needs.</p>
+                    <div class="mini-block">
+                      <h4>Booking contact</h4>
+                      <div class="field"><label>Email</label><input value="amara@example.com"/></div>
+                      <div class="field"><label>Phone</label><input value="+264 81 123 4567"/></div>
+                    </div>
+                    <div class="mini-block">
+                      <h4>Travelers</h4>
+                      <p style="margin:0;font-size:.8rem;color:var(--muted)">2 guests · Lead: Amara Shikongo</p>
+                    </div>
+                  </div>
+                  <aside class="mini-side summary">
+                    <div class="summary__body">
+                      <span class="summary__type">Stay</span>
+                      <h3>Dune View Lodge</h3>
+                      <p class="summary__meta">2–5 Aug · Deluxe double</p>
+                      <div class="price-total"><span>Due now</span><strong>N$2,168</strong></div>
+                      <button type="button" class="btn btn--primary btn--sm" style="width:100%;margin-top:10px">Continue to checkout</button>
+                      <button type="button" class="btn btn--ghost btn--sm" style="width:100%;margin-top:8px">Back to booking setup</button>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-group">
+        <h3>Tablet 1024</h3>
+        <div class="frame-row">
+          <div class="device device--1024">
+            <div class="device__chrome"><span>1024</span><span>Compact two-column</span></div>
+            <div class="device__screen">
+              <div class="mini-app mini-app--tablet">
+                <div class="mini-app__hdr">
+                  <button type="button" class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+                  <span class="bk-header__logo">DEL<span>VE</span></span>
+                  <span class="badge badge--brand">Travelers</span>
+                </div>
+                <div class="mini-app__body">
+                  <div class="mini-form">
+                    <h2>Traveler details</h2>
+                    <p class="sub">Airport transfer · flight number required</p>
+                    <div class="mini-block">
+                      <h4>Flight details</h4>
+                      <div class="field"><label>Flight number</label><input value="WW123"/></div>
+                    </div>
+                  </div>
+                  <aside class="mini-side summary">
+                    <div class="summary__body">
+                      <span class="summary__type">Transfer</span>
+                      <h3>Private sedan</h3>
+                      <div class="price-total"><span>Due now</span><strong>N$650</strong></div>
+                      <button type="button" class="btn btn--primary btn--sm" style="width:100%;margin-top:10px">Continue</button>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-group">
+        <h3>Mobile 390</h3>
+        <div class="frame-row">
+          <div class="device device--390">
+            <div class="device__chrome"><span>390</span><span>Sticky dual CTA</span></div>
+            <div class="device__screen">
+              <div class="mini-app mini-app--mobile">
+                <div class="mini-app__hdr">
+                  <button type="button" class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+                  <span class="bk-header__logo">DEL<span>VE</span></span>
+                </div>
+                <div class="mini-app__body">
+                  <div class="mini-mobile-sum">
+                    <div class="compact-sum">
+                      <div class="compact-sum__thumb"></div>
+                      <div><strong style="font-size:.8rem">WHK → WVB</strong><br/><span style="font-size:.68rem;color:var(--muted)">2 passengers · Doc ****4821</span></div>
+                      <div class="compact-sum__total">N$1,850</div>
+                    </div>
+                  </div>
+                  <div class="mini-form">
+                    <h2 style="font-size:1.15rem">Traveler details</h2>
+                    <p class="sub">Regional flight</p>
+                    <div class="mini-block">
+                      <h4>Emergency contact</h4>
+                      <div class="field"><label>Full name</label><input placeholder="Required"/></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mini-sticky sticky-cta" style="border-radius:0;border-left:0;border-right:0;border-bottom:0">
+                  <button type="button" class="btn btn--ghost">Back</button>
+                  <button type="button" class="btn btn--primary">Continue to checkout</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 15 PROTOTYPE ═══════════════ -->
+  <section class="sec" id="s15">
+    <p class="sec__label"><span class="num">15</span> Clickable prototype</p>
+    <h2>Ten adaptive branches</h2>
+    <p class="sec__desc">Switch service type to reveal the right extras. Fill contact, choose accessibility, continue validates, or go back to booking setup. Theme toggle is in the board nav.</p>
+
+    <div class="proto-tabs" role="tablist" aria-label="Service branches">
+      <button type="button" class="proto-tab is-active" data-branch="stay" role="tab" aria-selected="true">Accommodation</button>
+      <button type="button" class="proto-tab" data-branch="activity" role="tab">Activity</button>
+      <button type="button" class="proto-tab" data-branch="event" role="tab">Event</button>
+      <button type="button" class="proto-tab" data-branch="car" role="tab">Car rental</button>
+      <button type="button" class="proto-tab" data-branch="ride" role="tab">Community ride</button>
+      <button type="button" class="proto-tab" data-branch="bus" role="tab">Bus</button>
+      <button type="button" class="proto-tab" data-branch="transfer" role="tab">Airport transfer</button>
+      <button type="button" class="proto-tab" data-branch="flight" role="tab">Regional flight</button>
+      <button type="button" class="proto-tab" data-branch="ferry" role="tab">Ferry</button>
+      <button type="button" class="proto-tab" data-branch="charter" role="tab">Charter request</button>
+    </div>
+
+    <div class="proto-stage">
+      <div class="proto-main">
+        <div class="bk-header" style="margin-bottom:14px">
+          <button type="button" class="icon-btn" id="protoBack" aria-label="Back to booking setup"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+          <span class="bk-header__logo">DEL<span>VE</span></span>
+          <span class="badge badge--brand" id="protoStepBadge">Step 2 of 5 · Travelers</span>
+          <span class="bk-header__secure">Secure booking</span>
+          <button type="button" class="text-btn">Save &amp; exit</button>
+        </div>
+
+        <div id="protoError" class="alert alert--err" role="alert" style="display:none;margin-bottom:14px">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <div><strong id="protoErrorTitle">Fix items before continuing</strong><ul id="protoErrorList" style="margin:6px 0 0;padding-left:16px;font-size:.75rem"></ul></div>
+        </div>
+
+        <div class="proto-flow" id="protoForm">
+          <div>
+            <h3 class="display" style="margin:0;font-size:1.45rem">Traveler details</h3>
+            <p style="margin:4px 0 0;color:var(--muted);font-size:.85rem" id="protoSubtitle">We only ask for what this booking needs.</p>
+          </div>
+
+          <div class="panel" style="padding:14px">
+            <p class="panel__title" style="margin-bottom:8px">Who is traveling?</p>
+            <div class="choice-grid" id="bookingForGroup">
+              <button type="button" class="choice is-selected" data-booking-for="myself"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> I am traveling</button>
+              <button type="button" class="choice" data-booking-for="else"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> Booking for someone else</button>
+            </div>
+          </div>
+
+          <div class="panel" style="padding:14px">
+            <p class="panel__title">Booking contact</p>
+            <label class="check-row" id="accountPrefillRow" style="margin-bottom:12px">
+              <input type="checkbox" id="useAccount"/>
+              <span>Use my Delve account details (review before applying)</span>
+            </label>
+            <div class="grid-2">
+              <div class="field" id="fContactFirst"><label for="pFirst">First name <span class="req">*</span></label><input id="pFirst" autocomplete="given-name"/></div>
+              <div class="field" id="fContactLast"><label for="pLast">Last name <span class="req">*</span></label><input id="pLast" autocomplete="family-name"/></div>
+              <div class="field" id="fContactEmail"><label for="pEmail">Email <span class="req">*</span></label><p class="field__hint">We send booking updates here.</p><input id="pEmail" type="email" autocomplete="email"/></div>
+              <div class="field" id="fContactPhone"><label for="pPhone">Phone <span class="req">*</span></label><p class="field__hint">For urgent schedule or pickup changes.</p>
+                <div class="phone-row"><select aria-label="Dial code"><option>+264</option><option>+27</option></select><input id="pPhone" inputmode="tel"/></div>
+              </div>
+            </div>
+            <p class="placeholder-note">Marketing preferences are not collected here.</p>
+          </div>
+
+          <div class="panel" style="padding:14px">
+            <p class="panel__title">Travelers</p>
+            <div class="alert alert--info branch-docs" style="display:none;margin-bottom:10px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div>Enter each name exactly as it appears on the travel document.</div></div>
+            <div class="traveler-card is-open" id="t1Card">
+              <button type="button" class="traveler-card__head" data-toggle-traveler="t1">
+                <span class="traveler-card__avatar">1</span>
+                <span class="traveler-card__body"><strong id="t1Label">Traveler 1 <span class="lead-tag">Lead</span></strong><span>Adult</span></span>
+                <span class="badge badge--warn" id="t1Badge">In progress</span>
+              </button>
+              <div class="traveler-card__panel">
+                <div class="grid-2">
+                  <div class="field"><label for="t1First">First name <span class="req">*</span></label><input id="t1First"/></div>
+                  <div class="field"><label for="t1Last">Last name <span class="req">*</span></label><input id="t1Last"/></div>
+                  <div class="field branch-dob" style="display:none"><label for="t1Dob">Date of birth</label><input id="t1Dob" type="date"/></div>
+                  <div class="field branch-docs" style="display:none"><label for="t1Nat">Nationality <span class="req">*</span></label><input id="t1Nat"/></div>
+                  <div class="field branch-docs" style="display:none"><label for="t1Doc">Document number <span class="req">*</span></label><input id="t1Doc" autocomplete="off"/></div>
+                  <div class="field branch-docs" style="display:none"><label for="t1Exp">Document expiration <span class="req">*</span></label><input id="t1Exp" type="date"/></div>
+                </div>
+              </div>
+            </div>
+            <div class="traveler-card" id="t2Card" style="margin-top:8px">
+              <button type="button" class="traveler-card__head" data-toggle-traveler="t2">
+                <span class="traveler-card__avatar">2</span>
+                <span class="traveler-card__body"><strong id="t2Label">Traveler 2</strong><span>Adult</span></span>
+                <span class="badge badge--warn" id="t2Badge">In progress</span>
+              </button>
+              <div class="traveler-card__panel">
+                <div class="grid-2">
+                  <div class="field"><label for="t2First">First name <span class="req">*</span></label><input id="t2First"/></div>
+                  <div class="field"><label for="t2Last">Last name <span class="req">*</span></label><input id="t2Last"/></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel branch-stay" style="padding:14px;display:none">
+            <p class="panel__title">Stay details</p>
+            <div class="field"><label for="pArrival">Estimated arrival time <span class="opt">(optional)</span></label><p class="field__hint">Helps the property prepare. Not a guaranteed check-in slot.</p><input id="pArrival" placeholder="e.g. After 15:00"/></div>
+          </div>
+
+          <div class="panel branch-driver" style="padding:14px;display:none">
+            <p class="panel__title">Main driver</p>
+            <p class="field__hint" style="margin-bottom:8px">Licence details are checked at pickup. Delve does not claim legal verification of uploads in this prototype.</p>
+            <div class="field" id="fLicence"><label for="pLicence">Driving licence number <span class="req">*</span></label><input id="pLicence" autocomplete="off"/></div>
+          </div>
+
+          <div class="panel branch-flight-meta" style="padding:14px;display:none">
+            <p class="panel__title">Flight details</p>
+            <div class="field" id="fFlight"><label for="pFlight">Flight number <span class="req">*</span></label><p class="field__hint">Shared with the assigned driver for pickup timing.</p><input id="pFlight" placeholder="e.g. WW123"/></div>
+          </div>
+
+          <div class="panel branch-dietary" style="padding:14px;display:none">
+            <p class="panel__title">Dietary needs</p>
+            <p class="field__hint" style="margin-bottom:8px">Does not guarantee an allergen-free environment unless the provider confirms it.</p>
+            <div class="pill-toggle" data-pills>
+              <button type="button" class="pill">Vegetarian</button>
+              <button type="button" class="pill">Vegan</button>
+              <button type="button" class="pill">Halal</button>
+              <button type="button" class="pill">Gluten-free</button>
+              <button type="button" class="pill">Prefer to discuss</button>
+            </div>
+          </div>
+
+          <div class="panel" style="padding:14px">
+            <p class="panel__title">Accessibility assistance</p>
+            <p class="field__hint" style="margin-bottom:8px">Used only to arrange assistance for this booking. A medical diagnosis is not required.</p>
+            <div class="choice-stack" id="accessGroup">
+              <button type="button" class="choice" data-access="none">No assistance needed</button>
+              <button type="button" class="choice" data-access="yes">Yes, select assistance</button>
+              <button type="button" class="choice" data-access="discuss">Prefer to discuss with the provider</button>
+            </div>
+            <div class="field" id="assistNotesWrap" style="display:none;margin-top:12px">
+              <label for="pAssist">Assistance details</label>
+              <textarea id="pAssist" rows="2" placeholder="Describe the assistance you need"></textarea>
+            </div>
+          </div>
+
+          <div class="panel" style="padding:14px">
+            <p class="panel__title">Special requests</p>
+            <p class="field__hint" style="margin-bottom:8px">Not guaranteed until confirmed. Do not enter card numbers, passwords, or OTPs.</p>
+            <textarea id="pSpecial" rows="3" maxlength="400" placeholder="Arrival notes, seating preference…"></textarea>
+            <p class="char-count"><span id="pSpecialCount">400</span> characters remaining</p>
+            <div class="alert alert--err" id="pSpecialWarn" style="display:none;margin-top:8px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><div>Remove payment or password details from this field.</div></div>
+          </div>
+
+          <div class="panel branch-emergency" style="padding:14px;display:none">
+            <p class="panel__title">Emergency contact</p>
+            <p class="field__hint" style="margin-bottom:8px">Required for this service type. Safety only — not marketing.</p>
+            <div class="grid-2">
+              <div class="field" id="fEmName"><label for="pEmName">Full name <span class="req">*</span></label><input id="pEmName"/></div>
+              <div class="field" id="fEmRel"><label for="pEmRel">Relationship <span class="req">*</span></label><input id="pEmRel"/></div>
+              <div class="field" id="fEmPhone"><label for="pEmPhone">Phone <span class="req">*</span></label><input id="pEmPhone" inputmode="tel"/></div>
+            </div>
+          </div>
+
+          <div class="alert alert--warn branch-quote" style="display:none"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg><div>This is part of a quote request. Submitting details does not confirm the service until the provider accepts.</div></div>
+
+          <div class="privacy-panel" id="protoPrivacy">
+            <button type="button" class="privacy-panel__btn" id="protoPrivacyBtn" aria-expanded="false">
+              <span>Privacy summary</span><span aria-hidden="true">▸</span>
+            </button>
+            <div class="privacy-panel__body">
+              <h5>Used by Delve</h5><p>Account and booking management, support, safety.</p>
+              <h5>Shared with the provider</h5><p>Contact and traveler details needed to deliver the service.</p>
+              <h5>Not shared publicly</h5><p>Travel documents, emergency contacts, private accessibility details.</p>
+            </div>
+          </div>
+
+          <div class="proto-actions">
+            <button type="button" class="btn btn--ghost" id="protoBackBtn">Back to booking setup</button>
+            <button type="button" class="btn btn--primary" id="protoContinue">Continue to checkout</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="bk-summary-col">
+        <div class="summary" id="protoSummary">
+          <div class="summary__media" id="protoMedia" role="img" aria-label="Listing placeholder"></div>
+          <div class="summary__body">
+            <span class="summary__type" id="protoType">Stay</span>
+            <h3 id="protoTitle">Dune View Lodge</h3>
+            <p class="summary__meta" id="protoMeta">2–5 Aug · 2 guests</p>
+            <dl style="margin:12px 0 0;font-size:.82rem">
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><dt style="color:var(--muted)">Travelers</dt><dd id="protoTravCount">2</dd></div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><dt style="color:var(--muted)">Documents</dt><dd id="protoDocMask">—</dd></div>
+            </dl>
+            <div class="price-total"><span id="protoDueLabel">Due now</span><strong id="protoTotal">N$2,168<span class="example-tag">Ex.</span></strong></div>
+            <button type="button" class="btn btn--primary" style="width:100%;margin-top:12px" id="protoContinueSide">Continue to checkout</button>
+            <button type="button" class="btn btn--ghost btn--sm" style="width:100%;margin-top:8px" id="protoBackSide">Back to booking setup</button>
+            <p class="placeholder-note" style="margin-top:10px">Edit Booking Setup returns to step 1. Example figures only.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ═══════════════ 16 HANDOFF ═══════════════ -->
+  <section class="sec" id="s16">
+    <p class="sec__label"><span class="num">16</span> Backend handoff</p>
+    <h2>TravelerDetails payload · fields only</h2>
+    <p class="sec__desc"><strong>Backend is authoritative</strong> for required-field rules, document types, retention, and who may view sensitive data. UI must not invent legal requirements.</p>
+
+    <div class="auth-banner">Document and emergency requirements are configuration-driven per <code>serviceType</code>. Mask document numbers in any summary surfaces (<code>****4821</code>).</div>
+
+    <div class="grid-2">
+      <div class="panel" style="overflow:auto">
+        <p class="panel__title">ContactPayload</p>
+        <table class="contract">
+          <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>bookingFor</code></td><td>myself | someone_else</td></tr>
+            <tr><td><code>firstName</code> / <code>lastName</code></td><td>Required</td></tr>
+            <tr><td><code>email</code></td><td>Required · booking updates</td></tr>
+            <tr><td><code>phone</code> / <code>dialCode</code></td><td>Required · urgent contact</td></tr>
+            <tr><td><code>usedAccountPrefill</code></td><td>boolean · audit only</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel" style="overflow:auto">
+        <p class="panel__title">Traveler[]</p>
+        <table class="contract">
+          <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>Client temp or server id</td></tr>
+            <tr><td><code>category</code></td><td>adult | child | infant</td></tr>
+            <tr><td><code>firstName</code> / <code>lastName</code></td><td>Required</td></tr>
+            <tr><td><code>isLead</code></td><td>One adult lead required</td></tr>
+            <tr><td><code>dateOfBirth?</code></td><td>When docs / age rules need it</td></tr>
+            <tr><td><code>nationality?</code></td><td>When docs required</td></tr>
+            <tr><td><code>documentNumber?</code></td><td>Encrypted at rest · mask in UI</td></tr>
+            <tr><td><code>documentExpiry?</code></td><td>ISO date</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel" style="overflow:auto">
+        <p class="panel__title">ServiceExtras</p>
+        <table class="contract">
+          <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>arrivalTime?</code></td><td>Stay only · optional</td></tr>
+            <tr><td><code>driverLicenceNumber?</code></td><td>Vehicle rental</td></tr>
+            <tr><td><code>flightNumber?</code></td><td>Airport transfer</td></tr>
+            <tr><td><code>dietary[]?</code></td><td>Stay / activity / food</td></tr>
+            <tr><td><code>assistance</code></td><td>none | yes | discuss</td></tr>
+            <tr><td><code>assistanceNotes?</code></td><td>Free text · no diagnosis required</td></tr>
+            <tr><td><code>specialRequest?</code></td><td>Max length · reject payment patterns</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel" style="overflow:auto">
+        <p class="panel__title">Emergency · Consent</p>
+        <table class="contract">
+          <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>emergency.name/phone/relation</code></td><td>When service requires</td></tr>
+            <tr><td><code>saveProfile</code></td><td>Optional · default false</td></tr>
+            <tr><td><code>marketingOptIn</code></td><td><strong>Must not</strong> be collected on this step</td></tr>
+            <tr><td><code>privacyAcknowledged</code></td><td>Summary viewed / continued</td></tr>
+            <tr><td><code>sessionId</code></td><td>Links to Booking Setup selection</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <p class="panel__title">Accessibility annotations</p>
+      <ul class="a11y-list">
+        <li>All controls labeled; 44px minimum targets on choices, CTAs, accordion headers.</li>
+        <li>Visible <code>:focus-visible</code> ring using focus token (light brand / dark #C7ACFF).</li>
+        <li>Error summary at top when Continue blocked; associate fields with <code>aria-describedby</code> / <code>aria-invalid</code>.</li>
+        <li>Live region announces validation, branch switches, and continue/back actions.</li>
+        <li>Document numbers masked in summaries; full values only in secure form fields.</li>
+        <li>Accessibility language is respectful — assistance options, no diagnosis forcing.</li>
+        <li><code>prefers-reduced-motion</code> disables non-essential motion.</li>
+        <li>Contrast: primary button on light uses #5F2FC9; dark mode primary #8C52FF on dark stone.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer style="margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:.78rem;color:var(--muted)">
+    Delve Traveler · 37 Traveler Details design board · Illustrative figures only · Backend authoritative · Continues from 36 Booking Setup
+  </footer>
+</main>
+
+<div class="dialog-backdrop" id="checkoutDialog" role="dialog" aria-modal="true" aria-labelledby="checkoutDlgTitle">
+  <div class="dialog">
+    <h3 id="checkoutDlgTitle">Continue to checkout</h3>
+    <p>Traveler details validated for this prototype branch. Checkout and payment are separate steps (next boards).</p>
+    <div class="dialog__actions">
+      <button type="button" class="btn btn--ghost btn--sm" data-close-dialog>Stay here</button>
+      <button type="button" class="btn btn--primary btn--sm" data-close-dialog>Got it</button>
+    </div>
+  </div>
+</div>
+<div class="dialog-backdrop" id="backDialog" role="dialog" aria-modal="true" aria-labelledby="backDlgTitle">
+  <div class="dialog">
+    <h3 id="backDlgTitle">Back to booking setup</h3>
+    <p>Returns to step 1 (Booking Setup). Traveler draft can be retained in session — backend authoritative.</p>
+    <div class="dialog__actions">
+      <button type="button" class="btn btn--ghost btn--sm" data-close-dialog>Cancel</button>
+      <button type="button" class="btn btn--primary btn--sm" data-close-dialog>Return to setup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.documentElement;
+  const themeBtn = document.getElementById('themeToggle');
+  const themeLabel = document.getElementById('themeLabel');
+  const live = document.getElementById('liveRegion');
+
+  function announce(msg) {
+    if (live) live.textContent = msg;
+  }
+
+  function setTheme(mode) {
+    root.setAttribute('data-theme', mode);
+    themeBtn.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+    themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+    try { localStorage.setItem('delve-td-theme', mode); } catch (_) {}
+  }
+  try {
+    const saved = localStorage.getItem('delve-td-theme') || localStorage.getItem('delve-bk-theme');
+    if (saved === 'dark' || saved === 'light') setTheme(saved);
+  } catch (_) {}
+  themeBtn.addEventListener('click', () => {
+    setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    announce('Theme ' + root.getAttribute('data-theme'));
+  });
+
+  /* Demo pills / access / privacy */
+  document.querySelectorAll('[data-pills]').forEach(group => {
+    group.addEventListener('click', e => {
+      const pill = e.target.closest('.pill');
+      if (!pill) return;
+      pill.classList.toggle('is-on');
+    });
+  });
+  document.querySelectorAll('[data-access-demo]').forEach(group => {
+    group.addEventListener('click', e => {
+      const btn = e.target.closest('.choice');
+      if (!btn) return;
+      group.querySelectorAll('.choice').forEach(c => c.classList.remove('is-selected'));
+      btn.classList.add('is-selected');
+    });
+  });
+  document.querySelectorAll('[data-demo-choice]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.querySelectorAll('.choice').forEach(c => c.classList.remove('is-selected'));
+      btn.classList.add('is-selected');
+    });
+  });
+
+  const privacyDemo = document.getElementById('privacyDemo');
+  const privacyToggle = document.getElementById('privacyToggle');
+  if (privacyToggle) {
+    privacyToggle.addEventListener('click', () => {
+      const open = !privacyDemo.classList.contains('is-open');
+      privacyDemo.classList.toggle('is-open', open);
+      privacyToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
+  const specialDemo = document.getElementById('specialDemo');
+  const specialCount = document.getElementById('specialCount');
+  const specialWarn = document.getElementById('specialWarn');
+  if (specialDemo) {
+    const syncSpecial = () => {
+      specialCount.textContent = String(400 - specialDemo.value.length);
+      const bad = /card|cvv|password|otp|iban|account number/i.test(specialDemo.value);
+      specialWarn.style.display = bad ? 'flex' : 'none';
+    };
+    specialDemo.addEventListener('input', syncSpecial);
+    syncSpecial();
+  }
+
+  /* Branch config */
+  const branchMeta = {
+    stay: {
+      type: 'Stay', title: 'Dune View Lodge', meta: '2–5 Aug · Deluxe double', total: 'N$2,168',
+      media: 'linear-gradient(135deg,#c9bba8,#5a4a78)',
+      docs: false, dob: false, driver: false, flightMeta: false, stay: true, dietary: true, emergency: false, quote: false
+    },
+    activity: {
+      type: 'Activity', title: 'Sossusvlei sunrise', meta: '12 Aug · Standard', total: 'N$1,200',
+      media: 'linear-gradient(135deg,#d4c4a8,#6a5a48 40%,#4a6a78)',
+      docs: false, dob: true, driver: false, flightMeta: false, stay: false, dietary: true, emergency: true, quote: false
+    },
+    event: {
+      type: 'Event', title: 'Desert Jazz Night', meta: '2 tickets · A2–A3', total: 'N$700',
+      media: 'linear-gradient(135deg,#2a2438,#8C52FF55)',
+      docs: false, dob: false, driver: false, flightMeta: false, stay: false, dietary: false, emergency: false, quote: false
+    },
+    car: {
+      type: 'Car rental', title: 'Corolla Cross', meta: '3 days · deposit separate', total: 'N$2,670',
+      media: 'linear-gradient(145deg,#b8c4c8,#3d4a6b)',
+      docs: false, dob: true, driver: true, flightMeta: false, stay: false, dietary: false, emergency: false, quote: false
+    },
+    ride: {
+      type: 'Community ride', title: 'WHK → Swakop', meta: '1 seat · contribution', total: 'N$350',
+      media: 'linear-gradient(145deg,#c4b5a0,#6a5a48)',
+      docs: false, dob: false, driver: false, flightMeta: false, stay: false, dietary: false, emergency: true, quote: false
+    },
+    bus: {
+      type: 'Bus', title: 'Intercape WHK–SWP', meta: 'Seat 2 · 07:30 CAT', total: 'N$280',
+      media: 'linear-gradient(145deg,#a8b4c0,#4a5a6b)',
+      docs: true, dob: true, driver: false, flightMeta: false, stay: false, dietary: false, emergency: false, quote: false
+    },
+    transfer: {
+      type: 'Transfer', title: 'Airport → city', meta: 'Private sedan', total: 'N$650',
+      media: 'linear-gradient(145deg,#c8d0d8,#5a6a78)',
+      docs: false, dob: false, driver: false, flightMeta: true, stay: false, dietary: false, emergency: false, quote: false
+    },
+    flight: {
+      type: 'Flight', title: 'WHK → WVB', meta: '07:15 CAT', total: 'N$1,850',
+      media: 'linear-gradient(145deg,#c8d4e0,#4a5a78)',
+      docs: true, dob: true, driver: false, flightMeta: false, stay: false, dietary: false, emergency: true, quote: false
+    },
+    ferry: {
+      type: 'Ferry', title: 'Harbour ferry', meta: '09:00 · weather-dependent', total: 'N$180',
+      media: 'linear-gradient(145deg,#9ec5d4,#2a4a68)',
+      docs: true, dob: true, driver: false, flightMeta: false, stay: false, dietary: false, emergency: true, quote: false
+    },
+    charter: {
+      type: 'Charter', title: 'Air taxi request', meta: 'Quote pending', total: 'Pending',
+      media: 'linear-gradient(145deg,#d0c8e0,#5a4a78)',
+      docs: false, dob: false, driver: false, flightMeta: false, stay: false, dietary: false, emergency: true, quote: true
+    }
+  };
+
+  let currentBranch = 'stay';
+  let assistance = null;
+
+  function showBranch(key) {
+    currentBranch = key;
+    const m = branchMeta[key];
+    document.getElementById('protoType').textContent = m.type;
+    document.getElementById('protoTitle').textContent = m.title;
+    document.getElementById('protoMeta').textContent = m.meta;
+    document.getElementById('protoTotal').innerHTML = m.total === 'Pending' ? 'Pending' : m.total + '<span class="example-tag">Ex.</span>';
+    document.getElementById('protoMedia').style.background = m.media;
+    document.getElementById('protoDueLabel').textContent = key === 'charter' ? 'Quote' : 'Due now';
+    document.getElementById('protoSubtitle').textContent = m.type + ' · we only ask for what this booking needs.';
+    document.getElementById('protoDocMask').textContent = m.docs ? '****4821 (when entered)' : '—';
+
+    document.querySelectorAll('.branch-docs').forEach(el => { el.style.display = m.docs ? '' : 'none'; });
+    document.querySelectorAll('.branch-dob').forEach(el => { el.style.display = m.dob ? '' : 'none'; });
+    document.querySelectorAll('.branch-driver').forEach(el => { el.style.display = m.driver ? '' : 'none'; });
+    document.querySelectorAll('.branch-flight-meta').forEach(el => { el.style.display = m.flightMeta ? '' : 'none'; });
+    document.querySelectorAll('.branch-stay').forEach(el => { el.style.display = m.stay ? '' : 'none'; });
+    document.querySelectorAll('.branch-dietary').forEach(el => { el.style.display = m.dietary ? '' : 'none'; });
+    document.querySelectorAll('.branch-emergency').forEach(el => { el.style.display = m.emergency ? '' : 'none'; });
+    document.querySelectorAll('.branch-quote').forEach(el => { el.style.display = m.quote ? 'flex' : 'none'; });
+
+    document.getElementById('protoError').style.display = 'none';
+    announce(m.type + ' traveler details. Adaptive fields updated.');
+  }
+
+  document.querySelectorAll('.proto-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.proto-tab').forEach(t => {
+        t.classList.toggle('is-active', t === tab);
+        t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+      });
+      showBranch(tab.dataset.branch);
+    });
+  });
+
+  /* Booking for */
+  document.getElementById('bookingForGroup').addEventListener('click', e => {
+    const btn = e.target.closest('[data-booking-for]');
+    if (!btn) return;
+    document.querySelectorAll('#bookingForGroup .choice').forEach(c => c.classList.remove('is-selected'));
+    btn.classList.add('is-selected');
+    const myself = btn.dataset.bookingFor === 'myself';
+    document.getElementById('accountPrefillRow').style.display = myself ? 'flex' : 'none';
+    if (!myself) document.getElementById('useAccount').checked = false;
+  });
+
+  document.getElementById('useAccount').addEventListener('change', e => {
+    if (!e.target.checked) return;
+    document.getElementById('pFirst').value = 'Amara';
+    document.getElementById('pLast').value = 'Shikongo';
+    document.getElementById('pEmail').value = 'amara@example.com';
+    document.getElementById('pPhone').value = '81 123 4567';
+    document.getElementById('t1First').value = 'Amara';
+    document.getElementById('t1Last').value = 'Shikongo';
+    updateTravelerLabels();
+    announce('Account details applied for review. Confirm they are correct before continuing.');
+  });
+
+  /* Accessibility */
+  document.getElementById('accessGroup').addEventListener('click', e => {
+    const btn = e.target.closest('[data-access]');
+    if (!btn) return;
+    document.querySelectorAll('#accessGroup .choice').forEach(c => c.classList.remove('is-selected'));
+    btn.classList.add('is-selected');
+    assistance = btn.dataset.access;
+    document.getElementById('assistNotesWrap').style.display = assistance === 'yes' ? '' : 'none';
+  });
+
+  /* Traveler accordion */
+  document.querySelectorAll('[data-toggle-traveler]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.toggleTraveler;
+      const card = document.getElementById(id + 'Card');
+      card.classList.toggle('is-open');
+    });
+  });
+
+  function updateTravelerLabels() {
+    const n1 = (document.getElementById('t1First').value + ' ' + document.getElementById('t1Last').value).trim();
+    const n2 = (document.getElementById('t2First').value + ' ' + document.getElementById('t2Last').value).trim();
+    document.getElementById('t1Label').innerHTML = (n1 || 'Traveler 1') + ' <span class="lead-tag">Lead</span>';
+    document.getElementById('t2Label').textContent = n2 || 'Traveler 2';
+    const ok1 = document.getElementById('t1First').value.trim() && document.getElementById('t1Last').value.trim();
+    const ok2 = document.getElementById('t2First').value.trim() && document.getElementById('t2Last').value.trim();
+    const b1 = document.getElementById('t1Badge');
+    const b2 = document.getElementById('t2Badge');
+    b1.textContent = ok1 ? 'Complete' : 'In progress';
+    b1.className = 'badge ' + (ok1 ? 'badge--ok' : 'badge--warn');
+    b2.textContent = ok2 ? 'Complete' : 'In progress';
+    b2.className = 'badge ' + (ok2 ? 'badge--ok' : 'badge--warn');
+    const doc = document.getElementById('t1Doc').value.trim();
+    if (branchMeta[currentBranch].docs && doc) {
+      document.getElementById('protoDocMask').textContent = '****' + doc.slice(-4);
+    }
+  }
+  ['t1First','t1Last','t2First','t2Last','t1Doc'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateTravelerLabels);
+  });
+
+  const pSpecial = document.getElementById('pSpecial');
+  const pSpecialCount = document.getElementById('pSpecialCount');
+  const pSpecialWarn = document.getElementById('pSpecialWarn');
+  pSpecial.addEventListener('input', () => {
+    pSpecialCount.textContent = String(400 - pSpecial.value.length);
+    pSpecialWarn.style.display = /card|cvv|password|otp|iban|account number/i.test(pSpecial.value) ? 'flex' : 'none';
+  });
+
+  document.getElementById('protoPrivacyBtn').addEventListener('click', () => {
+    const panel = document.getElementById('protoPrivacy');
+    const open = !panel.classList.contains('is-open');
+    panel.classList.toggle('is-open', open);
+    document.getElementById('protoPrivacyBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.getElementById('protoPrivacyBtn').querySelector('span:last-child').textContent = open ? '▾' : '▸';
+  });
+
+  function validate() {
+    const m = branchMeta[currentBranch];
+    const errors = [];
+    const mark = (el, bad) => { if (el) el.classList.toggle('field--error', bad); };
+
+    const first = document.getElementById('pFirst').value.trim();
+    const last = document.getElementById('pLast').value.trim();
+    const email = document.getElementById('pEmail').value.trim();
+    const phone = document.getElementById('pPhone').value.trim();
+    mark(document.getElementById('fContactFirst'), !first);
+    mark(document.getElementById('fContactLast'), !last);
+    mark(document.getElementById('fContactEmail'), !email || !email.includes('@'));
+    mark(document.getElementById('fContactPhone'), !phone);
+    if (!first) errors.push('Enter a booking contact first name');
+    if (!last) errors.push('Enter a booking contact last name');
+    if (!email || !email.includes('@')) errors.push('Enter a valid email for booking updates');
+    if (!phone) errors.push('Enter a phone number for urgent updates');
+
+    if (!document.getElementById('t1First').value.trim() || !document.getElementById('t1Last').value.trim()) {
+      errors.push('Traveler 1: enter first and last name');
+      document.getElementById('t1Card').classList.add('is-open');
+    }
+    if (!document.getElementById('t2First').value.trim() || !document.getElementById('t2Last').value.trim()) {
+      errors.push('Traveler 2: enter first and last name');
+      document.getElementById('t2Card').classList.add('is-open');
+    }
+    if (m.docs) {
+      if (!document.getElementById('t1Doc').value.trim() || !document.getElementById('t1Exp').value) {
+        errors.push('Traveler 1: travel document details are required for this service');
+        document.getElementById('t1Card').classList.add('is-open');
+      }
+    }
+    if (m.driver && !document.getElementById('pLicence').value.trim()) {
+      errors.push('Main driver licence number is required for car rental');
+      mark(document.getElementById('fLicence'), true);
+    } else mark(document.getElementById('fLicence'), false);
+    if (m.flightMeta && !document.getElementById('pFlight').value.trim()) {
+      errors.push('Flight number helps the provider monitor arrival');
+      mark(document.getElementById('fFlight'), true);
+    } else mark(document.getElementById('fFlight'), false);
+    if (m.emergency) {
+      const en = !document.getElementById('pEmName').value.trim();
+      const er = !document.getElementById('pEmRel').value.trim();
+      const ep = !document.getElementById('pEmPhone').value.trim();
+      mark(document.getElementById('fEmName'), en);
+      mark(document.getElementById('fEmRel'), er);
+      mark(document.getElementById('fEmPhone'), ep);
+      if (en || er || ep) errors.push('Emergency contact is required for this service type');
+    }
+    if (assistance === null) errors.push('Choose an accessibility assistance option');
+    if (/card|cvv|password|otp|iban|account number/i.test(pSpecial.value)) {
+      errors.push('Do not enter payment or password details in special requests');
+    }
+    return errors;
+  }
+
+  function continueCheckout() {
+    const errors = validate();
+    const box = document.getElementById('protoError');
+    const list = document.getElementById('protoErrorList');
+    if (errors.length) {
+      box.style.display = 'flex';
+      document.getElementById('protoErrorTitle').textContent = 'Fix ' + errors.length + ' item' + (errors.length === 1 ? '' : 's') + ' before continuing';
+      list.innerHTML = errors.slice(0, 5).map(e => '<li>' + e + '</li>').join('');
+      announce(errors[0]);
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    box.style.display = 'none';
+    document.getElementById('checkoutDialog').classList.add('is-open');
+    announce('Traveler details complete. Continuing to checkout.');
+  }
+
+  function backToSetup() {
+    document.getElementById('backDialog').classList.add('is-open');
+    announce('Back to booking setup.');
+  }
+
+  document.getElementById('protoContinue').addEventListener('click', continueCheckout);
+  document.getElementById('protoContinueSide').addEventListener('click', continueCheckout);
+  document.getElementById('protoBack').addEventListener('click', backToSetup);
+  document.getElementById('protoBackBtn').addEventListener('click', backToSetup);
+  document.getElementById('protoBackSide').addEventListener('click', backToSetup);
+
+  function closeDialogs() {
+    document.querySelectorAll('.dialog-backdrop').forEach(d => d.classList.remove('is-open'));
+  }
+  document.querySelectorAll('[data-close-dialog]').forEach(b => b.addEventListener('click', closeDialogs));
+  document.querySelectorAll('.dialog-backdrop').forEach(bd => {
+    bd.addEventListener('click', e => { if (e.target === bd) closeDialogs(); });
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDialogs(); });
+
+  showBranch('stay');
+})();
+</script>
+</body>
+</html>

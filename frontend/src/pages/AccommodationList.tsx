@@ -39,7 +39,6 @@ import {
 import { ExploreResultsMap } from '../components/explore/ExploreResultsMap'
 import { CommunityComposeModalShell } from '../components/community/CommunityComposeModalShell'
 import { FEATURED_API, useFeaturedPlacement } from '../hooks/useFeaturedPlacement'
-import { HostHighlightsRow } from '../components/HostHighlightsRow'
 import { partnerBadgeFields } from '../utils/featuredPartner'
 import { promotionHref, trackPromotion } from '../utils/promotionTrack'
 import { listingHasActiveDeals } from '../components/deals'
@@ -875,8 +874,6 @@ export function AccommodationList() {
           </div>
         </section>
       ) : null}
-
-      {showDiscovery ? <HostHighlightsRow /> : null}
 
       <div className="st-market__results-bar">
         <p className="st-market__count" aria-live="polite">

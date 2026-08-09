@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>61–75 Messages &amp; Safety — Delve</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#F4F1EA; --surface:#fff; --fg:#1A1814; --muted:#6F695F; --border:#DDD6CA; --primary:#5F2FC9; }
+    body { margin:0; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--fg); }
+    h1,h2 { font-family:Syne,sans-serif; }
+    .wrap { max-width:960px; margin:0 auto; padding:32px 20px 80px; }
+    .chip { display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(140,82,255,.12); color:var(--primary); font-size:12px; font-weight:600; }
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); margin-top:20px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; }
+    ul { margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:14px; line-height:1.5; }
+    code { font-size:12px; background:#FAF8F4; padding:2px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="chip">61–75 Messages &amp; Safety Handoff</p>
+    <h1>Context-aware messaging with safety tools</h1>
+    <p style="color:var(--muted)">Implemented under <code>src/pages/messages/</code>. Desktop split inbox + thread; mobile full-screen routes. No E2E encryption claims.</p>
+    <div class="grid">
+      <div class="card"><h2>Inbox</h2><ul><li>All filters including Requests</li><li>Search + offline banner</li><li>Safety Center entry</li></ul></div>
+      <div class="card"><h2>Conversation types</h2><ul><li>Personal, Journey, Community</li><li>Business &amp; Transport</li><li>Support + Requests</li></ul></div>
+      <div class="card"><h2>Composer</h2><ul><li>Text, attach, location, share cards</li><li>Reply + delivery states</li><li>Offline queue</li></ul></div>
+      <div class="card"><h2>Safety</h2><ul><li>Block / Report / Mute</li><li>Spam warning</li><li>Immediate safety + cases</li></ul></div>
+    </div>
+  </div>
+</body>
+</html>

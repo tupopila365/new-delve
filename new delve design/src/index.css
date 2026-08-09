@@ -1,0 +1,443 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-brand: #8C52FF;
+  --color-brand-deep: #5F2FC9;
+  --color-brand-soft: #C7ACFF;
+
+  /* Light theme */
+  --color-canvas: #F4F1EA;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #FAF8F4;
+  --color-text-primary: #1A1814;
+  --color-text-muted: #6F695F;
+  --color-border: #DDD6CA;
+
+  /* Dark theme */
+  --color-canvas-dark: #0C0A09;
+  --color-surface-dark: #1B1816;
+  --color-nav-dark: #12100F;
+  --color-text-primary-dark: #FFFAF2;
+  --color-text-muted-dark: #B8ADA3;
+  --color-border-dark: rgba(255,250,242,0.14);
+}
+
+:root {
+  --bg: #F4F1EA;
+  --surface: #FFFFFF;
+  --surface-subtle: #FAF8F4;
+  --fg: #1A1814;
+  --fg-muted: #6F695F;
+  --border: #DDD6CA;
+  --primary: #5F2FC9;
+  --primary-focus: #8C52FF;
+  --radius: 10px;
+  font-feature-settings: "tnum" 1;
+
+  /* Authentication feedback tokens — AA contrast on both canvases */
+  --auth-success: #0F8A52;
+  --auth-warning: #B45309;
+  --auth-danger: #C42A2A;
+  --auth-focus-halo: rgba(140, 82, 255, 0.22);
+
+  /* Mobile shell — measured against equal-width 5-item nav */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --mobile-nav-base: 56px;
+  --mobile-nav-h: calc(var(--mobile-nav-base) + var(--safe-bottom));
+  --mobile-sticky-cta-h: 72px;
+  --mobile-content-pad-bottom: var(--mobile-nav-h);
+  --mobile-sticky-offset: var(--mobile-nav-h);
+}
+
+/* Explicit light scope so a light frame can sit inside a dark page */
+[data-theme="light"] {
+  --bg: #F4F1EA;
+  --surface: #FFFFFF;
+  --surface-subtle: #FAF8F4;
+  --fg: #1A1814;
+  --fg-muted: #6F695F;
+  --border: #DDD6CA;
+  --primary: #5F2FC9;
+  --primary-focus: #8C52FF;
+
+  --auth-success: #0F8A52;
+  --auth-warning: #B45309;
+  --auth-danger: #C42A2A;
+  --auth-focus-halo: rgba(140, 82, 255, 0.22);
+}
+
+[data-theme="dark"] {
+  --bg: #0C0A09;
+  --surface: #1B1816;
+  --surface-subtle: #12100F;
+  --fg: #FFFAF2;
+  --fg-muted: #B8ADA3;
+  --border: rgba(255,250,242,0.14);
+  --primary: #8C52FF;
+  --primary-focus: #C7ACFF;
+
+  --auth-success: #4ADE9B;
+  --auth-warning: #FBBF4D;
+  --auth-danger: #FF8B84;
+  --auth-focus-halo: rgba(199, 172, 255, 0.26);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  max-width: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.2s, color 0.2s;
+  max-width: 100%;
+  /* Prefer fixing overflow at the component; this only catches residual page scroll */
+  overflow-x: clip;
+}
+
+#root {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.font-display {
+  font-family: 'Syne', system-ui, sans-serif;
+}
+
+/* Hide scrollbar by default */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+*:hover::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Horizontal scroll rail */
+.scroll-rail {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.scroll-rail::-webkit-scrollbar { display: none; }
+.scroll-rail > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Fade edges communicate that a rail scrolls */
+.scroll-rail--fade,
+.mobile-tab-rail-wrap {
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+}
+.mobile-tab-rail-wrap .scroll-rail {
+  padding-inline: 12px;
+  gap: 8px;
+}
+
+/* Mobile bottom navigation — equal-width five destinations */
+.mobile-nav {
+  padding-left: max(4px, var(--safe-left));
+  padding-right: max(4px, var(--safe-right));
+  padding-bottom: var(--safe-bottom);
+}
+.mobile-nav__row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.mobile-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-nav__label {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 359px) {
+  .mobile-nav__label { font-size: 10px; }
+}
+
+/* Full-screen transaction flows (booking, payment) — no bottom nav */
+.booking-sticky-action {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding-left: max(16px, var(--safe-left));
+  padding-right: max(16px, var(--safe-right));
+  padding-bottom: max(16px, var(--safe-bottom));
+  padding-top: 12px;
+}
+.mobile-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--mobile-sticky-offset);
+  z-index: 40;
+  padding-left: max(16px, var(--safe-left));
+  padding-right: max(16px, var(--safe-right));
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.mobile-sticky-cta-spacer {
+  height: calc(var(--mobile-sticky-cta-h) + var(--mobile-nav-h));
+}
+.mobile-shell-spacer {
+  height: var(--mobile-content-pad-bottom);
+}
+
+/* Hide bottom nav when OS keyboard is open (set via data attr from JS) */
+html[data-keyboard-open="true"] .mobile-nav {
+  transform: translateY(110%);
+  pointer-events: none;
+}
+html[data-keyboard-open="true"] {
+  --mobile-sticky-offset: 0px;
+  --mobile-content-pad-bottom: var(--safe-bottom);
+}
+
+/* Flexible text helpers — fix overflow at the component */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.price-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+.story-rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-inline: 12px;
+  padding-block: 12px;
+}
+.story-rail::-webkit-scrollbar { display: none; }
+.story-rail__item {
+  flex: 0 0 auto;
+  width: 68px;
+  min-width: 68px;
+  max-width: 68px;
+}
+.story-rail__name,
+.story-rail__place {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Prevent text size adjustment on mobile */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (min-width: 1024px) {
+  .mobile-sticky-cta,
+  .mobile-sticky-cta-spacer,
+  .mobile-shell-spacer,
+  .mobile-nav {
+    display: none !important;
+  }
+}
+
+/* ─── Authentication ─────────────────────────────────────────────────────── */
+
+.auth-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Forced focus ring for design-board button state previews */
+[data-preview-focus="true"] {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.auth-spinner {
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Native checkbox stays in the a11y tree but the painted box sits on top */
+.auth-checkbox-input {
+  position: absolute;
+  inset: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.auth-checkbox-input:focus-visible + span {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.auth-otp-input {
+  width: 100%;
+  min-width: 0;
+  height: 58px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+  caret-color: var(--primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.auth-otp-input::-webkit-outer-spin-button,
+.auth-otp-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.auth-button:focus-visible,
+.auth-text-button:focus-visible {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+
+.auth-dialog-in {
+  animation: auth-dialog-in 0.18s ease-out;
+}
+
+.auth-sheet-in {
+  animation: auth-sheet-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-success-pop {
+  animation: auth-success-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes auth-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes auth-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+@keyframes auth-success-pop {
+  0% { opacity: 0; transform: scale(0.7); }
+  60% { transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Design-board device frames scale their contents without affecting layout */
+.auth-frame-scale {
+  transform-origin: top left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  .auth-spinner,
+  .auth-dialog-in,
+  .auth-sheet-in,
+  .auth-success-pop {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  .auth-spinner {
+    /* Keep a visible busy indicator when motion is reduced */
+    border-top-color: currentColor;
+    opacity: 0.6;
+  }
+
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

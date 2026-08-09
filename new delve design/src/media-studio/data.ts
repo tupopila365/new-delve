@@ -1,0 +1,108 @@
+import type { MusicTrack } from './types'
+
+/** Example licensed catalogue for the prototype. Rights remain backend-authoritative. */
+export const EXAMPLE_MUSIC: MusicTrack[] = [
+  {
+    id: 'm1',
+    title: 'Coastal Drift',
+    artist: 'Luna Sky',
+    duration: 154,
+    coverId: '1507525428034-b723cf961d3e',
+    category: 'Travel',
+    licenceType: 'delve-licensed',
+    commercialUseAllowed: true,
+    regionalAvailability: 'available',
+    attribution: 'Coastal Drift — Luna Sky (Licensed by Delve)',
+  },
+  {
+    id: 'm2',
+    title: 'Golden Hour',
+    artist: 'Waves & Wood',
+    duration: 192,
+    coverId: '1506905925346-21bda4d32df4',
+    category: 'Calm',
+    licenceType: 'royalty-free',
+    commercialUseAllowed: false,
+    regionalAvailability: 'available',
+    attribution: 'Golden Hour — Waves & Wood (Royalty-free, personal use)',
+  },
+  {
+    id: 'm3',
+    title: 'Alpine Morning',
+    artist: 'Erik Solen',
+    duration: 178,
+    coverId: '1476514525535-07fb3b4ae5f1',
+    category: 'Adventure',
+    licenceType: 'delve-licensed',
+    commercialUseAllowed: true,
+    regionalAvailability: 'available',
+    attribution: 'Alpine Morning — Erik Solen (Licensed by Delve)',
+  },
+  {
+    id: 'm4',
+    title: 'Harbor Lights',
+    artist: 'Marina Cove',
+    duration: 188,
+    coverId: '1499678567675-b3987a37b41e',
+    category: 'Nature',
+    licenceType: 'business-approved',
+    commercialUseAllowed: true,
+    regionalAvailability: 'available',
+    attribution: 'Harbor Lights — Marina Cove (Business-approved)',
+  },
+  {
+    id: 'm5',
+    title: 'Desert Road',
+    artist: 'Atlas Groove',
+    duration: 141,
+    coverId: '1539635278303-d4002c07eae3',
+    category: 'Upbeat',
+    licenceType: 'royalty-free',
+    commercialUseAllowed: false,
+    regionalAvailability: 'unavailable-region',
+    attribution: 'Desert Road — Atlas Groove',
+  },
+  {
+    id: 'm6',
+    title: 'Quiet Path',
+    artist: 'Soft Atlas',
+    duration: 210,
+    coverId: '1528360983277-13d401cdc186',
+    category: 'Instrumental',
+    licenceType: 'delve-licensed',
+    commercialUseAllowed: true,
+    regionalAvailability: 'available',
+    attribution: 'Quiet Path — Soft Atlas (Licensed by Delve)',
+  },
+]
+
+export const MUSIC_CATEGORIES = [
+  'For You',
+  'Trending',
+  'Travel',
+  'Calm',
+  'Adventure',
+  'Nature',
+  'Upbeat',
+  'Instrumental',
+  'Recently used',
+  'Saved',
+]
+
+export const unsplash = (id: string, w = 400, h = 500) =>
+  `https://images.unsplash.com/photo-${id}?w=${w}&h=${h}&fit=crop&auto=format&q=80`
+
+export const SAMPLE_GALLERY = [
+  '1506905925346-21bda4d32df4',
+  '1613395877344-13d4a8e0d49e',
+  '1540959733332-eab4deabeeaf',
+  '1555400038-63f5ba517a47',
+  '1476514525535-07fb3b4ae5f1',
+  '1439066615861-d1af74d74000',
+  '1526392060635-9d6019884377',
+  '1504197832061-98fed0f4ce6f',
+  '1499678567675-b3987a37b41e',
+  '1539635278303-d4002c07eae3',
+  '1512453979798-5ea266f8880c',
+  '1528360983277-13d401cdc186',
+]

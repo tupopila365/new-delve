@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>50 Mobile Responsive Audit — Delve Traveler</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #F4F1EA; --surface: #FFFFFF; --subtle: #FAF8F4;
+      --fg: #1A1814; --muted: #6F695F; --border: #DDD6CA;
+      --primary: #5F2FC9; --focus: #8C52FF; --ok: #16845B;
+    }
+    [data-theme="dark"] {
+      --bg: #0C0A09; --surface: #1B1816; --subtle: #12100F;
+      --fg: #FFFAF2; --muted: #B8ADA3; --border: #39322E; --primary: #8C52FF;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--fg); }
+    h1,h2,h3 { font-family: Syne, sans-serif; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 80px; }
+    .chip { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(140,82,255,.12); color: var(--primary); font-size: 12px; font-weight: 600; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-top: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .phone { width: 320px; max-width: 100%; margin: 12px auto; background: var(--subtle); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; }
+    .phone-bar { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--border); font-weight: 800; color: var(--primary); font-family: Syne, sans-serif; }
+    .nav { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--border); background: var(--surface); padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); }
+    .nav button { border: 0; background: transparent; font-size: 10px; font-weight: 600; color: var(--muted); padding: 8px 2px; min-height: 44px; }
+    .nav button.active { color: var(--primary); }
+    ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .ok { color: var(--ok); font-weight: 600; }
+    code { font-size: 12px; background: var(--subtle); padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="chip">50 Mobile Responsive Audit</p>
+    <h1>Delve Traveler — mobile system handoff</h1>
+    <p style="color:var(--muted);max-width:62ch">Implemented in <code>new delve design</code>. Desktop visual language preserved. Canonical five-item bottom nav; overflow fixed at components.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>1. Foundations</h3>
+        <ul>
+          <li>Safe-area CSS variables</li>
+          <li><code>--mobile-nav-h</code> / sticky offset</li>
+          <li><code>overflow-x: clip</code> on body + <code>min-w-0</code> / <code>break-anywhere</code> on content</li>
+          <li>Keyboard: <code>data-keyboard-open</code> hides bottom nav</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>2. Canonical nav</h3>
+        <ul>
+          <li>Home · Explore · Deals · Journeys · Account</li>
+          <li>Equal-width grid from 320–430px</li>
+          <li>Explore owns Search, Services, Transport, Communities, Delvers</li>
+          <li>Messages / Notifications stay in header</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>3. Components shipped</h3>
+        <ul>
+          <li><code>SafeImage</code> media fallbacks</li>
+          <li><code>ExpandableCaption</code> wrap + More</li>
+          <li><code>MobileTabRail</code> equal / scroll + fade</li>
+          <li><code>mobile-sticky-cta</code> above nav</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>4. Acceptance</h3>
+        <ul>
+          <li class="ok">Five nav items fit at 320px</li>
+          <li class="ok">Account visible</li>
+          <li class="ok">Captions wrap; media fallbacks</li>
+          <li class="ok">Sticky booking CTAs clear nav</li>
+          <li class="ok">Header More menu at narrow widths</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 style="margin-top:36px">320px shell preview</h2>
+    <div class="phone" data-theme="light">
+      <div class="phone-bar">Delve <span style="margin-left:auto;font-size:12px;color:var(--muted);font-family:DM Sans">⋯</span></div>
+      <div style="height:160px;padding:16px;font-size:13px;color:var(--muted)">Scrollable content · story rail · feed cards · no horizontal page scroll</div>
+      <div class="nav">
+        <button class="active">Home</button>
+        <button>Explore</button>
+        <button>Deals</button>
+        <button>Journeys</button>
+        <button>Account</button>
+      </div>
+    </div>
+
+    <p style="margin-top:24px;font-size:13px;color:var(--muted)">Cursor owns routes, safe-area, keyboard detection, focus, media error handling. Figma should not invent booking outcomes; do not rely on global overflow-x alone.</p>
+  </div>
+</body>
+</html>

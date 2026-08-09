@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>51–60 Business Builders — Delve</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#F4F1EA; --surface:#fff; --fg:#1A1814; --muted:#6F695F; --border:#DDD6CA; --primary:#5F2FC9; }
+    body { margin:0; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--fg); }
+    h1,h2 { font-family:Syne,sans-serif; }
+    .wrap { max-width:960px; margin:0 auto; padding:32px 20px 80px; }
+    .chip { display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(140,82,255,.12); color:var(--primary); font-size:12px; font-weight:600; }
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); margin-top:20px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; }
+    ul { margin:8px 0 0; padding-left:18px; color:var(--muted); font-size:14px; line-height:1.5; }
+    code { font-size:12px; background:#FAF8F4; padding:2px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="chip">51–60 Business Builder Handoff</p>
+    <h1>Listing · Deal · Transport builders</h1>
+    <p style="color:var(--muted);max-width:60ch">Implemented in <code>new delve design/src/business/builders</code>, wired into Business Admin Listings, Deals, Transport and Overview quick actions.</p>
+    <div class="grid">
+      <div class="card"><h2>Shared shell</h2><ul><li>Step nav + autosave</li><li>Validation &amp; checklist</li><li>Traveler preview</li><li>Unsaved-exit warning</li></ul></div>
+      <div class="card"><h2>Listing Builder</h2><ul><li>Category-adaptive steps</li><li>Location / media / pricing</li><li>Policies &amp; accessibility</li><li>Submit / publish gates</li></ul></div>
+      <div class="card"><h2>Deal Builder</h2><ul><li>Eligible product only</li><li>Discount preview</li><li>Conflict warning</li><li>Pause confirmation</li></ul></div>
+      <div class="card"><h2>Transport Builder</h2><ul><li>Road / air / water</li><li>Asset · route · schedule</li><li>Compliance statuses</li><li>Seat table alternative</li></ul></div>
+    </div>
+    <p style="margin-top:28px;font-size:13px;color:var(--muted)">Backend remains authoritative for verification, taxes, inventory, compliance outcomes and live departure states. UI does not invent approvals or prices.</p>
+  </div>
+</body>
+</html>
