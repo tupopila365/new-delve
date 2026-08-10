@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * Production static host for traveler-web.
- * Explicit cache policy (more reliable than serve.json on Heroku):
- * - /assets/*  → 1 year immutable (Vite content hashes)
+ * - /assets/*  → 1 year immutable (Vite content hashes); missing assets → 404
  * - everything else (HTML, SPA fallback, version.json) → no-store
  */
 import http from 'node:http'
@@ -35,13 +34,17 @@ const MIME = {
 }
 
 function setNoStore(res) {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
   res.setHeader('Pragma', 'no-cache')
   res.setHeader('Expires', '0')
+  // Cloudflare / surrogate caches (if any sit in front later)
+  res.setHeader('CDN-Cache-Control', 'no-store')
+  res.setHeader('Surrogate-Control', 'no-store')
 }
 
 function setImmutable(res) {
   res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+  res.setHeader('CDN-Cache-Control', 'public, max-age=31536000, immutable')
 }
 
 function safeJoin(base, requestPath) {
@@ -67,6 +70,13 @@ async function sendFile(res, filePath, cache) {
   return true
 }
 
+function sendNotFound(res) {
+  setNoStore(res)
+  res.statusCode = 404
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  res.end('Not found')
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const urlPath = (req.url || '/').split('?')[0]
@@ -78,15 +88,19 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // Never SPA-fallback hashed assets — old tabs must get a real 404
+    if (isAsset) {
+      sendNotFound(res)
+      return
+    }
+
     const indexPath = path.join(dist, 'index.html')
     if (fs.existsSync(indexPath)) {
       await sendFile(res, indexPath, 'no-store')
       return
     }
 
-    setNoStore(res)
-    res.statusCode = 404
-    res.end('Not found')
+    sendNotFound(res)
   } catch (err) {
     if (!res.headersSent) {
       setNoStore(res)

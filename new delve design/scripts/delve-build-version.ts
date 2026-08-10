@@ -40,5 +40,13 @@ export function delveBuildVersionPlugin(): Plugin {
       mkdirSync(outDir, { recursive: true })
       writeFileSync(path.join(outDir, 'version.json'), `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
     },
+    transformIndexHtml(html) {
+      const stamp = [
+        `<meta name="delve-build-id" content="${buildId}" />`,
+        // Helps proxies that ignore Cache-Control on HTML
+        `<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />`,
+      ].join('\n    ')
+      return html.replace(/<\/head>/i, `    ${stamp}\n  </head>`)
+    },
   }
 }
