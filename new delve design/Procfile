@@ -1,1 +1,1 @@
-web: serve -s dist -c serve.json
+web: node scripts/serve-static.mjs

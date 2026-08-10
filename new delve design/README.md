@@ -103,9 +103,35 @@ pnpm db:migrate          # reserved — do not use until Checkpoint 2
 
 ## Caching (production static host)
 
-`serve.json` tells Heroku/`serve` to:
+Production uses `scripts/serve-static.mjs` (Procfile `web`) with an explicit cache policy:
 
-- **Never cache** HTML and SPA routes (`Cache-Control: no-cache`) so deploys show up without hard refresh
-- **Cache forever** hashed Vite files under `assets/` (`immutable`)
+| Path | Cache |
+|------|--------|
+| `index.html` / SPA routes / `version.json` / other non-hashed files | `no-cache, no-store, must-revalidate` |
+| `/assets/*` (Vite content-hashed files) | `public, max-age=31536000, immutable` (1 year) |
 
-`Procfile` / `pnpm start` use: `serve -s dist -c serve.json`
+### Open sessions
+
+Each production build writes `dist/version.json` with a `buildId` (Heroku `SOURCE_VERSION` when present). Open tabs poll that file about once a minute and show **“A new version is available”** with a **Refresh** button when it changes.
+
+### CDN HTML invalidation
+
+Heroku dynos are not a CDN. With no-store on HTML, sticky origin caching is avoided.
+
+If you put **Cloudflare** (or similar) in front of the traveler app, purge HTML after each deploy:
+
+```bash
+export CF_ZONE_ID=...
+export CF_API_TOKEN=...
+export TRAVELER_ORIGIN=https://delve-web-nust.herokuapp.com
+./scripts/purge-traveler-html-cache.sh
+```
+
+### Heroku deploy note (Git LFS)
+
+Heroku does not host Git LFS. Traveler images in this folder are normal git files (see local `.gitattributes`). Push with:
+
+```powershell
+$env:GIT_LFS_SKIP_PUSH = "1"
+git subtree push --prefix="new delve design" heroku main
+```

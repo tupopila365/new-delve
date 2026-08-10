@@ -21,7 +21,7 @@
     "db:generate": "pnpm --filter @delve/database generate",
     "db:migrate": "pnpm --filter @delve/database migrate",
     "preview": "vite preview",
-    "start": "serve -s dist -c serve.json",
+    "start": "node scripts/serve-static.mjs",
     "heroku-postbuild": "pnpm run build",
     "format": "oxfmt"
   },
