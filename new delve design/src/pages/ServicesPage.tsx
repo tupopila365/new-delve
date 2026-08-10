@@ -631,6 +631,7 @@ export default function ServicesPage({
         clearBrowse={clearBrowse}
         selectedId={selectedId}
         setSelectedId={setSelectedId}
+        onOpenTransport={onOpenTransport}
       />
 
       {/* Active filter chips */}

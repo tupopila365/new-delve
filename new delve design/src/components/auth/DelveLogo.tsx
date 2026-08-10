@@ -35,7 +35,7 @@ export default function DelveLogo({
           alt=""
           width={s.mark}
           height={s.mark}
-          className="rounded-full object-cover shrink-0"
+          className="rounded-md object-contain shrink-0"
           style={{ width: s.mark, height: s.mark }}
           draggable={false}
         />

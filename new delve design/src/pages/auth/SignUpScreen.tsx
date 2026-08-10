@@ -164,7 +164,7 @@ export default function SignUpScreen({
           ['signup-consent', errors.consent],
         ] as const
       )
-        .filter((entry): entry is readonly [string, string] => Boolean(entry[1]))
+        .filter((entry): entry is readonly [typeof entry[0], string] => typeof entry[1] === 'string' && entry[1].length > 0)
         .map(([fieldId, message]) => ({ fieldId, message }))
     : []
 

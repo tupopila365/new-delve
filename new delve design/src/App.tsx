@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search, MapPin, Bell, MessageCircle, Heart, Bookmark, Share2,
   MoreHorizontal, CheckCircle, Home, Compass, Users, User, Plus,
@@ -6,6 +7,7 @@ import {
   Navigation, Utensils, Zap, Map, ShoppingBag, Calendar, HelpCircle,
   TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu,
 } from 'lucide-react'
+import { navToPath, pathToNav } from './navigation'
 import { ShimmerStyle } from './components/SectionStates'
 import SafeImage from './components/mobile/SafeImage'
 import ExpandableCaption from './components/mobile/ExpandableCaption'
@@ -464,8 +466,10 @@ function PostCard({ post, onToggleLike, onToggleSave, onFollow }: {
 
 export default function App() {
   const { theme, setTheme, resolved } = useTheme()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [posts, setPosts] = useState<Post[]>(initialPosts)
-  const [activeNav, setActiveNavRaw] = useState('Home')
+  const [activeNav, setActiveNavRaw] = useState(() => pathToNav(location.pathname))
   const [following, setFollowing] = useState<Set<string>>(new Set(['d1']))
   const [activeStory, setActiveStory] = useState<string | null>(null)
   const [authRoute, setAuthRoute] = useState<AuthRoute | null>(null)
@@ -488,6 +492,12 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [headerMoreOpen, setHeaderMoreOpen] = useState(false)
   const [feedTab, setFeedTab] = useState('following')
+
+  useEffect(() => {
+    const fromUrl = pathToNav(location.pathname)
+    setActiveNavRaw(fromUrl)
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -516,6 +526,15 @@ export default function App() {
 
   const HUB_ROUTES = new Set(['Account', 'Profile', 'Messages', 'Saved', 'Notifications', 'Bookings'])
 
+  function goToNav(label: string) {
+    const path = navToPath(label)
+    if (pathToNav(location.pathname) === label) {
+      setActiveNavRaw(label)
+      return
+    }
+    navigate(path)
+  }
+
   // Personal hub routes require a signed-in traveler.
   function setActiveNav(label: string) {
     if (HUB_ROUTES.has(label) && !signedIn) {
@@ -525,7 +544,7 @@ export default function App() {
       setAuthRoute('signIn')
       return
     }
-    setActiveNavRaw(label)
+    goToNav(label)
   }
 
   function openAuth(route: AuthRoute) {
@@ -694,7 +713,7 @@ export default function App() {
       return
     }
     if (postAuthNav) {
-      setActiveNavRaw(postAuthNav)
+      goToNav(postAuthNav)
       setPostAuthNav(null)
     }
   }
@@ -709,7 +728,7 @@ export default function App() {
       onClose={closeStudio}
       onViewPost={() => {
         setStudioOpen(false)
-        setActiveNavRaw('Home')
+        goToNav('Home')
       }}
     />
   )
@@ -802,19 +821,19 @@ export default function App() {
           onDone={() => {
             setLastBookingRef(ref)
             closeBooking()
-            setActiveNavRaw('Home')
+            goToNav('Home')
           }}
           onViewBookings={() => {
             setLastBookingRef(ref)
             closeBooking()
             setSignedIn(true)
-            setActiveNavRaw('Bookings')
+            goToNav('Bookings')
           }}
           onViewTicket={() => {
             setLastBookingRef(ref)
             closeBooking()
             setSignedIn(true)
-            setActiveNavRaw('Bookings')
+            goToNav('Bookings')
           }}
         />
       )
@@ -899,19 +918,20 @@ export default function App() {
 
   const headerLinks = ['Deals', 'Transport', 'Journeys', 'Delvers', 'Communities']
   const homeCompanyLinks = [
-    { label: 'Become a provider', route: 'Become a provider' },
+    { label: 'Become a service provider', route: 'Become a provider' },
     { label: 'About Delve', route: 'About' },
     { label: 'Investors', route: 'Investors' },
     { label: 'Contact', route: 'Contact' },
   ]
   const isHome = activeNav === 'Home'
+  const isCompanyPage = COMPANY_ROUTES.has(activeNav)
+  const showCompanyHeaderLinks = isHome || isCompanyPage
   const isFeedLayout = isHome || activeNav === 'Delvers' || activeNav === 'Transport' || activeNav === 'Services'
   const isServicesDetail = activeNav === 'Services' && !!servicesSelectedId
-  const isCompanyPage = COMPANY_ROUTES.has(activeNav)
   const mainMaxClass =
     isServicesDetail ? 'max-w-none w-full' :
     activeNav === 'Messages' ? 'max-w-[1100px] w-full' :
-    isCompanyPage ? 'max-w-[720px]' :
+    isCompanyPage ? 'max-w-[1160px] w-full' :
     activeNav === 'Services' ? 'max-w-[680px]' :
     isFeedLayout ? 'max-w-[620px]' :
     'max-w-[720px]'
@@ -934,7 +954,6 @@ export default function App() {
       return <CompanyPage
         route={activeNav as CompanyRoute}
         onNavigate={setActiveNav}
-        onOpenBusinessAdmin={() => setBusinessAdminOpen(true)}
       />
     }
     if (activeNav === 'Delvers') {
@@ -956,12 +975,12 @@ export default function App() {
       if (activeNav === 'Bookings') {
         return (
           <MyBookingsPage
-            onBack={() => setActiveNavRaw('Account')}
+            onBack={() => goToNav('Account')}
             highlightRef={lastBookingRef ?? undefined}
           />
         )
       }
-      if (activeNav === 'Profile') return <ProfilePage isOwner onBack={() => setActiveNavRaw('Account')} onCreate={openCreate} />
+      if (activeNav === 'Profile') return <ProfilePage isOwner onBack={() => goToNav('Account')} onCreate={openCreate} />
       if (activeNav === 'Messages') return <MessagesPage />
       if (activeNav === 'Saved') return <SavedPage />
       if (activeNav === 'Notifications') return <NotificationsPage />
@@ -1036,7 +1055,7 @@ export default function App() {
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', paddingTop: 'var(--safe-top)' }}>
         {/* Primary header row — never wraps into unpredictable rows */}
         <div className="max-w-[1280px] mx-auto px-3 md:px-6 h-14 flex items-center gap-2 md:gap-4 min-w-0">
-          <DelveLogo size="sm" onClick={() => setActiveNav('Home')} ariaLabel="DELVE Home" />
+          <DelveLogo size="md" showWordmark={false} onClick={() => setActiveNav('Home')} ariaLabel="DELVE Home" />
 
           <button type="button" onClick={() => setMobileMenuOpen(true)}
             className="lg:hidden p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0"
@@ -1076,7 +1095,7 @@ export default function App() {
           </button>
 
           <nav className="hidden lg:flex items-center gap-1" aria-label="Primary">
-            {isHome
+            {showCompanyHeaderLinks
               ? homeCompanyLinks.map(link => (
                 <button key={link.route} type="button" onClick={() => setActiveNav(link.route)}
                   className="px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap"
@@ -1354,7 +1373,7 @@ export default function App() {
                   <button type="button" onClick={() => setActiveNav('Become a provider')}
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-sm font-semibold"
                     style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)', border: 'none', cursor: 'pointer' }}>
-                    <Building2 size={16} /> Become a provider
+                    <Building2 size={16} /> Become a service provider
                   </button>
                   <button type="button" onClick={() => setActiveNav('About')}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-sm font-medium"

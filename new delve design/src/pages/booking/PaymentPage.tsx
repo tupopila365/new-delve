@@ -168,6 +168,9 @@ export default function PaymentPage({
         body: 'An existing payment attempt was found for this session. Checking status instead of creating a new charge.',
       },
     }
+    if (result === 'success') {
+      return null
+    }
     const c = copy[result]
     return (
       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>

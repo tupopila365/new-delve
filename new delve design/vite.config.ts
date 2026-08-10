@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@delve/contracts': path.resolve(__dirname, './packages/contracts/src/index.ts'),
       },
     },
     server: {

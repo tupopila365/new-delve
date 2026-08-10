@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+:root {
+  --bg: #0c0a09;
+  --surface: #1b1816;
+  --elevated: #24201e;
+  --primary: #8c52ff;
+  --fg: #fffaf2;
+  --muted: #b8ada3;
+  --border: #39322e;
+  --success: #16845b;
+  --warning: #b76808;
+  --error: #c83b3b;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}

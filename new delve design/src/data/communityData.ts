@@ -172,7 +172,7 @@ export const recentQuestions: CommunityQuestionSummary[] = [
     author: authors[1], community: 'Windhoek Travelers', destination: 'Windhoek',
     answerCount: 12,
     acceptedAnswer: { authorName: 'Lena B.', authorType: 'traveler', preview: 'The Intercape shuttle runs twice a day for about N$180. Taxis are N$300–400 negotiated. Avoid the unofficial drivers who approach you in arrivals.', helpful: 34 },
-    savedAt: '2 days ago', saved: false, createdAt: '3 days ago',
+    saved: false, createdAt: '3 days ago',
   },
   {
     id: 'q2',

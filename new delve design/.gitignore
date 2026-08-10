@@ -2,7 +2,9 @@ node_modules/
 dist/
 build/
 .cache/
-.env*
+.env
+.env.local
+.env.*.local
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
@@ -11,3 +13,9 @@ logs/
 *.log
 .claude-replay.*
 .tmp-*
+coverage/
+.turbo/
+apps/*/dist/
+packages/*/dist/
+packages/database/generated/
+package-lock.json

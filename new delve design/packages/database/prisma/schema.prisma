@@ -1,0 +1,17 @@
+// Checkpoint 1: Prisma prepared only. Full Delve schema lands in Checkpoint 2.
+// Do not run migrations yet.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Placeholder model so `prisma generate` succeeds before the real schema.
+model SchemaPlaceholder {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+}

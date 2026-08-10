@@ -1,0 +1,21 @@
+services:
+  # Reserved for Checkpoint 2 (PostgreSQL). Not started by default this checkpoint.
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["database"]
+    environment:
+      POSTGRES_USER: delve
+      POSTGRES_PASSWORD: delve
+      POSTGRES_DB: delve
+    ports:
+      - "5432:5432"
+    volumes:
+      - delve_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delve -d delve"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  delve_pg_data:

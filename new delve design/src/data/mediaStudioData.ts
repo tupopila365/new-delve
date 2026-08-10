@@ -4,7 +4,7 @@ export type MediaType = 'image' | 'video'
 export type UploadStatus = 'idle' | 'selecting' | 'validating' | 'invalid' | 'queued' | 'uploading' | 'processing' | 'ready' | 'failed' | 'moderation' | 'restricted' | 'offline'
 export type LicenseType = 'delve-licensed' | 'royalty-free' | 'original-audio' | 'user-confirmed' | 'attribution-required' | 'restricted' | 'unavailable'
 export type VisibilityOption = 'public' | 'followers' | 'community' | 'private' | 'draft'
-export type AspectRatio = 'original' | '1:1' | '4:5' | '9:16' | '16:9' | 'journey-cover' | 'listing-cover' | 'avatar'
+export type AspectRatio = 'original' | '1:1' | '4:5' | '9:16' | '16:9' | '4:3' | 'journey-cover' | 'listing-cover' | 'avatar'
 export type MusicCategory = 'Travel' | 'Calm' | 'Adventure' | 'Road trip' | 'Coast' | 'Nature' | 'Upbeat' | 'Cinematic' | 'Local sounds' | 'Instrumental'
 
 export type ContextType =
