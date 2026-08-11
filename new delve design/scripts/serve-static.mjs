@@ -12,7 +12,8 @@ import { pipeline } from 'node:stream/promises'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
-const dist = path.join(root, 'dist')
+const distRel = process.env.DELVE_DIST?.trim() || 'dist'
+const dist = path.resolve(root, distRel)
 const port = Number(process.env.PORT || 3000)
 
 const MIME = {
@@ -111,5 +112,5 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Delve traveler static host on :${port} (root ${dist})`)
+  console.log(`Delve static host on :${port} (root ${dist})`)
 })

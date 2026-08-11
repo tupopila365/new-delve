@@ -22,8 +22,8 @@
     "db:migrate": "pnpm --filter @delve/database migrate",
     "admin:create": "pnpm --filter @delve/api admin:create",
     "preview": "vite preview",
-    "start": "node scripts/serve-static.mjs",
-    "heroku-postbuild": "pnpm run build",
+    "start": "node scripts/heroku-web.mjs",
+    "heroku-postbuild": "node scripts/heroku-postbuild.mjs",
     "format": "oxfmt"
   },
   "dependencies": {

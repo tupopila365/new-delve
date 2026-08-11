@@ -171,3 +171,7 @@ Heroku does not host Git LFS. Traveler images in this folder are normal git file
 $env:GIT_LFS_SKIP_PUSH = "1"
 git subtree push --prefix="new delve design" heroku main
 ```
+
+Full guide for **traveler / api / admin** apps (`delve-web-nust`, `delve-api`, `delve-admin`): see [`docs/heroku-deploy.md`](docs/heroku-deploy.md).
+
+Set `DELVE_SERVICE=api` on `delve-api` before the first Backend V2 deploy.

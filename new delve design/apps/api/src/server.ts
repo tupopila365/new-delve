@@ -4,9 +4,12 @@ import { loadEnv } from './config/env.js'
 const env = loadEnv()
 const app = createApp(env)
 
-const server = app.listen(env.API_PORT, () => {
-  console.log(`[delve-api] listening on http://localhost:${env.API_PORT}`)
-  console.log(`[delve-api] health → http://localhost:${env.API_PORT}/api/v2/health`)
+/** Heroku (and most PaaS) inject PORT. Prefer it over API_PORT. */
+const port = Number(process.env.PORT) || env.API_PORT
+
+const server = app.listen(port, '0.0.0.0', () => {
+  console.log(`[delve-api] listening on http://0.0.0.0:${port}`)
+  console.log(`[delve-api] health → http://0.0.0.0:${port}/api/v2/health`)
 })
 
 let shuttingDown = false

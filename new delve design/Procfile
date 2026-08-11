@@ -1,1 +1,2 @@
-web: node scripts/serve-static.mjs
+release: node scripts/heroku-release.mjs
+web: node scripts/heroku-web.mjs
