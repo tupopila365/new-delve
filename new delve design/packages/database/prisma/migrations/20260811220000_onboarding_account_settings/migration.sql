@@ -1,7 +1,6 @@
 -- Additive: traveler onboarding, account settings, sessions metadata.
 -- Does not reset existing User / auth tables.
-
-ALTER TYPE "AccountStatus" ADD VALUE IF NOT EXISTS 'deactivated';
+-- AccountStatus.deactivated is created in 20260811200000.
 
 DO $$ BEGIN
   CREATE TYPE "OnboardingStatus" AS ENUM ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED');

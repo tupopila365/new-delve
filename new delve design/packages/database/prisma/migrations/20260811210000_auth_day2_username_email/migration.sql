@@ -1,9 +1,6 @@
 -- Additive Day 2 auth hardening: delivery status, username change, account statuses.
 -- Does not drop or reset existing User / token tables.
-
--- Expand AccountStatus (PostgreSQL enums are additive).
-ALTER TYPE "AccountStatus" ADD VALUE IF NOT EXISTS 'pending_verification';
-ALTER TYPE "AccountStatus" ADD VALUE IF NOT EXISTS 'disabled';
+-- AccountStatus values are created in 20260811200000 (avoid ADD VALUE + use in same txn).
 
 -- New enum for verification email delivery.
 DO $$ BEGIN

@@ -1,5 +1,5 @@
--- CreateEnum
-CREATE TYPE "AccountStatus" AS ENUM ('active', 'restricted');
+-- CreateEnum (all AccountStatus values up front — Postgres forbids ADD VALUE + use in one txn)
+CREATE TYPE "AccountStatus" AS ENUM ('pending_verification', 'active', 'restricted', 'disabled', 'deactivated');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -9,7 +9,7 @@ CREATE TABLE "User" (
     "usernameNormalized" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "emailVerifiedAt" TIMESTAMP(3),
-    "accountStatus" "AccountStatus" NOT NULL DEFAULT 'active',
+    "accountStatus" "AccountStatus" NOT NULL DEFAULT 'pending_verification',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
