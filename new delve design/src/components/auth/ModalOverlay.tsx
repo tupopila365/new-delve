@@ -31,6 +31,7 @@ export default function ModalOverlay({
   contained = false,
 }: ModalOverlayProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!open || !dismissible) return
@@ -42,7 +43,13 @@ export default function ModalOverlay({
   }, [open, dismissible, onClose])
 
   useEffect(() => {
-    if (open) panelRef.current?.focus()
+    if (open) {
+      previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      panelRef.current?.focus()
+      return
+    }
+    previousFocusRef.current?.focus?.()
+    previousFocusRef.current = null
   }, [open])
 
   if (!open) return null

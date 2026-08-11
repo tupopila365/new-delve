@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { Eye, EyeOff, Lock } from 'lucide-react'
 import TextField from './TextField'
 import type { FieldState } from '../../data/authConfig'
@@ -50,50 +50,70 @@ export default function PasswordField({
   autoFocus,
 }: PasswordFieldProps) {
   const [revealed, setRevealed] = useState(defaultRevealed)
+  const [capsLockOn, setCapsLockOn] = useState(false)
   const canToggle = !disabled && !readOnly && previewState !== 'disabled'
 
+  function syncCapsLock(event: KeyboardEvent<HTMLInputElement>) {
+    if (typeof event.getModifierState === 'function') {
+      setCapsLockOn(event.getModifierState('CapsLock'))
+    }
+  }
+
+  const capsHint = capsLockOn ? 'Caps Lock is on' : undefined
+  const combinedHint = [hint, capsHint].filter(Boolean).join(' · ') || undefined
+
   return (
-    <TextField
-      label={label}
-      id={id}
-      name={name}
-      type={revealed ? 'text' : 'password'}
-      value={value}
-      onChange={onChange}
-      onBlur={onBlur}
-      placeholder={placeholder}
-      hint={hint}
-      error={error}
-      successMessage={successMessage}
-      disabled={disabled}
-      readOnly={readOnly}
-      required={required}
-      loading={loading}
-      autoComplete={autoComplete}
-      previewState={previewState}
-      labelAction={labelAction}
-      autoFocus={autoFocus}
-      iconLeft={<Lock size={17} />}
-      trailing={
-        <button
-          type="button"
-          onClick={() => canToggle && setRevealed(current => !current)}
-          aria-label={revealed ? 'Hide password' : 'Show password'}
-          aria-pressed={revealed}
-          className="flex items-center justify-center rounded-lg flex-shrink-0"
-          style={{
-            width: 40,
-            height: 40,
-            marginRight: -8,
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--fg-muted)',
-            cursor: canToggle ? 'pointer' : 'not-allowed',
-          }}
-        >
-          {revealed ? <EyeOff size={17} /> : <Eye size={17} />}
-        </button>
-      }
-    />
+    <div className="w-full">
+      <TextField
+        label={label}
+        id={id}
+        name={name ?? (autoComplete === 'current-password' ? 'password' : 'new-password')}
+        type={revealed ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        onBlur={() => {
+          setCapsLockOn(false)
+          onBlur?.()
+        }}
+        onKeyDown={syncCapsLock}
+        onKeyUp={syncCapsLock}
+        placeholder={placeholder}
+        hint={combinedHint}
+        error={error}
+        successMessage={successMessage}
+        disabled={disabled}
+        readOnly={readOnly}
+        required={required}
+        loading={loading}
+        autoComplete={autoComplete}
+        previewState={previewState}
+        labelAction={labelAction}
+        autoFocus={autoFocus}
+        iconLeft={<Lock size={17} />}
+        trailing={
+          <button
+            type="button"
+            onClick={() => canToggle && setRevealed(current => !current)}
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            aria-pressed={revealed}
+            className="flex items-center justify-center rounded-lg flex-shrink-0"
+            style={{
+              width: 44,
+              height: 44,
+              marginRight: -8,
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--fg-muted)',
+              cursor: canToggle ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {revealed ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+        }
+      />
+      <span className="sr-only" role="status" aria-live="polite">
+        {capsLockOn ? 'Caps Lock is on' : ''}
+      </span>
+    </div>
   )
 }

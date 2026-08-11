@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import {
   Bookmark, Building2, Bus, Calendar, ChevronRight, Flame, Heart,
-  MapPin, MessageCircle, Navigation, Tag,
+  LogOut, MapPin, MessageCircle, Navigation, Tag,
   TrendingDown, User,
 } from 'lucide-react'
+import UsernameSettingsPanel from './UsernameSettingsPanel'
+import { formatUsername } from '../lib/formatUsername'
 
 export type AccountNavTarget =
   | 'Profile'
@@ -18,6 +20,8 @@ export type AccountNavTarget =
 interface AccountDashboardPageProps {
   onNavigate: (target: AccountNavTarget) => void
   onOpenBusinessAdmin?: () => void
+  onSignOut?: () => void
+  onOpenSettings?: () => void
   travelerName?: string
 }
 
@@ -118,6 +122,8 @@ function SectionHeader({
 export default function AccountDashboardPage({
   onNavigate,
   onOpenBusinessAdmin,
+  onSignOut,
+  onOpenSettings,
   travelerName = 'Amara',
 }: AccountDashboardPageProps) {
   return (
@@ -144,7 +150,7 @@ export default function AccountDashboardPage({
               {greetingForNow()}
             </p>
             <h1 className="font-display text-2xl font-extrabold tracking-tight text-white mb-4">
-              {travelerName}
+              {formatUsername(travelerName) || travelerName}
             </h1>
           </div>
           <button
@@ -384,6 +390,35 @@ export default function AccountDashboardPage({
           </article>
         ))}
 
+        {/* Username settings */}
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="w-full flex items-center gap-3 rounded-2xl px-3.5 py-3.5 text-left active:scale-[0.99] transition-transform mb-2.5"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0"
+              style={{ background: 'rgba(140,82,255,0.1)', color: 'var(--primary)' }}
+            >
+              <User size={18} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Account settings</p>
+              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                Profile, email, password, sessions, and more
+              </p>
+            </div>
+            <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} />
+          </button>
+        )}
+        <UsernameSettingsPanel />
+
         {/* Business admin entry */}
         {onOpenBusinessAdmin && (
           <button
@@ -437,6 +472,32 @@ export default function AccountDashboardPage({
           </div>
           <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} />
         </button>
+
+        {onSignOut && (
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="w-full flex items-center gap-3 rounded-2xl px-3.5 py-3.5 text-left active:scale-[0.99] transition-transform mt-2.5"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0"
+              style={{ background: 'rgba(224,92,26,0.1)', color: 'var(--danger, #c2410c)' }}
+            >
+              <LogOut size={18} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Sign out</p>
+              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                End this session on this device
+              </p>
+            </div>
+          </button>
+        )}
       </div>
     </div>
   )

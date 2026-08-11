@@ -45,14 +45,51 @@ pnpm install
 cp .env.example .env
 ```
 
-Reserved keys:
-
 | Key | Where |
 |-----|--------|
 | `NODE_ENV`, `API_PORT`, `DATABASE_URL`, `SESSION_SECRET`, `TRAVELER_WEB_URL`, `ADMIN_WEB_URL` | Server / API only |
+| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME` | API only (transactional email). Required in staging/production |
 | `VITE_API_BASE_URL` | Traveler + admin frontends only |
 
-Never put server secrets in `VITE_*` variables.
+Never put server secrets (especially `BREVO_API_KEY` / `SESSION_SECRET`) in `VITE_*` variables.
+
+## Authentication (Day 2)
+
+Password-only traveler auth via Brevo email verification links (no Google/Apple).
+
+| Method | Path |
+|--------|------|
+| POST | `/api/v2/auth/register` |
+| GET | `/api/v2/auth/username-availability?username=` |
+| POST | `/api/v2/auth/resend-verification` |
+| GET | `/api/v2/auth/verify-email?token=` |
+| POST | `/api/v2/auth/login` (email or username) |
+| POST | `/api/v2/auth/refresh` |
+| POST | `/api/v2/auth/logout` |
+| GET/PATCH | `/api/v2/users/me/username` (Bearer) |
+| GET/PATCH | `/api/v2/users/me/onboarding` |
+| POST | `/api/v2/users/me/onboarding/complete` |
+| GET/PATCH | `/api/v2/users/me/profile` |
+| POST/DELETE | `/api/v2/users/me/avatar` (+ upload-url) |
+| POST/DELETE | `/api/v2/users/me/email-change` (+ verify/resend) |
+| POST | `/api/v2/users/me/change-password` |
+| GET/DELETE | `/api/v2/users/me/sessions` |
+| GET/PATCH | `/api/v2/users/me/preferences` |
+| POST | `/api/v2/users/me/deactivate` |
+| POST | `/api/v2/auth/logout-all` / `logout-others` |
+
+Brevo domain authentication (manual DNS): see [`docs/brevo-domain-setup.md`](docs/brevo-domain-setup.md).  
+Avatar object storage (optional): see [`docs/object-storage-setup.md`](docs/object-storage-setup.md).
+
+Traveler UI: `/verify-email`, `/onboarding`, `/account/settings`, `/account/email-change`; usernames display as `@username`.
+
+Before first login locally:
+
+```bash
+docker compose --profile database up -d
+pnpm db:migrate
+pnpm dev:api
+```
 
 ## Local development
 
@@ -81,26 +118,25 @@ curl http://localhost:4000/api/v2/health
 pnpm build:all
 pnpm typecheck:all
 pnpm db:generate
-pnpm db:migrate          # reserved — do not use until Checkpoint 2
+pnpm db:migrate
 ```
 
-## Checkpoint 1 implements
+## Checkpoint 1 + Day 2 auth
 
 - pnpm workspace with root traveler-web
-- `@delve/contracts` success/error/health schemas
-- `@delve/config` shared env conventions
-- `@delve/database` Prisma package + placeholder schema (**no migration**)
-- `@delve/api` Backend V2 with `GET /api/v2/health`, CORS, errors, logging, graceful shutdown
-- `@delve/admin-web` Delve-branded system-status page (backend + database status)
-- Traveler header chip for API connection state (loading / ready / error / idle)
+- `@delve/contracts` success/error/health + auth schemas
+- `@delve/config` shared env conventions (incl. Brevo)
+- `@delve/database` Prisma User / EmailVerificationToken / RefreshToken
+- `@delve/api` health + auth routes, Brevo transactional mail
+- `@delve/admin-web` Delve-branded system-status page
+- Traveler: username signup, email-or-username login, verify-email route, JWT session
 
-## Remains for the database checkpoint
+## Remains
 
-- Full Delve Prisma schema
-- PostgreSQL migration and seed
-- Real database health probing
-- Auth, business modules, payments, hosting
-
+- Forgot-password end-to-end against the API
+- Real database health probing beyond Prisma
+- Business modules, payments, hosting polish
+- Deploy API (`delve-api`) with Brevo + `DATABASE_URL` + `SESSION_SECRET`
 ## Caching (production static host)
 
 Production uses `scripts/serve-static.mjs` (Procfile `web`) with an explicit cache policy:

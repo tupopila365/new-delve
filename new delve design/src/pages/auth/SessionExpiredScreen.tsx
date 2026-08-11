@@ -10,7 +10,6 @@ import {
   SupportLink,
 } from '../../components/auth'
 import type { AuthShellLayout } from '../../components/auth/AuthShell'
-import { authConfig } from '../../data/authConfig'
 
 export interface SessionExpiredScreenProps {
   layout?: AuthShellLayout
@@ -42,10 +41,9 @@ export default function SessionExpiredScreen({
         icon={<ShieldAlert size={24} />}
         title="Your session has expired"
         subtitle={
-          <>
-            For your security we signed you out after {authConfig.sessionIdleTimeoutMinutes} minutes of inactivity.
-            {destinationLabel ? ` Sign in again to return to ${destinationLabel}.` : ' Sign in again to continue.'}
-          </>
+          destinationLabel
+            ? `Your session has expired. Sign in again to continue to ${destinationLabel}.`
+            : 'Your session has expired. Sign in again to continue.'
         }
       />
 
@@ -61,7 +59,7 @@ export default function SessionExpiredScreen({
           <Clock size={17} style={{ color: 'var(--fg-muted)' }} />
           <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
             Tip: choose <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Keep me signed in</span> on a device
-            that is only yours to stay signed in for {authConfig.rememberMeDurationDays} days.
+            that is only yours when you trust it.
           </p>
         </div>
 

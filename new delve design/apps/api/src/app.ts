@@ -2,9 +2,11 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import { API_V2_PREFIX } from '@delve/config'
 import type { Env } from './config/env.js'
 import { createCorsOptions } from './config/cors.js'
 import { createApiRouter } from './routes/index.js'
+import { createCloudinaryWebhookRouter } from './modules/media/media.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFoundHandler } from './middleware/not-found.js'
 
@@ -15,6 +17,14 @@ export function createApp(env: Env) {
   app.use(helmet())
   app.use(cors(createCorsOptions(env)))
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
+
+  // Cloudinary webhooks need the raw body for signature verification.
+  app.use(
+    `${API_V2_PREFIX}/webhooks/cloudinary`,
+    express.raw({ type: '*/*', limit: '2mb' }),
+    createCloudinaryWebhookRouter(env),
+  )
+
   app.use(express.json({ limit: '1mb' }))
   app.use(express.urlencoded({ extended: false, limit: '1mb' }))
 
@@ -27,7 +37,7 @@ export function createApp(env: Env) {
     })
   })
 
-  app.use(createApiRouter())
+  app.use(createApiRouter(env))
   app.use(notFoundHandler)
   app.use(errorHandler)
 

@@ -13,7 +13,6 @@ import {
   PrimaryButton,
   SecondaryButton,
   SessionExpiredModal,
-  SocialAuthButton,
   SuccessPanel,
   TextButton,
   TextField,
@@ -200,13 +199,6 @@ export default function FormStatesSection() {
                 label="Send me travel deals and Delve updates"
                 description="Optional. You can change this at any time in your settings."
               />
-            </PreviewCard>
-            <PreviewCard title="Social · resting and loading" caption="Only providers enabled in config appear">
-              <div className="flex flex-col gap-2.5">
-                <SocialAuthButton provider="google" label="Continue with Google" />
-                <SocialAuthButton provider="apple" label="Continue with Apple" loading />
-                <SocialAuthButton provider="google" label="Continue with Google" disabled />
-              </div>
             </PreviewCard>
             <PreviewCard title="Form error summary" caption="Rendered after a failed submit and linked to each field">
               <FormErrorSummary

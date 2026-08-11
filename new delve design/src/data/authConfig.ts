@@ -141,10 +141,10 @@ export interface AuthConfiguration {
 }
 
 export const authConfig: AuthConfiguration = {
-  enabledSignInMethods: ['password', 'google', 'apple'],
+  enabledSignInMethods: ['password'],
   passwordRules: {
-    minimumLength: 10,
-    maximumLength: 72,
+    minimumLength: 8,
+    maximumLength: 128,
     requireLowercase: true,
     requireUppercase: true,
     requireNumber: true,
@@ -152,21 +152,17 @@ export const authConfig: AuthConfiguration = {
     blockCommonPasswords: true,
     requireConfirmation: true,
   },
-  socialProviders: [
-    { id: 'google', label: 'Continue with Google', enabled: true },
-    { id: 'apple', label: 'Continue with Apple', enabled: true },
-    { id: 'phone', label: 'Continue with phone number', enabled: false },
-  ],
+  socialProviders: [],
   verification: {
     otpLength: 6,
     otpExpiryMinutes: 10,
     resendCooldownSeconds: 45,
     maximumAttempts: 5,
-    channels: ['email', 'sms'],
-    phoneVerificationSupported: true,
+    channels: ['email'],
+    phoneVerificationSupported: false,
     voiceCallFallbackEnabled: false,
   },
-  verificationMethods: ['email', 'sms'],
+  verificationMethods: ['email'],
   otpLength: 6,
   resendCooldownSeconds: 45,
   maximumAttempts: 5,
@@ -174,7 +170,7 @@ export const authConfig: AuthConfiguration = {
   lockoutMinutes: 15,
   sessionIdleTimeoutMinutes: 30,
   rememberMeDurationDays: 30,
-  allowPhoneSignIn: true,
+  allowPhoneSignIn: false,
   requireTermsAcceptance: true,
   requirePrivacyAcknowledgement: true,
   termsVersion: '2026.04',

@@ -1,2 +1,6 @@
 export * from './api.js'
 export * from './health.js'
+export * from './auth.js'
+export * from './traveler-account.js'
+export * from './media.js'
+export * from './admin.js'

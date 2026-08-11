@@ -1,5 +1,4 @@
-// Checkpoint 1: Prisma prepared only. Full Delve schema lands in Checkpoint 2.
-// Do not run migrations yet.
+// Delve auth + traveler profile schema (Day 2 sessions / account settings).
 
 generator client {
   provider = "prisma-client-js"
@@ -10,8 +9,325 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Placeholder model so `prisma generate` succeeds before the real schema.
-model SchemaPlaceholder {
+enum AccountStatus {
+  pending_verification
+  active
+  restricted
+  disabled
+  deactivated
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum UserRole {
+  traveler
+  admin
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  email              String        @unique
+  username           String
+  usernameNormalized String        @unique
+  usernameChangedAt  DateTime?
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  accountStatus      AccountStatus @default(pending_verification)
+  /// Platform role. Traveler JWT/session never grants admin API access.
+  role               UserRole      @default(traveler)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  emailVerificationTokens EmailVerificationToken[]
+  sessions                Session[]
+  usernameHistory         UsernameHistory[]
+  travelerProfile         TravelerProfile?
+  emailChangeRequests     EmailChangeRequest[]
+  notificationPreference  NotificationPreference?
+  securityEvents          SecurityEvent[]
+  passwordResetTokens     PasswordResetToken[]
+  mediaAssets             MediaAsset[]
+  mediaUploadIntents      MediaUploadIntent[]
+  adminAuditLogs          AdminAuditLog[]
+
+  @@index([email])
+  @@index([usernameNormalized])
+  @@index([role])
+}
+
+model EmailVerificationToken {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash      String              @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  deliveryStatus EmailDeliveryStatus @default(PENDING)
+  createdAt      DateTime            @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, createdAt])
+}
+
+/// Authenticated device session. Token is stored hashed only — never return tokenHash to clients.
+model Session {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash           String    @unique
+  /// Shared across refresh rotations; reuse of a rotated token revokes the whole family.
+  tokenFamilyId       String
+  /// True only for sessions issued through the admin auth path.
+  isAdminSession      Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  lastSeenAt          DateTime?
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  revokedReason       String?
+  browserName         String?
+  browserMajorVersion Int?
+  operatingSystem     String?
+  /// desktop | phone | tablet | unknown
+  deviceType          String?
+  deviceLabel         String?
+  approxCity          String?
+  approxRegion        String?
+  approxCountryCode   String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@index([lastSeenAt])
+  @@index([tokenFamilyId])
+  @@index([userId, revokedAt, expiresAt])
+  @@index([userId, tokenFamilyId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UsernameHistory {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usernameNormalized String
+  releasedAt         DateTime
+  reservedUntil      DateTime
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
+  @@index([usernameNormalized])
+  @@index([reservedUntil])
+}
+
+model TravelerProfile {
+  id                    String           @id @default(cuid())
+  userId                String           @unique
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName           String           @default("")
+  bio                   String?
+  /// Legacy S3/public URL — prefer avatarMedia when present. Kept for safe migration.
+  avatarUrl             String?
+  /// Legacy S3 object key — do not use for new uploads.
+  avatarKey             String?
+  avatarMediaId         String?          @unique
+  avatarMedia           MediaAsset?      @relation("TravelerAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  homeCity              String?
+  homeCountryCode       String?
+  preferredCurrency     String           @default("USD")
+  preferredLanguage     String           @default("en")
+  interests             String[]         @default([])
+  onboardingStatus      OnboardingStatus @default(NOT_STARTED)
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+}
+
+model EmailChangeRequest {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model NotificationPreference {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  securityAccount   Boolean   @default(true)
+  bookingTrip       Boolean   @default(true)
+  providerMessages  Boolean   @default(true)
+  communityActivity Boolean   @default(true)
+  productUpdates    Boolean   @default(false)
+  marketing         Boolean   @default(false)
+  inApp             Boolean   @default(true)
+  marketingOptInAt  DateTime?
+  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+}
+
+model SecurityEvent {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  metadata  Json?
   createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+/// Append-only administrator security audit trail. Never store passwords or raw tokens.
+model AdminAuditLog {
+  id               String   @id @default(cuid())
+  actorUserId      String?
+  actorUser        User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorSessionId   String?
+  action           String
+  targetType       String?
+  targetId         String?
+  /// success | failure | denied
+  outcome          String
+  reason           String?
+  metadata         Json?
+  correlationId    String?
+  /// One-way hash of normalized identifier for anonymous failed logins.
+  identifierHash   String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([outcome, createdAt])
+}
+
+enum MediaStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  DELETION_PENDING
+  DELETED
+}
+
+enum MediaPurpose {
+  avatar
+  post
+  review
+  business_profile
+  listing
+  message
+}
+
+enum MediaResourceType {
+  image
+  video
+  raw
+  auto
+}
+
+enum MediaUploadIntentStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  FAILED
+  CANCELLED
+}
+
+/// User-uploaded media metadata only. Never store binary, blob, or Base64 here.
+/// Bytes live on Cloudinary; Browser → Cloudinary for files; Browser → Delve API → PostgreSQL for metadata.
+model MediaAsset {
+  id                String            @id @default(cuid())
+  cloudinaryAssetId String?           @unique
+  publicId          String            @unique
+  version           Int?
+  resourceType      MediaResourceType
+  deliveryType      String            @default("upload")
+  format            String?
+  bytes             Int?
+  width             Int?
+  height            Int?
+  duration          Float?
+  secureUrl         String?
+  status            MediaStatus       @default(PENDING)
+  purpose           MediaPurpose
+  altText           String?
+  uploadedByUserId  String
+  uploadedBy        User              @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  /// Reserved until Business model exists (Day 3). Not a free-form ownership claim.
+  businessId        String?
+  /// Reserved until Listing model exists (Day 3).
+  listingId         String?
+  /// Reserved until Post model exists.
+  postId            String?
+  uploadIntentId    String?           @unique
+  uploadIntent      MediaUploadIntent? @relation(fields: [uploadIntentId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
+  sortOrder         Int?
+  travelerAvatarFor TravelerProfile?  @relation("TravelerAvatar")
+
+  @@index([uploadedByUserId, purpose, status])
+  @@index([status])
+  @@index([purpose])
+  @@index([createdAt])
+  @@index([businessId])
+  @@index([listingId])
+  @@index([deletedAt])
+}
+
+model MediaUploadIntent {
+  id                 String                   @id @default(cuid())
+  userId             String
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose            MediaPurpose
+  expectedResourceType MediaResourceType
+  maxBytes           Int
+  permittedFormats   String[]
+  folder             String
+  businessId         String?
+  listingId          String?
+  originalFilename   String?
+  reportedMimeType   String?
+  reportedBytes      Int?
+  status             MediaUploadIntentStatus  @default(PENDING)
+  expiresAt          DateTime
+  completedAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  mediaAsset         MediaAsset?
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@index([status, createdAt])
 }

@@ -8,6 +8,14 @@ import {
   TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu,
 } from 'lucide-react'
 import { navToPath, pathToNav } from './navigation'
+import { getStoredUser, logoutSession, refreshSession } from './api/authClient'
+import { formatUsername } from './lib/formatUsername'
+import VerifyEmailPage from './pages/auth/VerifyEmailPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import OnboardingFlow from './pages/onboarding/OnboardingFlow'
+import AccountSettingsPage from './pages/AccountSettingsPage'
+import EmailChangeVerifyPage from './pages/EmailChangeVerifyPage'
+import { fetchOnboarding } from './api/authClient'
 import { ShimmerStyle } from './components/SectionStates'
 import SafeImage from './components/mobile/SafeImage'
 import ExpandableCaption from './components/mobile/ExpandableCaption'
@@ -473,7 +481,10 @@ export default function App() {
   const [following, setFollowing] = useState<Set<string>>(new Set(['d1']))
   const [activeStory, setActiveStory] = useState<string | null>(null)
   const [authRoute, setAuthRoute] = useState<AuthRoute | null>(null)
-  const [signedIn, setSignedIn] = useState(false)
+  const [signedIn, setSignedIn] = useState(() => Boolean(getStoredUser()))
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showOnboardingResume, setShowOnboardingResume] = useState(false)
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [guestPrompt, setGuestPrompt] = useState<GuestAction | null>(null)
   const [postAuthNav, setPostAuthNav] = useState<string | null>(null)
   const [studioOpen, setStudioOpen] = useState(false)
@@ -498,6 +509,32 @@ export default function App() {
     setActiveNavRaw(fromUrl)
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      if (!getStoredUser()) {
+        setSignedIn(false)
+        return
+      }
+      const refreshed = await refreshSession()
+      if (cancelled) return
+      const ok = Boolean(refreshed || getStoredUser())
+      setSignedIn(ok)
+      if (!ok) return
+      try {
+        const profile = await fetchOnboarding()
+        if (cancelled) return
+        if (profile.onboardingStatus === 'NOT_STARTED') setShowOnboarding(true)
+        else if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
+      } catch {
+        /* onboarding fetch may fail if API/migration not ready */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -553,6 +590,14 @@ export default function App() {
     setPendingStudio(false)
     setAuthRoute(route)
   }
+
+  useEffect(() => {
+    const state = location.state as { openAuth?: AuthRoute } | null
+    if (state?.openAuth) {
+      openAuth(state.openAuth)
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.state, location.pathname, navigate])
 
   function openBooking(ctx: BookingContext) {
     if (!signedIn) {
@@ -700,22 +745,43 @@ export default function App() {
   function handleAuthenticated() {
     setSignedIn(true)
     setAuthRoute(null)
-    if (pendingBooking) {
-      setBookingContext(pendingBooking)
-      setBookingStage('setup')
-      setBookingOpen(true)
-      setPendingBooking(null)
-      return
-    }
-    if (pendingStudio) {
-      setStudioOpen(true)
-      setPendingStudio(false)
-      return
-    }
-    if (postAuthNav) {
-      goToNav(postAuthNav)
-      setPostAuthNav(null)
-    }
+    void (async () => {
+      try {
+        const profile = await fetchOnboarding()
+        if (profile.onboardingStatus === 'NOT_STARTED') {
+          setShowOnboarding(true)
+          return
+        }
+        if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
+      } catch {
+        /* ignore */
+      }
+      if (pendingBooking) {
+        setBookingContext(pendingBooking)
+        setBookingStage('setup')
+        setBookingOpen(true)
+        setPendingBooking(null)
+        return
+      }
+      if (pendingStudio) {
+        setStudioOpen(true)
+        setPendingStudio(false)
+        return
+      }
+      if (postAuthNav) {
+        goToNav(postAuthNav)
+        setPostAuthNav(null)
+      }
+    })()
+  }
+
+  function handleSignOut() {
+    void logoutSession()
+    setSignedIn(false)
+    setShowOnboarding(false)
+    setShowOnboardingResume(false)
+    setAccountSettingsOpen(false)
+    goToNav('Home')
   }
 
   function handleAccountNavigate(target: AccountNavTarget) {
@@ -779,6 +845,41 @@ export default function App() {
           onAuthenticated={handleAuthenticated}
           onExit={() => { setAuthRoute(null); setPendingStudio(false); setPendingBooking(null) }}
         />
+      </div>
+    )
+  }
+
+  if (showOnboarding && signedIn) {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+        <OnboardingFlow
+          onComplete={() => {
+            setShowOnboarding(false)
+            setShowOnboardingResume(false)
+            goToNav('Home')
+          }}
+          onLeave={() => {
+            setShowOnboarding(false)
+            setShowOnboardingResume(true)
+            goToNav('Home')
+          }}
+        />
+      </div>
+    )
+  }
+
+  if (location.pathname.startsWith('/account/email-change')) {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+        <EmailChangeVerifyPage />
+      </div>
+    )
+  }
+
+  if (location.pathname.startsWith('/reset-password')) {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+        <ResetPasswordPage />
       </div>
     )
   }
@@ -950,6 +1051,9 @@ export default function App() {
   }
 
   function renderMain() {
+    if (activeNav === 'Verify email' || location.pathname.startsWith('/verify-email')) {
+      return <VerifyEmailPage />
+    }
     if (COMPANY_ROUTES.has(activeNav)) {
       return <CompanyPage
         route={activeNav as CompanyRoute}
@@ -984,11 +1088,44 @@ export default function App() {
       if (activeNav === 'Messages') return <MessagesPage />
       if (activeNav === 'Saved') return <SavedPage />
       if (activeNav === 'Notifications') return <NotificationsPage />
-      return <AccountDashboardPage
-        travelerName="Amara"
-        onNavigate={handleAccountNavigate}
-        onOpenBusinessAdmin={() => setBusinessAdminOpen(true)}
-      />
+      if (accountSettingsOpen || activeNav === 'Account settings') {
+        return (
+          <AccountSettingsPage
+            onSignOut={handleSignOut}
+            onOpenOnboarding={() => setShowOnboarding(true)}
+          />
+        )
+      }
+      return (
+        <>
+          {showOnboardingResume && (
+            <div className="mb-3 rounded-2xl px-3 py-3 flex items-center justify-between gap-3" style={{ background: 'rgba(140,82,255,0.1)', border: '1px solid var(--border)' }}>
+              <p className="text-sm" style={{ color: 'var(--fg)' }}>Finish setting up your Delve profile when you are ready.</p>
+              <button
+                type="button"
+                className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
+                style={{ background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                onClick={() => setShowOnboarding(true)}
+              >
+                Resume
+              </button>
+            </div>
+          )}
+          <AccountDashboardPage
+            travelerName={getStoredUser()?.username ?? 'Traveler'}
+            onNavigate={target => {
+              if (target === 'Profile') setAccountSettingsOpen(false)
+              handleAccountNavigate(target)
+            }}
+            onOpenBusinessAdmin={() => setBusinessAdminOpen(true)}
+            onSignOut={handleSignOut}
+            onOpenSettings={() => {
+              setAccountSettingsOpen(true)
+              goToNav('Account settings')
+            }}
+          />
+        </>
+      )
     }
 
     return (
@@ -1152,7 +1289,7 @@ export default function App() {
               <button type="button" onClick={() => setActiveNav('Account')}
                 className="px-3 py-2 rounded-xl text-sm font-semibold hidden lg:flex items-center gap-2"
                 style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
-                <CheckCircle size={14} /> Amara S.
+                <CheckCircle size={14} /> {formatUsername(getStoredUser()?.username) || 'Account'}
               </button>
             ) : (
               <>
@@ -1263,7 +1400,9 @@ export default function App() {
               <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 {signedIn ? (
                   <>
-                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>Welcome back, Amara</p>
+                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>
+                      Welcome back{getStoredUser()?.username ? `, ${formatUsername(getStoredUser()?.username)}` : ''}
+                    </p>
                     <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>You are signed in. Saving and following are unlocked.</p>
                     <button type="button" onClick={() => setActiveNav('Account')}
                       className="w-full py-2 rounded-xl text-sm font-semibold"

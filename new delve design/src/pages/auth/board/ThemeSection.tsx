@@ -11,7 +11,6 @@ import {
   PasswordStrength,
   PrimaryButton,
   SecondaryButton,
-  SocialAuthGroup,
 } from '../../../components/auth'
 
 export interface ThemeSectionProps {
@@ -95,7 +94,6 @@ export default function ThemeSection({ theme }: ThemeSectionProps) {
                 <Checkbox checked label="Keep me signed in" onChange={() => {}} />
                 <PrimaryButton>Sign in</PrimaryButton>
                 <SecondaryButton>Back to sign in</SecondaryButton>
-                <SocialAuthGroup />
                 <InlineAlert tone="error" title="We could not sign you in">
                   The email or password you entered is not correct.
                 </InlineAlert>

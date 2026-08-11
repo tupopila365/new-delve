@@ -19,8 +19,8 @@ export type { PhoneVerificationScreenProps } from './PhoneVerificationScreen'
 export { default as SessionExpiredScreen } from './SessionExpiredScreen'
 export type { SessionExpiredScreenProps } from './SessionExpiredScreen'
 
-export { default as SocialConflictScreen } from './SocialConflictScreen'
-export type { SocialConflictScreenProps } from './SocialConflictScreen'
-
 export { default as AccountRestrictedScreen } from './AccountRestrictedScreen'
 export type { AccountRestrictedScreenProps } from './AccountRestrictedScreen'
+
+export { default as VerifyEmailPage } from './VerifyEmailPage'
+export { default as ResetPasswordPage } from './ResetPasswordPage'

@@ -6,7 +6,6 @@ import ForgotPasswordFlow from './ForgotPasswordFlow'
 import EmailVerificationScreen from './EmailVerificationScreen'
 import PhoneVerificationScreen from './PhoneVerificationScreen'
 import SessionExpiredScreen from './SessionExpiredScreen'
-import SocialConflictScreen from './SocialConflictScreen'
 import AccountRestrictedScreen from './AccountRestrictedScreen'
 import type { AuthShellLayout } from '../../components/auth/AuthShell'
 
@@ -17,17 +16,13 @@ export type AuthRoute =
   | 'emailVerification'
   | 'phoneVerification'
   | 'sessionExpired'
-  | 'socialConflict'
   | 'accountRestricted'
 
 export interface AuthFlowProps {
   initialRoute?: AuthRoute
   layout?: AuthShellLayout
-  /** Theme toggle or help control rendered in every screen header. */
   headerTrailing?: ReactNode
-  /** Called when the traveler is signed in and should return to the app. */
   onAuthenticated?: () => void
-  /** Called when the traveler leaves auth without signing in. */
   onExit?: () => void
   onSetUpProfile?: () => void
   destinationLabel?: string
@@ -35,7 +30,7 @@ export interface AuthFlowProps {
   staticPreview?: boolean
 }
 
-/** Connects every auth screen into the walkable flow used by the prototype. */
+/** Connects every auth screen into the walkable flow used by the app. */
 export default function AuthFlow({
   initialRoute = 'signIn',
   layout = 'auto',
@@ -111,18 +106,6 @@ export default function AuthFlow({
           destinationLabel={destinationLabel}
           onSignIn={() => go('signIn')}
           onContinueAsGuest={onExit}
-        />
-      )
-
-    case 'socialConflict':
-      return (
-        <SocialConflictScreen
-          {...shared}
-          email={email || 'traveler@example.com'}
-          onUseExistingMethod={() => go('signIn')}
-          onLinkAccounts={onAuthenticated}
-          onBackToSignIn={() => go('signIn')}
-          onClose={onExit}
         />
       )
 

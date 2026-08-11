@@ -1,6 +1,5 @@
 import { BoardGrid, Note, PreviewCard, SectionIntro, SpecTable } from './BoardKit'
 import {
-  AuthDivider,
   AuthHeader,
   AuthTitleBlock,
   CountryCodeSelector,
@@ -8,6 +7,7 @@ import {
   LoadingSpinner,
   PhoneField,
   ResendCodeControl,
+  SessionCard,
   SupportLink,
   TermsAndPrivacyText,
   TravelImagePanel,
@@ -20,25 +20,24 @@ const inventory: Array<[string, string, string]> = [
   ['TravelImagePanel', 'image: dunes | coast · overlay: soft | strong · headline · supporting', 'Generated travel imagery with purple wash'],
   ['AuthTitleBlock', 'title · subtitle · eyebrow · icon · align · size', 'Screen heading and supporting copy'],
   ['AuthForm', 'onSubmit · busy · gap', 'Form element that swallows a submit while busy'],
-  ['TextField', '9 field states via previewState · label · hint · error · successMessage · leading · trailing', 'Base input every other field builds on'],
+  ['TextField / AuthField', '9 field states via previewState · label · hint · error · successMessage · leading · trailing', 'Base input every other field builds on'],
   ['EmailField', 'Inherits TextField · email keyboard and autocomplete', 'Email entry'],
   ['PhoneField', 'countryCode · optionalLabel · per-country length hint', 'Dial code selector plus national number'],
   ['CountryCodeSelector', 'value · countries from config · disabled', 'Standalone dial code control'],
-  ['PasswordField', 'autoComplete: current | new · labelAction · show/hide toggle', 'Password entry with reveal control'],
+  ['PasswordField', 'autoComplete: current | new · show/hide · Caps Lock warning', 'Password entry with reveal control'],
   ['PasswordStrength', 'value or evaluation · showLabel', 'Four-segment meter driven by the policy'],
   ['PasswordRequirementList', 'value · requirements · columns: 1 | 2 · showState', 'Live checklist generated from config'],
   ['Checkbox', 'checked · label · description · error · required', 'Consent and preference control'],
-  ['PrimaryButton', '6 button states · size · loading · iconLeft/Right · fullWidth', 'Main action'],
+  ['PrimaryButton / AuthSubmitButton', '6 button states · size · loading · iconLeft/Right · fullWidth', 'Main action'],
   ['SecondaryButton', 'Same state matrix as PrimaryButton', 'Alternate action'],
   ['TextButton', 'tone: brand | muted · align · size', 'Inline navigation and low-emphasis actions'],
-  ['SocialAuthButton', 'provider · variant: full | compact · loading · disabled', 'One provider'],
-  ['SocialAuthGroup', 'config · layout: stacked | row · labelPrefix · loadingProvider', 'Renders only enabled providers'],
-  ['AuthDivider', 'label', 'Separates password and social paths'],
   ['OTPInput', 'length from config · paste · auto-advance · error · success · disabled', 'One-time code entry'],
   ['ResendCodeControl', 'cooldownSeconds from config · sending · resetToken', 'Countdown and resend action'],
-  ['InlineAlert', 'tone: info | success | warning | error | offline | security · title · action · onDismiss', 'In-form feedback'],
-  ['FormErrorSummary', 'errors[] linked to field ids', 'Post-submit summary for screen readers'],
+  ['InlineAlert / AuthStatusPanel', 'tone: info | success | warning | error | offline | security · title · action · onDismiss', 'In-form feedback'],
+  ['FormErrorSummary / AuthErrorSummary', 'errors[] linked to field ids', 'Post-submit summary for screen readers'],
   ['SuccessPanel', 'title · message · primaryAction · secondaryAction', 'Terminal success states'],
+  ['SessionCard', 'session summary · current badge · revoke', 'Active session device row'],
+  ['ConfirmationDialog', 'title · description · confirm/cancel · busy', 'Destructive confirmation'],
   ['AuthRequiredModal', 'action: save | book | join | message | generic · destinationLabel', 'Guest interception on desktop'],
   ['AuthRequiredBottomSheet', 'Same actions, sheet presentation', 'Guest interception on mobile'],
   ['SessionExpiredModal', 'destinationLabel · blocking, not dismissible', 'Idle timeout interruption'],
@@ -90,8 +89,25 @@ export default function ComponentInventorySection() {
           <PreviewCard title="CountryCodeSelector">
             <CountryCodeSelector value="NA" onChange={() => {}} />
           </PreviewCard>
-          <PreviewCard title="AuthDivider">
-            <AuthDivider />
+          <PreviewCard title="SessionCard">
+            <SessionCard
+              session={{
+                id: 's1',
+                isCurrent: true,
+                description: 'Chrome on Windows',
+                browserName: 'Chrome',
+                browserMajorVersion: 120,
+                operatingSystem: 'Windows',
+                deviceType: 'desktop',
+                deviceLabel: null,
+                approximateLocation: null,
+                locationUnavailable: true,
+                lastActivityAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 86400000).toISOString(),
+                status: 'active',
+              }}
+            />
           </PreviewCard>
           <PreviewCard title="ResendCodeControl">
             <ResendCodeControl onResend={() => {}} startImmediately={false} />

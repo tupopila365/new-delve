@@ -67,7 +67,7 @@ const profiles: Record<string, MockProfile> = {
   },
 }
 
-let currentUser: string | null = localStorage.getItem('delve_admin_mock_user')
+let currentUser: string | null = null
 let mockReports: AdminReport[] = DEMO_REPORTS.map((r, i) => ({
   id: r.id,
   reporter_username: r.reporter,
@@ -951,7 +951,6 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
       throw new ApiError('Invalid credentials', 401, { detail: 'Invalid credentials' })
     }
     currentUser = username!
-    localStorage.setItem('delve_admin_mock_user', currentUser)
     return { access: 'mock-access', refresh: 'mock-refresh' }
   }
 
@@ -2515,10 +2514,4 @@ export async function mockApiFetch(path: string, init: RequestInit = {}): Promis
 
 export function mockLogout() {
   currentUser = null
-  localStorage.removeItem('delve_admin_mock_user')
-}
-
-if (currentUser && !profiles[currentUser]) {
-  currentUser = null
-  localStorage.removeItem('delve_admin_mock_user')
 }

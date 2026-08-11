@@ -20,6 +20,7 @@
     "typecheck:all": "pnpm --filter @delve/contracts --filter @delve/config --filter @delve/database --filter @delve/api --filter @delve/admin-web run typecheck && pnpm run typecheck",
     "db:generate": "pnpm --filter @delve/database generate",
     "db:migrate": "pnpm --filter @delve/database migrate",
+    "admin:create": "pnpm --filter @delve/api admin:create",
     "preview": "vite preview",
     "start": "node scripts/serve-static.mjs",
     "heroku-postbuild": "pnpm run build",

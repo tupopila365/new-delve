@@ -37,16 +37,12 @@ export default function BackendHandoffSection() {
             columns={['Field', 'Type', 'Used by the interface for']}
             rows={[
               ['id', 'string', 'Session identity. Never rendered.'],
-              ['firstName / lastName', 'string', 'Sign-up step 1, greeting after sign-in'],
-              ['displayName', 'string', 'Derived by the backend; shown in the app, not in auth'],
+              ['username / usernameNormalized', 'string', 'Unique public handle; login accepts email or username'],
               ['email', 'string', 'Sign-in identifier — never echoed back in full after submit'],
               ['maskedEmail', 'string', 'Backend-provided masked address for recovery and verification copy'],
               ['emailVerified', 'boolean', 'Gates the unverified-email state on sign-in'],
-              ['phone / phoneCountryCode / phoneNumber', 'string | null', 'Optional at sign-up, used for SMS verification'],
-              ['maskedPhone', 'string | null', 'Backend-provided masked phone for OTP and recovery copy'],
-              ['phoneVerified', 'boolean', 'Drives the phone verification screen and its success state'],
               ['accountStatus', "'active' | 'pendingVerification' | 'restricted' | 'disabled'", 'Selects restricted or disabled messaging'],
-              ['authenticationMethods / linkedProviders', "Array<'password' | 'google' | 'apple' | 'phone'>", 'Social conflict screen and account linking'],
+              ['authenticationMethods', "Array<'password'>", 'Password only for Day 2 — no Google/Apple'],
               ['profileCompletionStatus', "'incomplete' | 'basic' | 'complete'", 'Post-auth prompt to set up profile; never blocks sign-up'],
               ['preferredTheme', "'light' | 'dark' | 'system'", 'Restored after sign-in when the traveler has a preference'],
               ['marketingOptIn', 'boolean', 'Optional consent, never defaulted to true'],
@@ -68,7 +64,7 @@ export default function BackendHandoffSection() {
               [
                 'enabledSignInMethods',
                 authConfig.enabledSignInMethods.join(', '),
-                'Controls which identifier and social paths appear on sign-in and sign-up',
+                'Controls which identifier paths appear on sign-in and sign-up',
               ],
               [
                 'passwordRules',
@@ -87,8 +83,10 @@ export default function BackendHandoffSection() {
               ],
               [
                 'socialProviders',
-                authConfig.socialProviders.map(p => `${p.id}: ${p.enabled ? 'on' : 'off'}`).join(', '),
-                'A provider button only renders when enabled. Phone is currently off and does not appear.',
+                authConfig.socialProviders.length === 0
+                  ? 'none (Day 2)'
+                  : authConfig.socialProviders.map(p => `${p.id}: ${p.enabled ? 'on' : 'off'}`).join(', '),
+                'Empty — Google and Apple are not offered on traveler auth.',
               ],
               [
                 'verificationMethods',

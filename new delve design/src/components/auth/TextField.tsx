@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import type { InputHTMLAttributes, ReactNode } from 'react'
+import type { InputHTMLAttributes, KeyboardEvent, ReactNode } from 'react'
 import { AlertCircle, Check } from 'lucide-react'
 import LoadingSpinner from './LoadingSpinner'
 import type { FieldState } from '../../data/authConfig'
@@ -9,6 +9,8 @@ export interface TextFieldProps {
   value: string
   onChange?: (value: string) => void
   onBlur?: () => void
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
+  onKeyUp?: (event: KeyboardEvent<HTMLInputElement>) => void
   id?: string
   name?: string
   type?: 'text' | 'email' | 'tel' | 'password' | 'number'
@@ -22,6 +24,9 @@ export interface TextFieldProps {
   readOnly?: boolean
   required?: boolean
   autoComplete?: string
+  autoCapitalize?: InputHTMLAttributes<HTMLInputElement>['autoCapitalize']
+  autoCorrect?: string
+  spellCheck?: boolean
   inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
   maxLength?: number
   autoFocus?: boolean
@@ -40,6 +45,8 @@ export default function TextField({
   value,
   onChange,
   onBlur,
+  onKeyDown,
+  onKeyUp,
   id,
   name,
   type = 'text',
@@ -52,6 +59,9 @@ export default function TextField({
   readOnly = false,
   required = false,
   autoComplete,
+  autoCapitalize,
+  autoCorrect,
+  spellCheck,
   inputMode,
   maxLength,
   autoFocus,
@@ -161,12 +171,17 @@ export default function TextField({
             readOnly={isReadOnly}
             required={required}
             autoComplete={autoComplete}
+            autoCapitalize={autoCapitalize}
+            autoCorrect={autoCorrect}
+            spellCheck={spellCheck}
             inputMode={inputMode}
             maxLength={maxLength}
             autoFocus={autoFocus}
             aria-invalid={hasError || undefined}
             aria-describedby={message ? messageId : undefined}
             onChange={event => onChange?.(event.target.value)}
+            onKeyDown={onKeyDown}
+            onKeyUp={onKeyUp}
             onFocus={() => setFocused(true)}
             onBlur={() => {
               setFocused(false)
@@ -180,6 +195,7 @@ export default function TextField({
               color: 'var(--fg)',
               height: 46,
               fontFamily: 'inherit',
+              fontSize: 16,
               cursor: isReadOnly ? 'default' : 'text',
             }}
           />

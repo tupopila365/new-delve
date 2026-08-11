@@ -21,7 +21,6 @@ const startingPoints: Array<{ route: AuthRoute; label: string }> = [
   { route: 'emailVerification', label: 'Email verification' },
   { route: 'phoneVerification', label: 'Phone verification' },
   { route: 'sessionExpired', label: 'Session expired' },
-  { route: 'socialConflict', label: 'Social conflict' },
   { route: 'accountRestricted', label: 'Account restricted' },
 ]
 
@@ -232,7 +231,6 @@ export default function PrototypeSection({ onAuthenticated }: PrototypeSectionPr
             ['busy@example.com', 'Sign in', 'Rate limited after too many attempts'],
             ['offline@example.com', 'Sign in', 'Offline state'],
             ['down@example.com', 'Sign in', 'Server unavailable'],
-            ['Continue with Apple', 'Sign in', 'A social provider round-trip that fails'],
             ['000000', 'Any code entry', 'Wrong code, attempts counting down to a lockout'],
             ['111111', 'Any code entry', 'Expired code'],
             ['222222', 'Recovery code entry', 'Code already used'],

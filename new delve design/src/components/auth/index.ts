@@ -2,6 +2,9 @@
 
 export { default as AuthShell } from './AuthShell'
 export type { AuthShellProps, AuthShellLayout } from './AuthShell'
+/** Alias for shared auth page framing. */
+export { default as AuthPageShell } from './AuthShell'
+export type { AuthShellProps as AuthPageShellProps } from './AuthShell'
 
 export { default as AuthHeader } from './AuthHeader'
 export type { AuthHeaderProps } from './AuthHeader'
@@ -20,6 +23,9 @@ export type { TravelImagePanelProps, TravelImageKey } from './TravelImagePanel'
 
 export { default as TextField } from './TextField'
 export type { TextFieldProps } from './TextField'
+/** Shared text/email/username field alias. */
+export { default as AuthField } from './TextField'
+export type { TextFieldProps as AuthFieldProps } from './TextField'
 
 export { default as EmailField } from './EmailField'
 export type { EmailFieldProps } from './EmailField'
@@ -44,21 +50,15 @@ export type { CheckboxProps } from './Checkbox'
 
 export { default as PrimaryButton } from './PrimaryButton'
 export type { PrimaryButtonProps } from './PrimaryButton'
+/** Consistent auth submit control. */
+export { default as AuthSubmitButton } from './PrimaryButton'
+export type { PrimaryButtonProps as AuthSubmitButtonProps } from './PrimaryButton'
 
 export { default as SecondaryButton } from './SecondaryButton'
 export type { SecondaryButtonProps } from './SecondaryButton'
 
 export { default as TextButton } from './TextButton'
 export type { TextButtonProps } from './TextButton'
-
-export { default as SocialAuthButton } from './SocialAuthButton'
-export type { SocialAuthButtonProps } from './SocialAuthButton'
-
-export { default as SocialAuthGroup } from './SocialAuthGroup'
-export type { SocialAuthGroupProps } from './SocialAuthGroup'
-
-export { default as AuthDivider } from './AuthDivider'
-export type { AuthDividerProps } from './AuthDivider'
 
 export { default as OTPInput } from './OTPInput'
 export type { OTPInputProps } from './OTPInput'
@@ -68,15 +68,25 @@ export type { ResendCodeControlProps } from './ResendCodeControl'
 
 export { default as InlineAlert } from './InlineAlert'
 export type { InlineAlertProps, InlineAlertTone } from './InlineAlert'
+export { default as AuthStatusPanel } from './InlineAlert'
+export type { InlineAlertProps as AuthStatusPanelProps } from './InlineAlert'
 
 export { default as FormErrorSummary } from './FormErrorSummary'
 export type { FormErrorSummaryProps, FormErrorSummaryItem } from './FormErrorSummary'
+export { default as AuthErrorSummary } from './FormErrorSummary'
+export type { FormErrorSummaryProps as AuthErrorSummaryProps } from './FormErrorSummary'
 
 export { default as SuccessPanel } from './SuccessPanel'
 export type { SuccessPanelProps } from './SuccessPanel'
 
 export { default as ModalOverlay } from './ModalOverlay'
 export type { ModalOverlayProps } from './ModalOverlay'
+
+export { default as ConfirmationDialog } from './ConfirmationDialog'
+export type { ConfirmationDialogProps } from './ConfirmationDialog'
+
+export { default as SessionCard } from './SessionCard'
+export type { SessionCardProps } from './SessionCard'
 
 export { default as AuthRequiredModal, guestActionCopy } from './AuthRequiredModal'
 export type { AuthRequiredModalProps, GuestAction } from './AuthRequiredModal'

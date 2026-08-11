@@ -1,3 +1,8 @@
+/**
+ * Legacy platform shell API client.
+ * Administrator authentication for production is cookie-only via apps/admin-web + Backend V2.
+ * Tokens are kept in memory only — never persisted in the browser — so a refresh cannot revive elevated access.
+ */
 const API_PREFIX = import.meta.env.VITE_API_URL ?? ''
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
 
@@ -7,25 +12,25 @@ export function apiUrl(path: string): string {
   return `${API_PREFIX}${p}`
 }
 
-const ACCESS = 'delve_admin_access'
-const REFRESH = 'delve_admin_refresh'
+let memoryAccessToken: string | null = null
+let memoryRefreshToken: string | null = null
 
 export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS)
+  return memoryAccessToken
 }
 
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH)
+  return memoryRefreshToken
 }
 
 export function setTokens(access: string, refresh: string) {
-  localStorage.setItem(ACCESS, access)
-  localStorage.setItem(REFRESH, refresh)
+  memoryAccessToken = access
+  memoryRefreshToken = refresh
 }
 
 export function clearTokens() {
-  localStorage.removeItem(ACCESS)
-  localStorage.removeItem(REFRESH)
+  memoryAccessToken = null
+  memoryRefreshToken = null
 }
 
 export class ApiError extends Error {
@@ -83,7 +88,7 @@ export async function apiFetch<T = unknown>(
     })
     if (r.ok) {
       const data = (await r.json()) as { access: string }
-      localStorage.setItem(ACCESS, data.access)
+      memoryAccessToken = data.access
       headers.set('Authorization', `Bearer ${data.access}`)
       res = await fetch(apiUrl(path), { ...rest, headers })
     }

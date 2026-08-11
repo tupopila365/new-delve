@@ -6,7 +6,6 @@ import ForgotPasswordFlow from '../ForgotPasswordFlow'
 import EmailVerificationScreen from '../EmailVerificationScreen'
 import PhoneVerificationScreen from '../PhoneVerificationScreen'
 import SessionExpiredScreen from '../SessionExpiredScreen'
-import SocialConflictScreen from '../SocialConflictScreen'
 import AccountRestrictedScreen from '../AccountRestrictedScreen'
 import type { AuthShellLayout } from '../../../components/auth/AuthShell'
 
@@ -70,29 +69,22 @@ function buildFrames(layout: AuthShellLayout): FrameEntry[] {
     {
       id: 'sign-in',
       title: 'Sign in',
-      caption: 'Welcome back, email or phone, password with show/hide, keep me signed in, social providers.',
+      caption: 'Email or username, password with show/hide, keep me signed in. Password only — no social providers.',
       node: <SignInScreen {...shared} />,
       viewports: ['desktop', 'tablet', 'mobile'],
     },
     {
       id: 'sign-up-1',
-      title: 'Sign up · Step 1 create account',
-      caption: 'Names, email, optional country and phone, password with live requirements, required consent.',
+      title: 'Sign up · Create account',
+      caption: 'Unique username, email, password with live requirements, required consent.',
       node: <SignUpScreen {...shared} step={1} />,
       viewports: ['desktop', 'tablet', 'mobile'],
     },
     {
       id: 'sign-up-2',
-      title: 'Sign up · Step 2 verify identity',
-      caption: 'Six-digit code to a masked address, resend cooldown, change contact, switch channel.',
+      title: 'Sign up · Check email',
+      caption: 'Brevo verification link sent to a masked address, with resend.',
       node: <SignUpScreen {...shared} step={2} />,
-      viewports: ['desktop', 'tablet', 'mobile'],
-    },
-    {
-      id: 'sign-up-3',
-      title: "Sign up · Step 3 you're ready to Delve",
-      caption: 'Confirmation with two exits — start exploring or set up a profile. No preference onboarding.',
-      node: <SignUpScreen {...shared} step={3} />,
       viewports: ['desktop', 'tablet', 'mobile'],
     },
     {
@@ -105,29 +97,8 @@ function buildFrames(layout: AuthShellLayout): FrameEntry[] {
     {
       id: 'forgot-inbox',
       title: 'Forgot password · Check inbox',
-      caption: 'Neutral confirmation with a masked address and an explanation of why it is worded that way.',
+      caption: 'Neutral confirmation. Reset continues from the emailed link on /reset-password.',
       node: <ForgotPasswordFlow {...shared} step="checkInbox" />,
-      viewports: ['desktop', 'mobile'],
-    },
-    {
-      id: 'forgot-code',
-      title: 'Forgot password · Enter recovery code',
-      caption: 'Six-digit input with paste support, attempt counter and resend.',
-      node: <ForgotPasswordFlow {...shared} step="enterCode" />,
-      viewports: ['desktop', 'tablet', 'mobile'],
-    },
-    {
-      id: 'forgot-new-password',
-      title: 'Forgot password · Create new password',
-      caption: 'Strength meter and requirement list driven by the backend policy, plus confirmation field.',
-      node: <ForgotPasswordFlow {...shared} step="createPassword" />,
-      viewports: ['desktop', 'mobile'],
-    },
-    {
-      id: 'forgot-updated',
-      title: 'Forgot password · Password updated',
-      caption: 'Success panel that states other devices have been signed out.',
-      node: <ForgotPasswordFlow {...shared} step="updated" />,
       viewports: ['desktop', 'mobile'],
     },
     {
@@ -157,13 +128,6 @@ function buildFrames(layout: AuthShellLayout): FrameEntry[] {
       caption: 'Full-page version for a cold open, with the return destination named.',
       node: <SessionExpiredScreen layout={layout} destinationLabel="your saved stays" />,
       viewports: ['desktop', 'mobile'],
-    },
-    {
-      id: 'social-conflict',
-      title: 'Social account conflict',
-      caption: 'Reached only after the provider confirmed the address, so naming the existing method is safe.',
-      node: <SocialConflictScreen {...shared} />,
-      viewports: ['desktop', 'tablet'],
     },
     {
       id: 'account-restricted',

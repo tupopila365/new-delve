@@ -20,6 +20,10 @@ export const NAV_PATHS: Record<string, string> = {
   Investors: '/investors',
   Contact: '/contact',
   'Become a provider': '/become-a-provider',
+  'Verify email': '/verify-email',
+  Onboarding: '/onboarding',
+  'Account settings': '/account/settings',
+  'Email change': '/account/email-change',
 }
 
 export function normalizePath(pathname: string): string {

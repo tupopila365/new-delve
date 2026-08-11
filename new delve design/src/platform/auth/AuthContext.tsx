@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { apiFetch, clearTokens, getAccessToken, login as apiLogin, setTokens } from '../api/client'
+import { apiFetch, clearTokens, getAccessToken, login as apiLogin } from '../api/client'
 import type { AdminProfile } from '../api/types'
 import { mockLogout } from '../mocks/mockApi'
 
@@ -28,14 +28,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
     if (!getAccessToken() && !USE_MOCKS) {
       setProfile(null)
       setLoading(false)
       return
-    }
-    if (USE_MOCKS && !getAccessToken() && localStorage.getItem('delve_admin_mock_user')) {
-      setTokens('mock-access', 'mock-refresh')
     }
     try {
       const me = await apiFetch<AdminProfile>('/api/accounts/me/')
@@ -53,20 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [refresh])
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      await apiLogin(email.trim(), password)
-      const me = await apiFetch<AdminProfile>('/api/accounts/me/')
-      if (!me.is_staff) {
-        clearTokens()
-        if (USE_MOCKS) mockLogout()
-        throw new Error('This account does not have platform admin access.')
-      }
-      setProfile(me)
-      setLoading(false)
-    },
-    [],
-  )
+  const login = useCallback(async (email: string, password: string) => {
+    await apiLogin(email.trim(), password)
+    const me = await apiFetch<AdminProfile>('/api/accounts/me/')
+    if (!me.is_staff) {
+      clearTokens()
+      if (USE_MOCKS) mockLogout()
+      throw new Error('This account does not have platform admin access.')
+    }
+    setProfile(me)
+    setLoading(false)
+  }, [])
 
   const logout = useCallback(() => {
     clearTokens()

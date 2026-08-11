@@ -2,6 +2,8 @@ import { useState } from 'react'
 import {
   ArrowLeft, CheckCircle, Globe, MapPin, MessageCircle, Plus, Share2, Star, Users,
 } from 'lucide-react'
+import { getStoredUser } from '../api/authClient'
+import { formatUsername } from '../lib/formatUsername'
 
 type ProfileTab = 'Delvers' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
 
@@ -232,7 +234,7 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
             </span>
           </div>
           <p className="text-sm mb-2 flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: 'var(--fg-muted)' }}>
-            <span>@amara.diallo</span>
+            <span>{formatUsername(isOwner ? getStoredUser()?.username : 'amara.diallo') || '@amara.diallo'}</span>
             <span className="inline-flex items-center gap-1">
               <MapPin size={12} />
               Dakar, Senegal

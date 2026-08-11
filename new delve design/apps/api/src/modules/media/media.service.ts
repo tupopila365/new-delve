@@ -1,0 +1,457 @@
+import { prisma } from '@delve/database'
+import type {
+  MediaAssetDto,
+  MediaCompleteBody,
+  MediaUploadSignatureBody,
+  MediaUploadSignatureResponse,
+} from '@delve/contracts'
+import type { Env } from '../../config/env.js'
+import { AppError } from '../../middleware/error-handler.js'
+import {
+  buildDeliveryUrl,
+  chooseFolder,
+  destroyCloudinaryAsset,
+  extensionFromFilename,
+  normalizeFormat,
+  purposePolicies,
+  safeEqualHex,
+  signCloudinaryParams,
+  verifyCloudinaryNotification,
+} from './cloudinary.js'
+import { recordMediaMetric } from './metrics.js'
+
+const AVATAR_QUOTA_NOTE = 1
+const DEFAULT_USER_READY_QUOTA = 50
+
+function toDto(
+  env: Env,
+  row: {
+    id: string
+    publicId: string
+    version: number | null
+    resourceType: string
+    format: string | null
+    bytes: number | null
+    width: number | null
+    height: number | null
+    duration: number | null
+    status: string
+    purpose: string
+    altText: string | null
+    createdAt: Date
+  },
+): MediaAssetDto {
+  const cloudName = env.CLOUDINARY_CLOUD_NAME || 'delve'
+  const presetWidth = row.purpose === 'avatar' ? 192 : 768
+  const url = buildDeliveryUrl({
+    cloudName,
+    publicId: row.publicId,
+    version: row.version,
+    resourceType: row.resourceType,
+    width: presetWidth,
+    crop: row.purpose === 'avatar' ? 'fill' : 'limit',
+    gravity: row.purpose === 'avatar' ? 'auto' : undefined,
+  })
+  const srcSet =
+    row.resourceType === 'image'
+      ? [48, 96, 192, 480, 768, 1200]
+          .filter(w => (row.purpose === 'avatar' ? w <= 192 : w >= 480))
+          .map(
+            w =>
+              `${buildDeliveryUrl({
+                cloudName,
+                publicId: row.publicId,
+                version: row.version,
+                resourceType: row.resourceType,
+                width: w,
+                crop: row.purpose === 'avatar' ? 'fill' : 'limit',
+                gravity: row.purpose === 'avatar' ? 'auto' : undefined,
+              })} ${w}w`,
+          )
+          .join(', ')
+      : undefined
+
+  return {
+    id: row.id,
+    publicId: row.publicId,
+    version: row.version,
+    resourceType: row.resourceType as MediaAssetDto['resourceType'],
+    format: row.format,
+    bytes: row.bytes,
+    width: row.width,
+    height: row.height,
+    duration: row.duration,
+    status: row.status as MediaAssetDto['status'],
+    purpose: row.purpose as MediaAssetDto['purpose'],
+    altText: row.altText,
+    delivery: {
+      url,
+      srcSet,
+      sizes: row.purpose === 'avatar' ? '48px' : '(max-width: 768px) 100vw, 768px',
+      width: row.width ?? presetWidth,
+      height: row.height ?? undefined,
+    },
+    createdAt: row.createdAt.toISOString(),
+  }
+}
+
+/**
+ * Architecture boundary: returns Cloudinary signed upload params only.
+ * Media bytes must never pass through Backend V2.
+ */
+export async function createUploadSignature(
+  env: Env,
+  userId: string,
+  body: MediaUploadSignatureBody,
+): Promise<MediaUploadSignatureResponse> {
+  if (!env.cloudinaryConfigured) {
+    throw new AppError(503, 'CLOUDINARY_NOT_CONFIGURED', 'Media uploads are not configured yet.')
+  }
+
+  const policies = purposePolicies(env)
+  const policy = policies[body.purpose]
+  if (!policy || policy.notYetAvailable) {
+    throw new AppError(400, 'PURPOSE_NOT_AVAILABLE', 'That media purpose is not available yet.')
+  }
+  if (policy.requiresBusiness || policy.requiresListing) {
+    throw new AppError(403, 'UNAUTHORIZED', 'Business or listing media is not available yet.')
+  }
+
+  const ext = normalizeFormat(extensionFromFilename(body.originalFilename))
+  const mimeOk = policy.mimeTypes.includes(body.mimeType.toLowerCase())
+  const formatOk = !ext || policy.formats.includes(ext)
+  if (!mimeOk && !formatOk) {
+    throw new AppError(400, 'INVALID_FILE_TYPE', 'That file type is not allowed for this upload.')
+  }
+  if (body.bytes > policy.maxBytes) {
+    throw new AppError(400, 'FILE_TOO_LARGE', 'That file is larger than the allowed maximum.')
+  }
+
+  if (body.purpose !== 'avatar') {
+    const readyCount = await prisma.mediaAsset.count({
+      where: { uploadedByUserId: userId, status: 'READY', deletedAt: null },
+    })
+    if (readyCount >= DEFAULT_USER_READY_QUOTA) {
+      throw new AppError(429, 'QUOTA_EXCEEDED', 'You have reached the media upload limit for this account.')
+    }
+  } else {
+    void AVATAR_QUOTA_NOTE
+  }
+
+  const folder = chooseFolder(env, body.purpose, userId, body.businessId, body.listingId)
+  const ttl = env.CLOUDINARY_UPLOAD_SIGNATURE_TTL_SECONDS
+  const expiresAt = new Date(Date.now() + ttl * 1000)
+  const timestamp = Math.floor(Date.now() / 1000)
+
+  const intent = await prisma.mediaUploadIntent.create({
+    data: {
+      userId,
+      purpose: body.purpose,
+      expectedResourceType: policy.resourceType === 'auto' ? 'auto' : policy.resourceType,
+      maxBytes: policy.maxBytes,
+      permittedFormats: policy.formats,
+      folder,
+      businessId: body.businessId,
+      listingId: body.listingId,
+      originalFilename: body.originalFilename.slice(0, 255),
+      reportedMimeType: body.mimeType.slice(0, 128),
+      reportedBytes: body.bytes,
+      status: 'PENDING',
+      expiresAt,
+    },
+  })
+
+  const signParams: Record<string, string | number> = {
+    folder,
+    timestamp,
+    context: `delve_intent_id=${intent.id}`,
+  }
+  const signature = signCloudinaryParams(signParams, env.CLOUDINARY_API_SECRET!)
+  const completionToken = signCloudinaryParams(
+    { upload_intent_id: intent.id },
+    env.CLOUDINARY_API_SECRET!,
+  )
+  const resourceType =
+    policy.resourceType === 'video' ? 'video' : policy.resourceType === 'auto' ? 'auto' : 'image'
+  const uploadUrl = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`
+
+  recordMediaMetric('upload_intent_created', {
+    purpose: body.purpose,
+    resourceType,
+    bytes: body.bytes,
+  })
+
+  return {
+    uploadIntentId: intent.id,
+    cloudName: env.CLOUDINARY_CLOUD_NAME!,
+    apiKey: env.CLOUDINARY_API_KEY!,
+    timestamp,
+    signature,
+    uploadUrl,
+    folder,
+    resourceType: resourceType as MediaUploadSignatureResponse['resourceType'],
+    allowedFormats: policy.formats,
+    maxBytes: policy.maxBytes,
+    expiresAt: expiresAt.toISOString(),
+    requiredParams: {
+      folder,
+      timestamp: String(timestamp),
+      signature,
+      api_key: env.CLOUDINARY_API_KEY!,
+      context: `delve_intent_id=${intent.id}`,
+    },
+    completionToken,
+    chunkThresholdBytes: 100 * 1024 * 1024,
+    chunkSizeBytes: 6 * 1024 * 1024,
+  }
+}
+
+export async function completeUpload(env: Env, userId: string, body: MediaCompleteBody): Promise<MediaAssetDto> {
+  const started = Date.now()
+  if (!env.cloudinaryConfigured) {
+    throw new AppError(503, 'CLOUDINARY_NOT_CONFIGURED', 'Media uploads are not configured yet.')
+  }
+
+  const intent = await prisma.mediaUploadIntent.findUnique({ where: { id: body.uploadIntentId } })
+  if (!intent || intent.userId !== userId) {
+    throw new AppError(404, 'INTENT_NOT_FOUND', 'Upload intent not found.')
+  }
+  if (intent.status === 'COMPLETED') {
+    const existing = await prisma.mediaAsset.findUnique({ where: { uploadIntentId: intent.id } })
+    if (existing) return toDto(env, existing)
+  }
+  if (intent.status !== 'PENDING') {
+    throw new AppError(400, 'INTENT_USED', 'This upload intent has already been used.')
+  }
+  if (intent.expiresAt.getTime() <= Date.now()) {
+    await prisma.mediaUploadIntent.update({ where: { id: intent.id }, data: { status: 'EXPIRED' } })
+    throw new AppError(400, 'INTENT_EXPIRED', 'This upload intent has expired. Request a new signature.')
+  }
+
+  const verifyParams: Record<string, string | number> = {
+    public_id: body.publicId,
+    resource_type: body.resourceType,
+    format: body.format,
+    bytes: body.bytes,
+  }
+  if (body.version) verifyParams.version = body.version
+  if (body.cloudinaryAssetId) verifyParams.asset_id = body.cloudinaryAssetId
+
+  const expectedCompletion = signCloudinaryParams(
+    { upload_intent_id: intent.id },
+    env.CLOUDINARY_API_SECRET!,
+  )
+  const expectedFields = signCloudinaryParams(verifyParams, env.CLOUDINARY_API_SECRET!)
+  const folderOk = body.publicId === intent.folder || body.publicId.startsWith(`${intent.folder}/`)
+  if (!folderOk) {
+    recordMediaMetric('upload_failed', { reason: 'folder_mismatch' })
+    throw new AppError(400, 'TAMPERED_METADATA', 'Upload result does not match the authorized folder.')
+  }
+
+  const signatureOk =
+    safeEqualHex(expectedCompletion, body.signature) || safeEqualHex(expectedFields, body.signature)
+  if (!signatureOk) {
+    recordMediaMetric('upload_failed', { reason: 'signature_invalid' })
+    throw new AppError(400, 'SIGNATURE_INVALID', 'Cloudinary response signature is invalid.')
+  }
+
+  const format = normalizeFormat(body.format)
+  if (!intent.permittedFormats.map(normalizeFormat).includes(format)) {
+    throw new AppError(400, 'INVALID_FILE_TYPE', 'Returned format is not permitted for this upload.')
+  }
+  if (body.bytes > intent.maxBytes) {
+    throw new AppError(400, 'FILE_TOO_LARGE', 'Returned file size exceeds the allowed maximum.')
+  }
+
+  const expectedType = intent.expectedResourceType
+  if (expectedType !== 'auto' && body.resourceType !== expectedType && body.resourceType !== 'auto') {
+    throw new AppError(400, 'TAMPERED_METADATA', 'Returned resource type does not match the upload intent.')
+  }
+
+  const status = body.resourceType === 'video' ? 'PROCESSING' : 'READY'
+
+  const asset = await prisma.$transaction(async tx => {
+    if (intent.purpose === 'avatar') {
+      const previous = await tx.mediaAsset.findMany({
+        where: {
+          uploadedByUserId: userId,
+          purpose: 'avatar',
+          status: { in: ['READY', 'PROCESSING', 'PENDING', 'UPLOADING'] },
+          deletedAt: null,
+        },
+      })
+      for (const prev of previous) {
+        await tx.mediaAsset.update({
+          where: { id: prev.id },
+          data: { status: 'DELETION_PENDING', deletedAt: new Date() },
+        })
+      }
+    }
+
+    const byPublicId = await tx.mediaAsset.findUnique({ where: { publicId: body.publicId } })
+    if (byPublicId) {
+      await tx.mediaUploadIntent.update({
+        where: { id: intent.id },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      })
+      return byPublicId
+    }
+
+    const created = await tx.mediaAsset.create({
+      data: {
+        cloudinaryAssetId: body.cloudinaryAssetId || null,
+        publicId: body.publicId,
+        version: body.version ?? null,
+        resourceType: body.resourceType === 'auto' ? 'image' : body.resourceType,
+        format,
+        bytes: body.bytes,
+        width: body.width ?? null,
+        height: body.height ?? null,
+        duration: body.duration ?? null,
+        secureUrl: body.secureUrl ?? null,
+        status,
+        purpose: intent.purpose,
+        altText: body.altText || null,
+        uploadedByUserId: userId,
+        businessId: intent.businessId,
+        listingId: intent.listingId,
+        uploadIntentId: intent.id,
+      },
+    })
+
+    await tx.mediaUploadIntent.update({
+      where: { id: intent.id },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    })
+
+    if (intent.purpose === 'avatar') {
+      const delivery = buildDeliveryUrl({
+        cloudName: env.CLOUDINARY_CLOUD_NAME!,
+        publicId: created.publicId,
+        version: created.version,
+        width: 192,
+        crop: 'fill',
+        gravity: 'auto',
+      })
+      await tx.travelerProfile.updateMany({
+        where: { userId },
+        data: { avatarMediaId: created.id, avatarUrl: delivery, avatarKey: null },
+      })
+    }
+
+    return created
+  })
+
+  recordMediaMetric('upload_completed', {
+    purpose: intent.purpose,
+    resourceType: body.resourceType,
+    bytes: body.bytes,
+    latencyMs: Date.now() - started,
+  })
+
+  return toDto(env, asset)
+}
+
+export async function deleteMedia(env: Env, userId: string, mediaId: string) {
+  const row = await prisma.mediaAsset.findFirst({
+    where: { id: mediaId, uploadedByUserId: userId, deletedAt: null },
+  })
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'Media not found')
+
+  await prisma.mediaAsset.update({
+    where: { id: row.id },
+    data: { status: 'DELETION_PENDING' },
+  })
+
+  const resourceType = row.resourceType === 'video' ? 'video' : row.resourceType === 'raw' ? 'raw' : 'image'
+  let destroyed: { ok: boolean; result?: string } = { ok: false, result: 'skipped' }
+  try {
+    destroyed = await destroyCloudinaryAsset(env, row.publicId, resourceType)
+  } catch {
+    recordMediaMetric('deletion_failed', { category: 'network' })
+    throw new AppError(502, 'DELETION_FAILED', 'Cloudinary deletion failed. Please try again.')
+  }
+
+  if (!destroyed.ok) {
+    recordMediaMetric('deletion_failed', { category: destroyed.result || 'unknown' })
+    throw new AppError(502, 'DELETION_FAILED', 'Cloudinary deletion failed. Please try again.')
+  }
+
+  await prisma.mediaAsset.update({
+    where: { id: row.id },
+    data: { status: 'DELETED', deletedAt: new Date() },
+  })
+
+  if (row.purpose === 'avatar') {
+    await prisma.travelerProfile.updateMany({
+      where: { userId, avatarMediaId: row.id },
+      data: { avatarMediaId: null, avatarUrl: null, avatarKey: null },
+    })
+  }
+
+  await prisma.securityEvent.create({
+    data: {
+      userId,
+      type: 'media_deleted',
+      metadata: { mediaId: row.id, purpose: row.purpose },
+    },
+  })
+
+  return { id: row.id, status: 'DELETED' as const, message: 'Media deleted' }
+}
+
+export async function handleCloudinaryWebhook(env: Env, rawBody: string, timestamp: string, signature: string) {
+  const secret = env.CLOUDINARY_WEBHOOK_SECRET?.trim() || env.CLOUDINARY_API_SECRET || ''
+  if (!secret || !verifyCloudinaryNotification(rawBody, timestamp, signature, secret)) {
+    throw new AppError(401, 'SIGNATURE_INVALID', 'Invalid webhook signature')
+  }
+
+  let payload: {
+    public_id?: string
+    error?: { message?: string }
+  }
+  try {
+    payload = JSON.parse(rawBody) as typeof payload
+  } catch {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Invalid webhook body')
+  }
+
+  const publicId = payload.public_id
+  if (!publicId) return { ok: true, ignored: true }
+
+  const asset = await prisma.mediaAsset.findUnique({ where: { publicId } })
+  if (!asset) return { ok: true, ignored: true }
+
+  if (payload.error?.message) {
+    if (asset.status !== 'FAILED') {
+      await prisma.mediaAsset.update({ where: { id: asset.id }, data: { status: 'FAILED' } })
+    }
+    recordMediaMetric('upload_failed', { reason: 'processing' })
+    return { ok: true }
+  }
+
+  if (asset.status === 'PROCESSING' || asset.status === 'PENDING' || asset.status === 'UPLOADING') {
+    await prisma.mediaAsset.update({ where: { id: asset.id }, data: { status: 'READY' } })
+  }
+
+  return { ok: true }
+}
+
+export async function cleanupMediaRecords(env: Env) {
+  void env
+  const now = new Date()
+  const expiredIntents = await prisma.mediaUploadIntent.updateMany({
+    where: { status: 'PENDING', expiresAt: { lt: now } },
+    data: { status: 'EXPIRED' },
+  })
+  recordMediaMetric('abandoned_upload_intent', { count: expiredIntents.count })
+
+  const oldExpired = await prisma.mediaUploadIntent.deleteMany({
+    where: {
+      status: { in: ['EXPIRED', 'CANCELLED', 'FAILED'] },
+      createdAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    },
+  })
+
+  return { expiredIntents: expiredIntents.count, deletedIntentRows: oldExpired.count }
+}

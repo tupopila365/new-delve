@@ -1,5 +1,4 @@
 import {
-  Apple,
   ArrowRight,
   Eye,
   Lock,
@@ -21,7 +20,6 @@ const iconSet = [
   { icon: Smartphone, name: 'Smartphone' },
   { icon: UserRound, name: 'UserRound' },
   { icon: ShieldCheck, name: 'ShieldCheck' },
-  { icon: Apple, name: 'Apple' },
   { icon: ArrowRight, name: 'ArrowRight' },
 ]
 
