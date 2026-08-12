@@ -27,7 +27,7 @@ import {
   updateProfile,
 } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
-import { MediaUploader } from '../media'
+import { MediaPreview, MediaUploader } from '../media'
 
 type Section = 'profile' | 'identity' | 'security' | 'notifications' | 'sessions' | 'status'
 
@@ -55,6 +55,7 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
@@ -77,6 +78,7 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
   }, [])
 
   async function refreshAll() {
+    setProfileLoading(true)
     try {
       const [p, pr, s] = await Promise.all([fetchOnboarding(), fetchPreferences(), fetchSessions()])
       setProfile(p)
@@ -91,6 +93,8 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
       setSessions(s)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load account settings')
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -168,31 +172,32 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
               Resume profile setup
             </button>
           )}
-          <div className="flex items-center gap-3">
-            <img
-              src={profile?.avatarUrl || undefined}
-              alt=""
-              width={64}
-              height={64}
-              className="h-16 w-16 rounded-full object-cover"
-              style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
-            />
-            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-              {profile?.storageConfigured
-                ? 'Photos upload directly to Cloudinary. Delve keeps metadata only.'
-                : 'Cloudinary is not configured yet — profile photo upload is unavailable.'}
-            </p>
-          </div>
-          {profile?.storageConfigured && (
+          {profile?.storageConfigured ? (
             <MediaUploader
               purpose="avatar"
-              label="Update profile photo"
+              label="Profile photo"
+              chooseLabel="Choose photo"
               disabled={busy}
+              profileLoading={profileLoading}
+              currentUrl={profile?.avatarUrl}
+              placeholderName={displayName || profile?.username || 'D'}
               onReady={(_id, url) => {
                 setProfile(current => (current ? { ...current, avatarUrl: url } : current))
                 setMessage('Profile photo updated')
               }}
             />
+          ) : (
+            <div className="flex items-center gap-3">
+              <MediaPreview
+                currentUrl={profile?.avatarUrl}
+                placeholderName={displayName || profile?.username || 'D'}
+                loading={profileLoading}
+                alt={profile?.avatarUrl ? 'Profile photo' : 'Profile photo placeholder'}
+              />
+              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                Photo upload is unavailable right now.
+              </p>
+            </div>
           )}
           <label className="text-sm font-semibold">Display name</label>
           <input className={fieldClass} style={fieldStyle} value={displayName} onChange={e => setDisplayName(e.target.value)} />

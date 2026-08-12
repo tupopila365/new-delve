@@ -11,7 +11,6 @@ import { formatUsername } from '../lib/formatUsername'
 
 export default function UsernameSettingsPanel() {
   const [current, setCurrent] = useState('')
-  const [changedAt, setChangedAt] = useState<string | null>(null)
   const [nextAt, setNextAt] = useState<string | null>(null)
   const [canChange, setCanChange] = useState(true)
   const [nextUsername, setNextUsername] = useState('')
@@ -29,7 +28,6 @@ export default function UsernameSettingsPanel() {
       try {
         const status = await fetchUsernameChangeStatus()
         setCurrent(status.username)
-        setChangedAt(status.usernameChangedAt)
         setNextAt(status.nextChangeAvailableAt)
         setCanChange(status.canChange)
       } catch (err: unknown) {
@@ -93,7 +91,6 @@ export default function UsernameSettingsPanel() {
     try {
       const result = await changeUsername({ username: parsed.data, currentPassword: password })
       setCurrent(result.username)
-      setChangedAt(result.usernameChangedAt)
       setNextAt(result.nextChangeAvailableAt)
       setCanChange(false)
       setNextUsername('')
@@ -121,19 +118,9 @@ export default function UsernameSettingsPanel() {
         Username
       </h2>
       <p className="text-sm mb-3" style={{ color: 'var(--fg-muted)' }}>
-        Current handle: <strong style={{ color: 'var(--fg)' }}>{formatUsername(current) || '—'}</strong>
-      </p>
-      <ul className="text-xs mb-3 space-y-1" style={{ color: 'var(--fg-muted)' }}>
-        <li>3–30 characters · letters, numbers, underscores, periods</li>
-        <li>Must start and end with a letter or number · no consecutive periods</li>
-        <li>Usernames are case-insensitive and shown as @username</li>
-        <li>You can change your username once every 30 days</li>
-      </ul>
-      <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>
-        Last change: {changedAt ? new Date(changedAt).toLocaleString() : 'Never (registration does not count)'}
-        <br />
-        Next change:{' '}
-        {canChange ? 'Available now' : nextAt ? new Date(nextAt).toLocaleString() : 'Unavailable'}
+        Current: <strong style={{ color: 'var(--fg)' }}>{formatUsername(current) || '—'}</strong>
+        {' · '}
+        Change once every 30 days
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">

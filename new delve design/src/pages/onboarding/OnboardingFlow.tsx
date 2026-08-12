@@ -181,30 +181,32 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
 
         {!loading && step === 1 && (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <img
-                src={profile?.avatarUrl || initialsAvatar(displayName || username || 'D')}
-                alt=""
-                width={64}
-                height={64}
-                className="h-16 w-16 rounded-full object-cover"
-              />
-              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                Profile picture is optional
-                {profile?.storageConfigured
-                  ? '. Upload goes directly to Cloudinary — Delve stores metadata only.'
-                  : ' — uploads are unavailable until Cloudinary is configured.'}
-              </p>
-            </div>
-            {profile?.storageConfigured && (
+            {profile?.storageConfigured ? (
               <MediaUploader
                 purpose="avatar"
-                label="Add a profile photo"
+                label="Profile photo"
+                chooseLabel="Choose photo"
                 disabled={saving}
+                profileLoading={loading}
+                currentUrl={profile?.avatarUrl}
+                placeholderName={displayName || username || 'D'}
                 onReady={(_id, url) => {
                   setProfile(current => (current ? { ...current, avatarUrl: url } : current))
                 }}
               />
+            ) : (
+              <div className="flex items-center gap-3">
+                <img
+                  src={profile?.avatarUrl || initialsAvatar(displayName || username || 'D')}
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 rounded-full object-cover"
+                />
+                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                  Profile picture is optional — uploads are unavailable until storage is configured.
+                </p>
+              </div>
             )}
             <label className="text-sm font-semibold" htmlFor="ob-display" style={{ color: 'var(--fg)' }}>
               Display name (required)

@@ -145,18 +145,18 @@ export default function AccountDashboardPage({
         />
 
         <div className="relative flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>
               {greetingForNow()}
             </p>
-            <h1 className="font-display text-2xl font-extrabold tracking-tight text-white mb-4">
+            <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-white mb-4 break-words [overflow-wrap:anywhere]">
               {formatUsername(travelerName) || travelerName}
             </h1>
           </div>
           <button
             type="button"
             onClick={() => onNavigate('Profile')}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold active:scale-[0.98] transition-transform"
+            className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold active:scale-[0.98] transition-transform"
             style={{
               background: 'rgba(255,255,255,0.18)',
               color: '#fff',

@@ -32,6 +32,7 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
   const [phase, setPhase] = useState<MediaUploadPhase>('idle')
   const [progress, setProgress] = useState(0)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
   const [asset, setAsset] = useState<MediaAssetDto | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -54,6 +55,7 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
     setPhase('idle')
     setProgress(0)
     setPreviewUrl(null)
+    setSelectedFileName(null)
     setAsset(null)
     setError(null)
     setBusy(false)
@@ -80,6 +82,7 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
     objectUrlRef.current = objectUrl
     fileRef.current = file
     setPreviewUrl(objectUrl)
+    setSelectedFileName(file.name || 'Selected file')
     setPhase('preview')
     setError(null)
     setAsset(null)
@@ -139,6 +142,7 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
     phase,
     progress,
     previewUrl,
+    selectedFileName,
     asset,
     error,
     busy,
