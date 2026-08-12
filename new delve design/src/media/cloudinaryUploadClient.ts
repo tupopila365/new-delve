@@ -7,12 +7,7 @@
  */
 
 import type { MediaAssetDto, MediaPurpose, MediaUploadSignatureResponse } from '@delve/contracts'
-import { getStoredAccessToken } from '../api/authClient'
-
-function apiBase(): string {
-  const raw = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v2'
-  return raw.replace(/\/$/, '')
-}
+import { authorizedFetch } from '../api/authClient'
 
 export type LocalFileValidation = {
   ok: boolean
@@ -72,13 +67,8 @@ export async function requestUploadSignature(input: {
   mimeType: string
   bytes: number
 }): Promise<MediaUploadSignatureResponse> {
-  const token = getStoredAccessToken()
-  const res = await fetch(`${apiBase()}/media/upload-signature`, {
+  const res = await authorizedFetch('/media/upload-signature', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     body: JSON.stringify(input),
   })
   return parseJson<MediaUploadSignatureResponse>(res)
@@ -195,13 +185,8 @@ export async function completeMediaUpload(input: {
   result: CloudinaryUploadResult
   altText?: string
 }): Promise<MediaAssetDto> {
-  const token = getStoredAccessToken()
-  const res = await fetch(`${apiBase()}/media/complete`, {
+  const res = await authorizedFetch('/media/complete', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     body: JSON.stringify({
       uploadIntentId: input.uploadIntentId,
       publicId: input.result.public_id,
@@ -222,10 +207,8 @@ export async function completeMediaUpload(input: {
 }
 
 export async function deleteMediaAsset(mediaId: string) {
-  const token = getStoredAccessToken()
-  const res = await fetch(`${apiBase()}/media/${encodeURIComponent(mediaId)}`, {
+  const res = await authorizedFetch(`/media/${encodeURIComponent(mediaId)}`, {
     method: 'DELETE',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   return parseJson<{ id: string; status: string; message: string }>(res)
 }

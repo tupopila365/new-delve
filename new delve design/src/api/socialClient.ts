@@ -11,213 +11,137 @@ import type {
   SaveDto,
   UpdateEventBody,
 } from '@delve/contracts'
-import { getStoredAccessToken } from './authClient'
+import { AuthApiError, authorizedJson } from './authClient'
 
-function apiBase(): string {
-  const raw = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v2'
-  return raw.replace(/\/$/, '')
-}
-
-function authHeaders(): HeadersInit {
-  const token = getStoredAccessToken()
-  return {
-    'content-type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
-}
-
-async function parseJson<T>(res: Response): Promise<T> {
-  const body = (await res.json()) as {
-    success: boolean
-    data?: T
-    error?: { message?: string }
-  }
-  if (!res.ok || !body.success) {
-    throw new Error(body.error?.message || 'Request failed')
-  }
-  return body.data as T
-}
+export { AuthApiError }
 
 export async function fetchPublicProfile(username: string) {
-  const res = await fetch(`${apiBase()}/users/${encodeURIComponent(username)}`, {
-    headers: authHeaders(),
-  })
-  return parseJson<PublicTravelerProfile>(res)
+  return authorizedJson<PublicTravelerProfile>(`/users/${encodeURIComponent(username)}`)
 }
 
 export async function searchTravelers(q: string) {
-  const res = await fetch(`${apiBase()}/users/search?q=${encodeURIComponent(q)}`, {
-    headers: authHeaders(),
-  })
-  return parseJson<PublicTravelerProfile[]>(res)
+  return authorizedJson<PublicTravelerProfile[]>(`/users/search?q=${encodeURIComponent(q)}`)
 }
 
 export async function followTraveler(userId: string) {
-  const res = await fetch(`${apiBase()}/follows/${encodeURIComponent(userId)}`, {
-    method: 'POST',
-    headers: authHeaders(),
-  })
-  return parseJson<FollowResult>(res)
+  return authorizedJson<FollowResult>(`/follows/${encodeURIComponent(userId)}`, { method: 'POST' })
 }
 
 export async function unfollowTraveler(userId: string) {
-  const res = await fetch(`${apiBase()}/follows/${encodeURIComponent(userId)}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  })
-  return parseJson<FollowResult>(res)
+  return authorizedJson<FollowResult>(`/follows/${encodeURIComponent(userId)}`, { method: 'DELETE' })
 }
 
 export async function createPost(body: CreatePostBody) {
-  const res = await fetch(`${apiBase()}/posts`, {
+  return authorizedJson<PostDto>('/posts', {
     method: 'POST',
-    headers: authHeaders(),
     body: JSON.stringify(body),
   })
-  return parseJson<PostDto>(res)
 }
 
 export async function fetchFeed() {
-  const res = await fetch(`${apiBase()}/posts/feed`, { headers: authHeaders() })
-  return parseJson<PostDto[]>(res)
+  const started = performance.now()
+  if (import.meta.env.DEV) console.debug('[delve-timing] posts request start')
+  try {
+    return await authorizedJson<PostDto[]>('/posts/feed')
+  } finally {
+    if (import.meta.env.DEV) {
+      console.debug(`[delve-timing] posts request end ${Math.round(performance.now() - started)}ms`)
+    }
+  }
 }
 
 export async function fetchUserPosts(username: string) {
-  const res = await fetch(`${apiBase()}/users/${encodeURIComponent(username)}/posts`, {
-    headers: authHeaders(),
-  })
-  return parseJson<PostDto[]>(res)
+  return authorizedJson<PostDto[]>(`/users/${encodeURIComponent(username)}/posts`)
 }
 
 export async function likePost(postId: string) {
-  const res = await fetch(`${apiBase()}/posts/${encodeURIComponent(postId)}/reactions`, {
-    method: 'POST',
-    headers: authHeaders(),
-  })
-  return parseJson<PostDto>(res)
+  return authorizedJson<PostDto>(`/posts/${encodeURIComponent(postId)}/reactions`, { method: 'POST' })
 }
 
 export async function unlikePost(postId: string) {
-  const res = await fetch(`${apiBase()}/posts/${encodeURIComponent(postId)}/reactions`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  })
-  return parseJson<PostDto>(res)
+  return authorizedJson<PostDto>(`/posts/${encodeURIComponent(postId)}/reactions`, { method: 'DELETE' })
 }
 
 export async function fetchComments(postId: string) {
-  const res = await fetch(`${apiBase()}/posts/${encodeURIComponent(postId)}/comments`, {
-    headers: authHeaders(),
-  })
-  return parseJson<CommentDto[]>(res)
+  return authorizedJson<CommentDto[]>(`/posts/${encodeURIComponent(postId)}/comments`)
 }
 
 export async function addComment(postId: string, body: string) {
-  const res = await fetch(`${apiBase()}/posts/${encodeURIComponent(postId)}/comments`, {
+  return authorizedJson<CommentDto>(`/posts/${encodeURIComponent(postId)}/comments`, {
     method: 'POST',
-    headers: authHeaders(),
     body: JSON.stringify({ body }),
   })
-  return parseJson<CommentDto>(res)
 }
 
 export async function deleteComment(commentId: string) {
-  const res = await fetch(`${apiBase()}/comments/${encodeURIComponent(commentId)}`, {
+  return authorizedJson<{ message: string }>(`/comments/${encodeURIComponent(commentId)}`, {
     method: 'DELETE',
-    headers: authHeaders(),
   })
-  return parseJson<{ message: string }>(res)
 }
 
 export async function saveItem(body: SaveBody) {
-  const res = await fetch(`${apiBase()}/saves`, {
+  return authorizedJson<{ saved: boolean }>('/saves', {
     method: 'POST',
-    headers: authHeaders(),
     body: JSON.stringify(body),
   })
-  return parseJson<{ saved: boolean }>(res)
 }
 
 export async function unsaveItem(body: SaveBody) {
-  const res = await fetch(`${apiBase()}/saves`, {
+  return authorizedJson<{ saved: boolean }>('/saves', {
     method: 'DELETE',
-    headers: authHeaders(),
     body: JSON.stringify(body),
   })
-  return parseJson<{ saved: boolean }>(res)
 }
 
 export async function fetchSaves() {
-  const res = await fetch(`${apiBase()}/saves`, { headers: authHeaders() })
-  return parseJson<SaveDto[]>(res)
+  return authorizedJson<SaveDto[]>('/saves')
 }
 
 export async function createEvent(body: CreateEventBody) {
-  const res = await fetch(`${apiBase()}/events`, {
+  return authorizedJson<EventDto>('/events', {
     method: 'POST',
-    headers: authHeaders(),
     body: JSON.stringify(body),
   })
-  return parseJson<EventDto>(res)
 }
 
 export async function updateEvent(eventId: string, body: UpdateEventBody) {
-  const res = await fetch(`${apiBase()}/events/${encodeURIComponent(eventId)}`, {
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}`, {
     method: 'PATCH',
-    headers: authHeaders(),
     body: JSON.stringify(body),
   })
-  return parseJson<EventDto>(res)
 }
 
 export async function fetchEvent(eventId: string) {
-  const res = await fetch(`${apiBase()}/events/${encodeURIComponent(eventId)}`, {
-    headers: authHeaders(),
-  })
-  return parseJson<EventDto>(res)
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}`)
 }
 
 export async function fetchUserEvents(username: string) {
-  const res = await fetch(`${apiBase()}/users/${encodeURIComponent(username)}/events`, {
-    headers: authHeaders(),
-  })
-  return parseJson<EventDto[]>(res)
+  return authorizedJson<EventDto[]>(`/users/${encodeURIComponent(username)}/events`)
 }
 
 export async function setEventAttendance(eventId: string, status: 'GOING' | 'INTERESTED') {
-  const res = await fetch(`${apiBase()}/events/${encodeURIComponent(eventId)}/attendance`, {
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}/attendance`, {
     method: 'POST',
-    headers: authHeaders(),
     body: JSON.stringify({ status }),
   })
-  return parseJson<EventDto>(res)
 }
 
 export async function clearEventAttendance(eventId: string) {
-  const res = await fetch(`${apiBase()}/events/${encodeURIComponent(eventId)}/attendance`, {
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}/attendance`, {
     method: 'DELETE',
-    headers: authHeaders(),
   })
-  return parseJson<EventDto>(res)
 }
 
 export async function fetchNotifications() {
-  const res = await fetch(`${apiBase()}/notifications`, { headers: authHeaders() })
-  return parseJson<NotificationDto[]>(res)
+  return authorizedJson<NotificationDto[]>('/notifications')
 }
 
 export async function markNotificationRead(id: string) {
-  const res = await fetch(`${apiBase()}/notifications/${encodeURIComponent(id)}/read`, {
+  return authorizedJson<{ message: string }>(`/notifications/${encodeURIComponent(id)}/read`, {
     method: 'POST',
-    headers: authHeaders(),
   })
-  return parseJson<{ message: string }>(res)
 }
 
 export async function markAllNotificationsRead() {
-  const res = await fetch(`${apiBase()}/notifications/read-all`, {
-    method: 'POST',
-    headers: authHeaders(),
-  })
-  return parseJson<{ message: string }>(res)
+  return authorizedJson<{ message: string }>('/notifications/read-all', { method: 'POST' })
 }

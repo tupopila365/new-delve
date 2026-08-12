@@ -9,7 +9,7 @@ import {
   type PublicTravelerProfile,
   type TravelerProfileDto,
 } from '@delve/contracts'
-import { fetchOnboarding, getStoredUser } from '../api/authClient'
+import { fetchOnboarding, getStoredUser, invalidateOnboardingCache } from '../api/authClient'
 import {
   addComment,
   fetchComments,
@@ -25,6 +25,11 @@ import {
 } from '../api/socialClient'
 import { formatUsername } from '../lib/formatUsername'
 import { useMediaUpload } from '../media/useMediaUpload'
+import {
+  DelversListSkeleton,
+  EventsListSkeleton,
+  ProfileSkeleton,
+} from '../components/skeletons'
 
 type ProfileTab = 'Delvers' | 'Events' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
 
@@ -58,6 +63,11 @@ interface ProfilePageProps {
   onEditProfile?: () => void
   onOpenEvent?: (eventId: string) => void
   onOpenUser?: (username: string) => void
+  /** Bump after creating a post/event so lists refetch without remounting. */
+  contentRefreshKey?: number
+  /** False while session refresh is still in progress. */
+  authReady?: boolean
+  signedIn?: boolean
 }
 
 const TABS: ProfileTab[] = ['Delvers', 'Events', 'Journeys', 'Communities', 'Reviews', 'About']
@@ -80,7 +90,17 @@ function formatCount(n: number) {
   return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }
 
-function EmptyTab({ title, body }: { title: string; body: string }) {
+function EmptyTab({
+  title,
+  body,
+  actionLabel,
+  onAction,
+}: {
+  title: string
+  body: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
       <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
@@ -89,6 +109,45 @@ function EmptyTab({ title, body }: { title: string; body: string }) {
       <p className="text-sm m-0 max-w-xs" style={{ color: 'var(--fg-muted)' }}>
         {body}
       </p>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
+          style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SectionRetry({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+      <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
+        {message}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-xl px-4 py-2 text-sm font-semibold"
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          color: 'var(--fg)',
+          cursor: 'pointer',
+        }}
+      >
+        Retry
+      </button>
     </div>
   )
 }
@@ -124,30 +183,56 @@ export default function ProfilePage({
   onEditProfile,
   onOpenEvent,
   onOpenUser,
+  contentRefreshKey = 0,
+  authReady = true,
+  signedIn = true,
 }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('Delvers')
   const [profile, setProfile] = useState<ProfileView | null>(null)
   const [posts, setPosts] = useState<PostDto[]>([])
   const [events, setEvents] = useState<EventDto[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [postsLoading, setPostsLoading] = useState(false)
+  const [eventsLoading, setEventsLoading] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [postsError, setPostsError] = useState<string | null>(null)
+  const [eventsError, setEventsError] = useState<string | null>(null)
   const [followBusy, setFollowBusy] = useState(false)
   const [avatarFailed, setAvatarFailed] = useState(false)
   const [coverFailed, setCoverFailed] = useState(false)
   const [activePostId, setActivePostId] = useState<string | null>(null)
   const [comments, setComments] = useState<Record<string, { id: string; body: string; author: string }[]>>({})
   const [commentDraft, setCommentDraft] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const coverUpload = useMediaUpload('cover')
 
   const stored = getStoredUser()
   const viewerId = viewerUserId ?? stored?.id ?? null
+  const isOwnProfile = !username
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      setLoading(true)
-      setError(null)
+      // Own profile must wait for session refresh — avoid false "Sign in required".
+      if (isOwnProfile && !authReady) {
+        setProfileLoading(true)
+        setProfileError(null)
+        return
+      }
+      if (isOwnProfile && authReady && !signedIn) {
+        setProfile(null)
+        setProfileLoading(false)
+        setProfileError('Sign in required')
+        return
+      }
+
+      setProfileLoading(true)
+      setProfileError(null)
+      setPosts([])
+      setEvents([])
+      setPostsError(null)
+      setEventsError(null)
       try {
         const data = username
           ? await fetchPublicProfile(username)
@@ -157,26 +242,82 @@ export default function ProfilePage({
         setProfile(view)
         setAvatarFailed(false)
         setCoverFailed(false)
+        setProfileLoading(false)
+
         const uname = view.username
-        const [postList, eventList] = await Promise.all([
+        setPostsLoading(true)
+        setEventsLoading(true)
+        const [postsResult, eventsResult] = await Promise.allSettled([
           fetchUserPosts(uname),
           fetchUserEvents(uname),
         ])
         if (cancelled) return
-        setPosts(postList)
-        setEvents(eventList)
+        if (postsResult.status === 'fulfilled') {
+          setPosts(postsResult.value)
+          setPostsError(null)
+        } else {
+          setPosts([])
+          setPostsError(
+            postsResult.reason instanceof Error
+              ? postsResult.reason.message
+              : 'Could not load posts',
+          )
+        }
+        if (eventsResult.status === 'fulfilled') {
+          setEvents(eventsResult.value)
+          setEventsError(null)
+        } else {
+          setEvents([])
+          setEventsError(
+            eventsResult.reason instanceof Error
+              ? eventsResult.reason.message
+              : 'Could not load events',
+          )
+        }
       } catch (err) {
         if (cancelled) return
         setProfile(null)
-        setError(err instanceof Error ? err.message : 'Could not load profile')
+        setProfileError(err instanceof Error ? err.message : 'Could not load profile')
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setProfileLoading(false)
+          setPostsLoading(false)
+          setEventsLoading(false)
+        }
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [username])
+  }, [username, reloadKey, contentRefreshKey, authReady, signedIn, isOwnProfile])
+
+  async function reloadPosts() {
+    if (!profile) return
+    setPostsLoading(true)
+    setPostsError(null)
+    try {
+      setPosts(await fetchUserPosts(profile.username))
+    } catch (err) {
+      setPostsError(err instanceof Error ? err.message : 'Could not load posts')
+      setPosts([])
+    } finally {
+      setPostsLoading(false)
+    }
+  }
+
+  async function reloadEvents() {
+    if (!profile) return
+    setEventsLoading(true)
+    setEventsError(null)
+    try {
+      setEvents(await fetchUserEvents(profile.username))
+    } catch (err) {
+      setEventsError(err instanceof Error ? err.message : 'Could not load events')
+      setEvents([])
+    } finally {
+      setEventsLoading(false)
+    }
+  }
 
   const isOwner = Boolean(profile?.id) && Boolean(viewerId) && viewerId === profile!.id
   const following = Boolean(profile?.isFollowing)
@@ -212,8 +353,8 @@ export default function ProfilePage({
             }
           : current,
       )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Follow failed')
+    } catch {
+      /* follow failed — keep profile visible */
     } finally {
       setFollowBusy(false)
     }
@@ -279,17 +420,11 @@ export default function ProfilePage({
     }
   }
 
-  if (loading) {
-    return (
-      <div className="pb-4 px-4 py-10" role="status" aria-live="polite">
-        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-          Loading profile…
-        </p>
-      </div>
-    )
+  if (profileLoading) {
+    return <ProfileSkeleton />
   }
 
-  if (error || !profile) {
+  if (profileError === 'Sign in required') {
     return (
       <div className="pb-4 px-4 py-10">
         {onBack && (
@@ -303,9 +438,44 @@ export default function ProfilePage({
             Back
           </button>
         )}
-        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }} role="alert">
-          {error || 'Profile unavailable.'}
+        <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+          Sign in required
         </p>
+        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+          Sign in to view and edit your profile.
+        </p>
+      </div>
+    )
+  }
+
+  if (profileError || !profile) {
+    return (
+      <div className="pb-4 px-4 py-10">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold"
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+        )}
+        <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }} role="alert">
+          We couldn&apos;t load this profile.
+        </p>
+        <p className="text-sm m-0 mb-4" style={{ color: 'var(--fg-muted)' }}>
+          {profileError || 'Profile unavailable.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => setReloadKey(k => k + 1)}
+          className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
+          style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -361,6 +531,7 @@ export default function ProfilePage({
                   const url = saved.delivery.url
                   setProfile(current => (current ? { ...current, coverUrl: url } : current))
                   setCoverFailed(false)
+                  invalidateOnboardingCache()
                   coverUpload.reset()
                 })
               }}
@@ -384,11 +555,16 @@ export default function ProfilePage({
       </div>
 
       <div
-        className="px-4 pb-4 -mt-1"
+        className="relative z-[2] px-4 pb-4"
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
       >
-        <div className="flex items-end justify-between gap-3 -mt-9 mb-3">
-          <div className="relative">
+        {/*
+          Avatar overlaps the cover (-mt-9). On mobile, actions sit in normal flow
+          below the avatar so they are not clipped by the cover stacking context.
+          From sm up, keep the original side-by-side header actions.
+        */}
+        <div className="flex flex-col gap-3 -mt-9 mb-3 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+          <div className="relative self-start">
             <div
               className="h-20 w-20 overflow-hidden rounded-full flex items-center justify-center"
               style={{ border: '3px solid var(--surface)', background: 'rgba(140,82,255,0.25)', color: '#fff' }}
@@ -417,14 +593,14 @@ export default function ProfilePage({
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2 pb-1 justify-end">
+          <div className="relative z-[3] flex flex-wrap gap-2 justify-start sm:justify-end sm:pb-1 min-w-0">
             {isOwner ? (
               <>
                 {onCreatePost && (
                   <button
                     type="button"
                     onClick={onCreatePost}
-                    className="rounded-xl px-3 py-2 text-sm font-semibold text-white active:opacity-90"
+                    className="min-h-[40px] rounded-xl px-3 py-2 text-sm font-semibold text-white active:opacity-90"
                     style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
                   >
                     <span className="inline-flex items-center gap-1">
@@ -437,7 +613,7 @@ export default function ProfilePage({
                   <button
                     type="button"
                     onClick={onCreateEvent}
-                    className="rounded-xl px-3 py-2 text-sm font-semibold active:opacity-80"
+                    className="min-h-[40px] rounded-xl px-3 py-2 text-sm font-semibold active:opacity-80"
                     style={{
                       border: '1px solid var(--border)',
                       background: 'var(--surface)',
@@ -454,7 +630,7 @@ export default function ProfilePage({
                 <button
                   type="button"
                   onClick={onEditProfile}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold active:opacity-80"
+                  className="min-h-[40px] rounded-xl px-4 py-2 text-sm font-semibold active:opacity-80"
                   style={{
                     border: '1px solid var(--border)',
                     background: 'var(--surface)',
@@ -483,7 +659,7 @@ export default function ProfilePage({
                 type="button"
                 disabled={followBusy}
                 onClick={() => void toggleFollow()}
-                className="rounded-xl px-5 py-2 text-sm font-semibold active:opacity-90"
+                className="min-h-[40px] rounded-xl px-5 py-2 text-sm font-semibold active:opacity-90"
                 style={{
                   border: following ? '1px solid var(--border)' : '1px solid var(--primary)',
                   background: following ? 'var(--surface)' : 'var(--primary)',
@@ -595,7 +771,14 @@ export default function ProfilePage({
       </div>
 
       {activeTab === 'Delvers' && (
-        posts.length === 0 ? (
+        postsLoading ? (
+          <DelversListSkeleton count={4} />
+        ) : postsError ? (
+          <SectionRetry
+            message="We couldn't load Delvers posts."
+            onRetry={() => void reloadPosts()}
+          />
+        ) : posts.length === 0 ? (
           <EmptyTab
             title="No Delvers yet"
             body={
@@ -603,6 +786,8 @@ export default function ProfilePage({
                 ? 'Posts you create will show up here. Use Post when you are ready to share.'
                 : 'This traveler has not shared any posts yet.'
             }
+            actionLabel={isOwner && onCreatePost ? 'Create a post' : undefined}
+            onAction={onCreatePost}
           />
         ) : (
           <div className="flex flex-col">
@@ -692,7 +877,14 @@ export default function ProfilePage({
       )}
 
       {activeTab === 'Events' && (
-        events.length === 0 ? (
+        eventsLoading ? (
+          <EventsListSkeleton count={3} />
+        ) : eventsError ? (
+          <SectionRetry
+            message="We couldn't load events."
+            onRetry={() => void reloadEvents()}
+          />
+        ) : events.length === 0 ? (
           <EmptyTab
             title="No events yet"
             body={
@@ -700,6 +892,8 @@ export default function ProfilePage({
                 ? 'Create an event to gather travelers around a meetup or activity.'
                 : 'This traveler has not published any events yet.'
             }
+            actionLabel={isOwner && onCreateEvent ? 'Create event' : undefined}
+            onAction={onCreateEvent}
           />
         ) : (
           <div className="flex flex-col gap-3 p-3 sm:p-4">

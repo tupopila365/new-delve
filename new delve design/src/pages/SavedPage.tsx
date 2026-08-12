@@ -6,15 +6,33 @@ import { fetchSaves, unsaveItem } from '../api/socialClient'
 interface SavedPageProps {
   onOpenPostAuthor?: (username: string) => void
   onOpenEvent?: (eventId: string) => void
+  authReady?: boolean
+  signedIn?: boolean
 }
 
-export default function SavedPage({ onOpenEvent }: SavedPageProps) {
+export default function SavedPage({
+  onOpenEvent,
+  authReady = true,
+  signedIn = true,
+}: SavedPageProps) {
   const [items, setItems] = useState<SaveDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | 'POST' | 'EVENT'>('ALL')
 
   useEffect(() => {
+    if (!authReady) {
+      setLoading(true)
+      setError(null)
+      return
+    }
+    if (!signedIn) {
+      setLoading(false)
+      setItems([])
+      setError('Sign in required')
+      return
+    }
+
     let cancelled = false
     void (async () => {
       setLoading(true)
@@ -33,7 +51,7 @@ export default function SavedPage({ onOpenEvent }: SavedPageProps) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authReady, signedIn])
 
   const visible = items.filter(i => (filter === 'ALL' ? true : i.targetType === filter))
 
@@ -79,7 +97,7 @@ export default function SavedPage({ onOpenEvent }: SavedPageProps) {
       {loading && (
         <p className="px-4 py-8 text-sm" style={{ color: 'var(--fg-muted)' }}>Loading saves…</p>
       )}
-      {error && (
+      {error && !loading && (
         <p className="px-4 py-8 text-sm" style={{ color: 'var(--auth-danger)' }} role="alert">{error}</p>
       )}
       {!loading && !error && visible.length === 0 && (

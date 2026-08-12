@@ -13,7 +13,9 @@ import {
   unsaveItem,
 } from '../api/socialClient'
 import ExpandableCaption from '../components/mobile/ExpandableCaption'
+import { DelversListSkeleton } from '../components/skeletons'
 import { formatUsername } from '../lib/formatUsername'
+import { AuthApiError } from '../api/authClient'
 
 function formatN(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
@@ -28,11 +30,54 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d`
 }
 
+function feedErrorCopy(err: unknown): { title: string; body: string; kind: 'auth' | 'forbidden' | 'generic' } {
+  if (err instanceof AuthApiError) {
+    if (err.status === 401 || err.code === 'UNAUTHORIZED' || err.code === 'SESSION_EXPIRED' || err.code === 'SESSION_REVOKED') {
+      return {
+        kind: 'auth',
+        title: 'Sign in required',
+        body: 'Your session expired or is missing. Sign in again to see posts from people you follow.',
+      }
+    }
+    if (err.status === 403 || err.code === 'ACCOUNT_RESTRICTED' || err.code === 'ADMIN_FORBIDDEN') {
+      return {
+        kind: 'forbidden',
+        title: 'You do not have permission',
+        body: err.message || 'This account cannot load Delvers right now.',
+      }
+    }
+    return {
+      kind: 'generic',
+      title: 'Unable to load Delvers',
+      body: err.message || 'Something went wrong. Try again.',
+    }
+  }
+  if (err instanceof Error) {
+    const msg = err.message || ''
+    if (/sign in required/i.test(msg) || /unauthorized/i.test(msg)) {
+      return {
+        kind: 'auth',
+        title: 'Sign in required',
+        body: 'Sign in to see posts from people you follow.',
+      }
+    }
+    return { kind: 'generic', title: 'Unable to load Delvers', body: msg || 'Something went wrong. Try again.' }
+  }
+  return { kind: 'generic', title: 'Unable to load Delvers', body: 'Check your connection and try again.' }
+}
+
 interface DelversFeedPageProps {
   onCreate?: () => void
   onOpenMessages?: () => void
   onOpenNotifications?: () => void
   onOpenProfile?: (username: string) => void
+  /** Bump to refetch the feed (e.g. after creating a post). */
+  refreshKey?: number
+  /** Optimistically show this post at the top until/alongside refetch. */
+  highlightPost?: PostDto | null
+  /** False while App is still refreshing the session — do not treat as signed-out. */
+  authReady?: boolean
+  signedIn?: boolean
 }
 
 export default function DelversFeedPage({
@@ -40,30 +85,61 @@ export default function DelversFeedPage({
   onOpenMessages,
   onOpenNotifications,
   onOpenProfile,
+  refreshKey = 0,
+  highlightPost = null,
+  authReady = true,
+  signedIn = true,
 }: DelversFeedPageProps) {
   const [feed, setFeed] = useState<PostDto[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ title: string; body: string; kind: 'auth' | 'forbidden' | 'generic' } | null>(null)
   const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null)
   const [comments, setComments] = useState<Record<string, { id: string; body: string; author: string }[]>>({})
   const [draft, setDraft] = useState('')
+  const [justPublished, setJustPublished] = useState(false)
 
-  async function load() {
-    setLoading(true)
+  async function load(opts?: { soft?: boolean }) {
+    if (!opts?.soft) setLoading(true)
     setError(null)
     try {
-      setFeed(await fetchFeed())
+      const rows = await fetchFeed()
+      setFeed(rows)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load feed')
-      setFeed([])
+      setError(feedErrorCopy(err))
+      if (!opts?.soft) setFeed([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    void load()
-  }, [])
+    if (!authReady) {
+      setLoading(true)
+      return
+    }
+    if (!signedIn) {
+      setLoading(false)
+      setFeed([])
+      setError({
+        kind: 'auth',
+        title: 'Sign in required',
+        body: 'Sign in to see posts from people you follow.',
+      })
+      return
+    }
+    void load({ soft: refreshKey > 0 })
+  }, [refreshKey, authReady, signedIn])
+
+  useEffect(() => {
+    if (!highlightPost) return
+    setJustPublished(true)
+    setFeed(prev => {
+      if (prev.some(p => p.id === highlightPost.id)) return prev
+      return [highlightPost, ...prev]
+    })
+    const t = window.setTimeout(() => setJustPublished(false), 3500)
+    return () => window.clearTimeout(t)
+  }, [highlightPost?.id])
 
   async function toggleLike(post: PostDto) {
     try {
@@ -178,26 +254,46 @@ export default function DelversFeedPage({
         </p>
       </div>
 
+      {justPublished && (
+        <div
+          className="px-4 py-2.5 text-sm font-medium"
+          role="status"
+          style={{
+            background: 'rgba(140,82,255,0.12)',
+            color: 'var(--primary)',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          Your Delver was published.
+        </div>
+      )}
+
       <main>
-        {loading && (
-          <p className="px-4 py-8 text-sm" style={{ color: 'var(--fg-muted)' }}>
-            Loading feed…
-          </p>
-        )}
-        {error && !loading && (
-          <div className="px-4 py-8">
-            <p className="text-sm mb-3" style={{ color: 'var(--fg-muted)' }}>{error}</p>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="text-sm font-semibold"
-              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
-            >
-              Retry
-            </button>
+        {(!authReady || loading) && <DelversListSkeleton count={4} feed />}
+        {error && !loading && authReady && (
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+              {error.title}
+            </p>
+            <p className="text-sm m-0 mb-4" style={{ color: 'var(--fg-muted)' }}>{error.body}</p>
+            {error.kind !== 'auth' && (
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
+                style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+              >
+                Retry
+              </button>
+            )}
+            {error.kind === 'auth' && onCreate && (
+              <p className="text-xs m-0 mt-2" style={{ color: 'var(--fg-muted)' }}>
+                Use Account in the menu to sign in, then open Delvers again.
+              </p>
+            )}
           </div>
         )}
-        {!loading && !error && feed.length === 0 && (
+        {!loading && !error && authReady && feed.length === 0 && (
           <div className="px-4 py-12 text-center">
             <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>
               Your feed is quiet
@@ -216,7 +312,7 @@ export default function DelversFeedPage({
           </div>
         )}
 
-        {feed.map(post => {
+        {!loading && !error && authReady && feed.map(post => {
           const media = post.media[0]
           return (
             <article key={post.id} style={{ borderBottom: '1px solid var(--border)' }}>

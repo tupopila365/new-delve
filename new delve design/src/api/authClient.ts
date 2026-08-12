@@ -71,10 +71,94 @@ export function updateStoredUser(user: PublicUser) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+type TravelerProfileDto = import('@delve/contracts').TravelerProfileDto
+
+const ONBOARDING_CACHE_TTL_MS = 20_000
+let onboardingCache: { data: TravelerProfileDto; fetchedAt: number } | null = null
+let onboardingInFlight: Promise<TravelerProfileDto> | null = null
+
+export function invalidateOnboardingCache() {
+  onboardingCache = null
+}
+
+function rememberOnboarding(data: TravelerProfileDto) {
+  onboardingCache = { data, fetchedAt: Date.now() }
+  return data
+}
+
 export function clearSession() {
   localStorage.removeItem(ACCESS_KEY)
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(USER_KEY)
+  invalidateOnboardingCache()
+}
+
+let refreshInFlight: Promise<LoginSuccessData | null> | null = null
+
+function devTimeLog(label: string, startedAt: number) {
+  if (!import.meta.env.DEV) return
+  // Timing only — never log tokens or response bodies.
+  console.debug(`[delve-timing] ${label} ${Math.round(performance.now() - startedAt)}ms`)
+}
+
+/** Single-flight refresh so parallel 401s share one token rotation. */
+export async function refreshSession(): Promise<LoginSuccessData | null> {
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = (async () => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY)
+    if (!refreshToken) return null
+    const started = performance.now()
+    if (import.meta.env.DEV) console.debug('[delve-timing] auth refresh start')
+    const res = await fetch(`${apiBase()}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+    if (!res.ok) {
+      clearSession()
+      devTimeLog('auth refresh fail', started)
+      return null
+    }
+    const data = await parseJson<LoginSuccessData>(res)
+    persistSession(data)
+    devTimeLog('auth refresh end', started)
+    return data
+  })().finally(() => {
+    refreshInFlight = null
+  })
+  return refreshInFlight
+}
+
+/**
+ * Authenticated fetch using the canonical traveler Bearer token.
+ * On 401, attempts one refresh then retries once — same store as login/navbar.
+ */
+export async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const url = path.startsWith('http') ? path : `${apiBase()}${path.startsWith('/') ? '' : '/'}${path}`
+
+  const buildHeaders = (): Headers => {
+    const headers = new Headers(init.headers || {})
+    const token = getStoredAccessToken()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    if (init.body && !headers.has('Content-Type') && !(init.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json')
+    }
+    return headers
+  }
+
+  let res = await fetch(url, { ...init, headers: buildHeaders() })
+  if (res.status !== 401) return res
+
+  const refreshed = await refreshSession()
+  if (!refreshed) return res
+
+  res = await fetch(url, { ...init, headers: buildHeaders() })
+  return res
+}
+
+export async function authorizedJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authorizedFetch(path, init)
+  return parseJson<T>(res)
 }
 
 export async function registerAccount(input: {
@@ -126,23 +210,6 @@ export async function loginWithIdentifier(identifier: string, password: string) 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password }),
   })
-  const data = await parseJson<LoginSuccessData>(res)
-  persistSession(data)
-  return data
-}
-
-export async function refreshSession(): Promise<LoginSuccessData | null> {
-  const refreshToken = localStorage.getItem(REFRESH_KEY)
-  if (!refreshToken) return null
-  const res = await fetch(`${apiBase()}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  })
-  if (!res.ok) {
-    clearSession()
-    return null
-  }
   const data = await parseJson<LoginSuccessData>(res)
   persistSession(data)
   return data
@@ -206,9 +273,35 @@ function authHeaders(extra?: HeadersInit): HeadersInit {
   }
 }
 
-export async function fetchOnboarding() {
-  const res = await fetch(`${apiBase()}/users/me/onboarding`, { headers: authHeaders() })
-  return parseJson<import('@delve/contracts').TravelerProfileDto>(res)
+/**
+ * Shared traveler profile/onboarding fetch.
+ * Coalesces concurrent callers and briefly caches so App + dashboard + profile
+ * do not each wait on a cold duplicate request.
+ */
+export async function fetchOnboarding(opts?: { force?: boolean }) {
+  if (
+    !opts?.force &&
+    onboardingCache &&
+    Date.now() - onboardingCache.fetchedAt < ONBOARDING_CACHE_TTL_MS
+  ) {
+    return onboardingCache.data
+  }
+  if (!opts?.force && onboardingInFlight) return onboardingInFlight
+
+  const started = performance.now()
+  if (import.meta.env.DEV) console.debug('[delve-timing] profile request start')
+
+  onboardingInFlight = (async () => {
+    try {
+      const data = await authorizedJson<TravelerProfileDto>('/users/me/onboarding')
+      return rememberOnboarding(data)
+    } finally {
+      onboardingInFlight = null
+      devTimeLog('profile request end', started)
+    }
+  })()
+
+  return onboardingInFlight
 }
 
 export async function patchOnboarding(body: import('@delve/contracts').OnboardingPatch) {
@@ -217,7 +310,8 @@ export async function patchOnboarding(body: import('@delve/contracts').Onboardin
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
-  return parseJson<import('@delve/contracts').TravelerProfileDto>(res)
+  const data = await parseJson<TravelerProfileDto>(res)
+  return rememberOnboarding(data)
 }
 
 export async function completeOnboarding(body: import('@delve/contracts').OnboardingComplete) {
@@ -226,7 +320,8 @@ export async function completeOnboarding(body: import('@delve/contracts').Onboar
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
-  return parseJson<import('@delve/contracts').TravelerProfileDto>(res)
+  const data = await parseJson<TravelerProfileDto>(res)
+  return rememberOnboarding(data)
 }
 
 export async function updateProfile(body: import('@delve/contracts').ProfileUpdate) {
@@ -235,7 +330,8 @@ export async function updateProfile(body: import('@delve/contracts').ProfileUpda
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
-  return parseJson<import('@delve/contracts').TravelerProfileDto>(res)
+  const data = await parseJson<TravelerProfileDto>(res)
+  return rememberOnboarding(data)
 }
 
 export async function requestAvatarUploadUrl(input: {
@@ -261,6 +357,7 @@ export async function deleteAvatar() {
     method: 'DELETE',
     headers: authHeaders(),
   })
+  invalidateOnboardingCache()
   return parseJson<{ message: string }>(res)
 }
 

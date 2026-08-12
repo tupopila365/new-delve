@@ -27,6 +27,9 @@ interface AccountDashboardPageProps {
   onSignOut?: () => void
   onOpenSettings?: () => void
   travelerName?: string
+  /** False while session refresh is still in progress — do not treat as signed-out. */
+  authReady?: boolean
+  signedIn?: boolean
 }
 
 const BOOKINGS = [
@@ -129,14 +132,29 @@ export default function AccountDashboardPage({
   onSignOut,
   onOpenSettings,
   travelerName = 'Amara',
+  authReady = true,
+  signedIn = true,
 }: AccountDashboardPageProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [coverFailed, setCoverFailed] = useState(false)
-  const [completionPercent, setCompletionPercent] = useState(0)
-  const [onboardingIncomplete, setOnboardingIncomplete] = useState(false)
+  /** null = not resolved yet — never show a fake 0% while loading */
+  const [completionPercent, setCompletionPercent] = useState<number | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   useEffect(() => {
+    if (!authReady) {
+      setProfileLoading(true)
+      return
+    }
+    if (!signedIn) {
+      setProfileLoading(false)
+      setCompletionPercent(null)
+      setCoverUrl(null)
+      return
+    }
+
     let cancelled = false
+    setProfileLoading(true)
     void (async () => {
       try {
         const profile = await fetchOnboarding()
@@ -144,21 +162,25 @@ export default function AccountDashboardPage({
         setCoverUrl(profile.coverUrl?.trim() || null)
         setCoverFailed(false)
         setCompletionPercent(computeProfileCompletionPercent(profile as TravelerProfileDto))
-        setOnboardingIncomplete(profile.onboardingStatus !== 'COMPLETED')
       } catch {
         if (!cancelled) {
           setCoverUrl(null)
           setCoverFailed(false)
-          setCompletionPercent(0)
+          // Keep completion unknown — do not flash 0% on a transient failure.
+          setCompletionPercent(null)
         }
+      } finally {
+        if (!cancelled) setProfileLoading(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authReady, signedIn])
 
   const showCover = Boolean(coverUrl) && !coverFailed
+  const showCompletionBanner =
+    !profileLoading && completionPercent !== null && completionPercent < 100
 
   function handleFinish() {
     if (onOpenSettings) {
@@ -238,30 +260,47 @@ export default function AccountDashboardPage({
           </button>
         </div>
 
-        <div
-          className="relative z-[1] flex items-center gap-3 rounded-xl px-3.5 py-3"
-          style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)' }}
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white mb-1.5">
-              Profile · {completionPercent}% complete
-            </p>
-            <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.28)' }}>
-              <div
-                className="h-full rounded-full bg-white transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, completionPercent))}%` }}
-              />
+        {profileLoading && (
+          <div
+            className="relative z-[1] flex items-center gap-3 rounded-xl px-3.5 py-3"
+            style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)' }}
+            aria-busy="true"
+            aria-label="Loading profile completion"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="h-3 w-36 rounded mb-1.5" style={{ background: 'rgba(255,255,255,0.35)' }} />
+              <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.28)' }}>
+                <div className="h-full w-1/3 rounded-full animate-pulse" style={{ background: 'rgba(255,255,255,0.55)' }} />
+              </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleFinish}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white flex-shrink-0 active:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.22)', border: 'none', cursor: 'pointer' }}
+        )}
+        {showCompletionBanner && (
+          <div
+            className="relative z-[1] flex items-center gap-3 rounded-xl px-3.5 py-3"
+            style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)' }}
           >
-            {onboardingIncomplete || completionPercent < 100 ? 'Finish' : 'Edit'}
-          </button>
-        </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-white mb-1.5">
+                Profile · {completionPercent}% complete
+              </p>
+              <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.28)' }}>
+                <div
+                  className="h-full rounded-full bg-white transition-all"
+                  style={{ width: `${Math.min(100, Math.max(0, completionPercent))}%` }}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleFinish}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white flex-shrink-0 active:opacity-80"
+              style={{ background: 'rgba(255,255,255,0.22)', border: 'none', cursor: 'pointer' }}
+            >
+              Finish
+            </button>
+          </div>
+        )}
       </section>
 
       <div className="px-3 sm:px-0 -mt-4 relative z-[1]">

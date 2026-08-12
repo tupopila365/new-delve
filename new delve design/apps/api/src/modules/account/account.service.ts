@@ -71,6 +71,31 @@ async function requireVerifiedUser(userId: string) {
   return user
 }
 
+async function socialCountsForUser(userId: string) {
+  try {
+    const row = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        _count: {
+          select: {
+            followsIncoming: true,
+            followsOutgoing: true,
+            posts: { where: { status: 'PUBLISHED', deletedAt: null } },
+          },
+        },
+      },
+    })
+    return {
+      followersCount: row?._count.followsIncoming ?? 0,
+      followingCount: row?._count.followsOutgoing ?? 0,
+      delversCount: row?._count.posts ?? 0,
+    }
+  } catch {
+    // Social tables may be unavailable during rolling deploys; profile still returns.
+    return { followersCount: 0, followingCount: 0, delversCount: 0 }
+  }
+}
+
 async function toProfileDto(
   user: { id: string; email: string; username: string; emailVerifiedAt: Date | null },
   profile: {
@@ -90,11 +115,7 @@ async function toProfileDto(
   },
   storageConfigured: boolean,
 ): Promise<TravelerProfileDto> {
-  const [followersCount, followingCount, delversCount] = await Promise.all([
-    prisma.follow.count({ where: { followingId: user.id } }),
-    prisma.follow.count({ where: { followerId: user.id } }),
-    prisma.post.count({ where: { authorId: user.id, status: 'PUBLISHED', deletedAt: null } }),
-  ])
+  const { followersCount, followingCount, delversCount } = await socialCountsForUser(user.id)
   return {
     id: user.id,
     displayName: profile.displayName,

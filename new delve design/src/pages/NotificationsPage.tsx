@@ -24,12 +24,30 @@ function timeLabel(iso: string) {
   return new Date(iso).toLocaleDateString()
 }
 
-export default function NotificationsPage() {
+export default function NotificationsPage({
+  authReady = true,
+  signedIn = true,
+}: {
+  authReady?: boolean
+  signedIn?: boolean
+}) {
   const [notifs, setNotifs] = useState<NotificationDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!authReady) {
+      setLoading(true)
+      setError(null)
+      return
+    }
+    if (!signedIn) {
+      setLoading(false)
+      setNotifs([])
+      setError('Sign in required')
+      return
+    }
+
     let cancelled = false
     void (async () => {
       setLoading(true)
@@ -48,7 +66,7 @@ export default function NotificationsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authReady, signedIn])
 
   const unreadCount = notifs.filter(n => !n.readAt).length
 
@@ -94,7 +112,7 @@ export default function NotificationsPage() {
       {loading && (
         <p className="px-4 py-8 text-sm" style={{ color: 'var(--fg-muted)' }}>Loading…</p>
       )}
-      {error && (
+      {error && !loading && (
         <p className="px-4 py-8 text-sm" style={{ color: 'var(--auth-danger)' }} role="alert">{error}</p>
       )}
       {!loading && !error && notifs.length === 0 && (

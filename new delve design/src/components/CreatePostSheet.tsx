@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
+import type { PostDto } from '@delve/contracts'
 import { createPost } from '../api/socialClient'
 import { useMediaUpload } from '../media/useMediaUpload'
 
 interface CreatePostSheetProps {
   open: boolean
   onClose: () => void
-  onCreated?: () => void
+  /** Called with the created post after a successful 201. */
+  onCreated?: (post: PostDto) => void
 }
 
 export default function CreatePostSheet({ open, onClose, onCreated }: CreatePostSheetProps) {
@@ -55,13 +57,13 @@ export default function CreatePostSheet({ open, onClose, onCreated }: CreatePost
     setSubmitting(true)
     setError(null)
     try {
-      await createPost({
+      const created = await createPost({
         caption: caption.trim(),
         location: location.trim() || null,
         mediaIds: mediaId ? [mediaId] : [],
         visibility: 'PUBLIC',
       })
-      onCreated?.()
+      onCreated?.(created)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not publish')

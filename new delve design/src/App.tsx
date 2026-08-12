@@ -8,7 +8,8 @@ import {
   TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu,
 } from 'lucide-react'
 import { navToPath, pathToNav } from './navigation'
-import { getStoredUser, logoutSession, refreshSession } from './api/authClient'
+import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
+import type { PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 import ResetPasswordPage from './pages/auth/ResetPasswordPage'
@@ -485,6 +486,7 @@ export default function App() {
   const [activeStory, setActiveStory] = useState<string | null>(null)
   const [authRoute, setAuthRoute] = useState<AuthRoute | null>(null)
   const [signedIn, setSignedIn] = useState(() => Boolean(getStoredUser()))
+  const [authReady, setAuthReady] = useState(() => !getStoredUser())
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showOnboardingResume, setShowOnboardingResume] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
@@ -495,6 +497,8 @@ export default function App() {
   const [createEventOpen, setCreateEventOpen] = useState(false)
   const [eventDetailId, setEventDetailId] = useState<string | null>(null)
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
+  const [socialRefreshKey, setSocialRefreshKey] = useState(0)
+  const [lastCreatedPost, setLastCreatedPost] = useState<PostDto | null>(null)
   const [businessAdminOpen, setBusinessAdminOpen] = useState(false)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingContext, setBookingContext] = useState<BookingContext | null>(null)
@@ -521,13 +525,20 @@ export default function App() {
     void (async () => {
       if (!getStoredUser()) {
         setSignedIn(false)
+        setAuthReady(true)
         return
       }
       const refreshed = await refreshSession()
       if (cancelled) return
-      const ok = Boolean(refreshed || getStoredUser())
-      setSignedIn(ok)
-      if (!ok) return
+      // Prefer a live session. Stale user-only storage must not look signed-in.
+      const ok = Boolean(refreshed || (getStoredUser() && getStoredAccessToken()))
+      if (!ok) {
+        setSignedIn(false)
+        setAuthReady(true)
+        return
+      }
+      setSignedIn(true)
+      setAuthReady(true)
       try {
         const profile = await fetchOnboarding()
         if (cancelled) return
@@ -753,6 +764,7 @@ export default function App() {
 
   function handleAuthenticated() {
     setSignedIn(true)
+    setAuthReady(true)
     setAuthRoute(null)
     void (async () => {
       try {
@@ -802,9 +814,12 @@ export default function App() {
       <CreatePostSheet
         open={createPostOpen}
         onClose={() => setCreatePostOpen(false)}
-        onCreated={() => {
+        onCreated={post => {
           setCreatePostOpen(false)
+          setLastCreatedPost(post)
+          setSocialRefreshKey(k => k + 1)
           goToNav('Delvers')
+          window.setTimeout(() => setLastCreatedPost(null), 5000)
         }}
       />
       <CreateEventSheet
@@ -1082,6 +1097,10 @@ export default function App() {
           onOpenMessages={() => setActiveNav('Messages')}
           onOpenNotifications={() => setActiveNav('Notifications')}
           onOpenProfile={uname => openProfile(uname)}
+          refreshKey={socialRefreshKey}
+          highlightPost={lastCreatedPost}
+          authReady={authReady}
+          signedIn={signedIn}
         />
       )
     }
@@ -1106,6 +1125,8 @@ export default function App() {
           <ProfilePage
             username={profileUsername}
             viewerUserId={getStoredUser()?.id}
+            authReady={authReady}
+            signedIn={signedIn}
             onBack={() => {
               setProfileUsername(null)
               goToNav('Account')
@@ -1114,6 +1135,7 @@ export default function App() {
             onCreateEvent={() => setCreateEventOpen(true)}
             onOpenEvent={id => setEventDetailId(id)}
             onOpenUser={uname => openProfile(uname)}
+            contentRefreshKey={socialRefreshKey}
             onEditProfile={() => {
               setAccountSettingsOpen(true)
               goToNav('Account settings')
@@ -1122,8 +1144,15 @@ export default function App() {
         )
       if (activeNav === 'Messages') return <MessagesPage />
       if (activeNav === 'Saved')
-        return <SavedPage onOpenEvent={id => setEventDetailId(id)} />
-      if (activeNav === 'Notifications') return <NotificationsPage />
+        return (
+          <SavedPage
+            onOpenEvent={id => setEventDetailId(id)}
+            authReady={authReady}
+            signedIn={signedIn}
+          />
+        )
+      if (activeNav === 'Notifications')
+        return <NotificationsPage authReady={authReady} signedIn={signedIn} />
       if (accountSettingsOpen || activeNav === 'Account settings') {
         return (
           <AccountSettingsPage
@@ -1149,6 +1178,8 @@ export default function App() {
           )}
           <AccountDashboardPage
             travelerName={getStoredUser()?.username ?? 'Traveler'}
+            authReady={authReady}
+            signedIn={signedIn}
             onNavigate={target => {
               if (target === 'Profile') {
                 setAccountSettingsOpen(false)

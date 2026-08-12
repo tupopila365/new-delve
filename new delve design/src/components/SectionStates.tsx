@@ -5,7 +5,8 @@ import { AlertCircle, RefreshCw, WifiOff, Inbox } from 'lucide-react'
 function Shimmer({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <div
-      className={className}
+      className={`delve-skeleton ${className || ''}`}
+      aria-hidden
       style={{
         background: 'linear-gradient(90deg, var(--border) 25%, var(--surface-subtle) 50%, var(--border) 75%)',
         backgroundSize: '200% 100%',
@@ -199,6 +200,13 @@ export function ShimmerStyle() {
       @keyframes shimmer {
         0%   { background-position: 200% 0; }
         100% { background-position: -200% 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .delve-skeleton {
+          animation: none !important;
+          background: var(--border) !important;
+          background-size: auto !important;
+        }
       }
     `}</style>
   )
