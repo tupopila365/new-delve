@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Search, X, Clock, MapPin, ArrowRight, Car, Plane, Anchor,
   Bus, Star, CheckCircle, Bookmark, Heart, TrendingUp,
-  Filter, ChevronDown, SlidersHorizontal, AlertCircle,
+  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User,
 } from 'lucide-react'
+import type { PublicTravelerProfile } from '@delve/contracts'
 import {
   autocompleteSuggestions, popularSearches, suggestedDestinations,
   recentSearches, mockSearchResults, exploreCategories, transportShortcuts,
@@ -12,6 +13,8 @@ import {
   type DealSearchResult,
 } from '../data/searchData'
 import { deals, journeys, delversPosts } from '../data/mockData'
+import { searchTravelers } from '../api/socialClient'
+import { formatUsername } from '../lib/formatUsername'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -343,8 +346,10 @@ function DelversThumb({ post }: { post: (typeof delversPosts)[0] }) {
 
 export default function SearchPage({
   onNavigate,
+  onOpenProfile,
 }: {
   onNavigate?: (destination: string) => void
+  onOpenProfile?: (username: string) => void
 } = {}) {
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -354,6 +359,7 @@ export default function SearchPage({
   const [sort, setSort] = useState<string>('recommended')
   const [showSortMenu, setShowSortMenu] = useState(false)
   const [savedResults, setSavedResults] = useState<Set<string>>(new Set())
+  const [travelers, setTravelers] = useState<PublicTravelerProfile[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const searchWrapRef = useRef<HTMLDivElement>(null)
 
@@ -378,6 +384,9 @@ export default function SearchPage({
     setSubmitted(true)
     setShowAutocomplete(false)
     setActiveTab('all')
+    void searchTravelers(finalQuery)
+      .then(setTravelers)
+      .catch(() => setTravelers([]))
   }
 
   function handleClear() {
@@ -385,6 +394,7 @@ export default function SearchPage({
     setSubmitted(false)
     setShowAutocomplete(false)
     setActiveTab('all')
+    setTravelers([])
     inputRef.current?.focus()
   }
 
@@ -532,6 +542,45 @@ export default function SearchPage({
             )}
           </div>
         </div>
+
+        {travelers.length > 0 && (
+          <div className="px-4 sm:px-0 pb-4">
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+              Travelers
+            </p>
+            <div className="flex flex-col gap-2">
+              {travelers.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onOpenProfile?.(t.username)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  <div
+                    className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(140,82,255,0.12)' }}
+                  >
+                    {t.avatarUrl ? (
+                      <img src={t.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <User size={18} style={{ color: 'var(--fg-muted)' }} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                      {t.displayName || formatUsername(t.username)}
+                    </p>
+                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                      {formatUsername(t.username)}
+                      {t.homeCity ? ` · ${t.homeCity}` : ''}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* No results */}
         {filteredResults.length === 0 ? (

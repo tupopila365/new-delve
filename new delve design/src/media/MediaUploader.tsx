@@ -56,7 +56,11 @@ export default function MediaUploader({
             ref={inputRef}
             id={inputId}
             type="file"
-            accept={purpose === 'avatar' ? 'image/jpeg,image/png,image/webp' : 'image/*,video/*'}
+            accept={
+              purpose === 'avatar' || purpose === 'cover'
+                ? 'image/jpeg,image/png,image/webp'
+                : 'image/*,video/*'
+            }
             disabled={disabled || upload.busy || profileLoading}
             className="sr-only"
             aria-labelledby={`${inputId}-label`}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Bookmark, Building2, Bus, Calendar, ChevronRight, Flame, Heart,
   LogOut, MapPin, MessageCircle, Navigation, Tag,
@@ -6,6 +7,9 @@ import {
 } from 'lucide-react'
 import UsernameSettingsPanel from './UsernameSettingsPanel'
 import { formatUsername } from '../lib/formatUsername'
+import { fetchOnboarding } from '../api/authClient'
+import { computeProfileCompletionPercent } from '../lib/profileCompletion'
+import type { TravelerProfileDto } from '@delve/contracts'
 
 export type AccountNavTarget =
   | 'Profile'
@@ -126,25 +130,88 @@ export default function AccountDashboardPage({
   onOpenSettings,
   travelerName = 'Amara',
 }: AccountDashboardPageProps) {
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [coverFailed, setCoverFailed] = useState(false)
+  const [completionPercent, setCompletionPercent] = useState(0)
+  const [onboardingIncomplete, setOnboardingIncomplete] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const profile = await fetchOnboarding()
+        if (cancelled) return
+        setCoverUrl(profile.coverUrl?.trim() || null)
+        setCoverFailed(false)
+        setCompletionPercent(computeProfileCompletionPercent(profile as TravelerProfileDto))
+        setOnboardingIncomplete(profile.onboardingStatus !== 'COMPLETED')
+      } catch {
+        if (!cancelled) {
+          setCoverUrl(null)
+          setCoverFailed(false)
+          setCompletionPercent(0)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const showCover = Boolean(coverUrl) && !coverFailed
+
+  function handleFinish() {
+    if (onOpenSettings) {
+      onOpenSettings()
+      return
+    }
+    onNavigate('Profile')
+  }
+
   return (
     <div className="pb-4">
-      {/* Greeting banner */}
-      <section
-        className="relative overflow-hidden px-4 pt-7 pb-10 sm:rounded-2xl sm:mx-0"
-        style={{
-          background: 'linear-gradient(135deg, var(--primary) 0%, #8C52FF 55%, #C7ACFF 100%)',
-        }}
-      >
+      {/* Greeting banner — coverUrl from traveler profile, else purple gradient */}
+      <section className="relative overflow-hidden px-4 pt-7 pb-10 sm:rounded-2xl sm:mx-0">
         <div
-          className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.1)' }}
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(135deg, var(--primary) 0%, #8C52FF 55%, #C7ACFF 100%)',
+          }}
+          aria-hidden
         />
-        <div
-          className="pointer-events-none absolute right-6 -bottom-12 h-28 w-28 rounded-full"
-          style={{ background: 'rgba(255,255,255,0.08)' }}
-        />
+        {showCover && coverUrl && (
+          <img
+            src={coverUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            decoding="async"
+            onError={() => setCoverFailed(true)}
+          />
+        )}
+        {showCover && (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(95,47,201,0.72) 0%, rgba(140,82,255,0.55) 55%, rgba(40,20,80,0.65) 100%)',
+            }}
+            aria-hidden
+          />
+        )}
+        {!showCover && (
+          <>
+            <div
+              className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.1)' }}
+            />
+            <div
+              className="pointer-events-none absolute right-6 -bottom-12 h-28 w-28 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.08)' }}
+            />
+          </>
+        )}
 
-        <div className="relative flex items-start justify-between gap-3">
+        <div className="relative z-[1] flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>
               {greetingForNow()}
@@ -172,22 +239,27 @@ export default function AccountDashboardPage({
         </div>
 
         <div
-          className="relative flex items-center gap-3 rounded-xl px-3.5 py-3"
+          className="relative z-[1] flex items-center gap-3 rounded-xl px-3.5 py-3"
           style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(8px)' }}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white mb-1.5">Profile · 76% complete</p>
+            <p className="text-xs font-medium text-white mb-1.5">
+              Profile · {completionPercent}% complete
+            </p>
             <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.28)' }}>
-              <div className="h-full rounded-full bg-white" style={{ width: '76%' }} />
+              <div
+                className="h-full rounded-full bg-white transition-all"
+                style={{ width: `${Math.min(100, Math.max(0, completionPercent))}%` }}
+              />
             </div>
           </div>
           <button
             type="button"
-            onClick={() => onNavigate('Profile')}
+            onClick={handleFinish}
             className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white flex-shrink-0 active:opacity-80"
             style={{ background: 'rgba(255,255,255,0.22)', border: 'none', cursor: 'pointer' }}
           >
-            Finish
+            {onboardingIncomplete || completionPercent < 100 ? 'Finish' : 'Edit'}
           </button>
         </div>
       </section>

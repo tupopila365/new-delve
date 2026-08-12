@@ -1,97 +1,331 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  ArrowLeft, CheckCircle, Globe, MapPin, MessageCircle, Plus, Share2, Star, Users,
+  ArrowLeft, Calendar, CheckCircle, Globe, Heart, MapPin, MessageCircle, Plus, Share2,
 } from 'lucide-react'
-import { getStoredUser } from '../api/authClient'
+import {
+  TRAVEL_INTEREST_LABELS,
+  type EventDto,
+  type PostDto,
+  type PublicTravelerProfile,
+  type TravelerProfileDto,
+} from '@delve/contracts'
+import { fetchOnboarding, getStoredUser } from '../api/authClient'
+import {
+  addComment,
+  fetchComments,
+  fetchPublicProfile,
+  fetchUserEvents,
+  fetchUserPosts,
+  followTraveler,
+  likePost,
+  saveItem,
+  unfollowTraveler,
+  unlikePost,
+  unsaveItem,
+} from '../api/socialClient'
 import { formatUsername } from '../lib/formatUsername'
+import { useMediaUpload } from '../media/useMediaUpload'
 
-type ProfileTab = 'Delvers' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
+type ProfileTab = 'Delvers' | 'Events' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
 
-interface ProfilePageProps {
-  isOwner?: boolean
-  onBack?: () => void
-  onCreate?: () => void
+type ProfileView = {
+  id: string
+  displayName: string
+  username: string
+  avatarUrl: string | null
+  coverUrl: string | null
+  bio: string | null
+  homeCity: string | null
+  homeCountryCode: string | null
+  preferredLanguage: string
+  interests: string[]
+  emailVerified: boolean
+  createdAt: string
+  followersCount: number
+  followingCount: number
+  delversCount: number
+  isFollowing?: boolean
+  storageConfigured?: boolean
 }
 
-const POSTS = [
-  { id: 1, img: 'https://images.unsplash.com/photo-1539239476882-b5cc2f18d7e0?w=400&h=400&fit=crop&auto=format' },
-  { id: 2, img: 'https://images.unsplash.com/photo-1565043534426-8a67ac8671e2?w=400&h=400&fit=crop&auto=format' },
-  { id: 3, img: 'https://images.unsplash.com/photo-1552699611-e2c208d5d9cf?w=400&h=400&fit=crop&auto=format' },
-  { id: 4, img: 'https://images.unsplash.com/photo-1569169507605-f91e088ce91a?w=400&h=400&fit=crop&auto=format' },
-  { id: 5, img: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=400&h=400&fit=crop&auto=format' },
-  { id: 6, img: 'https://images.unsplash.com/photo-1722851152653-1182e178a81f?w=400&h=400&fit=crop&auto=format' },
-]
+interface ProfilePageProps {
+  /** Public profile username. Omit / null = signed-in owner via onboarding. */
+  username?: string | null
+  viewerUserId?: string | null
+  onBack?: () => void
+  onCreatePost?: () => void
+  onCreateEvent?: () => void
+  onEditProfile?: () => void
+  onOpenEvent?: (eventId: string) => void
+  onOpenUser?: (username: string) => void
+}
 
-const JOURNEYS = [
-  {
-    id: 1,
-    name: 'Morocco Golden Route',
-    cover: 'https://images.unsplash.com/photo-1539239476882-b5cc2f18d7e0?w=800&h=360&fit=crop&auto=format',
-    privacy: 'Public',
-    travelers: 4,
-    dates: 'Aug 2026',
-  },
-  {
-    id: 2,
-    name: 'Lisbon Long Weekend',
-    cover: 'https://images.unsplash.com/photo-1569169507605-f91e088ce91a?w=800&h=360&fit=crop&auto=format',
-    privacy: 'Followers',
-    travelers: 2,
-    dates: 'Oct 2026',
-  },
-]
+const TABS: ProfileTab[] = ['Delvers', 'Events', 'Journeys', 'Communities', 'Reviews', 'About']
 
-const TABS: ProfileTab[] = ['Delvers', 'Journeys', 'Communities', 'Reviews', 'About']
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: 'English',
+  fr: 'French',
+  pt: 'Portuguese',
+  de: 'German',
+  es: 'Spanish',
+  af: 'Afrikaans',
+}
 
-const LANGUAGES = ['Wolof', 'French', 'English']
+function formatLocation(city: string | null, country: string | null) {
+  const parts = [city?.trim(), country?.trim()].filter(Boolean)
+  return parts.length ? parts.join(', ') : null
+}
 
-const COMMUNITIES = [
-  { name: 'Morocco Travellers', members: '2.4k' },
-  { name: 'West Africa Explorers', members: '5.1k' },
-  { name: 'Slow Travel Club', members: '18.2k' },
-]
+function formatCount(n: number) {
+  return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
+}
 
-const REVIEWS = [
-  {
-    place: 'Riad Dar Zitoun',
-    rating: 5,
-    text: 'Absolutely magical stay. The courtyard at sunrise is worth every penny.',
-    date: 'July 2026',
-    verified: true,
-  },
-  {
-    place: 'Atlas Sahara Trek',
-    rating: 4,
-    text: 'Incredible guides, challenging but rewarding. Pack extra water.',
-    date: 'March 2026',
-    verified: true,
-  },
-]
+function EmptyTab({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+      <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
+        {title}
+      </p>
+      <p className="text-sm m-0 max-w-xs" style={{ color: 'var(--fg-muted)' }}>
+        {body}
+      </p>
+    </div>
+  )
+}
 
-const ABOUT = [
-  { label: 'Travel style', value: 'Cultural immersion · Budget-flexible · Slow travel' },
-  { label: 'Places visited', value: '23 countries · 4 continents' },
-  { label: 'Member since', value: 'January 2024' },
-  { label: 'Interests', value: 'Architecture · Local food · Photography · Hiking' },
-]
+function toView(p: TravelerProfileDto | PublicTravelerProfile): ProfileView {
+  return {
+    id: p.id,
+    displayName: p.displayName,
+    username: p.username,
+    avatarUrl: p.avatarUrl,
+    coverUrl: p.coverUrl,
+    bio: p.bio,
+    homeCity: p.homeCity,
+    homeCountryCode: p.homeCountryCode,
+    preferredLanguage: p.preferredLanguage,
+    interests: p.interests,
+    emailVerified: p.emailVerified,
+    createdAt: p.createdAt,
+    followersCount: p.followersCount,
+    followingCount: p.followingCount,
+    delversCount: p.delversCount,
+    isFollowing: 'isFollowing' in p ? p.isFollowing : undefined,
+    storageConfigured: 'storageConfigured' in p ? p.storageConfigured : undefined,
+  }
+}
 
-export default function ProfilePage({ isOwner = true, onBack, onCreate }: ProfilePageProps) {
+export default function ProfilePage({
+  username = null,
+  viewerUserId,
+  onBack,
+  onCreatePost,
+  onCreateEvent,
+  onEditProfile,
+  onOpenEvent,
+  onOpenUser,
+}: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('Delvers')
-  const [following, setFollowing] = useState(false)
+  const [profile, setProfile] = useState<ProfileView | null>(null)
+  const [posts, setPosts] = useState<PostDto[]>([])
+  const [events, setEvents] = useState<EventDto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [followBusy, setFollowBusy] = useState(false)
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  const [coverFailed, setCoverFailed] = useState(false)
+  const [activePostId, setActivePostId] = useState<string | null>(null)
+  const [comments, setComments] = useState<Record<string, { id: string; body: string; author: string }[]>>({})
+  const [commentDraft, setCommentDraft] = useState('')
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const coverUpload = useMediaUpload('cover')
+
+  const stored = getStoredUser()
+  const viewerId = viewerUserId ?? stored?.id ?? null
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = username
+          ? await fetchPublicProfile(username)
+          : await fetchOnboarding()
+        if (cancelled) return
+        const view = toView(data)
+        setProfile(view)
+        setAvatarFailed(false)
+        setCoverFailed(false)
+        const uname = view.username
+        const [postList, eventList] = await Promise.all([
+          fetchUserPosts(uname),
+          fetchUserEvents(uname),
+        ])
+        if (cancelled) return
+        setPosts(postList)
+        setEvents(eventList)
+      } catch (err) {
+        if (cancelled) return
+        setProfile(null)
+        setError(err instanceof Error ? err.message : 'Could not load profile')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [username])
+
+  const isOwner = Boolean(profile?.id) && Boolean(viewerId) && viewerId === profile!.id
+  const following = Boolean(profile?.isFollowing)
+
+  const displayName =
+    profile?.displayName?.trim() ||
+    formatUsername(profile?.username) ||
+    'Traveler'
+  const handle = formatUsername(profile?.username) || null
+  const location = profile ? formatLocation(profile.homeCity, profile.homeCountryCode) : null
+  const languageLabel = profile?.preferredLanguage
+    ? LANGUAGE_LABELS[profile.preferredLanguage] || profile.preferredLanguage
+    : null
+  const bio = profile?.bio?.trim() || null
+  const isVerified = Boolean(profile?.emailVerified)
+  const avatarUrl = profile?.avatarUrl && !avatarFailed ? profile.avatarUrl : null
+  const coverUrl = profile?.coverUrl?.trim() && !coverFailed ? profile.coverUrl.trim() : null
+
+  async function toggleFollow() {
+    if (!profile || isOwner || followBusy) return
+    setFollowBusy(true)
+    try {
+      const result = following
+        ? await unfollowTraveler(profile.id)
+        : await followTraveler(profile.id)
+      setProfile(current =>
+        current
+          ? {
+              ...current,
+              isFollowing: result.following,
+              followersCount: result.followersCount,
+              followingCount: current.followingCount,
+            }
+          : current,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Follow failed')
+    } finally {
+      setFollowBusy(false)
+    }
+  }
+
+  async function toggleLike(post: PostDto) {
+    try {
+      const next = post.likedByMe ? await unlikePost(post.id) : await likePost(post.id)
+      setPosts(list => list.map(p => (p.id === post.id ? next : p)))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function toggleSave(post: PostDto) {
+    try {
+      if (post.savedByMe) await unsaveItem({ targetType: 'POST', targetId: post.id })
+      else await saveItem({ targetType: 'POST', targetId: post.id })
+      setPosts(list =>
+        list.map(p => (p.id === post.id ? { ...p, savedByMe: !p.savedByMe } : p)),
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function openComments(postId: string) {
+    setActivePostId(postId)
+    if (comments[postId]) return
+    try {
+      const rows = await fetchComments(postId)
+      setComments(prev => ({
+        ...prev,
+        [postId]: rows.map(c => ({
+          id: c.id,
+          body: c.body,
+          author: c.author.displayName || c.author.username,
+        })),
+      }))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function submitComment(postId: string) {
+    const body = commentDraft.trim()
+    if (!body) return
+    try {
+      const row = await addComment(postId, body)
+      setCommentDraft('')
+      setComments(prev => ({
+        ...prev,
+        [postId]: [
+          ...(prev[postId] || []),
+          { id: row.id, body: row.body, author: row.author.displayName || row.author.username },
+        ],
+      }))
+      setPosts(list =>
+        list.map(p => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="pb-4 px-4 py-10" role="status" aria-live="polite">
+        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+          Loading profile…
+        </p>
+      </div>
+    )
+  }
+
+  if (error || !profile) {
+    return (
+      <div className="pb-4 px-4 py-10">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold"
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+        )}
+        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }} role="alert">
+          {error || 'Profile unavailable.'}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="pb-4">
-      {/* Cover */}
       <div className="relative h-44 sm:h-52 overflow-hidden sm:rounded-t-2xl">
         <div
           className="absolute inset-0"
           style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #8C52FF 50%, #C7ACFF 100%)' }}
         />
-        <img
-          src="https://images.unsplash.com/photo-1539239476882-b5cc2f18d7e0?w=1200&h=400&fit=crop&auto=format"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-55 mix-blend-overlay"
-        />
+        {coverUrl && (
+          <img
+            src={coverUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-center"
+            decoding="async"
+            onError={() => setCoverFailed(true)}
+          />
+        )}
         {onBack && (
           <button
             type="button"
@@ -104,23 +338,51 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
               cursor: 'pointer',
               backdropFilter: 'blur(6px)',
             }}
-            aria-label="Back to account"
+            aria-label="Back"
           >
             <ArrowLeft size={18} />
           </button>
         )}
-        {isOwner && (
-          <button
-            type="button"
-            className="absolute bottom-3 right-3 z-10 rounded-lg px-3 py-1.5 text-xs font-semibold text-white active:opacity-80"
-            style={{ background: 'rgba(0,0,0,0.5)', border: 'none', cursor: 'pointer', backdropFilter: 'blur(6px)' }}
-          >
-            Edit cover
-          </button>
+        {isOwner && profile.storageConfigured && (
+          <>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              aria-label="Upload cover photo"
+              disabled={coverUpload.busy}
+              onChange={e => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (!file) return
+                void coverUpload.start(file).then(saved => {
+                  if (!saved) return
+                  const url = saved.delivery.url
+                  setProfile(current => (current ? { ...current, coverUrl: url } : current))
+                  setCoverFailed(false)
+                  coverUpload.reset()
+                })
+              }}
+            />
+            <button
+              type="button"
+              disabled={coverUpload.busy}
+              onClick={() => coverInputRef.current?.click()}
+              className="absolute bottom-3 right-3 z-10 rounded-lg px-3 py-1.5 text-xs font-semibold text-white active:opacity-80"
+              style={{
+                background: 'rgba(0,0,0,0.5)',
+                border: 'none',
+                cursor: coverUpload.busy ? 'wait' : 'pointer',
+                backdropFilter: 'blur(6px)',
+              }}
+            >
+              {coverUpload.busy ? 'Uploading…' : 'Edit cover'}
+            </button>
+          </>
         )}
       </div>
 
-      {/* Identity block */}
       <div
         className="px-4 pb-4 -mt-1"
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
@@ -128,31 +390,40 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
         <div className="flex items-end justify-between gap-3 -mt-9 mb-3">
           <div className="relative">
             <div
-              className="h-20 w-20 overflow-hidden rounded-full"
-              style={{ border: '3px solid var(--surface)', background: 'var(--primary)' }}
+              className="h-20 w-20 overflow-hidden rounded-full flex items-center justify-center"
+              style={{ border: '3px solid var(--surface)', background: 'rgba(140,82,255,0.25)', color: '#fff' }}
             >
-              <img
-                src="https://images.unsplash.com/photo-1552699611-e2c208d5d9cf?w=160&h=160&fit=crop&auto=format"
-                alt="Amara Diallo"
-                className="h-full w-full object-cover"
-              />
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarFailed(true)}
+                />
+              ) : (
+                <span className="text-xl font-bold select-none" aria-hidden>
+                  {(displayName.replace(/^@/, '').trim()[0] || 'D').toUpperCase()}
+                </span>
+              )}
             </div>
-            <span
-              className="absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full"
-              style={{ background: 'var(--primary)', border: '2px solid var(--surface)', color: '#fff' }}
-              aria-label="Verified"
-            >
-              <CheckCircle size={11} />
-            </span>
+            {isVerified && (
+              <span
+                className="absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full"
+                style={{ background: 'var(--primary)', border: '2px solid var(--surface)', color: '#fff' }}
+                aria-label="Verified"
+              >
+                <CheckCircle size={11} />
+              </span>
+            )}
           </div>
 
-          <div className="flex gap-2 pb-1">
+          <div className="flex flex-wrap gap-2 pb-1 justify-end">
             {isOwner ? (
               <>
-                {onCreate && (
+                {onCreatePost && (
                   <button
                     type="button"
-                    onClick={onCreate}
+                    onClick={onCreatePost}
                     className="rounded-xl px-3 py-2 text-sm font-semibold text-white active:opacity-90"
                     style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
                   >
@@ -162,14 +433,33 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
                     </span>
                   </button>
                 )}
+                {onCreateEvent && (
+                  <button
+                    type="button"
+                    onClick={onCreateEvent}
+                    className="rounded-xl px-3 py-2 text-sm font-semibold active:opacity-80"
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--fg)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar size={14} />
+                      Event
+                    </span>
+                  </button>
+                )}
                 <button
                   type="button"
+                  onClick={onEditProfile}
                   className="rounded-xl px-4 py-2 text-sm font-semibold active:opacity-80"
                   style={{
                     border: '1px solid var(--border)',
                     background: 'var(--surface)',
                     color: 'var(--fg)',
-                    cursor: 'pointer',
+                    cursor: onEditProfile ? 'pointer' : 'default',
                   }}
                 >
                   Edit profile
@@ -189,64 +479,59 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
                 </button>
               </>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setFollowing(f => !f)}
-                  className="rounded-xl px-5 py-2 text-sm font-semibold active:opacity-90"
-                  style={{
-                    border: following ? '1px solid var(--border)' : '1px solid var(--primary)',
-                    background: following ? 'var(--surface)' : 'var(--primary)',
-                    color: following ? 'var(--fg)' : '#fff',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {following ? 'Following' : 'Follow'}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold active:opacity-80"
-                  style={{
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--fg)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <MessageCircle size={14} />
-                  Message
-                </button>
-              </>
+              <button
+                type="button"
+                disabled={followBusy}
+                onClick={() => void toggleFollow()}
+                className="rounded-xl px-5 py-2 text-sm font-semibold active:opacity-90"
+                style={{
+                  border: following ? '1px solid var(--border)' : '1px solid var(--primary)',
+                  background: following ? 'var(--surface)' : 'var(--primary)',
+                  color: following ? 'var(--fg)' : '#fff',
+                  cursor: followBusy ? 'wait' : 'pointer',
+                }}
+              >
+                {following ? 'Following' : 'Follow'}
+              </button>
             )}
           </div>
         </div>
 
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h1 className="font-display text-xl font-extrabold m-0" style={{ color: 'var(--fg)' }}>
-              Amara Diallo
+            <h1 className="font-display text-xl font-extrabold m-0 break-words [overflow-wrap:anywhere]" style={{ color: 'var(--fg)' }}>
+              {displayName}
             </h1>
-            <span
-              className="rounded-full px-2 py-0.5 text-xs font-semibold"
-              style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}
-            >
-              Verified
-            </span>
+            {isVerified && (
+              <span
+                className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}
+              >
+                Verified
+              </span>
+            )}
           </div>
           <p className="text-sm mb-2 flex flex-wrap items-center gap-x-2 gap-y-1" style={{ color: 'var(--fg-muted)' }}>
-            <span>{formatUsername(isOwner ? getStoredUser()?.username : 'amara.diallo') || '@amara.diallo'}</span>
-            <span className="inline-flex items-center gap-1">
-              <MapPin size={12} />
-              Dakar, Senegal
-            </span>
+            {handle && <span>{handle}</span>}
+            {location && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin size={12} />
+                {location}
+              </span>
+            )}
           </p>
-          <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--fg)' }}>
-            Chasing sunsets and souks · West Africa → North Africa → South Asia
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {LANGUAGES.map(lang => (
+          {bio ? (
+            <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--fg)' }}>
+              {bio}
+            </p>
+          ) : isOwner ? (
+            <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--fg-muted)' }}>
+              Add a short bio in Edit profile so travelers know what you are about.
+            </p>
+          ) : null}
+          {languageLabel && (
+            <div className="flex flex-wrap gap-1.5">
               <span
-                key={lang}
                 className="rounded-full px-2.5 py-1 text-xs font-medium"
                 style={{
                   background: 'var(--surface-subtle)',
@@ -254,10 +539,10 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
                   color: 'var(--fg-muted)',
                 }}
               >
-                {lang}
+                {languageLabel}
               </span>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
         <div
@@ -265,24 +550,22 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
           style={{ gap: 1, background: 'var(--border)' }}
         >
           {[
-            { label: 'Followers', value: '12.4k' },
-            { label: 'Following', value: '843' },
-            { label: 'Delvers', value: '186' },
+            { label: 'Followers', value: formatCount(profile.followersCount) },
+            { label: 'Following', value: formatCount(profile.followingCount) },
+            { label: 'Delvers', value: formatCount(Math.max(profile.delversCount, posts.length)) },
           ].map(stat => (
-            <button
+            <div
               key={stat.label}
-              type="button"
-              className="py-3 text-center active:opacity-80"
-              style={{ background: 'var(--surface)', border: 'none', cursor: 'pointer' }}
+              className="py-3 text-center"
+              style={{ background: 'var(--surface)' }}
             >
               <p className="font-display text-lg font-extrabold m-0" style={{ color: 'var(--fg)' }}>{stat.value}</p>
               <p className="text-[11px] m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>{stat.label}</p>
-            </button>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Tabs */}
       <div
         className="flex overflow-x-auto"
         style={{
@@ -311,133 +594,175 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
         ))}
       </div>
 
-      {/* Tab panels */}
       {activeTab === 'Delvers' && (
-        <div className="grid grid-cols-3 gap-0.5 p-0.5">
-          {POSTS.map(post => (
-            <button
-              key={post.id}
-              type="button"
-              className="relative aspect-square overflow-hidden active:opacity-90"
-              style={{ background: 'var(--surface)', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
-              <img src={post.img} alt="" className="h-full w-full object-cover" />
-            </button>
-          ))}
-        </div>
+        posts.length === 0 ? (
+          <EmptyTab
+            title="No Delvers yet"
+            body={
+              isOwner
+                ? 'Posts you create will show up here. Use Post when you are ready to share.'
+                : 'This traveler has not shared any posts yet.'
+            }
+          />
+        ) : (
+          <div className="flex flex-col">
+            {posts.map(post => {
+              const media = post.media[0]
+              return (
+                <article
+                  key={post.id}
+                  className="px-3 sm:px-4 py-4"
+                  style={{ borderBottom: '1px solid var(--border)' }}
+                >
+                  {media?.url && (
+                    <img
+                      src={media.url}
+                      alt=""
+                      className="w-full max-h-80 object-cover rounded-xl mb-3"
+                    />
+                  )}
+                  {post.caption && (
+                    <p className="text-sm mb-2" style={{ color: 'var(--fg)' }}>{post.caption}</p>
+                  )}
+                  {post.location && (
+                    <p className="text-xs mb-2 inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
+                      <MapPin size={12} />
+                      {post.location}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void toggleLike(post)}
+                      className="inline-flex items-center gap-1 text-sm"
+                      style={{ background: 'none', border: 'none', color: post.likedByMe ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer' }}
+                    >
+                      <Heart size={16} fill={post.likedByMe ? 'currentColor' : 'none'} />
+                      {post.likeCount}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void openComments(post.id)}
+                      className="inline-flex items-center gap-1 text-sm"
+                      style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer' }}
+                    >
+                      <MessageCircle size={16} />
+                      {post.commentCount}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void toggleSave(post)}
+                      className="text-sm font-semibold ml-auto"
+                      style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
+                    >
+                      {post.savedByMe ? 'Saved' : 'Save'}
+                    </button>
+                  </div>
+                  {activePostId === post.id && (
+                    <div className="mt-3">
+                      {(comments[post.id] || []).map(c => (
+                        <p key={c.id} className="text-sm mb-1.5" style={{ color: 'var(--fg)' }}>
+                          <span className="font-semibold">{c.author}</span> {c.body}
+                        </p>
+                      ))}
+                      <div className="flex gap-2 mt-2">
+                        <input
+                          value={commentDraft}
+                          onChange={e => setCommentDraft(e.target.value)}
+                          placeholder="Add a comment"
+                          className="flex-1 rounded-lg px-3 py-2 text-sm"
+                          style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void submitComment(post.id)}
+                          className="rounded-lg px-3 py-2 text-sm font-semibold text-white"
+                          style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+                        >
+                          Post
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {activeTab === 'Events' && (
+        events.length === 0 ? (
+          <EmptyTab
+            title="No events yet"
+            body={
+              isOwner
+                ? 'Create an event to gather travelers around a meetup or activity.'
+                : 'This traveler has not published any events yet.'
+            }
+          />
+        ) : (
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
+            {events.map(ev => (
+              <button
+                key={ev.id}
+                type="button"
+                onClick={() => onOpenEvent?.(ev.id)}
+                className="text-left overflow-hidden rounded-2xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', padding: 0 }}
+              >
+                {ev.coverUrl && (
+                  <img src={ev.coverUrl} alt="" className="w-full h-32 object-cover" />
+                )}
+                <div className="p-3.5">
+                  <p className="font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>{ev.title}</p>
+                  <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                    {new Date(ev.startAt).toLocaleString()} · {ev.goingCount} going
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       {activeTab === 'Journeys' && (
-        <div className="flex flex-col gap-3 p-3 sm:p-4">
-          {JOURNEYS.map(journey => (
-            <article
-              key={journey.id}
-              className="overflow-hidden rounded-2xl"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <div className="relative h-36 overflow-hidden">
-                <img src={journey.cover} alt="" className="h-full w-full object-cover" />
-                <div
-                  className="absolute inset-0"
-                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)' }}
-                />
-                <span
-                  className="absolute top-2.5 right-2.5 rounded-full px-2.5 py-1 text-[11px] font-semibold text-white"
-                  style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
-                >
-                  {journey.privacy}
-                </span>
-                <h3 className="absolute bottom-2.5 left-3 font-display text-base font-bold text-white m-0">
-                  {journey.name}
-                </h3>
-              </div>
-              <div className="flex items-center justify-between px-3 py-2.5">
-                <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-                  {journey.travelers} travelers · {journey.dates}
-                </p>
-                <button
-                  type="button"
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white active:opacity-90"
-                  style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-                >
-                  View
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <EmptyTab
+          title="No journeys yet"
+          body={
+            isOwner
+              ? 'Your itineraries will appear here once journeys are available.'
+              : 'This traveler has not published any journeys yet.'
+          }
+        />
       )}
 
       {activeTab === 'Communities' && (
-        <div className="flex flex-col gap-2.5 p-3 sm:p-4">
-          {COMMUNITIES.map(community => (
-            <div
-              key={community.name}
-              className="flex items-center gap-3 rounded-2xl px-3.5 py-3"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <span
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
-                style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}
-              >
-                <Users size={18} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>{community.name}</p>
-                <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>{community.members} members</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <EmptyTab
+          title="No communities yet"
+          body={
+            isOwner
+              ? 'Communities you join will show up here.'
+              : 'This traveler has not joined any communities yet.'
+          }
+        />
       )}
 
       {activeTab === 'Reviews' && (
-        <div className="flex flex-col gap-3 p-3 sm:p-4">
-          {REVIEWS.map(review => (
-            <article
-              key={review.place}
-              className="rounded-2xl p-3.5"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <span className="text-sm font-bold" style={{ color: 'var(--fg)' }}>{review.place}</span>
-                <div className="flex gap-0.5 flex-shrink-0" aria-label={`${review.rating} out of 5 stars`}>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      size={13}
-                      fill={i < review.rating ? '#F59E0B' : 'none'}
-                      style={{ color: i < review.rating ? '#F59E0B' : 'var(--border)' }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <p className="text-sm leading-relaxed mb-2.5 m-0" style={{ color: 'var(--fg)' }}>{review.text}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{review.date}</span>
-                {review.verified && (
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                    style={{
-                      background: 'color-mix(in srgb, var(--auth-success) 12%, transparent)',
-                      color: 'var(--auth-success)',
-                    }}
-                  >
-                    <CheckCircle size={11} />
-                    Verified booking
-                  </span>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
+        <EmptyTab
+          title="No reviews yet"
+          body={
+            isOwner
+              ? 'Reviews you write after stays will appear here.'
+              : 'This traveler has not written any reviews yet.'
+          }
+        />
       )}
 
       {activeTab === 'About' && (
         <div className="flex flex-col gap-3 p-3 sm:p-4">
-          {ABOUT.map(item => (
+          {profile.interests.length > 0 && (
             <div
-              key={item.label}
               className="rounded-2xl p-3.5"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             >
@@ -445,11 +770,54 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
                 className="text-[11px] font-bold uppercase tracking-wider mb-1 m-0"
                 style={{ color: 'var(--primary)' }}
               >
-                {item.label}
+                Interests
               </p>
-              <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>{item.value}</p>
+              <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>
+                {profile.interests.map(id => TRAVEL_INTEREST_LABELS[id as keyof typeof TRAVEL_INTEREST_LABELS] || id).join(' · ')}
+              </p>
             </div>
-          ))}
+          )}
+          {location && (
+            <div
+              className="rounded-2xl p-3.5"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-1 m-0" style={{ color: 'var(--primary)' }}>
+                Location
+              </p>
+              <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>{location}</p>
+            </div>
+          )}
+          {languageLabel && (
+            <div
+              className="rounded-2xl p-3.5"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-1 m-0" style={{ color: 'var(--primary)' }}>
+                Language
+              </p>
+              <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>{languageLabel}</p>
+            </div>
+          )}
+          <div
+            className="rounded-2xl p-3.5"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-1 m-0" style={{ color: 'var(--primary)' }}>
+              Member since
+            </p>
+            <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>
+              {new Date(profile.createdAt).toLocaleDateString(undefined, {
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+          {!profile.interests.length && !location && !languageLabel && isOwner && (
+            <p className="text-sm m-0 px-1" style={{ color: 'var(--fg-muted)' }}>
+              Complete your profile in Edit profile to fill this section.
+            </p>
+          )}
           <div
             className="flex items-center gap-2 rounded-2xl px-3.5 py-3"
             style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
@@ -459,6 +827,9 @@ export default function ProfilePage({ isOwner = true, onBack, onCreate }: Profil
               Public traveler profile · Visible to the Delve community
             </p>
           </div>
+          {onOpenUser && username && (
+            <p className="sr-only">{username}</p>
+          )}
         </div>
       )}
     </div>
