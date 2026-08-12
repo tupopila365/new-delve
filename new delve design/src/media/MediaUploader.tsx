@@ -16,6 +16,10 @@ export interface MediaUploaderProps {
   /** Parent is still loading the profile record. */
   profileLoading?: boolean
   chooseLabel?: string
+  businessId?: string
+  listingId?: string
+  accept?: string
+  hint?: string
 }
 
 /**
@@ -31,11 +35,29 @@ export default function MediaUploader({
   placeholderName,
   profileLoading = false,
   chooseLabel = 'Choose photo',
+  businessId,
+  listingId,
+  accept,
+  hint,
 }: MediaUploaderProps) {
   const upload = useMediaUpload(purpose)
   const inputRef = useRef<HTMLInputElement>(null)
   const inputId = useId()
   const showSelectedPreview = Boolean(upload.previewUrl || (upload.phase !== 'idle' && upload.asset?.delivery.url))
+
+  const resolvedAccept =
+    accept ||
+    (purpose === 'avatar' || purpose === 'cover' || purpose === 'business_profile'
+      ? 'image/jpeg,image/png,image/webp'
+      : purpose === 'listing' || purpose === 'post'
+        ? 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime'
+        : 'image/*,video/*')
+
+  const resolvedHint =
+    hint ||
+    (purpose === 'listing' || purpose === 'post'
+      ? 'JPG, PNG, WebP, or MP4/WebM video'
+      : 'JPG, PNG, or WebP')
 
   return (
     <div className="flex flex-col gap-3">
@@ -44,7 +66,7 @@ export default function MediaUploader({
           previewUrl={upload.previewUrl}
           deliveryUrl={upload.asset?.delivery.url}
           currentUrl={showSelectedPreview ? null : currentUrl}
-          alt={upload.asset?.altText || (currentUrl ? 'Profile photo' : 'Profile photo placeholder')}
+          alt={upload.asset?.altText || (currentUrl ? 'Media preview' : 'Media placeholder')}
           loading={profileLoading || upload.busy}
           placeholderName={placeholderName}
         />
@@ -56,11 +78,7 @@ export default function MediaUploader({
             ref={inputRef}
             id={inputId}
             type="file"
-            accept={
-              purpose === 'avatar' || purpose === 'cover'
-                ? 'image/jpeg,image/png,image/webp'
-                : 'image/*,video/*'
-            }
+            accept={resolvedAccept}
             disabled={disabled || upload.busy || profileLoading}
             className="sr-only"
             aria-labelledby={`${inputId}-label`}
@@ -68,12 +86,17 @@ export default function MediaUploader({
               const file = e.target.files?.[0]
               e.target.value = ''
               if (!file) return
-              void upload.start(file).then(saved => {
-                if (saved) {
-                  onReady?.(saved.id, saved.delivery.url)
-                  upload.reset()
-                }
-              })
+              void upload
+                .start(file, undefined, {
+                  ...(businessId ? { businessId } : {}),
+                  ...(listingId ? { listingId } : {}),
+                })
+                .then(saved => {
+                  if (saved) {
+                    onReady?.(saved.id, saved.delivery.url)
+                    upload.reset()
+                  }
+                })
             }}
           />
           <button
@@ -96,7 +119,7 @@ export default function MediaUploader({
             </p>
           )}
           <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-            JPG, PNG, or WebP
+            {resolvedHint}
           </p>
         </div>
       </div>

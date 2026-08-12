@@ -1,8 +1,26 @@
 import type { CorsOptions } from 'cors'
 import type { Env } from './env.js'
 
+function travelerOrigins(configuredUrl: string): string[] {
+  const configured = new URL(configuredUrl)
+  const origins = [configured.origin]
+
+  // Delve serves the traveler app from both forms of its production hostname.
+  if (configured.hostname === 'delveworldwide.me') {
+    origins.push('https://www.delveworldwide.me')
+  } else if (configured.hostname === 'www.delveworldwide.me') {
+    origins.push('https://delveworldwide.me')
+  }
+
+  return origins
+}
+
 export function createCorsOptions(env: Env): CorsOptions {
-  const allowed = new Set([env.TRAVELER_WEB_URL, env.ADMIN_WEB_URL, env.ADMIN_WEB_ORIGIN])
+  const allowed = new Set([
+    ...travelerOrigins(env.TRAVELER_WEB_URL),
+    env.ADMIN_WEB_URL,
+    env.ADMIN_WEB_ORIGIN,
+  ])
 
   return {
     origin(origin, callback) {

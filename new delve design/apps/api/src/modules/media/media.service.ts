@@ -95,6 +95,27 @@ function toDto(
   }
 }
 
+export function mediaAssetToDto(
+  env: Env,
+  row: {
+    id: string
+    publicId: string
+    version: number | null
+    resourceType: string
+    format: string | null
+    bytes: number | null
+    width: number | null
+    height: number | null
+    duration: number | null
+    status: string
+    purpose: string
+    altText: string | null
+    createdAt: Date
+  },
+): MediaAssetDto {
+  return toDto(env, row)
+}
+
 /**
  * Architecture boundary: returns Cloudinary signed upload params only.
  * Media bytes must never pass through Backend V2.
@@ -114,7 +135,27 @@ export async function createUploadSignature(
     throw new AppError(400, 'PURPOSE_NOT_AVAILABLE', 'That media purpose is not available yet.')
   }
   if (policy.requiresBusiness || policy.requiresListing) {
-    throw new AppError(403, 'UNAUTHORIZED', 'Business or listing media is not available yet.')
+    if (!body.businessId) {
+      throw new AppError(400, 'BUSINESS_ID_REQUIRED', 'businessId is required for this upload purpose.')
+    }
+    const membership = await prisma.businessMember.findUnique({
+      where: { userId_businessId: { userId, businessId: body.businessId } },
+    })
+    if (!membership || (membership.role !== 'OWNER' && membership.role !== 'MANAGER')) {
+      throw new AppError(403, 'UNAUTHORIZED', 'You must be an owner or manager to upload business media.')
+    }
+    if (policy.requiresListing) {
+      if (!body.listingId) {
+        throw new AppError(400, 'LISTING_ID_REQUIRED', 'listingId is required for this upload purpose.')
+      }
+      const listing = await prisma.listing.findFirst({
+        where: { id: body.listingId, businessId: body.businessId },
+        select: { id: true },
+      })
+      if (!listing) {
+        throw new AppError(404, 'NOT_FOUND', 'Listing not found for this business.')
+      }
+    }
   }
 
   const ext = normalizeFormat(extensionFromFilename(body.originalFilename))
@@ -354,6 +395,24 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
       })
     }
 
+    // First image for a listing becomes cover when none is set (media optional; videos never auto-cover).
+    if (
+      intent.purpose === 'listing' &&
+      intent.listingId &&
+      (body.resourceType === 'image' || body.resourceType === 'auto')
+    ) {
+      const listing = await tx.listing.findUnique({
+        where: { id: intent.listingId },
+        select: { coverMediaId: true },
+      })
+      if (listing && !listing.coverMediaId) {
+        await tx.listing.update({
+          where: { id: intent.listingId },
+          data: { coverMediaId: created.id },
+        })
+      }
+    }
+
     return created
   })
 
@@ -408,6 +467,13 @@ export async function deleteMedia(env: Env, userId: string, mediaId: string) {
     await prisma.travelerProfile.updateMany({
       where: { userId, coverMediaId: row.id },
       data: { coverMediaId: null, coverUrl: null },
+    })
+  }
+
+  if (row.listingId) {
+    await prisma.listing.updateMany({
+      where: { id: row.listingId, coverMediaId: row.id },
+      data: { coverMediaId: null },
     })
   }
 

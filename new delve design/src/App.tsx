@@ -7,7 +7,7 @@ import {
   Navigation, Utensils, Zap, Map, ShoppingBag, Calendar, HelpCircle,
   TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu,
 } from 'lucide-react'
-import { navToPath, pathToNav } from './navigation'
+import { businessPath, navToPath, parseBusinessSlug, pathToNav } from './navigation'
 import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
 import type { PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
@@ -40,7 +40,8 @@ import CreateEventSheet from './components/CreateEventSheet'
 import EventDetailSheet from './components/EventDetailSheet'
 import CompanyPage, { COMPANY_ROUTES } from './pages/CompanyPage'
 import type { CompanyRoute } from './pages/CompanyPage'
-import BusinessAdminPage from './business/BusinessAdminPage'
+import ProviderDashboardPage from './business/ProviderDashboardPage'
+import PublicBusinessPage from './pages/PublicBusinessPage'
 import AuthFlow from './pages/auth/AuthFlow'
 import type { AuthRoute } from './pages/auth/AuthFlow'
 import { AuthRequiredBottomSheet, AuthRequiredModal, DelveLogo } from './components/auth'
@@ -53,18 +54,7 @@ import BookingConfirmationPage from './pages/booking/BookingConfirmationPage'
 import MyBookingsPage from './pages/booking/MyBookingsPage'
 import type { BookingContext, BookingServiceType } from './pages/booking/types'
 import type { ConfirmationOutcome } from './pages/booking/BookingConfirmationPage'
-import { allListings } from './data/listingData'
 import { transportResults } from './data/transportData'
-import { allDeals } from './data/dealsData'
-import type { ServiceBookingDraft } from './pages/ServiceDetailPage'
-
-function mapListingType(listingType: string): BookingServiceType {
-  if (listingType === 'stay') return 'stay'
-  if (listingType === 'event') return 'event'
-  if (listingType === 'food') return 'food'
-  if (listingType === 'activity' || listingType === 'guide') return 'activity'
-  return 'other'
-}
 
 function mapTransportMode(mode: string): BookingServiceType {
   if (mode === 'Car rental') return 'vehicle'
@@ -76,15 +66,6 @@ function mapTransportMode(mode: string): BookingServiceType {
   if (mode.includes('Ferry') || mode.includes('Boat') || mode.includes('Water')) return 'ferry'
   if (mode.includes('Charter')) return 'charter'
   return 'other'
-}
-
-function mapDealCategory(cat: string, transportMode?: string): BookingServiceType {
-  if (transportMode) return mapTransportMode(transportMode)
-  if (cat === 'Stay') return 'stay'
-  if (cat === 'Food') return 'food'
-  if (cat === 'Activity' || cat === 'Guide') return 'activity'
-  if (cat === 'Event') return 'event'
-  return 'deal'
 }
 
 // ─── Theme ────────────────────────────────────────────────────────────────
@@ -510,6 +491,7 @@ export default function App() {
   const [servicesDestination, setServicesDestination] = useState<string | null>(null)
   const [servicesNeeds, setServicesNeeds] = useState<Set<string>>(new Set())
   const [servicesSelectedId, setServicesSelectedId] = useState<string | null>(null)
+  const [dealsSelectedId, setDealsSelectedId] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [headerMoreOpen, setHeaderMoreOpen] = useState(false)
   const [feedTab, setFeedTab] = useState('following')
@@ -517,6 +499,7 @@ export default function App() {
   useEffect(() => {
     const fromUrl = pathToNav(location.pathname)
     setActiveNavRaw(fromUrl)
+    if (parseBusinessSlug(location.pathname)) setBusinessAdminOpen(false)
     window.scrollTo(0, 0)
   }, [location.pathname])
 
@@ -578,7 +561,16 @@ export default function App() {
     }
   }, [])
 
-  const HUB_ROUTES = new Set(['Account', 'Profile', 'Messages', 'Saved', 'Notifications', 'Bookings'])
+  const HUB_ROUTES = new Set([
+    'Account',
+    'Profile',
+    'Messages',
+    'Saved',
+    'Notifications',
+    'Bookings',
+    'Provider',
+    'Provider business',
+  ])
 
   function goToNav(label: string) {
     const path = navToPath(label)
@@ -638,29 +630,8 @@ export default function App() {
     setConfirmationOutcome('confirmed')
   }
 
-  function bookFromListing(listingId: string, draft?: ServiceBookingDraft) {
-    const listing = allListings.find(l => l.id === listingId) ?? allListings[0]
-    openBooking({
-      source: 'services',
-      serviceType: mapListingType(listing.listingType),
-      bookingMethod: listing.bookingMethod === 'request' || listing.bookingMethod === 'reserve' || listing.bookingMethod === 'check-availability'
-        ? listing.bookingMethod
-        : 'book',
-      listingId: listing.id,
-      listingName: listing.title,
-      providerName: listing.business,
-      currency: listing.currency,
-      unitPrice: draft?.unitPrice ?? listing.price,
-      priceBasis: listing.priceBasis,
-      image: listing.media[0],
-      actionLabel: listing.bookingActionLabel,
-      selectedOptionId: draft?.selectedOptionId,
-      selectedOptionLabel: draft?.selectedOptionLabel,
-      quantity: draft?.quantity,
-      dealId: listing.activeDealId,
-      cancellationSummary: listing.cancellation,
-      timeZone: 'Africa/Windhoek',
-    })
+  function bookFromListing(_listingId: string, _draft?: unknown) {
+    // Real listings have no price/checkout yet (Day 5). Keep booking entry for transport mocks only.
   }
 
   function bookFromTransport(resultId: string, passengers: number) {
@@ -685,26 +656,8 @@ export default function App() {
     })
   }
 
-  function bookFromDeal(dealId: string) {
-    const deal = allDeals.find(d => d.id === dealId) ?? allDeals[0]
-    openBooking({
-      source: 'deals',
-      serviceType: mapDealCategory(deal.serviceCategory, deal.transportMode),
-      bookingMethod: deal.claimMethod === 'request' ? 'request' : 'book',
-      listingId: deal.id,
-      listingName: deal.title,
-      providerName: deal.business,
-      currency: deal.currency,
-      unitPrice: deal.currentPrice,
-      priceBasis: deal.priceBasis,
-      image: deal.image,
-      dealId: deal.id,
-      dealTitle: deal.title,
-      origin: deal.origin,
-      destination: deal.destination,
-      cancellationSummary: deal.cancellation,
-      timeZone: 'Africa/Windhoek',
-    })
+  function bookFromDeal(_dealId: string) {
+    // Real deals have discount inputs but no checkout yet.
   }
 
   function openCreate() {
@@ -722,6 +675,10 @@ export default function App() {
     setProfileUsername(username?.replace(/^@/, '') || null)
     setAccountSettingsOpen(false)
     goToNav('Profile')
+  }
+
+  function openBusiness(slug: string) {
+    navigate(businessPath(slug))
   }
 
   function setServicesCategoryAndResetNeeds(category: string) {
@@ -760,6 +717,7 @@ export default function App() {
     setSelectedId: setServicesSelectedId,
     onOpenTransport: () => setActiveNav('Transport'),
     onBookListing: bookFromListing,
+    onOpenBusiness: openBusiness,
   }
 
   function handleAuthenticated() {
@@ -1028,9 +986,22 @@ export default function App() {
     )
   }
 
-  // ── Business Admin (provider dashboard) ───────────────────────────────
-  if (businessAdminOpen) {
-    return <BusinessAdminPage onExit={() => setBusinessAdminOpen(false)} />
+  // ── Provider dashboard (real business membership) ─────────────────────
+  if (
+    !parseBusinessSlug(location.pathname) &&
+    (activeNav === 'Provider' || activeNav === 'Provider business' || businessAdminOpen)
+  ) {
+    return (
+      <ProviderDashboardPage
+        authReady={authReady}
+        signedIn={signedIn}
+        initialSection={activeNav === 'Provider business' ? 'profile' : 'overview'}
+        onExit={() => {
+          setBusinessAdminOpen(false)
+          goToNav('Account')
+        }}
+      />
+    )
   }
 
   const sidebarItems = [
@@ -1081,6 +1052,26 @@ export default function App() {
   }
 
   function renderMain() {
+    const businessSlug = parseBusinessSlug(location.pathname)
+    if (activeNav === 'Business' || businessSlug) {
+      return (
+        <PublicBusinessPage
+          slug={businessSlug || ''}
+          onBack={() => {
+            if (window.history.length > 1) navigate(-1)
+            else goToNav('Home')
+          }}
+          onOpenListing={id => {
+            setServicesSelectedId(id)
+            goToNav('Services')
+          }}
+          onOpenDeal={id => {
+            setDealsSelectedId(id)
+            goToNav('Deals')
+          }}
+        />
+      )
+    }
     if (activeNav === 'Verify email' || location.pathname.startsWith('/verify-email')) {
       return <VerifyEmailPage />
     }
@@ -1109,7 +1100,21 @@ export default function App() {
     if (activeNav === 'Services') return <ServicesPage {...servicesBrowseProps} />
     if (activeNav === 'Search' || activeNav === 'Explore')
       return <SearchPage onNavigate={setActiveNav} onOpenProfile={uname => openProfile(uname)} />
-    if (activeNav === 'Deals') return <DealsPage onBookDeal={bookFromDeal} />
+    if (activeNav === 'Deals')
+      return (
+        <DealsPage
+          key={dealsSelectedId || 'deals-browse'}
+          onBookDeal={bookFromDeal}
+          onOpenBusiness={openBusiness}
+          initialDealId={dealsSelectedId}
+          onClearInitialDeal={() => setDealsSelectedId(null)}
+          onOpenListing={id => {
+            setDealsSelectedId(null)
+            setServicesSelectedId(id)
+            goToNav('Services')
+          }}
+        />
+      )
     if (activeNav === 'Transport') return <TransportPage onBookResult={bookFromTransport} />
     if (HUB_ROUTES.has(activeNav) && signedIn) {
       if (activeNav === 'Bookings') {
@@ -1187,7 +1192,7 @@ export default function App() {
               }
               handleAccountNavigate(target)
             }}
-            onOpenBusinessAdmin={() => setBusinessAdminOpen(true)}
+            onOpenBusinessAdmin={() => goToNav('Provider')}
             onSignOut={handleSignOut}
             onOpenSettings={() => {
               setAccountSettingsOpen(true)

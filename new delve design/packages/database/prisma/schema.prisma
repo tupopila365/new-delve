@@ -122,6 +122,7 @@ model User {
   travelerEvents          TravelerEvent[]
   eventAttendances        EventAttendance[]
   notifications           Notification[]
+  businessMemberships     BusinessMember[]
 
   @@index([email])
   @@index([usernameNormalized])
@@ -354,10 +355,10 @@ model MediaAsset {
   altText           String?
   uploadedByUserId  String
   uploadedBy        User              @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
-  /// Reserved until Business model exists (Day 3). Not a free-form ownership claim.
   businessId        String?
-  /// Reserved until Listing model exists (Day 3).
+  business          Business?         @relation("BusinessMedia", fields: [businessId], references: [id], onDelete: SetNull)
   listingId         String?
+  listing           Listing?          @relation("ListingMedia", fields: [listingId], references: [id], onDelete: SetNull)
   /// Linked when purpose is post.
   postId            String?
   post              Post?             @relation(fields: [postId], references: [id], onDelete: SetNull)
@@ -370,6 +371,7 @@ model MediaAsset {
   travelerAvatarFor TravelerProfile?  @relation("TravelerAvatar")
   travelerCoverFor  TravelerProfile?  @relation("TravelerCover")
   eventCoverFor     TravelerEvent?    @relation("EventCover")
+  listingCoverFor   Listing?          @relation("ListingCover")
 
   @@index([uploadedByUserId, purpose, status])
   @@index([status])
@@ -542,4 +544,126 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+enum BusinessStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum BusinessMemberRole {
+  OWNER
+  MANAGER
+  CONTENT_EDITOR
+}
+
+/// Provider/business profile. Owned via BusinessMember (same User identity — no separate login).
+model Business {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  description String?
+  logoUrl     String?
+  coverUrl    String?
+  email       String?
+  phone       String?
+  website     String?
+  city        String?
+  countryCode String?
+  address     String?
+  category    String?
+  status      BusinessStatus @default(DRAFT)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  members     BusinessMember[]
+  mediaAssets MediaAsset[]     @relation("BusinessMedia")
+  listings    Listing[]
+  deals       Deal[]
+
+  @@index([status])
+  @@index([slug])
+}
+
+model BusinessMember {
+  id         String             @id @default(cuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  role       BusinessMemberRole
+  createdAt  DateTime           @default(now())
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+  @@index([userId])
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+}
+
+/// Minimal listing parent so Cloudinary listing media can attach (Day 3 media checkpoint).
+model Listing {
+  id           String        @id @default(cuid())
+  businessId   String
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  status       ListingStatus @default(DRAFT)
+  coverMediaId String?       @unique
+  coverMedia   MediaAsset?   @relation("ListingCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  media        MediaAsset[]  @relation("ListingMedia")
+  deals        Deal[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+}
+
+enum DealDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum DealStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  EXPIRED
+  REJECTED
+  ARCHIVED
+}
+
+/// Business deal. Stores discount inputs for Day 5 server-side price calculation (no checkout yet).
+model Deal {
+  id            String           @id @default(cuid())
+  businessId    String
+  business      Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  listingId     String?
+  listing       Listing?         @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  title         String
+  description   String?
+  discountType  DealDiscountType
+  /// PERCENTAGE: 0 < value <= 100. FIXED_AMOUNT: value >= 0 in currency units.
+  discountValue Decimal          @db.Decimal(12, 2)
+  /// ISO currency for FIXED_AMOUNT (and Day 5 pricing). Default USD.
+  currency      String           @default("USD")
+  startDate     DateTime
+  endDate       DateTime
+  status        DealStatus       @default(DRAFT)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([businessId, status])
+  @@index([listingId])
+  @@index([status, startDate, endDate])
+  @@index([businessId, createdAt])
 }

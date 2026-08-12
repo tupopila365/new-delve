@@ -18,15 +18,19 @@ function Shimmer({ className, style }: { className?: string; style?: React.CSSPr
   )
 }
 
-export function SkeletonCard({ width = 280, height = 320 }: { width?: number; height?: number }) {
+export function SkeletonCard({ width = 280, height = 320 }: { width?: number | string; height?: number }) {
+  const resolvedWidth = typeof width === 'number' ? width : width
   return (
     <div style={{
-      width, minWidth: width, height,
+      width: resolvedWidth,
+      maxWidth: '100%',
+      minWidth: 0,
+      height,
       background: 'var(--surface)',
       border: '1px solid var(--border)',
       borderRadius: 16,
       overflow: 'hidden',
-      flexShrink: 0,
+      flexShrink: 1,
     }}>
       <Shimmer style={{ height: Math.round(height * 0.44), borderRadius: 0 }} />
       <div style={{ padding: 16 }}>

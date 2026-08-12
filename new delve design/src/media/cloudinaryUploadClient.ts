@@ -28,23 +28,29 @@ const POST_MIME = [
 const POST_MAX = 100 * 1024 * 1024
 
 export function validateLocalFile(file: File, purpose: MediaPurpose): LocalFileValidation {
-  if (purpose === 'avatar' || purpose === 'cover') {
+  if (purpose === 'avatar' || purpose === 'cover' || purpose === 'business_profile') {
     if (!AVATAR_MIME.includes(file.type)) {
       return { ok: false, error: 'Use a JPEG, PNG or WebP image.' }
     }
-    const max = purpose === 'cover' ? 10 * 1024 * 1024 : AVATAR_MAX
+    const max =
+      purpose === 'cover' || purpose === 'business_profile' ? 10 * 1024 * 1024 : AVATAR_MAX
     if (file.size > max) {
-      return { ok: false, error: purpose === 'cover' ? 'Images must be 10 MB or smaller.' : 'Images must be 5 MB or smaller.' }
+      return {
+        ok: false,
+        error:
+          purpose === 'avatar' ? 'Images must be 5 MB or smaller.' : 'Images must be 10 MB or smaller.',
+      }
     }
     return { ok: true }
   }
-  if (purpose === 'post') {
+  if (purpose === 'listing' || purpose === 'post') {
     if (!POST_MIME.includes(file.type)) {
       return { ok: false, error: 'Use a JPEG, PNG, WebP image or MP4/WebM video.' }
     }
     if (file.size > POST_MAX) {
       return { ok: false, error: 'Media must be 100 MB or smaller.' }
     }
+    return { ok: true }
   }
   return { ok: true }
 }
@@ -66,6 +72,8 @@ export async function requestUploadSignature(input: {
   originalFilename: string
   mimeType: string
   bytes: number
+  businessId?: string
+  listingId?: string
 }): Promise<MediaUploadSignatureResponse> {
   const res = await authorizedFetch('/media/upload-signature', {
     method: 'POST',

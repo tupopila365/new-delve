@@ -39,6 +39,8 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
   const objectUrlRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const fileRef = useRef<File | null>(null)
+  const optsRef = useRef<{ businessId?: string; listingId?: string } | undefined>(undefined)
+  const altTextRef = useRef<string | undefined>(undefined)
 
   function revokePreview() {
     if (objectUrlRef.current) {
@@ -52,6 +54,8 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
     abortRef.current = null
     revokePreview()
     fileRef.current = null
+    optsRef.current = undefined
+    altTextRef.current = undefined
     setPhase('idle')
     setProgress(0)
     setPreviewUrl(null)
@@ -68,7 +72,11 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
     setBusy(false)
   }
 
-  async function start(file: File, altText?: string): Promise<MediaAssetDto | null> {
+  async function start(
+    file: File,
+    altText?: string,
+    opts?: { businessId?: string; listingId?: string },
+  ): Promise<MediaAssetDto | null> {
     if (busy) return null
     const local = validateLocalFile(file, purpose)
     if (!local.ok) {
@@ -81,6 +89,8 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
     const objectUrl = URL.createObjectURL(file)
     objectUrlRef.current = objectUrl
     fileRef.current = file
+    optsRef.current = opts
+    altTextRef.current = altText
     setPreviewUrl(objectUrl)
     setSelectedFileName(file.name || 'Selected file')
     setPhase('preview')
@@ -100,6 +110,8 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
         originalFilename: file.name || 'upload',
         mimeType: file.type || 'application/octet-stream',
         bytes: file.size,
+        ...(opts?.businessId ? { businessId: opts.businessId } : {}),
+        ...(opts?.listingId ? { listingId: opts.listingId } : {}),
       })
       const result = await uploadFileToCloudinary(file, sign, {
         signal: controller.signal,
@@ -135,7 +147,7 @@ export function useMediaUpload(purpose: MediaPurpose = 'avatar') {
 
   async function retry() {
     if (!fileRef.current) return
-    await start(fileRef.current)
+    await start(fileRef.current, altTextRef.current, optsRef.current)
   }
 
   return {

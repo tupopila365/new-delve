@@ -551,7 +551,7 @@ export default function AccountDashboardPage({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Business dashboard</p>
               <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                Manage listings, bookings, and payouts
+                Create or manage your business profile
               </p>
             </div>
             <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} />

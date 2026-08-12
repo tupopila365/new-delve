@@ -16,6 +16,8 @@ export const NAV_PATHS: Record<string, string> = {
   Saved: '/saved',
   Notifications: '/notifications',
   Bookings: '/bookings',
+  Provider: '/provider',
+  'Provider business': '/provider/business',
   About: '/about',
   Investors: '/investors',
   Contact: '/contact',
@@ -31,8 +33,24 @@ export function normalizePath(pathname: string): string {
   return trimmed === '' ? '/' : trimmed
 }
 
+/** `/business/:slug` → slug, else null. */
+export function parseBusinessSlug(pathname: string): string | null {
+  const match = normalizePath(pathname).match(/^\/business\/([^/]+)$/)
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return match[1]
+  }
+}
+
+export function businessPath(slug: string): string {
+  return `/business/${encodeURIComponent(slug)}`
+}
+
 export function pathToNav(pathname: string): string {
   const path = normalizePath(pathname)
+  if (parseBusinessSlug(path)) return 'Business'
   const match = Object.entries(NAV_PATHS).find(([, value]) => value === path)
   return match?.[0] ?? 'Home'
 }
