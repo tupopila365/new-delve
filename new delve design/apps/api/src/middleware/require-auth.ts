@@ -15,52 +15,75 @@ export type AuthedRequest = Request & {
 export function requireAuth(env: Env) {
   return async (req: AuthedRequest, _res: Response, next: NextFunction) => {
     try {
-      const header = req.headers.authorization
-      if (!header?.startsWith('Bearer ')) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
-      }
-      const token = header.slice('Bearer '.length).trim()
-      const payload = await verifyAccessToken(env, token)
-      if (!payload?.sessionId) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
-      }
-
-      const session = await prisma.session.findUnique({ where: { id: payload.sessionId } })
-      if (!session || session.userId !== payload.userId) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
-      }
-      if (session.revokedAt) {
-        throw new AppError(401, 'SESSION_REVOKED', 'Your session is no longer valid. Sign in again.')
-      }
-      if (session.expiresAt.getTime() <= Date.now()) {
-        throw new AppError(401, 'SESSION_EXPIRED', 'Your session has expired. Sign in again.')
-      }
-
-      const user = await prisma.user.findUnique({ where: { id: payload.userId } })
-      if (!user) {
-        throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
-      }
-      if (
-        user.accountStatus === 'disabled' ||
-        user.accountStatus === 'deactivated' ||
-        user.accountStatus === 'restricted'
-      ) {
-        throw new AppError(403, 'ACCOUNT_RESTRICTED', 'This account cannot access Delve right now.')
-      }
-
-      req.userId = payload.userId
-      req.sessionId = payload.sessionId
-      req.userRole = user.role
-      req.isAdminSession = session.isAdminSession
-
-      void touchSessionLastSeen(payload.sessionId, env.SESSION_LAST_SEEN_THROTTLE_SECONDS * 1000).catch(
-        () => undefined,
-      )
+      await attachUserFromBearer(env, req, true)
       next()
     } catch (err) {
       next(err)
     }
   }
+}
+
+/** Attaches user when Bearer token present; continues anonymously otherwise. */
+export function optionalAuth(env: Env) {
+  return async (req: AuthedRequest, _res: Response, next: NextFunction) => {
+    try {
+      await attachUserFromBearer(env, req, false)
+      next()
+    } catch {
+      next()
+    }
+  }
+}
+
+async function attachUserFromBearer(env: Env, req: AuthedRequest, required: boolean) {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) {
+    if (required) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
+    return
+  }
+  const token = header.slice('Bearer '.length).trim()
+  const payload = await verifyAccessToken(env, token)
+  if (!payload?.sessionId) {
+    if (required) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
+    return
+  }
+
+  const session = await prisma.session.findUnique({ where: { id: payload.sessionId } })
+  if (!session || session.userId !== payload.userId) {
+    if (required) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
+    return
+  }
+  if (session.revokedAt) {
+    if (required) throw new AppError(401, 'SESSION_REVOKED', 'Your session is no longer valid. Sign in again.')
+    return
+  }
+  if (session.expiresAt.getTime() <= Date.now()) {
+    if (required) throw new AppError(401, 'SESSION_EXPIRED', 'Your session has expired. Sign in again.')
+    return
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } })
+  if (!user) {
+    if (required) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
+    return
+  }
+  if (
+    user.accountStatus === 'disabled' ||
+    user.accountStatus === 'deactivated' ||
+    user.accountStatus === 'restricted'
+  ) {
+    if (required) throw new AppError(403, 'ACCOUNT_RESTRICTED', 'This account cannot access Delve right now.')
+    return
+  }
+
+  req.userId = payload.userId
+  req.sessionId = payload.sessionId
+  req.userRole = user.role
+  req.isAdminSession = session.isAdminSession
+
+  void touchSessionLastSeen(payload.sessionId, env.SESSION_LAST_SEEN_THROTTLE_SECONDS * 1000).catch(
+    () => undefined,
+  )
 }
 
 /**

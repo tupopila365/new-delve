@@ -34,6 +34,60 @@ enum UserRole {
   admin
 }
 
+enum ProfileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+enum PostStatus {
+  PUBLISHED
+  DELETED
+}
+
+enum ReactionType {
+  LIKE
+}
+
+enum SaveTargetType {
+  POST
+  LISTING
+  DEAL
+  EVENT
+}
+
+enum EventVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum AttendanceStatus {
+  GOING
+  INTERESTED
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  POST_LIKED
+  POST_COMMENTED
+  EVENT_ATTENDANCE
+  EVENT_UPDATED
+  EVENT_CANCELLED
+}
+
 model User {
   id                 String        @id @default(cuid())
   email              String        @unique
@@ -59,6 +113,15 @@ model User {
   mediaAssets             MediaAsset[]
   mediaUploadIntents      MediaUploadIntent[]
   adminAuditLogs          AdminAuditLog[]
+  posts                   Post[]
+  comments                Comment[]
+  reactions               Reaction[]
+  saves                   Save[]
+  followsOutgoing         Follow[]             @relation("FollowFollower")
+  followsIncoming         Follow[]             @relation("FollowFollowing")
+  travelerEvents          TravelerEvent[]
+  eventAttendances        EventAttendance[]
+  notifications           Notification[]
 
   @@index([email])
   @@index([usernameNormalized])
@@ -153,11 +216,17 @@ model TravelerProfile {
   avatarKey             String?
   avatarMediaId         String?          @unique
   avatarMedia           MediaAsset?      @relation("TravelerAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  /// Profile / dashboard banner image (Cloudinary delivery URL). Metadata only — bytes stay on Cloudinary.
+  coverUrl              String?
+  coverMediaId          String?          @unique
+  coverMedia            MediaAsset?      @relation("TravelerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   homeCity              String?
   homeCountryCode       String?
   preferredCurrency     String           @default("USD")
   preferredLanguage     String           @default("en")
   interests             String[]         @default([])
+  /// PUBLIC profiles are searchable; PRIVATE hide from discovery (owner still sees own).
+  profileVisibility     ProfileVisibility @default(PUBLIC)
   onboardingStatus      OnboardingStatus @default(NOT_STARTED)
   onboardingCompletedAt DateTime?
   createdAt             DateTime         @default(now())
@@ -242,6 +311,7 @@ enum MediaStatus {
 
 enum MediaPurpose {
   avatar
+  cover
   post
   review
   business_profile
@@ -288,8 +358,9 @@ model MediaAsset {
   businessId        String?
   /// Reserved until Listing model exists (Day 3).
   listingId         String?
-  /// Reserved until Post model exists.
+  /// Linked when purpose is post.
   postId            String?
+  post              Post?             @relation(fields: [postId], references: [id], onDelete: SetNull)
   uploadIntentId    String?           @unique
   uploadIntent      MediaUploadIntent? @relation(fields: [uploadIntentId], references: [id], onDelete: SetNull)
   createdAt         DateTime          @default(now())
@@ -297,6 +368,8 @@ model MediaAsset {
   deletedAt         DateTime?
   sortOrder         Int?
   travelerAvatarFor TravelerProfile?  @relation("TravelerAvatar")
+  travelerCoverFor  TravelerProfile?  @relation("TravelerCover")
+  eventCoverFor     TravelerEvent?    @relation("EventCover")
 
   @@index([uploadedByUserId, purpose, status])
   @@index([status])
@@ -304,6 +377,7 @@ model MediaAsset {
   @@index([createdAt])
   @@index([businessId])
   @@index([listingId])
+  @@index([postId])
   @@index([deletedAt])
 }
 
@@ -330,4 +404,142 @@ model MediaUploadIntent {
   @@index([userId, status])
   @@index([expiresAt])
   @@index([status, createdAt])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@index([followerId])
+}
+
+model Post {
+  id         String         @id @default(cuid())
+  authorId   String
+  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  caption    String         @default("")
+  location   String?
+  visibility PostVisibility @default(PUBLIC)
+  status     PostStatus     @default(PUBLISHED)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+
+  media     MediaAsset[]
+  reactions Reaction[]
+  comments  Comment[]
+
+  @@index([authorId, createdAt])
+  @@index([status, createdAt])
+  @@index([visibility])
+}
+
+model Reaction {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  type      ReactionType @default(LIKE)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, postId, type])
+  @@index([postId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+}
+
+model Save {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType SaveTargetType
+  targetId   String
+  createdAt  DateTime       @default(now())
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId, createdAt])
+  @@index([targetType, targetId])
+}
+
+model TravelerEvent {
+  id            String          @id @default(cuid())
+  creatorId     String
+  creator       User            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  title         String
+  description   String          @default("")
+  coverUrl      String?
+  coverMediaId  String?         @unique
+  coverMedia    MediaAsset?     @relation("EventCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  startAt       DateTime
+  endAt         DateTime?
+  timezone      String?
+  locationName  String?
+  city          String?
+  country       String?
+  latitude      Float?
+  longitude     Float?
+  category      String?
+  visibility    EventVisibility @default(PUBLIC)
+  status        EventStatus     @default(DRAFT)
+  maxAttendees  Int?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  attendances EventAttendance[]
+
+  @@index([creatorId, createdAt])
+  @@index([status, startAt])
+  @@index([visibility, status])
+}
+
+model EventAttendance {
+  id        String           @id @default(cuid())
+  eventId   String
+  event     TravelerEvent    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    AttendanceStatus
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([eventId, status])
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  body       String           @default("")
+  entityType String?
+  entityId   String?
+  actorId    String?
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }

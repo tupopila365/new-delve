@@ -23,6 +23,14 @@ export function purposePolicies(env: Env): Record<MediaPurpose, PurposePolicy> {
       requiresBusiness: false,
       requiresListing: false,
     },
+    cover: {
+      resourceType: 'image',
+      maxBytes: 10 * 1024 * 1024,
+      formats: ['jpg', 'jpeg', 'png', 'webp'],
+      mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      requiresBusiness: false,
+      requiresListing: false,
+    },
     post: {
       resourceType: 'auto',
       maxBytes: env.CLOUDINARY_MAX_VIDEO_BYTES,
@@ -30,7 +38,6 @@ export function purposePolicies(env: Env): Record<MediaPurpose, PurposePolicy> {
       mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'],
       requiresBusiness: false,
       requiresListing: false,
-      notYetAvailable: true,
     },
     review: {
       resourceType: 'image',
@@ -82,6 +89,8 @@ export function chooseFolder(
   switch (purpose) {
     case 'avatar':
       return `${prefix}/users/${userId}/avatars`
+    case 'cover':
+      return `${prefix}/users/${userId}/covers`
     case 'post':
     case 'review':
     case 'message':

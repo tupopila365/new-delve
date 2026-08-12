@@ -41,6 +41,12 @@ vi.mock('@delve/database', () => ({
     securityEvent: {
       create: vi.fn(),
     },
+    follow: {
+      count: vi.fn().mockResolvedValue(0),
+    },
+    post: {
+      count: vi.fn().mockResolvedValue(0),
+    },
     passwordResetToken: {
       updateMany: vi.fn(),
       create: vi.fn(),
@@ -120,6 +126,7 @@ describe('onboarding and account settings', () => {
       displayName: '',
       bio: null,
       avatarUrl: null,
+      coverUrl: null,
       homeCity: null,
       homeCountryCode: null,
       preferredCurrency: 'USD',
@@ -127,12 +134,15 @@ describe('onboarding and account settings', () => {
       interests: [],
       onboardingStatus: 'NOT_STARTED',
       onboardingCompletedAt: null,
+      createdAt: new Date('2026-01-01'),
+      profileVisibility: 'PUBLIC',
     } as never)
     vi.mocked(prisma.travelerProfile.update).mockResolvedValue({
       userId: 'u1',
       displayName: 'Amara',
       bio: null,
       avatarUrl: null,
+      coverUrl: null,
       homeCity: null,
       homeCountryCode: null,
       preferredCurrency: 'USD',
@@ -140,6 +150,8 @@ describe('onboarding and account settings', () => {
       interests: [],
       onboardingStatus: 'IN_PROGRESS',
       onboardingCompletedAt: null,
+      createdAt: new Date('2026-01-01'),
+      profileVisibility: 'PUBLIC',
     } as never)
 
     const patched = await patchOnboarding(env, 'u1', { displayName: 'Amara', step: 'identity' })
@@ -158,6 +170,7 @@ describe('onboarding and account settings', () => {
       displayName: 'Amara',
       bio: null,
       avatarUrl: null,
+      coverUrl: null,
       homeCity: null,
       homeCountryCode: null,
       preferredCurrency: 'NAD',
@@ -165,6 +178,8 @@ describe('onboarding and account settings', () => {
       interests: ['nature'],
       onboardingStatus: 'COMPLETED',
       onboardingCompletedAt: new Date(),
+      createdAt: new Date('2026-01-01'),
+      profileVisibility: 'PUBLIC',
     } as never)
     vi.mocked(prisma.notificationPreference.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.notificationPreference.create).mockResolvedValue({} as never)

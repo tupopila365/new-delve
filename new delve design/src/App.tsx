@@ -33,7 +33,10 @@ import ProfilePage from './pages/ProfilePage'
 import MessagesPage from './pages/MessagesPage'
 import SavedPage from './pages/SavedPage'
 import NotificationsPage from './pages/NotificationsPage'
-import MediaStudio, { CreatePostButton } from './pages/MediaStudio'
+import { CreatePostButton } from './pages/MediaStudio'
+import CreatePostSheet from './components/CreatePostSheet'
+import CreateEventSheet from './components/CreateEventSheet'
+import EventDetailSheet from './components/EventDetailSheet'
 import CompanyPage, { COMPANY_ROUTES } from './pages/CompanyPage'
 import type { CompanyRoute } from './pages/CompanyPage'
 import BusinessAdminPage from './business/BusinessAdminPage'
@@ -487,8 +490,11 @@ export default function App() {
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
   const [guestPrompt, setGuestPrompt] = useState<GuestAction | null>(null)
   const [postAuthNav, setPostAuthNav] = useState<string | null>(null)
-  const [studioOpen, setStudioOpen] = useState(false)
-  const [pendingStudio, setPendingStudio] = useState(false)
+  const [createPostOpen, setCreatePostOpen] = useState(false)
+  const [pendingCreatePost, setPendingCreatePost] = useState(false)
+  const [createEventOpen, setCreateEventOpen] = useState(false)
+  const [eventDetailId, setEventDetailId] = useState<string | null>(null)
+  const [profileUsername, setProfileUsername] = useState<string | null>(null)
   const [businessAdminOpen, setBusinessAdminOpen] = useState(false)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingContext, setBookingContext] = useState<BookingContext | null>(null)
@@ -576,18 +582,19 @@ export default function App() {
   function setActiveNav(label: string) {
     if (HUB_ROUTES.has(label) && !signedIn) {
       setPostAuthNav(label)
-      setPendingStudio(false)
+      setPendingCreatePost(false)
       setGuestPrompt(null)
       setAuthRoute('signIn')
       return
     }
+    if (label !== 'Profile') setProfileUsername(null)
     goToNav(label)
   }
 
   function openAuth(route: AuthRoute) {
     setGuestPrompt(null)
     setPostAuthNav(null)
-    setPendingStudio(false)
+    setPendingCreatePost(false)
     setAuthRoute(route)
   }
 
@@ -602,7 +609,7 @@ export default function App() {
   function openBooking(ctx: BookingContext) {
     if (!signedIn) {
       setPendingBooking(ctx)
-      setPendingStudio(false)
+      setPendingCreatePost(false)
       setPostAuthNav(null)
       setGuestPrompt(null)
       setAuthRoute('signIn')
@@ -691,17 +698,19 @@ export default function App() {
 
   function openCreate() {
     if (!signedIn) {
-      setPendingStudio(true)
+      setPendingCreatePost(true)
       setPostAuthNav(null)
       setGuestPrompt(null)
       setAuthRoute('signIn')
       return
     }
-    setStudioOpen(true)
+    setCreatePostOpen(true)
   }
 
-  function closeStudio() {
-    setStudioOpen(false)
+  function openProfile(username?: string | null) {
+    setProfileUsername(username?.replace(/^@/, '') || null)
+    setAccountSettingsOpen(false)
+    goToNav('Profile')
   }
 
   function setServicesCategoryAndResetNeeds(category: string) {
@@ -763,9 +772,9 @@ export default function App() {
         setPendingBooking(null)
         return
       }
-      if (pendingStudio) {
-        setStudioOpen(true)
-        setPendingStudio(false)
+      if (pendingCreatePost) {
+        setCreatePostOpen(true)
+        setPendingCreatePost(false)
         return
       }
       if (postAuthNav) {
@@ -788,15 +797,26 @@ export default function App() {
     setActiveNav(target)
   }
 
-  const studioLayer = (
-    <MediaStudio
-      open={studioOpen}
-      onClose={closeStudio}
-      onViewPost={() => {
-        setStudioOpen(false)
-        goToNav('Home')
-      }}
-    />
+  const createLayers = (
+    <>
+      <CreatePostSheet
+        open={createPostOpen}
+        onClose={() => setCreatePostOpen(false)}
+        onCreated={() => {
+          setCreatePostOpen(false)
+          goToNav('Delvers')
+        }}
+      />
+      <CreateEventSheet
+        open={createEventOpen}
+        onClose={() => setCreateEventOpen(false)}
+        onCreated={id => {
+          setCreateEventOpen(false)
+          setEventDetailId(id)
+        }}
+      />
+      <EventDetailSheet eventId={eventDetailId} onClose={() => setEventDetailId(null)} />
+    </>
   )
 
   function toggleLike(id: string) {
@@ -843,7 +863,7 @@ export default function App() {
           destinationLabel="Delve"
           headerTrailing={<ThemeToggle theme={theme} setTheme={setTheme} />}
           onAuthenticated={handleAuthenticated}
-          onExit={() => { setAuthRoute(null); setPendingStudio(false); setPendingBooking(null) }}
+          onExit={() => { setAuthRoute(null); setPendingCreatePost(false); setPendingBooking(null) }}
         />
       </div>
     )
@@ -882,11 +902,6 @@ export default function App() {
         <ResetPasswordPage />
       </div>
     )
-  }
-
-  // ── Media Studio (create post) ────────────────────────────────────────
-  if (studioOpen) {
-    return studioLayer
   }
 
   // ── Booking flow: setup → details → checkout → payment → confirmation ─
@@ -1066,13 +1081,15 @@ export default function App() {
           onCreate={openCreate}
           onOpenMessages={() => setActiveNav('Messages')}
           onOpenNotifications={() => setActiveNav('Notifications')}
+          onOpenProfile={uname => openProfile(uname)}
         />
       )
     }
     if (activeNav === 'Communities') return <CommunitiesPage />
     if (activeNav === 'Journeys') return <JourneysPage />
     if (activeNav === 'Services') return <ServicesPage {...servicesBrowseProps} />
-    if (activeNav === 'Search' || activeNav === 'Explore') return <SearchPage onNavigate={setActiveNav} />
+    if (activeNav === 'Search' || activeNav === 'Explore')
+      return <SearchPage onNavigate={setActiveNav} onOpenProfile={uname => openProfile(uname)} />
     if (activeNav === 'Deals') return <DealsPage onBookDeal={bookFromDeal} />
     if (activeNav === 'Transport') return <TransportPage onBookResult={bookFromTransport} />
     if (HUB_ROUTES.has(activeNav) && signedIn) {
@@ -1084,9 +1101,28 @@ export default function App() {
           />
         )
       }
-      if (activeNav === 'Profile') return <ProfilePage isOwner onBack={() => goToNav('Account')} onCreate={openCreate} />
+      if (activeNav === 'Profile')
+        return (
+          <ProfilePage
+            username={profileUsername}
+            viewerUserId={getStoredUser()?.id}
+            onBack={() => {
+              setProfileUsername(null)
+              goToNav('Account')
+            }}
+            onCreatePost={openCreate}
+            onCreateEvent={() => setCreateEventOpen(true)}
+            onOpenEvent={id => setEventDetailId(id)}
+            onOpenUser={uname => openProfile(uname)}
+            onEditProfile={() => {
+              setAccountSettingsOpen(true)
+              goToNav('Account settings')
+            }}
+          />
+        )
       if (activeNav === 'Messages') return <MessagesPage />
-      if (activeNav === 'Saved') return <SavedPage />
+      if (activeNav === 'Saved')
+        return <SavedPage onOpenEvent={id => setEventDetailId(id)} />
       if (activeNav === 'Notifications') return <NotificationsPage />
       if (accountSettingsOpen || activeNav === 'Account settings') {
         return (
@@ -1114,7 +1150,10 @@ export default function App() {
           <AccountDashboardPage
             travelerName={getStoredUser()?.username ?? 'Traveler'}
             onNavigate={target => {
-              if (target === 'Profile') setAccountSettingsOpen(false)
+              if (target === 'Profile') {
+                setAccountSettingsOpen(false)
+                setProfileUsername(null)
+              }
               handleAccountNavigate(target)
             }}
             onOpenBusinessAdmin={() => setBusinessAdminOpen(true)}
@@ -1715,6 +1754,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {createLayers}
     </div>
   )
 }

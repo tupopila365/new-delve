@@ -339,6 +339,21 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
       })
     }
 
+    if (intent.purpose === 'cover') {
+      const delivery = buildDeliveryUrl({
+        cloudName: env.CLOUDINARY_CLOUD_NAME!,
+        publicId: created.publicId,
+        version: created.version,
+        width: 1600,
+        crop: 'fill',
+        gravity: 'auto',
+      })
+      await tx.travelerProfile.updateMany({
+        where: { userId },
+        data: { coverMediaId: created.id, coverUrl: delivery },
+      })
+    }
+
     return created
   })
 
@@ -386,6 +401,13 @@ export async function deleteMedia(env: Env, userId: string, mediaId: string) {
     await prisma.travelerProfile.updateMany({
       where: { userId, avatarMediaId: row.id },
       data: { avatarMediaId: null, avatarUrl: null, avatarKey: null },
+    })
+  }
+
+  if (row.purpose === 'cover') {
+    await prisma.travelerProfile.updateMany({
+      where: { userId, coverMediaId: row.id },
+      data: { coverMediaId: null, coverUrl: null },
     })
   }
 

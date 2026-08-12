@@ -71,12 +71,13 @@ async function requireVerifiedUser(userId: string) {
   return user
 }
 
-function toProfileDto(
-  user: { email: string; username: string; emailVerifiedAt: Date | null },
+async function toProfileDto(
+  user: { id: string; email: string; username: string; emailVerifiedAt: Date | null },
   profile: {
     displayName: string
     bio: string | null
     avatarUrl: string | null
+    coverUrl: string | null
     homeCity: string | null
     homeCountryCode: string | null
     preferredCurrency: string
@@ -84,13 +85,22 @@ function toProfileDto(
     interests: string[]
     onboardingStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
     onboardingCompletedAt: Date | null
+    createdAt: Date
+    profileVisibility?: 'PUBLIC' | 'PRIVATE'
   },
   storageConfigured: boolean,
-): TravelerProfileDto {
+): Promise<TravelerProfileDto> {
+  const [followersCount, followingCount, delversCount] = await Promise.all([
+    prisma.follow.count({ where: { followingId: user.id } }),
+    prisma.follow.count({ where: { followerId: user.id } }),
+    prisma.post.count({ where: { authorId: user.id, status: 'PUBLISHED', deletedAt: null } }),
+  ])
   return {
+    id: user.id,
     displayName: profile.displayName,
     bio: profile.bio,
     avatarUrl: profile.avatarUrl,
+    coverUrl: profile.coverUrl ?? null,
     homeCity: profile.homeCity,
     homeCountryCode: profile.homeCountryCode,
     preferredCurrency: profile.preferredCurrency as TravelerProfileDto['preferredCurrency'],
@@ -100,10 +110,15 @@ function toProfileDto(
     onboardingCompletedAt: profile.onboardingCompletedAt
       ? profile.onboardingCompletedAt.toISOString()
       : null,
+    createdAt: profile.createdAt.toISOString(),
     username: user.username,
     email: user.email,
     emailVerified: Boolean(user.emailVerifiedAt),
     storageConfigured,
+    profileVisibility: profile.profileVisibility ?? 'PUBLIC',
+    followersCount,
+    followingCount,
+    delversCount,
   }
 }
 

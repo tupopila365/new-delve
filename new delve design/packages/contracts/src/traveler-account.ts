@@ -95,9 +95,13 @@ export const interestsSchema = z
   .default([])
 
 export const travelerProfileSchema = z.object({
+  /** Authenticated user id — use for owner checks (`currentUser.id === profile.id`). */
+  id: z.string(),
   displayName: z.string(),
   bio: z.string().nullable(),
   avatarUrl: z.string().nullable(),
+  /** Dashboard / profile banner image URL (Cloudinary). Null → UI uses purple gradient. */
+  coverUrl: z.string().nullable(),
   homeCity: z.string().nullable(),
   homeCountryCode: z.string().nullable(),
   preferredCurrency: currencySchema,
@@ -105,10 +109,20 @@ export const travelerProfileSchema = z.object({
   interests: z.array(z.enum(TRAVEL_INTERESTS)),
   onboardingStatus: onboardingStatusSchema,
   onboardingCompletedAt: z.string().datetime().nullable(),
+  /** Profile row createdAt — used for “Member since”. */
+  createdAt: z.string().datetime(),
   username: z.string(),
   email: z.string().email(),
   emailVerified: z.boolean(),
   storageConfigured: z.boolean().optional(),
+  profileVisibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+  /**
+   * Social aggregates from Follow / Post tables when present.
+   * Delvers = posts by this traveler.
+   */
+  followersCount: z.number().int().nonnegative(),
+  followingCount: z.number().int().nonnegative(),
+  delversCount: z.number().int().nonnegative(),
 })
 
 export const onboardingPatchSchema = z
