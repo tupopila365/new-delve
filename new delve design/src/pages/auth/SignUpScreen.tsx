@@ -53,6 +53,7 @@ export default function SignUpScreen({
   step: controlledStep,
   onStepChange,
   onNavigateSignIn,
+  onComplete,
   onClose,
 }: SignUpScreenProps) {
   const [internalStep, setInternalStep] = useState<SignUpStep>(1)
@@ -209,6 +210,10 @@ export default function SignUpScreen({
         password,
         passwordConfirmation: confirmPassword,
       })
+      if (result.sessionCreated) {
+        onComplete?.()
+        return
+      }
       if (result.deliveryStatus === 'FAILED') {
         setDeliveryFailed(true)
         setFormError(result.message)
@@ -308,7 +313,7 @@ export default function SignUpScreen({
         <AuthTitleBlock
           eyebrow="Join Delve"
           title="Create your traveler account"
-          subtitle="Choose a unique username, add your email, and set a password."
+          subtitle="Choose a username, add your email, and set a password. Sign in with email after you create your account."
         />
 
         {formError && !deliveryFailed && (

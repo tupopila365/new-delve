@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { businessPath, navToPath, parseBusinessSlug, pathToNav } from './navigation'
 import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
+import { isAppwriteConfigured } from './api/appwriteClient'
 import type { PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
@@ -466,8 +467,13 @@ export default function App() {
   const [following, setFollowing] = useState<Set<string>>(new Set(['d1']))
   const [activeStory, setActiveStory] = useState<string | null>(null)
   const [authRoute, setAuthRoute] = useState<AuthRoute | null>(null)
-  const [signedIn, setSignedIn] = useState(() => Boolean(getStoredUser()))
-  const [authReady, setAuthReady] = useState(() => !getStoredUser())
+  /** Canonical traveler auth status — no separate AuthContext. */
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>(() => {
+    if (isAppwriteConfigured()) return 'loading'
+    return getStoredUser() ? 'loading' : 'unauthenticated'
+  })
+  const signedIn = authStatus === 'authenticated'
+  const authReady = authStatus !== 'loading'
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showOnboardingResume, setShowOnboardingResume] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
@@ -506,9 +512,8 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      if (!getStoredUser()) {
-        setSignedIn(false)
-        setAuthReady(true)
+      if (!getStoredUser() && !isAppwriteConfigured()) {
+        setAuthStatus('unauthenticated')
         return
       }
       const refreshed = await refreshSession()
@@ -516,12 +521,12 @@ export default function App() {
       // Prefer a live session. Stale user-only storage must not look signed-in.
       const ok = Boolean(refreshed || (getStoredUser() && getStoredAccessToken()))
       if (!ok) {
-        setSignedIn(false)
-        setAuthReady(true)
+        setAuthStatus('unauthenticated')
         return
       }
-      setSignedIn(true)
-      setAuthReady(true)
+      setAuthStatus('authenticated')
+      // Phase 0 Appwrite: do not call Heroku onboarding — never block or force logout.
+      if (isAppwriteConfigured()) return
       try {
         const profile = await fetchOnboarding()
         if (cancelled) return
@@ -721,19 +726,20 @@ export default function App() {
   }
 
   function handleAuthenticated() {
-    setSignedIn(true)
-    setAuthReady(true)
+    setAuthStatus('authenticated')
     setAuthRoute(null)
     void (async () => {
-      try {
-        const profile = await fetchOnboarding()
-        if (profile.onboardingStatus === 'NOT_STARTED') {
-          setShowOnboarding(true)
-          return
+      if (!isAppwriteConfigured()) {
+        try {
+          const profile = await fetchOnboarding()
+          if (profile.onboardingStatus === 'NOT_STARTED') {
+            setShowOnboarding(true)
+            return
+          }
+          if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
+        } catch {
+          /* ignore — never block sign-in on profile fetch failure */
         }
-        if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
-      } catch {
-        /* ignore */
       }
       if (pendingBooking) {
         setBookingContext(pendingBooking)
@@ -756,7 +762,7 @@ export default function App() {
 
   function handleSignOut() {
     void logoutSession()
-    setSignedIn(false)
+    setAuthStatus('unauthenticated')
     setShowOnboarding(false)
     setShowOnboardingResume(false)
     setAccountSettingsOpen(false)
@@ -915,13 +921,13 @@ export default function App() {
           onViewBookings={() => {
             setLastBookingRef(ref)
             closeBooking()
-            setSignedIn(true)
+            setAuthStatus('authenticated')
             goToNav('Bookings')
           }}
           onViewTicket={() => {
             setLastBookingRef(ref)
             closeBooking()
-            setSignedIn(true)
+            setAuthStatus('authenticated')
             goToNav('Bookings')
           }}
         />
