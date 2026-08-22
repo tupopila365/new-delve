@@ -13,6 +13,7 @@ vi.mock('@delve/database', () => {
         create: vi.fn(),
         update: vi.fn(),
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
       },
       usernameHistory: {
         findFirst: vi.fn(),
@@ -67,10 +68,11 @@ import {
   loginUser,
   registerUser,
   resendVerification,
+  verifyEmailCode,
   verifyEmailToken,
   changeUsername,
 } from '../src/modules/auth/auth.service.js'
-import { hashPassword, hashToken } from '../src/modules/auth/crypto.js'
+import { createVerificationCode, hashPassword, hashToken } from '../src/modules/auth/crypto.js'
 import { resetRateLimits } from '../src/modules/auth/rate-limit.js'
 import { AppError } from '../src/middleware/error-handler.js'
 
@@ -165,7 +167,87 @@ describe('auth service (mocked)', () => {
     await expect(checkUsernameAvailability('user30xx', '9.9.9.9')).rejects.toBeInstanceOf(AppError)
   })
 
-  it('verifies success, expired, used, and invalid tokens', async () => {
+  it('verifies success, expired, used, and invalid codes', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null)
+    expect(await verifyEmailCode('missing@example.com', '123456', '1.1.1.1')).toMatchObject({ result: 'invalid' })
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'a@example.com',
+      emailVerifiedAt: null,
+      accountStatus: 'pending_verification',
+    } as never)
+    vi.mocked(prisma.emailVerificationToken.findFirst).mockResolvedValueOnce(null)
+    expect(await verifyEmailCode('a@example.com', '123456', '1.1.1.1')).toMatchObject({ result: 'expired' })
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'a@example.com',
+      emailVerifiedAt: null,
+      accountStatus: 'pending_verification',
+    } as never)
+    vi.mocked(prisma.emailVerificationToken.findFirst).mockResolvedValueOnce({
+      id: 't1',
+      userId: 'u1',
+      tokenHash: hashToken('111111'),
+      expiresAt: new Date(Date.now() + 100000),
+      usedAt: null,
+      deliveryStatus: 'SENT',
+      createdAt: new Date(),
+      user: {
+        id: 'u1',
+        emailVerifiedAt: null,
+        accountStatus: 'pending_verification',
+      },
+    } as never)
+    expect(await verifyEmailCode('a@example.com', '999999', '1.1.1.1')).toMatchObject({ result: 'invalid' })
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'a@example.com',
+      emailVerifiedAt: null,
+      accountStatus: 'pending_verification',
+    } as never)
+    vi.mocked(prisma.emailVerificationToken.findFirst).mockResolvedValueOnce({
+      id: 't2',
+      userId: 'u1',
+      tokenHash: hashToken('482913'),
+      expiresAt: new Date(Date.now() - 1000),
+      usedAt: null,
+      deliveryStatus: 'SENT',
+      createdAt: new Date(),
+      user: {
+        id: 'u1',
+        emailVerifiedAt: null,
+        accountStatus: 'pending_verification',
+      },
+    } as never)
+    expect(await verifyEmailCode('a@example.com', '482913', '1.1.1.1')).toMatchObject({ result: 'expired' })
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'a@example.com',
+      emailVerifiedAt: null,
+      accountStatus: 'pending_verification',
+    } as never)
+    vi.mocked(prisma.emailVerificationToken.findFirst).mockResolvedValueOnce({
+      id: 't3',
+      userId: 'u1',
+      tokenHash: hashToken('482913'),
+      expiresAt: new Date(Date.now() + 100000),
+      usedAt: null,
+      deliveryStatus: 'SENT',
+      createdAt: new Date(),
+      user: {
+        id: 'u1',
+        emailVerifiedAt: null,
+        accountStatus: 'pending_verification',
+      },
+    } as never)
+    expect(await verifyEmailCode('a@example.com', '482913', '1.1.1.1')).toMatchObject({ result: 'success' })
+  })
+
+  it('verifies legacy token links', async () => {
     expect(await verifyEmailToken('missing')).toMatchObject({ result: 'invalid' })
 
     vi.mocked(prisma.emailVerificationToken.findUnique).mockResolvedValueOnce({
@@ -218,6 +300,22 @@ describe('auth service (mocked)', () => {
   })
 
   it('returns already_verified and account_disabled results', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'a@example.com',
+      emailVerifiedAt: new Date(),
+      accountStatus: 'active',
+    } as never)
+    expect(await verifyEmailCode('a@example.com', '482913', '1.1.1.1')).toMatchObject({ result: 'already_verified' })
+
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'u1',
+      email: 'a@example.com',
+      emailVerifiedAt: null,
+      accountStatus: 'disabled',
+    } as never)
+    expect(await verifyEmailCode('a@example.com', '482913', '1.1.1.1')).toMatchObject({ result: 'account_disabled' })
+
     vi.mocked(prisma.emailVerificationToken.findUnique).mockResolvedValueOnce({
       id: 't4',
       userId: 'u1',
@@ -359,7 +457,7 @@ describe('auth service (mocked)', () => {
       createdAt: new Date(),
     })
     vi.mocked(sendVerificationEmail).mockImplementation(async (_env, input) => {
-      expect(input.verifyUrl).toContain('token=')
+      expect(input.verificationCode).toMatch(/^\d{6}$/)
       return { ok: false, correlationId: 'corr', sanitizedError: 'brevo_http_400' }
     })
     vi.mocked(prisma.emailVerificationToken.update).mockResolvedValue({} as never)
@@ -372,7 +470,12 @@ describe('auth service (mocked)', () => {
     })
 
     const logged = spy.mock.calls.map(c => JSON.stringify(c)).join(' ')
-    expect(logged).not.toMatch(/token=[A-Za-z0-9_-]{20,}/)
+    expect(logged).not.toMatch(/\b\d{6}\b/)
     spy.mockRestore()
+  })
+
+  it('generates six-digit verification codes', () => {
+    const code = createVerificationCode()
+    expect(code).toMatch(/^\d{6}$/)
   })
 })

@@ -14,6 +14,7 @@ export function createAuthRouter(env: Env) {
   router.get('/username-availability', (req, res, next) => void controller.usernameAvailability(req, res, next))
   router.post('/resend-verification', (req, res, next) => void controller.resendVerification(req, res, next))
   router.get('/verify-email', (req, res, next) => void controller.verifyEmail(req, res, next))
+  router.post('/verify-email', (req, res, next) => void controller.verifyEmail(req, res, next))
   router.post('/login', (req, res, next) => void controller.login(req, res, next))
   router.post('/refresh', (req, res, next) => void controller.refresh(req, res, next))
   router.post('/logout', (req, res, next) => void controller.logout(req, res, next))

@@ -58,7 +58,7 @@ describe('auth interface contracts', () => {
 
     const reset = readFileSync(join(root, 'src/pages/auth/ResetPasswordPage.tsx'), 'utf8')
     expect(reset).toContain('Password updated')
-    expect(reset).toContain('Reset link expired')
+    expect(reset).toContain('Reset code expired')
 
     const modal = readFileSync(join(root, 'src/components/auth/ModalOverlay.tsx'), 'utf8')
     expect(modal).toContain('previousFocusRef')

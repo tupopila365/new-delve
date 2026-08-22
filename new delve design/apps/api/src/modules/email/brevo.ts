@@ -64,7 +64,7 @@ export function createBrevoEmailProvider(env: Env): EmailProvider {
 export type SendVerificationInput = {
   toEmail: string
   username: string
-  verifyUrl: string
+  verificationCode: string
   expiresAt: Date
 }
 
@@ -76,12 +76,12 @@ export async function sendVerificationEmail(
 ): Promise<EmailSendResult> {
   const built = buildVerificationEmail({
     username: input.username,
-    verifyUrl: input.verifyUrl,
+    verificationCode: input.verificationCode,
     expiresAt: input.expiresAt,
   })
 
   if (env.appEnv === 'development' && !env.brevoConfigured) {
-    console.warn('[email:dev] verification email built (token/URL omitted from production logs)')
+    console.warn('[email:dev] verification email built (code omitted from production logs)')
   }
 
   return provider.sendTransactionalEmail({

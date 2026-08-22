@@ -220,7 +220,7 @@ export const forgotPasswordResponseSchema = z.object({
   message: z.string(),
 })
 
-export const resetPasswordBodySchema = z
+export const resetPasswordWithTokenBodySchema = z
   .object({
     token: z.string().min(1),
     newPassword: z.string().min(8).max(128),
@@ -230,6 +230,27 @@ export const resetPasswordBodySchema = z
     message: 'Both passwords need to match',
     path: ['newPasswordConfirmation'],
   })
+
+export const resetPasswordWithCodeBodySchema = z
+  .object({
+    email: z.string().trim().email().transform(v => v.toLowerCase()),
+    code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
+    newPassword: z.string().min(8).max(128),
+    newPasswordConfirmation: z.string().min(1),
+  })
+  .refine(d => d.newPassword === d.newPasswordConfirmation, {
+    message: 'Both passwords need to match',
+    path: ['newPasswordConfirmation'],
+  })
+
+/** Password reset via emailed link (legacy) or 6-digit code. */
+export const resetPasswordBodySchema = z.union([
+  resetPasswordWithTokenBodySchema,
+  resetPasswordWithCodeBodySchema,
+])
 
 export const resetPasswordResultSchema = z.object({
   result: z.enum(['success', 'expired', 'used', 'invalid']),

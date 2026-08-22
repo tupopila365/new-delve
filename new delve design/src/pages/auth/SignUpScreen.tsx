@@ -14,16 +14,18 @@ import {
   PasswordRequirementList,
   PasswordStrength,
   PrimaryButton,
-  SecondaryButton,
   SuccessPanel,
   TermsAndPrivacyText,
   TextButton,
   TextField,
+  OTPInput,
+  ResendCodeControl,
 } from '../../components/auth'
 import type { AuthShellLayout } from '../../components/auth/AuthShell'
+import { authHeaderLogoPlacement } from '../../components/auth/AuthShell'
 import type { FormErrorSummaryItem } from '../../components/auth/FormErrorSummary'
-import { evaluatePassword, isValidEmail, maskEmail } from '../../data/authConfig'
-import { AuthApiError, checkUsernameAvailable, registerAccount, resendVerificationEmail } from '../../api/authClient'
+import { evaluatePassword, isValidEmail, maskEmail, authConfig } from '../../data/authConfig'
+import { AuthApiError, checkUsernameAvailable, registerAccount, resendVerificationEmail, verifyEmailCode } from '../../api/authClient'
 import { usernameSchema } from '@delve/contracts'
 
 export type SignUpStep = 1 | 2
@@ -76,6 +78,11 @@ export default function SignUpScreen({
   const [resending, setResending] = useState(false)
   const [resendNote, setResendNote] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [verified, setVerified] = useState(false)
+  const [resendToken, setResendToken] = useState(0)
 
   const usernameTimer = useRef<number | null>(null)
   const usernameAbort = useRef<AbortController | null>(null)
@@ -230,6 +237,27 @@ export default function SignUpScreen({
     }
   }
 
+  async function handleVerifyCode(nextCode = verificationCode) {
+    if (nextCode.length < authConfig.verification.otpLength) {
+      setCodeError('Enter all six digits.')
+      return
+    }
+    setVerifying(true)
+    setCodeError(null)
+    try {
+      const data = await verifyEmailCode(email.trim(), nextCode)
+      if (data.result === 'success' || data.result === 'already_verified') {
+        setVerified(true)
+        return
+      }
+      setCodeError(data.message)
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : 'Could not verify that code right now.')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   async function handleResend() {
     if (resendCooldown > 0) return
     setResending(true)
@@ -239,6 +267,9 @@ export default function SignUpScreen({
       setDeliveryFailed(false)
       setResendNote(result.message)
       startResendCooldown(60)
+      setResendToken(token => token + 1)
+      setVerificationCode('')
+      setCodeError(null)
     } catch (err) {
       if (err instanceof AuthApiError && err.status === 429) {
         const retry =
@@ -269,9 +300,35 @@ export default function SignUpScreen({
             : '3–30 characters · letters, numbers, underscores, periods · no consecutive periods'
 
   if (step === 2) {
+    if (verified) {
+      return (
+        <AuthShell layout={layout} image="dunes" logoShowWordmark={false}>
+          <AuthHeader
+            onClose={onClose}
+            trailing={headerTrailing}
+            showWordmark={false}
+            logoPlacement={authHeaderLogoPlacement(layout)}
+          />
+          <div className="px-5 py-8 sm:px-8">
+            <SuccessPanel
+              icon={<Mail size={28} />}
+              title="Email verified"
+              message="Your account is ready. Sign in to continue exploring Delve."
+              primaryAction={<PrimaryButton onClick={onNavigateSignIn}>Sign in</PrimaryButton>}
+            />
+          </div>
+        </AuthShell>
+      )
+    }
+
     return (
-      <AuthShell layout={layout} image="dunes">
-        <AuthHeader onClose={onClose} trailing={headerTrailing} />
+      <AuthShell layout={layout} image="dunes" logoShowWordmark={false}>
+        <AuthHeader
+          onClose={onClose}
+          trailing={headerTrailing}
+          showWordmark={false}
+          logoPlacement={authHeaderLogoPlacement(layout)}
+        />
         <div className="px-5 py-8 sm:px-8 flex flex-col gap-5">
           {deliveryFailed ? (
             <InlineAlert tone="error" title="Verification email not sent">
@@ -281,25 +338,47 @@ export default function SignUpScreen({
             <SuccessPanel
               icon={<Mail size={28} />}
               title="Check your email"
-              message={`We sent a single-use verification link to ${maskEmail(email)}. Open it to activate your account, then sign in.`}
+              message={`We sent a 6-digit verification code to ${maskEmail(email)}. Enter it below to activate your account.`}
             />
           )}
+
+          {!deliveryFailed && (
+            <OTPInput
+              value={verificationCode}
+              onChange={setVerificationCode}
+              error={codeError || undefined}
+              disabled={verifying}
+              loading={verifying}
+              autoFocus
+              onComplete={value => void handleVerifyCode(value)}
+            />
+          )}
+
+          {!deliveryFailed && (
+            <PrimaryButton
+              loading={verifying}
+              loadingLabel="Verifying…"
+              onClick={() => void handleVerifyCode()}
+              disabled={verificationCode.length < authConfig.verification.otpLength}
+            >
+              Verify email
+            </PrimaryButton>
+          )}
+
           {resendNote && (
             <InlineAlert tone={deliveryFailed ? 'warning' : 'success'} title="Email update">
               {resendNote}
             </InlineAlert>
           )}
-          <SecondaryButton
-            loading={resending}
-            disabled={resendCooldown > 0}
-            onClick={() => void handleResend()}
-          >
-            {resendCooldown > 0
-              ? `Resend available in ${resendCooldown}s`
-              : deliveryFailed
-                ? 'Retry sending verification email'
-                : 'Resend verification email'}
-          </SecondaryButton>
+
+          <ResendCodeControl
+            onResend={() => void handleResend()}
+            sending={resending}
+            resetToken={resendToken}
+            startImmediately
+            label={deliveryFailed ? 'Retry sending verification email' : 'Send a new code'}
+          />
+
           <PrimaryButton onClick={onNavigateSignIn}>Back to sign in</PrimaryButton>
         </div>
       </AuthShell>
@@ -307,8 +386,13 @@ export default function SignUpScreen({
   }
 
   return (
-    <AuthShell layout={layout} image="dunes">
-      <AuthHeader onClose={onClose} trailing={headerTrailing} />
+    <AuthShell layout={layout} image="dunes" logoShowWordmark={false}>
+      <AuthHeader
+        onClose={onClose}
+        trailing={headerTrailing}
+        showWordmark={false}
+        logoPlacement={authHeaderLogoPlacement(layout)}
+      />
       <AuthForm onSubmit={() => void handleCreateAccount()} busy={creating}>
         <AuthTitleBlock
           eyebrow="Join Delve"

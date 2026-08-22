@@ -53,16 +53,16 @@ export function buildEmailChangeEmail(input: {
 
 export function buildPasswordResetEmail(input: {
   username: string
-  resetUrl: string
+  resetCode: string
   expiresAt: Date
 }) {
   const safeName = escapeHtml(input.username)
-  const safeUrl = escapeHtml(input.resetUrl)
+  const safeCode = escapeHtml(input.resetCode)
   const expiry = escapeHtml(input.expiresAt.toUTCString())
-  const subject = 'Reset your Delve password'
+  const subject = 'Your Delve password reset code'
   const html = `<!DOCTYPE html>
 <html lang="en"><body style="margin:0;padding:0;background:#F7F3EC;font-family:Arial,Helvetica,sans-serif;color:#1A1814;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Reset your Delve password.</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your password reset code is ${safeCode}.</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 12px;">
     <tr><td align="center">
       <table role="presentation" width="100%" style="max-width:560px;background:#fff;border:1px solid #E4DDD2;">
@@ -73,10 +73,11 @@ export function buildPasswordResetEmail(input: {
         <tr><td style="padding:28px;">
           <p style="margin:0 0 14px;font-size:16px;">Hello ${safeName},</p>
           <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#4A453C;">
-            We received a request to reset the password for your Delve account. Use the button below to choose a new password. This link expires soon and can be used once.
+            We received a request to reset the password for your Delve account. Enter this code in Delve to choose a new password. It expires soon and can be used once.
           </p>
-          <p style="margin:0 0 22px;"><a href="${safeUrl}" style="display:inline-block;padding:14px 22px;background:#5F2FC9;color:#fff;text-decoration:none;font-weight:700;">Choose a new password</a></p>
-          <p style="margin:0 0 12px;font-size:13px;word-break:break-all;"><a href="${safeUrl}" style="color:#5F2FC9;">${safeUrl}</a></p>
+          <p style="margin:0 0 22px;font-family:Arial,Helvetica,sans-serif;font-size:36px;font-weight:700;letter-spacing:0.35em;color:#5F2FC9;text-align:center;">
+            ${safeCode}
+          </p>
           <p style="margin:0;font-size:13px;color:#4A453C;">Expires on <strong>${expiry}</strong>. If you did not request this, you can ignore this email — your password will stay the same.</p>
         </td></tr>
         <tr><td style="padding:18px 28px;background:#F0EBE3;font-size:12px;color:#6F695F;">
@@ -91,8 +92,9 @@ export function buildPasswordResetEmail(input: {
     '',
     `Hello ${input.username},`,
     '',
-    'Reset your Delve password:',
-    input.resetUrl,
+    'Enter this code in Delve to reset your password:',
+    '',
+    input.resetCode,
     '',
     `Expires: ${input.expiresAt.toUTCString()}`,
     '',

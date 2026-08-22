@@ -5,97 +5,93 @@ import {
   AuthHeader,
   AuthShell,
   AuthTitleBlock,
+  InlineAlert,
+  OTPInput,
   PrimaryButton,
+  ResendCodeControl,
   SecondaryButton,
   SuccessPanel,
-  InlineAlert,
   TextButton,
 } from '../../components/auth'
-import { resendVerificationEmail, verifyEmailToken } from '../../api/authClient'
+import { authConfig, maskEmail } from '../../data/authConfig'
+import { resendVerificationEmail, verifyEmailCode } from '../../api/authClient'
 
-const TITLES: Record<VerifyEmailResult | 'loading' | 'missing', string> = {
-  loading: 'Verifying',
-  missing: 'Missing link',
+const TITLES: Record<VerifyEmailResult | 'missing', string> = {
   success: 'Email verified',
   already_verified: 'Already verified',
-  expired: 'Link expired',
-  used: 'Link already used',
-  invalid: 'Invalid link',
+  expired: 'Code expired',
+  used: 'Code already used',
+  invalid: 'Invalid code',
   account_disabled: 'Account unavailable',
+  missing: 'Verify your email',
 }
 
 export default function VerifyEmailPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const token = params.get('token')
+  const emailFromQuery = params.get('email')?.trim() || ''
   const resultHint = (params.get('result') || params.get('status')) as string | null
-  const [result, setResult] = useState<VerifyEmailResult | 'loading' | 'missing'>(
-    !token && resultHint === 'success' ? 'success' : 'loading',
+
+  const [email, setEmail] = useState(emailFromQuery)
+  const [code, setCode] = useState('')
+  const [result, setResult] = useState<VerifyEmailResult | null>(
+    resultHint === 'success' || resultHint === 'already_verified' ? (resultHint as VerifyEmailResult) : null,
   )
-  const [message, setMessage] = useState('Verifying your email…')
-  const [resendEmail, setResendEmail] = useState('')
+  const [message, setMessage] = useState(
+    resultHint === 'success' || resultHint === 'already_verified'
+      ? 'Your email is verified. You can continue to Delve.'
+      : 'Enter the 6-digit code we sent to your email.',
+  )
+  const [verifying, setVerifying] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
   const [resending, setResending] = useState(false)
   const [resendNote, setResendNote] = useState<string | null>(null)
-  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resendToken, setResendToken] = useState(0)
 
   useEffect(() => {
-    if (resendCooldown <= 0) return
-    const id = window.setTimeout(() => setResendCooldown(c => Math.max(0, c - 1)), 1000)
-    return () => window.clearTimeout(id)
-  }, [resendCooldown])
+    if (emailFromQuery) setEmail(emailFromQuery)
+  }, [emailFromQuery])
 
-  useEffect(() => {
-    if (!token) {
-      if (resultHint === 'success') {
-        setResult('success')
-        setMessage('Your email is verified. You can continue to Delve.')
-        return
-      }
-      if (resultHint && resultHint in TITLES) {
-        setResult(resultHint as VerifyEmailResult)
-        setMessage('Open the latest verification email from Delve, or request a new link after signing up.')
-        return
-      }
-      setResult('missing')
-      setMessage('This verification link is missing a token.')
+  async function submitCode(nextCode = code) {
+    if (!email.trim()) {
+      setCodeError('Enter the email address you used to register.')
+      return
+    }
+    if (nextCode.length < authConfig.verification.otpLength) {
+      setCodeError('Enter all six digits.')
       return
     }
 
-    let cancelled = false
-    void (async () => {
-      try {
-        const data = await verifyEmailToken(token)
-        if (cancelled) return
-        setResult(data.result)
-        if (data.result === 'success') {
-          setMessage('Your email is verified. You can continue to Delve.')
-        } else if (data.result === 'expired') {
-          setMessage('That verification link has expired. Request a new one to continue.')
-        } else if (data.result === 'already_verified' || data.result === 'used') {
-          setMessage(data.message)
-        } else {
-          setMessage(data.message)
-        }
-      } catch (err) {
-        if (cancelled) return
-        setResult('invalid')
-        setMessage(err instanceof Error ? err.message : 'This verification link is invalid or has expired.')
+    setVerifying(true)
+    setCodeError(null)
+    setResendNote(null)
+    try {
+      const data = await verifyEmailCode(email.trim(), nextCode)
+      setResult(data.result)
+      setMessage(data.message)
+      if (data.result === 'invalid' || data.result === 'expired') {
+        setCodeError(data.message)
       }
-    })()
-
-    return () => {
-      cancelled = true
+    } catch (err) {
+      setResult('invalid')
+      setCodeError(err instanceof Error ? err.message : 'Could not verify that code right now.')
+    } finally {
+      setVerifying(false)
     }
-  }, [token, resultHint])
+  }
 
   async function handleResend() {
-    if (!resendEmail.trim() || resending || resendCooldown > 0) return
+    if (!email.trim() || resending) return
     setResending(true)
     setResendNote(null)
     try {
-      const data = await resendVerificationEmail(resendEmail.trim())
+      const data = await resendVerificationEmail(email.trim())
       setResendNote(data.message)
-      setResendCooldown(60)
+      setResendToken(token => token + 1)
+      setCode('')
+      setCodeError(null)
+      setResult(null)
+      setMessage('Enter the 6-digit code we sent to your email.')
     } catch (err) {
       setResendNote(err instanceof Error ? err.message : 'Could not resend right now.')
     } finally {
@@ -113,94 +109,125 @@ export default function VerifyEmailPage() {
   )
   const goHome = <SecondaryButton onClick={() => navigate('/')}>Back to Delve</SecondaryButton>
 
-  return (
-    <AuthShell layout="stacked" image="dunes">
-      <AuthHeader onClose={() => navigate('/')} />
-      <div className="px-5 py-10 sm:px-8 flex flex-col gap-4">
-        <div role="status" aria-live="polite" className="sr-only">
-          {result !== 'loading' ? message : ''}
-        </div>
-
-        {result === 'loading' && (
-          <InlineAlert tone="info" title={TITLES.loading}>
-            {message}
-          </InlineAlert>
-        )}
-
-        {(result === 'success' || result === 'already_verified') && (
+  if (result === 'success' || result === 'already_verified') {
+    return (
+      <AuthShell layout="stacked" image="dunes">
+        <AuthHeader onClose={() => navigate('/')} />
+        <div className="px-5 py-10 sm:px-8">
           <SuccessPanel
             title={result === 'success' ? 'Your email is verified' : TITLES[result]}
             message={message}
             primaryAction={continueDelve}
             secondaryAction={goHome}
           />
-        )}
+        </div>
+      </AuthShell>
+    )
+  }
 
-        {result === 'expired' && (
-          <>
-            <AuthTitleBlock title="Verification link expired" subtitle={message} />
-            <InlineAlert tone="warning" title="Link expired">
-              Enter the email you used to register. If an unverified account exists, we’ll send a new link.
-            </InlineAlert>
-            <label className="text-sm font-semibold" htmlFor="verify-resend-email">
-              Email
-            </label>
-            <input
-              id="verify-resend-email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              className="min-h-[48px] rounded-xl px-3 text-base"
-              style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
-              value={resendEmail}
-              onChange={e => setResendEmail(e.target.value)}
-              disabled={resending}
-            />
-            <PrimaryButton
-              onClick={() => void handleResend()}
-              loading={resending}
-              loadingLabel="Sending…"
-              disabled={resendCooldown > 0}
-            >
-              {resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : 'Resend verification email'}
-            </PrimaryButton>
-            {resendNote && (
-              <InlineAlert tone="info" title="Request sent">
-                {resendNote}
-              </InlineAlert>
-            )}
-            <TextButton onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>Sign in</TextButton>
-          </>
-        )}
+  return (
+    <AuthShell layout="stacked" image="dunes">
+      <AuthHeader onClose={() => navigate('/')} />
+      <div className="px-5 py-10 sm:px-8 flex flex-col gap-4">
+        <AuthTitleBlock
+          title="Verify your email"
+          subtitle={
+            email.trim()
+              ? `Enter the 6-digit code we sent to ${maskEmail(email)}.`
+              : 'Enter your email and the 6-digit code from your inbox.'
+          }
+        />
 
-        {result === 'used' && (
-          <>
-            <AuthTitleBlock
-              title="Link already used"
-              subtitle="This email may already be verified. Sign in to continue."
-            />
-            <InlineAlert tone="info" title="Already used">
-              {message}
-            </InlineAlert>
-            {signIn}
-            {goHome}
-          </>
-        )}
-
-        {(result === 'invalid' || result === 'missing') && (
-          <>
-            <InlineAlert tone="error" title={TITLES[result === 'missing' ? 'missing' : 'invalid']}>
-              {message}
-            </InlineAlert>
-            {signIn}
-            {goHome}
-          </>
-        )}
+        <div role="status" aria-live="polite" className="sr-only">
+          {message}
+        </div>
 
         {result === 'account_disabled' && (
           <InlineAlert tone="error" title={TITLES.account_disabled}>
             {message}
           </InlineAlert>
+        )}
+
+        {result === 'used' && (
+          <>
+            <InlineAlert tone="info" title={TITLES.used}>
+              {message}
+            </InlineAlert>
+            {signIn}
+            {goHome}
+          </>
+        )}
+
+        {result !== 'used' && result !== 'account_disabled' && (
+          <>
+            {!emailFromQuery && (
+              <>
+                <label className="text-sm font-semibold" htmlFor="verify-email">
+                  Email
+                </label>
+                <input
+                  id="verify-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  className="min-h-[48px] rounded-xl px-3 text-base"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  disabled={verifying}
+                />
+              </>
+            )}
+
+            <OTPInput
+              value={code}
+              onChange={setCode}
+              error={codeError || undefined}
+              disabled={verifying}
+              loading={verifying}
+              autoFocus
+              onComplete={value => void submitCode(value)}
+            />
+
+            <PrimaryButton
+              loading={verifying}
+              loadingLabel="Verifying…"
+              onClick={() => void submitCode()}
+              disabled={code.length < authConfig.verification.otpLength}
+            >
+              Verify email
+            </PrimaryButton>
+
+            <div
+              className="rounded-xl p-3.5"
+              style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
+            >
+              <p className="text-sm font-semibold mb-0.5" style={{ color: 'var(--fg)' }}>
+                Did not receive it?
+              </p>
+              <p className="text-xs mb-1" style={{ color: 'var(--fg-muted)' }}>
+                Check spam and promotional folders first.
+              </p>
+              <ResendCodeControl
+                onResend={() => void handleResend()}
+                sending={resending}
+                resetToken={resendToken}
+                startImmediately={Boolean(emailFromQuery)}
+                label="Send a new code"
+                disabled={!email.trim()}
+              />
+            </div>
+
+            {resendNote && (
+              <InlineAlert tone="info" title="Email update">
+                {resendNote}
+              </InlineAlert>
+            )}
+
+            <TextButton align="center" onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>
+              Back to sign in
+            </TextButton>
+          </>
         )}
       </div>
     </AuthShell>

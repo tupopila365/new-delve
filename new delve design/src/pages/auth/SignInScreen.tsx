@@ -16,6 +16,7 @@ import {
   TextField,
 } from '../../components/auth'
 import type { AuthShellLayout } from '../../components/auth/AuthShell'
+import { authHeaderLogoPlacement } from '../../components/auth/AuthShell'
 import type { FormErrorSummaryItem } from '../../components/auth/FormErrorSummary'
 import { loginWithIdentifier, resendVerificationEmail } from '../../api/authClient'
 import { GENERIC_AUTH_FAILURE_MESSAGE } from '@delve/contracts'
@@ -99,7 +100,7 @@ export default function SignInScreen({
     if (!identifier.includes('@')) return
     try {
       await resendVerificationEmail(identifier.trim())
-      setErrorMessage('If an unverified account exists for that email, a new link has been sent.')
+      setErrorMessage('If an unverified account exists for that email, a new code has been sent.')
       setErrorCode('EMAIL_NOT_VERIFIED')
     } catch {
       setErrorMessage('Could not resend the verification email right now.')
@@ -120,7 +121,7 @@ export default function SignInScreen({
           tone="warning"
           title="Verify your email to continue"
           action={
-            identifier.includes('@') ? <TextButton onClick={() => void handleResend()}>Send a new verification link</TextButton> : undefined
+            identifier.includes('@') ? <TextButton onClick={() => void handleResend()}>Send a new verification code</TextButton> : undefined
           }
         >
           {errorMessage || 'Verify your email before signing in.'}
@@ -154,8 +155,13 @@ export default function SignInScreen({
   })()
 
   return (
-    <AuthShell layout={layout} image="coast">
-      <AuthHeader onClose={onClose} trailing={headerTrailing} />
+    <AuthShell layout={layout} image="coast" logoShowWordmark={false}>
+      <AuthHeader
+        onClose={onClose}
+        trailing={headerTrailing}
+        showWordmark={false}
+        logoPlacement={authHeaderLogoPlacement(layout)}
+      />
       <AuthForm onSubmit={() => void handleSubmit()} busy={submitting}>
         <AuthTitleBlock
           eyebrow="Welcome back"

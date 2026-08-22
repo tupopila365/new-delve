@@ -6,6 +6,7 @@ import {
   AuthShell,
   AuthTitleBlock,
   InlineAlert,
+  OTPInput,
   PrimaryButton,
   ResendCodeControl,
   SecondaryButton,
@@ -15,6 +16,7 @@ import {
 } from '../../components/auth'
 import type { AuthShellLayout } from '../../components/auth/AuthShell'
 import { authConfig, maskEmail } from '../../data/authConfig'
+import { resendVerificationEmail, verifyEmailCode } from '../../api/authClient'
 
 export type EmailVerificationVariant = 'pending' | 'expired' | 'alreadyUsed' | 'success'
 
@@ -30,7 +32,7 @@ export interface EmailVerificationScreenProps {
   staticPreview?: boolean
 }
 
-/** Landing screen for the emailed verification link, plus its failure states. */
+/** Email verification with 6-digit OTP code entry. */
 export default function EmailVerificationScreen({
   layout = 'auto',
   headerTrailing,
@@ -42,23 +44,64 @@ export default function EmailVerificationScreen({
   onClose,
   staticPreview = false,
 }: EmailVerificationScreenProps) {
+  const [code, setCode] = useState('')
+  const [checking, setChecking] = useState(false)
   const [resending, setResending] = useState(false)
   const [resendToken, setResendToken] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [verified, setVerified] = useState(variant === 'success')
   const [resent, setResent] = useState(false)
+
   const timers = useRef<number[]>([])
   useEffect(() => () => timers.current.forEach(window.clearTimeout), [])
 
   const masked = maskEmail(email)
 
-  function handleResend() {
+  async function handleVerify(value = code) {
+    if (value.length < authConfig.verification.otpLength) {
+      setError('Enter all six digits.')
+      return
+    }
+    if (staticPreview) {
+      setVerified(true)
+      return
+    }
+
+    setChecking(true)
+    setError(null)
+    try {
+      const data = await verifyEmailCode(email, value)
+      if (data.result === 'success' || data.result === 'already_verified') {
+        setVerified(true)
+        return
+      }
+      setError(data.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not verify that code right now.')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  async function handleResend() {
     setResending(true)
-    if (staticPreview) return
-    const id = window.setTimeout(() => {
+    setError(null)
+    if (staticPreview) {
       setResending(false)
       setResent(true)
       setResendToken(token => token + 1)
-    }, 900)
-    timers.current.push(id)
+      return
+    }
+    try {
+      await resendVerificationEmail(email)
+      setResent(true)
+      setResendToken(token => token + 1)
+      setCode('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend right now.')
+    } finally {
+      setResending(false)
+    }
   }
 
   const shell = {
@@ -69,7 +112,7 @@ export default function EmailVerificationScreen({
     panelSupporting: 'Confirming your email keeps your bookings and messages tied to you alone.',
   }
 
-  if (variant === 'success') {
+  if (verified) {
     return (
       <AuthShell {...shell} header={<AuthHeader trailing={headerTrailing} onClose={onClose} />}>
         <SuccessPanel
@@ -89,26 +132,26 @@ export default function EmailVerificationScreen({
         icon={isProblem ? <MailWarning size={24} /> : <MailCheck size={24} />}
         title={
           variant === 'expired'
-            ? 'That link has expired'
+            ? 'That code has expired'
             : variant === 'alreadyUsed'
-              ? 'That link has already been used'
+              ? 'That code has already been used'
               : 'Verify your email address'
         }
         subtitle={
           variant === 'expired' ? (
             <>
-              Verification links are valid for {authConfig.verification.otpExpiryMinutes} minutes. Request a fresh one
+              Verification codes are valid for {authConfig.verification.otpExpiryMinutes} minutes. Request a fresh one
               and we will send it to {masked}.
             </>
           ) : variant === 'alreadyUsed' ? (
             <>
-              This address may already be verified. Try signing in — if that does not work, request a new link for{' '}
+              This address may already be verified. Try signing in — if that does not work, request a new code for{' '}
               {masked}.
             </>
           ) : (
             <>
-              We sent a verification link to <span style={{ color: 'var(--fg)', fontWeight: 600 }}>{masked}</span>.
-              Open it on this device to finish setting up your account.
+              We sent a 6-digit code to <span style={{ color: 'var(--fg)', fontWeight: 600 }}>{masked}</span>. Enter it
+              below to finish setting up your account.
             </>
           )
         }
@@ -117,15 +160,34 @@ export default function EmailVerificationScreen({
       <div className="flex flex-col gap-4">
         {resent && (
           <InlineAlert tone="success" onDismiss={() => setResent(false)}>
-            A new verification link is on its way to {masked}.
+            A new verification code is on its way to {masked}.
           </InlineAlert>
         )}
 
         {variant === 'expired' && (
           <InlineAlert tone="warning" title="Nothing is lost">
-            Your account details are saved. You only need a new link to confirm the address.
+            Your account details are saved. You only need a new code to confirm the address.
           </InlineAlert>
         )}
+
+        <OTPInput
+          value={code}
+          onChange={setCode}
+          error={error || undefined}
+          disabled={checking}
+          loading={checking}
+          autoFocus={!staticPreview}
+          onComplete={value => void handleVerify(value)}
+        />
+
+        <PrimaryButton
+          loading={checking}
+          loadingLabel="Verifying…"
+          onClick={() => void handleVerify()}
+          disabled={code.length < authConfig.verification.otpLength}
+        >
+          Verify email
+        </PrimaryButton>
 
         <div
           className="rounded-xl p-3.5"
@@ -138,11 +200,11 @@ export default function EmailVerificationScreen({
             Check spam and promotional folders first.
           </p>
           <ResendCodeControl
-            onResend={handleResend}
+            onResend={() => void handleResend()}
             sending={resending}
             resetToken={resendToken}
             startImmediately={variant === 'pending' && !staticPreview}
-            label="Send a new link"
+            label="Send a new code"
           />
         </div>
 

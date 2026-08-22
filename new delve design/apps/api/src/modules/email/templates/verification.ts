@@ -1,6 +1,6 @@
 export type VerificationEmailInput = {
   username: string
-  verifyUrl: string
+  verificationCode: string
   expiresAt: Date
 }
 
@@ -26,10 +26,10 @@ function formatExpiry(expiresAt: Date): string {
 /** Branded Delve verification email (HTML + plain text). */
 export function buildVerificationEmail(input: VerificationEmailInput): BuiltEmail {
   const safeName = escapeHtml(input.username)
-  const safeUrl = escapeHtml(input.verifyUrl)
+  const safeCode = escapeHtml(input.verificationCode)
   const expiryLabel = escapeHtml(formatExpiry(input.expiresAt))
-  const subject = 'Verify your email for Delve'
-  const preheader = 'Verify your email and begin exploring with Delve.'
+  const subject = 'Your Delve verification code'
+  const preheader = `Your verification code is ${input.verificationCode}. It expires soon.`
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -56,25 +56,13 @@ export function buildVerificationEmail(input: VerificationEmailInput): BuiltEmai
                 Hello ${safeName},
               </p>
               <p style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#4A453C;">
-                This address was used to create a Delve traveler account. Confirm it below to activate your account.
+                Enter this code in Delve to confirm your email address and activate your traveler account.
               </p>
-              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 22px;">
-                <tr>
-                  <td style="border-radius:4px;background:#5F2FC9;">
-                    <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;background:#5F2FC9;border-radius:4px;">
-                      Verify my email
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#4A453C;">
-                If the button does not work, open this verification link:
-              </p>
-              <p style="margin:0 0 20px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;word-break:break-all;">
-                <a href="${safeUrl}" style="color:#5F2FC9;">${safeUrl}</a>
+              <p style="margin:0 0 22px;font-family:Arial,Helvetica,sans-serif;font-size:36px;font-weight:700;letter-spacing:0.35em;color:#5F2FC9;text-align:center;">
+                ${safeCode}
               </p>
               <p style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#4A453C;">
-                This link expires on <strong style="color:#1A1814;">${expiryLabel}</strong> and can be used once.
+                This code expires on <strong style="color:#1A1814;">${expiryLabel}</strong> and can be used once.
               </p>
               <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#4A453C;border-top:1px solid #E4DDD2;padding-top:16px;">
                 If you did not create a Delve account, you can ignore this email. Your address will not be verified.
@@ -102,12 +90,11 @@ export function buildVerificationEmail(input: VerificationEmailInput): BuiltEmai
     '',
     `Hello ${input.username},`,
     '',
-    'This address was used to create a Delve traveler account.',
-    'Verify your email and begin exploring with Delve.',
+    'Enter this code in Delve to verify your email address:',
     '',
-    `Verify my email: ${input.verifyUrl}`,
+    input.verificationCode,
     '',
-    `This link expires on ${formatExpiry(input.expiresAt)} and can be used once.`,
+    `This code expires on ${formatExpiry(input.expiresAt)} and can be used once.`,
     '',
     'If you did not create a Delve account, you can ignore this email.',
     '',

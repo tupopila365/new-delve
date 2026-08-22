@@ -93,8 +93,17 @@ export const resendVerificationBodySchema = z.object({
   email: z.string().trim().email().transform(normalizeEmail),
 })
 
+/** @deprecated Link-based verification — use verifyEmailBodySchema */
 export const verifyEmailQuerySchema = z.object({
   token: z.string().min(1),
+})
+
+export const verifyEmailBodySchema = z.object({
+  email: z.string().trim().email('Enter a valid email address').transform(normalizeEmail),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Enter the 6-digit code from your email'),
 })
 
 export const refreshBodySchema = z.object({
@@ -190,3 +199,4 @@ export type UsernameAvailabilityData = z.infer<typeof usernameAvailabilityDataSc
 export type VerifyEmailResult = z.infer<typeof verifyEmailResultSchema>
 export type ChangeUsernameBody = z.infer<typeof changeUsernameBodySchema>
 export type ChangeUsernameSuccess = z.infer<typeof changeUsernameSuccessSchema>
+export type VerifyEmailBody = z.infer<typeof verifyEmailBodySchema>

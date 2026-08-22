@@ -8,44 +8,58 @@ import {
   AuthTitleBlock,
   FormErrorSummary,
   InlineAlert,
+  OTPInput,
   PasswordField,
   PasswordRequirementList,
   PasswordStrength,
   PrimaryButton,
+  ResendCodeControl,
   SuccessPanel,
   SupportLink,
   TextButton,
 } from '../../components/auth'
 import type { FormErrorSummaryItem } from '../../components/auth/FormErrorSummary'
-import { evaluatePassword } from '../../data/authConfig'
+import { authConfig, evaluatePassword, maskEmail } from '../../data/authConfig'
 import {
   AuthApiError,
   inspectPasswordResetToken,
+  requestPasswordReset,
+  resetPasswordWithCode,
   resetPasswordWithToken,
 } from '../../api/authClient'
 
-type View = 'loading' | 'form' | 'success' | 'expired' | 'used' | 'invalid'
+type View = 'loading' | 'form' | 'codeForm' | 'success' | 'expired' | 'used' | 'invalid'
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const token = params.get('token') || ''
+  const emailFromQuery = params.get('email')?.trim() || ''
 
-  const [view, setView] = useState<View>(token ? 'loading' : 'invalid')
-  const [message, setMessage] = useState('Checking your reset link…')
+  const [view, setView] = useState<View>(
+    token ? 'loading' : emailFromQuery ? 'codeForm' : 'codeForm',
+  )
+  const [email, setEmail] = useState(emailFromQuery)
+  const [code, setCode] = useState('')
+  const [message, setMessage] = useState(
+    token ? 'Checking your reset link…' : 'Enter the 6-digit code from your email, then choose a new password.',
+  )
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [touched, setTouched] = useState<{ password?: boolean; confirm?: boolean }>({})
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [networkError, setNetworkError] = useState<string | null>(null)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const [resendToken, setResendToken] = useState(0)
 
   useEffect(() => {
-    if (!token) {
-      setView('invalid')
-      setMessage('This password reset link is invalid.')
-      return
-    }
+    if (emailFromQuery) setEmail(emailFromQuery)
+  }, [emailFromQuery])
+
+  useEffect(() => {
+    if (!token) return
     let cancelled = false
     void (async () => {
       try {
@@ -87,7 +101,22 @@ export default function ResetPasswordPage() {
   if (submitted && passwordError) summaryErrors.push({ fieldId: 'reset-password', message: passwordError })
   if (submitted && confirmError) summaryErrors.push({ fieldId: 'reset-confirm', message: confirmError })
 
-  async function handleSubmit() {
+  async function handleResend() {
+    if (!email.trim() || resending) return
+    setResending(true)
+    setCodeError(null)
+    try {
+      await requestPasswordReset(email.trim())
+      setResendToken(token => token + 1)
+      setCode('')
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : 'Could not resend right now.')
+    } finally {
+      setResending(false)
+    }
+  }
+
+  async function handleSubmitWithToken() {
     setSubmitted(true)
     setNetworkError(null)
     if (!password || !strength.meetsPolicy || confirm !== password) return
@@ -104,24 +133,62 @@ export default function ResetPasswordPage() {
       setMessage(data.message)
       setView('success')
     } catch (err) {
-      const code = err instanceof AuthApiError ? err.code : undefined
-      const msg = err instanceof Error ? err.message : 'We could not reset your password.'
-      if (code === 'EXPIRED') {
-        setView('expired')
-        setMessage(msg)
-      } else if (code === 'USED') {
-        setView('used')
-        setMessage(msg)
-      } else if (code === 'INVALID') {
-        setView('invalid')
-        setMessage(msg)
-      } else {
-        setNetworkError(msg)
-        setPassword('')
-        setConfirm('')
-      }
+      handleResetError(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSubmitWithCode() {
+    setSubmitted(true)
+    setNetworkError(null)
+    setCodeError(null)
+    if (!email.trim()) {
+      setCodeError('Enter the email address on your account.')
+      return
+    }
+    if (code.length < authConfig.verification.otpLength) {
+      setCodeError('Enter all six digits.')
+      return
+    }
+    if (!password || !strength.meetsPolicy || confirm !== password) return
+    if (saving) return
+    setSaving(true)
+    try {
+      const data = await resetPasswordWithCode({
+        email: email.trim(),
+        code,
+        newPassword: password,
+        newPasswordConfirmation: confirm,
+      })
+      setPassword('')
+      setConfirm('')
+      setCode('')
+      setMessage(data.message)
+      setView('success')
+    } catch (err) {
+      handleResetError(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleResetError(err: unknown) {
+    const code = err instanceof AuthApiError ? err.code : undefined
+    const msg = err instanceof Error ? err.message : 'We could not reset your password.'
+    if (code === 'EXPIRED') {
+      setCodeError(msg)
+      setView('codeForm')
+    } else if (code === 'USED') {
+      setCodeError(msg)
+      setView('codeForm')
+    } else if (code === 'INVALID') {
+      setCodeError(msg)
+      setView('codeForm')
+    } else {
+      setNetworkError(msg)
+      setPassword('')
+      setConfirm('')
     }
   }
 
@@ -151,41 +218,128 @@ export default function ResetPasswordPage() {
           <>
             <AuthTitleBlock
               icon={<KeyRound size={24} />}
-              title="Reset link expired"
-              subtitle="That verification link has expired. Request a new one to continue."
+              title="Reset code expired"
+              subtitle="That reset code has expired. Request a new one to continue."
             />
-            <InlineAlert tone="warning" title="Link expired">
+            <InlineAlert tone="warning" title="Code expired">
               {message}
             </InlineAlert>
-            <PrimaryButton onClick={goForgot}>Request a new reset link</PrimaryButton>
+            <PrimaryButton onClick={goForgot}>Request a new reset code</PrimaryButton>
             <TextButton onClick={goSignIn}>Back to sign in</TextButton>
           </>
         )}
 
         {view === 'used' && (
           <>
-            <AuthTitleBlock title="Link already used" subtitle="This reset link was already used." />
+            <AuthTitleBlock title="Code already used" subtitle="This reset code was already used." />
             <InlineAlert tone="info" title="Already used">
-              {message} If you already changed your password, sign in. Otherwise request a new reset link.
+              {message} If you already changed your password, sign in. Otherwise request a new code.
             </InlineAlert>
             <PrimaryButton onClick={goSignIn}>Sign in</PrimaryButton>
-            <TextButton onClick={goForgot}>Request a new reset link</TextButton>
+            <TextButton onClick={goForgot}>Request a new reset code</TextButton>
           </>
         )}
 
-        {view === 'invalid' && (
+        {view === 'invalid' && token && (
           <>
             <AuthTitleBlock title="Invalid reset link" subtitle="This password reset link is invalid." />
             <InlineAlert tone="error" title="Invalid link">
               {message}
             </InlineAlert>
-            <PrimaryButton onClick={goForgot}>Request a new reset link</PrimaryButton>
+            <PrimaryButton onClick={goForgot}>Request a new reset code</PrimaryButton>
             <SupportLink />
           </>
         )}
 
+        {view === 'codeForm' && (
+          <AuthForm onSubmit={() => void handleSubmitWithCode()} busy={saving}>
+            <AuthTitleBlock
+              icon={<KeyRound size={24} />}
+              title="Reset your password"
+              subtitle={
+                email.trim()
+                  ? `Enter the code we sent to ${maskEmail(email)}, then choose a new password.`
+                  : 'Enter your email, the 6-digit code, and a new password.'
+              }
+            />
+            <div role="status" aria-live="polite" className="sr-only">
+              {networkError || codeError || ''}
+            </div>
+            {networkError && (
+              <InlineAlert tone="error" title="We couldn’t update your password">
+                {networkError}
+              </InlineAlert>
+            )}
+            {summaryErrors.length > 0 && <FormErrorSummary errors={summaryErrors} />}
+            <div className="flex flex-col gap-4">
+              {!emailFromQuery && (
+                <>
+                  <label className="text-sm font-semibold" htmlFor="reset-email">
+                    Email
+                  </label>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    className="min-h-[48px] rounded-xl px-3 text-base"
+                    style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    disabled={saving}
+                  />
+                </>
+              )}
+              <OTPInput
+                value={code}
+                onChange={setCode}
+                label="Reset code"
+                error={codeError || undefined}
+                disabled={saving}
+                autoFocus
+              />
+              <PasswordField
+                id="reset-password"
+                label="New password"
+                name="new-password"
+                autoComplete="new-password"
+                value={password}
+                onChange={setPassword}
+                onBlur={() => setTouched(t => ({ ...t, password: true }))}
+                error={passwordError}
+                disabled={saving}
+              />
+              <PasswordStrength value={password} />
+              <PasswordRequirementList value={password} />
+              <PasswordField
+                id="reset-confirm"
+                label="Confirm password"
+                name="new-password-confirm"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={setConfirm}
+                onBlur={() => setTouched(t => ({ ...t, confirm: true }))}
+                error={confirmError}
+                disabled={saving}
+              />
+              <PrimaryButton type="submit" loading={saving} loadingLabel="Updating password…">
+                Update password
+              </PrimaryButton>
+              <ResendCodeControl
+                onResend={() => void handleResend()}
+                sending={resending}
+                resetToken={resendToken}
+                startImmediately={Boolean(emailFromQuery)}
+                label="Send a new code"
+                disabled={!email.trim()}
+              />
+              <SupportLink />
+            </div>
+          </AuthForm>
+        )}
+
         {view === 'form' && (
-          <AuthForm onSubmit={() => void handleSubmit()} busy={saving}>
+          <AuthForm onSubmit={() => void handleSubmitWithToken()} busy={saving}>
             <AuthTitleBlock
               icon={<KeyRound size={24} />}
               title="Choose a new password"

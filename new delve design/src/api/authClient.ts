@@ -201,6 +201,33 @@ export async function resendVerificationEmail(email: string) {
   return parseJson<{ message: string }>(res)
 }
 
+export async function verifyEmailCode(email: string, code: string) {
+  const res = await fetch(`${apiBase()}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim(), code: code.replace(/\D/g, '') }),
+  })
+  try {
+    return await parseJson<{ result: VerifyEmailResult; message: string }>(res)
+  } catch (err) {
+    if (err instanceof AuthApiError && err.code) {
+      const normalized = err.code.toLowerCase() as VerifyEmailResult
+      if (
+        normalized === 'success' ||
+        normalized === 'already_verified' ||
+        normalized === 'expired' ||
+        normalized === 'used' ||
+        normalized === 'invalid' ||
+        normalized === 'account_disabled'
+      ) {
+        return { result: normalized, message: err.message }
+      }
+    }
+    throw err
+  }
+}
+
+/** @deprecated Link-based verification — use verifyEmailCode */
 export async function verifyEmailToken(token: string) {
   const res = await fetch(`${apiBase()}/auth/verify-email?token=${encodeURIComponent(token)}`)
   try {
@@ -470,6 +497,35 @@ export async function resetPasswordWithToken(input: {
     body: JSON.stringify(input),
   })
   return parseJson<{ result: 'success' | 'expired' | 'used' | 'invalid'; message: string }>(res)
+}
+
+export async function resetPasswordWithCode(input: {
+  email: string
+  code: string
+  newPassword: string
+  newPasswordConfirmation: string
+}) {
+  const res = await fetch(`${apiBase()}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: input.email.trim(),
+      code: input.code.replace(/\D/g, ''),
+      newPassword: input.newPassword,
+      newPasswordConfirmation: input.newPasswordConfirmation,
+    }),
+  })
+  try {
+    return await parseJson<{ result: 'success' | 'expired' | 'used' | 'invalid'; message: string }>(res)
+  } catch (err) {
+    if (err instanceof AuthApiError && err.code) {
+      const normalized = err.code.toLowerCase()
+      if (normalized === 'expired' || normalized === 'used' || normalized === 'invalid') {
+        throw new AuthApiError(err.message, { code: normalized.toUpperCase(), status: err.status })
+      }
+    }
+    throw err
+  }
 }
 
 export async function fetchPreferences() {

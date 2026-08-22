@@ -4,6 +4,13 @@ import type { TravelImageKey } from './TravelImagePanel'
 
 export type AuthShellLayout = 'auto' | 'split' | 'stacked'
 
+/** One logo per auth page: hero panel on desktop, header on mobile (auto layout). */
+export function authHeaderLogoPlacement(layout: AuthShellLayout): 'always' | 'mobile-only' | 'never' {
+  if (layout === 'stacked') return 'always'
+  if (layout === 'split') return 'never'
+  return 'mobile-only'
+}
+
 export interface AuthShellProps {
   children: ReactNode
   /** 'auto' follows viewport breakpoints; the fixed values let the design board
@@ -12,6 +19,8 @@ export interface AuthShellProps {
   image?: TravelImageKey
   imageSide?: 'left' | 'right'
   showImagePanel?: boolean
+  /** When false, the travel panel shows only the mark (no DELVE wordmark). */
+  logoShowWordmark?: boolean
   panelHeadline?: string
   panelSupporting?: string
   /** Rendered above the form column, typically an AuthHeader. */
@@ -30,6 +39,7 @@ export default function AuthShell({
   image = 'dunes',
   imageSide = 'left',
   showImagePanel = true,
+  logoShowWordmark = true,
   panelHeadline,
   panelSupporting,
   header,
@@ -44,7 +54,12 @@ export default function AuthShell({
 
   const panel = (
     <div className={`${panelClass} relative flex-shrink-0`} style={{ width: layout === 'split' ? '46%' : '46%' }}>
-      <TravelImagePanel image={image} headline={panelHeadline} supporting={panelSupporting} />
+      <TravelImagePanel
+        image={image}
+        headline={panelHeadline}
+        supporting={panelSupporting}
+        showWordmark={logoShowWordmark}
+      />
     </div>
   )
 

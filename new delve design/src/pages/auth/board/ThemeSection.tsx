@@ -77,7 +77,7 @@ export default function ThemeSection({ theme }: ThemeSectionProps) {
           <PreviewCard title="Recovery · 390" caption="Neutral confirmation" padded={false}>
             <div style={{ padding: 16 }}>
               <DeviceFrame width={390} height={844} device="mobile" theme={theme} label="Check inbox">
-                <ForgotPasswordFlow layout="stacked" step="checkInbox" staticPreview />
+                <ForgotPasswordFlow layout="stacked" step="enterCode" staticPreview />
               </DeviceFrame>
             </div>
           </PreviewCard>

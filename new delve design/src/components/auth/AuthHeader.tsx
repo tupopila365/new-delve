@@ -8,6 +8,13 @@ export interface AuthHeaderProps {
   onClose?: () => void
   onLogoClick?: () => void
   showLogo?: boolean
+  /** When false, only the mark image is shown (no DELVE wordmark). */
+  showWordmark?: boolean
+  /**
+   * Where to show the header logo relative to the hero panel.
+   * `mobile-only` hides it on lg+ when the split hero panel is visible.
+   */
+  logoPlacement?: 'always' | 'mobile-only' | 'never'
   /** Slot for the theme toggle or a help link. */
   trailing?: ReactNode
   /** Step progress for multi-step flows such as sign-up. */
@@ -20,6 +27,8 @@ export default function AuthHeader({
   onClose,
   onLogoClick,
   showLogo = true,
+  showWordmark = true,
+  logoPlacement = 'always',
   trailing,
   step,
 }: AuthHeaderProps) {
@@ -45,7 +54,11 @@ export default function AuthHeader({
             {backLabel}
           </button>
         )}
-        {showLogo && !onBack && <DelveLogo size="sm" onClick={onLogoClick} />}
+        {showLogo && !onBack && logoPlacement !== 'never' && (
+          <span className={logoPlacement === 'mobile-only' ? 'lg:hidden' : undefined}>
+            <DelveLogo size="sm" showWordmark={showWordmark} onClick={onLogoClick} />
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {trailing}
           {onClose && (

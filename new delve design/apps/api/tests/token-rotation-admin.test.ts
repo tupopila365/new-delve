@@ -22,6 +22,7 @@ vi.mock('@delve/database', () => ({
       updateMany: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     $transaction: vi.fn(async (ops: Promise<unknown>[]) => Promise.all(ops)),
@@ -339,7 +340,7 @@ describe('password reset security', () => {
     }
     expect(createArg.tokenHash).toMatch(/^[a-f0-9]{64}$/)
     expect(createArg.expiresAt.getTime()).toBeGreaterThan(before)
-    expect(createArg.expiresAt.getTime()).toBeLessThanOrEqual(before + 30 * 60 * 1000 + 5_000)
+    expect(createArg.expiresAt.getTime()).toBeLessThanOrEqual(before + 15 * 60 * 1000 + 5_000)
   })
 
   it('successful reset revokes all sessions and rejects reuse', async () => {
@@ -374,6 +375,32 @@ describe('password reset security', () => {
     } as never)
     const reused = await resetPassword(env, { token: raw, newPassword: 'NewPassword1!' })
     expect(reused.result).toBe('used')
+  })
+
+  it('resets password with a 6-digit code', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...activeUser,
+      email: 'a@example.com',
+      accountStatus: 'active',
+    } as never)
+    vi.mocked(prisma.passwordResetToken.findFirst).mockResolvedValue({
+      id: 'prt-code',
+      userId: 'u1',
+      tokenHash: hashToken('482913'),
+      expiresAt: new Date(Date.now() + 100_000),
+      usedAt: null,
+      user: { ...activeUser, accountStatus: 'active' },
+    } as never)
+    vi.mocked(prisma.passwordResetToken.update).mockResolvedValue({} as never)
+    vi.mocked(prisma.user.update).mockResolvedValue({} as never)
+    vi.mocked(prisma.session.updateMany).mockResolvedValue({ count: 1 })
+
+    const out = await resetPassword(
+      env,
+      { email: 'a@example.com', code: '482913', newPassword: 'NewPassword1!' },
+      '9.9.9.9',
+    )
+    expect(out.result).toBe('success')
   })
 
   it('rejects reset for disabled accounts', async () => {

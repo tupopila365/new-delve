@@ -98,7 +98,7 @@ function buildFrames(layout: AuthShellLayout): FrameEntry[] {
       id: 'forgot-inbox',
       title: 'Forgot password · Check inbox',
       caption: 'Neutral confirmation. Reset continues from the emailed link on /reset-password.',
-      node: <ForgotPasswordFlow {...shared} step="checkInbox" />,
+      node: <ForgotPasswordFlow {...shared} step="enterCode" />,
       viewports: ['desktop', 'mobile'],
     },
     {

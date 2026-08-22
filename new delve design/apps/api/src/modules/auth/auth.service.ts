@@ -20,12 +20,14 @@ import { sendVerificationEmail } from '../email/brevo.js'
 import {
   accessTtlSeconds,
   createRawToken,
+  createVerificationCode,
   hashPassword,
   hashToken,
   passwordResetExpiry,
   refreshExpiry,
   signAccessToken,
-  verificationExpiry,
+  tokensEqual,
+  verificationCodeExpiry,
   verifyPassword,
 } from './crypto.js'
 import { rateLimit } from './rate-limit.js'
@@ -115,29 +117,26 @@ async function createAndSendVerification(
     data: { usedAt: new Date() },
   })
 
-  const rawToken = createRawToken(32)
-  const expiresAt = verificationExpiry(env)
+  const rawCode = createVerificationCode()
+  const expiresAt = verificationCodeExpiry()
   const token = await prisma.emailVerificationToken.create({
     data: {
       userId: user.id,
-      tokenHash: hashToken(rawToken),
+      tokenHash: hashToken(rawCode),
       expiresAt,
       deliveryStatus: 'PENDING',
     },
   })
 
-  const base = env.TRAVELER_WEB_URL.replace(/\/$/, '')
-  const verifyUrl = `${base}/verify-email?token=${encodeURIComponent(rawToken)}`
-
-  // Development-only token URL logging — never in staging/production.
+  // Development-only code logging — never in staging/production.
   if (env.appEnv === 'development' && !env.brevoConfigured) {
-    console.warn(`[auth:dev] verify URL: ${verifyUrl}`)
+    console.warn(`[auth:dev] verification code for ${user.email}: ${rawCode}`)
   }
 
   const result = await sendVerificationEmail(env, {
     toEmail: user.email,
     username: user.username,
-    verifyUrl,
+    verificationCode: rawCode,
     expiresAt,
   })
 
@@ -159,7 +158,7 @@ async function createAndSendVerification(
 
   return {
     deliveryStatus: 'SENT',
-    message: 'Check your email for a verification link to activate your account.',
+    message: 'Check your email for a 6-digit verification code to activate your account.',
   }
 }
 
@@ -270,7 +269,7 @@ export async function resendVerification(env: Env, emailRaw: string, ip: string)
     })
   }
 
-  const generic = { message: 'If an unverified account exists for that email, a new link has been sent.' }
+  const generic = { message: 'If an unverified account exists for that email, a new code has been sent.' }
 
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user || user.emailVerifiedAt || user.accountStatus === 'disabled') {
@@ -289,6 +288,90 @@ export async function resendVerification(env: Env, emailRaw: string, ip: string)
   return generic
 }
 
+export async function verifyEmailCode(
+  emailRaw: string,
+  codeRaw: string,
+  ip: string,
+): Promise<{ result: VerifyEmailResult; message: string }> {
+  const email = normalizeEmail(emailRaw)
+  const code = codeRaw.replace(/\D/g, '')
+
+  if (code.length !== 6) {
+    return { result: 'invalid', message: 'Enter the 6-digit code from your email.' }
+  }
+
+  const limited = rateLimit(`verify-email:${email}:${ip}`, 5, 15 * 60 * 1000)
+  if (!limited.ok) {
+    throw new AppError(429, 'RATE_LIMITED', 'Too many verification attempts. Try again later.', {
+      retryAfterSec: limited.retryAfterSec,
+    })
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) {
+    return { result: 'invalid', message: 'That code is incorrect. Check your email and try again.' }
+  }
+
+  if (user.accountStatus === 'disabled') {
+    return { result: 'account_disabled', message: 'This account is disabled. Contact support.' }
+  }
+
+  if (user.emailVerifiedAt) {
+    return { result: 'already_verified', message: 'Your email is already verified. You can sign in.' }
+  }
+
+  const record = await prisma.emailVerificationToken.findFirst({
+    where: {
+      userId: user.id,
+      usedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { user: true },
+  })
+
+  if (!record) {
+    return { result: 'expired', message: 'That code has expired. Request a new one.' }
+  }
+
+  if (record.expiresAt.getTime() <= Date.now()) {
+    return { result: 'expired', message: 'That code has expired. Request a new one.' }
+  }
+
+  const codeHash = hashToken(code)
+  if (!tokensEqual(codeHash, record.tokenHash)) {
+    return { result: 'invalid', message: 'That code is incorrect. Check your email and try again.' }
+  }
+
+  try {
+    await prisma.$transaction(async tx => {
+      const fresh = await tx.emailVerificationToken.findUnique({ where: { id: record.id } })
+      if (!fresh || fresh.usedAt) {
+        throw new AppError(400, 'TOKEN_USED', 'This verification code has already been used.')
+      }
+      await tx.emailVerificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      })
+      await tx.user.update({
+        where: { id: record.userId },
+        data: {
+          emailVerifiedAt: new Date(),
+          accountStatus: 'active',
+        },
+      })
+    })
+  } catch (err) {
+    if (err instanceof AppError && err.code === 'TOKEN_USED') {
+      return { result: 'used', message: err.message }
+    }
+    throw err
+  }
+
+  return { result: 'success', message: 'Email verified. You can sign in.' }
+}
+
+/** @deprecated Link-based verification — use verifyEmailCode */
 export async function verifyEmailToken(rawToken: string): Promise<{ result: VerifyEmailResult; message: string }> {
   const tokenHash = hashToken(rawToken)
   const record = await prisma.emailVerificationToken.findUnique({
@@ -297,7 +380,7 @@ export async function verifyEmailToken(rawToken: string): Promise<{ result: Veri
   })
 
   if (!record) {
-    return { result: 'invalid', message: 'This verification link is invalid.' }
+    return { result: 'invalid', message: 'This verification code is invalid.' }
   }
 
   if (record.user.accountStatus === 'disabled') {
@@ -309,18 +392,18 @@ export async function verifyEmailToken(rawToken: string): Promise<{ result: Veri
   }
 
   if (record.usedAt) {
-    return { result: 'used', message: 'This verification link has already been used.' }
+    return { result: 'used', message: 'This verification code has already been used.' }
   }
 
   if (record.expiresAt.getTime() <= Date.now()) {
-    return { result: 'expired', message: 'This verification link has expired. Request a new one.' }
+    return { result: 'expired', message: 'This verification code has expired. Request a new one.' }
   }
 
   try {
     await prisma.$transaction(async tx => {
       const fresh = await tx.emailVerificationToken.findUnique({ where: { id: record.id } })
       if (!fresh || fresh.usedAt) {
-        throw new AppError(400, 'TOKEN_USED', 'This verification link has already been used.')
+        throw new AppError(400, 'TOKEN_USED', 'This verification code has already been used.')
       }
       await tx.emailVerificationToken.update({
         where: { id: record.id },
@@ -586,7 +669,7 @@ export async function getUsernameChangeStatus(userId: string) {
 }
 
 const GENERIC_RESET_MESSAGE =
-  'If an account exists for that email, a password reset link has been sent.'
+  'If an account exists for that email, a password reset code has been sent.'
 
 export async function requestPasswordReset(env: Env, emailRaw: string, ip: string) {
   const email = normalizeEmail(emailRaw)
@@ -607,19 +690,18 @@ export async function requestPasswordReset(env: Env, emailRaw: string, ip: strin
     data: { usedAt: new Date() },
   })
 
-  const raw = createRawToken(32)
-  const expiresAt = passwordResetExpiry()
+  const rawCode = createVerificationCode()
+  const expiresAt = verificationCodeExpiry()
   await prisma.passwordResetToken.create({
     data: {
       userId: user.id,
-      tokenHash: hashToken(raw),
+      tokenHash: hashToken(rawCode),
       expiresAt,
     },
   })
 
-  const resetUrl = `${env.TRAVELER_WEB_URL.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(raw)}`
   const { buildPasswordResetEmail } = await import('../email/templates/account.js')
-  const built = buildPasswordResetEmail({ username: user.username, resetUrl, expiresAt })
+  const built = buildPasswordResetEmail({ username: user.username, resetCode: rawCode, expiresAt })
   const { createBrevoEmailProvider } = await import('../email/brevo.js')
   const sent = await createBrevoEmailProvider(env).sendTransactionalEmail({
     toEmail: user.email,
@@ -629,7 +711,7 @@ export async function requestPasswordReset(env: Env, emailRaw: string, ip: strin
   })
 
   if (env.appEnv === 'development' && !env.brevoConfigured) {
-    console.warn(`[auth:dev] password-reset URL: ${resetUrl}`)
+    console.warn(`[auth:dev] password-reset code for ${user.email}: ${rawCode}`)
   }
 
   if (!sent.ok && env.brevoConfigured) {
@@ -639,29 +721,65 @@ export async function requestPasswordReset(env: Env, emailRaw: string, ip: strin
   return generic
 }
 
-export async function resetPassword(
-  env: Env,
-  body: { token: string; newPassword: string },
-): Promise<{ result: 'success' | 'expired' | 'used' | 'invalid'; message: string }> {
-  const record = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash: hashToken(body.token) },
+type ResetPasswordInput =
+  | { token: string; newPassword: string; email?: never; code?: never }
+  | { email: string; code: string; newPassword: string; token?: never }
+
+async function resolvePasswordResetRecord(input: ResetPasswordInput) {
+  if ('token' in input && input.token) {
+    return prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashToken(input.token) },
+      include: { user: true },
+    })
+  }
+
+  const email = normalizeEmail(input.email!)
+  const code = input.code!.replace(/\D/g, '')
+  const user = await prisma.user.findUnique({ where: { email } })
+  if (!user) return null
+
+  const record = await prisma.passwordResetToken.findFirst({
+    where: { userId: user.id, usedAt: null },
+    orderBy: { createdAt: 'desc' },
     include: { user: true },
   })
+  if (!record) return null
+  if (!tokensEqual(hashToken(code), record.tokenHash)) return null
+  return record
+}
+
+export async function resetPassword(
+  env: Env,
+  body: ResetPasswordInput,
+  ip = 'unknown',
+): Promise<{ result: 'success' | 'expired' | 'used' | 'invalid'; message: string }> {
+  void env
+
+  if ('email' in body && body.email) {
+    const limited = rateLimit(`reset-verify:${body.email}:${ip}`, 5, 15 * 60 * 1000)
+    if (!limited.ok) {
+      throw new AppError(429, 'RATE_LIMITED', 'Too many reset attempts. Try again later.', {
+        retryAfterSec: limited.retryAfterSec,
+      })
+    }
+  }
+
+  const record = await resolvePasswordResetRecord(body)
 
   if (!record) {
-    return { result: 'invalid', message: 'This password reset link is invalid.' }
+    return { result: 'invalid', message: 'That reset code is incorrect. Check your email and try again.' }
   }
   if (record.usedAt) {
-    return { result: 'used', message: 'This password reset link has already been used.' }
+    return { result: 'used', message: 'This reset code has already been used.' }
   }
   if (record.expiresAt.getTime() <= Date.now()) {
-    return { result: 'expired', message: 'This password reset link has expired. Request a new one.' }
+    return { result: 'expired', message: 'This reset code has expired. Request a new one.' }
   }
   if (
     record.user.accountStatus === 'disabled' ||
     record.user.accountStatus === 'deactivated'
   ) {
-    return { result: 'invalid', message: 'This password reset link is invalid.' }
+    return { result: 'invalid', message: 'That reset code is incorrect. Check your email and try again.' }
   }
 
   const passwordHash = await hashPassword(body.newPassword)
@@ -682,6 +800,7 @@ export async function resetPassword(
   }
 }
 
+/** @deprecated Link-based reset — codes are entered in-app with email. */
 export async function inspectPasswordResetToken(
   token: string,
 ): Promise<{ result: 'valid' | 'expired' | 'used' | 'invalid'; message: string }> {

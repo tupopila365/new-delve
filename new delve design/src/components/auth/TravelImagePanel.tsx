@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { MapPin, Quote } from 'lucide-react'
 import DelveLogo from './DelveLogo'
 import heroDunes from '../../assets/auth/auth-hero-dunes.jpg'
-import heroCoast from '../../assets/auth/auth-hero-coast.jpg'
+import heroCoast from '../../assets/auth/auth-hero-coast.png'
 
 export type TravelImageKey = 'dunes' | 'coast'
 
@@ -26,6 +26,7 @@ export interface TravelImagePanelProps {
   headline?: string
   supporting?: string
   showLogo?: boolean
+  showWordmark?: boolean
   showCaption?: boolean
   children?: ReactNode
   minHeight?: number | string
@@ -38,6 +39,7 @@ export default function TravelImagePanel({
   headline = 'Every good trip starts with a first step.',
   supporting = 'Delve connects travelers with the deals, rides, stays and people that make a journey worth telling.',
   showLogo = true,
+  showWordmark = true,
   showCaption = true,
   children,
   minHeight = '100%',
@@ -74,7 +76,7 @@ export default function TravelImagePanel({
 
       <div className="relative h-full flex flex-col justify-between p-8 xl:p-10" style={{ color: '#FFFAF2' }}>
         <div className="flex items-center justify-between gap-4">
-          {showLogo && <DelveLogo tone="onImage" size="md" />}
+          {showLogo && <DelveLogo tone="onImage" size="md" showWordmark={showWordmark} />}
           {showCaption && (
             <span
               className="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5"

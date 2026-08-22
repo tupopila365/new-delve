@@ -9,6 +9,7 @@ import {
   resetPasswordBodySchema,
   usernameAvailabilityQuerySchema,
   verifyEmailQuerySchema,
+  verifyEmailBodySchema,
 } from '@delve/contracts'
 import type { Env } from '../../config/env.js'
 import { AppError } from '../../middleware/error-handler.js'
@@ -26,6 +27,7 @@ import {
   requestPasswordReset,
   resendVerification,
   resetPassword,
+  verifyEmailCode,
   verifyEmailToken,
 } from './auth.service.js'
 
@@ -84,14 +86,30 @@ export function createAuthController(env: Env) {
 
     async verifyEmail(req: Request, res: Response, next: NextFunction) {
       try {
-        const query = parseOrThrow(verifyEmailQuerySchema, req.query)
-        const data = await verifyEmailToken(query.token)
-        const wantsHtml = (req.headers.accept || '').includes('text/html')
-        if (wantsHtml) {
-          const dest = `${env.TRAVELER_WEB_URL.replace(/\/$/, '')}/verify-email?result=${encodeURIComponent(data.result)}`
-          res.redirect(302, dest)
+        if (req.method === 'GET') {
+          const query = parseOrThrow(verifyEmailQuerySchema, req.query)
+          const data = await verifyEmailToken(query.token)
+          const wantsHtml = (req.headers.accept || '').includes('text/html')
+          if (wantsHtml) {
+            const dest = `${env.TRAVELER_WEB_URL.replace(/\/$/, '')}/verify-email?result=${encodeURIComponent(data.result)}`
+            res.redirect(302, dest)
+            return
+          }
+          const httpStatus =
+            data.result === 'success' || data.result === 'already_verified'
+              ? 200
+              : data.result === 'account_disabled'
+                ? 403
+                : 400
+          if (httpStatus !== 200) {
+            throw new AppError(httpStatus, data.result.toUpperCase(), data.message)
+          }
+          ok(res, data)
           return
         }
+
+        const body = parseOrThrow(verifyEmailBodySchema, req.body)
+        const data = await verifyEmailCode(body.email, body.code, clientIp(req))
         const httpStatus =
           data.result === 'success' || data.result === 'already_verified'
             ? 200
@@ -157,7 +175,14 @@ export function createAuthController(env: Env) {
     async resetPassword(req: Request, res: Response, next: NextFunction) {
       try {
         const body = parseOrThrow(resetPasswordBodySchema, req.body)
-        const data = await resetPassword(env, { token: body.token, newPassword: body.newPassword })
+        const data =
+          'token' in body
+            ? await resetPassword(env, { token: body.token, newPassword: body.newPassword }, clientIp(req))
+            : await resetPassword(
+                env,
+                { email: body.email, code: body.code, newPassword: body.newPassword },
+                clientIp(req),
+              )
         if (data.result !== 'success') {
           throw new AppError(400, data.result.toUpperCase(), data.message)
         }
