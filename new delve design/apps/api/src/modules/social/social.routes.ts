@@ -31,6 +31,12 @@ export function createSocialRouter(env: Env) {
   router.delete('/saves', auth, (req, res, next) => void c.unsave(req, res, next))
   router.get('/saves', auth, (req, res, next) => void c.listSaves(req, res, next))
 
+  router.post('/stories', auth, (req, res, next) => void c.createStory(req, res, next))
+  router.get('/stories/rail', auth, (req, res, next) => void c.storyRail(req, res, next))
+  router.get('/stories/:userId', auth, (req, res, next) => void c.getUserStories(req, res, next))
+  router.post('/stories/:userId/view', auth, (req, res, next) => void c.viewStories(req, res, next))
+  router.delete('/stories/:slideId', auth, (req, res, next) => void c.deleteStory(req, res, next))
+
   router.post('/events', auth, (req, res, next) => void c.createEvent(req, res, next))
   router.patch('/events/:eventId', auth, (req, res, next) => void c.updateEvent(req, res, next))
   router.get('/events/:eventId', soft, (req, res, next) => void c.getEvent(req, res, next))

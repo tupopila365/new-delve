@@ -86,6 +86,7 @@ enum NotificationType {
   EVENT_ATTENDANCE
   EVENT_UPDATED
   EVENT_CANCELLED
+  STORY_FROM_FOLLOWED
 }
 
 model User {
@@ -123,6 +124,9 @@ model User {
   eventAttendances        EventAttendance[]
   notifications           Notification[]
   businessMemberships     BusinessMember[]
+  storySlides             StorySlide[]
+  storyViewsAsViewer      StoryView[]          @relation("StoryViewer")
+  storyViewsAsAuthor      StoryView[]          @relation("StoryAuthor")
 
   @@index([email])
   @@index([usernameNormalized])
@@ -314,6 +318,7 @@ enum MediaPurpose {
   avatar
   cover
   post
+  story
   review
   business_profile
   listing
@@ -372,6 +377,7 @@ model MediaAsset {
   travelerCoverFor  TravelerProfile?  @relation("TravelerCover")
   eventCoverFor     TravelerEvent?    @relation("EventCover")
   listingCoverFor   Listing?          @relation("ListingCover")
+  storySlide        StorySlide?
 
   @@index([uploadedByUserId, purpose, status])
   @@index([status])
@@ -419,6 +425,39 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followingId])
   @@index([followerId])
+}
+
+/// Ephemeral Delvers story slide (24h). See docs/delvers-stories-scope.md.
+model StorySlide {
+  id        String    @id @default(cuid())
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  mediaId   String    @unique
+  media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  caption   String    @default("")
+  location  String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  deletedAt DateTime?
+
+  @@index([authorId, expiresAt])
+  @@index([expiresAt])
+  @@index([authorId, createdAt])
+  @@index([deletedAt])
+}
+
+/// Viewer has opened an author's active story set (for unseen rings).
+model StoryView {
+  id           String   @id @default(cuid())
+  viewerId     String
+  viewer       User     @relation("StoryViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User     @relation("StoryAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  lastViewedAt DateTime @default(now())
+
+  @@unique([viewerId, authorId])
+  @@index([authorId])
+  @@index([viewerId])
 }
 
 model Post {

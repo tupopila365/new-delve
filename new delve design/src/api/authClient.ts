@@ -85,6 +85,15 @@ export function invalidateOnboardingCache() {
   onboardingCache = null
 }
 
+/** Merge fields into the cached profile (e.g. avatar after media complete). */
+export function patchOnboardingCache(partial: Partial<TravelerProfileDto>) {
+  if (!onboardingCache) return
+  onboardingCache = {
+    data: { ...onboardingCache.data, ...partial },
+    fetchedAt: Date.now(),
+  }
+}
+
 function rememberOnboarding(data: TravelerProfileDto) {
   onboardingCache = { data, fetchedAt: Date.now() }
   return data

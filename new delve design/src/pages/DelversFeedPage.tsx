@@ -13,6 +13,7 @@ import {
   unsaveItem,
 } from '../api/socialClient'
 import ExpandableCaption from '../components/mobile/ExpandableCaption'
+import DelversStoryRail from '../components/delvers/DelversStoryRail'
 import { DelversListSkeleton } from '../components/skeletons'
 import { formatUsername } from '../lib/formatUsername'
 import { AuthApiError } from '../api/authClient'
@@ -235,6 +236,8 @@ export default function DelversFeedPage({
           </button>
         </div>
       </header>
+
+      <DelversStoryRail authReady={authReady} signedIn={signedIn} />
 
       <div
         className="px-4 py-3 flex items-center gap-3"

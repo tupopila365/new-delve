@@ -186,3 +186,52 @@ export const notificationDtoSchema = z.object({
 })
 
 export type NotificationDto = z.infer<typeof notificationDtoSchema>
+
+// ─── Delvers Stories (24h ephemeral) ───────────────────────────────────────
+
+export const createStoryBodySchema = z
+  .object({
+    mediaIds: z.array(z.string().min(1)).min(1).max(5),
+    caption: z.string().trim().max(200).optional(),
+    location: z.string().trim().max(120).optional().nullable(),
+  })
+  .strict()
+
+export type CreateStoryBody = z.infer<typeof createStoryBodySchema>
+
+export const storySlideDtoSchema = z.object({
+  id: z.string(),
+  caption: z.string(),
+  location: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  media: postMediaSchema,
+})
+
+export type StorySlideDto = z.infer<typeof storySlideDtoSchema>
+
+export const storyAuthorDtoSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  isOwn: z.boolean(),
+  unseen: z.boolean(),
+  latestAt: z.string().datetime(),
+  slideCount: z.number().int().positive(),
+})
+
+export type StoryAuthorDto = z.infer<typeof storyAuthorDtoSchema>
+
+export const storyRailDtoSchema = z.object({
+  authors: z.array(storyAuthorDtoSchema),
+})
+
+export type StoryRailDto = z.infer<typeof storyRailDtoSchema>
+
+export const storyViewerDtoSchema = z.object({
+  author: postAuthorSchema,
+  slides: z.array(storySlideDtoSchema),
+})
+
+export type StoryViewerDto = z.infer<typeof storyViewerDtoSchema>

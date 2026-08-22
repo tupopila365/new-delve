@@ -7,6 +7,7 @@ export type NotificationType =
   | 'EVENT_ATTENDANCE'
   | 'EVENT_UPDATED'
   | 'EVENT_CANCELLED'
+  | 'STORY_FROM_FOLLOWED'
 
 export async function createNotification(input: {
   userId: string

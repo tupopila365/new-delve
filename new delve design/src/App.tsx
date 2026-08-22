@@ -88,6 +88,8 @@ function useTheme() {
 
 // ─── Data ─────────────────────────────────────────────────────────────────
 
+// Home highlight rings — curated / demo only. Traveler 24h stories live on Delvers
+// (API-backed). Do not wire this rail to /stories/*; admin Home stories stay separate.
 const stories = [
   { id: 's0', name: 'Your story', avatar: '', isOwn: true, place: '' },
   { id: 's1', name: 'Lena B.', avatar: 'https://images.unsplash.com/photo-1582152629442-4a864303fb96?w=80&h=80&fit=crop&auto=format', place: 'Sossusvlei', unseen: true },
@@ -475,6 +477,9 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showOnboardingResume, setShowOnboardingResume] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
+  const [settingsInitialSection, setSettingsInitialSection] = useState<
+    'profile' | 'identity' | 'security' | 'notifications' | 'sessions' | 'status'
+  >('profile')
   const [guestPrompt, setGuestPrompt] = useState<GuestAction | null>(null)
   const [postAuthNav, setPostAuthNav] = useState<string | null>(null)
   const [createPostOpen, setCreatePostOpen] = useState(false)
@@ -591,7 +596,12 @@ export default function App() {
       setAuthRoute('signIn')
       return
     }
+    if (label === 'Account') {
+      setAccountSettingsOpen(false)
+      setProfileUsername(null)
+    }
     if (label !== 'Profile') setProfileUsername(null)
+    if (label !== 'Account settings') setAccountSettingsOpen(false)
     goToNav(label)
   }
 
@@ -676,6 +686,22 @@ export default function App() {
     setProfileUsername(username?.replace(/^@/, '') || null)
     setAccountSettingsOpen(false)
     goToNav('Profile')
+  }
+
+  function openAccountHub() {
+    setAccountSettingsOpen(false)
+    setProfileUsername(null)
+    goToNav('Account')
+  }
+
+  function openAccountSettings(section: 'profile' | 'identity' | 'security' | 'notifications' | 'sessions' | 'status' = 'profile') {
+    setSettingsInitialSection(section)
+    setAccountSettingsOpen(true)
+    goToNav('Account settings')
+  }
+
+  function openEditProfile() {
+    openAccountSettings('profile')
   }
 
   function openBusiness(slug: string) {
@@ -1120,7 +1146,7 @@ export default function App() {
       if (activeNav === 'Bookings') {
         return (
           <MyBookingsPage
-            onBack={() => goToNav('Account')}
+            onBack={openAccountHub}
             highlightRef={lastBookingRef ?? undefined}
           />
         )
@@ -1132,19 +1158,14 @@ export default function App() {
             viewerUserId={getStoredUser()?.id}
             authReady={authReady}
             signedIn={signedIn}
-            onBack={() => {
-              setProfileUsername(null)
-              goToNav('Account')
-            }}
+            onBack={openAccountHub}
             onCreatePost={openCreate}
             onCreateEvent={() => setCreateEventOpen(true)}
             onOpenEvent={id => setEventDetailId(id)}
             onOpenUser={uname => openProfile(uname)}
             contentRefreshKey={socialRefreshKey}
-            onEditProfile={() => {
-              setAccountSettingsOpen(true)
-              goToNav('Account settings')
-            }}
+            onEditProfile={openEditProfile}
+            onOpenAccountSettings={() => openAccountSettings('profile')}
           />
         )
       if (activeNav === 'Messages') return <MessagesPage />
@@ -1163,6 +1184,8 @@ export default function App() {
           <AccountSettingsPage
             onSignOut={handleSignOut}
             onOpenOnboarding={() => setShowOnboarding(true)}
+            onBack={openAccountHub}
+            initialSection={settingsInitialSection}
           />
         )
       }
@@ -1194,10 +1217,8 @@ export default function App() {
             }}
             onOpenBusinessAdmin={() => goToNav('Provider')}
             onSignOut={handleSignOut}
-            onOpenSettings={() => {
-              setAccountSettingsOpen(true)
-              goToNav('Account settings')
-            }}
+            onOpenSettings={() => openAccountSettings('profile')}
+            onEditProfile={openEditProfile}
           />
         </>
       )

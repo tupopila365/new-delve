@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import {
   SUPPORTED_CURRENCIES,
   SUPPORTED_LANGUAGES,
@@ -21,6 +22,7 @@ import {
   fetchSessions,
   logoutAllDevices,
   logoutOtherDevices,
+  patchOnboardingCache,
   requestEmailChange,
   revokeSession,
   updatePreferences,
@@ -43,10 +45,19 @@ const SECTIONS: { id: Section; label: string }[] = [
 export interface AccountSettingsPageProps {
   onSignOut: () => void
   onOpenOnboarding?: () => void
+  /** Return to Account hub. */
+  onBack?: () => void
+  /** Which settings tab to open first. */
+  initialSection?: Section
 }
 
-export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: AccountSettingsPageProps) {
-  const [section, setSection] = useState<Section>('profile')
+export default function AccountSettingsPage({
+  onSignOut,
+  onOpenOnboarding,
+  onBack,
+  initialSection = 'profile',
+}: AccountSettingsPageProps) {
+  const [section, setSection] = useState<Section>(initialSection)
   const [profile, setProfile] = useState<TravelerProfileDto | null>(null)
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null)
   const [sessions, setSessions] = useState<SessionSummary[]>([])
@@ -72,6 +83,10 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
   const [confirmPassword, setConfirmPassword] = useState('')
   const [deactivatePassword, setDeactivatePassword] = useState('')
   const [deactivateConfirm, setDeactivateConfirm] = useState(false)
+
+  useEffect(() => {
+    setSection(initialSection)
+  }, [initialSection])
 
   useEffect(() => {
     void refreshAll()
@@ -120,6 +135,17 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
   return (
     <div className="pb-6 min-w-0">
       <div className="px-1 mb-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-3 inline-flex items-center gap-2 text-sm font-semibold min-h-[44px]"
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
+          >
+            <ArrowLeft size={16} />
+            Back to account
+          </button>
+        )}
         <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--fg)' }}>
           Account settings
         </h1>
@@ -185,6 +211,7 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
               placeholderName={displayName || profile?.username || 'D'}
               onReady={(_id, url) => {
                 setProfile(current => (current ? { ...current, avatarUrl: url } : current))
+                patchOnboardingCache({ avatarUrl: url })
                 setMessage('Profile photo updated')
               }}
             />

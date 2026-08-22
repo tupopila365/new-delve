@@ -2,6 +2,7 @@ import type {
   CommentDto,
   CreateEventBody,
   CreatePostBody,
+  CreateStoryBody,
   EventDto,
   FollowResult,
   NotificationDto,
@@ -9,6 +10,9 @@ import type {
   PublicTravelerProfile,
   SaveBody,
   SaveDto,
+  StoryRailDto,
+  StorySlideDto,
+  StoryViewerDto,
   UpdateEventBody,
 } from '@delve/contracts'
 import { AuthApiError, authorizedJson } from './authClient'
@@ -144,4 +148,32 @@ export async function markNotificationRead(id: string) {
 
 export async function markAllNotificationsRead() {
   return authorizedJson<{ message: string }>('/notifications/read-all', { method: 'POST' })
+}
+
+export async function createStory(body: CreateStoryBody) {
+  return authorizedJson<StorySlideDto[]>('/stories', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function fetchStoryRail() {
+  return authorizedJson<StoryRailDto>('/stories/rail')
+}
+
+export async function fetchUserStories(userId: string) {
+  return authorizedJson<StoryViewerDto>(`/stories/${encodeURIComponent(userId)}`)
+}
+
+export async function markStoriesViewed(userId: string) {
+  return authorizedJson<{ viewed: boolean; authorId: string }>(
+    `/stories/${encodeURIComponent(userId)}/view`,
+    { method: 'POST' },
+  )
+}
+
+export async function deleteStorySlide(slideId: string) {
+  return authorizedJson<{ message: string; id: string }>(`/stories/${encodeURIComponent(slideId)}`, {
+    method: 'DELETE',
+  })
 }

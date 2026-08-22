@@ -1,4 +1,4 @@
-import { useId, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import type { MediaPurpose } from '@delve/contracts'
 import { useMediaUpload } from './useMediaUpload'
 import MediaPreview from './MediaPreview'
@@ -9,6 +9,8 @@ export interface MediaUploaderProps {
   label?: string
   disabled?: boolean
   onReady?: (mediaId: string, deliveryUrl: string) => void
+  /** Fires when upload busy state changes (signing / uploading / completing). */
+  onBusyChange?: (busy: boolean) => void
   /** Existing saved URL from profile (e.g. avatarUrl). */
   currentUrl?: string | null
   /** Initials source when no photo is set. */
@@ -31,6 +33,7 @@ export default function MediaUploader({
   label = 'Upload image',
   disabled = false,
   onReady,
+  onBusyChange,
   currentUrl = null,
   placeholderName,
   profileLoading = false,
@@ -45,17 +48,21 @@ export default function MediaUploader({
   const inputId = useId()
   const showSelectedPreview = Boolean(upload.previewUrl || (upload.phase !== 'idle' && upload.asset?.delivery.url))
 
+  useEffect(() => {
+    onBusyChange?.(upload.busy)
+  }, [upload.busy, onBusyChange])
+
   const resolvedAccept =
     accept ||
     (purpose === 'avatar' || purpose === 'cover' || purpose === 'business_profile'
       ? 'image/jpeg,image/png,image/webp'
-      : purpose === 'listing' || purpose === 'post'
+      : purpose === 'listing' || purpose === 'post' || purpose === 'story'
         ? 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime'
         : 'image/*,video/*')
 
   const resolvedHint =
     hint ||
-    (purpose === 'listing' || purpose === 'post'
+    (purpose === 'listing' || purpose === 'post' || purpose === 'story'
       ? 'JPG, PNG, WebP, or MP4/WebM video'
       : 'JPG, PNG, or WebP')
 
@@ -113,7 +120,12 @@ export default function MediaUploader({
           >
             {upload.busy ? 'Uploading…' : chooseLabel}
           </button>
-          {upload.selectedFileName && (upload.previewUrl || upload.phase === 'error') && (
+          {upload.selectedFileName && upload.phase === 'error' && (
+            <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+              {upload.selectedFileName} — upload failed
+            </p>
+          )}
+          {upload.selectedFileName && upload.previewUrl && upload.phase !== 'error' && (
             <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
               {upload.selectedFileName}
             </p>

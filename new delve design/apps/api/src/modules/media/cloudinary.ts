@@ -39,6 +39,14 @@ export function purposePolicies(env: Env): Record<MediaPurpose, PurposePolicy> {
       requiresBusiness: false,
       requiresListing: false,
     },
+    story: {
+      resourceType: 'auto',
+      maxBytes: env.CLOUDINARY_MAX_VIDEO_BYTES,
+      formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'mov'],
+      mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'],
+      requiresBusiness: false,
+      requiresListing: false,
+    },
     review: {
       resourceType: 'image',
       maxBytes: 10 * 1024 * 1024,
@@ -93,6 +101,8 @@ export function chooseFolder(
     case 'review':
     case 'message':
       return `${prefix}/users/${userId}/${purpose}s`
+    case 'story':
+      return `${prefix}/users/${userId}/stories`
     case 'business_profile':
       return `${prefix}/businesses/${businessId}/profiles`
     case 'listing':

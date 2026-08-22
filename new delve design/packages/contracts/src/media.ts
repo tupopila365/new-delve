@@ -14,6 +14,7 @@ export const mediaPurposeSchema = z.enum([
   'avatar',
   'cover',
   'post',
+  'story',
   'review',
   'business_profile',
   'listing',

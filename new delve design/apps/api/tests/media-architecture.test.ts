@@ -21,7 +21,13 @@ vi.mock('@delve/database', () => ({
       update: vi.fn(),
     },
     travelerProfile: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
       updateMany: vi.fn(),
+    },
+    storySlide: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
     securityEvent: {
       create: vi.fn(),
@@ -38,6 +44,9 @@ vi.mock('@delve/database', () => ({
           update: vi.fn(),
         },
         travelerProfile: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'profile1' }),
+          create: vi.fn(),
+          update: vi.fn(),
           updateMany: vi.fn(),
         },
       }
@@ -97,6 +106,7 @@ describe('media architecture — Cloudinary signatures', () => {
 
   it('chooses server-controlled folders', () => {
     expect(chooseFolder(env, 'avatar', 'user1')).toBe('delve/users/user1/avatars')
+    expect(chooseFolder(env, 'story', 'user1')).toBe('delve/users/user1/stories')
     expect(chooseFolder(env, 'listing', 'user1', 'biz1', 'list1')).toBe(
       'delve/businesses/biz1/listings/list1',
     )
@@ -214,7 +224,12 @@ describe('media architecture — Cloudinary signatures', () => {
           update: vi.fn(),
         },
         mediaUploadIntent: { update: vi.fn() },
-        travelerProfile: { updateMany: vi.fn() },
+        travelerProfile: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'profile1' }),
+          create: vi.fn(),
+          update: vi.fn(),
+          updateMany: vi.fn(),
+        },
       }
       return fn(tx as never)
     })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   SUPPORTED_CURRENCIES,
   SUPPORTED_LANGUAGES,
@@ -15,7 +15,13 @@ import {
   SecondaryButton,
   TextButton,
 } from '../../components/auth'
-import { completeOnboarding, fetchOnboarding, getStoredUser, patchOnboarding } from '../../api/authClient'
+import {
+  completeOnboarding,
+  fetchOnboarding,
+  getStoredUser,
+  patchOnboarding,
+  patchOnboardingCache,
+} from '../../api/authClient'
 import { formatUsername } from '../../lib/formatUsername'
 import { MediaUploader } from '../../media'
 
@@ -64,6 +70,7 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [profile, setProfile] = useState<TravelerProfileDto | null>(null)
 
@@ -76,6 +83,10 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
   const [language, setLanguage] = useState(suggestLanguage())
 
   const username = profile?.username || getStoredUser()?.username || ''
+
+  const handleAvatarBusy = useCallback((busy: boolean) => {
+    setAvatarUploading(busy)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -108,7 +119,14 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
     setError(null)
     try {
       const data = await patchOnboarding(partial)
-      setProfile(data)
+      // Preserve a just-uploaded avatar if the patch response races ahead of DB link.
+      setProfile(current => {
+        if (!current?.avatarUrl) return data
+        if (data.avatarUrl) return data
+        const merged = { ...data, avatarUrl: current.avatarUrl }
+        patchOnboardingCache({ avatarUrl: current.avatarUrl })
+        return merged
+      })
       if (nextStep) setStep(nextStep)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save progress')
@@ -190,8 +208,10 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
                 profileLoading={loading}
                 currentUrl={profile?.avatarUrl}
                 placeholderName={displayName || username || 'D'}
+                onBusyChange={handleAvatarBusy}
                 onReady={(_id, url) => {
                   setProfile(current => (current ? { ...current, avatarUrl: url } : current))
+                  patchOnboardingCache({ avatarUrl: url })
                 }}
               />
             ) : (
@@ -224,9 +244,14 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
               <br />
               Confirmed from registration. Change later in Account Settings (30-day cooldown).
             </p>
+            {avatarUploading && (
+              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                Wait for your photo to finish uploading before continuing.
+              </p>
+            )}
             <PrimaryButton
               loading={saving}
-              disabled={displayName.trim().length < 2}
+              disabled={displayName.trim().length < 2 || avatarUploading}
               onClick={() =>
                 void saveStep({ displayName: displayName.trim(), step: 'identity' }, 2)
               }

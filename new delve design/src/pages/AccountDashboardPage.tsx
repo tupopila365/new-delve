@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import {
   Bookmark, Building2, Bus, Calendar, ChevronRight, Flame, Heart,
-  LogOut, MapPin, MessageCircle, Navigation, Tag,
+  LogOut, MapPin, MessageCircle, Navigation, Settings, Tag,
   TrendingDown, User,
 } from 'lucide-react'
 import UsernameSettingsPanel from './UsernameSettingsPanel'
@@ -25,7 +25,10 @@ interface AccountDashboardPageProps {
   onNavigate: (target: AccountNavTarget) => void
   onOpenBusinessAdmin?: () => void
   onSignOut?: () => void
+  /** Opens Account settings (full). */
   onOpenSettings?: () => void
+  /** Opens Account settings focused on Profile tab (photo, name, bio). */
+  onEditProfile?: () => void
   travelerName?: string
   /** False while session refresh is still in progress — do not treat as signed-out. */
   authReady?: boolean
@@ -131,6 +134,7 @@ export default function AccountDashboardPage({
   onOpenBusinessAdmin,
   onSignOut,
   onOpenSettings,
+  onEditProfile,
   travelerName = 'Amara',
   authReady = true,
   signedIn = true,
@@ -183,12 +187,24 @@ export default function AccountDashboardPage({
     !profileLoading && completionPercent !== null && completionPercent < 100
 
   function handleFinish() {
+    if (onEditProfile) {
+      onEditProfile()
+      return
+    }
     if (onOpenSettings) {
       onOpenSettings()
       return
     }
     onNavigate('Profile')
   }
+
+  const headerBtnStyle = {
+    background: 'rgba(255,255,255,0.18)',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.25)',
+    backdropFilter: 'blur(8px)',
+    cursor: 'pointer',
+  } as const
 
   return (
     <div className="pb-4">
@@ -233,31 +249,51 @@ export default function AccountDashboardPage({
           </>
         )}
 
-        <div className="relative z-[1] flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              {greetingForNow()}
-            </p>
-            <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-white mb-4 break-words [overflow-wrap:anywhere]">
-              {formatUsername(travelerName) || travelerName}
-            </h1>
+        <div className="relative z-[1]">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            Your account
+          </p>
+          <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>
+            {greetingForNow()}
+          </p>
+          <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-white mb-4 break-words [overflow-wrap:anywhere]">
+            {formatUsername(travelerName) || travelerName}
+          </h1>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate('Profile')}
+              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold active:scale-[0.98] transition-transform"
+              style={headerBtnStyle}
+              aria-label="View your profile"
+            >
+              <User size={16} />
+              View profile
+            </button>
+            {(onEditProfile || onOpenSettings) && (
+              <button
+                type="button"
+                onClick={() => (onEditProfile ? onEditProfile() : onOpenSettings?.())}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold active:scale-[0.98] transition-transform"
+                style={headerBtnStyle}
+                aria-label="Edit profile"
+              >
+                Edit profile
+              </button>
+            )}
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold active:scale-[0.98] transition-transform"
+                style={headerBtnStyle}
+                aria-label="Open account settings"
+              >
+                <Settings size={16} />
+                Settings
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => onNavigate('Profile')}
-            className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold active:scale-[0.98] transition-transform"
-            style={{
-              background: 'rgba(255,255,255,0.18)',
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.25)',
-              backdropFilter: 'blur(8px)',
-              cursor: 'pointer',
-            }}
-            aria-label="Open your public profile"
-          >
-            <User size={16} />
-            Profile
-          </button>
         </div>
 
         {profileLoading && (
@@ -501,7 +537,7 @@ export default function AccountDashboardPage({
           </article>
         ))}
 
-        {/* Username settings */}
+        {/* Account settings */}
         {onOpenSettings && (
           <button
             type="button"
@@ -517,12 +553,38 @@ export default function AccountDashboardPage({
               className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0"
               style={{ background: 'rgba(140,82,255,0.1)', color: 'var(--primary)' }}
             >
-              <User size={18} />
+              <Settings size={18} />
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Account settings</p>
               <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                Profile, email, password, sessions, and more
+                Email, password, sessions, and more
+              </p>
+            </div>
+            <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} />
+          </button>
+        )}
+        {(onEditProfile || onOpenSettings) && (
+          <button
+            type="button"
+            onClick={() => (onEditProfile ? onEditProfile() : onOpenSettings?.())}
+            className="w-full flex items-center gap-3 rounded-2xl px-3.5 py-3.5 text-left active:scale-[0.99] transition-transform mb-2.5"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0"
+              style={{ background: 'rgba(140,82,255,0.1)', color: 'var(--primary)' }}
+            >
+              <User size={18} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Edit profile</p>
+              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+                Photo, display name, bio, and interests
               </p>
             </div>
             <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} />
@@ -573,12 +635,12 @@ export default function AccountDashboardPage({
             className="flex h-10 w-10 items-center justify-center rounded-xl flex-shrink-0"
             style={{ background: 'rgba(140,82,255,0.1)', color: 'var(--primary)' }}
           >
-            <Bookmark size={18} />
+            <User size={18} />
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>View public profile</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>View profile</p>
             <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-              How other travelers see you on Delve
+              Cover, posts, events, and how others see you
             </p>
           </div>
           <ChevronRight size={18} style={{ color: 'var(--fg-muted)' }} />

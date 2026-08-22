@@ -5,6 +5,7 @@ import {
   createCommentBodySchema,
   createEventBodySchema,
   createPostBodySchema,
+  createStoryBodySchema,
   saveBodySchema,
   updateEventBodySchema,
 } from '@delve/contracts'
@@ -15,6 +16,7 @@ import * as followService from './follow.service.js'
 import * as postService from './post.service.js'
 import * as saveService from './save.service.js'
 import * as eventService from './event.service.js'
+import * as storyService from './story.service.js'
 import * as publicProfile from './profile-public.service.js'
 import * as notificationService from '../notifications/notification.service.js'
 
@@ -256,6 +258,48 @@ export function createSocialController(env: Env) {
     async readAllNotifications(req: AuthedRequest, res: Response, next: NextFunction) {
       try {
         ok(res, await notificationService.markAllNotificationsRead(requireUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async createStory(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(createStoryBodySchema, req.body)
+        const ip = req.ip || 'unknown'
+        ok(res, await storyService.createStorySlides(env, requireUserId(req), body, ip), 201)
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async storyRail(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await storyService.getStoryRail(env, requireUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async getUserStories(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await storyService.getStoriesForUser(env, requireUserId(req), String(req.params.userId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async viewStories(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await storyService.markStoriesViewed(requireUserId(req), String(req.params.userId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async deleteStory(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await storyService.deleteStorySlide(requireUserId(req), String(req.params.slideId)))
       } catch (err) {
         next(err)
       }

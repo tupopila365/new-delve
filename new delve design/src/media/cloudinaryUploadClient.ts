@@ -43,7 +43,7 @@ export function validateLocalFile(file: File, purpose: MediaPurpose): LocalFileV
     }
     return { ok: true }
   }
-  if (purpose === 'listing' || purpose === 'post') {
+  if (purpose === 'listing' || purpose === 'post' || purpose === 'story') {
     if (!POST_MIME.includes(file.type)) {
       return { ok: false, error: 'Use a JPEG, PNG, WebP image or MP4/WebM video.' }
     }

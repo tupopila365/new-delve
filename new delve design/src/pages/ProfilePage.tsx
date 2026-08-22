@@ -61,6 +61,8 @@ interface ProfilePageProps {
   onCreatePost?: () => void
   onCreateEvent?: () => void
   onEditProfile?: () => void
+  /** Opens full Account settings (email, password, sessions). */
+  onOpenAccountSettings?: () => void
   onOpenEvent?: (eventId: string) => void
   onOpenUser?: (username: string) => void
   /** Bump after creating a post/event so lists refetch without remounting. */
@@ -181,6 +183,7 @@ export default function ProfilePage({
   onCreatePost,
   onCreateEvent,
   onEditProfile,
+  onOpenAccountSettings,
   onOpenEvent,
   onOpenUser,
   contentRefreshKey = 0,
@@ -508,7 +511,7 @@ export default function ProfilePage({
               cursor: 'pointer',
               backdropFilter: 'blur(6px)',
             }}
-            aria-label="Back"
+            aria-label="Back to account"
           >
             <ArrowLeft size={18} />
           </button>
@@ -630,6 +633,7 @@ export default function ProfilePage({
                 <button
                   type="button"
                   onClick={onEditProfile}
+                  disabled={!onEditProfile}
                   className="min-h-[40px] rounded-xl px-4 py-2 text-sm font-semibold active:opacity-80"
                   style={{
                     border: '1px solid var(--border)',
@@ -640,6 +644,21 @@ export default function ProfilePage({
                 >
                   Edit profile
                 </button>
+                {onOpenAccountSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenAccountSettings}
+                    className="min-h-[40px] rounded-xl px-4 py-2 text-sm font-semibold active:opacity-80"
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--fg)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Account settings
+                  </button>
+                )}
                 <button
                   type="button"
                   className="flex h-10 w-10 items-center justify-center rounded-xl active:opacity-80"

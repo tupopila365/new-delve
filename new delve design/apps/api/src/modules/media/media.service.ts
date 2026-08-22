@@ -23,6 +23,78 @@ import { recordMediaMetric } from './metrics.js'
 const AVATAR_QUOTA_NOTE = 1
 const DEFAULT_USER_READY_QUOTA = 50
 
+type MediaTx = {
+  travelerProfile: {
+    findUnique: (args: { where: { userId: string } }) => Promise<{ id: string } | null>
+    create: (args: {
+      data: {
+        userId: string
+        displayName: string
+        preferredCurrency: string
+        preferredLanguage: string
+        onboardingStatus: 'NOT_STARTED'
+      }
+    }) => Promise<{ id: string }>
+    update: (args: {
+      where: { userId: string }
+      data: Record<string, unknown>
+    }) => Promise<unknown>
+  }
+}
+
+/** Ensure a TravelerProfile row exists, then attach avatar/cover delivery URLs. */
+async function ensureProfileAndLinkMedia(
+  tx: MediaTx,
+  env: Env,
+  userId: string,
+  purpose: string,
+  asset: { id: string; publicId: string; version: number | null },
+) {
+  if (purpose !== 'avatar' && purpose !== 'cover') return
+
+  const existing = await tx.travelerProfile.findUnique({ where: { userId } })
+  if (!existing) {
+    await tx.travelerProfile.create({
+      data: {
+        userId,
+        displayName: '',
+        preferredCurrency: 'USD',
+        preferredLanguage: 'en',
+        onboardingStatus: 'NOT_STARTED',
+      },
+    })
+  }
+
+  if (purpose === 'avatar') {
+    const delivery = buildDeliveryUrl({
+      cloudName: env.CLOUDINARY_CLOUD_NAME!,
+      publicId: asset.publicId,
+      version: asset.version,
+      width: 192,
+      crop: 'fill',
+      gravity: 'auto',
+    })
+    await tx.travelerProfile.update({
+      where: { userId },
+      data: { avatarMediaId: asset.id, avatarUrl: delivery, avatarKey: null },
+    })
+    return
+  }
+
+  const delivery = buildDeliveryUrl({
+    cloudName: env.CLOUDINARY_CLOUD_NAME!,
+    publicId: asset.publicId,
+    version: asset.version,
+    width: 1600,
+    crop: 'fill',
+    gravity: 'auto',
+  })
+  await tx.travelerProfile.update({
+    where: { userId },
+    data: { coverMediaId: asset.id, coverUrl: delivery },
+  })
+}
+
 function toDto(
   env: Env,
   row: {
@@ -259,7 +331,16 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
   }
   if (intent.status === 'COMPLETED') {
     const existing = await prisma.mediaAsset.findUnique({ where: { uploadIntentId: intent.id } })
-    if (existing) return toDto(env, existing)
+    if (existing) {
+      // Idempotent retry: re-link profile in case the first complete created media
+      // but failed to attach avatar/cover (e.g. missing TravelerProfile row).
+      if (intent.purpose === 'avatar' || intent.purpose === 'cover') {
+        await prisma.$transaction(async tx => {
+          await ensureProfileAndLinkMedia(tx, env, userId, intent.purpose, existing)
+        })
+      }
+      return toDto(env, existing)
+    }
   }
   if (intent.status !== 'PENDING') {
     throw new AppError(400, 'INTENT_USED', 'This upload intent has already been used.')
@@ -331,11 +412,35 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
 
     const byPublicId = await tx.mediaAsset.findUnique({ where: { publicId: body.publicId } })
     if (byPublicId) {
+      // Soft-delete of prior avatars can hit the same publicId on overwrite retries.
+      // Revive the row and always (re)link the traveler profile.
+      const revived =
+        byPublicId.deletedAt ||
+        byPublicId.status === 'DELETION_PENDING' ||
+        byPublicId.status === 'DELETED'
+          ? await tx.mediaAsset.update({
+              where: { id: byPublicId.id },
+              data: {
+                status,
+                deletedAt: null,
+                uploadIntentId: intent.id,
+                version: body.version ?? byPublicId.version,
+                format,
+                bytes: body.bytes,
+                width: body.width ?? byPublicId.width,
+                height: body.height ?? byPublicId.height,
+                secureUrl: body.secureUrl ?? byPublicId.secureUrl,
+                altText: body.altText || byPublicId.altText,
+              },
+            })
+          : byPublicId
+
       await tx.mediaUploadIntent.update({
         where: { id: intent.id },
         data: { status: 'COMPLETED', completedAt: new Date() },
       })
-      return byPublicId
+      await ensureProfileAndLinkMedia(tx, env, userId, intent.purpose, revived)
+      return revived
     }
 
     const created = await tx.mediaAsset.create({
@@ -365,35 +470,7 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
       data: { status: 'COMPLETED', completedAt: new Date() },
     })
 
-    if (intent.purpose === 'avatar') {
-      const delivery = buildDeliveryUrl({
-        cloudName: env.CLOUDINARY_CLOUD_NAME!,
-        publicId: created.publicId,
-        version: created.version,
-        width: 192,
-        crop: 'fill',
-        gravity: 'auto',
-      })
-      await tx.travelerProfile.updateMany({
-        where: { userId },
-        data: { avatarMediaId: created.id, avatarUrl: delivery, avatarKey: null },
-      })
-    }
-
-    if (intent.purpose === 'cover') {
-      const delivery = buildDeliveryUrl({
-        cloudName: env.CLOUDINARY_CLOUD_NAME!,
-        publicId: created.publicId,
-        version: created.version,
-        width: 1600,
-        crop: 'fill',
-        gravity: 'auto',
-      })
-      await tx.travelerProfile.updateMany({
-        where: { userId },
-        data: { coverMediaId: created.id, coverUrl: delivery },
-      })
-    }
+    await ensureProfileAndLinkMedia(tx, env, userId, intent.purpose, created)
 
     // First image for a listing becomes cover when none is set (media optional; videos never auto-cover).
     if (
@@ -526,7 +603,6 @@ export async function handleCloudinaryWebhook(env: Env, rawBody: string, timesta
 }
 
 export async function cleanupMediaRecords(env: Env) {
-  void env
   const now = new Date()
   const expiredIntents = await prisma.mediaUploadIntent.updateMany({
     where: { status: 'PENDING', expiresAt: { lt: now } },
@@ -541,5 +617,21 @@ export async function cleanupMediaRecords(env: Env) {
     },
   })
 
-  return { expiredIntents: expiredIntents.count, deletedIntentRows: oldExpired.count }
+  let expiredStorySlides = 0
+  let destroyedStoryMedia = 0
+  try {
+    const { cleanupExpiredStories } = await import('../social/story.service.js')
+    const stories = await cleanupExpiredStories(env)
+    expiredStorySlides = stories.expiredSlides
+    destroyedStoryMedia = stories.destroyedMedia
+  } catch {
+    // Story tables may be missing during rolling deploys.
+  }
+
+  return {
+    expiredIntents: expiredIntents.count,
+    deletedIntentRows: oldExpired.count,
+    expiredStorySlides,
+    destroyedStoryMedia,
+  }
 }
