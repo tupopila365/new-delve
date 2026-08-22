@@ -26,6 +26,7 @@ import SearchPage from './pages/SearchPage'
 import DealsPage from './pages/DealsPage'
 import ServicesPage, { ServicesAside } from './pages/ServicesPage'
 import JourneysPage from './pages/JourneysPage'
+import JourneyDetailPage from './pages/JourneyDetailPage'
 import CommunitiesPage from './pages/CommunitiesPage'
 import DelversFeedPage from './pages/DelversFeedPage'
 import AccountDashboardPage from './pages/AccountDashboardPage'
@@ -485,6 +486,7 @@ export default function App() {
   const [pendingCreatePost, setPendingCreatePost] = useState(false)
   const [createEventOpen, setCreateEventOpen] = useState(false)
   const [eventDetailId, setEventDetailId] = useState<string | null>(null)
+  const [journeyDetailId, setJourneyDetailId] = useState<string | null>(null)
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
   const [socialRefreshKey, setSocialRefreshKey] = useState(0)
   const [lastCreatedPost, setLastCreatedPost] = useState<PostDto | null>(null)
@@ -600,6 +602,7 @@ export default function App() {
       setProfileUsername(null)
     }
     if (label !== 'Profile') setProfileUsername(null)
+    if (label !== 'Journeys') setJourneyDetailId(null)
     if (label !== 'Account settings') setAccountSettingsOpen(false)
     goToNav(label)
   }
@@ -1121,11 +1124,44 @@ export default function App() {
         />
       )
     }
-    if (activeNav === 'Communities') return <CommunitiesPage />
-    if (activeNav === 'Journeys') return <JourneysPage />
+    if (activeNav === 'Communities') {
+      return (
+        <CommunitiesPage
+          signedIn={signedIn}
+          onSignIn={() => openAuth('signIn')}
+        />
+      )
+    }
+    if (activeNav === 'Journeys') {
+      if (journeyDetailId) {
+        return (
+          <JourneyDetailPage
+            journeyId={journeyDetailId}
+            signedIn={signedIn}
+            onBack={() => setJourneyDetailId(null)}
+            onSignIn={() => openAuth('signIn')}
+            onOpenProfile={uname => openProfile(uname)}
+          />
+        )
+      }
+      return (
+        <JourneysPage
+          signedIn={signedIn}
+          onSignIn={() => openAuth('signIn')}
+          onOpenJourney={id => setJourneyDetailId(id)}
+        />
+      )
+    }
     if (activeNav === 'Services') return <ServicesPage {...servicesBrowseProps} />
     if (activeNav === 'Search' || activeNav === 'Explore')
-      return <SearchPage onNavigate={setActiveNav} onOpenProfile={uname => openProfile(uname)} />
+      return <SearchPage
+        onNavigate={setActiveNav}
+        onOpenProfile={uname => openProfile(uname)}
+        onOpenJourney={id => {
+          setActiveNav('Journeys')
+          setJourneyDetailId(id)
+        }}
+      />
     if (activeNav === 'Deals')
       return (
         <DealsPage
@@ -1162,7 +1198,12 @@ export default function App() {
             onCreatePost={openCreate}
             onCreateEvent={() => setCreateEventOpen(true)}
             onOpenEvent={id => setEventDetailId(id)}
+            onOpenJourney={id => {
+              setActiveNav('Journeys')
+              setJourneyDetailId(id)
+            }}
             onOpenUser={uname => openProfile(uname)}
+            onOpenCommunities={() => setActiveNav('Communities')}
             contentRefreshKey={socialRefreshKey}
             onEditProfile={openEditProfile}
             onOpenAccountSettings={() => openAccountSettings('profile')}
@@ -1173,12 +1214,26 @@ export default function App() {
         return (
           <SavedPage
             onOpenEvent={id => setEventDetailId(id)}
+            onOpenJourney={id => {
+              setActiveNav('Journeys')
+              setJourneyDetailId(id)
+            }}
             authReady={authReady}
             signedIn={signedIn}
           />
         )
       if (activeNav === 'Notifications')
-        return <NotificationsPage authReady={authReady} signedIn={signedIn} />
+        return (
+          <NotificationsPage
+            authReady={authReady}
+            signedIn={signedIn}
+            onOpenJourney={id => {
+              setActiveNav('Journeys')
+              setJourneyDetailId(id)
+            }}
+            onOpenEvent={id => setEventDetailId(id)}
+          />
+        )
       if (accountSettingsOpen || activeNav === 'Account settings') {
         return (
           <AccountSettingsPage
@@ -1208,6 +1263,10 @@ export default function App() {
             travelerName={getStoredUser()?.username ?? 'Traveler'}
             authReady={authReady}
             signedIn={signedIn}
+            onOpenJourney={id => {
+              setActiveNav('Journeys')
+              setJourneyDetailId(id)
+            }}
             onNavigate={target => {
               if (target === 'Profile') {
                 setAccountSettingsOpen(false)

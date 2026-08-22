@@ -9,7 +9,8 @@ import UsernameSettingsPanel from './UsernameSettingsPanel'
 import { formatUsername } from '../lib/formatUsername'
 import { fetchOnboarding } from '../api/authClient'
 import { computeProfileCompletionPercent } from '../lib/profileCompletion'
-import type { TravelerProfileDto } from '@delve/contracts'
+import type { TravelerProfileDto, JourneySummary } from '@delve/contracts'
+import { listMyJourneys } from '../api/journeyClient'
 
 export type AccountNavTarget =
   | 'Profile'
@@ -29,6 +30,8 @@ interface AccountDashboardPageProps {
   onOpenSettings?: () => void
   /** Opens Account settings focused on Profile tab (photo, name, bio). */
   onEditProfile?: () => void
+  /** Opens a specific journey detail (Account hub shortcut). */
+  onOpenJourney?: (journeyId: string) => void
   travelerName?: string
   /** False while session refresh is still in progress — do not treat as signed-out. */
   authReady?: boolean
@@ -58,17 +61,6 @@ const BOOKINGS = [
   },
 ]
 
-const JOURNEYS = [
-  {
-    id: 1,
-    name: 'Morocco Golden Route',
-    cover: 'https://images.unsplash.com/photo-1539239476882-b5cc2f18d7e0?w=800&h=400&fit=crop&auto=format',
-    travelers: 4,
-    progress: 62,
-    next: 'Jardin Majorelle · Tomorrow 10:00',
-    chat: 3,
-  },
-]
 
 const ALERTS = [
   {
@@ -135,12 +127,15 @@ export default function AccountDashboardPage({
   onSignOut,
   onOpenSettings,
   onEditProfile,
+  onOpenJourney,
   travelerName = 'Amara',
   authReady = true,
   signedIn = true,
 }: AccountDashboardPageProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [coverFailed, setCoverFailed] = useState(false)
+  const [myJourneys, setMyJourneys] = useState<JourneySummary[]>([])
+  const [journeysLoading, setJourneysLoading] = useState(false)
   /** null = not resolved yet — never show a fake 0% while loading */
   const [completionPercent, setCompletionPercent] = useState<number | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
@@ -177,6 +172,28 @@ export default function AccountDashboardPage({
         if (!cancelled) setProfileLoading(false)
       }
     })()
+    return () => {
+      cancelled = true
+    }
+  }, [authReady, signedIn])
+
+  useEffect(() => {
+    if (!authReady || !signedIn) {
+      setMyJourneys([])
+      return
+    }
+    let cancelled = false
+    setJourneysLoading(true)
+    void listMyJourneys()
+      .then(rows => {
+        if (!cancelled) setMyJourneys(rows.slice(0, 2))
+      })
+      .catch(() => {
+        if (!cancelled) setMyJourneys([])
+      })
+      .finally(() => {
+        if (!cancelled) setJourneysLoading(false)
+      })
     return () => {
       cancelled = true
     }
@@ -462,80 +479,75 @@ export default function AccountDashboardPage({
           ))}
         </div>
 
-        {/* Active journeys */}
-        <SectionHeader label="Active Journeys" action="Create" onAction={() => onNavigate('Journeys')} />
-        {JOURNEYS.map(journey => (
-          <article
-            key={journey.id}
-            className="overflow-hidden rounded-2xl mb-4"
+        {/* Your journeys */}
+        <SectionHeader label="Your journeys" action="See all" onAction={() => onNavigate('Journeys')} />
+        {journeysLoading ? (
+          <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>Loading journeys…</p>
+        ) : myJourneys.length === 0 ? (
+          <div
+            className="rounded-2xl p-4 mb-4 text-center"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
           >
-            <div className="relative h-36 overflow-hidden">
-              <img src={journey.cover} alt="" className="h-full w-full object-cover" />
-              <div
-                className="absolute inset-0"
-                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }}
-              />
-              <h3 className="absolute bottom-3 left-3.5 right-3.5 font-display text-lg font-bold text-white m-0">
-                {journey.name}
-              </h3>
-              {journey.chat > 0 && (
-                <span
-                  className="absolute top-3 right-3 rounded-full px-2.5 py-1 text-xs font-bold text-white"
-                  style={{ background: 'var(--primary)' }}
-                >
-                  {journey.chat} new
-                </span>
-              )}
-            </div>
-            <div className="p-3.5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-                  {journey.travelers} travelers
-                </span>
-                <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
-                  {journey.progress}% complete
-                </span>
-              </div>
-              <div className="h-1 rounded-full mb-3 overflow-hidden" style={{ background: 'var(--border)' }}>
+            <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>No journeys yet</p>
+            <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+              Share a route you traveled to help other Delvers plan.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate('Journeys')}
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
+              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+            >
+              Create journey
+            </button>
+          </div>
+        ) : (
+          myJourneys.map(journey => (
+            <article
+              key={journey.id}
+              className="overflow-hidden rounded-2xl mb-4"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <div className="relative h-36 overflow-hidden">
+                {journey.coverUrl ? (
+                  <img src={journey.coverUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--surface-subtle)' }}>
+                    <MapPin size={28} style={{ color: 'var(--fg-muted)' }} />
+                  </div>
+                )}
                 <div
-                  className="h-full rounded-full"
-                  style={{ width: `${journey.progress}%`, background: 'var(--primary)' }}
+                  className="absolute inset-0"
+                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }}
                 />
+                <h3 className="absolute bottom-3 left-3.5 right-3.5 font-display text-lg font-bold text-white m-0">
+                  {journey.title}
+                </h3>
+                {journey.visibility !== 'PUBLIC' && (
+                  <span
+                    className="absolute top-3 right-3 rounded-full px-2.5 py-1 text-[11px] font-bold text-white"
+                    style={{ background: 'rgba(0,0,0,0.55)' }}
+                  >
+                    {journey.visibility === 'DRAFT' ? 'Draft' : 'Private'}
+                  </span>
+                )}
               </div>
-              <div
-                className="flex items-center gap-2 rounded-xl px-2.5 py-2 mb-3"
-                style={{ background: 'var(--surface-subtle)' }}
-              >
-                <MapPin size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                <span className="text-xs font-medium" style={{ color: 'var(--fg)' }}>{journey.next}</span>
-              </div>
-              <div className="flex gap-2">
+              <div className="p-3.5">
+                <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+                  {journey.startPlace} → {journey.endPlace} · {journey.stopCount} stops · {journey.durationDays} days
+                </p>
                 <button
                   type="button"
-                  onClick={() => onNavigate('Journeys')}
-                  className="flex-1 rounded-xl py-2 text-sm font-semibold text-white active:opacity-90"
+                  onClick={() => (onOpenJourney ? onOpenJourney(journey.id) : onNavigate('Journeys'))}
+                  className="w-full rounded-xl py-2 text-sm font-semibold text-white active:opacity-90"
                   style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
                 >
-                  Open Journey
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-semibold active:opacity-80"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid var(--border)',
-                    color: 'var(--fg)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <MessageCircle size={14} />
-                  Chat
+                  Open journey
                 </button>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          ))
+        )}
 
         {/* Account settings */}
         {onOpenSettings && (

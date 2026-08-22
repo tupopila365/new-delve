@@ -59,6 +59,8 @@ enum SaveTargetType {
   LISTING
   DEAL
   EVENT
+  COMMUNITY_THREAD
+  JOURNEY
 }
 
 enum EventVisibility {
@@ -87,6 +89,48 @@ enum NotificationType {
   EVENT_UPDATED
   EVENT_CANCELLED
   STORY_FROM_FOLLOWED
+  COMMUNITY_JOIN_REQUEST
+  COMMUNITY_JOIN_APPROVED
+  COMMUNITY_THREAD_REPLY
+  JOURNEY_LIKED
+  JOURNEY_COMMENTED
+}
+
+enum CommunityType {
+  DESTINATION
+  INTEREST
+  TRANSPORT
+  OFFICIAL
+}
+
+enum CommunityPrivacy {
+  PUBLIC
+  PRIVATE
+}
+
+enum CommunityMembershipStatus {
+  JOINED
+  REQUESTED
+  MODERATOR
+}
+
+enum CommunityThreadKind {
+  QUESTION
+  DISCUSSION
+}
+
+enum JourneyVisibility {
+  PUBLIC
+  PRIVATE
+  DRAFT
+}
+
+enum JourneyPartyType {
+  SOLO
+  COUPLE
+  FAMILY
+  GROUP
+  FRIENDS
 }
 
 model User {
@@ -127,6 +171,12 @@ model User {
   storySlides             StorySlide[]
   storyViewsAsViewer      StoryView[]          @relation("StoryViewer")
   storyViewsAsAuthor      StoryView[]          @relation("StoryAuthor")
+  communityMemberships    CommunityMembership[]
+  communityThreads        CommunityThread[]
+  communityAnswers        CommunityAnswer[]
+  journeys                Journey[]
+  journeyComments         JourneyComment[]
+  journeyReactions        JourneyReaction[]
 
   @@index([email])
   @@index([usernameNormalized])
@@ -705,4 +755,177 @@ model Deal {
   @@index([listingId])
   @@index([status, startDate, endDate])
   @@index([businessId, createdAt])
+}
+
+/// Destination / interest / transport community hub.
+model Community {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  name            String
+  description     String           @default("")
+  communityType   CommunityType
+  destination     String
+  topics          String[]         @default([])
+  coverUrl        String?
+  privacy         CommunityPrivacy @default(PUBLIC)
+  official        Boolean          @default(false)
+  businessManaged Boolean          @default(false)
+  memberCount     Int              @default(0)
+  lastActivityAt  DateTime         @default(now())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  memberships CommunityMembership[]
+  threads     CommunityThread[]
+
+  @@index([communityType, destination])
+  @@index([lastActivityAt])
+  @@index([deletedAt])
+}
+
+model CommunityMembership {
+  id          String                     @id @default(cuid())
+  communityId String
+  community   Community                  @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      CommunityMembershipStatus  @default(JOINED)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  @@unique([communityId, userId])
+  @@index([userId, createdAt])
+  @@index([communityId, status])
+}
+
+/// Question or discussion inside a community.
+model CommunityThread {
+  id               String              @id @default(cuid())
+  communityId      String
+  community        Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  authorId         String
+  author           User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  kind             CommunityThreadKind
+  title            String
+  body             String              @default("")
+  topic            String?
+  pinned           Boolean             @default(false)
+  official         Boolean             @default(false)
+  acceptedAnswerId String?             @unique
+  acceptedAnswer   CommunityAnswer?    @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+  answerCount      Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  deletedAt        DateTime?
+
+  answers CommunityAnswer[] @relation("ThreadAnswers")
+
+  @@index([communityId, kind, createdAt])
+  @@index([kind, createdAt])
+  @@index([authorId, createdAt])
+  @@index([deletedAt])
+}
+
+model CommunityAnswer {
+  id           String          @id @default(cuid())
+  threadId     String
+  thread       CommunityThread @relation("ThreadAnswers", fields: [threadId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body         String
+  helpfulCount Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  deletedAt    DateTime?
+
+  acceptedFor CommunityThread? @relation("AcceptedAnswer")
+
+  @@index([threadId, createdAt])
+  @@index([authorId])
+  @@index([deletedAt])
+}
+
+/// Shared traveler itinerary (Phase 1–3: list, detail, create, save).
+model Journey {
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  authorId         String
+  author           User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title            String
+  summary          String            @default("")
+  coverUrl         String?
+  startPlace       String
+  endPlace         String
+  countries        String[]          @default([])
+  durationDays     Int               @default(1)
+  transportModes   String[]          @default([])
+  historicalCost   String?
+  currency         String            @default("N$")
+  partyType        JourneyPartyType  @default(SOLO)
+  tags             String[]          @default([])
+  visibility       JourneyVisibility @default(PUBLIC)
+  takeaway         String            @default("")
+  viewCount        Int               @default(0)
+  publishedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+
+  stops     JourneyStop[]
+  comments  JourneyComment[]
+  reactions JourneyReaction[]
+
+  @@index([authorId, createdAt])
+  @@index([visibility, publishedAt])
+  @@index([deletedAt])
+}
+
+model JourneyComment {
+  id        String    @id @default(cuid())
+  journeyId String
+  journey   Journey   @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([journeyId, createdAt])
+  @@index([authorId])
+}
+
+model JourneyReaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journeyId String
+  journey   Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, journeyId])
+  @@index([journeyId])
+}
+
+model JourneyStop {
+  id                       String   @id @default(cuid())
+  journeyId                String
+  journey                  Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  sortOrder                Int
+  place                    String
+  region                   String   @default("")
+  arrivalDay               Int      @default(1)
+  durationDays             Int      @default(1)
+  notes                    String   @default("")
+  highlights               String[] @default([])
+  mediaUrls                String[] @default([])
+  transportModeToNext      String?
+  transportDurationToNext  String?
+  transportNotes           String?
+  historicalCostHint       String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([journeyId, sortOrder])
 }

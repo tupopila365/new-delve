@@ -52,6 +52,25 @@ export async function listSaves(env: Env, userId: string) {
             imageUrl: event.coverUrl,
             subtitle: event.city || event.locationName || undefined,
           }
+        } else if (row.targetType === 'COMMUNITY_THREAD') {
+          const thread = await prisma.communityThread.findFirst({
+            where: { id: row.targetId, deletedAt: null },
+            include: { community: { select: { name: true } } },
+          })
+          preview = thread
+            ? { title: thread.title, subtitle: thread.community.name, imageUrl: null }
+            : { title: 'Community thread', subtitle: 'Unavailable' }
+        } else if (row.targetType === 'JOURNEY') {
+          const journey = await prisma.journey.findFirst({
+            where: { id: row.targetId, deletedAt: null },
+          })
+          preview = journey
+            ? {
+                title: journey.title,
+                imageUrl: journey.coverUrl,
+                subtitle: `${journey.startPlace} → ${journey.endPlace}`,
+              }
+            : { title: 'Journey', subtitle: 'Unavailable' }
         } else {
           preview = { title: `${row.targetType} saved`, subtitle: 'Coming soon' }
         }
@@ -82,6 +101,20 @@ async function assertTargetExists(body: SaveBody) {
       where: { id: body.targetId, status: { in: ['PUBLISHED', 'CANCELLED', 'COMPLETED'] } },
     })
     if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+    return
+  }
+  if (body.targetType === 'COMMUNITY_THREAD') {
+    const thread = await prisma.communityThread.findFirst({
+      where: { id: body.targetId, deletedAt: null },
+    })
+    if (!thread) throw new AppError(404, 'NOT_FOUND', 'Thread not found')
+    return
+  }
+  if (body.targetType === 'JOURNEY') {
+    const journey = await prisma.journey.findFirst({
+      where: { id: body.targetId, deletedAt: null, visibility: { in: ['PUBLIC', 'PRIVATE', 'DRAFT'] } },
+    })
+    if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
     return
   }
   // LISTING / DEAL reserved for later modules — allow save record for forward compat only if we choose.

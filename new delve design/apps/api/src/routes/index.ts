@@ -9,6 +9,8 @@ import { createSocialRouter } from '../modules/social/social.routes.js'
 import { createBusinessRouter } from '../modules/business/business.routes.js'
 import { createListingRouter } from '../modules/listing/listing.routes.js'
 import { createDealRouter } from '../modules/deal/deal.routes.js'
+import { createCommunityRouter } from '../modules/community/community.routes.js'
+import { createJourneyRouter } from '../modules/journey/journey.routes.js'
 import { configureLastSeenThrottle } from '../modules/auth/session.js'
 
 export function createApiRouter(env: Env) {
@@ -22,6 +24,8 @@ export function createApiRouter(env: Env) {
   router.use(API_V2_PREFIX, createListingRouter(env))
   router.use(API_V2_PREFIX, createDealRouter(env))
   router.use(API_V2_PREFIX, createSocialRouter(env))
+  router.use(API_V2_PREFIX, createCommunityRouter(env))
+  router.use(API_V2_PREFIX, createJourneyRouter(env))
   // Admin surface: deny travelers by default (requireAuth + requireAdmin on nested routes).
   router.use(`${API_V2_PREFIX}/admin`, createAdminRouter(env))
   return router

@@ -3,7 +3,7 @@
 export type ResultType =
   | 'all' | 'deal' | 'place' | 'stay' | 'transport'
   | 'food' | 'activity' | 'event' | 'guide' | 'shop'
-  | 'journey' | 'delvers'
+  | 'journey' | 'delvers' | 'community'
 
 export type SortOption = 'recommended' | 'price-asc' | 'rating' | 'most-reviewed' | 'soonest' | 'nearest' | 'best-deal'
 

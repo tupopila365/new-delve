@@ -4,7 +4,9 @@ import {
 } from 'lucide-react'
 import {
   TRAVEL_INTEREST_LABELS,
+  type CommunityDto,
   type EventDto,
+  type JourneySummary,
   type PostDto,
   type PublicTravelerProfile,
   type TravelerProfileDto,
@@ -23,6 +25,8 @@ import {
   unlikePost,
   unsaveItem,
 } from '../api/socialClient'
+import { fetchUserCommunities } from '../api/communityClient'
+import { fetchUserJourneys } from '../api/journeyClient'
 import { formatUsername } from '../lib/formatUsername'
 import { useMediaUpload } from '../media/useMediaUpload'
 import {
@@ -65,7 +69,9 @@ interface ProfilePageProps {
   /** Opens full Account settings (email, password, sessions). */
   onOpenAccountSettings?: () => void
   onOpenEvent?: (eventId: string) => void
+  onOpenJourney?: (journeyId: string) => void
   onOpenUser?: (username: string) => void
+  onOpenCommunities?: () => void
   /** Bump after creating a post/event so lists refetch without remounting. */
   contentRefreshKey?: number
   /** False while session refresh is still in progress. */
@@ -186,7 +192,9 @@ export default function ProfilePage({
   onEditProfile,
   onOpenAccountSettings,
   onOpenEvent,
+  onOpenJourney,
   onOpenUser,
+  onOpenCommunities,
   contentRefreshKey = 0,
   authReady = true,
   signedIn = true,
@@ -195,12 +203,18 @@ export default function ProfilePage({
   const [profile, setProfile] = useState<ProfileView | null>(null)
   const [posts, setPosts] = useState<PostDto[]>([])
   const [events, setEvents] = useState<EventDto[]>([])
+  const [journeys, setJourneys] = useState<JourneySummary[]>([])
+  const [communities, setCommunities] = useState<CommunityDto[]>([])
   const [profileLoading, setProfileLoading] = useState(true)
   const [postsLoading, setPostsLoading] = useState(false)
   const [eventsLoading, setEventsLoading] = useState(false)
+  const [journeysLoading, setJourneysLoading] = useState(false)
+  const [communitiesLoading, setCommunitiesLoading] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [postsError, setPostsError] = useState<string | null>(null)
   const [eventsError, setEventsError] = useState<string | null>(null)
+  const [journeysError, setJourneysError] = useState<string | null>(null)
+  const [communitiesError, setCommunitiesError] = useState<string | null>(null)
   const [followBusy, setFollowBusy] = useState(false)
   const [avatarFailed, setAvatarFailed] = useState(false)
   const [coverFailed, setCoverFailed] = useState(false)
@@ -235,8 +249,12 @@ export default function ProfilePage({
       setProfileError(null)
       setPosts([])
       setEvents([])
+      setJourneys([])
+      setCommunities([])
       setPostsError(null)
       setEventsError(null)
+      setJourneysError(null)
+      setCommunitiesError(null)
       try {
         const data = username
           ? await fetchPublicProfile(username)
@@ -251,9 +269,13 @@ export default function ProfilePage({
         const uname = view.username
         setPostsLoading(true)
         setEventsLoading(true)
-        const [postsResult, eventsResult] = await Promise.allSettled([
+        setJourneysLoading(true)
+        setCommunitiesLoading(true)
+        const [postsResult, eventsResult, journeysResult, communitiesResult] = await Promise.allSettled([
           fetchUserPosts(uname),
           fetchUserEvents(uname),
+          fetchUserJourneys(uname),
+          fetchUserCommunities(uname),
         ])
         if (cancelled) return
         if (postsResult.status === 'fulfilled') {
@@ -278,6 +300,28 @@ export default function ProfilePage({
               : 'Could not load events',
           )
         }
+        if (journeysResult.status === 'fulfilled') {
+          setJourneys(journeysResult.value)
+          setJourneysError(null)
+        } else {
+          setJourneys([])
+          setJourneysError(
+            journeysResult.reason instanceof Error
+              ? journeysResult.reason.message
+              : 'Could not load journeys',
+          )
+        }
+        if (communitiesResult.status === 'fulfilled') {
+          setCommunities(communitiesResult.value)
+          setCommunitiesError(null)
+        } else {
+          setCommunities([])
+          setCommunitiesError(
+            communitiesResult.reason instanceof Error
+              ? communitiesResult.reason.message
+              : 'Could not load communities',
+          )
+        }
       } catch (err) {
         if (cancelled) return
         setProfile(null)
@@ -287,6 +331,8 @@ export default function ProfilePage({
           setProfileLoading(false)
           setPostsLoading(false)
           setEventsLoading(false)
+          setJourneysLoading(false)
+          setCommunitiesLoading(false)
         }
       }
     })()
@@ -320,6 +366,34 @@ export default function ProfilePage({
       setEvents([])
     } finally {
       setEventsLoading(false)
+    }
+  }
+
+  async function reloadJourneys() {
+    if (!profile) return
+    setJourneysLoading(true)
+    setJourneysError(null)
+    try {
+      setJourneys(await fetchUserJourneys(profile.username))
+    } catch (err) {
+      setJourneysError(err instanceof Error ? err.message : 'Could not load journeys')
+      setJourneys([])
+    } finally {
+      setJourneysLoading(false)
+    }
+  }
+
+  async function reloadCommunities() {
+    if (!profile) return
+    setCommunitiesLoading(true)
+    setCommunitiesError(null)
+    try {
+      setCommunities(await fetchUserCommunities(profile.username))
+    } catch (err) {
+      setCommunitiesError(err instanceof Error ? err.message : 'Could not load communities')
+      setCommunities([])
+    } finally {
+      setCommunitiesLoading(false)
     }
   }
 
@@ -939,25 +1013,93 @@ export default function ProfilePage({
       )}
 
       {activeTab === 'Journeys' && (
-        <EmptyTab
-          title="No journeys yet"
-          body={
-            isOwner
-              ? 'Your itineraries will appear here once journeys are available.'
-              : 'This traveler has not published any journeys yet.'
-          }
-        />
+        journeysLoading ? (
+          <EventsListSkeleton count={3} />
+        ) : journeysError ? (
+          <SectionRetry
+            message="We couldn't load journeys."
+            onRetry={() => void reloadJourneys()}
+          />
+        ) : journeys.length === 0 ? (
+          <EmptyTab
+            title="No journeys yet"
+            body={
+              isOwner
+                ? 'Share an itinerary from the Journeys hub to show it here.'
+                : 'This traveler has not published any journeys yet.'
+            }
+          />
+        ) : (
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
+            {journeys.map(j => (
+              <button
+                key={j.id}
+                type="button"
+                onClick={() => onOpenJourney?.(j.id)}
+                className="text-left overflow-hidden rounded-2xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: onOpenJourney ? 'pointer' : 'default', padding: 0 }}
+              >
+                {j.coverUrl && (
+                  <img src={j.coverUrl} alt="" className="w-full h-32 object-cover" />
+                )}
+                <div className="p-3.5">
+                  <p className="font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>{j.title}</p>
+                  <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                    {j.startPlace} → {j.endPlace} · {j.durationDays} days · {j.stopCount} stops
+                  </p>
+                  <p className="text-xs m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>
+                    {j.likeCount} likes · {j.commentCount} comments · {j.saveCount} saves
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       {activeTab === 'Communities' && (
-        <EmptyTab
-          title="No communities yet"
-          body={
-            isOwner
-              ? 'Communities you join will show up here.'
-              : 'This traveler has not joined any communities yet.'
-          }
-        />
+        communitiesLoading ? (
+          <EventsListSkeleton count={3} />
+        ) : communitiesError ? (
+          <SectionRetry
+            message="We couldn't load communities."
+            onRetry={() => void reloadCommunities()}
+          />
+        ) : communities.length === 0 ? (
+          <EmptyTab
+            title="No communities yet"
+            body={
+              isOwner
+                ? 'Communities you join will show up here.'
+                : 'This traveler has not joined any communities yet.'
+            }
+            actionLabel={isOwner && onOpenCommunities ? 'Explore communities' : undefined}
+            onAction={onOpenCommunities}
+          />
+        ) : (
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
+            {communities.map(c => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onOpenCommunities?.()}
+                className="text-left overflow-hidden rounded-2xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: onOpenCommunities ? 'pointer' : 'default', padding: 0 }}
+              >
+                {c.coverUrl && (
+                  <img src={c.coverUrl} alt="" className="w-full h-28 object-cover" />
+                )}
+                <div className="p-3.5">
+                  <p className="font-semibold m-0 mb-0.5" style={{ color: 'var(--fg)' }}>{c.name}</p>
+                  <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                    {c.destination} · {c.memberCount.toLocaleString()} members
+                    {c.membershipStatus === 'moderator' ? ' · Moderator' : ''}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       {activeTab === 'Reviews' && (

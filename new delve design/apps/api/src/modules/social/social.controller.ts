@@ -95,9 +95,18 @@ export function createSocialController(env: Env) {
       }
     },
 
-    async feed(req: AuthedRequest, res: Response, next: NextFunction) {
+    async feed(req: Request, res: Response, next: NextFunction) {
       try {
-        ok(res, await postService.listFeed(env, requireUserId(req)))
+        ok(res, await postService.listFeed(env, optionalUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async searchPosts(req: Request, res: Response, next: NextFunction) {
+      try {
+        const q = String(req.query.q || '')
+        ok(res, await postService.searchPosts(env, q, optionalUserId(req)))
       } catch (err) {
         next(err)
       }

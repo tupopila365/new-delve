@@ -80,11 +80,33 @@ export async function listPostsForUser(env: Env, profileUserId: string, viewerId
 }
 
 /** Public Delvers feed: all published PUBLIC posts (not limited to follows). */
-export async function listFeed(env: Env, viewerId: string) {
+export async function listFeed(env: Env, viewerId: string | null) {
   const rows = await prisma.post.findMany({
     where: { status: 'PUBLISHED', deletedAt: null, visibility: 'PUBLIC' },
     orderBy: { createdAt: 'desc' },
     take: 80,
+  })
+  return Promise.all(rows.map(r => getPostDto(env, r.id, viewerId)))
+}
+
+/** Search public Delvers posts by caption, location, or author. */
+export async function searchPosts(env: Env, q: string, viewerId: string | null) {
+  const query = q.trim()
+  if (query.length < 2) return []
+  const rows = await prisma.post.findMany({
+    where: {
+      status: 'PUBLISHED',
+      deletedAt: null,
+      visibility: 'PUBLIC',
+      OR: [
+        { caption: { contains: query, mode: 'insensitive' } },
+        { location: { contains: query, mode: 'insensitive' } },
+        { author: { usernameNormalized: { contains: query.toLowerCase() } } },
+        { author: { travelerProfile: { displayName: { contains: query, mode: 'insensitive' } } } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 40,
   })
   return Promise.all(rows.map(r => getPostDto(env, r.id, viewerId)))
 }

@@ -1,0 +1,218 @@
+import type { Request, Response, NextFunction } from 'express'
+import { z } from 'zod'
+import {
+  createCommunityAnswerBodySchema,
+  createCommunityThreadBodySchema,
+  type CommunityThreadKind,
+  type CommunityType,
+} from '@delve/contracts'
+import { AppError } from '../../middleware/error-handler.js'
+import type { AuthedRequest } from '../../middleware/require-auth.js'
+import * as communityService from './community.service.js'
+import * as threadService from './thread.service.js'
+
+function ok<T>(res: Response, data: T, status = 200) {
+  res.status(status).json({ success: true, data })
+}
+
+function parseOrThrow<T>(schema: z.ZodType<T>, value: unknown): T {
+  const parsed = schema.safeParse(value)
+  if (!parsed.success) {
+    throw new AppError(400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message || 'Invalid request')
+  }
+  return parsed.data
+}
+
+function requireUserId(req: AuthedRequest) {
+  if (!req.userId) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required')
+  return req.userId
+}
+
+function optionalUserId(req: Request) {
+  return (req as AuthedRequest).userId || null
+}
+
+const COMMUNITY_TYPES = new Set(['DESTINATION', 'INTEREST', 'TRANSPORT', 'OFFICIAL'])
+const THREAD_KINDS = new Set(['QUESTION', 'DISCUSSION'])
+
+export function createCommunityController() {
+  return {
+    async list(req: Request, res: Response, next: NextFunction) {
+      try {
+        const q = String(req.query.q || '').trim() || undefined
+        const destination = String(req.query.destination || '').trim() || undefined
+        const typeRaw = String(req.query.type || '').trim().toUpperCase()
+        const type = COMMUNITY_TYPES.has(typeRaw) ? (typeRaw as CommunityType) : undefined
+        ok(res, await communityService.listCommunities(optionalUserId(req), { q, type, destination }))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async mine(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await communityService.listMyCommunities(requireUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listThreads(req: Request, res: Response, next: NextFunction) {
+      try {
+        const q = String(req.query.q || '').trim() || undefined
+        const communityId = String(req.query.communityId || '').trim() || undefined
+        const kindRaw = String(req.query.kind || '').trim().toUpperCase()
+        const kind = THREAD_KINDS.has(kindRaw) ? (kindRaw as CommunityThreadKind) : undefined
+        ok(res, await threadService.listThreads(optionalUserId(req), { q, kind, communityId }))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listCommunityThreads(req: Request, res: Response, next: NextFunction) {
+      try {
+        const kindRaw = String(req.query.kind || '').trim().toUpperCase()
+        const kind = THREAD_KINDS.has(kindRaw) ? (kindRaw as CommunityThreadKind) : undefined
+        ok(
+          res,
+          await threadService.listThreads(optionalUserId(req), {
+            communityId: String(req.params.communityId),
+            kind,
+          }),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async createThread(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(createCommunityThreadBodySchema, req.body)
+        ok(
+          res,
+          await threadService.createThread(requireUserId(req), String(req.params.communityId), body),
+          201,
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async getThread(req: Request, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.getThread(String(req.params.threadId), optionalUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async addAnswer(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(createCommunityAnswerBodySchema, req.body)
+        ok(res, await threadService.addAnswer(requireUserId(req), String(req.params.threadId), body), 201)
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async acceptAnswer(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await threadService.acceptAnswer(
+            requireUserId(req),
+            String(req.params.threadId),
+            String(req.params.answerId),
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async markHelpful(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.markAnswerHelpful(requireUserId(req), String(req.params.answerId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async get(req: Request, res: Response, next: NextFunction) {
+      try {
+        const slugOrId = String(req.params.slugOrId || '')
+        ok(res, await communityService.getCommunity(slugOrId, optionalUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async join(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await communityService.joinCommunity(requireUserId(req), String(req.params.communityId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async leave(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await communityService.leaveCommunity(requireUserId(req), String(req.params.communityId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async userCommunities(req: Request, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await communityService.listCommunitiesForUsername(
+            String(req.params.username || ''),
+            optionalUserId(req),
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listJoinRequests(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await communityService.listJoinRequests(requireUserId(req), String(req.params.communityId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async approveJoinRequest(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await communityService.approveJoinRequest(
+            requireUserId(req),
+            String(req.params.communityId),
+            String(req.params.userId),
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async denyJoinRequest(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await communityService.denyJoinRequest(
+            requireUserId(req),
+            String(req.params.communityId),
+            String(req.params.userId),
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+  }
+}

@@ -8,6 +8,11 @@ export type NotificationType =
   | 'EVENT_UPDATED'
   | 'EVENT_CANCELLED'
   | 'STORY_FROM_FOLLOWED'
+  | 'COMMUNITY_JOIN_REQUEST'
+  | 'COMMUNITY_JOIN_APPROVED'
+  | 'COMMUNITY_THREAD_REPLY'
+  | 'JOURNEY_LIKED'
+  | 'JOURNEY_COMMENTED'
 
 export async function createNotification(input: {
   userId: string
@@ -30,4 +35,20 @@ export async function createNotification(input: {
       actorId: input.actorId,
     },
   })
+}
+
+/** Honors inApp + communityActivity preference (default allow if no prefs row). */
+export async function createCommunityActivityNotification(input: {
+  userId: string
+  type: NotificationType
+  title: string
+  body?: string
+  entityType?: string
+  entityId?: string
+  actorId?: string
+}) {
+  if (input.actorId && input.actorId === input.userId) return null
+  const prefs = await prisma.notificationPreference.findUnique({ where: { userId: input.userId } })
+  if (prefs && (!prefs.inApp || !prefs.communityActivity)) return null
+  return createNotification(input)
 }

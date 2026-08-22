@@ -4,7 +4,7 @@ import {
   Bus, Star, CheckCircle, Bookmark, Heart, TrendingUp,
   Filter, ChevronDown, SlidersHorizontal, AlertCircle, User,
 } from 'lucide-react'
-import type { PublicTravelerProfile } from '@delve/contracts'
+import type { CommunityDto, JourneySummary, PostDto, PublicTravelerProfile } from '@delve/contracts'
 import {
   autocompleteSuggestions, popularSearches, suggestedDestinations,
   recentSearches, mockSearchResults, exploreCategories, transportShortcuts,
@@ -12,8 +12,10 @@ import {
   type TransportSearchResult, type JourneySearchResult, type DelversSearchResult,
   type DealSearchResult,
 } from '../data/searchData'
-import { deals, journeys, delversPosts } from '../data/mockData'
-import { searchTravelers } from '../api/socialClient'
+import { deals } from '../data/mockData'
+import { fetchFeed, searchPosts, searchTravelers } from '../api/socialClient'
+import { listCommunities } from '../api/communityClient'
+import { listJourneys } from '../api/journeyClient'
 import { formatUsername } from '../lib/formatUsername'
 
 // ─── Config ───────────────────────────────────────────────────────────────
@@ -29,6 +31,7 @@ const resultTypeTabs: { label: string; value: ResultType }[] = [
   { label: 'Guides',     value: 'guide' },
   { label: 'Journeys',   value: 'journey' },
   { label: 'Delvers',    value: 'delvers' },
+  { label: 'Communities', value: 'community' },
 ]
 
 const groupColors: Record<string, string> = {
@@ -45,6 +48,7 @@ const typeColors: Record<string, string> = {
   event:     '#EC4899',
   journey:   '#8C52FF',
   delvers:   '#8C52FF',
+  community: '#0D9488',
   guide:     '#06B6D4',
 }
 
@@ -303,12 +307,28 @@ function LandingDeal({ deal }: { deal: (typeof deals)[0] }) {
   )
 }
 
-function LandingJourney({ journey }: { journey: (typeof journeys)[0] }) {
+function LandingJourney({
+  journey,
+  onOpen,
+}: {
+  journey: JourneySummary
+  onOpen?: () => void
+}) {
   return (
-    <div className="flex-shrink-0 overflow-hidden rounded-2xl"
-      style={{ width: 220, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex-shrink-0 overflow-hidden rounded-2xl text-left"
+      style={{ width: 220, background: 'var(--surface)', border: '1px solid var(--border)', cursor: onOpen ? 'pointer' : 'default', padding: 0 }}
+    >
       <div className="relative" style={{ height: 120 }}>
-        <img src={journey.coverImage} alt={journey.title} className="w-full h-full object-cover" />
+        {journey.coverUrl ? (
+          <img src={journey.coverUrl} alt={journey.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-subtle)' }}>
+            <MapPin size={24} style={{ color: 'var(--fg-muted)' }} />
+          </div>
+        )}
         <div className="absolute inset-0 flex flex-col justify-end p-3"
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)' }}>
           <p className="text-xs font-bold text-white leading-tight">{journey.title}</p>
@@ -316,29 +336,71 @@ function LandingJourney({ journey }: { journey: (typeof journeys)[0] }) {
       </div>
       <div className="p-3">
         <div className="flex items-center gap-2">
-          <img src={journey.creator.avatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-          <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{journey.creator.name}</span>
+          {journey.author.avatarUrl ? (
+            <img src={journey.author.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+          ) : (
+            <div className="w-5 h-5 rounded-full" style={{ background: 'var(--surface-subtle)' }} />
+          )}
+          <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+            {journey.author.displayName || journey.author.username}
+          </span>
         </div>
-        <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>{journey.stops} stops · {journey.duration}</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
+          {journey.stopCount} stops · {journey.durationDays} days
+        </p>
       </div>
-    </div>
+    </button>
   )
 }
 
-function DelversThumb({ post }: { post: (typeof delversPosts)[0] }) {
+function DelversThumb({
+  post,
+  onOpenProfile,
+}: {
+  post: PostDto
+  onOpenProfile?: (username: string) => void
+}) {
+  const media = post.media[0]
+  const isVideo = String(media?.resourceType || '').toLowerCase() === 'video'
   return (
-    <div className="flex items-center gap-3 p-3 rounded-xl"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <img src={post.image} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+    <button
+      type="button"
+      onClick={() => onOpenProfile?.(post.author.username)}
+      className="flex items-center gap-3 p-3 rounded-xl w-full text-left"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+    >
+      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-black/10">
+        {media?.url ? (
+          isVideo ? (
+            <video src={media.url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+          ) : (
+            <img src={media.url} alt="" className="w-full h-full object-cover" />
+          )
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <User size={18} style={{ color: 'var(--fg-muted)' }} />
+          </div>
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5">
-          <img src={post.creator.avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
-          <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{post.creator.name}</span>
+          {post.author.avatarUrl ? (
+            <img src={post.author.avatarUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
+          ) : (
+            <User size={12} style={{ color: 'var(--fg-muted)' }} />
+          )}
+          <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>
+            {post.author.displayName || formatUsername(post.author.username)}
+          </span>
         </div>
-        <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: 'var(--fg)' }}>{post.caption}</p>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{post.place}</p>
+        <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: 'var(--fg)' }}>
+          {post.caption || 'Delvers post'}
+        </p>
+        {post.location && (
+          <p className="text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>{post.location}</p>
+        )}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -347,9 +409,11 @@ function DelversThumb({ post }: { post: (typeof delversPosts)[0] }) {
 export default function SearchPage({
   onNavigate,
   onOpenProfile,
+  onOpenJourney,
 }: {
   onNavigate?: (destination: string) => void
   onOpenProfile?: (username: string) => void
+  onOpenJourney?: (id: string) => void
 } = {}) {
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -360,11 +424,40 @@ export default function SearchPage({
   const [showSortMenu, setShowSortMenu] = useState(false)
   const [savedResults, setSavedResults] = useState<Set<string>>(new Set())
   const [travelers, setTravelers] = useState<PublicTravelerProfile[]>([])
+  const [delverPosts, setDelverPosts] = useState<PostDto[]>([])
+  const [communityHits, setCommunityHits] = useState<CommunityDto[]>([])
+  const [journeyHits, setJourneyHits] = useState<JourneySummary[]>([])
+  const [trendingJourneys, setTrendingJourneys] = useState<JourneySummary[]>([])
+  const [featuredDelvers, setFeaturedDelvers] = useState<PostDto[]>([])
+  const [delversLoading, setDelversLoading] = useState(false)
+  const [delversError, setDelversError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const searchWrapRef = useRef<HTMLDivElement>(null)
 
   // Focus input on mount
   useEffect(() => { inputRef.current?.focus() }, [])
+
+  // Live Delvers strip on landing
+  useEffect(() => {
+    let cancelled = false
+    void fetchFeed()
+      .then(posts => {
+        if (!cancelled) setFeaturedDelvers(posts.slice(0, 6))
+      })
+      .catch(() => {
+        if (!cancelled) setFeaturedDelvers([])
+      })
+    void listJourneys()
+      .then(rows => {
+        if (!cancelled) setTrendingJourneys(rows.slice(0, 3))
+      })
+      .catch(() => {
+        if (!cancelled) setTrendingJourneys([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Close autocomplete on outside click
   useEffect(() => {
@@ -377,6 +470,31 @@ export default function SearchPage({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  async function runDelversSearch(finalQuery: string) {
+    setDelversLoading(true)
+    setDelversError(null)
+    try {
+      const [people, posts, communities, journeysLive] = await Promise.all([
+        searchTravelers(finalQuery).catch(() => [] as PublicTravelerProfile[]),
+        searchPosts(finalQuery).catch(() => [] as PostDto[]),
+        listCommunities({ q: finalQuery }).catch(() => [] as CommunityDto[]),
+        listJourneys(finalQuery).catch(() => [] as JourneySummary[]),
+      ])
+      setTravelers(people)
+      setDelverPosts(posts)
+      setCommunityHits(communities)
+      setJourneyHits(journeysLive)
+    } catch (err) {
+      setTravelers([])
+      setDelverPosts([])
+      setCommunityHits([])
+      setJourneyHits([])
+      setDelversError(err instanceof Error ? err.message : 'Could not search Delvers')
+    } finally {
+      setDelversLoading(false)
+    }
+  }
+
   function handleSubmit(q?: string) {
     const finalQuery = (q ?? query).trim()
     if (!finalQuery) return
@@ -384,9 +502,7 @@ export default function SearchPage({
     setSubmitted(true)
     setShowAutocomplete(false)
     setActiveTab('all')
-    void searchTravelers(finalQuery)
-      .then(setTravelers)
-      .catch(() => setTravelers([]))
+    void runDelversSearch(finalQuery)
   }
 
   function handleClear() {
@@ -395,6 +511,10 @@ export default function SearchPage({
     setShowAutocomplete(false)
     setActiveTab('all')
     setTravelers([])
+    setDelverPosts([])
+    setCommunityHits([])
+    setJourneyHits([])
+    setDelversError(null)
     inputRef.current?.focus()
   }
 
@@ -420,9 +540,22 @@ export default function SearchPage({
     }
   }
 
-  const filteredResults = mockSearchResults.filter(r =>
-    activeTab === 'all' || r.resultType === activeTab
-  )
+  const showLiveDelvers = activeTab === 'all' || activeTab === 'delvers'
+  const showLiveCommunities = activeTab === 'all' || activeTab === 'community'
+  const showLiveJourneys = activeTab === 'all' || activeTab === 'journey'
+  const filteredResults = mockSearchResults.filter(r => {
+    if (r.resultType === 'delvers') return false // live Delvers replace mock
+    if (r.resultType === 'journey') return false // live Journeys replace mock
+    return activeTab === 'all' || r.resultType === activeTab
+  })
+  const hasLiveDelvers = travelers.length > 0 || delverPosts.length > 0
+  const hasLiveCommunities = communityHits.length > 0
+  const hasLiveJourneys = journeyHits.length > 0
+  const hasAnyResults =
+    (showLiveDelvers && hasLiveDelvers) ||
+    (showLiveCommunities && hasLiveCommunities) ||
+    (showLiveJourneys && hasLiveJourneys) ||
+    (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && filteredResults.length > 0)
 
   // ── Search input (shared between landing and results) ──
   const searchInput = (
@@ -446,7 +579,7 @@ export default function SearchPage({
           }}
           onFocus={() => query.length > 0 && setShowAutocomplete(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search places, deals, transport, journeys…"
+          placeholder="Search Delvers, people, places, deals…"
           className="flex-1 bg-transparent text-sm outline-none"
           style={{ color: 'var(--fg)', fontFamily: 'DM Sans, sans-serif' }}
         />
@@ -543,37 +676,137 @@ export default function SearchPage({
           </div>
         </div>
 
-        {travelers.length > 0 && (
+        {showLiveDelvers && (
+          <div className="px-4 sm:px-0 pb-4 flex flex-col gap-4">
+            {delversLoading && (
+              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>Searching Delvers…</p>
+            )}
+            {delversError && (
+              <p className="text-xs m-0" style={{ color: 'var(--auth-danger, #C42A2A)' }}>{delversError}</p>
+            )}
+            {travelers.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+                  People
+                </p>
+                <div className="flex flex-col gap-2">
+                  {travelers.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => onOpenProfile?.(t.username)}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                    >
+                      <div
+                        className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'rgba(140,82,255,0.12)' }}
+                      >
+                        {t.avatarUrl ? (
+                          <img src={t.avatarUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <User size={18} style={{ color: 'var(--fg-muted)' }} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                          {t.displayName || formatUsername(t.username)}
+                        </p>
+                        <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                          {formatUsername(t.username)}
+                          {t.homeCity ? ` · ${t.homeCity}` : ''}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {delverPosts.length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+                  Posts
+                </p>
+                <div className="flex flex-col gap-2">
+                  {delverPosts.map(p => (
+                    <DelversThumb key={p.id} post={p} onOpenProfile={onOpenProfile} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {showLiveCommunities && communityHits.length > 0 && (
           <div className="px-4 sm:px-0 pb-4">
             <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
-              Travelers
+              Communities
             </p>
             <div className="flex flex-col gap-2">
-              {travelers.map(t => (
+              {communityHits.map(c => (
                 <button
-                  key={t.id}
+                  key={c.id}
                   type="button"
-                  onClick={() => onOpenProfile?.(t.username)}
+                  onClick={() => onNavigate?.('Communities')}
                   className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
                 >
-                  <div
-                    className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(140,82,255,0.12)' }}
-                  >
-                    {t.avatarUrl ? (
-                      <img src={t.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  <div className="h-12 w-12 rounded-xl overflow-hidden flex-shrink-0 bg-black/10">
+                    {c.coverUrl ? (
+                      <img src={c.coverUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <User size={18} style={{ color: 'var(--fg-muted)' }} />
+                      <div className="h-full w-full flex items-center justify-center">
+                        <User size={18} style={{ color: 'var(--fg-muted)' }} />
+                      </div>
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
-                      {t.displayName || formatUsername(t.username)}
+                      {c.name}
                     </p>
                     <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
-                      {formatUsername(t.username)}
-                      {t.homeCity ? ` · ${t.homeCity}` : ''}
+                      {c.destination} · {c.memberCount.toLocaleString()} members
+                      {c.privacy === 'PRIVATE' ? ' · Private' : ''}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showLiveJourneys && journeyHits.length > 0 && (
+          <div className="px-4 sm:px-0 pb-4">
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+              Journeys
+            </p>
+            <div className="flex flex-col gap-2">
+              {journeyHits.map(j => (
+                <button
+                  key={j.id}
+                  type="button"
+                  onClick={() => {
+                    onNavigate?.('Journeys')
+                    onOpenJourney?.(j.id)
+                  }}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  <div className="h-12 w-12 rounded-xl overflow-hidden flex-shrink-0 bg-black/10">
+                    {j.coverUrl ? (
+                      <img src={j.coverUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <MapPin size={18} style={{ color: 'var(--fg-muted)' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                      {j.title}
+                    </p>
+                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                      {j.startPlace} → {j.endPlace} · {j.durationDays}d · {j.stopCount} stops
                     </p>
                   </div>
                 </button>
@@ -583,7 +816,7 @@ export default function SearchPage({
         )}
 
         {/* No results */}
-        {filteredResults.length === 0 ? (
+        {!delversLoading && !hasAnyResults ? (
           <div className="px-4 sm:px-0 py-12 text-center">
             <AlertCircle size={32} className="mx-auto mb-3" style={{ color: 'var(--border)' }} />
             <p className="text-base font-bold mb-1" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
@@ -600,11 +833,11 @@ export default function SearchPage({
               ))}
             </div>
           </div>
-        ) : (
+        ) : activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && filteredResults.length > 0 ? (
           <div className="flex flex-col gap-3 px-4 sm:px-0">
             {filteredResults.map(r => <ResultCard key={r.id} result={r} />)}
           </div>
-        )}
+        ) : null}
 
         {/* Load more */}
         {filteredResults.length > 0 && (
@@ -747,6 +980,7 @@ export default function SearchPage({
       </div>
 
       {/* Trending journeys */}
+      {trendingJourneys.length > 0 && (
       <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="px-4 sm:px-0 flex items-center justify-between mb-3">
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Trending journeys</p>
@@ -754,9 +988,19 @@ export default function SearchPage({
             className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>See all</button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-1 scroll-rail">
-          {journeys.slice(0, 3).map(j => <LandingJourney key={j.id} journey={j} />)}
+          {trendingJourneys.map(j => (
+            <LandingJourney
+              key={j.id}
+              journey={j}
+              onOpen={() => {
+                onNavigate?.('Journeys')
+                onOpenJourney?.(j.id)
+              }}
+            />
+          ))}
         </div>
       </div>
+      )}
 
       {/* Transport shortcuts */}
       <div className="px-4 sm:px-0 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -777,11 +1021,25 @@ export default function SearchPage({
       <div className="px-4 sm:px-0 py-4">
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>From Delvers</p>
-          <button onClick={() => { setSubmitted(true); setActiveTab('delvers'); setQuery('delvers') }}
-            className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>See all</button>
+          <button
+            type="button"
+            onClick={() => onNavigate?.('Delvers')}
+            className="text-xs font-semibold"
+            style={{ color: 'var(--primary)' }}
+          >
+            See all
+          </button>
         </div>
         <div className="flex flex-col gap-3">
-          {delversPosts.slice(0, 3).map(p => <DelversThumb key={p.id} post={p} />)}
+          {featuredDelvers.length > 0 ? (
+            featuredDelvers.slice(0, 3).map(p => (
+              <DelversThumb key={p.id} post={p} onOpenProfile={onOpenProfile} />
+            ))
+          ) : (
+            <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+              Search for people or captions above to find live Delvers posts.
+            </p>
+          )}
         </div>
       </div>
 

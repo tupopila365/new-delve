@@ -27,6 +27,10 @@ export async function searchTravelers(q: string) {
   return authorizedJson<PublicTravelerProfile[]>(`/users/search?q=${encodeURIComponent(q)}`)
 }
 
+export async function searchPosts(q: string) {
+  return authorizedJson<PostDto[]>(`/posts/search?q=${encodeURIComponent(q)}`)
+}
+
 export async function followTraveler(userId: string) {
   return authorizedJson<FollowResult>(`/follows/${encodeURIComponent(userId)}`, { method: 'POST' })
 }

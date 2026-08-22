@@ -89,7 +89,7 @@ export type CommentDto = z.infer<typeof commentDtoSchema>
 
 export const saveBodySchema = z
   .object({
-    targetType: z.enum(['POST', 'LISTING', 'DEAL', 'EVENT']),
+    targetType: z.enum(['POST', 'LISTING', 'DEAL', 'EVENT', 'COMMUNITY_THREAD', 'JOURNEY']),
     targetId: z.string().min(1),
   })
   .strict()
@@ -98,7 +98,7 @@ export type SaveBody = z.infer<typeof saveBodySchema>
 
 export const saveDtoSchema = z.object({
   id: z.string(),
-  targetType: z.enum(['POST', 'LISTING', 'DEAL', 'EVENT']),
+  targetType: z.enum(['POST', 'LISTING', 'DEAL', 'EVENT', 'COMMUNITY_THREAD', 'JOURNEY']),
   targetId: z.string(),
   createdAt: z.string().datetime(),
   preview: z

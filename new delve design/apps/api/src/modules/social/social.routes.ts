@@ -19,7 +19,8 @@ export function createSocialRouter(env: Env) {
 
   router.post('/posts', auth, (req, res, next) => void c.createPost(req, res, next))
   router.get('/posts/me', auth, (req, res, next) => void c.myPosts(req, res, next))
-  router.get('/posts/feed', auth, (req, res, next) => void c.feed(req, res, next))
+  router.get('/posts/feed', soft, (req, res, next) => void c.feed(req, res, next))
+  router.get('/posts/search', soft, (req, res, next) => void c.searchPosts(req, res, next))
   router.delete('/posts/:postId', auth, (req, res, next) => void c.deletePost(req, res, next))
   router.post('/posts/:postId/reactions', auth, (req, res, next) => void c.like(req, res, next))
   router.delete('/posts/:postId/reactions', auth, (req, res, next) => void c.unlike(req, res, next))
