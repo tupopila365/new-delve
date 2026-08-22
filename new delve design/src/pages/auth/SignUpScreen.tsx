@@ -313,7 +313,7 @@ export default function SignUpScreen({
         <AuthTitleBlock
           eyebrow="Join Delve"
           title="Create your traveler account"
-          subtitle="Choose a username, add your email, and set a password. Sign in with email after you create your account."
+          subtitle="Choose a unique username, add your email, and set a password."
         />
 
         {formError && !deliveryFailed && (

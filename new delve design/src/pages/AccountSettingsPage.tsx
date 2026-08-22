@@ -79,8 +79,9 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
 
   async function refreshAll() {
     setProfileLoading(true)
+    setError(null)
     try {
-      const [p, pr, s] = await Promise.all([fetchOnboarding(), fetchPreferences(), fetchSessions()])
+      const p = await fetchOnboarding()
       setProfile(p)
       setDisplayName(p.displayName)
       setBio(p.bio || '')
@@ -89,6 +90,7 @@ export default function AccountSettingsPage({ onSignOut, onOpenOnboarding }: Acc
       setCurrency(p.preferredCurrency)
       setLanguage(p.preferredLanguage)
       setInterests(p.interests)
+      const [pr, s] = await Promise.all([fetchPreferences(), fetchSessions()])
       setPrefs(pr)
       setSessions(s)
     } catch (err) {

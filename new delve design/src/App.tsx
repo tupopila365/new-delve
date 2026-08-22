@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import { businessPath, navToPath, parseBusinessSlug, pathToNav } from './navigation'
 import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
-import { isAppwriteConfigured } from './api/appwriteClient'
 import type { PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
@@ -468,10 +467,9 @@ export default function App() {
   const [activeStory, setActiveStory] = useState<string | null>(null)
   const [authRoute, setAuthRoute] = useState<AuthRoute | null>(null)
   /** Canonical traveler auth status — no separate AuthContext. */
-  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>(() => {
-    if (isAppwriteConfigured()) return 'loading'
-    return getStoredUser() ? 'loading' : 'unauthenticated'
-  })
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>(() =>
+    getStoredUser() ? 'loading' : 'unauthenticated',
+  )
   const signedIn = authStatus === 'authenticated'
   const authReady = authStatus !== 'loading'
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -512,7 +510,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      if (!getStoredUser() && !isAppwriteConfigured()) {
+      if (!getStoredUser()) {
         setAuthStatus('unauthenticated')
         return
       }
@@ -525,15 +523,13 @@ export default function App() {
         return
       }
       setAuthStatus('authenticated')
-      // Phase 0 Appwrite: do not call Heroku onboarding — never block or force logout.
-      if (isAppwriteConfigured()) return
       try {
         const profile = await fetchOnboarding()
         if (cancelled) return
         if (profile.onboardingStatus === 'NOT_STARTED') setShowOnboarding(true)
         else if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
       } catch {
-        /* onboarding fetch may fail if API/migration not ready */
+        /* profile fetch may fail if API/migration not ready — never force logout */
       }
     })()
     return () => {
@@ -729,17 +725,15 @@ export default function App() {
     setAuthStatus('authenticated')
     setAuthRoute(null)
     void (async () => {
-      if (!isAppwriteConfigured()) {
-        try {
-          const profile = await fetchOnboarding()
-          if (profile.onboardingStatus === 'NOT_STARTED') {
-            setShowOnboarding(true)
-            return
-          }
-          if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
-        } catch {
-          /* ignore — never block sign-in on profile fetch failure */
+      try {
+        const profile = await fetchOnboarding()
+        if (profile.onboardingStatus === 'NOT_STARTED') {
+          setShowOnboarding(true)
+          return
         }
+        if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
+      } catch {
+        /* ignore — never block sign-in on profile fetch failure */
       }
       if (pendingBooking) {
         setBookingContext(pendingBooking)

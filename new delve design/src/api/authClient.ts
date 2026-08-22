@@ -1,3 +1,7 @@
+/**
+ * Traveler auth — Backend V2 (Render / local API) via VITE_API_BASE_URL.
+ * Session: access + refresh tokens in localStorage; refresh on mount and 401.
+ */
 import type {
   ChangeUsernameSuccess,
   LoginSuccessData,
@@ -5,17 +9,6 @@ import type {
   UsernameAvailabilityData,
   VerifyEmailResult,
 } from '@delve/contracts'
-import { usernameSchema } from '@delve/contracts'
-import {
-  APPWRITE_SESSION_MARKER,
-  appwriteGetCurrentUser,
-  appwriteLogin,
-  appwriteLogout,
-  appwriteRegister,
-  isAppwriteConfigured,
-  mapAppwriteError,
-  toAppwriteLoginSuccess,
-} from './appwriteClient'
 
 const ACCESS_KEY = 'delve_traveler_access'
 const REFRESH_KEY = 'delve_traveler_refresh'
@@ -108,7 +101,6 @@ let refreshInFlight: Promise<LoginSuccessData | null> | null = null
 
 function devTimeLog(label: string, startedAt: number) {
   if (!import.meta.env.DEV) return
-  // Timing only — never log tokens or response bodies.
   console.debug(`[delve-timing] ${label} ${Math.round(performance.now() - startedAt)}ms`)
 }
 
@@ -116,24 +108,12 @@ function devTimeLog(label: string, startedAt: number) {
 export async function refreshSession(): Promise<LoginSuccessData | null> {
   if (refreshInFlight) return refreshInFlight
   refreshInFlight = (async () => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY)
+    if (!refreshToken) return null
+
     const started = performance.now()
     if (import.meta.env.DEV) console.debug('[delve-timing] auth refresh start')
 
-    if (isAppwriteConfigured()) {
-      const user = await appwriteGetCurrentUser()
-      if (!user) {
-        clearSession()
-        devTimeLog('auth refresh fail', started)
-        return null
-      }
-      const data = toAppwriteLoginSuccess(user)
-      persistSession(data)
-      devTimeLog('auth refresh end', started)
-      return data
-    }
-
-    const refreshToken = localStorage.getItem(REFRESH_KEY)
-    if (!refreshToken) return null
     const res = await fetch(`${apiBase()}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -191,67 +171,21 @@ export async function registerAccount(input: {
   email: string
   password: string
   passwordConfirmation: string
-}): Promise<{
-  email: string
-  message: string
-  deliveryStatus?: 'PENDING' | 'SENT' | 'FAILED'
-  sessionCreated?: boolean
-}> {
-  if (isAppwriteConfigured()) {
-    try {
-      const result = await appwriteRegister({
-        username: input.username,
-        email: input.email,
-        password: input.password,
-      })
-      if (result.sessionCreated) {
-        persistSession(toAppwriteLoginSuccess(result.user))
-        return {
-          email: result.user.email,
-          message: 'Account created. You are signed in.',
-          deliveryStatus: 'SENT',
-          sessionCreated: true,
-        }
-      }
-      return {
-        email: result.user.email || input.email,
-        message: 'Check your email for a verification link.',
-        deliveryStatus: 'SENT',
-        sessionCreated: false,
-      }
-    } catch (err) {
-      const mapped = mapAppwriteError(err)
-      throw new AuthApiError(mapped.message, { code: mapped.code, status: mapped.status })
-    }
-  }
-
-  throw new AuthApiError(
-    'Appwrite is not configured. Set VITE_APPWRITE_ENDPOINT and VITE_APPWRITE_PROJECT_ID in .env, then restart Vite.',
-    { code: 'APPWRITE_NOT_CONFIGURED', status: 503 },
-  )
+}) {
+  const res = await fetch(`${apiBase()}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  return parseJson<{
+    email: string
+    message: string
+    deliveryStatus?: 'PENDING' | 'SENT' | 'FAILED'
+    sessionCreated?: boolean
+  }>(res)
 }
 
 export async function checkUsernameAvailable(username: string, signal?: AbortSignal) {
-  if (isAppwriteConfigured()) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-    const parsed = usernameSchema.safeParse(username)
-    if (!parsed.success) {
-      return {
-        username,
-        valid: false,
-        available: false,
-        reason: 'invalid' as const,
-      }
-    }
-    // Phase 1: format-only check. Uniqueness comes later with Appwrite DB.
-    return {
-      username: parsed.data,
-      valid: true,
-      available: true,
-      reason: 'available' as const,
-    }
-  }
-
   const res = await fetch(`${apiBase()}/auth/username-availability?username=${encodeURIComponent(username)}`, {
     signal,
   })
@@ -259,13 +193,6 @@ export async function checkUsernameAvailable(username: string, signal?: AbortSig
 }
 
 export async function resendVerificationEmail(email: string) {
-  if (isAppwriteConfigured()) {
-    return {
-      message:
-        'If email verification is enabled in Appwrite, open Auth → Users and resend from the Console for now.',
-    }
-  }
-
   const res = await fetch(`${apiBase()}/auth/resend-verification`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -288,44 +215,25 @@ export async function verifyEmailToken(token: string) {
 }
 
 export async function loginWithIdentifier(identifier: string, password: string) {
-  if (isAppwriteConfigured()) {
-    const trimmed = identifier.trim()
-    if (!trimmed.includes('@')) {
-      throw new AuthApiError('Sign in with your email for now (username login comes later).', {
-        code: 'INVALID_CREDENTIALS',
-        status: 400,
-      })
-    }
-    try {
-      const user = await appwriteLogin(trimmed, password)
-      const data = toAppwriteLoginSuccess(user)
-      persistSession(data)
-      return data
-    } catch (err) {
-      const mapped = mapAppwriteError(err)
-      throw new AuthApiError(mapped.message, { code: mapped.code, status: mapped.status })
-    }
-  }
-
-  throw new AuthApiError(
-    'Appwrite is not configured. Set VITE_APPWRITE_ENDPOINT and VITE_APPWRITE_PROJECT_ID in .env, then restart Vite.',
-    { code: 'APPWRITE_NOT_CONFIGURED', status: 503 },
-  )
+  const res = await fetch(`${apiBase()}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: identifier.trim(), password }),
+  })
+  const data = await parseJson<LoginSuccessData>(res)
+  persistSession(data)
+  return data
 }
 
 export async function logoutSession() {
+  const refreshToken = localStorage.getItem(REFRESH_KEY)
   try {
-    if (isAppwriteConfigured()) {
-      await appwriteLogout()
-    } else {
-      const refreshToken = localStorage.getItem(REFRESH_KEY)
-      if (refreshToken && refreshToken !== APPWRITE_SESSION_MARKER) {
-        await fetch(`${apiBase()}/auth/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        })
-      }
+    if (refreshToken) {
+      await fetch(`${apiBase()}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      })
     }
   } finally {
     clearSession()
@@ -588,4 +496,3 @@ export async function deactivateAccount(input: { currentPassword: string; confir
   clearSession()
   return data
 }
-

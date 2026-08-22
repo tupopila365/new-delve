@@ -61,7 +61,7 @@ export default function SignInScreen({
 
   const identifierError =
     (touched.identifier || submitted) && !identifier.trim()
-      ? 'Enter your email'
+      ? 'Enter your email or username'
       : undefined
   const passwordError = (touched.password || submitted) && !password ? 'Enter your password' : undefined
 
@@ -160,7 +160,7 @@ export default function SignInScreen({
         <AuthTitleBlock
           eyebrow="Welcome back"
           title="Sign in to Delve"
-          subtitle="Use your email and password."
+          subtitle="Use your email or username with your password."
         />
 
         {banner}
@@ -170,7 +170,7 @@ export default function SignInScreen({
           <TextField
             id="signin-identifier"
             name="username"
-            label="Email"
+            label="Email or username"
             autoComplete="username"
             autoCapitalize="none"
             autoCorrect="off"
