@@ -7,7 +7,7 @@ import {
   Navigation, Utensils, Zap, Map, ShoppingBag, Calendar, HelpCircle,
   TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu,
 } from 'lucide-react'
-import { businessPath, navToPath, parseBusinessSlug, pathToNav } from './navigation'
+import { businessPath, eventPath, navToPath, normalizePath, parseBusinessSlug, parseEventId, pathToNav } from './navigation'
 import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
 import type { PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
@@ -32,7 +32,10 @@ import DelversFeedPage from './pages/DelversFeedPage'
 import AccountDashboardPage from './pages/AccountDashboardPage'
 import type { AccountNavTarget } from './pages/AccountDashboardPage'
 import ProfilePage from './pages/ProfilePage'
+import EventsPage from './pages/EventsPage'
+import EditEventSheet from './components/EditEventSheet'
 import MessagesPage from './pages/MessagesPage'
+import { useMessageUnreadCount } from './pages/messages/useLiveMessages'
 import SavedPage from './pages/SavedPage'
 import NotificationsPage from './pages/NotificationsPage'
 import MediaStudio, { CreatePostButton } from './pages/MediaStudio'
@@ -474,6 +477,7 @@ export default function App() {
   )
   const signedIn = authStatus === 'authenticated'
   const authReady = authStatus !== 'loading'
+  const messageUnreadCount = useMessageUnreadCount(signedIn && authReady)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showOnboardingResume, setShowOnboardingResume] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
@@ -486,7 +490,12 @@ export default function App() {
   const [pendingCreatePost, setPendingCreatePost] = useState(false)
   const [createEventOpen, setCreateEventOpen] = useState(false)
   const [eventDetailId, setEventDetailId] = useState<string | null>(null)
+  const [eventsInitialTab, setEventsInitialTab] = useState<'discover' | 'hosting' | 'attending'>('discover')
+  const [editEventId, setEditEventId] = useState<string | null>(null)
   const [journeyDetailId, setJourneyDetailId] = useState<string | null>(null)
+  const [messagesJourneyId, setMessagesJourneyId] = useState<string | null>(null)
+  const [messagesConversationId, setMessagesConversationId] = useState<string | null>(null)
+  const [messagesTargetUserId, setMessagesTargetUserId] = useState<string | null>(null)
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
   const [socialRefreshKey, setSocialRefreshKey] = useState(0)
   const [lastCreatedPost, setLastCreatedPost] = useState<PostDto | null>(null)
@@ -509,9 +518,25 @@ export default function App() {
   useEffect(() => {
     const fromUrl = pathToNav(location.pathname)
     setActiveNavRaw(fromUrl)
+    setEventDetailId(parseEventId(location.pathname))
     if (parseBusinessSlug(location.pathname)) setBusinessAdminOpen(false)
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  function openEventDetail(eventId: string) {
+    setEventDetailId(eventId)
+    const path = eventPath(eventId)
+    if (normalizePath(location.pathname) !== path) {
+      navigate(path)
+    }
+  }
+
+  function closeEventDetail() {
+    setEventDetailId(null)
+    if (parseEventId(location.pathname)) {
+      navigate(navToPath('Events'), { replace: true })
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -814,10 +839,29 @@ export default function App() {
         onClose={() => setCreateEventOpen(false)}
         onCreated={id => {
           setCreateEventOpen(false)
-          setEventDetailId(id)
+          openEventDetail(id)
+          setSocialRefreshKey(k => k + 1)
         }}
       />
-      <EventDetailSheet eventId={eventDetailId} onClose={() => setEventDetailId(null)} />
+      <EventDetailSheet
+        eventId={eventDetailId}
+        onClose={closeEventDetail}
+        signedIn={signedIn}
+        onSignIn={() => openAuth('signIn')}
+        onEdit={id => {
+          setEditEventId(id)
+        }}
+        onOpenProfile={uname => openProfile(uname)}
+      />
+      <EditEventSheet
+        eventId={editEventId}
+        onClose={() => setEditEventId(null)}
+        onUpdated={ev => {
+          setEditEventId(null)
+          openEventDetail(ev.id)
+          setSocialRefreshKey(k => k + 1)
+        }}
+      />
     </>
   )
 
@@ -1039,6 +1083,7 @@ export default function App() {
     { label: 'Delvers', icon: <Flame size={20} /> },
     { label: 'Communities', icon: <Users size={20} /> },
     { label: 'Journeys', icon: <Navigation size={20} /> },
+    { label: 'Events', icon: <Calendar size={20} /> },
     { label: 'Transport', icon: <Car size={20} /> },
     { label: 'Services', icon: <Map size={20} /> },
     { label: 'Deals', icon: <Tag size={20} /> },
@@ -1047,7 +1092,7 @@ export default function App() {
     { label: 'Account', icon: <User size={20} /> },
   ]
 
-  const headerLinks = ['Deals', 'Transport', 'Journeys', 'Delvers', 'Communities']
+  const headerLinks = ['Deals', 'Transport', 'Journeys', 'Events', 'Delvers', 'Communities']
   const homeCompanyLinks = [
     { label: 'Become a service provider', route: 'Become a provider' },
     { label: 'About Delve', route: 'About' },
@@ -1066,7 +1111,7 @@ export default function App() {
     activeNav === 'Services' ? 'max-w-[680px]' :
     isFeedLayout ? 'max-w-[620px]' :
     'max-w-[720px]'
-  const showFab = isHome || activeNav === 'Communities' || activeNav === 'Delvers' || activeNav === 'Journeys' || (HUB_ROUTES.has(activeNav) && signedIn)
+  const showFab = isHome || activeNav === 'Communities' || activeNav === 'Delvers' || activeNav === 'Journeys' || activeNav === 'Events' || (HUB_ROUTES.has(activeNav) && signedIn)
 
   function isSidebarActive(label: string) {
     if (label === 'Explore') return activeNav === 'Explore' || activeNav === 'Search'
@@ -1141,6 +1186,10 @@ export default function App() {
             onBack={() => setJourneyDetailId(null)}
             onSignIn={() => openAuth('signIn')}
             onOpenProfile={uname => openProfile(uname)}
+            onOpenGroupChat={id => {
+              setMessagesJourneyId(id)
+              setActiveNav('Messages')
+            }}
           />
         )
       }
@@ -1152,15 +1201,30 @@ export default function App() {
         />
       )
     }
+    if (activeNav === 'Events') {
+      return (
+        <EventsPage
+          signedIn={signedIn}
+          onSignIn={() => openAuth('signIn')}
+          onOpenEvent={openEventDetail}
+          onCreateEvent={() => setCreateEventOpen(true)}
+          initialTab={eventsInitialTab}
+        />
+      )
+    }
     if (activeNav === 'Services') return <ServicesPage {...servicesBrowseProps} />
     if (activeNav === 'Search' || activeNav === 'Explore')
       return <SearchPage
-        onNavigate={setActiveNav}
+        onNavigate={target => {
+          if (target === 'Events') setEventsInitialTab('discover')
+          setActiveNav(target)
+        }}
         onOpenProfile={uname => openProfile(uname)}
         onOpenJourney={id => {
           setActiveNav('Journeys')
           setJourneyDetailId(id)
         }}
+        onOpenEvent={openEventDetail}
       />
     if (activeNav === 'Deals')
       return (
@@ -1197,7 +1261,7 @@ export default function App() {
             onBack={openAccountHub}
             onCreatePost={openCreate}
             onCreateEvent={() => setCreateEventOpen(true)}
-            onOpenEvent={id => setEventDetailId(id)}
+            onOpenEvent={openEventDetail}
             onOpenJourney={id => {
               setActiveNav('Journeys')
               setJourneyDetailId(id)
@@ -1207,13 +1271,34 @@ export default function App() {
             contentRefreshKey={socialRefreshKey}
             onEditProfile={openEditProfile}
             onOpenAccountSettings={() => openAccountSettings('profile')}
+            onMessageUser={id => {
+              setMessagesTargetUserId(id)
+              setActiveNav('Messages')
+            }}
           />
         )
-      if (activeNav === 'Messages') return <MessagesPage />
+      if (activeNav === 'Messages')
+        return (
+          <MessagesPage
+            signedIn={signedIn}
+            authReady={authReady}
+            onSignIn={() => openAuth('signIn')}
+            openJourneyId={messagesJourneyId}
+            onJourneyOpened={() => setMessagesJourneyId(null)}
+            openConversationId={messagesConversationId}
+            onConversationOpened={() => setMessagesConversationId(null)}
+            openUserId={messagesTargetUserId}
+            onUserOpened={() => setMessagesTargetUserId(null)}
+            onOpenJourney={id => {
+              setActiveNav('Journeys')
+              setJourneyDetailId(id)
+            }}
+          />
+        )
       if (activeNav === 'Saved')
         return (
           <SavedPage
-            onOpenEvent={id => setEventDetailId(id)}
+            onOpenEvent={openEventDetail}
             onOpenJourney={id => {
               setActiveNav('Journeys')
               setJourneyDetailId(id)
@@ -1231,7 +1316,11 @@ export default function App() {
               setActiveNav('Journeys')
               setJourneyDetailId(id)
             }}
-            onOpenEvent={id => setEventDetailId(id)}
+            onOpenEvent={openEventDetail}
+            onOpenConversation={id => {
+              setMessagesConversationId(id)
+              setActiveNav('Messages')
+            }}
           />
         )
       if (accountSettingsOpen || activeNav === 'Account settings') {
@@ -1267,10 +1356,14 @@ export default function App() {
               setActiveNav('Journeys')
               setJourneyDetailId(id)
             }}
+            onOpenEvent={openEventDetail}
             onNavigate={target => {
               if (target === 'Profile') {
                 setAccountSettingsOpen(false)
                 setProfileUsername(null)
+              }
+              if (target === 'Events') {
+                setEventsInitialTab('attending')
               }
               handleAccountNavigate(target)
             }}
@@ -1425,10 +1518,19 @@ export default function App() {
               <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: 'var(--primary)' }} aria-hidden />
             </button>
             <button type="button" onClick={() => setActiveNav('Messages')}
-              className="p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="relative p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center"
               style={{ color: activeNav === 'Messages' ? 'var(--primary)' : 'var(--fg-muted)' }}
-              aria-label="Messages">
+              aria-label={messageUnreadCount > 0 ? `Messages, ${messageUnreadCount} unread` : 'Messages'}>
               <MessageCircle size={20} />
+              {messageUnreadCount > 0 && (
+                <span
+                  className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                  style={{ background: 'var(--primary)' }}
+                  aria-hidden
+                >
+                  {messageUnreadCount > 9 ? '9+' : messageUnreadCount}
+                </span>
+              )}
             </button>
 
             {/* Mobile More — theme, create, account */}

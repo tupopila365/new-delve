@@ -57,7 +57,7 @@ export const SOCIAL_VIDEO_CONTEXTS: StudioContext[] = [
 
 export function studioModeForContext(context: StudioContext): StudioMode {
   if (RESTRICTED_CONTEXTS.includes(context)) return 'restricted'
-  if (['deal', 'listing', 'accommodation', 'transport', 'business-content', 'activity', 'event'].includes(context)) {
+  if (['deal', 'listing', 'accommodation', 'transport', 'business-content', 'activity'].includes(context)) {
     return 'commercial'
   }
   return 'social'

@@ -13,6 +13,7 @@ export type NotificationType =
   | 'COMMUNITY_THREAD_REPLY'
   | 'JOURNEY_LIKED'
   | 'JOURNEY_COMMENTED'
+  | 'MESSAGE_RECEIVED'
 
 export async function createNotification(input: {
   userId: string

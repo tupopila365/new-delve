@@ -39,10 +39,13 @@ export interface ChatMessage {
   kind: MessageKind
   text?: string
   time: string
+  createdAt?: string
   delivery?: DeliveryStatus
   edited?: boolean
   replyTo?: string
   entity?: SharedEntity
+  mediaUrl?: string
+  mediaResourceType?: 'image' | 'video'
   locationLabel?: string
   reactions?: { emoji: string; count: number; mine?: boolean }[]
   moderationStatus?: 'ok' | 'removed' | 'restricted'
@@ -62,6 +65,10 @@ export interface Conversation {
   verified: boolean
   archived?: boolean
   isRequest?: boolean
+  canReply?: boolean
+  otherUserId?: string
+  journeyId?: string
+  journeySlug?: string
   draft?: string
   typing?: boolean
   contextLabel?: string

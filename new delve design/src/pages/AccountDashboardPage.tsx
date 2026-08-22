@@ -9,12 +9,15 @@ import UsernameSettingsPanel from './UsernameSettingsPanel'
 import { formatUsername } from '../lib/formatUsername'
 import { fetchOnboarding } from '../api/authClient'
 import { computeProfileCompletionPercent } from '../lib/profileCompletion'
-import type { TravelerProfileDto, JourneySummary } from '@delve/contracts'
+import type { TravelerProfileDto, JourneySummary, EventDto } from '@delve/contracts'
 import { listMyJourneys } from '../api/journeyClient'
+import { fetchEvents } from '../api/socialClient'
+import EventCoverMedia from '../components/EventCoverMedia'
 
 export type AccountNavTarget =
   | 'Profile'
   | 'Journeys'
+  | 'Events'
   | 'Deals'
   | 'Transport'
   | 'Saved'
@@ -32,6 +35,8 @@ interface AccountDashboardPageProps {
   onEditProfile?: () => void
   /** Opens a specific journey detail (Account hub shortcut). */
   onOpenJourney?: (journeyId: string) => void
+  /** Opens event detail sheet from account shortcuts. */
+  onOpenEvent?: (eventId: string) => void
   travelerName?: string
   /** False while session refresh is still in progress — do not treat as signed-out. */
   authReady?: boolean
@@ -128,6 +133,7 @@ export default function AccountDashboardPage({
   onOpenSettings,
   onEditProfile,
   onOpenJourney,
+  onOpenEvent,
   travelerName = 'Amara',
   authReady = true,
   signedIn = true,
@@ -136,6 +142,8 @@ export default function AccountDashboardPage({
   const [coverFailed, setCoverFailed] = useState(false)
   const [myJourneys, setMyJourneys] = useState<JourneySummary[]>([])
   const [journeysLoading, setJourneysLoading] = useState(false)
+  const [goingEvents, setGoingEvents] = useState<EventDto[]>([])
+  const [eventsLoading, setEventsLoading] = useState(false)
   /** null = not resolved yet — never show a fake 0% while loading */
   const [completionPercent, setCompletionPercent] = useState<number | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
@@ -193,6 +201,28 @@ export default function AccountDashboardPage({
       })
       .finally(() => {
         if (!cancelled) setJourneysLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [authReady, signedIn])
+
+  useEffect(() => {
+    if (!authReady || !signedIn) {
+      setGoingEvents([])
+      return
+    }
+    let cancelled = false
+    setEventsLoading(true)
+    void fetchEvents({ mine: 'attending' })
+      .then(rows => {
+        if (!cancelled) setGoingEvents(rows.slice(0, 2))
+      })
+      .catch(() => {
+        if (!cancelled) setGoingEvents([])
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false)
       })
     return () => {
       cancelled = true
@@ -547,6 +577,77 @@ export default function AccountDashboardPage({
               </div>
             </article>
           ))
+        )}
+
+        {/* Events you're going to */}
+        <SectionHeader label="Events you're going to" action="See all" onAction={() => onNavigate('Events')} />
+        {eventsLoading ? (
+          <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>Loading events…</p>
+        ) : goingEvents.length === 0 ? (
+          <div
+            className="rounded-2xl p-4 mb-4 text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>No upcoming events</p>
+            <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+              RSVP to meetups and activities to see them here.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate('Events')}
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
+              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+            >
+              Discover events
+            </button>
+          </div>
+        ) : (
+          goingEvents.map(event => {
+            const place = [event.locationName, event.city].filter(Boolean).join(' · ')
+            return (
+              <article
+                key={event.id}
+                className="overflow-hidden rounded-2xl mb-4"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <div className="relative h-36 overflow-hidden">
+                  {event.coverUrl ? (
+                    <EventCoverMedia
+                      url={event.coverUrl}
+                      resourceType={event.coverResourceType}
+                      className="w-full h-full object-cover"
+                      controls={false}
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--surface-subtle)' }}>
+                      <Calendar size={28} style={{ color: 'var(--fg-muted)' }} />
+                    </div>
+                  )}
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }}
+                  />
+                  <h3 className="absolute bottom-3 left-3.5 right-3.5 font-display text-lg font-bold text-white m-0">
+                    {event.title}
+                  </h3>
+                </div>
+                <div className="p-3.5">
+                  <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+                    {new Date(event.startAt).toLocaleString()}
+                    {place ? ` · ${place}` : ''}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => (onOpenEvent ? onOpenEvent(event.id) : onNavigate('Events'))}
+                    className="w-full rounded-xl py-2 text-sm font-semibold text-white active:opacity-90"
+                    style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+                  >
+                    View event
+                  </button>
+                </div>
+              </article>
+            )
+          })
         )}
 
         {/* Account settings */}

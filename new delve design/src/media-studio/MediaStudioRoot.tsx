@@ -66,6 +66,9 @@ function contextHeadline(context: StudioContext, mediaOnly: boolean): string {
   if (context === 'delvers-short') return 'Create a Short — vertical video up to 90s.'
   if (context === 'delvers-post') return 'Create a Delvers post — photo, video, or carousel.'
   if (context === 'delvers-story') return 'Add to your story — disappears after 24 hours.'
+  if (context === 'journey') return 'Add a journey cover — photo or video with edit tools.'
+  if (context === 'journey-highlight') return 'Add media for this stop — photos or clips from the route.'
+  if (context === 'event') return 'Add an event cover — photo or video for your meetup.'
   if (mediaOnly && purposeForStudioContext(context) === 'listing') {
     return 'Add listing media — photos and optional video.'
   }
@@ -565,11 +568,17 @@ export default function MediaStudioRoot({
                 ? 'Create Short'
                 : context === 'delvers-story'
                   ? 'Your story'
-                  : mediaOnlyPublish && purpose === 'listing'
-                    ? 'Listing media'
-                    : mediaOnlyPublish && purpose === 'business_profile'
-                      ? 'Business media'
-                      : 'Media Studio'
+                  : context === 'journey'
+                    ? 'Journey cover'
+                    : context === 'journey-highlight'
+                      ? 'Stop media'
+                      : context === 'event'
+                        ? 'Event cover'
+                        : mediaOnlyPublish && purpose === 'listing'
+                          ? 'Listing media'
+                          : mediaOnlyPublish && purpose === 'business_profile'
+                            ? 'Business media'
+                            : 'Media Studio'
             }
             onClose={onClose}
           />

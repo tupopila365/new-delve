@@ -10,6 +10,7 @@ import type {
 import { createJourney, updateJourney } from '../../api/journeyClient'
 import { AuthApiError } from '../../api/authClient'
 import MediaStudio from '../../pages/MediaStudio'
+import EventCoverMedia from '../EventCoverMedia'
 
 const TRANSPORT_OPTIONS = [
   'Car rental',
@@ -188,6 +189,7 @@ export default function JourneyEditorSheet({
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
+  const [coverResourceType, setCoverResourceType] = useState<'image' | 'video' | null>(null)
   const [startPlace, setStartPlace] = useState('')
   const [endPlace, setEndPlace] = useState('')
   const [durationDays, setDurationDays] = useState(1)
@@ -210,6 +212,7 @@ export default function JourneyEditorSheet({
       setTitle(d.title)
       setSummary(d.summary)
       setCoverUrl(d.coverUrl)
+      setCoverResourceType(d.coverUrl ? 'image' : null)
       setStartPlace(d.startPlace)
       setEndPlace(d.endPlace)
       setDurationDays(d.durationDays)
@@ -224,6 +227,7 @@ export default function JourneyEditorSheet({
       setTitle('')
       setSummary('')
       setCoverUrl('')
+      setCoverResourceType(null)
       setStartPlace('')
       setEndPlace('')
       setDurationDays(1)
@@ -360,7 +364,12 @@ export default function JourneyEditorSheet({
             'Cover',
             <div className="flex flex-col gap-2">
               {coverUrl ? (
-                <img src={coverUrl} alt="" className="w-full h-32 object-cover rounded-xl" />
+                <EventCoverMedia
+                  url={coverUrl}
+                  resourceType={coverResourceType}
+                  className="w-full h-32 object-cover rounded-xl"
+                  controls={false}
+                />
               ) : null}
               <div className="flex gap-2">
                 <button
@@ -369,12 +378,15 @@ export default function JourneyEditorSheet({
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
                   style={{ background: 'var(--primary)', color: '#fff' }}
                 >
-                  <Camera size={14} /> Upload cover
+                  <Camera size={14} /> {coverUrl ? 'Replace in Media Studio' : 'Open Media Studio'}
                 </button>
                 {coverUrl && (
                   <button
                     type="button"
-                    onClick={() => setCoverUrl('')}
+                    onClick={() => {
+                      setCoverUrl('')
+                      setCoverResourceType(null)
+                    }}
                     className="px-3 py-2 rounded-xl text-xs font-semibold"
                     style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}
                   >
@@ -606,10 +618,10 @@ export default function JourneyEditorSheet({
                   <button
                     type="button"
                     onClick={() => setStopMediaIndex(index)}
-                    className="w-14 h-14 rounded-lg flex items-center justify-center text-xs font-bold"
-                    style={{ background: 'var(--surface)', border: '1px dashed var(--border)', color: 'var(--fg-muted)' }}
+                    className="w-14 h-14 rounded-lg flex items-center justify-center text-[10px] font-bold text-center leading-tight px-1"
+                    style={{ background: 'var(--surface-subtle)', color: 'var(--primary)', border: '1px dashed var(--border)' }}
                   >
-                    + Photo
+                    + Studio
                   </button>
                 </div>
                 {index < stops.length - 1 || stop.transportModeToNext ? (
@@ -673,8 +685,11 @@ export default function JourneyEditorSheet({
         initialContext="journey"
         lockContext
         onMediaReady={(assets: MediaAssetDto[]) => {
-          const url = assets[0]?.delivery?.url
-          if (url) setCoverUrl(url)
+          const asset = assets[0]
+          if (asset) {
+            setCoverUrl(asset.delivery.url)
+            setCoverResourceType(asset.resourceType === 'video' ? 'video' : 'image')
+          }
           setCoverStudioOpen(false)
         }}
       />

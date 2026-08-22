@@ -7,6 +7,7 @@ export const NAV_PATHS: Record<string, string> = {
   Deals: '/deals',
   Transport: '/transport',
   Journeys: '/journeys',
+  Events: '/events',
   Delvers: '/delvers',
   Communities: '/communities',
   Services: '/services',
@@ -48,9 +49,25 @@ export function businessPath(slug: string): string {
   return `/business/${encodeURIComponent(slug)}`
 }
 
+/** `/events/:eventId` → id, else null. */
+export function parseEventId(pathname: string): string | null {
+  const match = normalizePath(pathname).match(/^\/events\/([^/]+)$/)
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return match[1]
+  }
+}
+
+export function eventPath(eventId: string): string {
+  return `/events/${encodeURIComponent(eventId)}`
+}
+
 export function pathToNav(pathname: string): string {
   const path = normalizePath(pathname)
   if (parseBusinessSlug(path)) return 'Business'
+  if (parseEventId(path)) return 'Events'
   const match = Object.entries(NAV_PATHS).find(([, value]) => value === path)
   return match?.[0] ?? 'Home'
 }

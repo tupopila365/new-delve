@@ -143,17 +143,30 @@ export const updateEventBodySchema = createEventBodySchema
 
 export type UpdateEventBody = z.infer<typeof updateEventBodySchema>
 
+export const eventListQuerySchema = z
+  .object({
+    city: z.string().trim().max(80).optional(),
+    after: z.string().datetime().optional(),
+    mine: z.enum(['hosting', 'attending']).optional(),
+  })
+  .strict()
+
+export type EventListQuery = z.infer<typeof eventListQuerySchema>
+
 export const eventDtoSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string(),
   coverUrl: z.string().nullable(),
+  coverResourceType: z.enum(['image', 'video']).nullable().optional(),
   startAt: z.string().datetime(),
   endAt: z.string().datetime().nullable(),
   timezone: z.string().nullable(),
   locationName: z.string().nullable(),
   city: z.string().nullable(),
   country: z.string().nullable(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
   category: z.string().nullable(),
   visibility: z.enum(['PUBLIC', 'FOLLOWERS', 'PRIVATE']),
   status: z.enum(['DRAFT', 'PUBLISHED', 'CANCELLED', 'COMPLETED']),
@@ -161,11 +174,29 @@ export const eventDtoSchema = z.object({
   goingCount: z.number().int().nonnegative(),
   interestedCount: z.number().int().nonnegative(),
   myAttendance: z.enum(['GOING', 'INTERESTED']).nullable(),
+  isOwner: z.boolean().optional(),
+  savedByMe: z.boolean().optional(),
   creator: postAuthorSchema,
   createdAt: z.string().datetime(),
 })
 
 export type EventDto = z.infer<typeof eventDtoSchema>
+
+export const eventAttendeeDtoSchema = z.object({
+  user: postAuthorSchema,
+  status: z.enum(['GOING', 'INTERESTED']),
+  updatedAt: z.string().datetime(),
+})
+
+export type EventAttendeeDto = z.infer<typeof eventAttendeeDtoSchema>
+
+export const eventAttendeesQuerySchema = z
+  .object({
+    status: z.enum(['GOING', 'INTERESTED']).optional(),
+  })
+  .strict()
+
+export type EventAttendeesQuery = z.infer<typeof eventAttendeesQuerySchema>
 
 export const attendanceBodySchema = z
   .object({

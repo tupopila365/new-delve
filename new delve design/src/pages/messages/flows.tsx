@@ -60,7 +60,7 @@ export function BlockAccountFlow({
         <button type="button" onClick={() => onBlocked(true)} className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>Block and report</button>
         <button type="button" onClick={onClose} className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ color: 'var(--fg-muted)', background: 'none', border: 'none' }}>Cancel</button>
       </div>
-      <p className="text-xs mt-3" style={{ color: 'var(--fg-muted)' }}>Blocking “{name}” — example UI only.</p>
+      <p className="text-xs mt-3" style={{ color: 'var(--fg-muted)' }}>Blocking “{name}”.</p>
     </Sheet>
   )
 }
@@ -225,11 +225,17 @@ export function SafetyCenterView({
   onImmediate,
   cases,
   blocked,
+  onUnblock,
+  unblockBusyId,
+  blockedLoading,
 }: {
   onBack: () => void
   onImmediate: () => void
   cases: { id: string; category: string; status: string; ref: string; updated: string }[]
   blocked: { id: string; name: string; handle: string; when: string }[]
+  onUnblock?: (userId: string) => void
+  unblockBusyId?: string | null
+  blockedLoading?: boolean
 }) {
   return (
     <div className="flex flex-col min-h-0 h-full" style={{ background: 'var(--bg)' }}>
@@ -262,13 +268,25 @@ export function SafetyCenterView({
 
         <section className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <h2 className="text-sm font-bold mb-2">Blocked accounts</h2>
-          {blocked.map(b => (
+          {blockedLoading ? (
+            <p className="text-sm py-2" style={{ color: 'var(--fg-muted)' }}>Loading blocked accounts…</p>
+          ) : blocked.length === 0 ? (
+            <p className="text-sm py-2" style={{ color: 'var(--fg-muted)' }}>No blocked accounts.</p>
+          ) : blocked.map(b => (
             <div key={b.id} className="flex items-center justify-between py-2 gap-2" style={{ borderTop: '1px solid var(--border)' }}>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">{b.name}</p>
                 <p className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>{b.handle} · {b.when}</p>
               </div>
-              <button type="button" className="text-xs font-semibold min-h-[44px] px-2" style={{ color: 'var(--primary)' }}>Unblock</button>
+              <button
+                type="button"
+                className="text-xs font-semibold min-h-[44px] px-2"
+                style={{ color: 'var(--primary)' }}
+                disabled={unblockBusyId === b.id}
+                onClick={() => onUnblock?.(b.id)}
+              >
+                {unblockBusyId === b.id ? 'Unblocking…' : 'Unblock'}
+              </button>
             </div>
           ))}
         </section>

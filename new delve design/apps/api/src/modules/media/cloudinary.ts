@@ -79,7 +79,6 @@ export function purposePolicies(env: Env): Record<MediaPurpose, PurposePolicy> {
       mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'],
       requiresBusiness: false,
       requiresListing: false,
-      notYetAvailable: true,
     },
   }
 }

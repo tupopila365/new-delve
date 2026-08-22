@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Search, X, Clock, MapPin, ArrowRight, Car, Plane, Anchor,
   Bus, Star, CheckCircle, Bookmark, Heart, TrendingUp,
-  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User,
+  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User, Calendar,
 } from 'lucide-react'
-import type { CommunityDto, JourneySummary, PostDto, PublicTravelerProfile } from '@delve/contracts'
+import type { CommunityDto, EventDto, JourneySummary, PostDto, PublicTravelerProfile } from '@delve/contracts'
 import {
   autocompleteSuggestions, popularSearches, suggestedDestinations,
   recentSearches, mockSearchResults, exploreCategories, transportShortcuts,
@@ -13,10 +13,11 @@ import {
   type DealSearchResult,
 } from '../data/searchData'
 import { deals } from '../data/mockData'
-import { fetchFeed, searchPosts, searchTravelers } from '../api/socialClient'
+import { fetchEvents, fetchFeed, searchEvents, searchPosts, searchTravelers } from '../api/socialClient'
 import { listCommunities } from '../api/communityClient'
 import { listJourneys } from '../api/journeyClient'
 import { formatUsername } from '../lib/formatUsername'
+import EventCoverMedia from '../components/EventCoverMedia'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -307,6 +308,52 @@ function LandingDeal({ deal }: { deal: (typeof deals)[0] }) {
   )
 }
 
+function LandingEvent({
+  event,
+  onOpen,
+}: {
+  event: EventDto
+  onOpen?: () => void
+}) {
+  const place = [event.locationName, event.city].filter(Boolean).join(' · ')
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex-shrink-0 overflow-hidden rounded-2xl text-left"
+      style={{ width: 220, background: 'var(--surface)', border: '1px solid var(--border)', cursor: onOpen ? 'pointer' : 'default', padding: 0 }}
+    >
+      <div className="relative" style={{ height: 120 }}>
+        {event.coverUrl ? (
+          <EventCoverMedia
+            url={event.coverUrl}
+            resourceType={event.coverResourceType}
+            className="w-full h-full object-cover"
+            controls={false}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--surface-subtle)' }}>
+            <Calendar size={24} style={{ color: 'var(--fg-muted)' }} />
+          </div>
+        )}
+        <div className="absolute inset-0 flex flex-col justify-end p-3"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)' }}>
+          <p className="text-xs font-bold text-white leading-tight">{event.title}</p>
+        </div>
+      </div>
+      <div className="p-3">
+        <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+          {new Date(event.startAt).toLocaleDateString()}
+          {place ? ` · ${place}` : ''}
+        </p>
+        <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>
+          {event.goingCount} going
+        </p>
+      </div>
+    </button>
+  )
+}
+
 function LandingJourney({
   journey,
   onOpen,
@@ -410,10 +457,12 @@ export default function SearchPage({
   onNavigate,
   onOpenProfile,
   onOpenJourney,
+  onOpenEvent,
 }: {
   onNavigate?: (destination: string) => void
   onOpenProfile?: (username: string) => void
   onOpenJourney?: (id: string) => void
+  onOpenEvent?: (id: string) => void
 } = {}) {
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -427,7 +476,9 @@ export default function SearchPage({
   const [delverPosts, setDelverPosts] = useState<PostDto[]>([])
   const [communityHits, setCommunityHits] = useState<CommunityDto[]>([])
   const [journeyHits, setJourneyHits] = useState<JourneySummary[]>([])
+  const [eventHits, setEventHits] = useState<EventDto[]>([])
   const [trendingJourneys, setTrendingJourneys] = useState<JourneySummary[]>([])
+  const [trendingEvents, setTrendingEvents] = useState<EventDto[]>([])
   const [featuredDelvers, setFeaturedDelvers] = useState<PostDto[]>([])
   const [delversLoading, setDelversLoading] = useState(false)
   const [delversError, setDelversError] = useState<string | null>(null)
@@ -454,6 +505,13 @@ export default function SearchPage({
       .catch(() => {
         if (!cancelled) setTrendingJourneys([])
       })
+    void fetchEvents()
+      .then(rows => {
+        if (!cancelled) setTrendingEvents(rows.slice(0, 3))
+      })
+      .catch(() => {
+        if (!cancelled) setTrendingEvents([])
+      })
     return () => {
       cancelled = true
     }
@@ -474,21 +532,24 @@ export default function SearchPage({
     setDelversLoading(true)
     setDelversError(null)
     try {
-      const [people, posts, communities, journeysLive] = await Promise.all([
+      const [people, posts, communities, journeysLive, eventsLive] = await Promise.all([
         searchTravelers(finalQuery).catch(() => [] as PublicTravelerProfile[]),
         searchPosts(finalQuery).catch(() => [] as PostDto[]),
         listCommunities({ q: finalQuery }).catch(() => [] as CommunityDto[]),
         listJourneys(finalQuery).catch(() => [] as JourneySummary[]),
+        searchEvents(finalQuery).catch(() => [] as EventDto[]),
       ])
       setTravelers(people)
       setDelverPosts(posts)
       setCommunityHits(communities)
       setJourneyHits(journeysLive)
+      setEventHits(eventsLive)
     } catch (err) {
       setTravelers([])
       setDelverPosts([])
       setCommunityHits([])
       setJourneyHits([])
+      setEventHits([])
       setDelversError(err instanceof Error ? err.message : 'Could not search Delvers')
     } finally {
       setDelversLoading(false)
@@ -505,6 +566,16 @@ export default function SearchPage({
     void runDelversSearch(finalQuery)
   }
 
+  function runFilteredSearch(finalQuery: string, tab: ResultType = 'all') {
+    const trimmed = finalQuery.trim()
+    if (!trimmed) return
+    setQuery(trimmed)
+    setSubmitted(true)
+    setShowAutocomplete(false)
+    setActiveTab(tab)
+    void runDelversSearch(trimmed)
+  }
+
   function handleClear() {
     setQuery('')
     setSubmitted(false)
@@ -514,6 +585,7 @@ export default function SearchPage({
     setDelverPosts([])
     setCommunityHits([])
     setJourneyHits([])
+    setEventHits([])
     setDelversError(null)
     inputRef.current?.focus()
   }
@@ -543,19 +615,29 @@ export default function SearchPage({
   const showLiveDelvers = activeTab === 'all' || activeTab === 'delvers'
   const showLiveCommunities = activeTab === 'all' || activeTab === 'community'
   const showLiveJourneys = activeTab === 'all' || activeTab === 'journey'
+  const showLiveEvents = activeTab === 'all' || activeTab === 'event'
   const filteredResults = mockSearchResults.filter(r => {
     if (r.resultType === 'delvers') return false // live Delvers replace mock
     if (r.resultType === 'journey') return false // live Journeys replace mock
+    if (r.resultType === 'event') return false // live Events replace mock
     return activeTab === 'all' || r.resultType === activeTab
   })
   const hasLiveDelvers = travelers.length > 0 || delverPosts.length > 0
   const hasLiveCommunities = communityHits.length > 0
   const hasLiveJourneys = journeyHits.length > 0
+  const hasLiveEvents = eventHits.length > 0
+  const liveResultCount =
+    (showLiveDelvers ? travelers.length + delverPosts.length : 0)
+    + (showLiveCommunities ? communityHits.length : 0)
+    + (showLiveJourneys ? journeyHits.length : 0)
+    + (showLiveEvents ? eventHits.length : 0)
+    + (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' ? filteredResults.length : 0)
   const hasAnyResults =
     (showLiveDelvers && hasLiveDelvers) ||
     (showLiveCommunities && hasLiveCommunities) ||
     (showLiveJourneys && hasLiveJourneys) ||
-    (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && filteredResults.length > 0)
+    (showLiveEvents && hasLiveEvents) ||
+    (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' && filteredResults.length > 0)
 
   // ── Search input (shared between landing and results) ──
   const searchInput = (
@@ -640,7 +722,7 @@ export default function SearchPage({
         {/* Results meta + sort */}
         <div className="flex items-center justify-between px-4 sm:px-0 py-3">
           <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>
-            <span className="font-bold">{filteredResults.length}</span> results for
+            <span className="font-bold">{liveResultCount}</span> results for
             <span className="italic ml-1" style={{ color: 'var(--primary)' }}>"{query}"</span>
           </p>
           <div className="relative">
@@ -815,6 +897,53 @@ export default function SearchPage({
           </div>
         )}
 
+        {showLiveEvents && eventHits.length > 0 && (
+          <div className="px-4 sm:px-0 pb-4">
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+              Events
+            </p>
+            <div className="flex flex-col gap-2">
+              {eventHits.map(ev => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => {
+                    onNavigate?.('Events')
+                    onOpenEvent?.(ev.id)
+                  }}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  <div className="h-12 w-12 rounded-xl overflow-hidden flex-shrink-0 bg-black/10">
+                    {ev.coverUrl ? (
+                      <EventCoverMedia
+                        url={ev.coverUrl}
+                        resourceType={ev.coverResourceType}
+                        className="h-full w-full object-cover"
+                        controls={false}
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <Calendar size={18} style={{ color: 'var(--fg-muted)' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                      {ev.title}
+                    </p>
+                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                      {new Date(ev.startAt).toLocaleString()}
+                      {ev.city ? ` · ${ev.city}` : ''}
+                      {` · ${ev.goingCount} going`}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* No results */}
         {!delversLoading && !hasAnyResults ? (
           <div className="px-4 sm:px-0 py-12 text-center">
@@ -833,7 +962,7 @@ export default function SearchPage({
               ))}
             </div>
           </div>
-        ) : activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && filteredResults.length > 0 ? (
+        ) : activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' && filteredResults.length > 0 ? (
           <div className="flex flex-col gap-3 px-4 sm:px-0">
             {filteredResults.map(r => <ResultCard key={r.id} result={r} />)}
           </div>
@@ -916,6 +1045,8 @@ export default function SearchPage({
               { label: 'Services', route: 'Services' },
               { label: 'Transport', route: 'Transport' },
               { label: 'Stays & more', route: 'Services' },
+              { label: 'Journeys', route: 'Journeys' },
+              { label: 'Events', route: 'Events' },
               { label: 'Communities', route: 'Communities' },
               { label: 'Delvers', route: 'Delvers' },
               { label: 'Deals', route: 'Deals' },
@@ -940,7 +1071,7 @@ export default function SearchPage({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
           {exploreCategories.map(cat => (
             <button key={cat.label} type="button"
-              onClick={() => { setSubmitted(true); setActiveTab(cat.tab); setQuery(cat.label) }}
+              onClick={() => runFilteredSearch(cat.label, cat.tab)}
               className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all active:scale-95 min-h-[44px]"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <span className="text-xl leading-none">{cat.icon}</span>
@@ -971,7 +1102,7 @@ export default function SearchPage({
       <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="px-4 sm:px-0 flex items-center justify-between mb-3">
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Deals near you</p>
-          <button onClick={() => { setSubmitted(true); setActiveTab('deal'); setQuery('deals') }}
+          <button onClick={() => runFilteredSearch('deals', 'deal')}
             className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>See all</button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-1 scroll-rail">
@@ -979,12 +1110,35 @@ export default function SearchPage({
         </div>
       </div>
 
+      {/* Upcoming events */}
+      {trendingEvents.length > 0 && (
+      <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="px-4 sm:px-0 flex items-center justify-between mb-3">
+          <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Upcoming events</p>
+          <button type="button" onClick={() => onNavigate?.('Events')}
+            className="text-xs font-semibold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>See all</button>
+        </div>
+        <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-1 scroll-rail">
+          {trendingEvents.map(ev => (
+            <LandingEvent
+              key={ev.id}
+              event={ev}
+              onOpen={() => {
+                onNavigate?.('Events')
+                onOpenEvent?.(ev.id)
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      )}
+
       {/* Trending journeys */}
       {trendingJourneys.length > 0 && (
       <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="px-4 sm:px-0 flex items-center justify-between mb-3">
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Trending journeys</p>
-          <button onClick={() => { setSubmitted(true); setActiveTab('journey'); setQuery('journeys') }}
+          <button onClick={() => runFilteredSearch('journeys', 'journey')}
             className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>See all</button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-1 scroll-rail">

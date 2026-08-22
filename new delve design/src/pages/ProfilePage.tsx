@@ -15,6 +15,7 @@ import { fetchOnboarding, getStoredUser, invalidateOnboardingCache } from '../ap
 import {
   addComment,
   fetchComments,
+  fetchEvents,
   fetchPublicProfile,
   fetchUserEvents,
   fetchUserPosts,
@@ -35,6 +36,7 @@ import {
   ProfileSkeleton,
 } from '../components/skeletons'
 import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
+import EventCoverMedia from '../components/EventCoverMedia'
 
 type ProfileTab = 'Delvers' | 'Events' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
 
@@ -72,6 +74,8 @@ interface ProfilePageProps {
   onOpenJourney?: (journeyId: string) => void
   onOpenUser?: (username: string) => void
   onOpenCommunities?: () => void
+  /** Start a direct message with this traveler (profile owner id). */
+  onMessageUser?: (userId: string) => void
   /** Bump after creating a post/event so lists refetch without remounting. */
   contentRefreshKey?: number
   /** False while session refresh is still in progress. */
@@ -195,6 +199,7 @@ export default function ProfilePage({
   onOpenJourney,
   onOpenUser,
   onOpenCommunities,
+  onMessageUser,
   contentRefreshKey = 0,
   authReady = true,
   signedIn = true,
@@ -203,11 +208,14 @@ export default function ProfilePage({
   const [profile, setProfile] = useState<ProfileView | null>(null)
   const [posts, setPosts] = useState<PostDto[]>([])
   const [events, setEvents] = useState<EventDto[]>([])
+  const [attendingEvents, setAttendingEvents] = useState<EventDto[]>([])
+  const [eventsSubTab, setEventsSubTab] = useState<'hosted' | 'going'>('hosted')
   const [journeys, setJourneys] = useState<JourneySummary[]>([])
   const [communities, setCommunities] = useState<CommunityDto[]>([])
   const [profileLoading, setProfileLoading] = useState(true)
   const [postsLoading, setPostsLoading] = useState(false)
   const [eventsLoading, setEventsLoading] = useState(false)
+  const [attendingEventsLoading, setAttendingEventsLoading] = useState(false)
   const [journeysLoading, setJourneysLoading] = useState(false)
   const [communitiesLoading, setCommunitiesLoading] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -396,6 +404,28 @@ export default function ProfilePage({
       setCommunitiesLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!profile || !viewerId || viewerId !== profile.id || activeTab !== 'Events' || eventsSubTab !== 'going' || !signedIn) {
+      setAttendingEvents([])
+      return
+    }
+    let cancelled = false
+    setAttendingEventsLoading(true)
+    void fetchEvents({ mine: 'attending' })
+      .then(rows => {
+        if (!cancelled) setAttendingEvents(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setAttendingEvents([])
+      })
+      .finally(() => {
+        if (!cancelled) setAttendingEventsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profile, viewerId, activeTab, eventsSubTab, signedIn, contentRefreshKey])
 
   const isOwner = Boolean(profile?.id) && Boolean(viewerId) && viewerId === profile!.id
   const following = Boolean(profile?.isFollowing)
@@ -749,20 +779,37 @@ export default function ProfilePage({
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                disabled={followBusy}
-                onClick={() => void toggleFollow()}
-                className="min-h-[40px] rounded-xl px-5 py-2 text-sm font-semibold active:opacity-90"
-                style={{
-                  border: following ? '1px solid var(--border)' : '1px solid var(--primary)',
-                  background: following ? 'var(--surface)' : 'var(--primary)',
-                  color: following ? 'var(--fg)' : '#fff',
-                  cursor: followBusy ? 'wait' : 'pointer',
-                }}
-              >
-                {following ? 'Following' : 'Follow'}
-              </button>
+              <>
+                {signedIn && onMessageUser && profile && (
+                  <button
+                    type="button"
+                    onClick={() => onMessageUser(profile.id)}
+                    className="min-h-[40px] rounded-xl px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 active:opacity-90"
+                    style={{
+                      border: '1px solid var(--primary)',
+                      background: 'var(--surface)',
+                      color: 'var(--primary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <MessageCircle size={16} /> Message
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={followBusy}
+                  onClick={() => void toggleFollow()}
+                  className="min-h-[40px] rounded-xl px-5 py-2 text-sm font-semibold active:opacity-90"
+                  style={{
+                    border: following ? '1px solid var(--border)' : '1px solid var(--primary)',
+                    background: following ? 'var(--surface)' : 'var(--primary)',
+                    color: following ? 'var(--fg)' : '#fff',
+                    cursor: followBusy ? 'wait' : 'pointer',
+                  }}
+                >
+                  {following ? 'Following' : 'Follow'}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -969,27 +1016,53 @@ export default function ProfilePage({
       )}
 
       {activeTab === 'Events' && (
-        eventsLoading ? (
+        <>
+          {isOwner && (
+            <div className="px-3 sm:px-4 pt-3 flex gap-2">
+              {([
+                { key: 'hosted' as const, label: 'Hosting' },
+                { key: 'going' as const, label: 'Going' },
+              ]).map(t => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setEventsSubTab(t.key)}
+                  className="rounded-xl px-3.5 py-2 text-sm font-semibold"
+                  style={{
+                    border: `1px solid ${eventsSubTab === t.key ? 'var(--primary)' : 'var(--border)'}`,
+                    background: eventsSubTab === t.key ? 'var(--primary)' : 'transparent',
+                    color: eventsSubTab === t.key ? '#fff' : 'var(--fg)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        {(isOwner && eventsSubTab === 'going' ? attendingEventsLoading : eventsLoading) ? (
           <EventsListSkeleton count={3} />
         ) : eventsError ? (
           <SectionRetry
             message="We couldn't load events."
             onRetry={() => void reloadEvents()}
           />
-        ) : events.length === 0 ? (
+        ) : (isOwner && eventsSubTab === 'going' ? attendingEvents : events).length === 0 ? (
           <EmptyTab
             title="No events yet"
             body={
               isOwner
-                ? 'Create an event to gather travelers around a meetup or activity.'
+                ? eventsSubTab === 'going'
+                  ? 'Events you RSVP to will show up here.'
+                  : 'Create an event to gather travelers around a meetup or activity.'
                 : 'This traveler has not published any events yet.'
             }
-            actionLabel={isOwner && onCreateEvent ? 'Create event' : undefined}
+            actionLabel={isOwner && eventsSubTab === 'hosted' && onCreateEvent ? 'Create event' : undefined}
             onAction={onCreateEvent}
           />
         ) : (
           <div className="flex flex-col gap-3 p-3 sm:p-4">
-            {events.map(ev => (
+            {(isOwner && eventsSubTab === 'going' ? attendingEvents : events).map(ev => (
               <button
                 key={ev.id}
                 type="button"
@@ -998,7 +1071,12 @@ export default function ProfilePage({
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', padding: 0 }}
               >
                 {ev.coverUrl && (
-                  <img src={ev.coverUrl} alt="" className="w-full h-32 object-cover" />
+                  <EventCoverMedia
+                    url={ev.coverUrl}
+                    resourceType={ev.coverResourceType}
+                    className="w-full h-32 object-cover"
+                    controls={false}
+                  />
                 )}
                 <div className="p-3.5">
                   <p className="font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>{ev.title}</p>
@@ -1009,7 +1087,8 @@ export default function ProfilePage({
               </button>
             ))}
           </div>
-        )
+        )}
+        </>
       )}
 
       {activeTab === 'Journeys' && (

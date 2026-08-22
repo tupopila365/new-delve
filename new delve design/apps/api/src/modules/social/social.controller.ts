@@ -6,6 +6,8 @@ import {
   createEventBodySchema,
   createPostBodySchema,
   createStoryBodySchema,
+  eventAttendeesQuerySchema,
+  eventListQuerySchema,
   saveBodySchema,
   updateEventBodySchema,
 } from '@delve/contracts'
@@ -205,6 +207,39 @@ export function createSocialController(env: Env) {
       }
     },
 
+    async listEvents(req: Request, res: Response, next: NextFunction) {
+      try {
+        const query = parseOrThrow(eventListQuerySchema, {
+          city: typeof req.query.city === 'string' ? req.query.city : undefined,
+          after: typeof req.query.after === 'string' ? req.query.after : undefined,
+          mine: typeof req.query.mine === 'string' ? req.query.mine : undefined,
+        })
+        const viewerId = optionalUserId(req)
+        if (query.mine === 'hosting') {
+          if (!viewerId) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required.')
+          ok(res, await eventService.listMyHostingEvents(env, viewerId))
+          return
+        }
+        if (query.mine === 'attending') {
+          if (!viewerId) throw new AppError(401, 'UNAUTHORIZED', 'Sign in required.')
+          ok(res, await eventService.listMyAttendingEvents(env, viewerId))
+          return
+        }
+        ok(res, await eventService.listDiscoverEvents(env, viewerId, query))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async searchEvents(req: Request, res: Response, next: NextFunction) {
+      try {
+        const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+        ok(res, await eventService.searchEvents(env, optionalUserId(req), q))
+      } catch (err) {
+        next(err)
+      }
+    },
+
     async updateEvent(req: AuthedRequest, res: Response, next: NextFunction) {
       try {
         const body = parseOrThrow(updateEventBodySchema, req.body)
@@ -217,6 +252,25 @@ export function createSocialController(env: Env) {
     async getEvent(req: Request, res: Response, next: NextFunction) {
       try {
         ok(res, await eventService.getEventDto(env, String(req.params.eventId), optionalUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listEventAttendees(req: Request, res: Response, next: NextFunction) {
+      try {
+        const query = parseOrThrow(eventAttendeesQuerySchema, {
+          status: typeof req.query.status === 'string' ? req.query.status : undefined,
+        })
+        ok(
+          res,
+          await eventService.listEventAttendees(
+            env,
+            String(req.params.eventId),
+            optionalUserId(req),
+            query.status,
+          ),
+        )
       } catch (err) {
         next(err)
       }

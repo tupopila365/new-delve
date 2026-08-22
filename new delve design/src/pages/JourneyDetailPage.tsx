@@ -22,6 +22,7 @@ interface Props {
   onBack: () => void
   onSignIn?: () => void
   onOpenProfile?: (username: string) => void
+  onOpenGroupChat?: (journeyId: string) => void
 }
 
 function partyLabel(p: JourneyDetail['partyType']) {
@@ -34,6 +35,7 @@ export default function JourneyDetailPage({
   onBack,
   onSignIn,
   onOpenProfile,
+  onOpenGroupChat,
 }: Props) {
   const [journey, setJourney] = useState<JourneyDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -231,6 +233,26 @@ export default function JourneyDetailPage({
             <Bookmark size={16} fill={saved ? 'var(--primary)' : 'none'} />
             {saved ? 'Saved' : 'Save'}
           </button>
+          {onOpenGroupChat && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!signedIn) {
+                  onSignIn?.()
+                  return
+                }
+                onOpenGroupChat(journey.id)
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
+              style={{
+                background: 'var(--primary)',
+                color: '#fff',
+                border: 'none',
+              }}
+            >
+              <MessageCircle size={16} /> Group chat
+            </button>
+          )}
         </div>
       </div>
 

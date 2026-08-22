@@ -94,6 +94,7 @@ enum NotificationType {
   COMMUNITY_THREAD_REPLY
   JOURNEY_LIKED
   JOURNEY_COMMENTED
+  MESSAGE_RECEIVED
 }
 
 enum CommunityType {
@@ -177,6 +178,10 @@ model User {
   journeys                Journey[]
   journeyComments         JourneyComment[]
   journeyReactions        JourneyReaction[]
+  conversationParticipants ConversationParticipant[]
+  directMessages          DirectMessage[]
+  blocksOutgoing            UserBlock[]          @relation("BlockBlocker")
+  blocksIncoming            UserBlock[]          @relation("BlockBlocked")
 
   @@index([email])
   @@index([usernameNormalized])
@@ -427,6 +432,7 @@ model MediaAsset {
   travelerCoverFor  TravelerProfile?  @relation("TravelerCover")
   eventCoverFor     TravelerEvent?    @relation("EventCover")
   listingCoverFor   Listing?          @relation("ListingCover")
+  directMessage     DirectMessage?
   storySlide        StorySlide?
 
   @@index([uploadedByUserId, purpose, status])
@@ -875,6 +881,7 @@ model Journey {
   stops     JourneyStop[]
   comments  JourneyComment[]
   reactions JourneyReaction[]
+  conversation Conversation?
 
   @@index([authorId, createdAt])
   @@index([visibility, publishedAt])
@@ -928,4 +935,88 @@ model JourneyStop {
   updatedAt                DateTime @updatedAt
 
   @@index([journeyId, sortOrder])
+}
+
+enum ConversationType {
+  DIRECT
+  JOURNEY
+}
+
+enum DirectMessageKind {
+  TEXT
+  JOURNEY
+  DEAL
+  IMAGE
+}
+
+enum ConversationRequestStatus {
+  ACCEPTED
+  PENDING
+  DECLINED
+}
+
+/// Traveler message thread (direct or journey group).
+model Conversation {
+  id              String                    @id @default(cuid())
+  type            ConversationType          @default(DIRECT)
+  journeyId       String?                   @unique
+  journey         Journey?                  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  initiatedById   String?
+  requestStatus   ConversationRequestStatus @default(ACCEPTED)
+  lastMessageAt   DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  participants ConversationParticipant[]
+  messages     DirectMessage[]
+
+  @@index([type, lastMessageAt])
+  @@index([requestStatus, lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  archived       Boolean      @default(false)
+  muted          Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId, lastReadAt])
+}
+
+model DirectMessage {
+  id             String            @id @default(cuid())
+  conversationId String
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  kind           DirectMessageKind @default(TEXT)
+  body           String            @default("")
+  sharedEntityId String?
+  mediaId        String?           @unique
+  media          MediaAsset?       @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+/// Blocked travelers cannot DM each other (Phase 2).
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
 }

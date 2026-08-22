@@ -105,6 +105,19 @@ export async function fetchSaves() {
   return authorizedJson<SaveDto[]>('/saves')
 }
 
+export async function searchEvents(q: string) {
+  return authorizedJson<EventDto[]>(`/events/search?q=${encodeURIComponent(q)}`)
+}
+
+export async function fetchEvents(params?: { city?: string; after?: string; mine?: 'hosting' | 'attending' }) {
+  const qs = new URLSearchParams()
+  if (params?.city) qs.set('city', params.city)
+  if (params?.after) qs.set('after', params.after)
+  if (params?.mine) qs.set('mine', params.mine)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return authorizedJson<EventDto[]>(`/events${suffix}`)
+}
+
 export async function createEvent(body: CreateEventBody) {
   return authorizedJson<EventDto>('/events', {
     method: 'POST',
@@ -121,6 +134,13 @@ export async function updateEvent(eventId: string, body: UpdateEventBody) {
 
 export async function fetchEvent(eventId: string) {
   return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}`)
+}
+
+export async function fetchEventAttendees(eventId: string, status?: 'GOING' | 'INTERESTED') {
+  const qs = status ? `?status=${status}` : ''
+  return authorizedJson<import('@delve/contracts').EventAttendeeDto[]>(
+    `/events/${encodeURIComponent(eventId)}/attendees${qs}`,
+  )
 }
 
 export async function fetchUserEvents(username: string) {

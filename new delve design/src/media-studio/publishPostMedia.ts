@@ -37,6 +37,7 @@ export function purposeForStudioContext(context: StudioContext): MediaPurpose | 
     case 'delvers-short':
     case 'journey':
     case 'journey-highlight':
+    case 'event':
     case 'community':
       return 'post'
     case 'delvers-story':
@@ -44,7 +45,6 @@ export function purposeForStudioContext(context: StudioContext): MediaPurpose | 
     case 'listing':
     case 'deal':
     case 'activity':
-    case 'event':
     case 'accommodation':
     case 'transport':
       return 'listing'
@@ -65,6 +65,31 @@ export function isDelversSocialContext(context: StudioContext): boolean {
 
 export function isDelversStoryContext(context: StudioContext): boolean {
   return context === 'delvers-story'
+}
+
+export function isJourneyMediaContext(context: StudioContext): boolean {
+  return context === 'journey' || context === 'journey-highlight'
+}
+
+export function isEventMediaContext(context: StudioContext): boolean {
+  return context === 'event'
+}
+
+/** Traveler journey/event covers uploaded through Media Studio (purpose: post). */
+export function isTravelerCoverContext(context: StudioContext): boolean {
+  return isJourneyMediaContext(context) || isEventMediaContext(context)
+}
+
+export function coverPatchFromStudioAsset(asset: MediaAssetDto): {
+  coverMediaId: string
+  preview: string
+  previewResourceType: 'image' | 'video'
+} {
+  return {
+    coverMediaId: asset.id,
+    preview: asset.delivery.url,
+    previewResourceType: asset.resourceType === 'video' ? 'video' : 'image',
+  }
 }
 
 const MAX_STORY_MEDIA = 5

@@ -8,6 +8,7 @@ import {
 } from '../api/socialClient'
 
 function iconFor(type: string) {
+  if (type.includes('MESSAGE')) return <MessageCircle size={18} />
   if (type.includes('FOLLOW')) return <UserPlus size={18} />
   if (type.includes('JOURNEY')) return <MapPin size={18} />
   if (type.includes('LIKE') || type.includes('REACTION')) return <Heart size={18} />
@@ -30,11 +31,13 @@ export default function NotificationsPage({
   signedIn = true,
   onOpenJourney,
   onOpenEvent,
+  onOpenConversation,
 }: {
   authReady?: boolean
   signedIn?: boolean
   onOpenJourney?: (journeyId: string) => void
   onOpenEvent?: (eventId: string) => void
+  onOpenConversation?: (conversationId: string) => void
 }) {
   const [notifs, setNotifs] = useState<NotificationDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,6 +100,10 @@ export default function NotificationsPage({
 
   function openNotification(n: NotificationDto) {
     void markRead(n.id)
+    if (n.entityType === 'conversation' && n.entityId && onOpenConversation) {
+      onOpenConversation(n.entityId)
+      return
+    }
     if (n.entityType === 'journey' && n.entityId && onOpenJourney) {
       onOpenJourney(n.entityId)
       return
