@@ -30,6 +30,7 @@ import {
   EventsListSkeleton,
   ProfileSkeleton,
 } from '../components/skeletons'
+import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
 
 type ProfileTab = 'Delvers' | 'Events' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
 
@@ -811,20 +812,18 @@ export default function ProfilePage({
         ) : (
           <div className="flex flex-col">
             {posts.map(post => {
-              const media = post.media[0]
               return (
                 <article
                   key={post.id}
                   className="px-3 sm:px-4 py-4"
                   style={{ borderBottom: '1px solid var(--border)' }}
                 >
-                  {media?.url && (
-                    <img
-                      src={media.url}
-                      alt=""
-                      className="w-full max-h-80 object-cover rounded-xl mb-3"
-                    />
-                  )}
+                  <PostMediaCarousel
+                    media={post.media}
+                    className="mb-3 rounded-xl overflow-hidden"
+                    mediaClassName="w-full max-h-80 object-cover"
+                    maxHeightClass="max-h-80"
+                  />
                   {post.caption && (
                     <p className="text-sm mb-2" style={{ color: 'var(--fg)' }}>{post.caption}</p>
                   )}

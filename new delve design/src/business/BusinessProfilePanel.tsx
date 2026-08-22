@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { BusinessMembershipDto, UpdateBusinessBody } from '@delve/contracts'
 import { updateBusiness } from '../api/businessClient'
 import { useMediaUpload } from '../media/useMediaUpload'
+import MediaStudio from '../pages/MediaStudio'
 
 interface BusinessProfilePanelProps {
   membership: BusinessMembershipDto
@@ -17,6 +18,7 @@ export default function BusinessProfilePanel({ membership, onUpdated }: Business
   const editable = canEdit(membership.role)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [studioKind, setStudioKind] = useState<'logo' | 'cover' | null>(null)
   const [form, setForm] = useState({
     name: business.name,
     description: business.description ?? '',
@@ -81,6 +83,17 @@ export default function BusinessProfilePanel({ membership, onUpdated }: Business
     try {
       const updated = await updateBusiness(business.id, {
         ...(kind === 'logo' ? { logoUrl: saved.delivery.url } : { coverUrl: saved.delivery.url }),
+      })
+      onUpdated({ ...membership, business: updated })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save image')
+    }
+  }
+
+  async function applyStudioMedia(kind: 'logo' | 'cover', url: string) {
+    try {
+      const updated = await updateBusiness(business.id, {
+        ...(kind === 'logo' ? { logoUrl: url } : { coverUrl: url }),
       })
       onUpdated({ ...membership, business: updated })
     } catch (err) {
@@ -209,7 +222,7 @@ export default function BusinessProfilePanel({ membership, onUpdated }: Business
                 className="rounded-xl px-3 py-2 text-sm font-semibold"
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
               >
-                {logoUpload.busy ? 'Uploading logo…' : 'Upload logo'}
+                {logoUpload.busy ? 'Uploading logo…' : 'Quick logo'}
               </button>
               <button
                 type="button"
@@ -218,7 +231,23 @@ export default function BusinessProfilePanel({ membership, onUpdated }: Business
                 className="rounded-xl px-3 py-2 text-sm font-semibold"
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
               >
-                {coverUpload.busy ? 'Uploading cover…' : 'Upload cover'}
+                {coverUpload.busy ? 'Uploading cover…' : 'Quick cover'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudioKind('logo')}
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-white"
+                style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+              >
+                Logo in Studio
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudioKind('cover')}
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-white"
+                style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+              >
+                Cover in Studio
               </button>
             </div>
             <button
@@ -233,6 +262,20 @@ export default function BusinessProfilePanel({ membership, onUpdated }: Business
           </>
         )}
       </div>
+
+      <MediaStudio
+        open={studioKind != null}
+        onClose={() => setStudioKind(null)}
+        initialContext="business-content"
+        businessId={business.id}
+        lockContext
+        onMediaReady={assets => {
+          const kind = studioKind
+          const url = assets[0]?.delivery?.url
+          setStudioKind(null)
+          if (kind && url) void applyStudioMedia(kind, url)
+        }}
+      />
     </div>
   )
 }

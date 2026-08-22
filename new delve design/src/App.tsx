@@ -34,8 +34,7 @@ import ProfilePage from './pages/ProfilePage'
 import MessagesPage from './pages/MessagesPage'
 import SavedPage from './pages/SavedPage'
 import NotificationsPage from './pages/NotificationsPage'
-import { CreatePostButton } from './pages/MediaStudio'
-import CreatePostSheet from './components/CreatePostSheet'
+import MediaStudio, { CreatePostButton } from './pages/MediaStudio'
 import CreateEventSheet from './components/CreateEventSheet'
 import EventDetailSheet from './components/EventDetailSheet'
 import CompanyPage, { COMPANY_ROUTES } from './pages/CompanyPage'
@@ -795,9 +794,10 @@ export default function App() {
 
   const createLayers = (
     <>
-      <CreatePostSheet
+      <MediaStudio
         open={createPostOpen}
         onClose={() => setCreatePostOpen(false)}
+        initialContext="delvers-post"
         onCreated={post => {
           setCreatePostOpen(false)
           setLastCreatedPost(post)

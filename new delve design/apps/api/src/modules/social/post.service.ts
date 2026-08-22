@@ -79,14 +79,10 @@ export async function listPostsForUser(env: Env, profileUserId: string, viewerId
   return Promise.all(rows.map(r => getPostDto(env, r.id, viewerId)))
 }
 
+/** Public Delvers feed: all published PUBLIC posts (not limited to follows). */
 export async function listFeed(env: Env, viewerId: string) {
-  const following = await prisma.follow.findMany({
-    where: { followerId: viewerId },
-    select: { followingId: true },
-  })
-  const authorIds = [viewerId, ...following.map(f => f.followingId)]
   const rows = await prisma.post.findMany({
-    where: { authorId: { in: authorIds }, status: 'PUBLISHED', deletedAt: null, visibility: 'PUBLIC' },
+    where: { status: 'PUBLISHED', deletedAt: null, visibility: 'PUBLIC' },
     orderBy: { createdAt: 'desc' },
     take: 80,
   })

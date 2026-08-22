@@ -14,6 +14,7 @@ import {
 } from '../api/socialClient'
 import ExpandableCaption from '../components/mobile/ExpandableCaption'
 import DelversStoryRail from '../components/delvers/DelversStoryRail'
+import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
 import { DelversListSkeleton } from '../components/skeletons'
 import { formatUsername } from '../lib/formatUsername'
 import { AuthApiError } from '../api/authClient'
@@ -299,10 +300,10 @@ export default function DelversFeedPage({
         {!loading && !error && authReady && feed.length === 0 && (
           <div className="px-4 py-12 text-center">
             <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-              Your feed is quiet
+              No Delvers yet
             </p>
             <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
-              Follow travelers or publish your first Delver to get started.
+              Be the first to share a public post with travelers on Delve.
             </p>
             <button
               type="button"
@@ -316,7 +317,6 @@ export default function DelversFeedPage({
         )}
 
         {!loading && !error && authReady && feed.map(post => {
-          const media = post.media[0]
           return (
             <article key={post.id} style={{ borderBottom: '1px solid var(--border)' }}>
               <div className="flex items-center gap-2.5 px-4 py-3">
@@ -350,9 +350,7 @@ export default function DelversFeedPage({
                 </span>
               </div>
 
-              {media?.url && (
-                <img src={media.url} alt="" className="w-full max-h-[70vh] object-cover" />
-              )}
+              <PostMediaCarousel media={post.media} />
 
               <div className="px-4 py-3">
                 <div className="flex items-center gap-4 mb-2">

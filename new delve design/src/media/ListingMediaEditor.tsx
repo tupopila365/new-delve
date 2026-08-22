@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import type { ListingDto } from '@delve/contracts'
-import { MediaUploader } from './index'
 import ListingMediaGallery from './ListingMediaGallery'
 import { fetchListing, updateListing } from '../api/listingClient'
+import MediaStudio from '../pages/MediaStudio'
 
 interface ListingMediaEditorProps {
   listing: ListingDto
@@ -16,6 +17,8 @@ export default function ListingMediaEditor({
   onChanged,
   editable = true,
 }: ListingMediaEditorProps) {
+  const [studioOpen, setStudioOpen] = useState(false)
+
   async function refresh() {
     const fresh = await fetchListing(listing.id)
     onChanged(fresh)
@@ -32,20 +35,17 @@ export default function ListingMediaEditor({
 
       {editable && (
         <>
-          <MediaUploader
-            purpose="listing"
-            businessId={businessId}
-            listingId={listing.id}
-            label="Add listing media"
-            chooseLabel="Upload cover, gallery, or video"
-            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-            hint="Images and optional video via Cloudinary — metadata only in Postgres."
-            onReady={() => {
-              void refresh().catch(() => {
-                /* keep current listing */
-              })
-            }}
-          />
+          <button
+            type="button"
+            onClick={() => setStudioOpen(true)}
+            className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white"
+            style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+          >
+            Add media in Media Studio
+          </button>
+          <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+            Photos and optional video upload to Cloudinary and attach to this listing.
+          </p>
 
           {listing.media.filter(m => m.resourceType === 'image').length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -75,6 +75,21 @@ export default function ListingMediaEditor({
           )}
         </>
       )}
+
+      <MediaStudio
+        open={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        initialContext="listing"
+        businessId={businessId}
+        listingId={listing.id}
+        lockContext
+        onMediaReady={() => {
+          setStudioOpen(false)
+          void refresh().catch(() => {
+            /* keep current listing */
+          })
+        }}
+      />
     </div>
   )
 }

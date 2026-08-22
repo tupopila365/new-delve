@@ -40,6 +40,7 @@ export const RESTRICTED_CONTEXTS: StudioContext[] = [
 export const SOCIAL_VIDEO_CONTEXTS: StudioContext[] = [
   'delvers-post',
   'delvers-short',
+  'delvers-story',
   'journey',
   'journey-highlight',
   'community',
@@ -63,6 +64,32 @@ export function studioModeForContext(context: StudioContext): StudioMode {
 }
 
 export function limitsForContext(context: StudioContext, base: UploadLimits = EXAMPLE_UPLOAD_LIMITS): UploadLimits {
+  if (context === 'delvers-short') {
+    return {
+      ...base,
+      maxDurationSec: Math.min(base.maxDurationSec, 90),
+      maxClips: 1,
+      allowMusic: true,
+      allowFilters: true,
+      allowSpeed: true,
+      allowTransitions: false,
+      allowTextOverlays: true,
+      allowDecorativeEffects: true,
+    }
+  }
+  if (context === 'delvers-story') {
+    return {
+      ...base,
+      maxDurationSec: Math.min(base.maxDurationSec, 60),
+      maxClips: 5,
+      allowMusic: true,
+      allowFilters: true,
+      allowSpeed: true,
+      allowTransitions: false,
+      allowTextOverlays: true,
+      allowDecorativeEffects: true,
+    }
+  }
   const mode = studioModeForContext(context)
   if (mode === 'restricted') {
     return {

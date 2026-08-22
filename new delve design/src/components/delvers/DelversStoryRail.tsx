@@ -2,13 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, User, X } from 'lucide-react'
 import type { StoryAuthorDto, StorySlideDto, StoryViewerDto } from '@delve/contracts'
 import {
-  createStory,
   fetchStoryRail,
   fetchUserStories,
   markStoriesViewed,
 } from '../../api/socialClient'
 import { fetchOnboarding, getStoredUser } from '../../api/authClient'
-import { MediaUploader } from '../../media'
+import MediaStudio from '../../pages/MediaStudio'
 import { formatUsername } from '../../lib/formatUsername'
 
 function RingAvatar({
@@ -34,88 +33,26 @@ function RingAvatar({
   )
 }
 
-function StoryCreateSheet({
+function StoryCreateStudio({
   open,
   onClose,
   onCreated,
-  placeholderName,
 }: {
   open: boolean
   onClose: () => void
   onCreated: () => void
-  placeholderName: string
 }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [publishing, setPublishing] = useState(false)
-
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-[210] flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 flex flex-col gap-3"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-label="Add to your story"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold m-0" style={{ color: 'var(--fg)' }}>
-            Add to your story
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center"
-            style={{ background: 'none', border: 'none', color: 'var(--fg-muted)', cursor: 'pointer' }}
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-          Photos and videos disappear after 24 hours.
-        </p>
-        <MediaUploader
-          purpose="story"
-          label="Story media"
-          chooseLabel="Choose photo or video"
-          disabled={publishing}
-          placeholderName={placeholderName}
-          onBusyChange={setBusy}
-          onReady={(mediaId) => {
-            setError(null)
-            setPublishing(true)
-            void (async () => {
-              try {
-                await createStory({ mediaIds: [mediaId] })
-                onCreated()
-                onClose()
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'Could not publish story')
-              } finally {
-                setPublishing(false)
-              }
-            })()
-          }}
-        />
-        {(busy || publishing) && (
-          <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-            {publishing ? 'Publishing…' : 'Uploading…'}
-          </p>
-        )}
-        {error && (
-          <p className="text-xs m-0" style={{ color: 'var(--auth-danger, #C42A2A)' }}>
-            {error}
-          </p>
-        )}
-      </div>
-    </div>
+    <MediaStudio
+      open={open}
+      onClose={onClose}
+      initialContext="delvers-story"
+      lockContext
+      onStoryCreated={() => {
+        onCreated()
+        onClose()
+      }}
+    />
   )
 }
 
@@ -360,7 +297,6 @@ export default function DelversStoryRail({ signedIn, authReady }: DelversStoryRa
   const ownHasSlides = (ownFromRail?.slideCount ?? 0) > 0
   const ownAvatar = ownFromRail?.avatarUrl ?? myAvatar
   const ownLabel = ownHasSlides ? 'Your story' : 'Add'
-  const placeholderName = ownFromRail?.displayName || me?.username || 'You'
 
   return (
     <>
@@ -489,11 +425,10 @@ export default function DelversStoryRail({ signedIn, authReady }: DelversStoryRa
         )}
       </div>
 
-      <StoryCreateSheet
+      <StoryCreateStudio
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={() => void loadRail()}
-        placeholderName={placeholderName}
       />
 
       {viewerAuthorId && (

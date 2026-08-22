@@ -86,6 +86,7 @@ export function VideoUpload({
         updatedAt: now,
         objectUrl: url,
         hasAudio: meta.hasAudio,
+        file,
       }
       setStatus('ready')
       onReady(asset)
@@ -120,6 +121,7 @@ export function VideoUpload({
       updatedAt: now,
       objectUrl: url,
       hasAudio: true,
+      file,
     }
     setPendingTrim(null)
     setStatus('ready')

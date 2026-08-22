@@ -14,6 +14,7 @@ export type MediaKind =
 export type StudioContext =
   | 'delvers-post'
   | 'delvers-short'
+  | 'delvers-story'
   | 'journey'
   | 'journey-highlight'
   | 'community'
@@ -148,6 +149,8 @@ export interface MediaAsset {
   updatedAt: string
   objectUrl: string
   hasAudio: boolean
+  /** Original device file — required for Cloudinary publish. Absent for sample/demo assets. */
+  file?: File
 }
 
 export interface VideoClip {
