@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Bookmark, Heart, MessageCircle, Plus, User,
 } from 'lucide-react'
@@ -12,6 +12,8 @@ import {
   unlikePost,
   unsaveItem,
 } from '../api/socialClient'
+import CommentsSheet from '../components/comments/CommentsSheet'
+import { mapPostComment } from '../components/comments/mappers'
 import ExpandableCaption from '../components/mobile/ExpandableCaption'
 import DelversStoryRail from '../components/delvers/DelversStoryRail'
 import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
@@ -73,6 +75,8 @@ interface DelversFeedPageProps {
   onOpenMessages?: () => void
   onOpenNotifications?: () => void
   onOpenProfile?: (username: string) => void
+  onOpenEvent?: (eventId: string) => void
+  onOpenJourney?: (journeyId: string) => void
   /** Bump to refetch the feed (e.g. after creating a post). */
   refreshKey?: number
   /** Optimistically show this post at the top until/alongside refetch. */
@@ -87,6 +91,8 @@ export default function DelversFeedPage({
   onOpenMessages,
   onOpenNotifications,
   onOpenProfile,
+  onOpenEvent,
+  onOpenJourney,
   refreshKey = 0,
   highlightPost = null,
   authReady = true,
@@ -95,10 +101,25 @@ export default function DelversFeedPage({
   const [feed, setFeed] = useState<PostDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ title: string; body: string; kind: 'auth' | 'forbidden' | 'generic' } | null>(null)
-  const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null)
-  const [comments, setComments] = useState<Record<string, { id: string; body: string; author: string }[]>>({})
-  const [draft, setDraft] = useState('')
+  const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
   const [justPublished, setJustPublished] = useState(false)
+
+  const commentsPost = feed.find(p => p.id === commentsPostId)
+
+  const loadPostComments = useCallback(async () => {
+    if (!commentsPostId) return []
+    const rows = await fetchComments(commentsPostId)
+    return rows.map(mapPostComment)
+  }, [commentsPostId])
+
+  const submitPostComment = useCallback(
+    async (body: string) => {
+      if (!commentsPostId) throw new Error('No post selected')
+      const row = await addComment(commentsPostId, body)
+      return mapPostComment(row)
+    },
+    [commentsPostId],
+  )
 
   async function load(opts?: { soft?: boolean }) {
     if (!opts?.soft) setLoading(true)
@@ -157,45 +178,6 @@ export default function DelversFeedPage({
       if (post.savedByMe) await unsaveItem({ targetType: 'POST', targetId: post.id })
       else await saveItem({ targetType: 'POST', targetId: post.id })
       setFeed(list => list.map(p => (p.id === post.id ? { ...p, savedByMe: !p.savedByMe } : p)))
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function openComments(postId: string) {
-    setOpenCommentsFor(postId)
-    if (comments[postId]) return
-    try {
-      const rows = await fetchComments(postId)
-      setComments(prev => ({
-        ...prev,
-        [postId]: rows.map(c => ({
-          id: c.id,
-          body: c.body,
-          author: c.author.displayName || c.author.username,
-        })),
-      }))
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function submitComment(postId: string) {
-    const body = draft.trim()
-    if (!body) return
-    try {
-      const row = await addComment(postId, body)
-      setDraft('')
-      setComments(prev => ({
-        ...prev,
-        [postId]: [
-          ...(prev[postId] || []),
-          { id: row.id, body: row.body, author: row.author.displayName || row.author.username },
-        ],
-      }))
-      setFeed(list =>
-        list.map(p => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
-      )
     } catch {
       /* ignore */
     }
@@ -352,6 +334,72 @@ export default function DelversFeedPage({
 
               <PostMediaCarousel media={post.media} />
 
+              {post.linkedEvent && (
+                <button
+                  type="button"
+                  onClick={() => onOpenEvent?.(post.linkedEvent!.id)}
+                  className="mx-4 mb-2 flex items-center gap-3 rounded-xl overflow-hidden text-left"
+                  style={{
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-subtle)',
+                    cursor: onOpenEvent ? 'pointer' : 'default',
+                    padding: 0,
+                    width: 'calc(100% - 2rem)',
+                  }}
+                >
+                  {post.linkedEvent.coverUrl ? (
+                    <img src={post.linkedEvent.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
+                  )}
+                  <div className="min-w-0 py-2 pr-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider m-0" style={{ color: 'var(--primary)' }}>
+                      Event
+                    </p>
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                      {post.linkedEvent.title}
+                    </p>
+                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                      {new Date(post.linkedEvent.startAt).toLocaleDateString()}
+                      {post.linkedEvent.city ? ` · ${post.linkedEvent.city}` : ''}
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {post.linkedJourney && (
+                <button
+                  type="button"
+                  onClick={() => onOpenJourney?.(post.linkedJourney!.id)}
+                  className="mx-4 mb-2 flex items-center gap-3 rounded-xl overflow-hidden text-left"
+                  style={{
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-subtle)',
+                    cursor: onOpenJourney ? 'pointer' : 'default',
+                    padding: 0,
+                    width: 'calc(100% - 2rem)',
+                  }}
+                >
+                  {post.linkedJourney.coverUrl ? (
+                    <img src={post.linkedJourney.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
+                  )}
+                  <div className="min-w-0 py-2 pr-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider m-0" style={{ color: 'var(--primary)' }}>
+                      Journey
+                    </p>
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                      {post.linkedJourney.title}
+                    </p>
+                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                      {post.linkedJourney.durationDays} days · {post.linkedJourney.stopCount} stops
+                      {post.linkedJourney.startPlace ? ` · ${post.linkedJourney.startPlace}` : ''}
+                    </p>
+                  </div>
+                </button>
+              )}
+
               <div className="px-4 py-3">
                 <div className="flex items-center gap-4 mb-2">
                   <button
@@ -364,7 +412,7 @@ export default function DelversFeedPage({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void openComments(post.id)}
+                    onClick={() => setCommentsPostId(post.id)}
                     style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
                     aria-label="Comments"
                   >
@@ -389,37 +437,50 @@ export default function DelversFeedPage({
                     caption={post.caption}
                   />
                 )}
-                {openCommentsFor === post.id && (
-                  <div className="mt-3">
-                    {(comments[post.id] || []).map(c => (
-                      <p key={c.id} className="text-sm mb-1" style={{ color: 'var(--fg)' }}>
-                        <span className="font-semibold">{c.author}</span> {c.body}
-                      </p>
-                    ))}
-                    <div className="flex gap-2 mt-2">
-                      <input
-                        value={draft}
-                        onChange={e => setDraft(e.target.value)}
-                        placeholder="Add a comment"
-                        className="flex-1 rounded-lg px-3 py-2 text-sm"
-                        style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void submitComment(post.id)}
-                        className="rounded-lg px-3 py-2 text-sm font-semibold text-white"
-                        style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-                      >
-                        Post
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setCommentsPostId(post.id)}
+                  className="text-sm mt-1 min-h-[32px] inline-flex items-center"
+                  style={{
+                    color: 'var(--fg-muted)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  {post.commentCount > 0
+                    ? `View all ${formatN(post.commentCount)} comments`
+                    : 'Add a comment'}
+                </button>
               </div>
             </article>
           )
         })}
       </main>
+
+      <CommentsSheet
+        open={Boolean(commentsPostId)}
+        onClose={() => setCommentsPostId(null)}
+        subtitle={
+          commentsPost
+            ? commentsPost.author.displayName || formatUsername(commentsPost.author.username)
+            : undefined
+        }
+        emptyMessage="No comments yet. Be the first to reply."
+        signedIn={signedIn}
+        onOpenProfile={onOpenProfile}
+        fetchComments={loadPostComments}
+        submitComment={submitPostComment}
+        onCommentAdded={() => {
+          if (!commentsPostId) return
+          setFeed(list =>
+            list.map(p =>
+              p.id === commentsPostId ? { ...p, commentCount: p.commentCount + 1 } : p,
+            ),
+          )
+        }}
+      />
     </div>
   )
 }

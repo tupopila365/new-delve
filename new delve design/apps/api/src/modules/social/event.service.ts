@@ -272,9 +272,44 @@ async function notifyAttendeesOfUpdate(eventId: string, title: string, actorId: 
 
 
 
+
+async function resolveCommunityId(communityId: string | null | undefined, userId: string) {
+  if (communityId === undefined) return undefined
+  if (communityId === null || communityId === '') return null
+  const community = await prisma.community.findFirst({
+    where: { id: communityId, deletedAt: null },
+  })
+  if (!community) throw new AppError(404, 'NOT_FOUND', 'Community not found')
+  if (community.privacy === 'PRIVATE') {
+    const membership = await prisma.communityMembership.findUnique({
+      where: { communityId_userId: { communityId, userId } },
+    })
+    if (!membership || membership.status === 'REQUESTED') {
+      throw new AppError(403, 'FORBIDDEN', 'Join this community before linking an event.')
+    }
+  }
+  return communityId
+}
+
+async function resolveBusinessId(businessId: string | null | undefined, userId: string) {
+  if (businessId === undefined) return undefined
+  if (businessId === null || businessId === '') return null
+  const membership = await prisma.businessMember.findUnique({
+    where: { userId_businessId: { userId, businessId } },
+  })
+  if (!membership) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only host events for businesses you belong to.')
+  }
+  return businessId
+}
+
 export async function createEvent(env: Env, creatorId: string, body: CreateEventBody) {
 
   const { coverUrl } = await resolveCoverFromMedia(env, body.coverMediaId)
+
+  const communityId = await resolveCommunityId(body.communityId, creatorId)
+
+  const businessId = await resolveBusinessId(body.businessId, creatorId)
 
   const event = await prisma.travelerEvent.create({
 
@@ -307,6 +342,10 @@ export async function createEvent(env: Env, creatorId: string, body: CreateEvent
       longitude: body.longitude ?? null,
 
       category: body.category || null,
+
+      communityId: communityId ?? null,
+
+      businessId: businessId ?? null,
 
       visibility: body.visibility || 'PUBLIC',
 
@@ -354,6 +393,16 @@ export async function updateEvent(env: Env, creatorId: string, eventId: string, 
 
     || (body.city !== undefined && body.city !== existing.city)
 
+  const nextCommunityId =
+    body.communityId !== undefined
+      ? await resolveCommunityId(body.communityId, creatorId)
+      : undefined
+
+  const nextBusinessId =
+    body.businessId !== undefined
+      ? await resolveBusinessId(body.businessId, creatorId)
+      : undefined
+
   const updated = await prisma.travelerEvent.update({
 
     where: { id: eventId },
@@ -383,6 +432,10 @@ export async function updateEvent(env: Env, creatorId: string, eventId: string, 
       ...(body.longitude !== undefined ? { longitude: body.longitude } : {}),
 
       ...(body.category !== undefined ? { category: body.category } : {}),
+
+      ...(nextCommunityId !== undefined ? { communityId: nextCommunityId } : {}),
+
+      ...(nextBusinessId !== undefined ? { businessId: nextBusinessId } : {}),
 
       ...(body.visibility !== undefined ? { visibility: body.visibility } : {}),
 
@@ -444,13 +497,23 @@ export async function listDiscoverEvents(
 
   viewerId: string | null,
 
-  query: Pick<EventListQuery, 'city' | 'after'>,
+  query: Pick<EventListQuery, 'city' | 'after' | 'category' | 'following' | 'sort'>,
 
 ) {
 
   const after = query.after ? new Date(query.after) : new Date()
 
   const city = query.city?.trim()
+
+  const category = query.category?.trim()
+
+  const followingOnly = query.following === 'true'
+
+  const visibilityFilter = followingOnly && viewerId
+
+    ? { creator: { followsIncoming: { some: { followerId: viewerId } } } }
+
+    : discoverVisibilityFilter(viewerId)
 
   const rows = await prisma.travelerEvent.findMany({
 
@@ -462,7 +525,9 @@ export async function listDiscoverEvents(
 
       ...(city ? { city: { contains: city, mode: 'insensitive' } } : {}),
 
-      ...discoverVisibilityFilter(viewerId),
+      ...(category ? { category: { equals: category, mode: 'insensitive' } } : {}),
+
+      ...visibilityFilter,
 
     },
 
@@ -472,7 +537,13 @@ export async function listDiscoverEvents(
 
   })
 
-  return Promise.all(rows.map(r => getEventDto(env, r.id, viewerId)))
+  const dtos = await Promise.all(rows.map(r => getEventDto(env, r.id, viewerId)))
+
+  if (query.sort === 'popular') {
+    dtos.sort((a, b) => b.goingCount - a.goingCount || a.startAt.localeCompare(b.startAt))
+  }
+
+  return dtos
 
 }
 
@@ -740,7 +811,11 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
 
     where: { id: eventId },
 
-    include: { coverMedia: true },
+    include: {
+      coverMedia: true,
+      community: { select: { id: true, slug: true, name: true } },
+      business: { select: { id: true, slug: true, name: true, logoUrl: true } },
+    },
 
   })
 
@@ -811,6 +886,23 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
     longitude: event.longitude,
 
     category: event.category,
+
+    communityId: event.communityId,
+
+    businessId: event.businessId,
+
+    community: event.community
+      ? { id: event.community.id, slug: event.community.slug, name: event.community.name }
+      : null,
+
+    business: event.business
+      ? {
+          id: event.business.id,
+          slug: event.business.slug,
+          name: event.business.name,
+          logoUrl: event.business.logoUrl,
+        }
+      : null,
 
     visibility: event.visibility,
 

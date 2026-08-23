@@ -3,6 +3,7 @@ import {
   AlertTriangle, Check, CheckCheck, CheckCircle, Clock,
   Link2, Phone, Shield, X,
 } from 'lucide-react'
+import { MESSAGE_FEATURES } from './features'
 
 export function Sheet({
   title,
@@ -57,7 +58,9 @@ export function BlockAccountFlow({
       </ul>
       <div className="flex flex-col gap-2">
         <button type="button" onClick={() => onBlocked(false)} className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: '#C83B3B', color: '#fff' }}>Block</button>
-        <button type="button" onClick={() => onBlocked(true)} className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>Block and report</button>
+        {MESSAGE_FEATURES.reports && (
+          <button type="button" onClick={() => onBlocked(true)} className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>Block and report</button>
+        )}
         <button type="button" onClick={onClose} className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ color: 'var(--fg-muted)', background: 'none', border: 'none' }}>Cancel</button>
       </div>
       <p className="text-xs mt-3" style={{ color: 'var(--fg-muted)' }}>Blocking “{name}”.</p>
@@ -138,8 +141,12 @@ export function ImmediateSafetyFlow({ onClose, bookingRef }: { onClose: () => vo
             <Phone size={18} className="shrink-0 mt-0.5" aria-hidden />
             <p className="text-sm">Contact local emergency services first when you can do so safely. A call action appears only when the device and region support it.</p>
           </div>
-          {bookingRef && <p className="text-sm">Booking reference available to share: <strong>{bookingRef}</strong> (example)</p>}
-          <button type="button" className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'var(--primary)', color: '#fff' }}>Contact Delve safety support</button>
+          {bookingRef && <p className="text-sm">Booking reference: <strong>{bookingRef}</strong></p>}
+          {MESSAGE_FEATURES.immediateSafetyEscalation ? (
+            <button type="button" className="min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'var(--primary)', color: '#fff' }}>Contact Delve safety support</button>
+          ) : (
+            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Delve safety escalation is not available in-app yet. Contact local emergency services when you can do so safely.</p>
+          )}
           <button type="button" onClick={onClose} className="min-h-[44px] text-sm font-semibold" style={{ border: '1px solid var(--border)' }}>Close</button>
         </div>
       )}
@@ -247,6 +254,7 @@ export function SafetyCenterView({
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+        {(MESSAGE_FEATURES.immediateSafetyEscalation) && (
         <button type="button" onClick={onImmediate} className="flex items-start gap-3 p-4 rounded-2xl text-left min-h-[44px]"
           style={{ background: 'rgba(200,59,59,0.08)', border: '1px solid rgba(200,59,59,0.25)', color: '#C83B3B' }}>
           <Shield size={20} className="shrink-0 mt-0.5" aria-hidden />
@@ -255,16 +263,31 @@ export function SafetyCenterView({
             <span className="block text-xs mt-0.5" style={{ color: 'var(--fg-muted)' }}>If you are in danger, contact local emergency services first.</span>
           </span>
         </button>
+        )}
 
+        {!MESSAGE_FEATURES.immediateSafetyEscalation && (
+          <div className="flex items-start gap-3 p-4 rounded-2xl" style={{ background: 'rgba(200,59,59,0.08)', border: '1px solid rgba(200,59,59,0.25)', color: '#C83B3B' }}>
+            <Shield size={20} className="shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="text-sm font-bold m-0">If you are in immediate danger</p>
+              <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>Contact local emergency services first. Delve in-app safety escalation is coming soon.</p>
+            </div>
+          </div>
+        )}
+
+        {MESSAGE_FEATURES.safetyCases && (
         <section className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <h2 className="text-sm font-bold mb-2">Safety cases</h2>
-          {cases.map(c => (
+          {cases.length === 0 ? (
+            <p className="text-sm py-2" style={{ color: 'var(--fg-muted)' }}>No open safety cases.</p>
+          ) : cases.map(c => (
             <div key={c.id} className="py-2" style={{ borderTop: '1px solid var(--border)' }}>
               <p className="text-sm font-semibold">{c.category}</p>
               <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{c.ref} · {c.status} · Updated {c.updated}</p>
             </div>
           ))}
         </section>
+        )}
 
         <section className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <h2 className="text-sm font-bold mb-2">Blocked accounts</h2>

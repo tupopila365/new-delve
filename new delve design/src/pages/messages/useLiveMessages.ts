@@ -15,11 +15,14 @@ import {
   signalConversationTyping,
   unarchiveConversation,
 } from '../../api/messageClient'
+import { connectMessageStream } from '../../api/messageStream'
 import type { ChatMessage, Conversation } from './types'
 
 const INBOX_POLL_MS = 20_000
+const INBOX_POLL_STREAM_MS = 120_000
 const THREAD_POLL_MS = 4_000
 const UNREAD_POLL_MS = 30_000
+const STREAM_RETRY_MS = 3_000
 
 export function relativeMessageTime(iso: string | null): string {
   if (!iso) return ''
@@ -136,8 +139,110 @@ export function useLiveMessages(enabled: boolean, activeConversationId: string |
   const [typingUsers, setTypingUsers] = useState<Record<string, MessageAuthor[]>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [streamConnected, setStreamConnected] = useState(false)
   const threadsRef = useRef(threads)
+  const activeConversationIdRef = useRef(activeConversationId)
   threadsRef.current = threads
+  activeConversationIdRef.current = activeConversationId
+
+  const refreshInbox = useCallback(async () => {
+    if (!enabled) return
+    try {
+      const rows = await listConversations(false)
+      setConversations(rows.map(summaryToConversation))
+    } catch {
+      /* silent refresh */
+    }
+  }, [enabled])
+
+  const applyStreamMessage = useCallback((conversationId: string, message: DirectMessageDto) => {
+    const msg = dtoToChatMessage(message)
+    setThreads(prev => ({
+      ...prev,
+      [conversationId]: mergeMessages(prev[conversationId] ?? [], [msg]),
+    }))
+    const preview = message.body?.trim() || (message.kind === 'image' ? 'Photo' : 'Shared content')
+    const isActive = activeConversationIdRef.current === conversationId
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === conversationId
+          ? {
+              ...c,
+              preview,
+              time: 'Now',
+              unread: message.fromMe ? c.unread : isActive ? 0 : c.unread + 1,
+            }
+          : c,
+      ),
+    )
+    if (!message.fromMe && isActive) {
+      void markConversationRead(conversationId).catch(() => undefined)
+    }
+  }, [])
+
+  const applyStreamTyping = useCallback((
+    conversationId: string,
+    userId: string,
+    typing: boolean,
+    author?: MessageAuthor,
+  ) => {
+    setTypingUsers(prev => {
+      const current = prev[conversationId] ?? []
+      if (!typing) {
+        const next = current.filter(u => u.id !== userId)
+        if (next.length === current.length) return prev
+        return { ...prev, [conversationId]: next }
+      }
+      if (!author || current.some(u => u.id === userId)) return prev
+      return { ...prev, [conversationId]: [...current, author] }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!enabled) {
+      setStreamConnected(false)
+      return
+    }
+    let cancelled = false
+    let retryTimer: number | null = null
+    let abort: AbortController | null = null
+
+    const connect = () => {
+      abort?.abort()
+      abort = new AbortController()
+      void connectMessageStream(
+        {
+          onInbox: () => {
+            void refreshInbox()
+          },
+          onMessage: ({ conversationId, message }) => {
+            applyStreamMessage(conversationId, message)
+          },
+          onTyping: ({ conversationId, userId, typing, author }) => {
+            applyStreamTyping(conversationId, userId, typing, author)
+          },
+        },
+        abort.signal,
+      )
+        .catch(() => undefined)
+        .finally(() => {
+          if (!cancelled) {
+            setStreamConnected(false)
+            retryTimer = window.setTimeout(connect, STREAM_RETRY_MS)
+          }
+        })
+
+      setStreamConnected(true)
+    }
+
+    connect()
+    return () => {
+      cancelled = true
+      abort?.abort()
+      if (retryTimer) window.clearTimeout(retryTimer)
+      setStreamConnected(false)
+    }
+  }, [enabled, applyStreamMessage, applyStreamTyping, refreshInbox])
 
   const reload = useCallback(async () => {
     if (!enabled) return
@@ -170,13 +275,12 @@ export function useLiveMessages(enabled: boolean, activeConversationId: string |
 
   useEffect(() => {
     if (!enabled) return
+    const pollMs = streamConnected ? INBOX_POLL_STREAM_MS : INBOX_POLL_MS
     const timer = window.setInterval(() => {
-      void listConversations(false)
-        .then(rows => setConversations(rows.map(summaryToConversation)))
-        .catch(() => undefined)
-    }, INBOX_POLL_MS)
+      void refreshInbox()
+    }, pollMs)
     return () => window.clearInterval(timer)
-  }, [enabled])
+  }, [enabled, streamConnected, refreshInbox])
 
   const loadThread = useCallback(
     async (conversationId: string) => {
@@ -225,12 +329,12 @@ export function useLiveMessages(enabled: boolean, activeConversationId: string |
   )
 
   useEffect(() => {
-    if (!enabled || !activeConversationId) return
+    if (!enabled || !activeConversationId || streamConnected) return
     const timer = window.setInterval(() => {
       void pollThread(activeConversationId)
     }, THREAD_POLL_MS)
     return () => window.clearInterval(timer)
-  }, [enabled, activeConversationId, pollThread])
+  }, [enabled, activeConversationId, streamConnected, pollThread])
 
   const send = useCallback(
     async (conversationId: string, body: SendMessageBody) => {
@@ -371,6 +475,7 @@ export function useLiveMessages(enabled: boolean, activeConversationId: string |
     archive,
     unarchive,
     setMuted,
+    streamConnected,
   }
 }
 

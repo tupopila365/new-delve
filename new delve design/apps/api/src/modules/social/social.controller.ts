@@ -79,6 +79,30 @@ export function createSocialController(env: Env) {
       }
     },
 
+    async listFollowers(req: Request, res: Response, next: NextFunction) {
+      try {
+        const username = String(req.params.username || '')
+        const viewerId = optionalUserId(req)
+        const profile = await publicProfile.getPublicProfileByUsername(username, viewerId)
+        const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined
+        ok(res, await followService.listFollowers(profile.id, viewerId, { cursor }))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listFollowing(req: Request, res: Response, next: NextFunction) {
+      try {
+        const username = String(req.params.username || '')
+        const viewerId = optionalUserId(req)
+        const profile = await publicProfile.getPublicProfileByUsername(username, viewerId)
+        const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined
+        ok(res, await followService.listFollowing(profile.id, viewerId, { cursor }))
+      } catch (err) {
+        next(err)
+      }
+    },
+
     async createPost(req: AuthedRequest, res: Response, next: NextFunction) {
       try {
         const body = parseOrThrow(createPostBodySchema, req.body)
@@ -213,6 +237,9 @@ export function createSocialController(env: Env) {
           city: typeof req.query.city === 'string' ? req.query.city : undefined,
           after: typeof req.query.after === 'string' ? req.query.after : undefined,
           mine: typeof req.query.mine === 'string' ? req.query.mine : undefined,
+          category: typeof req.query.category === 'string' ? req.query.category : undefined,
+          following: typeof req.query.following === 'string' ? req.query.following : undefined,
+          sort: typeof req.query.sort === 'string' ? req.query.sort : undefined,
         })
         const viewerId = optionalUserId(req)
         if (query.mine === 'hosting') {

@@ -1,119 +1,107 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Map, Search, MapPin, Loader2, AlertCircle, LogIn, Plus, Bookmark, Heart, MessageCircle } from 'lucide-react'
+import { LogIn, Navigation, Plus, Search, X } from 'lucide-react'
 import type { JourneySummary } from '@delve/contracts'
+import { fetchOnboarding } from '../api/authClient'
 import { listJourneys, listMyJourneys } from '../api/journeyClient'
-import { formatUsername } from '../lib/formatUsername'
+import JourneyCard from '../components/journeys/JourneyCard'
 import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
+import JourneysPageSkeleton from '../components/journeys/JourneysPageSkeleton'
+import {
+  filterMyJourneys,
+  JOURNEY_DISCOVER_FILTERS,
+  MY_JOURNEY_FILTERS,
+  type JourneyDiscoverFilter,
+  type MyJourneyFilter,
+} from '../components/journeys/journeyLifecycle'
 
-type Tab = 'discover' | 'yours'
-type Sort = 'recent' | 'saved'
+type Tab = 'discover' | 'mine'
 
-function partyLabel(p: JourneySummary['partyType']) {
-  return p.charAt(0) + p.slice(1).toLowerCase()
-}
-
-function JourneyCard({
-  journey,
-  onOpen,
-}: {
-  journey: JourneySummary
-  onOpen: (id: string) => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(journey.id)}
-      className="overflow-hidden sm:rounded-2xl text-left w-full transition-all active:scale-[0.99]"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-    >
-      <div className="relative h-40 bg-black/10">
-        {journey.coverUrl ? (
-          <img src={journey.coverUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Map size={28} style={{ color: 'var(--fg-muted)' }} />
-          </div>
-        )}
-        {journey.visibility !== 'PUBLIC' && (
-          <span
-            className="absolute top-3 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
-          >
-            {journey.visibility === 'DRAFT' ? 'Draft' : 'Private'}
-          </span>
-        )}
-      </div>
-      <div className="px-4 py-3 flex flex-col gap-1.5">
-        <p className="text-sm font-bold m-0 leading-snug" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-          {journey.title}
-        </p>
-        <p className="text-xs m-0 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-          <MapPin size={12} />
-          {journey.startPlace}
-          {journey.endPlace !== journey.startPlace ? ` → ${journey.endPlace}` : ''}
-        </p>
-        <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-          {journey.durationDays}d · {journey.stopCount} stops · {partyLabel(journey.partyType)}
-          {journey.historicalCost ? ` · ${journey.currency} ${journey.historicalCost}` : ''}
-        </p>
-        <p className="text-xs m-0 inline-flex items-center gap-2" style={{ color: 'var(--fg-muted)' }}>
-          <span className="inline-flex items-center gap-0.5">
-            <Heart size={11} /> {journey.likeCount}
-          </span>
-          <span className="inline-flex items-center gap-0.5">
-            <MessageCircle size={11} /> {journey.commentCount}
-          </span>
-          <span className="inline-flex items-center gap-0.5">
-            <Bookmark size={11} /> {journey.saveCount}
-          </span>
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          {journey.author.avatarUrl ? (
-            <img src={journey.author.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
-          ) : (
-            <div className="w-5 h-5 rounded-full" style={{ background: 'var(--surface-subtle)' }} />
-          )}
-          <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-            {journey.author.displayName || formatUsername(journey.author.username)}
-          </span>
-          {journey.savedByMe && <Bookmark size={12} style={{ color: 'var(--primary)', marginLeft: 'auto' }} />}
-        </div>
-      </div>
-    </button>
-  )
+function useDebouncedValue<T>(value: T, delayMs: number) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(t)
+  }, [value, delayMs])
+  return debounced
 }
 
 export default function JourneysPage({
   signedIn = false,
   onSignIn,
   onOpenJourney,
+  onOpenProfile,
+  refreshKey = 0,
+  destinationHint,
+  createRequestKey = 0,
 }: {
   signedIn?: boolean
   onSignIn?: () => void
   onOpenJourney?: (id: string) => void
-} = {}) {
+  onOpenProfile?: (username: string) => void
+  refreshKey?: number
+  destinationHint?: string | null
+  createRequestKey?: number
+}) {
   const [tab, setTab] = useState<Tab>('discover')
-  const [query, setQuery] = useState('')
-  const [submittedQ, setSubmittedQ] = useState('')
+  const [discoverFilter, setDiscoverFilter] = useState<JourneyDiscoverFilter>('forYou')
+  const [mineFilter, setMineFilter] = useState<MyJourneyFilter>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebouncedValue(searchQuery.trim(), 320)
+  const [nearbyCity, setNearbyCity] = useState<string | null>(null)
   const [discover, setDiscover] = useState<JourneySummary[]>([])
   const [mine, setMine] = useState<JourneySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
-  const [sort, setSort] = useState<Sort>('recent')
 
-  const loadDiscover = useCallback(async (q: string) => {
+  useEffect(() => {
+    if (!signedIn) {
+      setNearbyCity(null)
+      return
+    }
+    let cancelled = false
+    void fetchOnboarding()
+      .then(profile => {
+        if (!cancelled) setNearbyCity(profile.homeCity?.trim() || null)
+      })
+      .catch(() => {
+        if (!cancelled) setNearbyCity(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [signedIn, refreshKey])
+
+  useEffect(() => {
+    if (createRequestKey > 0) setComposeOpen(true)
+  }, [createRequestKey])
+
+  const loadDiscover = useCallback(async () => {
+    if (discoverFilter === 'following' && !signedIn) {
+      setDiscover([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      setDiscover(await listJourneys(q || undefined))
+      const destination =
+        discoverFilter === 'nearby'
+          ? destinationHint?.trim() || nearbyCity?.trim() || undefined
+          : undefined
+      const rows = await listJourneys({
+        q: debouncedSearch || undefined,
+        filter: discoverFilter,
+        destination,
+      })
+      setDiscover(rows)
     } catch (err) {
       setDiscover([])
-      setError(err instanceof Error ? err.message : 'Could not load journeys')
+      setError(err instanceof Error ? err.message : 'Unable to load journeys')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [discoverFilter, debouncedSearch, signedIn, destinationHint, nearbyCity])
 
   const loadMine = useCallback(async () => {
     if (!signedIn) {
@@ -127,103 +115,123 @@ export default function JourneysPage({
       setMine(await listMyJourneys())
     } catch (err) {
       setMine([])
-      setError(err instanceof Error ? err.message : 'Could not load your journeys')
+      setError(err instanceof Error ? err.message : 'Unable to load your journeys')
     } finally {
       setLoading(false)
     }
   }, [signedIn])
 
   useEffect(() => {
-    if (tab === 'discover') void loadDiscover(submittedQ)
+    if (tab === 'discover') void loadDiscover()
     else void loadMine()
-  }, [tab, submittedQ, loadDiscover, loadMine])
+  }, [tab, loadDiscover, loadMine, refreshKey])
 
   const list = useMemo(() => {
-    const base = tab === 'discover' ? discover : mine
-    if (tab !== 'discover' || sort === 'recent') return base
-    return [...base].sort((a, b) => b.saveCount - a.saveCount || b.likeCount - a.likeCount)
-  }, [tab, discover, mine, sort])
+    if (tab === 'discover') return discover
+    return filterMyJourneys(mine, mineFilter)
+  }, [tab, discover, mine, mineFilter])
+
+  const patchJourney = useCallback((updated: JourneySummary) => {
+    const patchList = (rows: JourneySummary[]) =>
+      rows.map(row => (row.id === updated.id ? updated : row))
+    setDiscover(patchList)
+    setMine(patchList)
+  }, [])
 
   const emptyCopy = useMemo(() => {
-    if (tab === 'yours') {
-      return signedIn
-        ? { title: 'No journeys yet', body: 'Share a route you actually traveled.' }
-        : { title: 'Sign in to see yours', body: 'Journeys you publish will show up here.' }
+    if (tab === 'mine') {
+      if (!signedIn) return { title: 'Sign in to see your journeys', body: 'Plan trips and share travel stories.' }
+      if (mineFilter !== 'all') return { title: 'Nothing here yet', body: 'Try another filter or create a journey.' }
+      return { title: "You haven't created a Journey yet", body: 'Trips worth planning. Stories worth sharing.' }
     }
-    if (submittedQ) return { title: 'No matches', body: 'Try another search.' }
-    return { title: 'No journeys yet', body: 'Be the first to share a route.' }
-  }, [tab, signedIn, submittedQ])
+    if (discoverFilter === 'following' && !signedIn) {
+      return { title: 'Sign in to see following', body: 'Follow travelers to see their journeys here.' }
+    }
+    if (debouncedSearch) return { title: 'No journeys found', body: 'Try another search or destination.' }
+    if (discoverFilter === 'nearby' && !nearbyCity && !destinationHint) {
+      return { title: 'Add your home city', body: 'Set your city in profile settings for nearby journeys.' }
+    }
+    return { title: 'No journeys found for this destination yet', body: 'Be the first to share a route.' }
+  }, [tab, signedIn, mineFilter, discoverFilter, debouncedSearch, nearbyCity, destinationHint])
+
+  const chipStyle = (active: boolean) => ({
+    border: `1px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
+    background: active ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
+    color: active ? 'var(--primary)' : 'var(--fg)',
+    cursor: 'pointer' as const,
+  })
 
   return (
     <div className="pb-8">
-      <section className="px-4 sm:px-0 pt-4 pb-5" style={{ borderBottom: '1px solid var(--border)' }}>
-        <p className="text-2xl font-extrabold m-0 mb-1" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-          What people are travelling
-        </p>
-        <p className="text-sm m-0 mb-4 max-w-xl" style={{ color: 'var(--fg-muted)' }}>
-          Discover real routes, useful stops, travel costs, and stories shared by Delvers.
-        </p>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setComposeOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold"
-            style={{ background: 'var(--primary)', color: '#fff' }}
-          >
-            <Plus size={16} /> Share a journey
-          </button>
-        </div>
-
-        <div
-          className="flex items-center gap-2 px-3 rounded-2xl"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', height: 48 }}
-        >
-          <Search size={16} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} />
-          <input
-            type="search"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                setTab('discover')
-                setSubmittedQ(query.trim())
-              }
-            }}
-            placeholder="Search journeys, places…"
-            className="flex-1 bg-transparent text-sm outline-none"
-            style={{ color: 'var(--fg)' }}
-          />
+      <div
+        className="px-4 sm:px-0 py-4"
+        style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-extrabold m-0" style={{ color: 'var(--fg)' }}>
+              Journeys
+            </h1>
+            <p className="text-sm m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>
+              Trips worth planning. Stories worth sharing.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => {
-              setTab('discover')
-              setSubmittedQ(query.trim())
+              if (!signedIn) {
+                onSignIn?.()
+                return
+              }
+              setComposeOpen(true)
             }}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold"
-            style={{ background: 'var(--primary)', color: '#fff' }}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white flex-shrink-0 min-h-[44px]"
+            style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
           >
-            Search
+            <Plus size={16} /> Create Journey
           </button>
         </div>
-      </section>
+      </div>
 
-      <div className="px-4 sm:px-0 pt-4 flex gap-2 overflow-x-auto scroll-rail pb-1">
-        {(
-          [
-            { id: 'discover' as const, label: 'Discover' },
-            { id: 'yours' as const, label: 'Your journeys' },
-          ] as const
-        ).map(t => (
+      <div className="px-4 sm:px-0 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search journeys, destinations, travelers…"
+            className="w-full pl-9 pr-9 rounded-xl text-sm min-h-[44px]"
+            style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
+              style={{ background: 'none', border: 'none', color: 'var(--fg-muted)', cursor: 'pointer' }}
+              aria-label="Clear search"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-0 py-2 flex gap-2 overflow-x-auto scrollbar-none">
+        {([
+          { key: 'discover' as const, label: 'Discover' },
+          { key: 'mine' as const, label: 'My Journeys' },
+        ]).map(t => (
           <button
-            key={t.id}
+            key={t.key}
             type="button"
-            onClick={() => setTab(t.id)}
-            className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold"
+            onClick={() => setTab(t.key)}
+            className="rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap min-h-[44px]"
             style={{
-              background: tab === t.id ? 'var(--primary)' : 'var(--surface)',
-              color: tab === t.id ? '#fff' : 'var(--fg)',
-              border: tab === t.id ? 'none' : '1px solid var(--border)',
+              border: `1px solid ${tab === t.key ? 'var(--primary)' : 'var(--border)'}`,
+              background: tab === t.key ? 'var(--primary)' : 'transparent',
+              color: tab === t.key ? '#fff' : 'var(--fg)',
+              cursor: 'pointer',
             }}
           >
             {t.label}
@@ -232,86 +240,113 @@ export default function JourneysPage({
       </div>
 
       {tab === 'discover' && (
-        <div className="px-4 sm:px-0 pt-2 flex gap-2 overflow-x-auto scroll-rail pb-1">
-          {(
-            [
-              { id: 'recent' as const, label: 'Recent' },
-              { id: 'saved' as const, label: 'Most saved' },
-            ] as const
-          ).map(s => (
+        <div className="px-4 sm:px-0 pb-2 flex gap-2 overflow-x-auto scrollbar-none">
+          {JOURNEY_DISCOVER_FILTERS.map(f => (
             <button
-              key={s.id}
+              key={f.id}
               type="button"
-              onClick={() => setSort(s.id)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold"
-              style={{
-                background: sort === s.id ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-                color: sort === s.id ? 'var(--primary)' : 'var(--fg-muted)',
-                border: `1px solid ${sort === s.id ? 'var(--primary)' : 'var(--border)'}`,
+              onClick={() => {
+                if (f.id === 'following' && !signedIn) {
+                  onSignIn?.()
+                  return
+                }
+                setDiscoverFilter(f.id)
               }}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
+              style={chipStyle(discoverFilter === f.id)}
             >
-              {s.label}
+              {f.label}
             </button>
           ))}
         </div>
       )}
 
-      {error && (
-        <div
-          className="mx-4 sm:mx-0 mt-4 px-3 py-2.5 rounded-xl flex items-start gap-2 text-sm"
-          style={{ background: 'rgba(196,42,42,0.08)', color: 'var(--auth-danger, #C42A2A)' }}
-        >
-          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
+      {tab === 'mine' && signedIn && (
+        <div className="px-4 sm:px-0 pb-2 flex gap-2 overflow-x-auto scrollbar-none">
+          {MY_JOURNEY_FILTERS.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setMineFilter(f.id)}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
+              style={chipStyle(mineFilter === f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {tab === 'yours' && !signedIn && (
-        <div
-          className="mx-4 sm:mx-0 mt-4 px-4 py-8 text-center rounded-2xl"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-        >
-          <LogIn size={28} className="mx-auto mb-2" style={{ color: 'var(--fg-muted)' }} />
-          <p className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+      {tab === 'mine' && !signedIn && (
+        <div className="px-6 py-14 text-center">
+          <p className="text-sm font-semibold m-0 mb-2" style={{ color: 'var(--fg)' }}>
             Sign in to see your journeys
+          </p>
+          {onSignIn && (
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white min-h-[44px]"
+              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+            >
+              <LogIn size={16} /> Sign in
+            </button>
+          )}
+        </div>
+      )}
+
+      {loading && <JourneysPageSkeleton />}
+
+      {error && !loading && (
+        <div className="px-4 py-8 text-center">
+          <p className="text-sm m-0 mb-3" style={{ color: 'var(--auth-danger)' }} role="alert">
+            {error}
           </p>
           <button
             type="button"
-            onClick={onSignIn}
-            className="mt-3 px-4 py-2.5 rounded-xl text-sm font-bold"
-            style={{ background: 'var(--primary)', color: '#fff' }}
+            onClick={() => void (tab === 'discover' ? loadDiscover() : loadMine())}
+            className="rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px]"
+            style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
           >
-            Sign in
+            Try again
           </button>
         </div>
       )}
 
-      {loading ? (
-        <div className="px-4 sm:px-0 py-12 flex justify-center">
-          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
-        </div>
-      ) : list.length === 0 && !(tab === 'yours' && !signedIn) ? (
-        <div className="px-4 sm:px-0 py-12 text-center">
-          <Map size={32} className="mx-auto mb-3" style={{ color: 'var(--border)' }} />
-          <p className="text-base font-bold m-0 mb-1" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+      {!loading && !error && (tab === 'discover' || signedIn) && list.length === 0 && (
+        <div className="px-6 py-14 text-center">
+          <Navigation size={28} style={{ color: 'var(--fg-muted)', margin: '0 auto 10px' }} />
+          <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
             {emptyCopy.title}
           </p>
           <p className="text-sm m-0 mb-4" style={{ color: 'var(--fg-muted)' }}>
             {emptyCopy.body}
           </p>
-          <button
-            type="button"
-            onClick={() => setComposeOpen(true)}
-            className="px-4 py-2.5 rounded-xl text-sm font-bold"
-            style={{ background: 'var(--primary)', color: '#fff' }}
-          >
-            Share a journey
-          </button>
+          {tab === 'mine' && signedIn && (
+            <button
+              type="button"
+              onClick={() => setComposeOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white min-h-[44px]"
+              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+            >
+              <Plus size={16} /> Create your first Journey
+            </button>
+          )}
         </div>
-      ) : (
-        <div className="px-4 sm:px-0 pt-4 grid gap-3 sm:grid-cols-2">
+      )}
+
+      {!loading && !error && list.length > 0 && (tab === 'discover' || signedIn) && (
+        <div className="flex flex-col gap-3 p-4 sm:p-0 sm:pt-4">
           {list.map(j => (
-            <JourneyCard key={j.id} journey={j} onOpen={id => onOpenJourney?.(id)} />
+            <JourneyCard
+              key={j.id}
+              journey={j}
+              signedIn={signedIn}
+              onSignIn={onSignIn}
+              onOpen={id => onOpenJourney?.(id)}
+              onOpenProfile={onOpenProfile}
+              onJourneyUpdated={patchJourney}
+            />
           ))}
         </div>
       )}
@@ -324,6 +359,7 @@ export default function JourneysPage({
         onSignIn={onSignIn}
         onSaved={j => {
           setComposeOpen(false)
+          setTab('mine')
           onOpenJourney?.(j.id)
         }}
       />

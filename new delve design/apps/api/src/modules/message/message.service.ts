@@ -12,6 +12,7 @@ import { getPublicDeal } from '../deal/deal.service.js'
 import { createNotification } from '../notifications/notify.js'
 import { rateLimit } from '../auth/rate-limit.js'
 import { listTypingUserIds, setConversationTyping } from './message-typing.js'
+import { publishMessageStream } from './message-events.js'
 
 const CREATE_CONVERSATION_LIMIT = 20
 const SEND_MESSAGE_LIMIT = 120
@@ -612,8 +613,16 @@ export async function listMessages(
 }
 
 export async function setTyping(userId: string, conversationId: string, typing: boolean) {
-  await requireParticipant(userId, conversationId)
+  const participant = await requireParticipant(userId, conversationId)
   setConversationTyping(conversationId, userId, typing)
+  const author = typing ? await authorCard(userId) : undefined
+  for (const p of participant.conversation.participants) {
+    if (p.userId === userId) continue
+    publishMessageStream(p.userId, {
+      type: 'typing',
+      data: { conversationId, userId, typing, author: typing ? author : undefined },
+    })
+  }
   return { typing, conversationId }
 }
 
@@ -703,6 +712,14 @@ export async function sendMessage(
   setConversationTyping(conversationId, userId, false)
 
   void notifyMessageRecipients(userId, conversation, body).catch(() => undefined)
+
+  void (async () => {
+    for (const p of conversation.participants) {
+      const dto = await messageToDto(message, p.userId)
+      publishMessageStream(p.userId, { type: 'message', data: { conversationId, message: dto } })
+      publishMessageStream(p.userId, { type: 'inbox', data: { conversationId } })
+    }
+  })().catch(() => undefined)
 
   return {
     id: message.id,

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, Loader2, AlertCircle, Car, Pencil, Heart, MessageCircle,
+  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, AlertCircle, Car, Pencil, Heart, MessageCircle, Share2,
 } from 'lucide-react'
-import type { JourneyCommentDto, JourneyDetail } from '@delve/contracts'
+import type { JourneyDetail } from '@delve/contracts'
 import {
   addJourneyComment,
   fetchJourney,
@@ -10,11 +10,16 @@ import {
   likeJourney,
   unlikeJourney,
 } from '../api/journeyClient'
-import { saveItem, unsaveItem } from '../api/socialClient'
+import { createPost, saveItem, unsaveItem } from '../api/socialClient'
 import { getStoredUser } from '../api/authClient'
 import { AuthApiError } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
 import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
+import JourneyCoverMedia from '../components/journeys/JourneyCoverMedia'
+import JourneyDetailSkeleton from '../components/journeys/JourneyDetailSkeleton'
+import CommentsSheet from '../components/comments/CommentsSheet'
+import { deriveJourneyLifecycle, lifecycleLabel } from '../components/journeys/journeyLifecycle'
+import { mapJourneyComment } from '../components/comments/mappers'
 
 interface Props {
   journeyId: string
@@ -23,6 +28,8 @@ interface Props {
   onSignIn?: () => void
   onOpenProfile?: (username: string) => void
   onOpenGroupChat?: (journeyId: string) => void
+  onOpenEvent?: (eventId: string) => void
+  onSharedToDelvers?: () => void
 }
 
 function partyLabel(p: JourneyDetail['partyType']) {
@@ -36,6 +43,8 @@ export default function JourneyDetailPage({
   onSignIn,
   onOpenProfile,
   onOpenGroupChat,
+  onOpenEvent,
+  onSharedToDelvers,
 }: Props) {
   const [journey, setJourney] = useState<JourneyDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -45,54 +54,44 @@ export default function JourneyDetailPage({
   const [editOpen, setEditOpen] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeBusy, setLikeBusy] = useState(false)
-  const [comments, setComments] = useState<JourneyCommentDto[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
-  const [commentDraft, setCommentDraft] = useState('')
-  const [commentBusy, setCommentBusy] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [shareNote, setShareNote] = useState<string | null>(null)
+  const [shareBusy, setShareBusy] = useState(false)
   const viewerId = getStoredUser()?.id
   const isOwner = Boolean(journey && viewerId && journey.author.id === viewerId)
 
-  useEffect(() => {
-    let cancelled = false
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    void fetchJourney(journeyId)
-      .then(j => {
-        if (cancelled) return
-        setJourney(j)
-        setSaved(j.savedByMe)
-        setLiked(j.likedByMe)
-      })
-      .catch(err => {
-        if (cancelled) return
-        setJourney(null)
-        setError(err instanceof AuthApiError || err instanceof Error ? err.message : 'Could not load journey')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
+    try {
+      const j = await fetchJourney(journeyId)
+      setJourney(j)
+      setSaved(j.savedByMe)
+      setLiked(j.likedByMe)
+    } catch (err) {
+      setJourney(null)
+      setError(err instanceof AuthApiError || err instanceof Error ? err.message : 'Could not load journey')
+    } finally {
+      setLoading(false)
     }
   }, [journeyId])
 
   useEffect(() => {
-    let cancelled = false
-    setCommentsLoading(true)
-    void fetchJourneyComments(journeyId)
-      .then(rows => {
-        if (!cancelled) setComments(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setComments([])
-      })
-      .finally(() => {
-        if (!cancelled) setCommentsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+    void load()
+  }, [load])
+
+  const loadJourneyComments = useCallback(async () => {
+    const rows = await fetchJourneyComments(journeyId)
+    return rows.map(mapJourneyComment)
   }, [journeyId])
+
+  const submitJourneyComment = useCallback(
+    async (body: string) => {
+      const created = await addJourneyComment(journeyId, body)
+      return mapJourneyComment(created)
+    },
+    [journeyId],
+  )
 
   async function toggleSave() {
     if (!journey) return
@@ -138,31 +137,44 @@ export default function JourneyDetailPage({
     }
   }
 
-  async function submitComment() {
-    if (!journey || !commentDraft.trim()) return
+  async function shareJourney() {
+    if (!journey) return
+    const url = `${window.location.origin}/journeys/${journey.slug || journey.id}`
+    const text = `${journey.title}\n${url}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: journey.title, text, url })
+      } else {
+        await navigator.clipboard.writeText(text)
+        setShareNote('Link copied')
+        window.setTimeout(() => setShareNote(null), 2000)
+      }
+    } catch {
+      /* dismissed */
+    }
+  }
+
+  async function shareToDelvers() {
+    if (!journey || shareBusy) return
     if (!signedIn) {
       onSignIn?.()
       return
     }
-    setCommentBusy(true)
+    setShareBusy(true)
     try {
-      const created = await addJourneyComment(journey.id, commentDraft.trim())
-      setComments(prev => [...prev, created])
-      setCommentDraft('')
-      setJourney(j => (j ? { ...j, commentCount: j.commentCount + 1 } : j))
+      await createPost({ journeyId: journey.id })
+      setShareNote('Shared to Delvers')
+      onSharedToDelvers?.()
+      window.setTimeout(() => setShareNote(null), 2500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not post comment')
+      setError(err instanceof Error ? err.message : 'Could not share to Delvers')
     } finally {
-      setCommentBusy(false)
+      setShareBusy(false)
     }
   }
 
   if (loading) {
-    return (
-      <div className="py-16 flex justify-center">
-        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
-      </div>
-    )
+    return <JourneyDetailSkeleton />
   }
 
   if (error || !journey) {
@@ -170,14 +182,28 @@ export default function JourneyDetailPage({
       <div className="px-4 py-12 text-center">
         <AlertCircle size={32} className="mx-auto mb-3" style={{ color: 'var(--border)' }} />
         <p className="text-base font-bold m-0 mb-2" style={{ color: 'var(--fg)' }}>
-          {error || 'Journey not found'}
+          {error || "We couldn't load this Journey."}
         </p>
-        <button type="button" onClick={onBack} className="text-sm font-semibold" style={{ color: 'var(--primary)' }}>
+        <button type="button" onClick={() => void load()} className="text-sm font-semibold mr-4" style={{ color: 'var(--primary)' }}>
+          Retry
+        </button>
+        <button type="button" onClick={onBack} className="text-sm font-semibold" style={{ color: 'var(--fg-muted)' }}>
           Back to Journeys
         </button>
       </div>
     )
   }
+
+  const lifecycle = deriveJourneyLifecycle(journey)
+  const progressPct =
+    lifecycle === 'ACTIVE' && journey.durationDays > 0 && journey.startDate
+      ? Math.min(
+          100,
+          Math.round(
+            ((Date.now() - new Date(journey.startDate).getTime()) / 86400000 / journey.durationDays) * 100,
+          ),
+        )
+      : null
 
   return (
     <div className="pb-10">
@@ -253,15 +279,33 @@ export default function JourneyDetailPage({
               <MessageCircle size={16} /> Group chat
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => void shareJourney()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
+            style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
+          >
+            <Share2 size={16} /> Share
+          </button>
+          <button
+            type="button"
+            disabled={shareBusy}
+            onClick={() => void shareToDelvers()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+            style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)', cursor: 'pointer' }}
+          >
+            <Share2 size={16} /> Delvers
+          </button>
         </div>
       </div>
 
       <div className="relative h-56 sm:h-72 sm:rounded-2xl overflow-hidden bg-black/10 sm:mx-0">
         {journey.coverUrl || journey.media[0] ? (
-          <img
-            src={journey.coverUrl || journey.media[0]}
-            alt=""
+          <JourneyCoverMedia
+            url={journey.coverUrl || journey.media[0]!}
+            resourceType={journey.coverResourceType}
             className="w-full h-full object-cover"
+            variant="hero"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -277,6 +321,22 @@ export default function JourneyDetailPage({
         >
           {journey.title}
         </h1>
+        <p className="text-xs font-bold uppercase tracking-wide m-0 mb-2" style={{ color: 'var(--primary)' }}>
+          {lifecycleLabel(lifecycle)}
+        </p>
+        {shareNote && (
+          <p className="text-xs mb-2" style={{ color: 'var(--primary)' }} role="status">{shareNote}</p>
+        )}
+        {progressPct != null && (
+          <div className="mb-3">
+            <p className="text-xs m-0 mb-1" style={{ color: 'var(--fg-muted)' }}>
+              Trip in progress · Day {Math.max(1, Math.ceil((Date.now() - new Date(journey.startDate!).getTime()) / 86400000))} of {journey.durationDays}
+            </p>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-subtle)' }}>
+              <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: 'var(--primary)' }} />
+            </div>
+          </div>
+        )}
         <p className="text-sm m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
           {journey.summary || `${journey.startPlace} → ${journey.endPlace}`}
         </p>
@@ -350,6 +410,43 @@ export default function JourneyDetailPage({
           </div>
         )}
 
+        {(journey.events?.length ?? 0) > 0 && (
+          <>
+            <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+              Linked events
+            </h2>
+            <div className="flex flex-col gap-2 mb-5">
+              {journey.events!.map(ev => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => onOpenEvent?.(ev.id)}
+                  className="flex items-center gap-3 rounded-2xl overflow-hidden text-left min-h-[64px]"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    cursor: onOpenEvent ? 'pointer' : 'default',
+                    padding: 0,
+                  }}
+                >
+                  {ev.coverUrl ? (
+                    <img src={ev.coverUrl} alt="" className="w-16 h-16 object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
+                  )}
+                  <div className="min-w-0 pr-3 py-2">
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{ev.title}</p>
+                    <p className="text-xs m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                      {new Date(ev.startAt).toLocaleString()}
+                      {ev.city ? ` · ${ev.city}` : ''}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
         <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
           Stops
         </h2>
@@ -396,51 +493,50 @@ export default function JourneyDetailPage({
         </div>
 
         <div
-          className="mt-6 rounded-2xl p-4"
+          className="mt-6 rounded-2xl overflow-hidden"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <h2 className="text-base font-bold m-0 mb-3 inline-flex items-center gap-2" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-            <MessageCircle size={18} /> Comments
-          </h2>
-          {commentsLoading ? (
-            <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>Loading comments…</p>
-          ) : comments.length === 0 ? (
-            <p className="text-sm m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-              No comments yet. Be the first to ask a question or share a tip.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3 mb-3">
-              {comments.map(c => (
-                <div key={c.id}>
-                  <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
-                    {c.author.displayName || formatUsername(c.author.username)}
-                  </p>
-                  <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>{c.body}</p>
-                </div>
-              ))}
+          <button
+            type="button"
+            onClick={() => setCommentsOpen(true)}
+            className="w-full flex items-center justify-between gap-3 p-4 text-left"
+            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            <div>
+              <h2
+                className="text-base font-bold m-0 mb-1 inline-flex items-center gap-2"
+                style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
+              >
+                <MessageCircle size={18} /> Comments
+              </h2>
+              <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+                {journey.commentCount > 0
+                  ? `${journey.commentCount} comment${journey.commentCount === 1 ? '' : 's'}`
+                  : 'Be the first to ask a question or share a tip'}
+              </p>
             </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              value={commentDraft}
-              onChange={e => setCommentDraft(e.target.value)}
-              placeholder={signedIn ? 'Add a comment' : 'Sign in to comment'}
-              disabled={commentBusy}
-              className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
-              style={{ background: 'var(--surface-subtle)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-            />
-            <button
-              type="button"
-              disabled={commentBusy || !commentDraft.trim()}
-              onClick={() => void submitComment()}
-              className="rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
-              style={{ background: 'var(--primary)', border: 'none' }}
-            >
-              Post
-            </button>
-          </div>
+            <span className="text-sm font-semibold flex-shrink-0" style={{ color: 'var(--primary)' }}>
+              {journey.commentCount > 0 ? 'View all' : 'Add comment'}
+            </span>
+          </button>
         </div>
       </div>
+
+      <CommentsSheet
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        title="Comments"
+        subtitle={journey.title}
+        emptyMessage="No comments yet. Be the first to ask a question or share a tip."
+        signedIn={signedIn}
+        onSignIn={onSignIn}
+        onOpenProfile={onOpenProfile}
+        fetchComments={loadJourneyComments}
+        submitComment={submitJourneyComment}
+        onCommentAdded={() => {
+          setJourney(j => (j ? { ...j, commentCount: j.commentCount + 1 } : j))
+        }}
+      />
 
       <JourneyEditorSheet
         open={editOpen}

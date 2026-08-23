@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, Calendar, CheckCircle, Globe, Heart, MapPin, MessageCircle, Plus, Share2,
 } from 'lucide-react'
@@ -37,6 +37,9 @@ import {
 } from '../components/skeletons'
 import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
 import EventCoverMedia from '../components/EventCoverMedia'
+import FollowListSheet, { type FollowListTab } from '../components/profile/FollowListSheet'
+import CommentsSheet from '../components/comments/CommentsSheet'
+import { mapPostComment } from '../components/comments/mappers'
 
 type ProfileTab = 'Delvers' | 'Events' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
 
@@ -224,11 +227,10 @@ export default function ProfilePage({
   const [journeysError, setJourneysError] = useState<string | null>(null)
   const [communitiesError, setCommunitiesError] = useState<string | null>(null)
   const [followBusy, setFollowBusy] = useState(false)
+  const [followListOpen, setFollowListOpen] = useState<FollowListTab | null>(null)
+  const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
   const [avatarFailed, setAvatarFailed] = useState(false)
   const [coverFailed, setCoverFailed] = useState(false)
-  const [activePostId, setActivePostId] = useState<string | null>(null)
-  const [comments, setComments] = useState<Record<string, { id: string; body: string; author: string }[]>>({})
-  const [commentDraft, setCommentDraft] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const coverUpload = useMediaUpload('cover')
@@ -444,6 +446,23 @@ export default function ProfilePage({
   const avatarUrl = profile?.avatarUrl && !avatarFailed ? profile.avatarUrl : null
   const coverUrl = profile?.coverUrl?.trim() && !coverFailed ? profile.coverUrl.trim() : null
 
+  const commentsPost = posts.find(p => p.id === commentsPostId)
+
+  const loadPostComments = useCallback(async () => {
+    if (!commentsPostId) return []
+    const rows = await fetchComments(commentsPostId)
+    return rows.map(mapPostComment)
+  }, [commentsPostId])
+
+  const submitPostComment = useCallback(
+    async (body: string) => {
+      if (!commentsPostId) throw new Error('No post selected')
+      const row = await addComment(commentsPostId, body)
+      return mapPostComment(row)
+    },
+    [commentsPostId],
+  )
+
   async function toggleFollow() {
     if (!profile || isOwner || followBusy) return
     setFollowBusy(true)
@@ -483,45 +502,6 @@ export default function ProfilePage({
       else await saveItem({ targetType: 'POST', targetId: post.id })
       setPosts(list =>
         list.map(p => (p.id === post.id ? { ...p, savedByMe: !p.savedByMe } : p)),
-      )
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function openComments(postId: string) {
-    setActivePostId(postId)
-    if (comments[postId]) return
-    try {
-      const rows = await fetchComments(postId)
-      setComments(prev => ({
-        ...prev,
-        [postId]: rows.map(c => ({
-          id: c.id,
-          body: c.body,
-          author: c.author.displayName || c.author.username,
-        })),
-      }))
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function submitComment(postId: string) {
-    const body = commentDraft.trim()
-    if (!body) return
-    try {
-      const row = await addComment(postId, body)
-      setCommentDraft('')
-      setComments(prev => ({
-        ...prev,
-        [postId]: [
-          ...(prev[postId] || []),
-          { id: row.id, body: row.body, author: row.author.displayName || row.author.username },
-        ],
-      }))
-      setPosts(list =>
-        list.map(p => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
       )
     } catch {
       /* ignore */
@@ -589,6 +569,7 @@ export default function ProfilePage({
   }
 
   return (
+    <>
     <div className="pb-4">
       <div className="relative h-44 sm:h-52 overflow-hidden sm:rounded-t-2xl">
         <div
@@ -867,19 +848,39 @@ export default function ProfilePage({
           style={{ gap: 1, background: 'var(--border)' }}
         >
           {[
-            { label: 'Followers', value: formatCount(profile.followersCount) },
-            { label: 'Following', value: formatCount(profile.followingCount) },
-            { label: 'Delvers', value: formatCount(Math.max(profile.delversCount, posts.length)) },
-          ].map(stat => (
-            <div
-              key={stat.label}
-              className="py-3 text-center"
-              style={{ background: 'var(--surface)' }}
-            >
-              <p className="font-display text-lg font-extrabold m-0" style={{ color: 'var(--fg)' }}>{stat.value}</p>
-              <p className="text-[11px] m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>{stat.label}</p>
-            </div>
-          ))}
+            { label: 'Followers', value: formatCount(profile.followersCount), tab: 'followers' as const },
+            { label: 'Following', value: formatCount(profile.followingCount), tab: 'following' as const },
+            { label: 'Delvers', value: formatCount(Math.max(profile.delversCount, posts.length)), tab: null },
+          ].map(stat => {
+            const body = (
+              <>
+                <p className="font-display text-lg font-extrabold m-0" style={{ color: 'var(--fg)' }}>{stat.value}</p>
+                <p className="text-[11px] m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>{stat.label}</p>
+              </>
+            )
+            if (!stat.tab) {
+              return (
+                <div
+                  key={stat.label}
+                  className="py-3 text-center"
+                  style={{ background: 'var(--surface)' }}
+                >
+                  {body}
+                </div>
+              )
+            }
+            return (
+              <button
+                key={stat.label}
+                type="button"
+                onClick={() => setFollowListOpen(stat.tab)}
+                className="py-3 text-center w-full"
+                style={{ background: 'var(--surface)', border: 'none', cursor: 'pointer' }}
+              >
+                {body}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -945,6 +946,63 @@ export default function ProfilePage({
                     mediaClassName="w-full max-h-80 object-cover"
                     maxHeightClass="max-h-80"
                   />
+                  {post.linkedEvent && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenEvent?.(post.linkedEvent!.id)}
+                      className="mb-3 flex items-center gap-3 rounded-xl overflow-hidden text-left w-full"
+                      style={{
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface-subtle)',
+                        cursor: onOpenEvent ? 'pointer' : 'default',
+                        padding: 0,
+                      }}
+                    >
+                      {post.linkedEvent.coverUrl ? (
+                        <img src={post.linkedEvent.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
+                      )}
+                      <div className="min-w-0 py-2 pr-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider m-0" style={{ color: 'var(--primary)' }}>
+                          Event
+                        </p>
+                        <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                          {post.linkedEvent.title}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+                  {post.linkedJourney && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenJourney?.(post.linkedJourney!.id)}
+                      className="mb-3 flex items-center gap-3 rounded-xl overflow-hidden text-left w-full"
+                      style={{
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface-subtle)',
+                        cursor: onOpenJourney ? 'pointer' : 'default',
+                        padding: 0,
+                      }}
+                    >
+                      {post.linkedJourney.coverUrl ? (
+                        <img src={post.linkedJourney.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
+                      )}
+                      <div className="min-w-0 py-2 pr-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider m-0" style={{ color: 'var(--primary)' }}>
+                          Journey
+                        </p>
+                        <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                          {post.linkedJourney.title}
+                        </p>
+                        <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                          {post.linkedJourney.durationDays} days · {post.linkedJourney.stopCount} stops
+                        </p>
+                      </div>
+                    </button>
+                  )}
                   {post.caption && (
                     <p className="text-sm mb-2" style={{ color: 'var(--fg)' }}>{post.caption}</p>
                   )}
@@ -966,7 +1024,7 @@ export default function ProfilePage({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void openComments(post.id)}
+                      onClick={() => setCommentsPostId(post.id)}
                       className="inline-flex items-center gap-1 text-sm"
                       style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer' }}
                     >
@@ -982,32 +1040,22 @@ export default function ProfilePage({
                       {post.savedByMe ? 'Saved' : 'Save'}
                     </button>
                   </div>
-                  {activePostId === post.id && (
-                    <div className="mt-3">
-                      {(comments[post.id] || []).map(c => (
-                        <p key={c.id} className="text-sm mb-1.5" style={{ color: 'var(--fg)' }}>
-                          <span className="font-semibold">{c.author}</span> {c.body}
-                        </p>
-                      ))}
-                      <div className="flex gap-2 mt-2">
-                        <input
-                          value={commentDraft}
-                          onChange={e => setCommentDraft(e.target.value)}
-                          placeholder="Add a comment"
-                          className="flex-1 rounded-lg px-3 py-2 text-sm"
-                          style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void submitComment(post.id)}
-                          className="rounded-lg px-3 py-2 text-sm font-semibold text-white"
-                          style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-                        >
-                          Post
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCommentsPostId(post.id)}
+                    className="text-xs mt-1 inline-flex items-center min-h-[28px]"
+                    style={{
+                      color: 'var(--fg-muted)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    {post.commentCount > 0
+                      ? `View all ${post.commentCount} comments`
+                      : 'Add a comment'}
+                  </button>
                 </article>
               )
             })}
@@ -1266,5 +1314,60 @@ export default function ProfilePage({
         </div>
       )}
     </div>
+    {profile && (
+      <FollowListSheet
+        open={followListOpen}
+        username={profile.username}
+        profileDisplayName={profile.displayName}
+        signedIn={signedIn}
+        viewerUserId={viewerId}
+        onClose={() => setFollowListOpen(null)}
+        onOpenProfile={nextUsername => {
+          setFollowListOpen(null)
+          if (nextUsername !== profile.username) onOpenUser?.(nextUsername)
+        }}
+        onMessageUser={
+          onMessageUser
+            ? userId => {
+                setFollowListOpen(null)
+                onMessageUser(userId)
+              }
+            : undefined
+        }
+        isOwnProfile={isOwnProfile}
+        onFollowingCountChange={delta => {
+          setProfile(prev =>
+            prev ? { ...prev, followingCount: Math.max(0, prev.followingCount + delta) } : prev,
+          )
+        }}
+      />
+    )}
+    <CommentsSheet
+      open={Boolean(commentsPostId)}
+      onClose={() => setCommentsPostId(null)}
+      subtitle={
+        commentsPost
+          ? commentsPost.author.displayName || formatUsername(commentsPost.author.username)
+          : undefined
+      }
+      emptyMessage="No comments yet. Be the first to reply."
+      signedIn={signedIn}
+      viewerAvatarUrl={isOwnProfile ? profile?.avatarUrl : null}
+      onOpenProfile={username => {
+        setCommentsPostId(null)
+        onOpenUser?.(username)
+      }}
+      fetchComments={loadPostComments}
+      submitComment={submitPostComment}
+      onCommentAdded={() => {
+        if (!commentsPostId) return
+        setPosts(list =>
+          list.map(p =>
+            p.id === commentsPostId ? { ...p, commentCount: p.commentCount + 1 } : p,
+          ),
+        )
+      }}
+    />
+    </>
   )
 }

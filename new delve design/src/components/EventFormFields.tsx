@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Camera, LocateFixed } from 'lucide-react'
+import { listMyCommunities } from '../api/communityClient'
+import { fetchMyBusinesses } from '../api/businessClient'
 import EventCoverMedia from './EventCoverMedia'
+import { EVENT_CATEGORIES } from './events/eventCategories'
 
 export type EventVisibility = 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
 
@@ -10,6 +13,11 @@ export type EventFormState = {
   startAt: string
   endAt: string
   city: string
+  country: string
+  timezone: string
+  category: string
+  communityId: string
+  businessId: string
   locationName: string
   visibility: EventVisibility
   maxAttendees: string
@@ -26,6 +34,11 @@ export const emptyEventForm = (): EventFormState => ({
   startAt: '',
   endAt: '',
   city: '',
+  country: '',
+  timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC',
+  category: '',
+  communityId: '',
+  businessId: '',
   locationName: '',
   visibility: 'PUBLIC',
   maxAttendees: '',
@@ -55,6 +68,23 @@ interface EventFormFieldsProps {
 
 export default function EventFormFields({ form, onChange, onError, onOpenCoverStudio }: EventFormFieldsProps) {
   const [locating, setLocating] = useState(false)
+  const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
+  const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([
+      listMyCommunities().catch(() => []),
+      fetchMyBusinesses().catch(() => []),
+    ]).then(([comms, biz]) => {
+      if (cancelled) return
+      setCommunities(comms.map(c => ({ id: c.id, name: c.name })))
+      setBusinesses(biz.map(m => ({ id: m.business.id, name: m.business.name })))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function clearCover() {
     onChange({ coverMediaId: null, preview: null, previewResourceType: null })
@@ -113,6 +143,73 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
         className={inputClass}
         style={inputStyle}
       />
+      <input
+        value={form.country}
+        onChange={e => onChange({ country: e.target.value })}
+        placeholder="Country"
+        className={inputClass}
+        style={inputStyle}
+      />
+      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+        Category
+      </label>
+      <select
+        value={form.category}
+        onChange={e => onChange({ category: e.target.value })}
+        className={inputClass}
+        style={inputStyle}
+      >
+        <option value="">Choose a category</option>
+        {EVENT_CATEGORIES.map(cat => (
+          <option key={cat} value={cat}>{cat}</option>
+        ))}
+      </select>
+      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+        Timezone
+      </label>
+      <input
+        value={form.timezone}
+        onChange={e => onChange({ timezone: e.target.value })}
+        placeholder="e.g. Africa/Windhoek"
+        className={inputClass}
+        style={inputStyle}
+      />
+      {(communities.length > 0 || form.communityId) && (
+        <>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+            Community (optional)
+          </label>
+          <select
+            value={form.communityId}
+            onChange={e => onChange({ communityId: e.target.value })}
+            className={inputClass}
+            style={inputStyle}
+          >
+            <option value="">No community</option>
+            {communities.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </>
+      )}
+      {(businesses.length > 0 || form.businessId) && (
+        <>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+            Host as business (optional)
+          </label>
+          <select
+            value={form.businessId}
+            onChange={e => onChange({ businessId: e.target.value })}
+            className={inputClass}
+            style={inputStyle}
+          >
+            <option value="">Personal event</option>
+            {businesses.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </>
+      )}
       <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
         Who can see this?
       </label>
@@ -261,6 +358,11 @@ export function eventFormToBody(form: EventFormState, status: 'DRAFT' | 'PUBLISH
     startAt: new Date(form.startAt).toISOString(),
     endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
     city: form.city.trim() || null,
+    country: form.country.trim() || null,
+    timezone: form.timezone.trim() || null,
+    category: form.category.trim() || null,
+    communityId: form.communityId.trim() || null,
+    businessId: form.businessId.trim() || null,
     locationName: form.locationName.trim() || null,
     latitude: lat != null && Number.isFinite(lat) ? lat : null,
     longitude: lng != null && Number.isFinite(lng) ? lng : null,

@@ -2,9 +2,12 @@ import { z } from 'zod'
 
 export const journeyVisibilitySchema = z.enum(['PUBLIC', 'PRIVATE', 'DRAFT'])
 export const journeyPartyTypeSchema = z.enum(['SOLO', 'COUPLE', 'FAMILY', 'GROUP', 'FRIENDS'])
+export const journeyLifecycleStatusSchema = z.enum(['DRAFT', 'UPCOMING', 'ACTIVE', 'COMPLETED'])
+export const journeyCoverResourceTypeSchema = z.enum(['image', 'video'])
 
 export type JourneyVisibility = z.infer<typeof journeyVisibilitySchema>
 export type JourneyPartyType = z.infer<typeof journeyPartyTypeSchema>
+export type JourneyLifecycleStatus = z.infer<typeof journeyLifecycleStatusSchema>
 
 export const journeyAuthorSchema = z.object({
   id: z.string(),
@@ -39,11 +42,16 @@ export const journeySummarySchema = z.object({
   title: z.string(),
   summary: z.string(),
   coverUrl: z.string().nullable(),
+  coverResourceType: journeyCoverResourceTypeSchema.nullable().optional(),
+  startDate: z.string().datetime().nullable().optional(),
+  endDate: z.string().datetime().nullable().optional(),
+  lifecycleStatus: journeyLifecycleStatusSchema.optional(),
   startPlace: z.string(),
   endPlace: z.string(),
   countries: z.array(z.string()),
   durationDays: z.number().int().positive(),
   stopCount: z.number().int().nonnegative(),
+  stopPreview: z.array(z.string()).optional(),
   transportModes: z.array(z.string()),
   historicalCost: z.string().nullable(),
   currency: z.string(),
@@ -67,6 +75,19 @@ export type JourneySummary = z.infer<typeof journeySummarySchema>
 export const journeyDetailSchema = journeySummarySchema.extend({
   stops: z.array(journeyStopDtoSchema),
   media: z.array(z.string()),
+  events: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        coverUrl: z.string().nullable(),
+        startAt: z.string().datetime(),
+        city: z.string().nullable(),
+        locationName: z.string().nullable(),
+        category: z.string().nullable(),
+      }),
+    )
+    .optional(),
 })
 
 export type JourneyDetail = z.infer<typeof journeyDetailSchema>
@@ -92,6 +113,9 @@ export const createJourneyBodySchema = z
     title: z.string().trim().min(3).max(160),
     summary: z.string().trim().max(2000).optional(),
     coverUrl: z.string().trim().max(2000).optional().nullable(),
+    coverResourceType: journeyCoverResourceTypeSchema.optional().nullable(),
+    startDate: z.string().datetime().optional().nullable(),
+    endDate: z.string().datetime().optional().nullable(),
     startPlace: z.string().trim().min(1).max(120),
     endPlace: z.string().trim().min(1).max(120),
     countries: z.array(z.string().trim().max(80)).max(20).optional(),
@@ -113,6 +137,16 @@ export type CreateJourneyBody = z.infer<typeof createJourneyBodySchema>
 export const updateJourneyBodySchema = createJourneyBodySchema
 export type UpdateJourneyBody = z.infer<typeof updateJourneyBodySchema>
 
+export const journeyListQuerySchema = z
+  .object({
+    q: z.string().trim().max(120).optional(),
+    filter: z.enum(['forYou', 'following', 'trending', 'nearby']).optional(),
+    destination: z.string().trim().max(80).optional(),
+  })
+  .strict()
+
+export type JourneyListQuery = z.infer<typeof journeyListQuerySchema>
+
 export const journeyCommentDtoSchema = z.object({
   id: z.string(),
   body: z.string(),
@@ -129,3 +163,11 @@ export const createJourneyCommentBodySchema = z
   .strict()
 
 export type CreateJourneyCommentBody = z.infer<typeof createJourneyCommentBodySchema>
+
+export const addJourneyEventBodySchema = z
+  .object({
+    eventId: z.string().min(1),
+  })
+  .strict()
+
+export type AddJourneyEventBody = z.infer<typeof addJourneyEventBodySchema>

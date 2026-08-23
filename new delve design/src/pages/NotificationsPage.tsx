@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, Heart, MessageCircle, UserPlus, Calendar, MapPin } from 'lucide-react'
+import { Bell, Heart, MessageCircle, UserPlus, Calendar, MapPin, Users } from 'lucide-react'
 import type { NotificationDto } from '@delve/contracts'
 import {
   fetchNotifications,
@@ -11,6 +11,7 @@ function iconFor(type: string) {
   if (type.includes('MESSAGE')) return <MessageCircle size={18} />
   if (type.includes('FOLLOW')) return <UserPlus size={18} />
   if (type.includes('JOURNEY')) return <MapPin size={18} />
+  if (type.includes('COMMUNITY')) return <Users size={18} />
   if (type.includes('LIKE') || type.includes('REACTION')) return <Heart size={18} />
   if (type.includes('COMMENT')) return <MessageCircle size={18} />
   if (type.includes('EVENT')) return <Calendar size={18} />
@@ -32,12 +33,14 @@ export default function NotificationsPage({
   onOpenJourney,
   onOpenEvent,
   onOpenConversation,
+  onOpenCommunityThread,
 }: {
   authReady?: boolean
   signedIn?: boolean
   onOpenJourney?: (journeyId: string) => void
   onOpenEvent?: (eventId: string) => void
   onOpenConversation?: (conversationId: string) => void
+  onOpenCommunityThread?: (threadId: string) => void
 }) {
   const [notifs, setNotifs] = useState<NotificationDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -110,6 +113,10 @@ export default function NotificationsPage({
     }
     if (n.entityType === 'event' && n.entityId && onOpenEvent) {
       onOpenEvent(n.entityId)
+      return
+    }
+    if (n.entityType === 'community_thread' && n.entityId && onOpenCommunityThread) {
+      onOpenCommunityThread(n.entityId)
     }
   }
 
@@ -143,7 +150,7 @@ export default function NotificationsPage({
           <Bell size={28} style={{ color: 'var(--fg-muted)', margin: '0 auto 10px' }} />
           <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>You are all caught up</p>
           <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-            Follows, likes, comments, journeys, and event updates will show up here.
+            Follows, likes, comments, community updates, journeys, and event updates will show up here.
           </p>
         </div>
       )}

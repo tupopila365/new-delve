@@ -50,6 +50,7 @@ export const SOCIAL_VIDEO_CONTEXTS: StudioContext[] = [
   'listing',
   'activity',
   'event',
+  'message',
   'accommodation',
   'transport',
   'business-content',
@@ -88,6 +89,19 @@ export function limitsForContext(context: StudioContext, base: UploadLimits = EX
       allowTransitions: false,
       allowTextOverlays: true,
       allowDecorativeEffects: true,
+    }
+  }
+  if (context === 'message') {
+    return {
+      ...base,
+      maxDurationSec: Math.min(base.maxDurationSec, 60),
+      maxClips: 1,
+      allowMusic: false,
+      allowFilters: true,
+      allowSpeed: true,
+      allowTransitions: false,
+      allowTextOverlays: false,
+      allowDecorativeEffects: false,
     }
   }
   const mode = studioModeForContext(context)

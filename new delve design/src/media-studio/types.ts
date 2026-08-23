@@ -35,6 +35,7 @@ export type StudioContext =
   | 'refund-evidence'
   | 'safety-report'
   | 'support-evidence'
+  | 'message'
 
 export type StudioMode = 'social' | 'commercial' | 'restricted'
 

@@ -4,6 +4,7 @@ import { createConversationBodySchema, sendMessageBodySchema, typingBodySchema }
 import { AppError } from '../../middleware/error-handler.js'
 import type { AuthedRequest } from '../../middleware/require-auth.js'
 import * as messageService from './message.service.js'
+import { subscribeMessageStream } from './message-events.js'
 
 function ok<T>(res: Response, data: T, status = 200) {
   res.status(status).json({ success: true, data })
@@ -222,6 +223,38 @@ export function createMessageController() {
     async blocks(req: AuthedRequest, res: Response, next: NextFunction) {
       try {
         ok(res, await messageService.listBlockedUsers(requireUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async stream(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const userId = requireUserId(req)
+        res.setHeader('Content-Type', 'text/event-stream')
+        res.setHeader('Cache-Control', 'no-cache, no-transform')
+        res.setHeader('Connection', 'keep-alive')
+        res.setHeader('X-Accel-Buffering', 'no')
+        res.flushHeaders()
+
+        const send = (event: string, data: unknown) => {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        }
+
+        const unsubscribe = subscribeMessageStream(userId, evt => {
+          send(evt.type, evt.data)
+        })
+
+        send('ready', { ok: true })
+
+        const heartbeat = setInterval(() => {
+          res.write(': heartbeat\n\n')
+        }, 25_000)
+
+        req.on('close', () => {
+          clearInterval(heartbeat)
+          unsubscribe()
+        })
       } catch (err) {
         next(err)
       }

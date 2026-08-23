@@ -4,6 +4,7 @@ import type {
   CreatePostBody,
   CreateStoryBody,
   EventDto,
+  FollowList,
   FollowResult,
   NotificationDto,
   PostDto,
@@ -37,6 +38,16 @@ export async function followTraveler(userId: string) {
 
 export async function unfollowTraveler(userId: string) {
   return authorizedJson<FollowResult>(`/follows/${encodeURIComponent(userId)}`, { method: 'DELETE' })
+}
+
+export async function fetchFollowers(username: string, cursor?: string) {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+  return authorizedJson<FollowList>(`/users/${encodeURIComponent(username)}/followers${qs}`)
+}
+
+export async function fetchFollowing(username: string, cursor?: string) {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+  return authorizedJson<FollowList>(`/users/${encodeURIComponent(username)}/following${qs}`)
 }
 
 export async function createPost(body: CreatePostBody) {
@@ -109,11 +120,21 @@ export async function searchEvents(q: string) {
   return authorizedJson<EventDto[]>(`/events/search?q=${encodeURIComponent(q)}`)
 }
 
-export async function fetchEvents(params?: { city?: string; after?: string; mine?: 'hosting' | 'attending' }) {
+export async function fetchEvents(params?: {
+  city?: string
+  after?: string
+  mine?: 'hosting' | 'attending'
+  category?: string
+  following?: boolean
+  sort?: 'popular'
+}) {
   const qs = new URLSearchParams()
   if (params?.city) qs.set('city', params.city)
   if (params?.after) qs.set('after', params.after)
   if (params?.mine) qs.set('mine', params.mine)
+  if (params?.category) qs.set('category', params.category)
+  if (params?.following) qs.set('following', 'true')
+  if (params?.sort) qs.set('sort', params.sort)
   const suffix = qs.toString() ? `?${qs.toString()}` : ''
   return authorizedJson<EventDto[]>(`/events${suffix}`)
 }

@@ -10,6 +10,8 @@ export function createSocialRouter(env: Env) {
   const soft = optionalAuth(env)
 
   router.get('/users/search', soft, (req, res, next) => void c.searchUsers(req, res, next))
+  router.get('/users/:username/followers', soft, (req, res, next) => void c.listFollowers(req, res, next))
+  router.get('/users/:username/following', soft, (req, res, next) => void c.listFollowing(req, res, next))
   router.get('/users/:username', soft, (req, res, next) => void c.getPublicProfile(req, res, next))
   router.get('/users/:username/posts', soft, (req, res, next) => void c.userPosts(req, res, next))
   router.get('/users/:username/events', soft, (req, res, next) => void c.userEvents(req, res, next))

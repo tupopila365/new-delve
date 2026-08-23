@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Users, Search, MapPin, Lock, CheckCircle, Loader2, AlertCircle, LogIn,
-  MessageCircle, HelpCircle, Bookmark, ThumbsUp, ArrowLeft, X, Pin, BadgeCheck,
+  MessageCircle, HelpCircle, Bookmark, ThumbsUp, ArrowLeft, X, Pin, BadgeCheck, Heart,
 } from 'lucide-react'
 import type {
   CommunityDto,
@@ -25,10 +25,14 @@ import {
   addThreadAnswer,
   acceptThreadAnswer,
   markAnswerHelpful,
+  likeCommunityThread,
+  unlikeCommunityThread,
 } from '../api/communityClient'
 import { saveItem, unsaveItem } from '../api/socialClient'
 import { AuthApiError } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
+import CommunityThreadCard from '../components/communities/CommunityThreadCard'
+import { kindLabel } from '../components/communities/communityThreadKinds'
 
 type Tab = 'discover' | 'yours' | 'questions' | 'discussions'
 type ComposeKind = CommunityThreadKind
@@ -188,12 +192,14 @@ function CommunityCard({
   signedIn,
   onToggle,
   onSignIn,
+  onOpen,
 }: {
   community: CommunityDto
   busy: boolean
   signedIn: boolean
   onToggle: (c: CommunityDto) => void
   onSignIn?: () => void
+  onOpen?: (c: CommunityDto) => void
 }) {
   const joined =
     community.membershipStatus === 'joined' || community.membershipStatus === 'moderator'
@@ -204,11 +210,16 @@ function CommunityCard({
       className="overflow-hidden sm:rounded-2xl"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
     >
-      <div className="relative h-36 bg-black/10">
+      <button
+        type="button"
+        onClick={() => onOpen?.(community)}
+        className="relative h-36 w-full block border-0 p-0 cursor-pointer"
+        style={{ background: 'transparent' }}
+      >
         {community.coverUrl ? (
           <img src={community.coverUrl} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center bg-black/10">
             <Users size={28} style={{ color: 'var(--fg-muted)' }} />
           </div>
         )}
@@ -236,16 +247,22 @@ function CommunityCard({
             </span>
           )}
         </div>
-      </div>
+      </button>
 
       <div className="px-4 py-3 flex flex-col gap-2">
         <div>
-          <h3
-            className="text-sm font-bold m-0 mb-0.5"
-            style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
+          <button
+            type="button"
+            onClick={() => onOpen?.(community)}
+            className="text-left w-full p-0 border-0 bg-transparent cursor-pointer"
           >
-            {community.name}
-          </h3>
+            <h3
+              className="text-sm font-bold m-0 mb-0.5"
+              style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
+            >
+              {community.name}
+            </h3>
+          </button>
           <p className="text-xs m-0 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
             <MapPin size={12} /> {community.destination}
             <span aria-hidden>·</span>
@@ -308,130 +325,6 @@ function CommunityCard({
             </button>
           )}
         </div>
-      </div>
-    </article>
-  )
-}
-
-function ThreadCard({
-  thread,
-  onOpen,
-  onToggleSave,
-  saveBusy,
-  signedIn,
-  onSignIn,
-}: {
-  thread: CommunityThreadSummary
-  onOpen: (id: string) => void
-  onToggleSave: (thread: CommunityThreadSummary) => void
-  saveBusy: boolean
-  signedIn: boolean
-  onSignIn?: () => void
-}) {
-  const isQuestion = thread.kind === 'QUESTION'
-
-  return (
-    <article
-      className="sm:rounded-2xl px-4 py-3.5 flex flex-col gap-2 cursor-pointer transition-opacity hover:opacity-[0.97]"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-      onClick={() => onOpen(thread.id)}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen(thread.id)
-        }
-      }}
-      role="button"
-      tabIndex={0}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full"
-            style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}
-          >
-            {isQuestion ? <HelpCircle size={10} /> : <MessageCircle size={10} />}
-            {isQuestion ? 'Question' : 'Discussion'}
-          </span>
-          {thread.pinned && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: 'var(--surface-subtle)', color: 'var(--fg)' }}
-            >
-              <Pin size={10} /> Pinned
-            </span>
-          )}
-          {thread.official && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: 'var(--primary)', color: '#fff' }}
-            >
-              <BadgeCheck size={10} /> Official
-            </span>
-          )}
-          {thread.topic && (
-            <span className="text-[11px] font-semibold" style={{ color: 'var(--fg-muted)' }}>
-              {thread.topic}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          aria-label={thread.savedByMe ? 'Unsave' : 'Save'}
-          disabled={saveBusy}
-          onClick={e => {
-            e.stopPropagation()
-            if (!signedIn) {
-              onSignIn?.()
-              return
-            }
-            onToggleSave(thread)
-          }}
-          className="p-1.5 rounded-lg shrink-0 disabled:opacity-50"
-          style={{ color: thread.savedByMe ? 'var(--primary)' : 'var(--fg-muted)' }}
-        >
-          <Bookmark size={16} fill={thread.savedByMe ? 'currentColor' : 'none'} />
-        </button>
-      </div>
-
-      <h3
-        className="text-sm font-bold m-0"
-        style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
-      >
-        {thread.title}
-      </h3>
-
-      {thread.body ? (
-        <p className="text-xs m-0 line-clamp-2" style={{ color: 'var(--fg-muted)' }}>
-          {thread.body}
-        </p>
-      ) : null}
-
-      {thread.acceptedAnswer && (
-        <div
-          className="rounded-xl px-3 py-2 text-xs"
-          style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
-        >
-          <p className="m-0 mb-1 font-semibold inline-flex items-center gap-1" style={{ color: 'var(--fg)' }}>
-            <CheckCircle size={12} style={{ color: 'var(--primary)' }} />
-            Accepted · {thread.acceptedAnswer.author.displayName}
-          </p>
-          <p className="m-0 line-clamp-2" style={{ color: 'var(--fg-muted)' }}>
-            {thread.acceptedAnswer.body}
-          </p>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-2 text-xs" style={{ color: 'var(--fg-muted)' }}>
-        <span className="truncate">
-          {thread.author.displayName}
-          {formatUsername(thread.author.username) ? ` · ${formatUsername(thread.author.username)}` : ''}
-          <span aria-hidden> · </span>
-          {thread.community.name}
-          <span aria-hidden> · </span>
-          {timeAgo(thread.createdAt)}
-        </span>
-        <span className="shrink-0 font-semibold">{threadCountLabel(thread.kind, thread.answerCount)}</span>
       </div>
     </article>
   )
@@ -646,8 +539,26 @@ function ThreadDetailView({
   onError: (msg: string) => void
 }) {
   const [reply, setReply] = useState('')
-  const [busy, setBusy] = useState<'reply' | 'save' | string | null>(null)
+  const [busy, setBusy] = useState<'reply' | 'save' | 'like' | string | null>(null)
   const isQuestion = thread.kind === 'QUESTION'
+
+  async function handleLike() {
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    setBusy('like')
+    try {
+      const updated = thread.likedByMe
+        ? await unlikeCommunityThread(thread.id)
+        : await likeCommunityThread(thread.id)
+      onUpdated(updated)
+    } catch (err) {
+      onError(errMessage(err, 'Could not update like'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function handleSave() {
     if (!signedIn) {
@@ -729,9 +640,27 @@ function ThreadDetailView({
         </button>
         <button
           type="button"
+          onClick={() => void handleLike()}
+          disabled={busy === 'like'}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1.5 rounded-xl disabled:opacity-60"
+          style={{
+            color: thread.likedByMe ? '#E11D48' : 'var(--fg)',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          {busy === 'like' ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Heart size={14} fill={thread.likedByMe ? 'currentColor' : 'none'} />
+          )}
+          {thread.likeCount}
+        </button>
+        <button
+          type="button"
           onClick={() => void handleSave()}
           disabled={busy === 'save'}
-          className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1.5 rounded-xl disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1.5 rounded-xl disabled:opacity-60"
           style={{
             color: thread.savedByMe ? 'var(--primary)' : 'var(--fg)',
             background: 'var(--surface)',
@@ -754,11 +683,23 @@ function ThreadDetailView({
         <div className="flex flex-wrap items-center gap-1.5">
           <span
             className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full"
-            style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}
+            style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}
           >
-            {isQuestion ? <HelpCircle size={10} /> : <MessageCircle size={10} />}
-            {isQuestion ? 'Question' : 'Discussion'}
+            {kindLabel(thread.kind)}
           </span>
+          {thread.pinned && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ color: 'var(--fg-muted)' }}>
+              <Pin size={10} /> Pinned
+            </span>
+          )}
+          {thread.official && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'var(--primary)', color: '#fff' }}
+            >
+              <BadgeCheck size={10} /> Official
+            </span>
+          )}
           {thread.topic && (
             <span className="text-[11px] font-semibold" style={{ color: 'var(--fg-muted)' }}>
               {thread.topic}
@@ -778,6 +719,43 @@ function ThreadDetailView({
             {thread.body}
           </p>
         ) : null}
+
+        {thread.mediaUrls && thread.mediaUrls[0] && (
+          <img src={thread.mediaUrls[0]} alt="" className="w-full max-h-72 object-cover rounded-xl" loading="lazy" />
+        )}
+
+        {thread.linkedJourney && (
+          <div className="flex items-center gap-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)' }}>
+            {thread.linkedJourney.coverUrl ? (
+              <img src={thread.linkedJourney.coverUrl} alt="" className="w-16 h-16 object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--border)' }} />
+            )}
+            <div className="min-w-0 py-2 pr-2">
+              <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{thread.linkedJourney.title}</p>
+              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                Journey · {thread.linkedJourney.durationDays} days · {thread.linkedJourney.stopCount} stops
+              </p>
+            </div>
+          </div>
+        )}
+
+        {thread.linkedEvent && (
+          <div className="flex items-center gap-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)' }}>
+            {thread.linkedEvent.coverUrl ? (
+              <img src={thread.linkedEvent.coverUrl} alt="" className="w-16 h-16 object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--border)' }} />
+            )}
+            <div className="min-w-0 py-2 pr-2">
+              <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{thread.linkedEvent.title}</p>
+              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                Event · {new Date(thread.linkedEvent.startAt).toLocaleDateString()}
+                {thread.linkedEvent.city ? ` · ${thread.linkedEvent.city}` : ''}
+              </p>
+            </div>
+          </div>
+        )}
 
         <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
           {thread.author.displayName}
@@ -920,9 +898,13 @@ function ThreadDetailView({
 export default function CommunitiesPage({
   signedIn = false,
   onSignIn,
+  onOpenCommunity,
+  onCreateCommunity,
 }: {
   signedIn?: boolean
   onSignIn?: () => void
+  onOpenCommunity?: (communityId: string) => void
+  onCreateCommunity?: () => void
 } = {}) {
   const [tab, setTab] = useState<Tab>('discover')
   const [typeFilter, setTypeFilter] = useState<CommunityType | 'ALL'>('ALL')
@@ -935,6 +917,7 @@ export default function CommunitiesPage({
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [saveBusyId, setSaveBusyId] = useState<string | null>(null)
+  const [likeBusyId, setLikeBusyId] = useState<string | null>(null)
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [activeThread, setActiveThread] = useState<CommunityThreadDetail | null>(null)
   const [threadLoading, setThreadLoading] = useState(false)
@@ -1083,6 +1066,31 @@ export default function CommunitiesPage({
     }
   }
 
+  async function handleToggleLike(thread: CommunityThreadSummary) {
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    setLikeBusyId(thread.id)
+    try {
+      const updated = thread.likedByMe
+        ? await unlikeCommunityThread(thread.id)
+        : await likeCommunityThread(thread.id)
+      setThreads(prev =>
+        prev.map(t =>
+          t.id === thread.id
+            ? { ...t, likeCount: updated.likeCount, likedByMe: updated.likedByMe }
+            : t,
+        ),
+      )
+      if (activeThread?.id === thread.id) setActiveThread(updated)
+    } catch (err) {
+      setError(errMessage(err, 'Could not update like'))
+    } finally {
+      setLikeBusyId(null)
+    }
+  }
+
   function openCompose(kind: ComposeKind) {
     if (!signedIn) {
       onSignIn?.()
@@ -1118,17 +1126,25 @@ export default function CommunitiesPage({
         const summary: CommunityThreadSummary = {
           id: created.id,
           kind: created.kind,
+          status: created.status,
           title: created.title,
           body: created.body,
           topic: created.topic,
+          locationName: created.locationName ?? null,
+          mediaUrls: created.mediaUrls ?? [],
           pinned: created.pinned,
           official: created.official,
+          answered: created.answered,
           answerCount: created.answerCount,
           createdAt: created.createdAt,
           author: created.author,
           community: created.community,
           acceptedAnswer: created.acceptedAnswer,
           savedByMe: created.savedByMe,
+          likeCount: created.likeCount,
+          likedByMe: created.likedByMe,
+          linkedJourney: created.linkedJourney ?? null,
+          linkedEvent: created.linkedEvent ?? null,
         }
         return [summary, ...prev.filter(t => t.id !== summary.id)]
       })
@@ -1240,11 +1256,25 @@ export default function CommunitiesPage({
           className="text-2xl font-extrabold m-0 mb-1"
           style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
         >
-          Ask, share, and explore together.
+          Communities
         </p>
-        <p className="text-sm m-0 mb-4 max-w-xl" style={{ color: 'var(--fg-muted)' }}>
-          Join destination communities, ask locals, and learn from people who know the journey.
+        <p className="text-sm m-0 mb-4" style={{ color: 'var(--fg-muted)' }}>
+          Find your people. Share what you know.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (!signedIn) {
+              onSignIn?.()
+              return
+            }
+            onCreateCommunity?.()
+          }}
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold mb-4"
+          style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+        >
+          + Create Community
+        </button>
 
         <div className="flex flex-wrap gap-2 mb-4">
           <button
@@ -1424,11 +1454,13 @@ export default function CommunitiesPage({
         ) : (
           <div className="px-4 sm:px-0 pt-4 flex flex-col gap-3">
             {threads.map(t => (
-              <ThreadCard
+              <CommunityThreadCard
                 key={t.id}
                 thread={t}
                 onOpen={setActiveThreadId}
+                onToggleLike={th => void handleToggleLike(th)}
                 onToggleSave={th => void handleToggleSave(th)}
+                likeBusy={likeBusyId === t.id}
                 saveBusy={saveBusyId === t.id}
                 signedIn={signedIn}
                 onSignIn={onSignIn}
@@ -1459,6 +1491,7 @@ export default function CommunitiesPage({
                 signedIn={signedIn}
                 onToggle={handleToggle}
                 onSignIn={onSignIn}
+                onOpen={comm => onOpenCommunity?.(comm.id)}
               />
               {tab === 'yours' &&
                 signedIn &&

@@ -3,6 +3,8 @@ import type {
   CreateJourneyBody,
   JourneyCommentDto,
   JourneyDetail,
+  JourneyLifecycleStatus,
+  JourneyListQuery,
   JourneyPartyType,
   JourneyStopDto,
   JourneySummary,
@@ -126,6 +128,21 @@ function stopDto(s: {
   }
 }
 
+function deriveLifecycle(row: {
+  visibility: JourneyVisibility
+  startDate: Date | null
+  endDate: Date | null
+}): JourneyLifecycleStatus {
+  if (row.visibility === 'DRAFT') return 'DRAFT'
+  const now = Date.now()
+  const start = row.startDate?.getTime() ?? null
+  const end = row.endDate?.getTime() ?? null
+  if (start != null && start > now) return 'UPCOMING'
+  if (end != null && end < now) return 'COMPLETED'
+  if (start != null && start <= now && (end == null || end >= now)) return 'ACTIVE'
+  return 'UPCOMING'
+}
+
 async function toSummary(
   row: {
     id: string
@@ -133,6 +150,9 @@ async function toSummary(
     title: string
     summary: string
     coverUrl: string | null
+    coverResourceType?: string | null
+    startDate?: Date | null
+    endDate?: Date | null
     startPlace: string
     endPlace: string
     countries: string[]
@@ -149,6 +169,7 @@ async function toSummary(
     createdAt: Date
     authorId: string
     _count?: { stops: number }
+    stops?: { place: string }[]
   },
   opts: {
     stopCount?: number
@@ -159,17 +180,29 @@ async function toSummary(
     likedByMe?: boolean
   },
 ): Promise<JourneySummary> {
+  const startDate = row.startDate?.toISOString() ?? null
+  const endDate = row.endDate?.toISOString() ?? null
   return {
     id: row.id,
     slug: row.slug,
     title: row.title,
     summary: row.summary,
     coverUrl: row.coverUrl,
+    coverResourceType:
+      row.coverResourceType === 'video' ? 'video' : row.coverUrl ? 'image' : null,
+    startDate,
+    endDate,
+    lifecycleStatus: deriveLifecycle({
+      visibility: row.visibility,
+      startDate: row.startDate ?? null,
+      endDate: row.endDate ?? null,
+    }),
     startPlace: row.startPlace,
     endPlace: row.endPlace,
     countries: row.countries,
     durationDays: row.durationDays,
     stopCount: opts.stopCount ?? row._count?.stops ?? 0,
+    stopPreview: row.stops?.map(s => s.place) ?? [],
     transportModes: row.transportModes,
     historicalCost: row.historicalCost,
     currency: row.currency,
@@ -380,31 +413,55 @@ function canView(
   return Boolean(viewerId && viewerId === row.authorId)
 }
 
-export async function listJourneys(viewerId: string | null, q?: string) {
+export async function listJourneys(viewerId: string | null, query: JourneyListQuery = {}) {
   await ensureJourneySeed()
-  const query = q?.trim()
+  const q = query.q?.trim()
+  const destination = query.destination?.trim()
+  const filter = query.filter || 'forYou'
+
+  const followingOnly = filter === 'following'
+  if (followingOnly && !viewerId) return []
+
   const rows = await prisma.journey.findMany({
     where: {
       deletedAt: null,
       visibility: 'PUBLIC',
-      ...(query
+      ...(followingOnly
+        ? { author: { followsIncoming: { some: { followerId: viewerId! } } } }
+        : {}),
+      ...(destination
         ? {
             OR: [
-              { title: { contains: query, mode: 'insensitive' } },
-              { summary: { contains: query, mode: 'insensitive' } },
-              { startPlace: { contains: query, mode: 'insensitive' } },
-              { endPlace: { contains: query, mode: 'insensitive' } },
+              { startPlace: { contains: destination, mode: 'insensitive' } },
+              { endPlace: { contains: destination, mode: 'insensitive' } },
+              { countries: { has: destination } },
+            ],
+          }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { summary: { contains: q, mode: 'insensitive' } },
+              { startPlace: { contains: q, mode: 'insensitive' } },
+              { endPlace: { contains: q, mode: 'insensitive' } },
+              { tags: { has: q } },
             ],
           }
         : {}),
     },
-    include: { _count: { select: { stops: true } } },
-    orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+    include: {
+      _count: { select: { stops: true } },
+      stops: { orderBy: { sortOrder: 'asc' }, take: 4, select: { place: true } },
+    },
+    orderBy: filter === 'trending'
+      ? [{ viewCount: 'desc' }, { publishedAt: 'desc' }]
+      : [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     take: 60,
   })
   const ids = rows.map(r => r.id)
   const counts = await socialCounts(viewerId, ids)
-  return Promise.all(
+  let summaries = await Promise.all(
     rows.map(r =>
       toSummary(r, {
         stopCount: r._count.stops,
@@ -416,6 +473,15 @@ export async function listJourneys(viewerId: string | null, q?: string) {
       }),
     ),
   )
+  if (filter === 'trending') {
+    summaries.sort(
+      (a, b) =>
+        b.likeCount - a.likeCount
+        || b.saveCount - a.saveCount
+        || b.viewCount - a.viewCount,
+    )
+  }
+  return summaries
 }
 
 export async function listUserJourneys(username: string, viewerId: string | null) {
@@ -452,7 +518,10 @@ export async function listMyJourneys(userId: string) {
   await ensureJourneySeed()
   const rows = await prisma.journey.findMany({
     where: { authorId: userId, deletedAt: null },
-    include: { _count: { select: { stops: true } } },
+    include: {
+      _count: { select: { stops: true } },
+      stops: { orderBy: { sortOrder: 'asc' }, take: 4, select: { place: true } },
+    },
     orderBy: { updatedAt: 'desc' },
     take: 80,
   })
@@ -508,10 +577,24 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
     ...(row.coverUrl ? [row.coverUrl] : []),
     ...row.stops.flatMap(s => s.mediaUrls),
   ]
+  const eventLinks = await prisma.journeyEvent.findMany({
+    where: { journeyId: row.id },
+    include: { event: true },
+    orderBy: { createdAt: 'asc' },
+  })
   return {
     ...summary,
     stops: row.stops.map(stopDto),
     media: [...new Set(media)],
+    events: eventLinks.map(link => ({
+      id: link.event.id,
+      title: link.event.title,
+      coverUrl: link.event.coverUrl,
+      startAt: link.event.startAt.toISOString(),
+      city: link.event.city,
+      locationName: link.event.locationName,
+      category: link.event.category,
+    })),
   }
 }
 
@@ -524,9 +607,12 @@ export async function createJourney(userId: string, body: CreateJourneyBody): Pr
       title: body.title.trim(),
       summary: body.summary?.trim() || '',
       coverUrl: body.coverUrl || null,
+      coverResourceType: body.coverResourceType || (body.coverUrl ? 'image' : null),
+      startDate: body.startDate ? new Date(body.startDate) : null,
+      endDate: body.endDate ? new Date(body.endDate) : null,
       startPlace: body.startPlace.trim(),
       endPlace: body.endPlace.trim(),
-      countries: body.countries?.length ? body.countries : ['Namibia'],
+      countries: body.countries?.length ? body.countries : [],
       durationDays: body.durationDays || body.stops.length,
       transportModes: body.transportModes || [],
       historicalCost: body.historicalCost || null,
@@ -586,6 +672,9 @@ export async function updateJourney(
         title: body.title.trim(),
         summary: body.summary?.trim() || '',
         coverUrl: body.coverUrl || null,
+        coverResourceType: body.coverResourceType || (body.coverUrl ? 'image' : null),
+        startDate: body.startDate ? new Date(body.startDate) : null,
+        endDate: body.endDate ? new Date(body.endDate) : null,
         startPlace: body.startPlace.trim(),
         endPlace: body.endPlace.trim(),
         countries: body.countries?.length ? body.countries : existing.countries,
@@ -622,7 +711,12 @@ export async function updateJourney(
 }
 
 /** Patch cover URL only (Media Studio journey context). */
-export async function updateJourneyCover(userId: string, journeyId: string, coverUrl: string) {
+export async function updateJourneyCover(
+  userId: string,
+  journeyId: string,
+  coverUrl: string,
+  coverResourceType?: 'image' | 'video' | null,
+) {
   const existing = await prisma.journey.findFirst({
     where: { id: journeyId, deletedAt: null },
   })
@@ -632,7 +726,10 @@ export async function updateJourneyCover(userId: string, journeyId: string, cove
   }
   await prisma.journey.update({
     where: { id: journeyId },
-    data: { coverUrl: coverUrl.trim() || null },
+    data: {
+      coverUrl: coverUrl.trim() || null,
+      coverResourceType: coverResourceType || (coverUrl ? 'image' : null),
+    },
   })
   return getJourney(journeyId, userId)
 }
@@ -721,5 +818,46 @@ export async function likeJourney(userId: string, journeyId: string) {
 export async function unlikeJourney(userId: string, journeyId: string) {
   await requireViewableJourney(journeyId, userId)
   await prisma.journeyReaction.deleteMany({ where: { userId, journeyId } })
+  return getJourney(journeyId, userId)
+}
+
+async function assertEventLinkable(eventId: string, userId: string) {
+  const event = await prisma.travelerEvent.findUnique({ where: { id: eventId } })
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+  if (event.creatorId === userId) return event
+  if (event.status === 'DRAFT' || event.visibility === 'PRIVATE') {
+    throw new AppError(404, 'NOT_FOUND', 'Event not found')
+  }
+  if (event.visibility === 'FOLLOWERS') {
+    const follows = await prisma.follow.findUnique({
+      where: { followerId_followingId: { followerId: userId, followingId: event.creatorId } },
+    })
+    if (!follows) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+  }
+  return event
+}
+
+export async function addEventToJourney(userId: string, journeyId: string, eventId: string) {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only add events to your own journeys.')
+  }
+  await assertEventLinkable(eventId, userId)
+  await prisma.journeyEvent.upsert({
+    where: { journeyId_eventId: { journeyId, eventId } },
+    create: { journeyId, eventId, addedById: userId },
+    update: {},
+  })
+  return getJourney(journeyId, userId)
+}
+
+export async function removeEventFromJourney(userId: string, journeyId: string, eventId: string) {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only remove events from your own journeys.')
+  }
+  await prisma.journeyEvent.deleteMany({ where: { journeyId, eventId } })
   return getJourney(journeyId, userId)
 }

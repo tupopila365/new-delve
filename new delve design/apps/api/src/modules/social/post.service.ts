@@ -41,12 +41,57 @@ export async function createPost(env: Env, authorId: string, body: CreatePostBod
     }
   }
 
+  let eventId: string | null = null
+  let journeyId: string | null = null
+  let eventLocation: string | null = null
+  let defaultCaption = ''
+  if (body.eventId) {
+    const event = await prisma.travelerEvent.findUnique({ where: { id: body.eventId } })
+    if (!event || event.status === 'DRAFT') {
+      throw new AppError(404, 'NOT_FOUND', 'Event not found')
+    }
+    if (event.visibility === 'PRIVATE' && event.creatorId !== authorId) {
+      throw new AppError(404, 'NOT_FOUND', 'Event not found')
+    }
+    if (event.visibility === 'FOLLOWERS' && event.creatorId !== authorId) {
+      const follows = await prisma.follow.findUnique({
+        where: { followerId_followingId: { followerId: authorId, followingId: event.creatorId } },
+      })
+      if (!follows) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+    }
+    eventId = event.id
+    eventLocation = [event.city, event.country].filter(Boolean).join(', ') || event.locationName
+    defaultCaption = `Check out this event: ${event.title}`
+  }
+
+  if (body.journeyId) {
+    const journey = await prisma.journey.findFirst({
+      where: { id: body.journeyId, deletedAt: null },
+      include: { _count: { select: { stops: true } } },
+    })
+    if (!journey || journey.visibility === 'DRAFT') {
+      throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+    }
+    if (journey.visibility === 'PRIVATE' && journey.authorId !== authorId) {
+      throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+    }
+    journeyId = journey.id
+    if (!eventLocation) {
+      eventLocation = [journey.startPlace, journey.endPlace].filter(Boolean).join(' → ')
+    }
+    if (!defaultCaption) {
+      defaultCaption = `Check out this journey: ${journey.title}`
+    }
+  }
+
   const post = await prisma.$transaction(async tx => {
     const created = await tx.post.create({
       data: {
         authorId,
-        caption: body.caption?.trim() || '',
-        location: body.location || null,
+        caption: body.caption?.trim() || defaultCaption,
+        location: body.location !== undefined ? body.location : eventLocation,
+        eventId,
+        journeyId,
         visibility: body.visibility || 'PUBLIC',
         status: 'PUBLISHED',
         updatedAt: new Date(),
@@ -200,7 +245,11 @@ export async function deleteComment(userId: string, commentId: string) {
 export async function getPostDto(env: Env, postId: string, viewerId: string | null) {
   const post = await prisma.post.findFirst({
     where: { id: postId },
-    include: { media: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } } },
+    include: {
+      media: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
+      event: true,
+      journey: { include: { _count: { select: { stops: true } } } },
+    },
   })
   if (!post || post.status !== 'PUBLISHED' || post.deletedAt) {
     throw new AppError(404, 'NOT_FOUND', 'Post not found')
@@ -239,6 +288,27 @@ export async function getPostDto(env: Env, postId: string, viewerId: string | nu
     commentCount,
     likedByMe: Boolean(liked),
     savedByMe: Boolean(saved),
+    linkedEvent: post.event
+      ? {
+          id: post.event.id,
+          title: post.event.title,
+          coverUrl: post.event.coverUrl,
+          startAt: post.event.startAt.toISOString(),
+          city: post.event.city,
+          locationName: post.event.locationName,
+        }
+      : null,
+    linkedJourney: post.journey
+      ? {
+          id: post.journey.id,
+          title: post.journey.title,
+          coverUrl: post.journey.coverUrl,
+          startPlace: post.journey.startPlace,
+          endPlace: post.journey.endPlace,
+          durationDays: post.journey.durationDays,
+          stopCount: post.journey._count.stops,
+        }
+      : null,
   }
 }
 

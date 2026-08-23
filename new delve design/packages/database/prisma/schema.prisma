@@ -92,6 +92,7 @@ enum NotificationType {
   COMMUNITY_JOIN_REQUEST
   COMMUNITY_JOIN_APPROVED
   COMMUNITY_THREAD_REPLY
+  COMMUNITY_POST_APPROVED
   JOURNEY_LIKED
   JOURNEY_COMMENTED
   MESSAGE_RECEIVED
@@ -113,11 +114,46 @@ enum CommunityMembershipStatus {
   JOINED
   REQUESTED
   MODERATOR
+  BANNED
+}
+
+enum CommunityMemberRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
 }
 
 enum CommunityThreadKind {
+  POST
   QUESTION
+  TIP
   DISCUSSION
+  RECOMMENDATION
+  ANNOUNCEMENT
+  JOURNEY_SHARE
+  EVENT_SHARE
+}
+
+enum CommunityThreadStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REMOVED
+}
+
+enum CommunityReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum CommunityInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
 }
 
 enum JourneyVisibility {
@@ -173,11 +209,18 @@ model User {
   storyViewsAsViewer      StoryView[]          @relation("StoryViewer")
   storyViewsAsAuthor      StoryView[]          @relation("StoryAuthor")
   communityMemberships    CommunityMembership[]
+  ownedCommunities        Community[]          @relation("CommunityOwner")
+  communityReportsFiled   CommunityReport[]    @relation("CommunityReportsFiled")
+  communityInvitesReceived CommunityInvite[]   @relation("CommunityInvitesReceived")
+  communityInvitesSent    CommunityInvite[]    @relation("CommunityInvitesSent")
+  communityAuditLogs      CommunityAuditLog[]  @relation("CommunityAuditActor")
   communityThreads        CommunityThread[]
+  communityThreadReactions CommunityThreadReaction[]
   communityAnswers        CommunityAnswer[]
   journeys                Journey[]
   journeyComments         JourneyComment[]
   journeyReactions        JourneyReaction[]
+  journeyEvents           JourneyEvent[]
   conversationParticipants ConversationParticipant[]
   directMessages          DirectMessage[]
   blocksOutgoing            UserBlock[]          @relation("BlockBlocker")
@@ -522,6 +565,12 @@ model Post {
   author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   caption    String         @default("")
   location   String?
+  /// Optional reference to a traveler event (Share to Delvers).
+  eventId    String?
+  event      TravelerEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  /// Optional reference to a journey (Share to Delvers).
+  journeyId  String?
+  journey    Journey?       @relation(fields: [journeyId], references: [id], onDelete: SetNull)
   visibility PostVisibility @default(PUBLIC)
   status     PostStatus     @default(PUBLISHED)
   createdAt  DateTime       @default(now())
@@ -535,6 +584,8 @@ model Post {
   @@index([authorId, createdAt])
   @@index([status, createdAt])
   @@index([visibility])
+  @@index([eventId])
+  @@index([journeyId])
 }
 
 model Reaction {
@@ -596,17 +647,26 @@ model TravelerEvent {
   latitude      Float?
   longitude     Float?
   category      String?
+  communityId   String?
+  community     Community?      @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  businessId    String?
+  business      Business?       @relation(fields: [businessId], references: [id], onDelete: SetNull)
   visibility    EventVisibility @default(PUBLIC)
   status        EventStatus     @default(DRAFT)
   maxAttendees  Int?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  attendances EventAttendance[]
+  attendances   EventAttendance[]
+  journeyLinks  JourneyEvent[]
+  sharedPosts   Post[]
+  communityThreads CommunityThread[]
 
   @@index([creatorId, createdAt])
   @@index([status, startAt])
   @@index([visibility, status])
+  @@index([communityId])
+  @@index([businessId])
 }
 
 model EventAttendance {
@@ -678,6 +738,7 @@ model Business {
   mediaAssets MediaAsset[]     @relation("BusinessMedia")
   listings    Listing[]
   deals       Deal[]
+  events      TravelerEvent[]
 
   @@index([status])
   @@index([slug])
@@ -716,6 +777,7 @@ model Listing {
   coverMedia   MediaAsset?   @relation("ListingCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   media        MediaAsset[]  @relation("ListingMedia")
   deals        Deal[]
+  communityThreads CommunityThread[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -765,69 +827,171 @@ model Deal {
 
 /// Destination / interest / transport community hub.
 model Community {
-  id              String           @id @default(cuid())
-  slug            String           @unique
-  name            String
-  description     String           @default("")
-  communityType   CommunityType
-  destination     String
-  topics          String[]         @default([])
-  coverUrl        String?
-  privacy         CommunityPrivacy @default(PUBLIC)
-  official        Boolean          @default(false)
-  businessManaged Boolean          @default(false)
-  memberCount     Int              @default(0)
-  lastActivityAt  DateTime         @default(now())
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
+  id                        String           @id @default(cuid())
+  slug                      String           @unique
+  name                      String
+  description               String           @default("")
+  about                     String           @default("")
+  communityType             CommunityType
+  category                  String           @default("OTHER")
+  destination               String
+  city                      String?
+  country                   String?
+  isGlobal                  Boolean          @default(true)
+  topics                    String[]         @default([])
+  avatarUrl                 String?
+  coverUrl                  String?
+  privacy                   CommunityPrivacy @default(PUBLIC)
+  requireJoinApproval       Boolean          @default(false)
+  requireRuleAcknowledgement Boolean         @default(false)
+  requirePostApproval       Boolean          @default(false)
+  postingPermission         String           @default("MEMBERS")
+  official                  Boolean          @default(false)
+  businessManaged           Boolean          @default(false)
+  ownerUserId               String?
+  owner                     User?            @relation("CommunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  memberCount               Int              @default(0)
+  lastActivityAt            DateTime         @default(now())
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  deletedAt                 DateTime?
 
   memberships CommunityMembership[]
   threads     CommunityThread[]
+  events      TravelerEvent[]
+  rules       CommunityRule[]
+  reports     CommunityReport[]
+  invites     CommunityInvite[]
+  auditLogs   CommunityAuditLog[]
 
   @@index([communityType, destination])
+  @@index([category, city, country])
   @@index([lastActivityAt])
   @@index([deletedAt])
+  @@index([ownerUserId])
+}
+
+model CommunityRule {
+  id          String    @id @default(cuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  title       String
+  description String    @default("")
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  reports CommunityReport[]
+
+  @@index([communityId, sortOrder])
+}
+
+model CommunityReport {
+  id           String                @id @default(cuid())
+  communityId  String
+  community    Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  reporterId   String
+  reporter     User                  @relation("CommunityReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType   String
+  targetId     String
+  ruleId       String?
+  rule         CommunityRule?        @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  reason       String
+  description  String?
+  status       CommunityReportStatus @default(OPEN)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([communityId, status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model CommunityInvite {
+  id            String                @id @default(cuid())
+  communityId   String
+  community     Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  invitedUserId String
+  invitedUser   User                  @relation("CommunityInvitesReceived", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedById   String
+  invitedBy     User                  @relation("CommunityInvitesSent", fields: [invitedById], references: [id], onDelete: Cascade)
+  status        CommunityInviteStatus @default(PENDING)
+  expiresAt     DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@unique([communityId, invitedUserId])
+  @@index([invitedUserId, status])
+}
+
+model CommunityAuditLog {
+  id          String    @id @default(cuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?     @relation("CommunityAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([communityId, createdAt])
 }
 
 model CommunityMembership {
-  id          String                     @id @default(cuid())
+  id          String                    @id @default(cuid())
   communityId String
-  community   Community                  @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  community   Community                 @relation(fields: [communityId], references: [id], onDelete: Cascade)
   userId      String
-  user        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status      CommunityMembershipStatus  @default(JOINED)
-  createdAt   DateTime                   @default(now())
-  updatedAt   DateTime                   @updatedAt
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      CommunityMembershipStatus @default(JOINED)
+  role        CommunityMemberRole       @default(MEMBER)
+  mutedUntil  DateTime?
+  banReason   String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
 
   @@unique([communityId, userId])
   @@index([userId, createdAt])
   @@index([communityId, status])
+  @@index([communityId, role])
 }
 
 /// Question or discussion inside a community.
 model CommunityThread {
-  id               String              @id @default(cuid())
+  id               String                @id @default(cuid())
   communityId      String
-  community        Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  community        Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
   authorId         String
-  author           User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author           User                  @relation(fields: [authorId], references: [id], onDelete: Cascade)
   kind             CommunityThreadKind
+  status           CommunityThreadStatus @default(PUBLISHED)
   title            String
-  body             String              @default("")
+  body             String                @default("")
   topic            String?
-  pinned           Boolean             @default(false)
-  official         Boolean             @default(false)
-  acceptedAnswerId String?             @unique
-  acceptedAnswer   CommunityAnswer?    @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
-  answerCount      Int                 @default(0)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  locationName     String?
+  mediaUrls        String[]              @default([])
+  journeyId        String?
+  journey          Journey?              @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  eventId          String?
+  event            TravelerEvent?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  listingId        String?
+  listing          Listing?              @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  pinned           Boolean               @default(false)
+  official         Boolean               @default(false)
+  answered         Boolean               @default(false)
+  acceptedAnswerId String?               @unique
+  acceptedAnswer   CommunityAnswer?      @relation("AcceptedAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+  answerCount      Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
   deletedAt        DateTime?
 
   answers CommunityAnswer[] @relation("ThreadAnswers")
+  reactions CommunityThreadReaction[]
 
   @@index([communityId, kind, createdAt])
+  @@index([communityId, status, pinned, createdAt])
   @@index([kind, createdAt])
   @@index([authorId, createdAt])
   @@index([deletedAt])
@@ -852,6 +1016,18 @@ model CommunityAnswer {
   @@index([deletedAt])
 }
 
+model CommunityThreadReaction {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threadId  String
+  thread    CommunityThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([userId, threadId])
+  @@index([threadId])
+}
+
 /// Shared traveler itinerary (Phase 1–3: list, detail, create, save).
 model Journey {
   id               String            @id @default(cuid())
@@ -861,6 +1037,9 @@ model Journey {
   title            String
   summary          String            @default("")
   coverUrl         String?
+  coverResourceType String?
+  startDate        DateTime?
+  endDate          DateTime?
   startPlace       String
   endPlace         String
   countries        String[]          @default([])
@@ -881,11 +1060,30 @@ model Journey {
   stops     JourneyStop[]
   comments  JourneyComment[]
   reactions JourneyReaction[]
+  events    JourneyEvent[]
   conversation Conversation?
+  sharedPosts Post[]
+  communityThreads CommunityThread[]
 
   @@index([authorId, createdAt])
   @@index([visibility, publishedAt])
   @@index([deletedAt])
+}
+
+/// Reference link: event added to a journey (does not duplicate event data).
+model JourneyEvent {
+  id        String        @id @default(cuid())
+  journeyId String
+  journey   Journey       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     TravelerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  addedById String
+  addedBy   User          @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([journeyId, eventId])
+  @@index([eventId])
+  @@index([addedById])
 }
 
 model JourneyComment {

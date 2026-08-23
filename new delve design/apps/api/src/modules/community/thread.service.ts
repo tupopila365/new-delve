@@ -10,6 +10,8 @@ import type {
 import { AppError } from '../../middleware/error-handler.js'
 import { ensureCommunitySeed } from './community.service.js'
 import { createCommunityActivityNotification } from '../notifications/notify.js'
+import type { MembershipCtx } from './community-permissions.js'
+import { canModerateContent } from './community-permissions.js'
 
 async function authorCard(userId: string) {
   const user = await prisma.user.findUnique({
@@ -38,15 +40,50 @@ async function savedSet(viewerId: string | null, threadIds: string[]) {
   return new Set(rows.map(r => r.targetId))
 }
 
+async function reactionMeta(viewerId: string | null, threadIds: string[]) {
+  if (threadIds.length === 0) {
+    return { countMap: new Map<string, number>(), likedSet: new Set<string>() }
+  }
+  const [counts, liked] = await Promise.all([
+    prisma.communityThreadReaction.groupBy({
+      by: ['threadId'],
+      where: { threadId: { in: threadIds } },
+      _count: { _all: true },
+    }),
+    viewerId
+      ? prisma.communityThreadReaction.findMany({
+          where: { userId: viewerId, threadId: { in: threadIds } },
+          select: { threadId: true },
+        })
+      : Promise.resolve([]),
+  ])
+  return {
+    countMap: new Map(counts.map(c => [c.threadId, c._count._all])),
+    likedSet: new Set(liked.map(l => l.threadId)),
+  }
+}
+
+async function viewerCanModerateCommunity(communityId: string, viewerId: string | null) {
+  if (!viewerId) return false
+  const membership = await prisma.communityMembership.findUnique({
+    where: { communityId_userId: { communityId, userId: viewerId } },
+  })
+  return canModerateContent(activeMembership(membership))
+}
+
 async function toSummary(
   row: {
     id: string
     kind: CommunityThreadKind
+    status: 'DRAFT' | 'PENDING' | 'PUBLISHED' | 'REMOVED'
     title: string
     body: string
     topic: string | null
+    locationName: string | null
+    mediaUrls: string[]
     pinned: boolean
     official: boolean
+    answered?: boolean
     answerCount: number
     createdAt: Date
     authorId: string
@@ -58,8 +95,24 @@ async function toSummary(
       helpfulCount: number
       authorId: string
     } | null
+    journey?: {
+      id: string
+      title: string
+      coverUrl: string | null
+      durationDays: number
+      _count: { stops: number }
+    } | null
+    event?: {
+      id: string
+      title: string
+      coverUrl: string | null
+      startAt: Date
+      city: string | null
+    } | null
   },
   saved: boolean,
+  likeCount: number,
+  likedByMe: boolean,
 ): Promise<CommunityThreadSummary> {
   const [author, acceptedAuthor] = await Promise.all([
     authorCard(row.authorId),
@@ -68,11 +121,15 @@ async function toSummary(
   return {
     id: row.id,
     kind: row.kind,
+    status: row.status,
     title: row.title,
     body: row.body,
     topic: row.topic,
+    locationName: row.locationName,
+    mediaUrls: row.mediaUrls,
     pinned: row.pinned,
     official: row.official,
+    answered: row.answered,
     answerCount: row.answerCount,
     createdAt: row.createdAt.toISOString(),
     author,
@@ -92,16 +149,47 @@ async function toSummary(
           }
         : null,
     savedByMe: saved,
+    likeCount,
+    likedByMe,
+    linkedJourney: row.journey
+      ? {
+          id: row.journey.id,
+          title: row.journey.title,
+          coverUrl: row.journey.coverUrl,
+          durationDays: row.journey.durationDays,
+          stopCount: row.journey._count.stops,
+        }
+      : null,
+    linkedEvent: row.event
+      ? {
+          id: row.event.id,
+          title: row.event.title,
+          coverUrl: row.event.coverUrl,
+          startAt: row.event.startAt.toISOString(),
+          city: row.event.city,
+        }
+      : null,
   }
 }
 
 const threadInclude = {
   community: { select: { id: true, slug: true, name: true, destination: true } },
   acceptedAnswer: true,
+  journey: {
+    select: {
+      id: true,
+      title: true,
+      coverUrl: true,
+      durationDays: true,
+      _count: { select: { stops: true } },
+    },
+  },
+  event: { select: { id: true, title: true, coverUrl: true, startAt: true, city: true } },
 } as const
 
-/** Seed a few demo threads once communities exist and threads are empty. */
+/** Seed demo threads only when COMMUNITY_SEED=true */
 export async function ensureThreadSeed() {
+  if (process.env.COMMUNITY_SEED !== 'true') return
   await ensureCommunitySeed()
   const count = await prisma.communityThread.count({ where: { deletedAt: null } })
   if (count > 0) return
@@ -186,15 +274,19 @@ export async function ensureThreadSeed() {
 
 export async function listThreads(
   viewerId: string | null,
-  opts: { kind?: CommunityThreadKind; communityId?: string; q?: string } = {},
+  opts: { kind?: CommunityThreadKind; communityId?: string; q?: string; kinds?: CommunityThreadKind[] } = {},
 ): Promise<CommunityThreadSummary[]> {
   await ensureThreadSeed()
   const q = opts.q?.trim()
+  const canMod = opts.communityId ? await viewerCanModerateCommunity(opts.communityId, viewerId) : false
+  const kindFilter = opts.kinds?.length ? { kind: { in: opts.kinds } } : opts.kind ? { kind: opts.kind } : {}
+
   const rows = await prisma.communityThread.findMany({
     where: {
       deletedAt: null,
+      status: canMod ? { in: ['PUBLISHED', 'PENDING'] } : 'PUBLISHED',
       community: { deletedAt: null },
-      ...(opts.kind ? { kind: opts.kind } : {}),
+      ...kindFilter,
       ...(opts.communityId ? { communityId: opts.communityId } : {}),
       ...(q
         ? {
@@ -202,6 +294,7 @@ export async function listThreads(
               { title: { contains: q, mode: 'insensitive' } },
               { body: { contains: q, mode: 'insensitive' } },
               { topic: { contains: q, mode: 'insensitive' } },
+              { locationName: { contains: q, mode: 'insensitive' } },
             ],
           }
         : {}),
@@ -214,7 +307,15 @@ export async function listThreads(
     viewerId,
     rows.map(r => r.id),
   )
-  return Promise.all(rows.map(r => toSummary(r, saved.has(r.id))))
+  const reactions = await reactionMeta(
+    viewerId,
+    rows.map(r => r.id),
+  )
+  return Promise.all(
+    rows.map(r =>
+      toSummary(r, saved.has(r.id), reactions.countMap.get(r.id) ?? 0, reactions.likedSet.has(r.id)),
+    ),
+  )
 }
 
 export async function getThread(threadId: string, viewerId: string | null): Promise<CommunityThreadDetail> {
@@ -233,7 +334,14 @@ export async function getThread(threadId: string, viewerId: string | null): Prom
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Thread not found')
 
   const saved = await savedSet(viewerId, [row.id])
-  const summary = await toSummary(row, saved.has(row.id))
+  const reactions = await reactionMeta(viewerId, [row.id])
+  const canMod = await viewerCanModerateCommunity(row.communityId, viewerId)
+  const summary = await toSummary(
+    row,
+    saved.has(row.id),
+    reactions.countMap.get(row.id) ?? 0,
+    reactions.likedSet.has(row.id),
+  )
   const answers: CommunityAnswerDto[] = await Promise.all(
     row.answers.map(async a => ({
       id: a.id,
@@ -248,8 +356,26 @@ export async function getThread(threadId: string, viewerId: string | null): Prom
   return {
     ...summary,
     answers,
-    canAccept: viewerId === row.authorId,
+    canAccept: viewerId === row.authorId && row.kind === 'QUESTION',
+    canModerate: canMod,
   }
+}
+
+function activeMembership(
+  row: { status: string; role: string; mutedUntil: Date | null } | null,
+): MembershipCtx {
+  if (!row) return null
+  return {
+    status: row.status as MembershipCtx extends null ? never : NonNullable<MembershipCtx>['status'],
+    role: row.role as MembershipCtx extends null ? never : NonNullable<MembershipCtx>['role'],
+    mutedUntil: row.mutedUntil,
+  }
+}
+
+function canParticipate(m: MembershipCtx): boolean {
+  if (!m || m.status === 'BANNED' || m.status === 'REQUESTED') return false
+  if (m.mutedUntil && m.mutedUntil.getTime() > Date.now()) return false
+  return m.status === 'JOINED' || m.status === 'MODERATOR'
 }
 
 export async function createThread(
@@ -265,19 +391,34 @@ export async function createThread(
     const membership = await prisma.communityMembership.findUnique({
       where: { communityId_userId: { communityId, userId } },
     })
-    if (!membership || (membership.status !== 'JOINED' && membership.status !== 'MODERATOR')) {
+    if (!canParticipate(activeMembership(membership))) {
       throw new AppError(403, 'FORBIDDEN', 'Join this private community before posting.')
     }
+  } else {
+    const membership = await prisma.communityMembership.findUnique({
+      where: { communityId_userId: { communityId, userId } },
+    })
+    if (membership?.status === 'BANNED') {
+      throw new AppError(403, 'FORBIDDEN', 'You are banned from this community.')
+    }
   }
+
+  const postStatus = community.requirePostApproval ? 'PENDING' : 'PUBLISHED'
 
   const created = await prisma.communityThread.create({
     data: {
       communityId,
       authorId: userId,
       kind: body.kind,
+      status: postStatus,
       title: body.title.trim(),
       body: body.body?.trim() || '',
       topic: body.topic?.trim() || null,
+      locationName: body.locationName?.trim() || null,
+      mediaUrls: body.mediaUrls ?? [],
+      journeyId: body.journeyId ?? null,
+      eventId: body.eventId ?? null,
+      listingId: body.listingId ?? null,
     },
   })
   await prisma.community.update({
@@ -302,7 +443,7 @@ export async function addAnswer(
     const membership = await prisma.communityMembership.findUnique({
       where: { communityId_userId: { communityId: thread.communityId, userId } },
     })
-    if (!membership || (membership.status !== 'JOINED' && membership.status !== 'MODERATOR')) {
+    if (!canParticipate(activeMembership(membership))) {
       throw new AppError(403, 'FORBIDDEN', 'Join this private community before replying.')
     }
   }
@@ -361,7 +502,7 @@ export async function acceptAnswer(userId: string, threadId: string, answerId: s
 
   await prisma.communityThread.update({
     where: { id: threadId },
-    data: { acceptedAnswerId: answerId, updatedAt: new Date() },
+    data: { acceptedAnswerId: answerId, answered: true, updatedAt: new Date() },
   })
   return getThread(threadId, userId)
 }
@@ -378,4 +519,72 @@ export async function markAnswerHelpful(userId: string, answerId: string) {
     data: { helpfulCount: { increment: 1 } },
   })
   return getThread(answer.threadId, userId)
+}
+
+export async function likeThread(userId: string, threadId: string) {
+  const thread = await prisma.communityThread.findFirst({ where: { id: threadId, deletedAt: null } })
+  if (!thread) throw new AppError(404, 'NOT_FOUND', 'Thread not found')
+  await prisma.communityThreadReaction.upsert({
+    where: { userId_threadId: { userId, threadId } },
+    create: { userId, threadId },
+    update: {},
+  })
+  return getThread(threadId, userId)
+}
+
+export async function unlikeThread(userId: string, threadId: string) {
+  await prisma.communityThreadReaction.deleteMany({ where: { userId, threadId } })
+  return getThread(threadId, userId)
+}
+
+async function requireThreadModerator(threadId: string, userId: string) {
+  const thread = await prisma.communityThread.findFirst({
+    where: { id: threadId, deletedAt: null },
+    include: { community: true },
+  })
+  if (!thread || thread.community.deletedAt) throw new AppError(404, 'NOT_FOUND', 'Thread not found')
+  const canMod = await viewerCanModerateCommunity(thread.communityId, userId)
+  if (!canMod) throw new AppError(403, 'FORBIDDEN', 'Not allowed')
+  return thread
+}
+
+export async function pinThread(userId: string, threadId: string, pinned: boolean) {
+  await requireThreadModerator(threadId, userId)
+  await prisma.communityThread.update({ where: { id: threadId }, data: { pinned } })
+  return getThread(threadId, userId)
+}
+
+export async function removeThread(userId: string, threadId: string) {
+  await requireThreadModerator(threadId, userId)
+  await prisma.communityThread.update({
+    where: { id: threadId },
+    data: { status: 'REMOVED', deletedAt: new Date() },
+  })
+  return { ok: true }
+}
+
+export async function approveThread(userId: string, threadId: string) {
+  const thread = await requireThreadModerator(threadId, userId)
+  if (thread.status !== 'PENDING') throw new AppError(400, 'INVALID_STATE', 'Post is not pending approval')
+  await prisma.communityThread.update({
+    where: { id: threadId },
+    data: { status: 'PUBLISHED' },
+  })
+  await createCommunityActivityNotification({
+    userId: thread.authorId,
+    type: 'COMMUNITY_POST_APPROVED',
+    title: 'Post approved',
+    body: `Your post “${thread.title.slice(0, 80)}” is now live.`,
+    entityType: 'community_thread',
+    entityId: threadId,
+    actorId: userId,
+  })
+  return getThread(threadId, userId)
+}
+
+export async function markThreadAnswered(userId: string, threadId: string) {
+  const thread = await requireThreadModerator(threadId, userId)
+  if (thread.kind !== 'QUESTION') throw new AppError(400, 'INVALID_KIND', 'Only questions can be marked answered')
+  await prisma.communityThread.update({ where: { id: threadId }, data: { answered: true } })
+  return getThread(threadId, userId)
 }

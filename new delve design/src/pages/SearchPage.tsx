@@ -1,23 +1,84 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import {
   Search, X, Clock, MapPin, ArrowRight, Car, Plane, Anchor,
   Bus, Star, CheckCircle, Bookmark, Heart, TrendingUp,
-  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User, Calendar,
+  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User, Calendar, Users,
 } from 'lucide-react'
-import type { CommunityDto, EventDto, JourneySummary, PostDto, PublicTravelerProfile } from '@delve/contracts'
+import type { CommunityDto, CommunityThreadSummary, EventDto, JourneySummary, PostDto, PublicTravelerProfile, SearchSuggestion } from '@delve/contracts'
 import {
-  autocompleteSuggestions, popularSearches, suggestedDestinations,
-  recentSearches, mockSearchResults, exploreCategories, transportShortcuts,
-  type ResultType, type AutocompleteSuggestion, type SearchResult,
+  popularSearches, suggestedDestinations,
+  mockSearchResults, exploreCategories, transportShortcuts,
+  type ResultType, type SearchResult,
   type TransportSearchResult, type JourneySearchResult, type DelversSearchResult,
   type DealSearchResult,
 } from '../data/searchData'
 import { deals } from '../data/mockData'
-import { fetchEvents, fetchFeed, searchEvents, searchPosts, searchTravelers } from '../api/socialClient'
+import { fetchEvents, fetchFeed } from '../api/socialClient'
 import { listCommunities } from '../api/communityClient'
 import { listJourneys } from '../api/journeyClient'
+import { fetchSearchSuggestions, unifiedSearch } from '../api/searchClient'
 import { formatUsername } from '../lib/formatUsername'
+import { kindLabel } from '../components/communities/communityThreadKinds'
 import EventCoverMedia from '../components/EventCoverMedia'
+
+const RECENT_SEARCHES_KEY = 'delve:recent-searches'
+const RECENT_SEARCHES_LIMIT = 8
+
+function loadRecentSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SEARCHES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function pushRecentSearch(query: string) {
+  const trimmed = query.trim()
+  if (!trimmed) return
+  const next = [trimmed, ...loadRecentSearches().filter(item => item.toLowerCase() !== trimmed.toLowerCase())].slice(
+    0,
+    RECENT_SEARCHES_LIMIT,
+  )
+  try {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next))
+  } catch {
+    /* ignore */
+  }
+}
+
+function searchTypesForTab(tab: ResultType): string | undefined {
+  switch (tab) {
+    case 'delvers':
+      return 'traveler,post'
+    case 'community':
+      return 'community,thread'
+    case 'journey':
+      return 'journey'
+    case 'event':
+      return 'event'
+    default:
+      return undefined
+  }
+}
+
+function buildRecentSuggestions(query: string, recent: string[]): SearchSuggestion[] {
+  const q = query.trim().toLowerCase()
+  return recent
+    .filter(item => !q || item.toLowerCase().includes(q))
+    .slice(0, 3)
+    .map((label, index) => ({
+      id: `recent:${index}:${label}`,
+      label,
+      context: 'Recent search',
+      type: 'Recent',
+      group: 'recent' as const,
+      entityType: 'query' as const,
+      entityId: label,
+    }))
+}
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -59,30 +120,45 @@ const groupIcon = (group: string) => {
   return <Anchor size={13} />
 }
 
-const suggestionGroupIcon = (group: AutocompleteSuggestion['group']) => {
+const suggestionGroupIcon = (group: SearchSuggestion['group']) => {
   if (group === 'recent') return <Clock size={15} style={{ color: 'var(--fg-muted)' }} />
-  if (group === 'transport') return <Car size={15} style={{ color: '#E05C1A' }} />
-  if (group === 'deal') return <Star size={15} style={{ color: '#F59E0B' }} />
   if (group === 'journey') return <MapPin size={15} style={{ color: '#8C52FF' }} />
+  if (group === 'community' || group === 'thread') return <Users size={15} style={{ color: '#0D9488' }} />
+  if (group === 'event') return <Calendar size={15} style={{ color: '#EC4899' }} />
+  if (group === 'traveler') return <User size={15} style={{ color: 'var(--primary)' }} />
+  if (group === 'post') return <Heart size={15} style={{ color: '#E11D48' }} />
   return <MapPin size={15} style={{ color: 'var(--fg-muted)' }} />
 }
 
 // ─── Autocomplete panel ───────────────────────────────────────────────────
 
 function AutocompletePanel({
-  query, onSelect, activeIndex, setActiveIndex,
+  query,
+  suggestions,
+  loading,
+  onSelect,
+  activeIndex,
+  setActiveIndex,
 }: {
   query: string
-  onSelect: (label: string) => void
+  suggestions: SearchSuggestion[]
+  loading: boolean
+  onSelect: (suggestion: SearchSuggestion) => void
   activeIndex: number
   setActiveIndex: (i: number) => void
 }) {
-  const filtered = autocompleteSuggestions.filter(s =>
-    s.label.toLowerCase().includes(query.toLowerCase()) ||
-    s.context.toLowerCase().includes(query.toLowerCase())
-  )
+  if (loading && suggestions.length === 0) {
+    return (
+      <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl overflow-hidden z-50 shadow-lg"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="px-4 py-5 text-center">
+          <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>Searching…</p>
+        </div>
+      </div>
+    )
+  }
 
-  if (filtered.length === 0) {
+  if (suggestions.length === 0) {
     return (
       <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl overflow-hidden z-50 shadow-lg"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -97,13 +173,13 @@ function AutocompletePanel({
   return (
     <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl overflow-hidden z-50 shadow-lg"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      {filtered.map((s, i) => (
-        <button key={s.id} onClick={() => onSelect(s.label)}
+      {suggestions.map((s, i) => (
+        <button key={s.id} type="button" onClick={() => onSelect(s)}
           onMouseEnter={() => setActiveIndex(i)}
           className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
           style={{
             background: i === activeIndex ? 'var(--surface-subtle)' : 'transparent',
-            borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+            borderBottom: i < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
           }}>
           <div className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
             style={{ background: 'var(--surface-subtle)' }}>
@@ -400,6 +476,46 @@ function LandingJourney({
   )
 }
 
+function LandingCommunity({
+  community,
+  onOpen,
+}: {
+  community: CommunityDto
+  onOpen?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex-shrink-0 overflow-hidden rounded-2xl text-left"
+      style={{ width: 220, background: 'var(--surface)', border: '1px solid var(--border)', cursor: onOpen ? 'pointer' : 'default', padding: 0 }}
+    >
+      <div className="relative" style={{ height: 120 }}>
+        {community.coverUrl ? (
+          <img src={community.coverUrl} alt={community.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(13,148,136,0.12)' }}>
+            <Users size={24} style={{ color: '#0D9488' }} />
+          </div>
+        )}
+        <div className="absolute inset-0 flex flex-col justify-end p-3"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65), transparent)' }}>
+          <p className="text-xs font-bold text-white leading-tight">{community.name}</p>
+        </div>
+      </div>
+      <div className="p-3">
+        <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+          {community.destination}
+          {community.privacy === 'PRIVATE' ? ' · Private' : ''}
+        </p>
+        <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>
+          {community.memberCount.toLocaleString()} members
+        </p>
+      </div>
+    </button>
+  )
+}
+
 function DelversThumb({
   post,
   onOpenProfile,
@@ -458,11 +574,15 @@ export default function SearchPage({
   onOpenProfile,
   onOpenJourney,
   onOpenEvent,
+  onOpenCommunity,
+  onOpenCommunityThread,
 }: {
   onNavigate?: (destination: string) => void
   onOpenProfile?: (username: string) => void
   onOpenJourney?: (id: string) => void
   onOpenEvent?: (id: string) => void
+  onOpenCommunity?: (id: string) => void
+  onOpenCommunityThread?: (threadId: string) => void
 } = {}) {
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -475,8 +595,13 @@ export default function SearchPage({
   const [travelers, setTravelers] = useState<PublicTravelerProfile[]>([])
   const [delverPosts, setDelverPosts] = useState<PostDto[]>([])
   const [communityHits, setCommunityHits] = useState<CommunityDto[]>([])
+  const [threadHits, setThreadHits] = useState<CommunityThreadSummary[]>([])
   const [journeyHits, setJourneyHits] = useState<JourneySummary[]>([])
   const [eventHits, setEventHits] = useState<EventDto[]>([])
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => loadRecentSearches())
+  const [liveSuggestions, setLiveSuggestions] = useState<SearchSuggestion[]>([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [trendingCommunities, setTrendingCommunities] = useState<CommunityDto[]>([])
   const [trendingJourneys, setTrendingJourneys] = useState<JourneySummary[]>([])
   const [trendingEvents, setTrendingEvents] = useState<EventDto[]>([])
   const [featuredDelvers, setFeaturedDelvers] = useState<PostDto[]>([])
@@ -497,6 +622,13 @@ export default function SearchPage({
       })
       .catch(() => {
         if (!cancelled) setFeaturedDelvers([])
+      })
+    void listCommunities()
+      .then(rows => {
+        if (!cancelled) setTrendingCommunities(rows.slice(0, 4))
+      })
+      .catch(() => {
+        if (!cancelled) setTrendingCommunities([])
       })
     void listJourneys()
       .then(rows => {
@@ -528,52 +660,114 @@ export default function SearchPage({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  async function runDelversSearch(finalQuery: string) {
+  // Live autocomplete suggestions (debounced)
+  useEffect(() => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) {
+      setLiveSuggestions([])
+      setSuggestLoading(false)
+      return
+    }
+    setSuggestLoading(true)
+    const timer = window.setTimeout(() => {
+      void fetchSearchSuggestions(trimmed)
+        .then(setLiveSuggestions)
+        .catch(() => setLiveSuggestions([]))
+        .finally(() => setSuggestLoading(false))
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  const combinedSuggestions = useMemo(() => {
+    const recent = buildRecentSuggestions(query, recentSearches)
+    const seen = new Set(recent.map(item => item.label.toLowerCase()))
+    const live = liveSuggestions.filter(item => !seen.has(item.label.toLowerCase()))
+    return [...recent, ...live]
+  }, [query, recentSearches, liveSuggestions])
+
+  async function runDelversSearch(finalQuery: string, tab: ResultType = 'all') {
     setDelversLoading(true)
     setDelversError(null)
     try {
-      const [people, posts, communities, journeysLive, eventsLive] = await Promise.all([
-        searchTravelers(finalQuery).catch(() => [] as PublicTravelerProfile[]),
-        searchPosts(finalQuery).catch(() => [] as PostDto[]),
-        listCommunities({ q: finalQuery }).catch(() => [] as CommunityDto[]),
-        listJourneys(finalQuery).catch(() => [] as JourneySummary[]),
-        searchEvents(finalQuery).catch(() => [] as EventDto[]),
-      ])
-      setTravelers(people)
-      setDelverPosts(posts)
-      setCommunityHits(communities)
-      setJourneyHits(journeysLive)
-      setEventHits(eventsLive)
+      const result = await unifiedSearch({
+        q: finalQuery,
+        types: tab === 'all' ? undefined : searchTypesForTab(tab),
+      })
+      setTravelers(result.travelers)
+      setDelverPosts(result.posts)
+      setCommunityHits(result.communities)
+      setThreadHits(result.threads)
+      setJourneyHits(result.journeys)
+      setEventHits(result.events)
     } catch (err) {
       setTravelers([])
       setDelverPosts([])
       setCommunityHits([])
+      setThreadHits([])
       setJourneyHits([])
       setEventHits([])
-      setDelversError(err instanceof Error ? err.message : 'Could not search Delvers')
+      setDelversError(err instanceof Error ? err.message : 'Could not search')
     } finally {
       setDelversLoading(false)
     }
   }
 
+  function handleSuggestionSelect(suggestion: SearchSuggestion) {
+    setShowAutocomplete(false)
+    setAutocompleteIndex(-1)
+
+    if (suggestion.entityType === 'query' || suggestion.group === 'recent') {
+      handleSubmit(suggestion.label)
+      return
+    }
+    if (suggestion.entityType === 'journey') {
+      onNavigate?.('Journeys')
+      onOpenJourney?.(suggestion.entityId)
+      return
+    }
+    if (suggestion.entityType === 'community') {
+      onNavigate?.('Communities')
+      onOpenCommunity?.(suggestion.entityId)
+      return
+    }
+    if (suggestion.entityType === 'thread') {
+      onOpenCommunityThread?.(suggestion.entityId)
+      return
+    }
+    if (suggestion.entityType === 'event') {
+      onNavigate?.('Events')
+      onOpenEvent?.(suggestion.entityId)
+      return
+    }
+    if (suggestion.entityType === 'traveler') {
+      onOpenProfile?.(suggestion.entityId)
+      return
+    }
+    handleSubmit(suggestion.label)
+  }
+
   function handleSubmit(q?: string) {
     const finalQuery = (q ?? query).trim()
     if (!finalQuery) return
+    pushRecentSearch(finalQuery)
+    setRecentSearches(loadRecentSearches())
     setQuery(finalQuery)
     setSubmitted(true)
     setShowAutocomplete(false)
     setActiveTab('all')
-    void runDelversSearch(finalQuery)
+    void runDelversSearch(finalQuery, 'all')
   }
 
   function runFilteredSearch(finalQuery: string, tab: ResultType = 'all') {
     const trimmed = finalQuery.trim()
     if (!trimmed) return
+    pushRecentSearch(trimmed)
+    setRecentSearches(loadRecentSearches())
     setQuery(trimmed)
     setSubmitted(true)
     setShowAutocomplete(false)
     setActiveTab(tab)
-    void runDelversSearch(trimmed)
+    void runDelversSearch(trimmed, tab)
   }
 
   function handleClear() {
@@ -584,6 +778,7 @@ export default function SearchPage({
     setTravelers([])
     setDelverPosts([])
     setCommunityHits([])
+    setThreadHits([])
     setJourneyHits([])
     setEventHits([])
     setDelversError(null)
@@ -591,18 +786,15 @@ export default function SearchPage({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    const filtered = autocompleteSuggestions.filter(s =>
-      s.label.toLowerCase().includes(query.toLowerCase())
-    )
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setAutocompleteIndex(i => Math.min(i + 1, filtered.length - 1))
+      setAutocompleteIndex(i => Math.min(i + 1, combinedSuggestions.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setAutocompleteIndex(i => Math.max(i - 1, -1))
     } else if (e.key === 'Enter') {
-      if (autocompleteIndex >= 0 && filtered[autocompleteIndex]) {
-        handleSubmit(filtered[autocompleteIndex].label)
+      if (autocompleteIndex >= 0 && combinedSuggestions[autocompleteIndex]) {
+        handleSuggestionSelect(combinedSuggestions[autocompleteIndex])
       } else {
         handleSubmit()
       }
@@ -623,12 +815,12 @@ export default function SearchPage({
     return activeTab === 'all' || r.resultType === activeTab
   })
   const hasLiveDelvers = travelers.length > 0 || delverPosts.length > 0
-  const hasLiveCommunities = communityHits.length > 0
+  const hasLiveCommunities = communityHits.length > 0 || threadHits.length > 0
   const hasLiveJourneys = journeyHits.length > 0
   const hasLiveEvents = eventHits.length > 0
   const liveResultCount =
     (showLiveDelvers ? travelers.length + delverPosts.length : 0)
-    + (showLiveCommunities ? communityHits.length : 0)
+    + (showLiveCommunities ? communityHits.length + threadHits.length : 0)
     + (showLiveJourneys ? journeyHits.length : 0)
     + (showLiveEvents ? eventHits.length : 0)
     + (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' ? filteredResults.length : 0)
@@ -661,7 +853,7 @@ export default function SearchPage({
           }}
           onFocus={() => query.length > 0 && setShowAutocomplete(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search Delvers, people, places, deals…"
+          placeholder="Search journeys, communities, events, people, places…"
           className="flex-1 bg-transparent text-sm outline-none"
           style={{ color: 'var(--fg)', fontFamily: 'DM Sans, sans-serif' }}
         />
@@ -684,7 +876,9 @@ export default function SearchPage({
       {showAutocomplete && query.length > 0 && (
         <AutocompletePanel
           query={query}
-          onSelect={q => handleSubmit(q)}
+          suggestions={combinedSuggestions}
+          loading={suggestLoading}
+          onSelect={handleSuggestionSelect}
           activeIndex={autocompleteIndex}
           setActiveIndex={setAutocompleteIndex}
         />
@@ -829,7 +1023,10 @@ export default function SearchPage({
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => onNavigate?.('Communities')}
+                  onClick={() => {
+                    onNavigate?.('Communities')
+                    onOpenCommunity?.(c.id)
+                  }}
                   className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
                 >
@@ -838,7 +1035,7 @@ export default function SearchPage({
                       <img src={c.coverUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">
-                        <User size={18} style={{ color: 'var(--fg-muted)' }} />
+                        <Users size={18} style={{ color: '#0D9488' }} />
                       </div>
                     )}
                   </div>
@@ -850,6 +1047,49 @@ export default function SearchPage({
                       {c.destination} · {c.memberCount.toLocaleString()} members
                       {c.privacy === 'PRIVATE' ? ' · Private' : ''}
                     </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showLiveCommunities && threadHits.length > 0 && (
+          <div className="px-4 sm:px-0 pb-4">
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+              Community posts
+            </p>
+            <div className="flex flex-col gap-2">
+              {threadHits.map(thread => (
+                <button
+                  key={thread.id}
+                  type="button"
+                  onClick={() => onOpenCommunityThread?.(thread.id)}
+                  className="flex items-start gap-3 rounded-xl px-3 py-2.5 text-left"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(13,148,136,0.12)' }}>
+                    <Users size={16} style={{ color: '#0D9488' }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'rgba(13,148,136,0.12)', color: '#0D9488' }}>
+                        {kindLabel(thread.kind)}
+                      </span>
+                      <span className="text-[10px] truncate" style={{ color: 'var(--fg-muted)' }}>
+                        {thread.community.name}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+                      {thread.title}
+                    </p>
+                    {thread.body ? (
+                      <p className="text-xs m-0 mt-0.5 line-clamp-2" style={{ color: 'var(--fg-muted)' }}>
+                        {thread.body}
+                      </p>
+                    ) : null}
                   </div>
                 </button>
               ))}
@@ -994,12 +1234,13 @@ export default function SearchPage({
           Find your next experience.
         </h1>
         <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
-          Search places, services, transport, deals, and journeys across Delve.
+          Search journeys, communities, events, people, places, deals, and transport across Delve.
         </p>
         {searchInput}
       </div>
 
       {/* Recent searches */}
+      {recentSearches.length > 0 && (
       <div className="px-4 sm:px-0 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <p className="text-xs font-semibold uppercase tracking-wide mb-2.5" style={{ color: 'var(--fg-muted)' }}>Recent</p>
         <div className="flex gap-2 flex-wrap">
@@ -1013,6 +1254,7 @@ export default function SearchPage({
           ))}
         </div>
       </div>
+      )}
 
       {/* Suggested destinations */}
       <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -1126,6 +1368,29 @@ export default function SearchPage({
               onOpen={() => {
                 onNavigate?.('Events')
                 onOpenEvent?.(ev.id)
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      )}
+
+      {/* Communities */}
+      {trendingCommunities.length > 0 && (
+      <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="px-4 sm:px-0 flex items-center justify-between mb-3">
+          <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Communities</p>
+          <button type="button" onClick={() => onNavigate?.('Communities')}
+            className="text-xs font-semibold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>See all</button>
+        </div>
+        <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-1 scroll-rail">
+          {trendingCommunities.map(c => (
+            <LandingCommunity
+              key={c.id}
+              community={c}
+              onOpen={() => {
+                onNavigate?.('Communities')
+                onOpenCommunity?.(c.id)
               }}
             />
           ))}

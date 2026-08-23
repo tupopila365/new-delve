@@ -28,6 +28,7 @@ import ServicesPage, { ServicesAside } from './pages/ServicesPage'
 import JourneysPage from './pages/JourneysPage'
 import JourneyDetailPage from './pages/JourneyDetailPage'
 import CommunitiesPage from './pages/CommunitiesPage'
+import CommunityDetailPage from './pages/CommunityDetailPage'
 import DelversFeedPage from './pages/DelversFeedPage'
 import AccountDashboardPage from './pages/AccountDashboardPage'
 import type { AccountNavTarget } from './pages/AccountDashboardPage'
@@ -39,6 +40,8 @@ import { useMessageUnreadCount } from './pages/messages/useLiveMessages'
 import SavedPage from './pages/SavedPage'
 import NotificationsPage from './pages/NotificationsPage'
 import MediaStudio, { CreatePostButton } from './pages/MediaStudio'
+import CreateCommunitySheet from './components/communities/CreateCommunitySheet'
+import { fetchThread } from './api/communityClient'
 import CreateEventSheet from './components/CreateEventSheet'
 import EventDetailSheet from './components/EventDetailSheet'
 import CompanyPage, { COMPANY_ROUTES } from './pages/CompanyPage'
@@ -498,6 +501,10 @@ export default function App() {
   const [messagesTargetUserId, setMessagesTargetUserId] = useState<string | null>(null)
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
   const [socialRefreshKey, setSocialRefreshKey] = useState(0)
+  const [journeysCreateRequestKey, setJourneysCreateRequestKey] = useState(0)
+  const [communityDetailId, setCommunityDetailId] = useState<string | null>(null)
+  const [communityInitialThreadId, setCommunityInitialThreadId] = useState<string | null>(null)
+  const [createCommunityOpen, setCreateCommunityOpen] = useState(false)
   const [lastCreatedPost, setLastCreatedPost] = useState<PostDto | null>(null)
   const [businessAdminOpen, setBusinessAdminOpen] = useState(false)
   const [bookingOpen, setBookingOpen] = useState(false)
@@ -535,6 +542,17 @@ export default function App() {
     setEventDetailId(null)
     if (parseEventId(location.pathname)) {
       navigate(navToPath('Events'), { replace: true })
+    }
+  }
+
+  async function openCommunityThread(threadId: string) {
+    try {
+      const thread = await fetchThread(threadId)
+      setActiveNav('Communities')
+      setCommunityDetailId(thread.community.id)
+      setCommunityInitialThreadId(threadId)
+    } catch {
+      setActiveNav('Communities')
     }
   }
 
@@ -834,11 +852,21 @@ export default function App() {
           window.setTimeout(() => setLastCreatedPost(null), 5000)
         }}
       />
+      <CreateCommunitySheet
+        open={createCommunityOpen}
+        onClose={() => setCreateCommunityOpen(false)}
+        onCreated={id => {
+          setCreateCommunityOpen(false)
+          setCommunityDetailId(id)
+          setSocialRefreshKey(k => k + 1)
+        }}
+      />
       <CreateEventSheet
         open={createEventOpen}
         onClose={() => setCreateEventOpen(false)}
         onCreated={id => {
           setCreateEventOpen(false)
+          setEventsInitialTab('hosting')
           openEventDetail(id)
           setSocialRefreshKey(k => k + 1)
         }}
@@ -852,6 +880,11 @@ export default function App() {
           setEditEventId(id)
         }}
         onOpenProfile={uname => openProfile(uname)}
+        onUpdated={() => setSocialRefreshKey(k => k + 1)}
+        onSharedToDelvers={() => {
+          setSocialRefreshKey(k => k + 1)
+          goToNav('Delvers')
+        }}
       />
       <EditEventSheet
         eventId={editEventId}
@@ -1162,6 +1195,11 @@ export default function App() {
           onOpenMessages={() => setActiveNav('Messages')}
           onOpenNotifications={() => setActiveNav('Notifications')}
           onOpenProfile={uname => openProfile(uname)}
+          onOpenEvent={openEventDetail}
+          onOpenJourney={id => {
+            setActiveNav('Journeys')
+            setJourneyDetailId(id)
+          }}
           refreshKey={socialRefreshKey}
           highlightPost={lastCreatedPost}
           authReady={authReady}
@@ -1170,10 +1208,39 @@ export default function App() {
       )
     }
     if (activeNav === 'Communities') {
+      if (communityDetailId) {
+        return (
+          <CommunityDetailPage
+            communityId={communityDetailId}
+            initialThreadId={communityInitialThreadId}
+            signedIn={signedIn}
+            onBack={() => {
+              setCommunityDetailId(null)
+              setCommunityInitialThreadId(null)
+            }}
+            onSignIn={() => openAuth('signIn')}
+            onOpenProfile={uname => openProfile(uname)}
+            onOpenJourney={id => {
+              setCommunityDetailId(null)
+              setActiveNav('Journeys')
+              setJourneyDetailId(id)
+            }}
+            onOpenEvent={openEventDetail}
+          />
+        )
+      }
       return (
         <CommunitiesPage
           signedIn={signedIn}
           onSignIn={() => openAuth('signIn')}
+          onOpenCommunity={id => setCommunityDetailId(id)}
+          onCreateCommunity={() => {
+            if (!signedIn) {
+              openAuth('signIn')
+              return
+            }
+            setCreateCommunityOpen(true)
+          }}
         />
       )
     }
@@ -1186,10 +1253,12 @@ export default function App() {
             onBack={() => setJourneyDetailId(null)}
             onSignIn={() => openAuth('signIn')}
             onOpenProfile={uname => openProfile(uname)}
+            onOpenEvent={openEventDetail}
             onOpenGroupChat={id => {
               setMessagesJourneyId(id)
               setActiveNav('Messages')
             }}
+            onSharedToDelvers={() => setSocialRefreshKey(k => k + 1)}
           />
         )
       }
@@ -1198,6 +1267,10 @@ export default function App() {
           signedIn={signedIn}
           onSignIn={() => openAuth('signIn')}
           onOpenJourney={id => setJourneyDetailId(id)}
+          onOpenProfile={uname => openProfile(uname)}
+          refreshKey={socialRefreshKey}
+          destinationHint={servicesDestination}
+          createRequestKey={journeysCreateRequestKey}
         />
       )
     }
@@ -1208,7 +1281,9 @@ export default function App() {
           onSignIn={() => openAuth('signIn')}
           onOpenEvent={openEventDetail}
           onCreateEvent={() => setCreateEventOpen(true)}
+          onOpenProfile={uname => openProfile(uname)}
           initialTab={eventsInitialTab}
+          refreshKey={socialRefreshKey}
         />
       )
     }
@@ -1225,6 +1300,12 @@ export default function App() {
           setJourneyDetailId(id)
         }}
         onOpenEvent={openEventDetail}
+        onOpenCommunity={id => {
+          setActiveNav('Communities')
+          setCommunityDetailId(id)
+          setCommunityInitialThreadId(null)
+        }}
+        onOpenCommunityThread={id => void openCommunityThread(id)}
       />
     if (activeNav === 'Deals')
       return (
@@ -1303,6 +1384,7 @@ export default function App() {
               setActiveNav('Journeys')
               setJourneyDetailId(id)
             }}
+            onOpenCommunityThread={id => void openCommunityThread(id)}
             authReady={authReady}
             signedIn={signedIn}
           />
@@ -1321,6 +1403,7 @@ export default function App() {
               setMessagesConversationId(id)
               setActiveNav('Messages')
             }}
+            onOpenCommunityThread={id => void openCommunityThread(id)}
           />
         )
       if (accountSettingsOpen || activeNav === 'Account settings') {
@@ -1796,7 +1879,32 @@ export default function App() {
         {activeNav === 'Services' && !servicesSelectedId && <ServicesAside {...servicesBrowseProps} />}
       </div>
 
-      {showFab && <CreatePostButton variant="fab" onClick={openCreate} />}
+      {showFab && (
+        <CreatePostButton
+          variant="fab"
+          onClick={
+            activeNav === 'Events'
+              ? () => setCreateEventOpen(true)
+              : activeNav === 'Journeys' && !journeyDetailId
+                ? () => {
+                    if (!signedIn) {
+                      openAuth('signIn')
+                      return
+                    }
+                    setJourneysCreateRequestKey(k => k + 1)
+                  }
+                : activeNav === 'Communities' && !communityDetailId
+                  ? () => {
+                      if (!signedIn) {
+                        openAuth('signIn')
+                        return
+                      }
+                      setCreateCommunityOpen(true)
+                    }
+                  : openCreate
+          }
+        />
+      )}
 
       {/* Mobile full menu — pages that are desktop-sidebar / header only */}
       {mobileMenuOpen && (

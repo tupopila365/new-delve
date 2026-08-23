@@ -10,7 +10,7 @@ import type {
 import { createJourney, updateJourney } from '../../api/journeyClient'
 import { AuthApiError } from '../../api/authClient'
 import MediaStudio from '../../pages/MediaStudio'
-import EventCoverMedia from '../EventCoverMedia'
+import JourneyCoverMedia from './JourneyCoverMedia'
 
 const TRANSPORT_OPTIONS = [
   'Car rental',
@@ -108,6 +108,9 @@ function toBody(state: {
   title: string
   summary: string
   coverUrl: string
+  coverResourceType: 'image' | 'video' | null
+  startDate: string
+  endDate: string
   startPlace: string
   endPlace: string
   durationDays: number
@@ -134,6 +137,9 @@ function toBody(state: {
     title: state.title.trim(),
     summary: state.summary.trim() || undefined,
     coverUrl: state.coverUrl.trim() || null,
+    coverResourceType: state.coverResourceType,
+    startDate: state.startDate ? new Date(state.startDate).toISOString() : null,
+    endDate: state.endDate ? new Date(state.endDate).toISOString() : null,
     startPlace: state.startPlace.trim(),
     endPlace: state.endPlace.trim(),
     durationDays: state.durationDays || places.length,
@@ -190,6 +196,8 @@ export default function JourneyEditorSheet({
   const [summary, setSummary] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
   const [coverResourceType, setCoverResourceType] = useState<'image' | 'video' | null>(null)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [startPlace, setStartPlace] = useState('')
   const [endPlace, setEndPlace] = useState('')
   const [durationDays, setDurationDays] = useState(1)
@@ -212,7 +220,9 @@ export default function JourneyEditorSheet({
       setTitle(d.title)
       setSummary(d.summary)
       setCoverUrl(d.coverUrl)
-      setCoverResourceType(d.coverUrl ? 'image' : null)
+      setCoverResourceType(initial.coverResourceType ?? (d.coverUrl ? 'image' : null))
+      setStartDate(initial.startDate ? initial.startDate.slice(0, 10) : '')
+      setEndDate(initial.endDate ? initial.endDate.slice(0, 10) : '')
       setStartPlace(d.startPlace)
       setEndPlace(d.endPlace)
       setDurationDays(d.durationDays)
@@ -228,6 +238,8 @@ export default function JourneyEditorSheet({
       setSummary('')
       setCoverUrl('')
       setCoverResourceType(null)
+      setStartDate('')
+      setEndDate('')
       setStartPlace('')
       setEndPlace('')
       setDurationDays(1)
@@ -267,6 +279,9 @@ export default function JourneyEditorSheet({
       title,
       summary,
       coverUrl,
+      coverResourceType,
+      startDate,
+      endDate,
       startPlace,
       endPlace,
       durationDays,
@@ -359,16 +374,38 @@ export default function JourneyEditorSheet({
               style={inputStyle}
             />,
           )}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {field(
+              'Start date',
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={inputStyle}
+              />,
+            )}
+            {field(
+              'End date',
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={inputStyle}
+              />,
+            )}
+          </div>
 
           {field(
             'Cover',
             <div className="flex flex-col gap-2">
               {coverUrl ? (
-                <EventCoverMedia
+                <JourneyCoverMedia
                   url={coverUrl}
                   resourceType={coverResourceType}
                   className="w-full h-32 object-cover rounded-xl"
-                  controls={false}
+                  variant="inline"
                 />
               ) : null}
               <div className="flex gap-2">

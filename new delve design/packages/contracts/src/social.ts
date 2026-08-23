@@ -30,12 +30,34 @@ export const followResultSchema = z.object({
 
 export type FollowResult = z.infer<typeof followResultSchema>
 
+export const followListItemSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  isFollowing: z.boolean(),
+  followsYou: z.boolean(),
+})
+
+export type FollowListItem = z.infer<typeof followListItemSchema>
+
+export const followListSchema = z.object({
+  items: z.array(followListItemSchema),
+  nextCursor: z.string().nullable(),
+})
+
+export type FollowList = z.infer<typeof followListSchema>
+
 export const createPostBodySchema = z
   .object({
     caption: z.string().trim().max(2000).optional(),
     location: z.string().trim().max(120).optional().nullable(),
     visibility: z.enum(['PUBLIC', 'FOLLOWERS', 'PRIVATE']).optional(),
     mediaIds: z.array(z.string().min(1)).max(10).optional(),
+    /** Share an event into Delvers as a reference (not a data duplicate). */
+    eventId: z.string().min(1).optional().nullable(),
+    /** Share a journey into Delvers as a reference (not a data duplicate). */
+    journeyId: z.string().min(1).optional().nullable(),
   })
   .strict()
 
@@ -56,6 +78,29 @@ export const postAuthorSchema = z.object({
   avatarUrl: z.string().nullable(),
 })
 
+export const postLinkedEventSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  coverUrl: z.string().nullable(),
+  startAt: z.string().datetime(),
+  city: z.string().nullable(),
+  locationName: z.string().nullable(),
+})
+
+export type PostLinkedEvent = z.infer<typeof postLinkedEventSchema>
+
+export const postLinkedJourneySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  coverUrl: z.string().nullable(),
+  startPlace: z.string(),
+  endPlace: z.string(),
+  durationDays: z.number().int().positive(),
+  stopCount: z.number().int().nonnegative(),
+})
+
+export type PostLinkedJourney = z.infer<typeof postLinkedJourneySchema>
+
 export const postDtoSchema = z.object({
   id: z.string(),
   caption: z.string(),
@@ -68,6 +113,8 @@ export const postDtoSchema = z.object({
   commentCount: z.number().int().nonnegative(),
   likedByMe: z.boolean(),
   savedByMe: z.boolean().optional(),
+  linkedEvent: postLinkedEventSchema.nullable().optional(),
+  linkedJourney: postLinkedJourneySchema.nullable().optional(),
 })
 
 export type PostDto = z.infer<typeof postDtoSchema>
@@ -126,6 +173,8 @@ export const createEventBodySchema = z
     latitude: z.number().optional().nullable(),
     longitude: z.number().optional().nullable(),
     category: z.string().trim().max(60).optional().nullable(),
+    communityId: z.string().min(1).optional().nullable(),
+    businessId: z.string().min(1).optional().nullable(),
     visibility: z.enum(['PUBLIC', 'FOLLOWERS', 'PRIVATE']).optional(),
     status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
     maxAttendees: z.number().int().positive().optional().nullable(),
@@ -148,10 +197,26 @@ export const eventListQuerySchema = z
     city: z.string().trim().max(80).optional(),
     after: z.string().datetime().optional(),
     mine: z.enum(['hosting', 'attending']).optional(),
+    category: z.string().trim().max(60).optional(),
+    following: z.enum(['true']).optional(),
+    sort: z.enum(['popular']).optional(),
   })
   .strict()
 
 export type EventListQuery = z.infer<typeof eventListQuerySchema>
+
+export const eventCommunityRefSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+})
+
+export const eventBusinessRefSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+})
 
 export const eventDtoSchema = z.object({
   id: z.string(),
@@ -168,6 +233,10 @@ export const eventDtoSchema = z.object({
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
   category: z.string().nullable(),
+  communityId: z.string().nullable().optional(),
+  businessId: z.string().nullable().optional(),
+  community: eventCommunityRefSchema.nullable().optional(),
+  business: eventBusinessRefSchema.nullable().optional(),
   visibility: z.enum(['PUBLIC', 'FOLLOWERS', 'PRIVATE']),
   status: z.enum(['DRAFT', 'PUBLISHED', 'CANCELLED', 'COMPLETED']),
   maxAttendees: z.number().int().nullable(),
@@ -217,8 +286,6 @@ export const notificationDtoSchema = z.object({
 })
 
 export type NotificationDto = z.infer<typeof notificationDtoSchema>
-
-// ─── Delvers Stories (24h ephemeral) ───────────────────────────────────────
 
 export const createStoryBodySchema = z
   .object({

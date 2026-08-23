@@ -2,25 +2,25 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, BellOff, Building2, CheckCircle, HelpCircle, LogIn,
   MapPin, MoreVertical, Navigation, Paperclip, Pin, Plus, Search, Send,
-  Share2, Shield, Users, Car, AlertTriangle, Archive, Flag, Ban, Loader2,
+  Share2, Shield, Users, Car, Archive, Flag, Ban, Loader2,
 } from 'lucide-react'
 import type { PublicTravelerProfile } from '@delve/contracts'
 import { listBlockedUsers, unblockUser } from '../../api/messageClient'
 import { searchTravelers } from '../../api/socialClient'
 import { listMyJourneys } from '../../api/journeyClient'
 import { fetchPublicDeals } from '../../api/dealClient'
-import { useMediaUpload } from '../../media/useMediaUpload'
 import { formatUsername } from '../../lib/formatUsername'
+import MediaStudio from '../MediaStudio'
 import MobileTabRail from '../../components/mobile/MobileTabRail'
 import SafeImage from '../../components/mobile/SafeImage'
-import { BLOCKED_ACCOUNTS, CONVERSATIONS, NEW_MESSAGE_TARGETS, SAFETY_CASES, THREADS } from './data'
 import type { ChatMessage, Conversation, ConversationType, InboxFilter } from './types'
 import {
   BlockAccountFlow, DeliveryIcon, ImmediateSafetyFlow, MuteSheet, PillButton,
   QuickActionRow, ReportMessageFlow, SafetyCenterView, ShareLocationFlow,
-  Sheet, SpamWarning, useToast,
+  Sheet, useToast,
 } from './flows'
 import { relativeMessageTime, useLiveMessages } from './useLiveMessages'
+import { MESSAGE_FEATURES } from './features'
 
 const FILTERS: InboxFilter[] = [
   'All', 'Unread', 'Personal', 'Journeys', 'Communities', 'Businesses', 'Transport', 'Support', 'Requests', 'Archived',
@@ -170,23 +170,19 @@ export default function MessagesPage({
   onUserOpened?: () => void
   onOpenJourney?: (journeyId: string) => void
 } = {}) {
-  const useLive = Boolean(signedIn && authReady)
+  const liveEnabled = Boolean(signedIn && authReady)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const live = useLiveMessages(useLive, activeId)
-  const mediaUpload = useMediaUpload('message')
-  const attachInputRef = useRef<HTMLInputElement>(null)
+  const live = useLiveMessages(liveEnabled, activeId)
+  const [attachStudioOpen, setAttachStudioOpen] = useState(false)
   const typingTimerRef = useRef<number | null>(null)
 
   const [view, setView] = useState<View>('inbox')
   const [filter, setFilter] = useState<InboxFilter>('All')
   const [query, setQuery] = useState('')
-  const [mockConversations, setMockConversations] = useState(CONVERSATIONS)
-  const [mockThreads, setMockThreads] = useState(THREADS)
   const [input, setInput] = useState('')
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [flow, setFlow] = useState<'block' | 'report' | 'safety' | 'location' | 'spam' | 'mute' | 'share' | null>(null)
-  const [offline, setOffline] = useState(false)
   const [sendBusy, setSendBusy] = useState(false)
   const [newQuery, setNewQuery] = useState('')
   const [newHits, setNewHits] = useState<PublicTravelerProfile[]>([])
@@ -200,7 +196,7 @@ export default function MessagesPage({
   const { toast, setToast } = useToast()
 
   useEffect(() => {
-    if (flow !== 'share' || !useLive) return
+    if (flow !== 'share' || !liveEnabled) return
     setShareLoading(true)
     void Promise.all([
       listMyJourneys().catch(() => []),
@@ -219,29 +215,23 @@ export default function MessagesPage({
         })))
       })
       .finally(() => setShareLoading(false))
-  }, [flow, useLive])
+  }, [flow, liveEnabled])
 
-  const conversations = useLive ? live.conversations : mockConversations
-  const setConversations = useLive ? live.setConversations : setMockConversations
-  const inboxSource = useLive && filter === 'Archived' ? live.archivedConversations : conversations
-  const threads = useLive ? live.threads : mockThreads
-  const setThreads = useLive ? live.setThreads : setMockThreads
+  const { conversations, setConversations, threads, archivedConversations } = live
+  const inboxSource = filter === 'Archived' ? archivedConversations : conversations
 
   const active = useMemo(() => {
     if (!activeId) return null
-    if (useLive) {
-      return conversations.find(c => c.id === activeId)
-        ?? live.archivedConversations.find(c => c.id === activeId)
-        ?? null
-    }
-    return conversations.find(c => c.id === activeId) ?? null
-  }, [activeId, conversations, live.archivedConversations, useLive])
+    return conversations.find(c => c.id === activeId)
+      ?? archivedConversations.find(c => c.id === activeId)
+      ?? null
+  }, [activeId, conversations, archivedConversations])
   const messages = activeId ? (threads[activeId] ?? []) : []
   const activeTyping = activeId ? (live.typingUsers[activeId] ?? []) : []
   const showTyping = activeTyping.length > 0
   const cannotReply = active?.canReply === false
 
-  const liveFilterOnly = useLive && !['All', 'Unread', 'Personal', 'Requests', 'Journeys', 'Archived'].includes(filter)
+  const liveFilterOnly = !['All', 'Unread', 'Personal', 'Requests', 'Journeys', 'Archived'].includes(filter)
 
   const filtered = useMemo(() => {
     if (liveFilterOnly) return []
@@ -263,20 +253,20 @@ export default function MessagesPage({
     setConversations(prev => prev.map(c => c.id === id ? { ...c, unread: 0 } : c))
     setInput(conversations.find(c => c.id === id)?.draft ?? '')
     setMenuOpen(false)
-    if (useLive) void live.loadThread(id)
+    if (liveEnabled) void live.loadThread(id)
   }
 
   useEffect(() => {
-    if (!useLive || !openConversationId) return
+    if (!liveEnabled || !openConversationId) return
     setActiveId(openConversationId)
     setView('thread')
     setConversations(prev => prev.map(c => c.id === openConversationId ? { ...c, unread: 0 } : c))
     void live.loadThread(openConversationId)
     onConversationOpened?.()
-  }, [useLive, openConversationId, live, onConversationOpened, setConversations])
+  }, [liveEnabled, openConversationId, live, onConversationOpened, setConversations])
 
   useEffect(() => {
-    if (!useLive || !openUserId) return
+    if (!liveEnabled || !openUserId) return
     void live.startWithUser(openUserId)
       .then(id => {
         setActiveId(id)
@@ -289,15 +279,15 @@ export default function MessagesPage({
         setToast(err instanceof Error ? err.message : 'Could not start conversation')
         onUserOpened?.()
       })
-  }, [useLive, openUserId, live, onUserOpened, setConversations, setToast])
+  }, [liveEnabled, openUserId, live, onUserOpened, setConversations, setToast])
 
   useEffect(() => {
-    if (!useLive || filter !== 'Archived') return
+    if (!liveEnabled || filter !== 'Archived') return
     void live.loadArchived()
-  }, [useLive, filter, live])
+  }, [liveEnabled, filter, live])
 
   useEffect(() => {
-    if (view !== 'safety' || !useLive) return
+    if (view !== 'safety' || !liveEnabled) return
     setBlockedLoading(true)
     void listBlockedUsers()
       .then(rows => setBlockedUsers(rows.map(row => ({
@@ -308,10 +298,10 @@ export default function MessagesPage({
       }))))
       .catch(() => setBlockedUsers([]))
       .finally(() => setBlockedLoading(false))
-  }, [view, useLive])
+  }, [view, liveEnabled])
 
   useEffect(() => {
-    if (!useLive || !openJourneyId) return
+    if (!liveEnabled || !openJourneyId) return
     void live.openJourneyChat(openJourneyId)
       .then(id => {
         setActiveId(id)
@@ -324,11 +314,11 @@ export default function MessagesPage({
         setToast(err instanceof Error ? err.message : 'Could not open journey chat')
         onJourneyOpened?.()
       })
-  }, [useLive, openJourneyId, live, onJourneyOpened, setConversations, setToast])
+  }, [liveEnabled, openJourneyId, live, onJourneyOpened, setConversations, setToast])
 
   function handleInputChange(value: string) {
     setInput(value)
-    if (!useLive || !activeId || cannotReply) return
+    if (!liveEnabled || !activeId || cannotReply) return
     live.signalTyping(activeId, true)
     if (typingTimerRef.current) window.clearTimeout(typingTimerRef.current)
     typingTimerRef.current = window.setTimeout(() => {
@@ -336,15 +326,12 @@ export default function MessagesPage({
     }, 2000)
   }
 
-  async function handleAttach(file: File) {
-    if (!activeId || !useLive || cannotReply) return
+  async function handleAttachReady(mediaId: string) {
+    if (!activeId || !liveEnabled || cannotReply) return
     setSendBusy(true)
     try {
-      const asset = await mediaUpload.start(file)
-      if (!asset) throw new Error('Upload failed')
-      await live.send(activeId, { mediaId: asset.id, body: input.trim() || undefined })
+      await live.send(activeId, { mediaId, body: input.trim() || undefined })
       setInput('')
-      mediaUpload.reset()
     } catch (err) {
       setToast(err instanceof Error ? err.message : 'Could not send attachment')
     } finally {
@@ -353,48 +340,21 @@ export default function MessagesPage({
   }
 
   async function sendText() {
-    if (!activeId || !input.trim()) return
-    if (useLive) {
-      setSendBusy(true)
-      try {
-        await live.send(activeId, { body: input.trim() })
-        setInput('')
-        setReplyTo(null)
-      } catch (err) {
-        setToast(err instanceof Error ? err.message : 'Could not send message')
-      } finally {
-        setSendBusy(false)
-      }
-      return
-    }
-    if (offline) {
-      const queued: ChatMessage = {
-        id: `q-${Date.now()}`, conversationId: activeId, from: 'me', kind: 'text', text: input.trim(),
-        time: 'Now', delivery: 'queued', replyTo: replyTo?.id,
-      }
-      setThreads(t => ({ ...t, [activeId]: [...(t[activeId] ?? []), queued] }))
+    if (!activeId || !input.trim() || !liveEnabled) return
+    setSendBusy(true)
+    try {
+      await live.send(activeId, { body: input.trim() })
       setInput('')
       setReplyTo(null)
-      setToast('Message queued — will send when connected')
-      return
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Could not send message')
+    } finally {
+      setSendBusy(false)
     }
-    const msg: ChatMessage = {
-      id: `m-${Date.now()}`, conversationId: activeId, from: 'me', kind: 'text', text: input.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), delivery: 'sending', replyTo: replyTo?.id,
-    }
-    setThreads(t => ({ ...t, [activeId]: [...(t[activeId] ?? []), msg] }))
-    setInput('')
-    setReplyTo(null)
-    window.setTimeout(() => {
-      setThreads(t => ({
-        ...t,
-        [activeId]: (t[activeId] ?? []).map(m => m.id === msg.id ? { ...m, delivery: 'sent' } : m),
-      }))
-    }, 400)
   }
 
   async function handleAcceptRequest() {
-    if (!activeId || !useLive) return
+    if (!activeId || !liveEnabled) return
     try {
       await live.acceptRequest(activeId)
       setToast('Request accepted')
@@ -404,7 +364,7 @@ export default function MessagesPage({
   }
 
   async function handleDeclineRequest() {
-    if (!activeId || !useLive) return
+    if (!activeId || !liveEnabled) return
     try {
       await live.declineRequest(activeId)
       setView('inbox')
@@ -416,11 +376,12 @@ export default function MessagesPage({
   }
 
   async function handleBlockUser(alsoReport: boolean) {
-    if (!active?.otherUserId || !useLive) {
-      setFlow(alsoReport ? 'report' : null)
-      setToast(alsoReport ? 'Blocked — continue report' : 'Account blocked')
-      if (!alsoReport) setView('inbox')
+    if (!active?.otherUserId || !liveEnabled) {
+      setToast('Could not block this account')
       return
+    }
+    if (alsoReport && !MESSAGE_FEATURES.reports) {
+      alsoReport = false
     }
     try {
       await live.blockOtherUser(active.otherUserId, active.id)
@@ -436,62 +397,42 @@ export default function MessagesPage({
   }
 
   async function handleArchive() {
-    if (!active) return
-    if (useLive) {
-      try {
-        await live.archive(active.id)
-        setToast('Moved to archive')
-        setView('inbox')
-        setActiveId(null)
-      } catch (err) {
-        setToast(err instanceof Error ? err.message : 'Could not archive conversation')
-      }
-      return
+    if (!active || !liveEnabled) return
+    try {
+      await live.archive(active.id)
+      setToast('Moved to archive')
+      setView('inbox')
+      setActiveId(null)
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Could not archive conversation')
     }
-    setConversations(p => p.map(c => c.id === active.id ? { ...c, archived: true } : c))
-    setToast('Moved to archive')
-    setView('inbox')
-    setActiveId(null)
   }
 
   async function handleUnarchive() {
-    if (!active) return
-    if (useLive) {
-      try {
-        await live.unarchive(active.id)
-        setToast('Restored to inbox')
-        setFilter('All')
-        setView('inbox')
-      } catch (err) {
-        setToast(err instanceof Error ? err.message : 'Could not restore conversation')
-      }
-      return
+    if (!active || !liveEnabled) return
+    try {
+      await live.unarchive(active.id)
+      setToast('Restored to inbox')
+      setFilter('All')
+      setView('inbox')
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Could not restore conversation')
     }
-    setConversations(p => p.map(c => c.id === active.id ? { ...c, archived: false } : c))
-    setToast('Restored to inbox')
-    setFilter('All')
-    setView('inbox')
   }
 
   async function handleMute(label: string) {
-    if (!active) return
-    if (useLive) {
-      try {
-        await live.setMuted(active.id, true)
-        setFlow(null)
-        setToast(`Muted · ${label}`)
-      } catch (err) {
-        setToast(err instanceof Error ? err.message : 'Could not mute conversation')
-      }
-      return
+    if (!active || !liveEnabled) return
+    try {
+      await live.setMuted(active.id, true)
+      setFlow(null)
+      setToast(`Muted · ${label}`)
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Could not mute conversation')
     }
-    setConversations(p => p.map(c => c.id === active.id ? { ...c, muted: true } : c))
-    setFlow(null)
-    setToast(`Muted · ${label}`)
   }
 
   async function handleUnblock(userId: string) {
-    if (!useLive) return
+    if (!liveEnabled) return
     setUnblockBusyId(userId)
     try {
       await unblockUser(userId)
@@ -504,13 +445,37 @@ export default function MessagesPage({
     }
   }
 
-  function addSystemish(kind: ChatMessage['kind'], partial: Partial<ChatMessage>) {
-    if (!activeId) return
-    const msg: ChatMessage = {
-      id: `x-${Date.now()}`, conversationId: activeId, from: 'me', kind, time: 'Now', delivery: 'sent', ...partial,
+  const conversationMenuItems = useMemo(() => {
+    const items = [
+      { label: 'Mute', action: () => setFlow('mute') },
+      active?.archived
+        ? { label: 'Unarchive', action: () => { void handleUnarchive() } }
+        : { label: 'Archive', action: () => { void handleArchive() } },
+      { label: 'Block…', action: () => setFlow('block') },
+      { label: 'Safety Center', action: () => setView('safety') },
+    ]
+    if (MESSAGE_FEATURES.reports) {
+      items.splice(2, 0, { label: 'Report message…', action: () => setFlow('report') })
     }
-    setThreads(t => ({ ...t, [activeId]: [...(t[activeId] ?? []), msg] }))
-  }
+    if (MESSAGE_FEATURES.immediateSafetyEscalation) {
+      items.splice(items.length - 1, 0, { label: 'Immediate safety…', action: () => setFlow('safety') })
+    }
+    return items
+  }, [active?.archived])
+
+  const detailActions = useMemo(() => {
+    const actions: { label: string; icon: typeof BellOff; action: () => void }[] = [
+      { label: 'Mute', icon: BellOff, action: () => setFlow('mute') },
+      active?.archived
+        ? { label: 'Unarchive', icon: Archive, action: () => { void handleUnarchive() } }
+        : { label: 'Archive', icon: Archive, action: () => { void handleArchive() } },
+      { label: 'Block', icon: Ban, action: () => setFlow('block') },
+    ]
+    if (MESSAGE_FEATURES.reports) {
+      actions.splice(2, 0, { label: 'Report', icon: Flag, action: () => setFlow('report') })
+    }
+    return actions
+  }, [active?.archived])
 
   const inboxPanel = (
     <div className="flex flex-col h-full min-h-0 w-full max-w-full min-w-0 overflow-hidden" style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
@@ -523,11 +488,6 @@ export default function MessagesPage({
           <Plus size={20} />
         </button>
       </div>
-      {offline && (
-        <div className="mx-3 mb-2 px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: 'rgba(183,104,8,0.12)', color: '#B76808' }} role="status">
-          Offline — showing cached conversations. Queued messages are not delivered yet.
-        </div>
-      )}
       <div className="px-3 pb-2">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} aria-hidden />
@@ -550,7 +510,7 @@ export default function MessagesPage({
         />
       </div>
       <div className="flex-1 overflow-y-auto min-h-0">
-        {useLive && live.loading ? (
+        {live.loading ? (
           <div className="p-8 flex justify-center">
             <Loader2 size={22} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
           </div>
@@ -558,7 +518,7 @@ export default function MessagesPage({
           <div className="p-6 text-center">
             <p className="text-sm font-semibold">Coming soon</p>
             <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
-              Journey, business, and transport chats are not live yet. Direct messages work under All / Personal.
+              Community, business, transport, and support chats are coming soon. Direct and journey messages work under All, Personal, or Journeys.
             </p>
           </div>
         ) : filtered.length === 0 ? (
@@ -571,13 +531,6 @@ export default function MessagesPage({
         ) : filtered.map(c => (
           <ConversationListItem key={c.id} conv={c} selected={activeId === c.id} onOpen={() => openConv(c.id)} />
         ))}
-      </div>
-      <div className="p-3 flex gap-2" style={{ borderTop: '1px solid var(--border)' }}>
-        {!useLive && (
-        <button type="button" onClick={() => setOffline(o => !o)} className="flex-1 min-h-[40px] rounded-xl text-xs font-semibold" style={{ border: '1px solid var(--border)' }}>
-          {offline ? 'Go online (demo)' : 'Simulate offline'}
-        </button>
-        )}
       </div>
     </div>
   )
@@ -601,25 +554,13 @@ export default function MessagesPage({
             </p>
           </div>
         </button>
-        <button type="button" onClick={() => setFlow('spam')} className="p-2.5 min-w-[44px] min-h-[44px] shrink-0" aria-label="Safety warning demo" style={{ color: '#B76808' }}>
-          <AlertTriangle size={18} />
-        </button>
         <div className="relative shrink-0">
           <button type="button" onClick={() => setMenuOpen(o => !o)} className="p-2.5 min-w-[44px] min-h-[44px]" aria-label="Conversation options" aria-expanded={menuOpen}>
             <MoreVertical size={18} />
           </button>
           {menuOpen && (
             <div className="absolute right-0 top-full mt-1 w-56 rounded-xl p-1 z-20 shadow-lg" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }} role="menu">
-              {[
-                { label: 'Mute', action: () => setFlow('mute') },
-                active.archived
-                  ? { label: 'Unarchive', action: () => { void handleUnarchive() } }
-                  : { label: 'Archive', action: () => { void handleArchive() } },
-                { label: 'Report message…', action: () => setFlow('report') },
-                { label: 'Block…', action: () => setFlow('block') },
-                { label: 'Immediate safety…', action: () => setFlow('safety') },
-                { label: 'Safety Center', action: () => setView('safety') },
-              ].map(item => (
+              {conversationMenuItems.map(item => (
                 <button key={item.label} type="button" role="menuitem" onClick={() => { setMenuOpen(false); item.action() }}
                   className="w-full text-left px-3 py-2.5 rounded-lg text-sm min-h-[44px]" style={{ background: 'transparent', border: 'none', color: 'var(--fg)', cursor: 'pointer' }}>
                   {item.label}
@@ -668,11 +609,11 @@ export default function MessagesPage({
           <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>Read receipts, online status and calls stay off until you accept. Unexpected media stays restricted.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ background: 'var(--primary)', color: '#fff' }}
-              onClick={() => { if (useLive) void handleAcceptRequest(); else { setConversations(p => p.map(c => c.id === active.id ? { ...c, isRequest: false, type: 'personal', handle: c.handle.replace(' · Request', ''), canReply: true } : c)); setToast('Request accepted') } }}>
+              onClick={() => { void handleAcceptRequest() }}>
               Accept
             </button>
             <button type="button" className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ border: '1px solid var(--border)' }}
-              onClick={() => { if (useLive) void handleDeclineRequest(); else { setConversations(p => p.filter(c => c.id !== active.id)); setView('inbox'); setToast('Request declined') } }}>
+              onClick={() => { void handleDeclineRequest() }}>
               Decline
             </button>
             <button type="button" className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ color: '#C83B3B' }} onClick={() => setFlow('block')}>Block</button>
@@ -747,28 +688,16 @@ export default function MessagesPage({
       )}
 
       <div className="px-2 sm:px-3 py-2 flex items-end gap-0.5 sm:gap-1 shrink-0 w-full max-w-full min-w-0 box-border" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-        <input
-          ref={attachInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-          className="hidden"
-          onChange={e => {
-            const file = e.target.files?.[0]
-            e.target.value = ''
-            if (file) void handleAttach(file)
-          }}
-        />
         <button type="button" className="p-2 sm:p-2.5 min-w-[40px] sm:min-w-[44px] min-h-[44px] shrink-0" aria-label="Attach"
-          disabled={cannotReply || sendBusy || mediaUpload.busy}
-          onClick={() => {
-            if (useLive) attachInputRef.current?.click()
-            else addSystemish('text', { text: 'Media attachment (example — upload uses Media Studio rules)' })
-          }}>
+          disabled={cannotReply || sendBusy}
+          onClick={() => setAttachStudioOpen(true)}>
           <Paperclip size={18} style={{ color: 'var(--fg-muted)' }} />
         </button>
+        {MESSAGE_FEATURES.locationShare && (
         <button type="button" className="p-2 sm:p-2.5 min-w-[40px] sm:min-w-[44px] min-h-[44px] shrink-0" aria-label="Share location" onClick={() => setFlow('location')}>
           <MapPin size={18} style={{ color: 'var(--fg-muted)' }} />
         </button>
+        )}
         <button type="button" className="p-2 sm:p-2.5 min-w-[40px] sm:min-w-[44px] min-h-[44px] shrink-0" aria-label="Share Delve content" onClick={() => setFlow('share')}>
           <Share2 size={18} style={{ color: 'var(--fg-muted)' }} />
         </button>
@@ -833,13 +762,13 @@ export default function MessagesPage({
         <SafetyCenterView
           onBack={() => setView(activeId ? 'thread' : 'inbox')}
           onImmediate={() => setFlow('safety')}
-          cases={SAFETY_CASES}
-          blocked={useLive ? blockedUsers : BLOCKED_ACCOUNTS}
-          blockedLoading={useLive && blockedLoading}
-          onUnblock={useLive ? userId => { void handleUnblock(userId) } : undefined}
+          cases={[]}
+          blocked={blockedUsers}
+          blockedLoading={blockedLoading}
+          onUnblock={userId => { void handleUnblock(userId) }}
           unblockBusyId={unblockBusyId}
         />
-        {flow === 'safety' && <ImmediateSafetyFlow bookingRef={active?.bookingRef} onClose={() => setFlow(null)} />}
+        {flow === 'safety' && MESSAGE_FEATURES.immediateSafetyEscalation && <ImmediateSafetyFlow bookingRef={active?.bookingRef} onClose={() => setFlow(null)} />}
         {toast && <Toast text={toast} />}
       </div>
     )
@@ -853,83 +782,60 @@ export default function MessagesPage({
           <h1 className="text-lg font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>New conversation</h1>
         </header>
         <div className="p-4 flex flex-col gap-2">
-          {useLive ? (
-            <>
-              <div className="relative mb-2">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
-                <input
-                  value={newQuery}
-                  onChange={e => setNewQuery(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      setNewSearching(true)
-                      void searchTravelers(newQuery.trim())
-                        .then(setNewHits)
-                        .catch(() => setNewHits([]))
-                        .finally(() => setNewSearching(false))
-                    }
-                  }}
-                  placeholder="Search travelers by name or @username"
-                  className="w-full pl-9 pr-3 rounded-xl text-sm min-h-[44px]"
-                  style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-                />
-              </div>
-              {newSearching && (
-                <p className="text-xs text-center" style={{ color: 'var(--fg-muted)' }}>Searching…</p>
-              )}
-              {newHits.map(t => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    void live.startWithUser(t.id).then(id => {
-                      openConv(id)
-                      setView('thread')
-                      setNewQuery('')
-                      setNewHits([])
-                    }).catch(err => {
-                      setToast(err instanceof Error ? err.message : 'Could not start conversation')
-                    })
-                  }}
-                  className="text-left px-3 py-3 rounded-xl min-h-[44px] flex items-center gap-3"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-                >
-                  {t.avatarUrl ? (
-                    <img src={t.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(95,47,201,0.15)', color: 'var(--primary)' }}>
-                      {(t.displayName || t.username).slice(0, 1)}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold m-0 truncate">{t.displayName || formatUsername(t.username)}</p>
-                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>{formatUsername(t.username)}</p>
-                  </div>
-                </button>
-              ))}
-              {!newSearching && newQuery.trim() && newHits.length === 0 && (
-                <p className="text-xs text-center" style={{ color: 'var(--fg-muted)' }}>Press Enter to search</p>
-              )}
-            </>
-          ) : (
-            NEW_MESSAGE_TARGETS.map(t => (
-              <button key={t.id} type="button" disabled={t.status === 'cannot_message'}
-                onClick={() => {
-                  if (t.status === 'cannot_message') return
-                  setToast(t.status === 'request_required' ? 'Request required — not opened as a full chat' : t.status === 'booking_required' ? 'Open via booking channel' : 'Conversation ready (example)')
-                  if (t.status === 'can_message') openConv('c1')
-                }}
-                className="text-left px-3 py-3 rounded-xl min-h-[44px]"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', opacity: t.status === 'cannot_message' ? 0.55 : 1 }}>
-                <p className="text-sm font-semibold">{t.name}</p>
-                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{t.handle} · {t.note}</p>
-              </button>
-            ))
+          <div className="relative mb-2">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
+            <input
+              value={newQuery}
+              onChange={e => setNewQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setNewSearching(true)
+                  void searchTravelers(newQuery.trim())
+                    .then(setNewHits)
+                    .catch(() => setNewHits([]))
+                    .finally(() => setNewSearching(false))
+                }
+              }}
+              placeholder="Search travelers by name or @username"
+              className="w-full pl-9 pr-3 rounded-xl text-sm min-h-[44px]"
+              style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+            />
+          </div>
+          {newSearching && (
+            <p className="text-xs text-center" style={{ color: 'var(--fg-muted)' }}>Searching…</p>
           )}
-          {!useLive && (
-          <button type="button" onClick={() => openConv('c7')} className="min-h-[44px] rounded-xl text-sm font-semibold mt-2" style={{ background: 'var(--primary)', color: '#fff' }}>
-            Contact Delve Support
-          </button>
+          {newHits.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                void live.startWithUser(t.id).then(id => {
+                  openConv(id)
+                  setView('thread')
+                  setNewQuery('')
+                  setNewHits([])
+                }).catch(err => {
+                  setToast(err instanceof Error ? err.message : 'Could not start conversation')
+                })
+              }}
+              className="text-left px-3 py-3 rounded-xl min-h-[44px] flex items-center gap-3"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              {t.avatarUrl ? (
+                <img src={t.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+              ) : (
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'rgba(95,47,201,0.15)', color: 'var(--primary)' }}>
+                  {(t.displayName || t.username).slice(0, 1)}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold m-0 truncate">{t.displayName || formatUsername(t.username)}</p>
+                <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>{formatUsername(t.username)}</p>
+              </div>
+            </button>
+          ))}
+          {!newSearching && newQuery.trim() && newHits.length === 0 && (
+            <p className="text-xs text-center" style={{ color: 'var(--fg-muted)' }}>Press Enter to search</p>
           )}
         </div>
         {toast && <Toast text={toast} />}
@@ -954,14 +860,7 @@ export default function MessagesPage({
           </div>
           <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{active.contextLabel}</p>
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: 'Mute', icon: BellOff, action: () => setFlow('mute') },
-              active.archived
-                ? { label: 'Unarchive', icon: Archive, action: () => { void handleUnarchive() } }
-                : { label: 'Archive', icon: Archive, action: () => { void handleArchive() } },
-              { label: 'Report', icon: Flag, action: () => setFlow('report') },
-              { label: 'Block', icon: Ban, action: () => setFlow('block') },
-            ].map(a => (
+            {detailActions.map(a => (
               <button key={a.label} type="button" onClick={a.action} className="flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-semibold min-h-[44px]"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <a.icon size={16} /> {a.label}
@@ -974,7 +873,7 @@ export default function MessagesPage({
         </div>
         {flow === 'mute' && <MuteSheet onClose={() => setFlow(null)} onMute={label => { void handleMute(label) }} />}
         {flow === 'block' && <BlockAccountFlow name={active.name} onClose={() => setFlow(null)} onBlocked={also => { void handleBlockUser(also) }} />}
-        {flow === 'report' && <ReportMessageFlow onClose={() => setFlow(null)} onSubmitted={ref => { setFlow(null); setToast(`Report submitted · ${ref}`) }} />}
+        {flow === 'report' && MESSAGE_FEATURES.reports && <ReportMessageFlow onClose={() => setFlow(null)} onSubmitted={ref => { setFlow(null); setToast(`Report submitted · ${ref}`) }} />}
         {toast && <Toast text={toast} />}
       </div>
     )
@@ -995,88 +894,77 @@ export default function MessagesPage({
         <BlockAccountFlow name={active.name} onClose={() => setFlow(null)}
           onBlocked={also => { void handleBlockUser(also) }} />
       )}
-      {flow === 'report' && (
+      {flow === 'report' && MESSAGE_FEATURES.reports && (
         <ReportMessageFlow onClose={() => setFlow(null)} onSubmitted={ref => { setFlow(null); setToast(`Report submitted · ${ref}`) }} />
       )}
-      {flow === 'safety' && <ImmediateSafetyFlow bookingRef={active?.bookingRef} onClose={() => setFlow(null)} />}
-      {flow === 'location' && (
-        <ShareLocationFlow onClose={() => setFlow(null)} onShare={label => { addSystemish('location', { locationLabel: label }); setFlow(null); setToast('Location shared once (example)') }} />
+      {flow === 'safety' && MESSAGE_FEATURES.immediateSafetyEscalation && <ImmediateSafetyFlow bookingRef={active?.bookingRef} onClose={() => setFlow(null)} />}
+      {flow === 'location' && MESSAGE_FEATURES.locationShare && (
+        <ShareLocationFlow onClose={() => setFlow(null)} onShare={() => { setFlow(null); setToast('Location shared') }} />
       )}
-      {flow === 'spam' && <SpamWarning onClose={() => setFlow(null)} onBlock={() => setFlow('block')} />}
       {flow === 'mute' && active && (
         <MuteSheet onClose={() => setFlow(null)} onMute={label => { void handleMute(label) }} />
       )}
       {flow === 'share' && (
         <Sheet title="Share Delve content" onClose={() => setFlow(null)}>
-          {useLive ? (
-            shareLoading ? (
-              <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>Loading…</p>
-            ) : (
-              <>
-                {shareJourneys.length > 0 && (
-                  <>
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--fg-muted)' }}>Your journeys</p>
-                    {shareJourneys.map(item => (
-                      <button key={item.id} type="button" className="w-full text-left px-3 py-3 rounded-xl mb-2 min-h-[44px]"
-                        style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
-                        onClick={() => {
-                          if (!activeId) return
-                          void live.send(activeId, { sharedEntity: { type: 'journey', id: item.id } })
-                            .then(() => { setFlow(null); setToast('Journey shared') })
-                            .catch(err => setToast(err instanceof Error ? err.message : 'Could not share journey'))
-                        }}>
-                        <p className="text-sm font-semibold m-0">{item.title}</p>
-                        <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>{item.subtitle}</p>
-                      </button>
-                    ))}
-                  </>
-                )}
-                {shareDeals.length > 0 && (
-                  <>
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-2 mt-3" style={{ color: 'var(--fg-muted)' }}>Deals</p>
-                    {shareDeals.map(item => (
-                      <button key={item.id} type="button" className="w-full text-left px-3 py-3 rounded-xl mb-2 min-h-[44px]"
-                        style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
-                        onClick={() => {
-                          if (!activeId) return
-                          void live.send(activeId, { sharedEntity: { type: 'deal', id: item.id } })
-                            .then(() => { setFlow(null); setToast('Deal shared') })
-                            .catch(err => setToast(err instanceof Error ? err.message : 'Could not share deal'))
-                        }}>
-                        <p className="text-sm font-semibold m-0">{item.title}</p>
-                        <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>{item.subtitle}</p>
-                      </button>
-                    ))}
-                  </>
-                )}
-                {!shareJourneys.length && !shareDeals.length && (
-                  <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>No journeys or deals to share yet.</p>
-                )}
-              </>
-            )
+          {shareLoading ? (
+            <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>Loading…</p>
           ) : (
-            [
-              { kind: 'deal' as const, title: 'Guided Medina walk', subtitle: 'Example deal' },
-              { kind: 'journey' as const, title: 'Morocco Golden Route', subtitle: 'Shared Journey card' },
-              { kind: 'transport' as const, title: 'RAK → Medina transfer', subtitle: 'Example route' },
-              { kind: 'booking' as const, title: 'Your stay summary', subtitle: 'Payment details stay private' },
-            ].map(item => (
-              <button key={item.title} type="button" className="w-full text-left px-3 py-3 rounded-xl mb-2 min-h-[44px]"
-                style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
-                onClick={() => {
-                  addSystemish(item.kind === 'deal' ? 'deal' : item.kind === 'journey' ? 'journey' : item.kind === 'transport' ? 'transport' : 'booking', {
-                    entity: { type: item.kind, title: item.title, subtitle: item.subtitle, status: 'Available' },
-                  })
-                  setFlow(null)
-                }}>
-                <p className="text-sm font-semibold">{item.title}</p>
-                <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{item.subtitle}</p>
-              </button>
-            ))
+            <>
+              {shareJourneys.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--fg-muted)' }}>Your journeys</p>
+                  {shareJourneys.map(item => (
+                    <button key={item.id} type="button" className="w-full text-left px-3 py-3 rounded-xl mb-2 min-h-[44px]"
+                      style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
+                      onClick={() => {
+                        if (!activeId) return
+                        void live.send(activeId, { sharedEntity: { type: 'journey', id: item.id } })
+                          .then(() => { setFlow(null); setToast('Journey shared') })
+                          .catch(err => setToast(err instanceof Error ? err.message : 'Could not share journey'))
+                      }}>
+                      <p className="text-sm font-semibold m-0">{item.title}</p>
+                      <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>{item.subtitle}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+              {shareDeals.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-2 mt-3" style={{ color: 'var(--fg-muted)' }}>Deals</p>
+                  {shareDeals.map(item => (
+                    <button key={item.id} type="button" className="w-full text-left px-3 py-3 rounded-xl mb-2 min-h-[44px]"
+                      style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
+                      onClick={() => {
+                        if (!activeId) return
+                        void live.send(activeId, { sharedEntity: { type: 'deal', id: item.id } })
+                          .then(() => { setFlow(null); setToast('Deal shared') })
+                          .catch(err => setToast(err instanceof Error ? err.message : 'Could not share deal'))
+                      }}>
+                      <p className="text-sm font-semibold m-0">{item.title}</p>
+                      <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>{item.subtitle}</p>
+                    </button>
+                  ))}
+                </>
+              )}
+              {!shareJourneys.length && !shareDeals.length && (
+                <p className="text-sm text-center py-4" style={{ color: 'var(--fg-muted)' }}>No journeys or deals to share yet.</p>
+              )}
+            </>
           )}
         </Sheet>
       )}
       {toast && <Toast text={toast} />}
+      <MediaStudio
+        open={attachStudioOpen}
+        onClose={() => setAttachStudioOpen(false)}
+        initialContext="message"
+        lockContext
+        onMediaReady={assets => {
+          const asset = assets[0]
+          setAttachStudioOpen(false)
+          if (asset) void handleAttachReady(asset.id)
+        }}
+      />
     </div>
   )
 }

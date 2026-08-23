@@ -3,7 +3,7 @@ import { AppError } from '../../middleware/error-handler.js'
 import { createCommunityActivityNotification } from '../notifications/notify.js'
 import type { CommunityDto, CommunityMembershipStatus, CommunityType } from '@delve/contracts'
 
-type DbMembershipStatus = 'JOINED' | 'REQUESTED' | 'MODERATOR'
+type DbMembershipStatus = 'JOINED' | 'REQUESTED' | 'MODERATOR' | 'BANNED'
 
 const SEED: Array<{
   slug: string
@@ -139,11 +139,15 @@ const SEED: Array<{
   },
 ]
 
-function mapMembership(status: DbMembershipStatus | null | undefined): CommunityMembershipStatus {
+function mapMembership(
+  status: DbMembershipStatus | null | undefined,
+  role?: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER' | null,
+): CommunityMembershipStatus {
   if (!status) return 'none'
-  if (status === 'JOINED') return 'joined'
+  if (status === 'BANNED') return 'banned'
   if (status === 'REQUESTED') return 'requested'
-  return 'moderator'
+  if (role === 'OWNER' || role === 'ADMIN' || role === 'MODERATOR') return 'moderator'
+  return 'joined'
 }
 
 function toDto(
@@ -152,11 +156,21 @@ function toDto(
     slug: string
     name: string
     description: string
+    about?: string
     communityType: CommunityType
+    category?: string
     destination: string
+    city?: string | null
+    country?: string | null
+    isGlobal?: boolean
     topics: string[]
+    avatarUrl?: string | null
     coverUrl: string | null
     privacy: 'PUBLIC' | 'PRIVATE'
+    requireJoinApproval?: boolean
+    requireRuleAcknowledgement?: boolean
+    requirePostApproval?: boolean
+    postingPermission?: string
     official: boolean
     businessManaged: boolean
     memberCount: number
@@ -169,11 +183,21 @@ function toDto(
     slug: row.slug,
     name: row.name,
     description: row.description,
+    about: row.about ?? '',
     communityType: row.communityType,
+    category: (row.category ?? 'OTHER') as CommunityDto['category'],
     destination: row.destination,
+    city: row.city ?? null,
+    country: row.country ?? null,
+    isGlobal: row.isGlobal ?? true,
     topics: row.topics,
+    avatarUrl: row.avatarUrl ?? null,
     coverUrl: row.coverUrl,
     privacy: row.privacy,
+    requireJoinApproval: row.requireJoinApproval ?? false,
+    requireRuleAcknowledgement: row.requireRuleAcknowledgement ?? false,
+    requirePostApproval: row.requirePostApproval ?? false,
+    postingPermission: (row.postingPermission ?? 'MEMBERS') as CommunityDto['postingPermission'],
     official: row.official,
     businessManaged: row.businessManaged,
     memberCount: row.memberCount,
@@ -184,8 +208,9 @@ function toDto(
 
 let seedPromise: Promise<void> | null = null
 
-/** Idempotent seed so Discover is never empty after deploy. */
+/** Idempotent seed — disabled unless COMMUNITY_SEED=true (no demo data in production). */
 export async function ensureCommunitySeed() {
+  if (process.env.COMMUNITY_SEED !== 'true') return
   if (!seedPromise) {
     seedPromise = (async () => {
       const count = await prisma.community.count({ where: { deletedAt: null } })
@@ -254,8 +279,14 @@ export async function listCommunities(
       ? {
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
+            { slug: { contains: q, mode: 'insensitive' } },
             { description: { contains: q, mode: 'insensitive' } },
+            { about: { contains: q, mode: 'insensitive' } },
             { destination: { contains: q, mode: 'insensitive' } },
+            { city: { contains: q, mode: 'insensitive' } },
+            { country: { contains: q, mode: 'insensitive' } },
+            { category: { contains: q, mode: 'insensitive' } },
+            { topics: { has: q } },
           ],
         }
       : {}),
@@ -270,8 +301,11 @@ export async function listCommunities(
         where: { userId: viewerId, communityId: { in: rows.map(r => r.id) } },
       })
     : []
-  const byCommunity = new Map(memberships.map(m => [m.communityId, m.status]))
-  return rows.map(r => toDto(r, mapMembership(byCommunity.get(r.id))))
+  const byCommunity = new Map(memberships.map(m => [m.communityId, m]))
+  return rows.map(r => {
+    const mem = byCommunity.get(r.id)
+    return toDto(r, mapMembership(mem?.status, mem?.role))
+  })
 }
 
 export async function listMyCommunities(viewerId: string) {
@@ -286,7 +320,7 @@ export async function listMyCommunities(viewerId: string) {
     orderBy: { updatedAt: 'desc' },
     take: 80,
   })
-  return memberships.map(m => toDto(m.community, mapMembership(m.status)))
+  return memberships.map(m => toDto(m.community, mapMembership(m.status, m.role)))
 }
 
 export async function getCommunity(slugOrId: string, viewerId: string | null) {
@@ -303,7 +337,7 @@ export async function getCommunity(slugOrId: string, viewerId: string | null) {
         where: { communityId_userId: { communityId: row.id, userId: viewerId } },
       })
     : null
-  return toDto(row, mapMembership(membership?.status))
+  return toDto(row, mapMembership(membership?.status, membership?.role))
 }
 
 export async function joinCommunity(userId: string, communityId: string) {
@@ -315,37 +349,51 @@ export async function joinCommunity(userId: string, communityId: string) {
   const existing = await prisma.communityMembership.findUnique({
     where: { communityId_userId: { communityId, userId } },
   })
-  if (existing && (existing.status === 'JOINED' || existing.status === 'MODERATOR')) {
+  const prevStatus = existing?.status
+  if (existing?.status === 'JOINED') {
+    const ms = mapMembership(existing.status, existing.role)
     return {
-      community: toDto(community, mapMembership(existing.status)),
-      membershipStatus: mapMembership(existing.status),
+      community: toDto(community, ms),
+      membershipStatus: ms,
+    }
+  }
+  if (existing?.status === 'REQUESTED') {
+    const ms = mapMembership(existing.status, existing.role)
+    return {
+      community: toDto(community, ms),
+      membershipStatus: ms,
     }
   }
 
   const modCount = await prisma.communityMembership.count({
-    where: { communityId, status: 'MODERATOR' },
+    where: { communityId, role: { in: ['OWNER', 'ADMIN', 'MODERATOR'] }, status: 'JOINED' },
   })
 
-  let nextStatus: DbMembershipStatus =
-    community.privacy === 'PRIVATE' ? 'REQUESTED' : 'JOINED'
-  // First real member becomes moderator so private hubs can be managed.
-  if (modCount === 0 && nextStatus === 'JOINED') {
-    nextStatus = 'MODERATOR'
+  let nextStatus: DbMembershipStatus = 'JOINED'
+  let nextRole: 'OWNER' | 'ADMIN' | 'MODERATOR' | 'MEMBER' = 'MEMBER'
+
+  if (existing?.status === 'BANNED') {
+    throw new AppError(403, 'FORBIDDEN', 'You are banned from this community')
   }
-  if (modCount === 0 && nextStatus === 'REQUESTED') {
-    // Private with no mods: first requester is auto-approved as moderator.
-    nextStatus = 'MODERATOR'
+
+  if (community.requireJoinApproval || community.privacy === 'PRIVATE') {
+    nextStatus = 'REQUESTED'
+  }
+
+  if (modCount === 0 && nextStatus === 'JOINED' && !community.ownerUserId) {
+    nextRole = 'MODERATOR'
   }
 
   const membership = await prisma.communityMembership.upsert({
     where: { communityId_userId: { communityId, userId } },
-    create: { communityId, userId, status: nextStatus },
-    update: { status: nextStatus },
+    create: { communityId, userId, status: nextStatus, role: nextRole },
+    update: { status: nextStatus, role: existing?.role === 'OWNER' ? 'OWNER' : nextRole },
   })
 
   let memberCount = community.memberCount
-  if (nextStatus === 'JOINED' || nextStatus === 'MODERATOR') {
-    if (!existing || existing.status === 'REQUESTED') {
+  if (nextStatus === 'JOINED') {
+    const wasPending = prevStatus === 'REQUESTED' || prevStatus === 'MODERATOR'
+    if (!existing || wasPending) {
       const updated = await prisma.community.update({
         where: { id: communityId },
         data: {
@@ -362,7 +410,11 @@ export async function joinCommunity(userId: string, communityId: string) {
     })
 
     const mods = await prisma.communityMembership.findMany({
-      where: { communityId, status: 'MODERATOR' },
+      where: {
+        communityId,
+        role: { in: ['OWNER', 'ADMIN', 'MODERATOR'] },
+        status: { in: ['JOINED', 'MODERATOR'] },
+      },
       select: { userId: true },
     })
     const actor = await prisma.user.findUnique({
@@ -385,8 +437,9 @@ export async function joinCommunity(userId: string, communityId: string) {
     )
   }
 
-  const dto = toDto({ ...community, memberCount, lastActivityAt: new Date() }, mapMembership(membership.status))
-  return { community: dto, membershipStatus: mapMembership(membership.status) }
+  const ms = mapMembership(membership.status, membership.role)
+  const dto = toDto({ ...community, memberCount, lastActivityAt: new Date() }, ms)
+  return { community: dto, membershipStatus: ms }
 }
 
 export async function leaveCommunity(userId: string, communityId: string) {
@@ -408,7 +461,7 @@ export async function leaveCommunity(userId: string, communityId: string) {
   await prisma.communityMembership.delete({ where: { id: existing.id } })
 
   let memberCount = community.memberCount
-  if (existing.status === 'JOINED' || existing.status === 'MODERATOR') {
+  if (existing.status === 'JOINED') {
     const updated = await prisma.community.update({
       where: { id: communityId },
       data: {
@@ -463,19 +516,23 @@ export async function listCommunitiesForUsername(username: string, viewerId: str
     const viewerMem = await prisma.communityMembership.findUnique({
       where: { communityId_userId: { communityId: m.communityId, userId: viewerId } },
     })
-    if (viewerMem && (viewerMem.status === 'JOINED' || viewerMem.status === 'MODERATOR')) {
+    if (viewerMem && viewerMem.status === 'JOINED') {
       visible.push(m)
     }
   }
 
-  return visible.map(m => toDto(m.community, mapMembership(m.status)))
+  return visible.map(m => toDto(m.community, mapMembership(m.status, m.role)))
 }
 
 async function requireModerator(communityId: string, userId: string) {
   const membership = await prisma.communityMembership.findUnique({
     where: { communityId_userId: { communityId, userId } },
   })
-  if (!membership || membership.status !== 'MODERATOR') {
+  const canMod =
+    membership &&
+    membership.status !== 'BANNED' &&
+    (membership.role === 'OWNER' || membership.role === 'ADMIN' || membership.role === 'MODERATOR')
+  if (!canMod) {
     throw new AppError(403, 'FORBIDDEN', 'Only community moderators can manage join requests.')
   }
   return membership

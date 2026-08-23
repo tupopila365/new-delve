@@ -69,6 +69,7 @@ function contextHeadline(context: StudioContext, mediaOnly: boolean): string {
   if (context === 'journey') return 'Add a journey cover — photo or video with edit tools.'
   if (context === 'journey-highlight') return 'Add media for this stop — photos or clips from the route.'
   if (context === 'event') return 'Add an event cover — photo or video for your meetup.'
+  if (context === 'message') return 'Attach a photo or video — edit before sending.'
   if (mediaOnly && purposeForStudioContext(context) === 'listing') {
     return 'Add listing media — photos and optional video.'
   }
@@ -127,7 +128,7 @@ export default function MediaStudioRoot({
   const limits = useMemo(() => {
     const base = limitsForContext(context, EXAMPLE_UPLOAD_LIMITS)
     const cap =
-      context === 'delvers-short' || imageOnly
+      context === 'delvers-short' || imageOnly || context === 'message'
         ? 1
         : context === 'delvers-story'
           ? MAX_STORY_MEDIA
@@ -574,7 +575,9 @@ export default function MediaStudioRoot({
                       ? 'Stop media'
                       : context === 'event'
                         ? 'Event cover'
-                        : mediaOnlyPublish && purpose === 'listing'
+                        : context === 'message'
+                          ? 'Message attachment'
+                          : mediaOnlyPublish && purpose === 'listing'
                           ? 'Listing media'
                           : mediaOnlyPublish && purpose === 'business_profile'
                             ? 'Business media'

@@ -2,13 +2,19 @@ import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import {
   createCommunityAnswerBodySchema,
+  createCommunityBodySchema,
+  createCommunityReportBodySchema,
   createCommunityThreadBodySchema,
+  updateCommunityBodySchema,
+  updateMemberRoleBodySchema,
+  upsertCommunityRuleBodySchema,
   type CommunityThreadKind,
   type CommunityType,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
 import type { AuthedRequest } from '../../middleware/require-auth.js'
 import * as communityService from './community.service.js'
+import * as communityManage from './community-manage.service.js'
 import * as threadService from './thread.service.js'
 
 function ok<T>(res: Response, data: T, status = 200) {
@@ -33,10 +39,156 @@ function optionalUserId(req: Request) {
 }
 
 const COMMUNITY_TYPES = new Set(['DESTINATION', 'INTEREST', 'TRANSPORT', 'OFFICIAL'])
-const THREAD_KINDS = new Set(['QUESTION', 'DISCUSSION'])
+const THREAD_KINDS = new Set([
+  'POST', 'QUESTION', 'TIP', 'DISCUSSION', 'RECOMMENDATION', 'ANNOUNCEMENT', 'JOURNEY_SHARE', 'EVENT_SHARE',
+])
 
 export function createCommunityController() {
   return {
+    async create(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(createCommunityBodySchema, req.body)
+        ok(res, await communityManage.createCommunity(requireUserId(req), body), 201)
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async update(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(updateCommunityBodySchema, req.body)
+        ok(res, await communityManage.updateCommunity(requireUserId(req), String(req.params.communityId), body))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listRules(req: Request, res: Response, next: NextFunction) {
+      try {
+        ok(res, await communityManage.listCommunityRules(String(req.params.communityId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async createRule(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(upsertCommunityRuleBodySchema, req.body)
+        ok(
+          res,
+          await communityManage.createCommunityRule(requireUserId(req), String(req.params.communityId), body),
+          201,
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async updateRule(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(upsertCommunityRuleBodySchema, req.body)
+        ok(
+          res,
+          await communityManage.updateCommunityRule(
+            requireUserId(req),
+            String(req.params.communityId),
+            String(req.params.ruleId),
+            body,
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async deleteRule(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        await communityManage.deleteCommunityRule(
+          requireUserId(req),
+          String(req.params.communityId),
+          String(req.params.ruleId),
+        )
+        ok(res, { ok: true })
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listMembers(req: Request, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await communityManage.listCommunityMembers(String(req.params.communityId), optionalUserId(req)),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async updateMemberRole(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(updateMemberRoleBodySchema, req.body)
+        await communityManage.updateMemberRole(
+          requireUserId(req),
+          String(req.params.communityId),
+          String(req.params.userId),
+          body.role,
+        )
+        ok(res, { ok: true })
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async banMember(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const reason = typeof req.body?.reason === 'string' ? req.body.reason : undefined
+        await communityManage.banMember(
+          requireUserId(req),
+          String(req.params.communityId),
+          String(req.params.userId),
+          reason,
+        )
+        ok(res, { ok: true })
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async createReport(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(createCommunityReportBodySchema, req.body)
+        ok(
+          res,
+          await communityManage.createReport(requireUserId(req), String(req.params.communityId), body),
+          201,
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async listReports(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await communityManage.listReports(requireUserId(req), String(req.params.communityId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async resolveReport(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        await communityManage.resolveReport(
+          requireUserId(req),
+          String(req.params.communityId),
+          String(req.params.reportId),
+        )
+        ok(res, { ok: true })
+      } catch (err) {
+        next(err)
+      }
+    },
+
     async list(req: Request, res: Response, next: NextFunction) {
       try {
         const q = String(req.query.q || '').trim() || undefined
@@ -73,11 +225,17 @@ export function createCommunityController() {
       try {
         const kindRaw = String(req.query.kind || '').trim().toUpperCase()
         const kind = THREAD_KINDS.has(kindRaw) ? (kindRaw as CommunityThreadKind) : undefined
+        const kindsRaw = String(req.query.kinds || '')
+          .split(',')
+          .map(s => s.trim().toUpperCase())
+          .filter(s => THREAD_KINDS.has(s)) as CommunityThreadKind[]
         ok(
           res,
           await threadService.listThreads(optionalUserId(req), {
             communityId: String(req.params.communityId),
             kind,
+            kinds: kindsRaw.length ? kindsRaw : undefined,
+            q: String(req.query.q || '').trim() || undefined,
           }),
         )
       } catch (err) {
@@ -138,10 +296,59 @@ export function createCommunityController() {
       }
     },
 
+    async likeThread(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.likeThread(requireUserId(req), String(req.params.threadId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async unlikeThread(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.unlikeThread(requireUserId(req), String(req.params.threadId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async pinThread(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const pinned = req.body?.pinned !== false
+        ok(res, await threadService.pinThread(requireUserId(req), String(req.params.threadId), pinned))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async removeThread(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.removeThread(requireUserId(req), String(req.params.threadId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async approveThread(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.approveThread(requireUserId(req), String(req.params.threadId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async markThreadAnswered(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await threadService.markThreadAnswered(requireUserId(req), String(req.params.threadId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
     async get(req: Request, res: Response, next: NextFunction) {
       try {
         const slugOrId = String(req.params.slugOrId || '')
-        ok(res, await communityService.getCommunity(slugOrId, optionalUserId(req)))
+        ok(res, await communityManage.getCommunityDetail(slugOrId, optionalUserId(req)))
       } catch (err) {
         next(err)
       }

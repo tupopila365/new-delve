@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bookmark, Calendar, ExternalLink, MapPin, Pencil, Share2, Users, X } from 'lucide-react'
+import { Bookmark, Calendar, ExternalLink, MapPin, Navigation, Pencil, Share2, Users, X } from 'lucide-react'
 import type { EventAttendeeDto, EventDto } from '@delve/contracts'
 import {
   clearEventAttendance,
+  createPost,
   fetchEvent,
   fetchEventAttendees,
   saveItem,
@@ -12,6 +13,7 @@ import {
 import { eventShareUrl, mapsUrlForEvent } from '../lib/eventLinks'
 import { formatUsername } from '../lib/formatUsername'
 import EventCoverMedia from './EventCoverMedia'
+import AddToJourneySheet from './events/AddToJourneySheet'
 
 interface EventDetailSheetProps {
   eventId: string | null
@@ -21,6 +23,7 @@ interface EventDetailSheetProps {
   onEdit?: (eventId: string) => void
   onOpenProfile?: (username: string) => void
   onUpdated?: (event: EventDto) => void
+  onSharedToDelvers?: () => void
 }
 
 function statusBadge(status: EventDto['status']) {
@@ -68,6 +71,8 @@ export default function EventDetailSheet({
   onSignIn,
   onEdit,
   onOpenProfile,
+  onUpdated,
+  onSharedToDelvers,
 }: EventDetailSheetProps) {
   const [event, setEvent] = useState<EventDto | null>(null)
   const [attendees, setAttendees] = useState<EventAttendeeDto[]>([])
@@ -76,6 +81,7 @@ export default function EventDetailSheet({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [shareNote, setShareNote] = useState<string | null>(null)
+  const [addToJourneyOpen, setAddToJourneyOpen] = useState(false)
 
   useEffect(() => {
     if (!eventId) {
@@ -149,6 +155,7 @@ export default function EventDetailSheet({
           ? await clearEventAttendance(event.id)
           : await setEventAttendance(event.id, status)
       setEvent(next)
+      onUpdated?.(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update attendance')
     } finally {
@@ -165,10 +172,14 @@ export default function EventDetailSheet({
     try {
       if (event.savedByMe) {
         await unsaveItem({ targetType: 'EVENT', targetId: event.id })
-        setEvent({ ...event, savedByMe: false })
+        const next = { ...event, savedByMe: false }
+        setEvent(next)
+        onUpdated?.(next)
       } else {
         await saveItem({ targetType: 'EVENT', targetId: event.id })
-        setEvent({ ...event, savedByMe: true })
+        const next = { ...event, savedByMe: true }
+        setEvent(next)
+        onUpdated?.(next)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update save')
@@ -191,6 +202,26 @@ export default function EventDetailSheet({
       }
     } catch {
       /* user dismissed */
+    }
+  }
+
+  async function shareToDelvers() {
+    if (!event || busy) return
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await createPost({ eventId: event.id })
+      setShareNote('Shared to Delvers')
+      onSharedToDelvers?.()
+      window.setTimeout(() => setShareNote(null), 2500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not share to Delvers')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -257,11 +288,28 @@ export default function EventDetailSheet({
                 <div className="w-8 h-8 rounded-full" style={{ background: 'var(--surface-subtle)' }} />
               )}
               <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-                {event.creator.displayName || formatUsername(event.creator.username)}
+                {event.business?.name
+                  || event.creator.displayName
+                  || formatUsername(event.creator.username)}
               </span>
+              {event.business && (
+                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--primary)' }}>
+                  Business
+                </span>
+              )}
             </button>
           )}
 
+          {event?.community && (
+            <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+              Community · {event.community.name}
+            </p>
+          )}
+          {event?.category && (
+            <p className="text-xs font-semibold uppercase tracking-wide m-0 mb-3" style={{ color: 'var(--primary)' }}>
+              {event.category}
+            </p>
+          )}
           {error && (
             <p className="text-sm mb-2" style={{ color: 'var(--auth-danger)' }} role="alert">
               {error}
@@ -378,6 +426,33 @@ export default function EventDetailSheet({
                 )}
               </div>
 
+              <div className="flex flex-col gap-2 mb-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!signedIn) {
+                      onSignIn?.()
+                      return
+                    }
+                    setAddToJourneyOpen(true)
+                  }}
+                  className="w-full rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px]"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)', cursor: 'pointer' }}
+                >
+                  <Navigation size={16} /> Add to Journey
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void shareToDelvers()}
+                  className="w-full rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px]"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
+                >
+                  <Share2 size={16} /> Share to Delvers
+                </button>
+              </div>
+
               {rsvpOpen ? (
                 <div className="flex gap-2">
                   <button
@@ -423,6 +498,15 @@ export default function EventDetailSheet({
           )}
         </div>
       </div>
+
+      {event && (
+        <AddToJourneySheet
+          open={addToJourneyOpen}
+          eventId={event.id}
+          eventTitle={event.title}
+          onClose={() => setAddToJourneyOpen(false)}
+        />
+      )}
     </div>
   )
 }

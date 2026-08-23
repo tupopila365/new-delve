@@ -40,6 +40,8 @@ export function purposeForStudioContext(context: StudioContext): MediaPurpose | 
     case 'event':
     case 'community':
       return 'post'
+    case 'message':
+      return 'message'
     case 'delvers-story':
       return 'story'
     case 'listing':
