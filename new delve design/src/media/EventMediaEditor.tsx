@@ -1,0 +1,104 @@
+import { useState } from 'react'
+import type { EventDto } from '@delve/contracts'
+import EventMediaGallery from './EventMediaGallery'
+import { fetchEvent, updateEvent } from '../api/socialClient'
+import MediaStudio from '../pages/MediaStudio'
+
+interface EventMediaEditorProps {
+  event: EventDto
+  onChanged: (event: EventDto) => void
+  editable?: boolean
+}
+
+export default function EventMediaEditor({
+  event,
+  onChanged,
+  editable = true,
+}: EventMediaEditorProps) {
+  const [studioOpen, setStudioOpen] = useState(false)
+  const media = event.media ?? []
+
+  async function refresh() {
+    const fresh = await fetchEvent(event.id)
+    onChanged(fresh)
+  }
+
+  async function setAsCover(mediaId: string) {
+    const updated = await updateEvent(event.id, { coverMediaId: mediaId })
+    onChanged(updated)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold m-0" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+          Event media
+        </h3>
+        {media.length > 0 && (
+          <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+            {media.length} item{media.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+
+      <EventMediaGallery media={media} coverMediaId={event.coverMediaId ?? null} />
+
+      {editable && (
+        <>
+          <button
+            type="button"
+            onClick={() => setStudioOpen(true)}
+            className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white"
+            style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+          >
+            Add photos or videos
+          </button>
+          <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+            Keep adding images and clips from this event. Hosts and Going guests can upload.
+          </p>
+
+          {event.isOwner && media.filter(m => m.resourceType === 'image').length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {media
+                .filter(m => m.resourceType === 'image')
+                .map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    disabled={m.isCover || m.id === event.coverMediaId}
+                    onClick={() => void setAsCover(m.id)}
+                    className="rounded-lg px-2.5 py-1.5 text-xs font-semibold"
+                    style={{
+                      background:
+                        m.isCover || m.id === event.coverMediaId
+                          ? 'rgba(140,82,255,0.16)'
+                          : 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--fg)',
+                      cursor: m.isCover || m.id === event.coverMediaId ? 'default' : 'pointer',
+                    }}
+                  >
+                    {m.isCover || m.id === event.coverMediaId ? 'Cover' : 'Set as cover'}
+                  </button>
+                ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <MediaStudio
+        open={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        initialContext="event"
+        eventId={event.id}
+        lockContext
+        onMediaReady={() => {
+          setStudioOpen(false)
+          void refresh().catch(() => {
+            /* keep current event */
+          })
+        }}
+      />
+    </div>
+  )
+}

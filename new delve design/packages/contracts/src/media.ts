@@ -19,6 +19,7 @@ export const mediaPurposeSchema = z.enum([
   'business_profile',
   'listing',
   'message',
+  'event',
 ])
 
 export const mediaResourceTypeSchema = z.enum(['image', 'video', 'raw', 'auto'])
@@ -31,6 +32,7 @@ export const mediaUploadSignatureBodySchema = z
     bytes: z.number().int().positive(),
     businessId: z.string().min(1).optional(),
     listingId: z.string().min(1).optional(),
+    eventId: z.string().min(1).optional(),
   })
   .strict()
 

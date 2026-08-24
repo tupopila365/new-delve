@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Aperture, Clapperboard, Crop, Film, Image as ImageIcon, Music2,
-  Scissors, Subtitles, Type, Volume2, Wand2,
+  Aperture, ArrowLeft, Check, ChevronRight, Crop, Gauge, Image as ImageIcon,
+  Mic2, MoreHorizontal, Music2, Pause, Play, Redo2, Scissors, Subtitles,
+  Type, Undo2, Volume2, VolumeX, Wand2, X,
 } from 'lucide-react'
 import {
-  DEFAULT_ADJUSTMENTS, DEFAULT_CROP_STATE, VIDEO_FILTERS, newId, studioModeForContext,
+  DEFAULT_ADJUSTMENTS, DEFAULT_CROP_STATE, SPEED_OPTIONS, VIDEO_FILTERS, newId, studioModeForContext,
 } from './config'
+import { EXAMPLE_MUSIC, unsplash } from './data'
 import { cssFilterFromAdjustments, formatTime } from './format'
 import type {
-  CaptionSegment, MediaAsset, MusicTrack, StudioContext, UploadLimits, VideoClip, VideoEditState, VideoTool,
+  CaptionSegment, MediaAsset, MusicTrack, StudioContext, UploadLimits, VideoClip, VideoEditState,
 } from './types'
 import { VideoPreviewPlayer } from './VideoPreviewPlayer'
-import { ClipActionMenu, VideoTimeline } from './VideoTimeline'
+import { VideoFilmstripTrim } from './VideoFilmstripTrim'
 import {
-  AudioMixer, MusicLibrary, MusicTimelineEditor, OriginalAudioControls,
-  TransitionPicker, TrimVideoControls, UndoRedoControls, VideoAdjustmentPanel,
-  VideoCaptionsEditor, VideoCoverSelector, VideoCropEditor, VideoFilterPicker, VideoSpeedControl,
+  TransitionPicker, VideoAdjustmentPanel, VideoCaptionsEditor, VideoCoverSelector,
+  VideoCropEditor, VideoSpeedControl,
 } from './VideoPanels'
-import { StudioChromeHeader } from './Publish'
+
+type EditStep = 'trim' | 'look' | 'sound' | 'text' | 'more'
 
 function defaultEdit(asset: MediaAsset, limits: UploadLimits): VideoEditState {
   const end = Math.min(asset.duration || 10, limits.maxDurationSec)
@@ -43,7 +45,7 @@ function defaultEdit(asset: MediaAsset, limits: UploadLimits): VideoEditState {
     filter: 'original',
     clips: [clip],
     transitions: [],
-    cover: { time: 0, customUrl: null, altText: '', source: 'frame' },
+    cover: { time: Math.min(0.5, end / 2), customUrl: null, altText: '', source: 'frame' },
     originalAudio: { keep: true, muted: false, volume: 1, fadeIn: 0, fadeOut: 0 },
     music: null,
     captions: [],
@@ -53,20 +55,12 @@ function defaultEdit(asset: MediaAsset, limits: UploadLimits): VideoEditState {
   }
 }
 
-const TOOLS: { id: VideoTool; label: string; icon: typeof Scissors; socialOnly?: boolean }[] = [
+const STEPS: { id: EditStep; label: string; icon: typeof Scissors }[] = [
   { id: 'trim', label: 'Trim', icon: Scissors },
-  { id: 'split', label: 'Split', icon: Clapperboard },
-  { id: 'clips', label: 'Clips', icon: Film },
-  { id: 'crop', label: 'Crop', icon: Crop },
-  { id: 'adjust', label: 'Adjust', icon: Aperture },
-  { id: 'filter', label: 'Filter', icon: Wand2 },
-  { id: 'cover', label: 'Cover', icon: ImageIcon },
-  { id: 'audio', label: 'Audio', icon: Volume2 },
-  { id: 'music', label: 'Music', icon: Music2, socialOnly: true },
-  { id: 'captions', label: 'Captions', icon: Subtitles },
-  { id: 'speed', label: 'Speed', icon: Film, socialOnly: true },
-  { id: 'transition', label: 'Transition', icon: Film, socialOnly: true },
-  { id: 'text', label: 'Text', icon: Type, socialOnly: true },
+  { id: 'look', label: 'Look', icon: Wand2 },
+  { id: 'sound', label: 'Sound', icon: Music2 },
+  { id: 'text', label: 'Text', icon: Type },
+  { id: 'more', label: 'More', icon: MoreHorizontal },
 ]
 
 export function VideoEditorShell({
@@ -88,22 +82,23 @@ export function VideoEditorShell({
 }) {
   const mode = studioModeForContext(context)
   const [edit, setEdit] = useState(() => defaultEdit(asset, limits))
-  const [tool, setTool] = useState<VideoTool>('trim')
-  const [playing, setPlaying] = useState(false)
+  const [step, setStep] = useState<EditStep>('trim')
+  const [playing, setPlaying] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
-  const [selectedClipId, setSelectedClipId] = useState<string | null>(edit.clips[0]?.id ?? null)
-  const [zoom, setZoom] = useState(1)
-  const [showSafe, setShowSafe] = useState(false)
-  const [mobileSheet, setMobileSheet] = useState(true)
   const [history, setHistory] = useState<VideoEditState[]>([])
   const [future, setFuture] = useState<VideoEditState[]>([])
   const [coverDataUrl, setCoverDataUrl] = useState<string | null>(null)
+  const [morePanel, setMorePanel] = useState<'crop' | 'adjust' | 'cover' | 'speed' | 'captions' | 'transition' | null>(null)
+  const [musicQuery, setMusicQuery] = useState('')
   const captureRef = useRef<HTMLVideoElement | null>(null)
 
   const filterCss = useMemo(() => {
     const f = VIDEO_FILTERS.find(x => x.id === edit.filter)?.css ?? ''
     return cssFilterFromAdjustments(f, edit.adjustments)
   }, [edit.filter, edit.adjustments])
+
+  const duration = Math.max(0.1, asset.duration || edit.trimEnd)
+  const stepIndex = STEPS.findIndex(s => s.id === step)
 
   const update = useCallback((patch: Partial<VideoEditState> | ((prev: VideoEditState) => VideoEditState)) => {
     setHistory(h => [...h.slice(-29), edit])
@@ -158,58 +153,6 @@ export function VideoEditorShell({
     return canvas.toDataURL('image/jpeg', 0.85)
   }
 
-  const tools = TOOLS.filter(t => {
-    if (mode === 'restricted') return ['trim', 'crop', 'cover'].includes(t.id)
-    if (!limits.allowMusic && t.id === 'music') return false
-    if (!limits.allowFilters && t.id === 'filter') return false
-    if (!limits.allowSpeed && t.id === 'speed') return false
-    if (!limits.allowTransitions && t.id === 'transition') return false
-    if (!limits.allowTextOverlays && t.id === 'text') return false
-    if (mode === 'commercial' && t.socialOnly && (t.id === 'filter' || t.id === 'text')) {
-      return t.id === 'filter' ? limits.allowFilters : false
-    }
-    return true
-  })
-
-  function splitAtPlayhead() {
-    const clip = edit.clips.find(c => c.id === selectedClipId) ?? edit.clips[0]
-    if (!clip) return
-    const local = currentTime
-    if (local <= edit.trimStart + 0.25 || local >= edit.trimEnd - 0.25) return
-    const left: VideoClip = { ...clip, id: newId('clip'), sourceEnd: local, duration: local - clip.sourceStart }
-    const right: VideoClip = {
-      ...clip,
-      id: newId('clip'),
-      sourceStart: local,
-      timelineStart: left.duration,
-      duration: clip.sourceEnd - local,
-      order: clip.order + 1,
-    }
-    const rest = edit.clips.filter(c => c.id !== clip.id)
-    update({
-      clips: [...rest, left, right].sort((a, b) => a.order - b.order).map((c, i) => ({ ...c, order: i })),
-      trimEnd: edit.trimEnd,
-    })
-    setSelectedClipId(right.id)
-  }
-
-  function removeSelectedClip() {
-    if (edit.clips.length <= 1) {
-      update({ trimStart: 0, trimEnd: Math.min(asset.duration, limits.maxDurationSec) })
-      return
-    }
-    const next = edit.clips.filter(c => c.id !== selectedClipId).map((c, i) => ({ ...c, order: i }))
-    update({ clips: next })
-    setSelectedClipId(next[0]?.id ?? null)
-  }
-
-  function reorder(from: number, to: number) {
-    const next = [...edit.clips]
-    const [item] = next.splice(from, 1)
-    next.splice(to, 0, item)
-    update({ clips: next.map((c, i) => ({ ...c, order: i })) })
-  }
-
   function selectMusic(track: MusicTrack) {
     update({
       music: {
@@ -262,281 +205,475 @@ export function VideoEditorShell({
     }, 1600)
   }
 
-  const inspector = (
-    <div className="flex flex-col gap-3 p-3 overflow-y-auto min-h-0 min-w-0">
-      {tool === 'trim' && (
-        <TrimVideoControls
-          start={edit.trimStart}
-          end={edit.trimEnd}
-          duration={asset.duration || edit.trimEnd}
-          minDuration={limits.minDurationSec}
-          maxDuration={limits.maxDurationSec}
-          onChange={(s, e) => update({ trimStart: s, trimEnd: e })}
-        />
-      )}
-      {tool === 'split' && (
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="text-sm font-bold m-0" style={{ fontFamily: 'Syne, sans-serif' }}>Split</p>
-          <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>Playhead at {formatTime(currentTime)}. Music and captions stay linked — review timeline after splitting.</p>
-          <div className="mt-3"><ClipActionMenu onSplit={splitAtPlayhead} onDelete={removeSelectedClip} onDuplicate={() => {
-            const clip = edit.clips.find(c => c.id === selectedClipId)
-            if (!clip) return
-            update({ clips: [...edit.clips, { ...clip, id: newId('clip'), order: edit.clips.length }] })
-          }} /></div>
-        </div>
-      )}
-      {tool === 'clips' && (
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="text-sm font-bold m-0 mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Multi-clip</p>
-          {edit.clips.map((c, i) => (
-            <button key={c.id} type="button" onClick={() => setSelectedClipId(c.id)}
-              className="w-full text-left px-3 py-2.5 rounded-xl text-sm mb-1 min-h-[44px]"
-              style={{ background: selectedClipId === c.id ? 'rgba(140,82,255,0.12)' : 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
-              Clip {i + 1} · {formatTime(c.duration)}
-            </button>
-          ))}
-          <p className="text-[11px] m-0" style={{ color: 'var(--fg-muted)' }}>Total {formatTime(edit.clips.reduce((s, c) => s + c.duration, 0))}</p>
-        </div>
-      )}
-      {tool === 'crop' && (
-        <VideoCropEditor
-          crop={{ ...edit.crop, aspectRatio: edit.aspectRatio, rotation: edit.rotation }}
-          listingRatioEnabled={!!limits.listingAspectRatio}
-          onChange={c => update({ crop: c, aspectRatio: c.aspectRatio, rotation: c.rotation })}
-        />
-      )}
-      {tool === 'adjust' && <VideoAdjustmentPanel value={edit.adjustments} onChange={a => update({ adjustments: a })} />}
-      {tool === 'filter' && <VideoFilterPicker selectedId={edit.filter} onSelect={id => update({ filter: id })} mode={mode} />}
-      {tool === 'cover' && (
-        <VideoCoverSelector
-          cover={edit.cover}
-          currentTime={currentTime}
-          feedPreviewUrl={coverDataUrl}
-          onChange={c => update({ cover: c })}
-          onUseCurrentFrame={() => {
-            void captureFrame(currentTime).then(url => {
-              if (!url) return
-              setCoverDataUrl(url)
-              update({ cover: { ...edit.cover, time: currentTime, customUrl: url, source: 'frame' } })
-            })
-          }}
-        />
-      )}
-      {tool === 'audio' && (
-        <>
-          <OriginalAudioControls value={edit.originalAudio} hasAudio={asset.hasAudio} onChange={o => update({ originalAudio: o })} />
-          {edit.music && (
-            <AudioMixer
-              original={edit.originalAudio}
-              musicVolume={edit.music.volume}
-              onOriginal={o => update({ originalAudio: o })}
-              onMusicVolume={v => update({ music: edit.music ? { ...edit.music, volume: v } : null })}
-            />
-          )}
-        </>
-      )}
-      {tool === 'music' && limits.allowMusic && (
-        <>
-          <MusicLibrary mode={mode} selectedId={edit.music?.trackId ?? null} onSelect={selectMusic} commercialOnly={mode === 'commercial'} />
-          {edit.music && (
-            <MusicTimelineEditor
-              music={edit.music}
-              videoDuration={edit.trimEnd - edit.trimStart}
-              onChange={m => update({ music: m })}
-              onRemove={() => update({ music: null })}
-            />
-          )}
-        </>
-      )}
-      {tool === 'captions' && (
-        <VideoCaptionsEditor
-          captions={edit.captions}
-          language={edit.captionLanguage}
-          onLanguage={l => update({ captionLanguage: l })}
-          status={edit.autoCaptionsStatus}
-          onRequestAuto={requestAutoCaptions}
-          onChange={(id, patch) => update({ captions: edit.captions.map(c => c.id === id ? { ...c, ...patch } : c) })}
-          onAdd={() => update({
-            captions: [...edit.captions, {
-              id: newId('cap'),
-              language: edit.captionLanguage,
-              source: 'manual',
-              start: currentTime,
-              end: Math.min(currentTime + 2, edit.trimEnd),
-              text: '',
-              confidence: null,
-              reviewed: true,
-              style: { position: 'bottom', alignment: 'center', textSize: 'md', highContrast: true, color: '#FFFAF2' },
-            }],
-          })}
-          onDelete={id => update({ captions: edit.captions.filter(c => c.id !== id) })}
-          onJump={t => setCurrentTime(t)}
-        />
-      )}
-      {tool === 'speed' && (
-        <VideoSpeedControl
-          enabled={limits.allowSpeed}
-          speed={edit.playbackSpeed}
-          onChange={s => update({ playbackSpeed: s })}
-          resultingDuration={(edit.trimEnd - edit.trimStart) / edit.playbackSpeed}
-        />
-      )}
-      {tool === 'transition' && (
-        <TransitionPicker
-          enabled={limits.allowTransitions}
-          value={edit.transitions[0]?.type ?? 'none'}
-          duration={edit.transitions[0]?.duration ?? 0.4}
-          onChange={(type, duration) => update({
-            transitions: type === 'none' ? [] : [{ afterClipId: edit.clips[0]?.id ?? '', type, duration }],
-          })}
-        />
-      )}
-      {tool === 'text' && limits.allowTextOverlays && (
-        <div className="rounded-xl p-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="text-sm font-bold m-0" style={{ fontFamily: 'Syne, sans-serif' }}>Text overlay</p>
-          <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>Restrained overlays only. Stay inside safe areas.</p>
-          <button type="button" className="mt-2 min-h-[44px] px-3 rounded-xl text-xs font-semibold text-white" style={{ background: 'var(--primary)' }}
-            onClick={() => update({
-              textOverlays: [...edit.textOverlays, {
-                id: newId('tx'),
-                text: 'Delve',
-                start: currentTime,
-                end: Math.min(currentTime + 3, edit.trimEnd),
-                x: 50,
-                y: 20,
-                alignment: 'center',
-                size: 'md',
-                color: '#FFFAF2',
-              }],
-            })}>Add text</button>
-          {edit.textOverlays.map(t => (
-            <input key={t.id} value={t.text} className="mt-2 w-full rounded-lg px-3 py-2 text-sm min-h-[44px]" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-              onChange={e => update({ textOverlays: edit.textOverlays.map(x => x.id === t.id ? { ...x, text: e.target.value } : x) })} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
+  async function goNext() {
+    if (stepIndex < STEPS.length - 1) {
+      setStep(STEPS[stepIndex + 1].id)
+      setMorePanel(null)
+      return
+    }
+    const url = coverDataUrl ?? await captureFrame(edit.cover.time || (edit.trimStart + edit.trimEnd) / 2)
+    onPreview(edit, url)
+  }
+
+  function goPrevStep() {
+    if (morePanel) {
+      setMorePanel(null)
+      return
+    }
+    if (stepIndex > 0) {
+      setStep(STEPS[stepIndex - 1].id)
+      return
+    }
+    onBack()
+  }
+
+  const filters = VIDEO_FILTERS.filter(f => mode !== 'commercial' || f.commercialApproved)
+  const musicTracks = EXAMPLE_MUSIC.filter(t => {
+    if (mode === 'commercial' && !t.commercialUseAllowed) return false
+    if (!musicQuery.trim()) return true
+    const q = musicQuery.toLowerCase()
+    return t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+  })
+
+  const selectedTrack = EXAMPLE_MUSIC.find(t => t.id === edit.music?.trackId)
 
   return (
-    <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
-      <StudioChromeHeader
-        title="Edit video"
-        onBack={onBack}
-        primaryLabel="Next"
-        onPrimary={() => {
-          void (async () => {
-            const url = coverDataUrl ?? await captureFrame(edit.cover.time || edit.trimStart)
-            onPreview(edit, url)
-          })()
-        }}
-        left={(
-          <div className="flex items-center gap-1">
-            <button type="button" className="min-w-[44px] min-h-[44px]" onClick={onBack} aria-label="Back">←</button>
-            <UndoRedoControls canUndo={history.length > 0} canRedo={future.length > 0} onUndo={undo} onRedo={redo} />
-          </div>
-        )}
-      />
+    <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-hidden" style={{ background: '#0C0A09', color: '#FFFAF2' }}>
+      {/* Top chrome */}
+      <header className="shrink-0 flex items-center justify-between gap-2 px-2 py-2 z-20"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)', paddingTop: 'max(8px, env(safe-area-inset-top))' }}>
+        <button type="button" className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full"
+          style={{ background: 'rgba(0,0,0,0.35)' }} onClick={goPrevStep} aria-label="Back">
+          <ArrowLeft size={20} />
+        </button>
+        <div className="flex items-center gap-1">
+          <button type="button" className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full disabled:opacity-30"
+            disabled={!history.length} onClick={undo} aria-label="Undo" style={{ background: 'rgba(0,0,0,0.35)' }}>
+            <Undo2 size={16} />
+          </button>
+          <button type="button" className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-full disabled:opacity-30"
+            disabled={!future.length} onClick={redo} aria-label="Redo" style={{ background: 'rgba(0,0,0,0.35)' }}>
+            <Redo2 size={16} />
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" className="min-h-[40px] px-3 rounded-full text-xs font-semibold"
+            style={{ background: 'rgba(0,0,0,0.35)', color: 'rgba(255,250,242,0.8)' }}
+            onClick={() => onDraft(edit)}>
+            Draft
+          </button>
+          <button type="button" className="min-h-[40px] px-4 rounded-full text-sm font-bold inline-flex items-center gap-1"
+            style={{ background: '#8C52FF', color: '#fff' }}
+            onClick={() => void goNext()}>
+            {stepIndex >= STEPS.length - 1 ? 'Next' : 'Next'}
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </header>
 
-      <div className="flex-1 min-h-0 grid lg:grid-cols-[72px_minmax(0,1fr)_minmax(280px,340px)] grid-rows-[1fr_auto] lg:grid-rows-1 overflow-hidden">
-        {/* Desktop tool rail */}
-        <aside className="hidden lg:flex flex-col gap-1 p-2 overflow-y-auto border-r" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-          {tools.map(t => {
-            const Icon = t.icon
-            return (
-              <button key={t.id} type="button" onClick={() => setTool(t.id)}
-                className="flex flex-col items-center gap-1 py-2 rounded-xl min-h-[56px] text-[10px] font-semibold"
-                style={{ background: tool === t.id ? 'rgba(140,82,255,0.12)' : 'transparent', color: tool === t.id ? 'var(--primary)' : 'var(--fg-muted)' }}>
-                <Icon size={18} />
-                {t.label}
-              </button>
-            )
-          })}
-        </aside>
-
-        {/* Preview + timeline */}
-        <div className="flex flex-col min-h-0 min-w-0 overflow-hidden" style={{ background: '#0C0A09' }}>
-          <div className="flex-1 min-h-0 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-            <div className="w-full max-w-[420px] min-w-0">
-              <VideoPreviewPlayer
-                src={asset.objectUrl}
-                trimStart={edit.trimStart}
-                trimEnd={edit.trimEnd}
-                currentTime={currentTime}
-                onTimeUpdate={setCurrentTime}
-                playing={playing}
-                onPlayingChange={setPlaying}
-                muted={edit.originalAudio.muted}
-                volume={edit.originalAudio.volume}
-                onMutedChange={m => update({ originalAudio: { ...edit.originalAudio, muted: m } })}
-                filterCss={filterCss}
-                crop={{ ...edit.crop, aspectRatio: edit.aspectRatio, rotation: edit.rotation }}
-                playbackRate={edit.playbackSpeed}
-                captions={edit.captions}
-                showSafeAreas={showSafe}
-                posterUrl={coverDataUrl}
-              />
-              <div className="flex flex-wrap gap-2 mt-2 justify-center">
-                <button type="button" className="min-h-[40px] px-3 rounded-lg text-xs text-white/80" style={{ border: '1px solid #39322E' }} onClick={() => setShowSafe(s => !s)}>
-                  {showSafe ? 'Hide guides' : 'Safe guides'}
-                </button>
-                <button type="button" className="min-h-[40px] px-3 rounded-lg text-xs text-white/80" style={{ border: '1px solid #39322E' }} onClick={() => onDraft(edit)}>Save draft</button>
-              </div>
-            </div>
-          </div>
-          <div className="shrink-0 p-2 sm:p-3 overflow-hidden">
-            <VideoTimeline
-              clips={edit.clips}
-              selectedClipId={selectedClipId}
-              onSelectClip={setSelectedClipId}
-              playhead={currentTime}
-              duration={asset.duration || edit.trimEnd}
+      {/* Full-bleed preview */}
+      <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-full w-full max-w-[480px] relative">
+            <VideoPreviewPlayer
+              src={asset.objectUrl}
               trimStart={edit.trimStart}
               trimEnd={edit.trimEnd}
-              onSeek={t => { setCurrentTime(t); setPlaying(false) }}
-              onTrimStart={t => update({ trimStart: t })}
-              onTrimEnd={t => update({ trimEnd: t })}
-              zoom={zoom}
-              onZoom={setZoom}
-              music={edit.music}
-              originalMuted={edit.originalAudio.muted}
-              originalVolume={edit.originalAudio.volume}
+              currentTime={currentTime}
+              onTimeUpdate={setCurrentTime}
+              playing={playing}
+              onPlayingChange={setPlaying}
+              muted={edit.originalAudio.muted}
+              volume={edit.originalAudio.volume}
+              onMutedChange={m => update({ originalAudio: { ...edit.originalAudio, muted: m } })}
+              filterCss={filterCss}
+              crop={{ ...edit.crop, aspectRatio: edit.aspectRatio, rotation: edit.rotation }}
+              playbackRate={edit.playbackSpeed}
               captions={edit.captions}
-              onReorder={reorder}
+              showSafeAreas={false}
+              posterUrl={coverDataUrl}
+              loop
+              fit="cover"
+              fill
+              showControls={false}
+              className="h-full w-full"
             />
+            {/* Text overlays preview */}
+            {edit.textOverlays.map(t => (
+              currentTime >= t.start && currentTime <= t.end ? (
+                <div
+                  key={t.id}
+                  className="absolute pointer-events-none px-3 py-1 text-center font-bold"
+                  style={{
+                    left: `${t.x}%`,
+                    top: `${t.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    color: t.color,
+                    fontSize: t.size === 'lg' ? 28 : t.size === 'sm' ? 16 : 22,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.65)',
+                    fontFamily: 'Syne, sans-serif',
+                  }}
+                >
+                  {t.text || 'Text'}
+                </div>
+              ) : null
+            ))}
           </div>
         </div>
 
-        {/* Desktop inspector */}
-        <aside className="hidden lg:flex flex-col min-h-0 overflow-hidden border-l" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-          {inspector}
-        </aside>
+        <button
+          type="button"
+          className="absolute left-1/2 z-10 min-w-[56px] min-h-[56px] rounded-full flex items-center justify-center pointer-events-none"
+          style={{
+            top: '42%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0,0,0,0.45)',
+            opacity: playing ? 0 : 1,
+            transition: 'opacity 0.2s',
+          }}
+          aria-hidden
+        >
+          {playing ? <Pause size={28} fill="#fff" /> : <Play size={28} fill="#fff" />}
+        </button>
       </div>
 
-      {/* Mobile tool rail + sheet */}
-      <div className="lg:hidden shrink-0" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}>
-        <div className="flex gap-1 overflow-x-auto scroll-rail px-2 py-2">
-          {tools.map(t => {
-            const Icon = t.icon
+      {/* Bottom dock */}
+      <div
+        className="shrink-0 z-20"
+        style={{
+          background: 'linear-gradient(to top, #0C0A09 70%, rgba(12,10,9,0.92))',
+          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+        }}
+      >
+        {/* Step content */}
+        <div className="px-3 pt-2 pb-1 min-h-[120px]">
+          {step === 'trim' && (
+            <VideoFilmstripTrim
+              src={asset.objectUrl}
+              duration={duration}
+              trimStart={edit.trimStart}
+              trimEnd={edit.trimEnd}
+              minDuration={limits.minDurationSec}
+              maxDuration={limits.maxDurationSec}
+              playhead={currentTime}
+              onTrimChange={(s, e) => update({ trimStart: s, trimEnd: e })}
+              onSeek={t => { setCurrentTime(t); setPlaying(false) }}
+            />
+          )}
+
+          {step === 'look' && (
+            <div>
+              <div className="flex gap-3 overflow-x-auto scroll-rail pb-1 -mx-1 px-1">
+                {filters.map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => update({ filter: f.id })}
+                    className="shrink-0 flex flex-col items-center gap-1.5 w-[72px]"
+                  >
+                    <div
+                      className="h-[72px] w-[72px] rounded-2xl overflow-hidden relative"
+                      style={{
+                        border: edit.filter === f.id ? '2.5px solid #8C52FF' : '2px solid transparent',
+                        background: 'linear-gradient(145deg,#4a3f38,#1c1816)',
+                        filter: f.css || 'none',
+                      }}
+                    >
+                      {edit.filter === f.id && (
+                        <span className="absolute top-1 right-1 h-5 w-5 rounded-full flex items-center justify-center" style={{ background: '#8C52FF' }}>
+                          <Check size={12} color="#fff" />
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-semibold" style={{ color: edit.filter === f.id ? '#8C52FF' : 'rgba(255,250,242,0.7)' }}>
+                      {f.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-3 min-h-[40px] px-3 rounded-full text-xs font-semibold inline-flex items-center gap-1.5"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,250,242,0.85)' }}
+                onClick={() => { setStep('more'); setMorePanel('adjust') }}
+              >
+                <Aperture size={14} /> Adjust
+              </button>
+            </div>
+          )}
+
+          {step === 'sound' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 min-h-[48px] rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2"
+                  style={{
+                    background: edit.originalAudio.muted ? 'rgba(255,255,255,0.06)' : 'rgba(140,82,255,0.2)',
+                    border: `1px solid ${edit.originalAudio.muted ? 'rgba(255,255,255,0.12)' : '#8C52FF'}`,
+                    color: '#FFFAF2',
+                  }}
+                  onClick={() => update({
+                    originalAudio: { ...edit.originalAudio, muted: !edit.originalAudio.muted, keep: edit.originalAudio.muted },
+                  })}
+                >
+                  {edit.originalAudio.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                  {edit.originalAudio.muted ? 'Original off' : 'Original on'}
+                </button>
+                {limits.allowMusic && edit.music && (
+                  <button
+                    type="button"
+                    className="min-h-[48px] px-4 rounded-2xl text-sm font-semibold"
+                    style={{ background: 'rgba(200,59,59,0.15)', color: '#F87171', border: '1px solid rgba(200,59,59,0.3)' }}
+                    onClick={() => update({ music: null })}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {limits.allowMusic && (
+                <>
+                  {selectedTrack && (
+                    <div className="flex items-center gap-3 rounded-2xl px-3 py-2.5" style={{ background: 'rgba(140,82,255,0.15)', border: '1px solid rgba(140,82,255,0.35)' }}>
+                      <img src={unsplash(selectedTrack.coverId, 80)} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold m-0 truncate">{selectedTrack.title}</p>
+                        <p className="text-xs m-0 truncate" style={{ color: 'rgba(255,250,242,0.55)' }}>{selectedTrack.artist}</p>
+                      </div>
+                      <Music2 size={16} style={{ color: '#8C52FF' }} />
+                    </div>
+                  )}
+                  <input
+                    value={musicQuery}
+                    onChange={e => setMusicQuery(e.target.value)}
+                    placeholder="Search sounds…"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFFAF2' }}
+                  />
+                  <div className="flex gap-2 overflow-x-auto scroll-rail pb-1">
+                    {musicTracks.slice(0, 8).map(track => (
+                      <button
+                        key={track.id}
+                        type="button"
+                        onClick={() => selectMusic(track)}
+                        className="shrink-0 w-[140px] text-left rounded-2xl overflow-hidden"
+                        style={{
+                          background: edit.music?.trackId === track.id ? 'rgba(140,82,255,0.2)' : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${edit.music?.trackId === track.id ? '#8C52FF' : 'rgba(255,255,255,0.08)'}`,
+                        }}
+                      >
+                        <img src={unsplash(track.coverId, 160)} alt="" className="h-16 w-full object-cover" />
+                        <div className="px-2 py-1.5">
+                          <p className="text-xs font-semibold m-0 truncate">{track.title}</p>
+                          <p className="text-[10px] m-0 truncate" style={{ color: 'rgba(255,250,242,0.5)' }}>{track.artist}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {step === 'text' && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                {limits.allowTextOverlays && (
+                  <button
+                    type="button"
+                    className="flex-1 min-h-[48px] rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2"
+                    style={{ background: '#8C52FF', color: '#fff' }}
+                    onClick={() => update({
+                      textOverlays: [...edit.textOverlays, {
+                        id: newId('tx'),
+                        text: 'Your text',
+                        start: currentTime,
+                        end: Math.min(currentTime + 3, edit.trimEnd),
+                        x: 50,
+                        y: 35,
+                        alignment: 'center',
+                        size: 'md',
+                        color: '#FFFAF2',
+                      }],
+                    })}
+                  >
+                    <Type size={16} /> Add text
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="flex-1 min-h-[48px] rounded-2xl text-sm font-semibold inline-flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(255,255,255,0.08)', color: '#FFFAF2', border: '1px solid rgba(255,255,255,0.12)' }}
+                  onClick={requestAutoCaptions}
+                >
+                  <Subtitles size={16} /> Auto captions
+                </button>
+              </div>
+              {edit.textOverlays.map(t => (
+                <div key={t.id} className="flex gap-2 items-center">
+                  <input
+                    value={t.text}
+                    onChange={e => update({
+                      textOverlays: edit.textOverlays.map(x => x.id === t.id ? { ...x, text: e.target.value } : x),
+                    })}
+                    className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none min-h-[44px]"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFFAF2' }}
+                    placeholder="Overlay text"
+                  />
+                  <button
+                    type="button"
+                    className="min-w-[44px] min-h-[44px] rounded-xl flex items-center justify-center"
+                    style={{ background: 'rgba(200,59,59,0.15)', color: '#F87171' }}
+                    onClick={() => update({ textOverlays: edit.textOverlays.filter(x => x.id !== t.id) })}
+                    aria-label="Remove text"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              {edit.captions.length > 0 && (
+                <p className="text-xs m-0" style={{ color: 'rgba(255,250,242,0.55)' }}>
+                  {edit.captions.length} caption{edit.captions.length === 1 ? '' : 's'} · edit in More
+                </p>
+              )}
+              {edit.autoCaptionsStatus === 'processing' || edit.autoCaptionsStatus === 'requesting' ? (
+                <p className="text-xs m-0" style={{ color: '#8C52FF' }}>Generating captions…</p>
+              ) : null}
+            </div>
+          )}
+
+          {step === 'more' && !morePanel && (
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { id: 'crop' as const, label: 'Crop', icon: Crop },
+                { id: 'adjust' as const, label: 'Adjust', icon: Aperture },
+                { id: 'cover' as const, label: 'Cover', icon: ImageIcon },
+                ...(limits.allowSpeed ? [{ id: 'speed' as const, label: 'Speed', icon: Gauge }] : []),
+                { id: 'captions' as const, label: 'Captions', icon: Mic2 },
+                ...(limits.allowTransitions ? [{ id: 'transition' as const, label: 'Transition', icon: Wand2 }] : []),
+              ]).map(item => {
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setMorePanel(item.id)}
+                    className="min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-semibold"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#FFFAF2' }}
+                  >
+                    <Icon size={20} />
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {step === 'more' && morePanel && (
+            <div className="max-h-[38vh] overflow-y-auto rounded-2xl p-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <p className="text-xs font-bold m-0 capitalize">{morePanel}</p>
+                <button type="button" className="text-xs min-h-[36px] px-2" style={{ color: 'rgba(255,250,242,0.55)' }} onClick={() => setMorePanel(null)}>
+                  Done
+                </button>
+              </div>
+              {morePanel === 'crop' && (
+                <VideoCropEditor
+                  crop={{ ...edit.crop, aspectRatio: edit.aspectRatio, rotation: edit.rotation }}
+                  listingRatioEnabled={!!limits.listingAspectRatio}
+                  onChange={c => update({ crop: c, aspectRatio: c.aspectRatio, rotation: c.rotation })}
+                />
+              )}
+              {morePanel === 'adjust' && (
+                <VideoAdjustmentPanel value={edit.adjustments} onChange={a => update({ adjustments: a })} />
+              )}
+              {morePanel === 'cover' && (
+                <VideoCoverSelector
+                  cover={edit.cover}
+                  currentTime={currentTime}
+                  feedPreviewUrl={coverDataUrl}
+                  onChange={c => update({ cover: c })}
+                  onUseCurrentFrame={() => {
+                    void captureFrame(currentTime).then(url => {
+                      if (!url) return
+                      setCoverDataUrl(url)
+                      update({ cover: { ...edit.cover, time: currentTime, customUrl: url, source: 'frame' } })
+                    })
+                  }}
+                />
+              )}
+              {morePanel === 'speed' && (
+                <VideoSpeedControl
+                  enabled={limits.allowSpeed}
+                  speed={edit.playbackSpeed}
+                  onChange={s => update({ playbackSpeed: s })}
+                  resultingDuration={(edit.trimEnd - edit.trimStart) / edit.playbackSpeed}
+                />
+              )}
+              {morePanel === 'captions' && (
+                <VideoCaptionsEditor
+                  captions={edit.captions}
+                  language={edit.captionLanguage}
+                  onLanguage={l => update({ captionLanguage: l })}
+                  status={edit.autoCaptionsStatus}
+                  onRequestAuto={requestAutoCaptions}
+                  onChange={(id, patch) => update({ captions: edit.captions.map(c => c.id === id ? { ...c, ...patch } : c) })}
+                  onAdd={() => update({
+                    captions: [...edit.captions, {
+                      id: newId('cap'),
+                      language: edit.captionLanguage,
+                      source: 'manual',
+                      start: currentTime,
+                      end: Math.min(currentTime + 2, edit.trimEnd),
+                      text: '',
+                      confidence: null,
+                      reviewed: true,
+                      style: { position: 'bottom', alignment: 'center', textSize: 'md', highContrast: true, color: '#FFFAF2' },
+                    }],
+                  })}
+                  onDelete={id => update({ captions: edit.captions.filter(c => c.id !== id) })}
+                  onJump={t => setCurrentTime(t)}
+                />
+              )}
+              {morePanel === 'transition' && (
+                <TransitionPicker
+                  enabled={limits.allowTransitions}
+                  value={edit.transitions[0]?.type ?? 'none'}
+                  duration={edit.transitions[0]?.duration ?? 0.4}
+                  onChange={(type, duration) => update({
+                    transitions: type === 'none' ? [] : [{ afterClipId: edit.clips[0]?.id ?? '', type, duration }],
+                  })}
+                />
+              )}
+              {morePanel === 'speed' && SPEED_OPTIONS.length > 0 && (
+                <p className="text-[11px] m-0 mt-2 px-1" style={{ color: 'rgba(255,250,242,0.45)' }}>
+                  Result {formatTime((edit.trimEnd - edit.trimStart) / edit.playbackSpeed)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Step tabs */}
+        <nav className="flex items-stretch justify-around px-1 pt-1" aria-label="Edit steps">
+          {STEPS.map(s => {
+            const Icon = s.icon
+            const active = step === s.id
             return (
-              <button key={t.id} type="button" onClick={() => { setTool(t.id); setMobileSheet(true) }}
-                className="shrink-0 flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl min-w-[64px] min-h-[56px] text-[10px] font-semibold"
-                style={{ background: tool === t.id ? 'rgba(140,82,255,0.12)' : 'transparent', color: tool === t.id ? 'var(--primary)' : 'var(--fg-muted)' }}>
-                <Icon size={18} />
-                {t.label}
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => { setStep(s.id); setMorePanel(null) }}
+                className="flex-1 flex flex-col items-center gap-0.5 py-2 min-h-[56px] text-[10px] font-semibold"
+                style={{ color: active ? '#8C52FF' : 'rgba(255,250,242,0.45)' }}
+              >
+                <Icon size={20} strokeWidth={active ? 2.4 : 1.8} />
+                {s.label}
               </button>
             )
           })}
-        </div>
-        {mobileSheet && (
-          <div className="max-h-[42vh] overflow-y-auto border-t" style={{ borderColor: 'var(--border)' }}>
-            <div className="flex justify-between items-center px-3 pt-2">
-              <p className="text-xs font-semibold m-0 capitalize">{tool}</p>
-              <button type="button" className="text-xs min-h-[36px] px-2" style={{ color: 'var(--fg-muted)' }} onClick={() => setMobileSheet(false)}>Hide</button>
-            </div>
-            {inspector}
-          </div>
-        )}
+        </nav>
       </div>
     </div>
   )

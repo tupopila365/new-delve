@@ -40,6 +40,9 @@ export function createMessageRouter(_env: Env) {
   router.post('/journeys/:journeyId/conversation', auth, (req, res, next) =>
     void c.journeyConversation(req, res, next),
   )
+  router.post('/communities/:communityId/conversation', auth, (req, res, next) =>
+    void c.communityConversation(req, res, next),
+  )
   router.get('/messages/stream', auth, (req, res, next) => void c.stream(req, res, next))
   router.get('/blocks', auth, (req, res, next) => void c.blocks(req, res, next))
   router.post('/users/:userId/block', auth, (req, res, next) => void c.block(req, res, next))

@@ -43,7 +43,13 @@ export function validateLocalFile(file: File, purpose: MediaPurpose): LocalFileV
     }
     return { ok: true }
   }
-  if (purpose === 'listing' || purpose === 'post' || purpose === 'story' || purpose === 'message') {
+  if (
+    purpose === 'listing'
+    || purpose === 'post'
+    || purpose === 'story'
+    || purpose === 'message'
+    || purpose === 'event'
+  ) {
     if (!POST_MIME.includes(file.type)) {
       return { ok: false, error: 'Use a JPEG, PNG, WebP image or MP4/WebM video.' }
     }
@@ -74,6 +80,7 @@ export async function requestUploadSignature(input: {
   bytes: number
   businessId?: string
   listingId?: string
+  eventId?: string
 }): Promise<MediaUploadSignatureResponse> {
   const res = await authorizedFetch('/media/upload-signature', {
     method: 'POST',

@@ -42,6 +42,12 @@ export function createMessageController() {
         const userId = requireUserId(req)
         if (body.journeyId) {
           ok(res, await messageService.getOrCreateJourneyConversation(userId, body.journeyId), 201)
+        } else if (body.communityId) {
+          ok(
+            res,
+            await messageService.getOrCreateCommunityConversation(userId, body.communityId),
+            201,
+          )
         } else {
           ok(
             res,
@@ -110,6 +116,21 @@ export function createMessageController() {
           await messageService.getOrCreateJourneyConversation(
             requireUserId(req),
             String(req.params.journeyId),
+          ),
+          201,
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async communityConversation(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await messageService.getOrCreateCommunityConversation(
+            requireUserId(req),
+            String(req.params.communityId),
           ),
           201,
         )

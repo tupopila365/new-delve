@@ -14,6 +14,7 @@ import { eventShareUrl, mapsUrlForEvent } from '../lib/eventLinks'
 import { formatUsername } from '../lib/formatUsername'
 import EventCoverMedia from './EventCoverMedia'
 import AddToJourneySheet from './events/AddToJourneySheet'
+import EventMediaEditor from '../media/EventMediaEditor'
 
 interface EventDetailSheetProps {
   eventId: string | null
@@ -352,6 +353,21 @@ export default function EventDetailSheet({
                   {event.description}
                 </p>
               )}
+
+              <div className="mb-4">
+                <EventMediaEditor
+                  event={event}
+                  onChanged={next => {
+                    setEvent(next)
+                    onUpdated?.(next)
+                  }}
+                  editable={Boolean(
+                    signedIn
+                    && event.status !== 'CANCELLED'
+                    && (event.canUploadMedia || event.isOwner || event.myAttendance === 'GOING'),
+                  )}
+                />
+              </div>
 
               <p className="text-xs mb-3 inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
                 <Users size={12} />

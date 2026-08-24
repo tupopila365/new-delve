@@ -8,6 +8,8 @@ import { AppError } from '../../middleware/error-handler.js'
 
 import { buildDeliveryUrl } from '../media/cloudinary.js'
 
+import { mediaAssetToDto } from '../media/media.service.js'
+
 import { createNotification } from '../notifications/notify.js'
 
 
@@ -88,11 +90,13 @@ async function resolveCoverFromMedia(
 
 ) {
 
+  if (coverMediaId === null) return { coverUrl: null }
+
   if (!coverMediaId) return { coverUrl: existing ?? null }
 
   const media = await prisma.mediaAsset.findFirst({
 
-    where: { id: coverMediaId, deletedAt: null, purpose: { in: ['cover', 'post'] } },
+    where: { id: coverMediaId, deletedAt: null, purpose: { in: ['cover', 'post', 'event'] } },
 
   })
 
@@ -815,6 +819,10 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
       coverMedia: true,
       community: { select: { id: true, slug: true, name: true } },
       business: { select: { id: true, slug: true, name: true, logoUrl: true } },
+      media: {
+        where: { deletedAt: null, purpose: 'event' },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      },
     },
 
   })
@@ -849,6 +857,8 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
 
   ])
 
+  const canUploadMedia = Boolean(isOwner || mine?.status === 'GOING')
+
   return {
 
     id: event.id,
@@ -858,6 +868,8 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
     description: event.description,
 
     coverUrl: event.coverUrl,
+
+    coverMediaId: event.coverMediaId,
 
     coverResourceType: event.coverMedia?.resourceType === 'video'
 
@@ -919,6 +931,13 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
     isOwner,
 
     savedByMe: Boolean(saved),
+
+    canUploadMedia,
+
+    media: event.media.map(m => ({
+      ...mediaAssetToDto(env, m),
+      isCover: event.coverMediaId === m.id,
+    })),
 
     creator: await creatorCard(event.creatorId),
 

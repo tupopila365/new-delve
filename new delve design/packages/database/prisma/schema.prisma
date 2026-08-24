@@ -421,6 +421,7 @@ enum MediaPurpose {
   business_profile
   listing
   message
+  event
 }
 
 enum MediaResourceType {
@@ -462,6 +463,8 @@ model MediaAsset {
   business          Business?         @relation("BusinessMedia", fields: [businessId], references: [id], onDelete: SetNull)
   listingId         String?
   listing           Listing?          @relation("ListingMedia", fields: [listingId], references: [id], onDelete: SetNull)
+  eventId           String?
+  event             TravelerEvent?    @relation("EventMedia", fields: [eventId], references: [id], onDelete: SetNull)
   /// Linked when purpose is post.
   postId            String?
   post              Post?             @relation(fields: [postId], references: [id], onDelete: SetNull)
@@ -484,6 +487,7 @@ model MediaAsset {
   @@index([createdAt])
   @@index([businessId])
   @@index([listingId])
+  @@index([eventId])
   @@index([postId])
   @@index([deletedAt])
 }
@@ -499,6 +503,7 @@ model MediaUploadIntent {
   folder             String
   businessId         String?
   listingId          String?
+  eventId            String?
   originalFilename   String?
   reportedMimeType   String?
   reportedBytes      Int?
@@ -661,6 +666,7 @@ model TravelerEvent {
   journeyLinks  JourneyEvent[]
   sharedPosts   Post[]
   communityThreads CommunityThread[]
+  media         MediaAsset[]    @relation("EventMedia")
 
   @@index([creatorId, createdAt])
   @@index([status, startAt])
@@ -863,6 +869,7 @@ model Community {
   reports     CommunityReport[]
   invites     CommunityInvite[]
   auditLogs   CommunityAuditLog[]
+  conversation Conversation?
 
   @@index([communityType, destination])
   @@index([category, city, country])
@@ -1125,6 +1132,8 @@ model JourneyStop {
   notes                    String   @default("")
   highlights               String[] @default([])
   mediaUrls                String[] @default([])
+  /// Parallel to mediaUrls: "image" | "video" per item (same length when set).
+  mediaResourceTypes       String[] @default([])
   transportModeToNext      String?
   transportDurationToNext  String?
   transportNotes           String?
@@ -1138,6 +1147,7 @@ model JourneyStop {
 enum ConversationType {
   DIRECT
   JOURNEY
+  COMMUNITY
 }
 
 enum DirectMessageKind {
@@ -1153,12 +1163,14 @@ enum ConversationRequestStatus {
   DECLINED
 }
 
-/// Traveler message thread (direct or journey group).
+/// Traveler message thread (direct, journey, or community group).
 model Conversation {
   id              String                    @id @default(cuid())
   type            ConversationType          @default(DIRECT)
   journeyId       String?                   @unique
   journey         Journey?                  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  communityId     String?                   @unique
+  community       Community?                @relation(fields: [communityId], references: [id], onDelete: Cascade)
   initiatedById   String?
   requestStatus   ConversationRequestStatus @default(ACCEPTED)
   lastMessageAt   DateTime?

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { eventMediaDtoSchema } from './event-media.js'
 
 export const publicTravelerProfileSchema = z.object({
   id: z.string(),
@@ -82,6 +83,7 @@ export const postLinkedEventSchema = z.object({
   id: z.string(),
   title: z.string(),
   coverUrl: z.string().nullable(),
+  coverResourceType: z.enum(['image', 'video']).nullable().optional(),
   startAt: z.string().datetime(),
   city: z.string().nullable(),
   locationName: z.string().nullable(),
@@ -223,6 +225,7 @@ export const eventDtoSchema = z.object({
   title: z.string(),
   description: z.string(),
   coverUrl: z.string().nullable(),
+  coverMediaId: z.string().nullable().optional(),
   coverResourceType: z.enum(['image', 'video']).nullable().optional(),
   startAt: z.string().datetime(),
   endAt: z.string().datetime().nullable(),
@@ -245,6 +248,8 @@ export const eventDtoSchema = z.object({
   myAttendance: z.enum(['GOING', 'INTERESTED']).nullable(),
   isOwner: z.boolean().optional(),
   savedByMe: z.boolean().optional(),
+  canUploadMedia: z.boolean().optional(),
+  media: z.array(eventMediaDtoSchema).optional(),
   creator: postAuthorSchema,
   createdAt: z.string().datetime(),
 })

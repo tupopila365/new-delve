@@ -52,6 +52,7 @@ interface MediaStudioProps {
   initialContext?: StudioContext
   businessId?: string
   listingId?: string
+  eventId?: string
   /** Hide demo context chips / sample gallery. Defaults on when a live callback is set. */
   lockContext?: boolean
 }
@@ -89,6 +90,7 @@ export default function MediaStudioRoot({
   initialContext = 'delvers-post',
   businessId,
   listingId,
+  eventId,
   lockContext: lockContextProp,
 }: MediaStudioProps) {
   const delversPublish = Boolean(onCreated)
@@ -121,7 +123,10 @@ export default function MediaStudioRoot({
   const fileRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const purpose = purposeForStudioContext(context)
+  const purpose =
+    context === 'event' && eventId
+      ? ('event' as const)
+      : purposeForStudioContext(context)
   const imageOnly = purpose === 'business_profile' || purpose === 'cover' || purpose === 'avatar'
   const afterEditPhase: Phase = mediaOnlyPublish ? 'preview' : 'details'
 
@@ -273,20 +278,31 @@ export default function MediaStudioRoot({
         return
       }
     }
-    if (limits.maxClips <= 1) {
-      // Shorts prefer a single video when present.
+
+    const multi = limits.maxClips > 1
+    if (!multi) {
       if (context === 'delvers-short') {
         const video = files.find(f => detectMimeKind(f.type, f.name) === 'video')
         files = [video || files[0]]
       } else {
         files = files.slice(0, 1)
       }
+    } else if (files.length > limits.maxClips) {
+      setPublishError(`You can add up to ${limits.maxClips} photos or videos. Extra files were skipped.`)
+      files = files.slice(0, limits.maxClips)
     }
 
-    const kind = classifyStudioMedia(files, context)
-    if ((kind === 'mixed' || files.length > 1) && limits.maxClips > 1) {
+    // Instagram-style: when multi is allowed, always build a carousel (even for 1 file)
+    // so the user can keep adding more before posting.
+    if (multi) {
+      const room = Math.max(0, limits.maxClips - (phase === 'carousel' ? items.length : 0))
+      if (room <= 0) {
+        setPublishError(`Carousel is full (max ${limits.maxClips}). Remove an item to add more.`)
+        return
+      }
+      const batch = files.slice(0, room)
       const nextItems: MediaStudioItem[] = []
-      for (const file of files.slice(0, limits.maxClips)) {
+      for (const file of batch) {
         const detected = detectMimeKind(file.type, file.name)
         if (detected === 'unknown') continue
         const url = URL.createObjectURL(file)
@@ -329,6 +345,10 @@ export default function MediaStudioRoot({
               mimeType: file.type || 'video/mp4',
               limits,
             })
+            if (status !== 'ready' && status !== 'no-audio' && status !== 'variable-framerate') {
+              URL.revokeObjectURL(url)
+              continue
+            }
             const now = new Date().toISOString()
             const asset: MediaAsset = {
               id: newId('asset'),
@@ -343,7 +363,7 @@ export default function MediaStudioRoot({
               height: meta.height,
               duration: meta.duration,
               orientation: orientationOf(meta.width, meta.height),
-              uploadStatus: status,
+              uploadStatus: 'ready',
               processingStatus: 'ready',
               moderationStatus: 'none',
               createdAt: now,
@@ -358,9 +378,24 @@ export default function MediaStudioRoot({
           }
         }
       }
-      setItems(prev => [...prev, ...nextItems].slice(0, limits.maxClips))
-      setCoverId(prev => prev || nextItems[0]?.id || null)
+      if (!nextItems.length) {
+        setPublishError('No valid photos or videos in that selection.')
+        return
+      }
+      if (files.length > room) {
+        setPublishError(`Only ${room} more slot${room === 1 ? '' : 's'} left — added the first ${room}.`)
+      } else {
+        setPublishError(null)
+      }
+      setItems(prev => {
+        const merged = phase === 'carousel' ? [...prev, ...nextItems] : nextItems
+        return merged.slice(0, limits.maxClips)
+      })
+      setCoverId(prev => (phase === 'carousel' && prev ? prev : nextItems[0]?.id || null))
       setPrimaryFile(null)
+      setVideoAsset(null)
+      setImageSrc('')
+      setEditingItemId(null)
       setPhase('carousel')
       return
     }
@@ -441,9 +476,10 @@ export default function MediaStudioRoot({
         }
         setStage('uploading')
         const uploaded = await uploadStudioMediaFiles(files, {
-          purpose,
+          purpose: purpose!,
           businessId,
           listingId,
+          eventId,
           signal: controller.signal,
           onProgress: ratio => setUploadProgress(Math.round(ratio * 100)),
         })
@@ -654,17 +690,23 @@ export default function MediaStudioRoot({
             >
               <Upload size={32} style={{ color: 'var(--primary)' }} />
               <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
-                {imageOnly ? 'Drop images here' : 'Drop photos or videos here'}
+                {imageOnly
+                  ? 'Drop images here'
+                  : limits.maxClips > 1
+                    ? 'Select multiple photos or videos'
+                    : 'Drop a photo or video here'}
               </p>
-              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+              <p className="text-xs m-0 text-center px-4" style={{ color: 'var(--fg-muted)' }}>
                 {imageOnly ? 'JPG, PNG, WebP' : 'JPG, PNG, WebP, MP4, WebM'} · up to {formatBytes(limits.maxFileSizeBytes)}
+                {limits.maxClips > 1 ? ` · up to ${limits.maxClips} at once` : ''}
                 {context === 'delvers-short' ? ` · max ${limits.maxDurationSec}s` : ''}
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
                 <button type="button" onClick={() => fileRef.current?.click()}
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white min-h-[44px]"
                   style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}>
-                  <ImageIcon size={16} /> Choose files
+                  <ImageIcon size={16} />
+                  {limits.maxClips > 1 ? 'Choose from gallery' : 'Choose file'}
                 </button>
                 {!imageOnly && (
                   <button type="button" onClick={() => setShowVideoUpload(true)}
@@ -676,9 +718,17 @@ export default function MediaStudioRoot({
                 <button type="button" onClick={() => fileRef.current?.click()}
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px]"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}>
-                  <Camera size={14} /> Camera roll
+                  <Camera size={14} /> {limits.maxClips > 1 ? 'Multi-select' : 'Camera roll'}
                 </button>
               </div>
+              {limits.maxClips > 1 && (
+                <p className="text-[11px] m-0 text-center px-6" style={{ color: 'var(--fg-muted)' }}>
+                  Hold Ctrl/Cmd (or long-press on mobile) to select several files in one go — just like Instagram.
+                </p>
+              )}
+              {publishError && (
+                <p className="text-xs m-0 text-center px-4" style={{ color: '#C83B3B' }} role="alert">{publishError}</p>
+              )}
               <input
                 ref={fileRef}
                 type="file"
@@ -686,6 +736,7 @@ export default function MediaStudioRoot({
                 multiple={limits.maxClips > 1}
                 className="hidden"
                 onChange={e => {
+                  setPublishError(null)
                   if (e.target.files) void ingestFiles(e.target.files)
                   e.target.value = ''
                 }}
@@ -728,6 +779,17 @@ export default function MediaStudioRoot({
               allowRecord
               onCancel={() => setShowVideoUpload(false)}
               onReady={asset => {
+                if (limits.maxClips > 1) {
+                  const item = { id: asset.id, kind: 'video' as const, asset }
+                  setItems(prev => [...prev, item].slice(0, limits.maxClips))
+                  setCoverId(prev => prev || asset.id)
+                  setVideoAsset(null)
+                  setPrimaryFile(null)
+                  setEditingItemId(null)
+                  setShowVideoUpload(false)
+                  setPhase('carousel')
+                  return
+                }
                 setVideoAsset(asset)
                 setPrimaryFile(null)
                 setItems([])
@@ -752,6 +814,37 @@ export default function MediaStudioRoot({
               setItems(prev =>
                 prev.map(i => (i.id === editingItemId ? { ...i, imageEdit: edit } : i)),
               )
+              setEditingItemId(null)
+              setPhase('carousel')
+            } else if (limits.maxClips > 1 && imageSrc) {
+              const now = new Date().toISOString()
+              const id = newId('asset')
+              const asset: MediaAsset = {
+                id,
+                ownerId: 'local-user',
+                context,
+                mediaType: 'image',
+                source: 'device',
+                fileName: primaryFile?.name || 'photo.jpg',
+                mimeType: primaryFile?.type || 'image/jpeg',
+                fileSize: primaryFile?.size || 0,
+                width: 0,
+                height: 0,
+                duration: 0,
+                orientation: 'portrait',
+                uploadStatus: 'ready',
+                processingStatus: 'ready',
+                moderationStatus: 'none',
+                createdAt: now,
+                updatedAt: now,
+                objectUrl: imageSrc,
+                hasAudio: false,
+                file: primaryFile || undefined,
+              }
+              setItems(prev =>
+                [...prev, { id, kind: 'image' as const, asset, imageEdit: edit }].slice(0, limits.maxClips),
+              )
+              setCoverId(prev => prev || id)
               setEditingItemId(null)
               setPhase('carousel')
             } else {
@@ -780,6 +873,16 @@ export default function MediaStudioRoot({
               )
               setEditingItemId(null)
               setPhase('carousel')
+            } else if (limits.maxClips > 1 && videoAsset) {
+              setItems(prev =>
+                [...prev, { id: videoAsset.id, kind: 'video' as const, asset: videoAsset, videoEdit: edit }].slice(
+                  0,
+                  limits.maxClips,
+                ),
+              )
+              setCoverId(prev => prev || videoAsset.id)
+              setEditingItemId(null)
+              setPhase('carousel')
             } else {
               setPhase(afterEditPhase)
             }
@@ -793,6 +896,16 @@ export default function MediaStudioRoot({
               )
               setEditingItemId(null)
               setPhase(mediaOnlyPublish ? 'preview' : 'carousel')
+            } else if (limits.maxClips > 1 && videoAsset) {
+              setItems(prev =>
+                [...prev, { id: videoAsset.id, kind: 'video' as const, asset: videoAsset, videoEdit: edit }].slice(
+                  0,
+                  limits.maxClips,
+                ),
+              )
+              setCoverId(prev => prev || videoAsset.id)
+              setEditingItemId(null)
+              setPhase(mediaOnlyPublish ? 'preview' : 'carousel')
             } else {
               setPhase('preview')
             }
@@ -803,7 +916,7 @@ export default function MediaStudioRoot({
       {phase === 'carousel' && (
         <div className="flex flex-col h-full min-h-0">
           <StudioChromeHeader
-            title="Carousel"
+            title={items.length > 1 ? `New post · ${items.length}` : 'New post'}
             onBack={() => setPhase('pick')}
             primaryLabel="Next"
             onPrimary={() => setPhase(afterEditPhase)}
@@ -820,10 +933,20 @@ export default function MediaStudioRoot({
               }))}
               coverId={coverId}
               sharedCaption={sharedCaption}
+              maxItems={limits.maxClips}
               onCaption={setSharedCaption}
               onSetCover={setCoverId}
-              onAdd={() => fileRef.current?.click()}
-              onRemove={id => setItems(prev => prev.filter(i => i.id !== id))}
+              onAdd={() => {
+                setPublishError(null)
+                fileRef.current?.click()
+              }}
+              onRemove={id => {
+                setItems(prev => {
+                  const next = prev.filter(i => i.id !== id)
+                  if (coverId === id) setCoverId(next[0]?.id || null)
+                  return next
+                })
+              }}
               onReorder={(from, to) => {
                 setItems(prev => {
                   const next = [...prev]
@@ -841,12 +964,16 @@ export default function MediaStudioRoot({
                   setPrimaryFile(item.asset.file || null)
                   setPhase('image-edit')
                 } else {
-                  setEditingItemId(null)
+                  setEditingItemId(item.id)
                   setVideoAsset(item.asset)
+                  setVideoEdit(item.videoEdit || null)
                   setPhase('video-edit')
                 }
               }}
             />
+            {publishError && (
+              <p className="px-4 pb-3 text-xs m-0 text-center" style={{ color: '#C83B3B' }} role="alert">{publishError}</p>
+            )}
           </div>
           <input
             ref={fileRef}
@@ -855,6 +982,7 @@ export default function MediaStudioRoot({
             multiple={limits.maxClips > 1}
             className="hidden"
             onChange={e => {
+              setPublishError(null)
               if (e.target.files) void ingestFiles(e.target.files)
               e.target.value = ''
             }}

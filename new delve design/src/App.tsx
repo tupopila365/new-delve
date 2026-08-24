@@ -497,6 +497,7 @@ export default function App() {
   const [editEventId, setEditEventId] = useState<string | null>(null)
   const [journeyDetailId, setJourneyDetailId] = useState<string | null>(null)
   const [messagesJourneyId, setMessagesJourneyId] = useState<string | null>(null)
+  const [messagesCommunityId, setMessagesCommunityId] = useState<string | null>(null)
   const [messagesConversationId, setMessagesConversationId] = useState<string | null>(null)
   const [messagesTargetUserId, setMessagesTargetUserId] = useState<string | null>(null)
   const [profileUsername, setProfileUsername] = useState<string | null>(null)
@@ -1226,6 +1227,14 @@ export default function App() {
               setJourneyDetailId(id)
             }}
             onOpenEvent={openEventDetail}
+            onOpenGroupChat={id => {
+              setMessagesCommunityId(id)
+              setActiveNav('Messages')
+            }}
+            onOpenDirectMessage={id => {
+              setMessagesTargetUserId(id)
+              setActiveNav('Messages')
+            }}
           />
         )
       }
@@ -1366,6 +1375,8 @@ export default function App() {
             onSignIn={() => openAuth('signIn')}
             openJourneyId={messagesJourneyId}
             onJourneyOpened={() => setMessagesJourneyId(null)}
+            openCommunityId={messagesCommunityId}
+            onCommunityOpened={() => setMessagesCommunityId(null)}
             openConversationId={messagesConversationId}
             onConversationOpened={() => setMessagesConversationId(null)}
             openUserId={messagesTargetUserId}
@@ -1373,6 +1384,11 @@ export default function App() {
             onOpenJourney={id => {
               setActiveNav('Journeys')
               setJourneyDetailId(id)
+            }}
+            onOpenCommunity={id => {
+              setActiveNav('Communities')
+              setCommunityDetailId(id)
+              setCommunityInitialThreadId(null)
             }}
           />
         )

@@ -959,7 +959,12 @@ export default function ProfilePage({
                       }}
                     >
                       {post.linkedEvent.coverUrl ? (
-                        <img src={post.linkedEvent.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+                        <EventCoverMedia
+                          url={post.linkedEvent.coverUrl}
+                          resourceType={post.linkedEvent.coverResourceType}
+                          className="w-14 h-14 object-cover flex-shrink-0"
+                          controls={false}
+                        />
                       ) : (
                         <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
                       )}

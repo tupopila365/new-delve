@@ -53,7 +53,7 @@ export default function EditEventSheet({ eventId, onClose, onUpdated }: EditEven
           maxAttendees: event.maxAttendees != null ? String(event.maxAttendees) : '',
           latitude: event.latitude != null ? String(event.latitude) : '',
           longitude: event.longitude != null ? String(event.longitude) : '',
-          coverMediaId: null,
+          coverMediaId: event.coverMediaId ?? null,
           preview: event.coverUrl,
           previewResourceType: event.coverResourceType ?? (event.coverUrl ? 'image' : null),
         })
@@ -88,10 +88,9 @@ export default function EditEventSheet({ eventId, onClose, onUpdated }: EditEven
     try {
       const publishStatus: 'DRAFT' | 'PUBLISHED' = status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED'
       const base = eventFormToBody(form, nextStatus === 'DRAFT' || nextStatus === 'PUBLISHED' ? nextStatus : publishStatus)
-      const { coverMediaId: _ignored, ...rest } = base
       const body = {
-        ...rest,
-        ...(form.coverMediaId ? { coverMediaId: form.coverMediaId } : {}),
+        ...base,
+        coverMediaId: form.coverMediaId,
         ...(nextStatus ? { status: nextStatus } : {}),
       }
       const updated = await updateEvent(eventId, body)

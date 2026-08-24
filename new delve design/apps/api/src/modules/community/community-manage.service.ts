@@ -14,6 +14,7 @@ import type {
   UpsertCommunityRuleBody,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
+import { removeCommunityChatParticipant } from '../message/message.service.js'
 import {
   canAssignRole,
   canManageCommunity,
@@ -451,6 +452,7 @@ export async function banMember(actorId: string, communityId: string, targetUser
     where: { communityId_userId: { communityId, userId: targetUserId } },
     data: { status: 'BANNED', banReason: reason?.trim() || null },
   })
+  await removeCommunityChatParticipant(communityId, targetUserId)
   await prisma.community.update({
     where: { id: communityId },
     data: { memberCount: { decrement: 1 } },

@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft, Flag, Lock, MapPin, Users, Loader2, AlertCircle, Share2, Plus,
+  MessageCircle, MoreHorizontal, Search,
 } from 'lucide-react'
-import type { CommunityDetail, CommunityRule, CommunityThreadDetail, CommunityThreadKind, CommunityThreadSummary } from '@delve/contracts'
+import type {
+  CommunityDetail,
+  CommunityMember,
+  CommunityMemberRole,
+  CommunityRule,
+  CommunityThreadDetail,
+  CommunityThreadKind,
+  CommunityThreadSummary,
+} from '@delve/contracts'
 import {
   addThreadAnswer,
   approveCommunityThread,
+  banCommunityMember,
   createCommunityThread,
   fetchCommunity,
   fetchThread,
@@ -19,8 +29,11 @@ import {
   pinCommunityThread,
   removeCommunityThread,
   unlikeCommunityThread,
+  updateCommunityMemberRole,
 } from '../api/communityClient'
+import { getStoredUser } from '../api/authClient'
 import { saveItem, unsaveItem } from '../api/socialClient'
+import CommunityBrandingEditor from '../components/communities/CommunityBrandingEditor'
 import CommunityComposeSheet from '../components/communities/CommunityComposeSheet'
 import CommunityModerationPanel from '../components/communities/CommunityModerationPanel'
 import CommunityReportSheet from '../components/communities/CommunityReportSheet'
@@ -45,6 +58,13 @@ const TAB_KINDS: Partial<Record<Tab, CommunityThreadKind[]>> = {
   events: EVENT_KINDS,
 }
 
+const ROLE_GROUPS: { key: CommunityMemberRole; label: string }[] = [
+  { key: 'owner', label: 'Owner' },
+  { key: 'admin', label: 'Admins' },
+  { key: 'moderator', label: 'Moderators' },
+  { key: 'member', label: 'Members' },
+]
+
 export default function CommunityDetailPage({
   communityId,
   initialThreadId,
@@ -54,6 +74,8 @@ export default function CommunityDetailPage({
   onOpenProfile,
   onOpenJourney,
   onOpenEvent,
+  onOpenGroupChat,
+  onOpenDirectMessage,
 }: {
   communityId: string
   initialThreadId?: string | null
@@ -63,11 +85,18 @@ export default function CommunityDetailPage({
   onOpenProfile?: (username: string) => void
   onOpenJourney?: (journeyId: string) => void
   onOpenEvent?: (eventId: string) => void
+  onOpenGroupChat?: (communityId: string) => void
+  onOpenDirectMessage?: (userId: string) => void
 }) {
   const [community, setCommunity] = useState<CommunityDetail | null>(null)
   const [rules, setRules] = useState<CommunityRule[]>([])
   const [threads, setThreads] = useState<CommunityThreadSummary[]>([])
-  const [members, setMembers] = useState<Awaited<ReturnType<typeof listCommunityMembers>>>([])
+  const [members, setMembers] = useState<CommunityMember[]>([])
+  const [membersLoaded, setMembersLoaded] = useState(false)
+  const [membersError, setMembersError] = useState(false)
+  const [memberQuery, setMemberQuery] = useState('')
+  const [memberMenuId, setMemberMenuId] = useState<string | null>(null)
+  const [memberBusyId, setMemberBusyId] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('feed')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -81,7 +110,9 @@ export default function CommunityDetailPage({
   const [busyThreadId, setBusyThreadId] = useState<string | null>(null)
   const [reply, setReply] = useState('')
   const [reportTarget, setReportTarget] = useState<{ type: 'POST' | 'COMMENT'; id: string } | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
+  const viewerId = getStoredUser()?.id
   const canModerate = Boolean(community?.canModerate || community?.canManage)
 
   const loadThreads = useCallback(async (t: Tab) => {
@@ -90,6 +121,19 @@ export default function CommunityDetailPage({
     const rows = await listCommunityThreads({ communityId, kinds })
     setThreads(rows)
   }, [communityId])
+
+  const loadMembers = useCallback(async (id: string) => {
+    try {
+      const rows = await listCommunityMembers(id)
+      setMembers(rows)
+      setMembersError(false)
+    } catch {
+      setMembers([])
+      setMembersError(true)
+    } finally {
+      setMembersLoaded(true)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -102,13 +146,22 @@ export default function CommunityDetailPage({
       ])
       setRules(r)
       await loadThreads('feed')
+      const joinedNow = c.membershipStatus === 'joined' || c.membershipStatus === 'moderator'
+      const pendingNow = c.membershipStatus === 'requested'
+      if (c.privacy === 'PUBLIC' || joinedNow || pendingNow) {
+        void loadMembers(c.id)
+      } else {
+        setMembers([])
+        setMembersLoaded(true)
+        setMembersError(true)
+      }
     } catch (err) {
       setCommunity(null)
       setError(err instanceof Error ? err.message : 'Unable to load community')
     } finally {
       setLoading(false)
     }
-  }, [communityId, loadThreads])
+  }, [communityId, loadThreads, loadMembers])
 
   useEffect(() => {
     void load()
@@ -120,12 +173,10 @@ export default function CommunityDetailPage({
 
   useEffect(() => {
     if (tab === 'members' && community) {
-      void listCommunityMembers(community.id)
-        .then(setMembers)
-        .catch(() => setMembers([]))
+      void loadMembers(community.id)
     }
     if (TAB_KINDS[tab]) void loadThreads(tab).catch(() => setThreads([]))
-  }, [tab, community, loadThreads])
+  }, [tab, community, loadThreads, loadMembers])
 
   useEffect(() => {
     if (!activeThreadId) {
@@ -211,6 +262,37 @@ export default function CommunityDetailPage({
     await loadThreads(tab)
   }
 
+  async function changeMemberRole(userId: string, role: CommunityMemberRole) {
+    if (!community) return
+    setMemberBusyId(userId)
+    setMemberMenuId(null)
+    try {
+      await updateCommunityMemberRole(community.id, userId, role)
+      await loadMembers(community.id)
+      setCommunity(await fetchCommunity(community.id))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not update role')
+    } finally {
+      setMemberBusyId(null)
+    }
+  }
+
+  async function banMember(userId: string) {
+    if (!community) return
+    if (!window.confirm('Ban this member from the community?')) return
+    setMemberBusyId(userId)
+    setMemberMenuId(null)
+    try {
+      await banCommunityMember(community.id, userId)
+      await loadMembers(community.id)
+      setCommunity(await fetchCommunity(community.id))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not ban member')
+    } finally {
+      setMemberBusyId(null)
+    }
+  }
+
   const composeOptions = useMemo((): CommunityThreadKind[] => {
     if (tab === 'questions') return ['QUESTION']
     if (tab === 'tips') return ['TIP']
@@ -218,6 +300,23 @@ export default function CommunityDetailPage({
     if (tab === 'events') return ['EVENT_SHARE']
     return ['POST', 'DISCUSSION', 'TIP', 'ANNOUNCEMENT']
   }, [tab])
+
+  const filteredMembers = useMemo(() => {
+    const q = memberQuery.trim().toLowerCase()
+    if (!q) return members
+    return members.filter(
+      m =>
+        m.displayName.toLowerCase().includes(q)
+        || m.username.toLowerCase().includes(q),
+    )
+  }, [members, memberQuery])
+
+  const membersByRole = useMemo(() => {
+    return ROLE_GROUPS.map(group => ({
+      ...group,
+      rows: filteredMembers.filter(m => m.role === group.key),
+    })).filter(g => g.rows.length > 0)
+  }, [filteredMembers])
 
   if (loading) {
     return (
@@ -356,7 +455,29 @@ export default function CommunityDetailPage({
 
         <p className="text-sm m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>{community.description}</p>
         <div className="flex flex-wrap items-center gap-3 mb-4 text-xs" style={{ color: 'var(--fg-muted)' }}>
-          <span className="inline-flex items-center gap-1"><Users size={14} /> {community.memberCount.toLocaleString()} members</span>
+          <button
+            type="button"
+            onClick={() => setTab('members')}
+            className="inline-flex items-center gap-2 px-0 py-0"
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
+          >
+            {membersLoaded && members.length > 0 ? (
+              <span className="inline-flex -space-x-2">
+                {members.slice(0, 5).map(m => (
+                  m.avatarUrl ? (
+                    <img key={m.userId} src={m.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border" style={{ borderColor: 'var(--bg)' }} />
+                  ) : (
+                    <span key={m.userId} className="w-6 h-6 rounded-full border inline-flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--border)', borderColor: 'var(--bg)', color: 'var(--fg)' }}>
+                      {m.displayName.charAt(0)}
+                    </span>
+                  )
+                ))}
+              </span>
+            ) : (
+              <Users size={14} />
+            )}
+            <span className="font-semibold">{community.memberCount.toLocaleString()} members</span>
+          </button>
           {community.city && <span className="inline-flex items-center gap-1"><MapPin size={14} /> {community.city}</span>}
           {community.privacy === 'PRIVATE' && <span className="inline-flex items-center gap-1"><Lock size={14} /> Private</span>}
         </div>
@@ -365,6 +486,22 @@ export default function CommunityDetailPage({
           <button type="button" disabled={joinBusy} onClick={() => void toggleJoin()} className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60" style={{ background: joined ? 'var(--surface-subtle)' : 'var(--primary)', color: joined ? 'var(--fg)' : '#fff', border: joined ? '1px solid var(--border)' : 'none' }}>
             {joinBusy ? '…' : joined ? 'Joined' : pending ? 'Request sent' : 'Join'}
           </button>
+          {joined && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!signedIn) {
+                  onSignIn?.()
+                  return
+                }
+                onOpenGroupChat?.(community.id)
+              }}
+              className="px-3 rounded-xl inline-flex items-center gap-1.5 text-sm font-semibold"
+              style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
+            >
+              <MessageCircle size={18} /> Group chat
+            </button>
+          )}
           <button type="button" className="px-3 rounded-xl" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }} aria-label="Share"><Share2 size={18} style={{ color: 'var(--fg)' }} /></button>
         </div>
 
@@ -407,16 +544,119 @@ export default function CommunityDetailPage({
         )}
 
         {tab === 'members' && (
-          <div className="space-y-2">
-            {members.map(m => (
-              <button key={m.userId} type="button" onClick={() => onOpenProfile?.(m.username)} className="w-full flex items-center gap-3 p-3 rounded-xl text-left" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-                {m.avatarUrl ? <img src={m.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" /> : <div className="w-9 h-9 rounded-full" style={{ background: 'var(--border)' }} />}
-                <div>
-                  <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>{m.displayName}</p>
-                  <p className="text-xs m-0 capitalize" style={{ color: 'var(--fg-muted)' }}>{m.role}</p>
+          <div className="space-y-4">
+            {actionError && (
+              <p className="text-xs m-0" style={{ color: '#E11D48' }} role="alert">{actionError}</p>
+            )}
+            {membersError && !members.length ? (
+              <p className="text-sm text-center py-8" style={{ color: 'var(--fg-muted)' }}>
+                Join this community to see members.
+              </p>
+            ) : (
+              <>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} />
+                  <input
+                    value={memberQuery}
+                    onChange={e => setMemberQuery(e.target.value)}
+                    placeholder="Search members"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm"
+                    style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
+                  />
                 </div>
-              </button>
-            ))}
+                {membersByRole.length === 0 ? (
+                  <p className="text-sm text-center py-6" style={{ color: 'var(--fg-muted)' }}>No members found.</p>
+                ) : (
+                  membersByRole.map(group => (
+                    <div key={group.key} className="space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-wide m-0" style={{ color: 'var(--fg-muted)' }}>
+                        {group.label}
+                      </p>
+                      {group.rows.map(m => {
+                        const isSelf = m.userId === viewerId
+                        const showManage = Boolean(community.canManage && m.role !== 'owner')
+                        return (
+                          <div
+                            key={m.userId}
+                            className="flex items-center gap-3 p-3 rounded-xl"
+                            style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => onOpenProfile?.(m.username)}
+                              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                            >
+                              {m.avatarUrl ? (
+                                <img src={m.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-9 h-9 rounded-full" style={{ background: 'var(--border)' }} />
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{m.displayName}</p>
+                                <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>@{m.username} · {m.role}</p>
+                              </div>
+                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {signedIn && !isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenDirectMessage?.(m.userId)}
+                                  className="p-2 rounded-lg"
+                                  style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
+                                  aria-label={`Message ${m.displayName}`}
+                                >
+                                  <MessageCircle size={14} />
+                                </button>
+                              )}
+                              {showManage && (
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    disabled={memberBusyId === m.userId}
+                                    onClick={() => setMemberMenuId(prev => (prev === m.userId ? null : m.userId))}
+                                    className="p-2 rounded-lg disabled:opacity-50"
+                                    style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
+                                    aria-label="Member actions"
+                                  >
+                                    {memberBusyId === m.userId ? <Loader2 size={14} className="animate-spin" /> : <MoreHorizontal size={14} />}
+                                  </button>
+                                  {memberMenuId === m.userId && (
+                                    <div
+                                      className="absolute right-0 top-full mt-1 w-44 rounded-xl p-1 z-20 shadow-lg"
+                                      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                                    >
+                                      {m.role !== 'admin' && (
+                                        <button type="button" className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'none', border: 'none', color: 'var(--fg)' }} onClick={() => void changeMemberRole(m.userId, 'admin')}>
+                                          Make admin
+                                        </button>
+                                      )}
+                                      {m.role !== 'moderator' && (
+                                        <button type="button" className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'none', border: 'none', color: 'var(--fg)' }} onClick={() => void changeMemberRole(m.userId, 'moderator')}>
+                                          Make moderator
+                                        </button>
+                                      )}
+                                      {m.role !== 'member' && (
+                                        <button type="button" className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'none', border: 'none', color: 'var(--fg)' }} onClick={() => void changeMemberRole(m.userId, 'member')}>
+                                          Make member
+                                        </button>
+                                      )}
+                                      <button type="button" className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'none', border: 'none', color: '#E11D48' }} onClick={() => void banMember(m.userId)}>
+                                        Ban from community
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -438,6 +678,9 @@ export default function CommunityDetailPage({
 
         {tab === 'manage' && canModerate && (
           <div className="space-y-6">
+            {community.canManage && (
+              <CommunityBrandingEditor community={community} onUpdated={setCommunity} />
+            )}
             {community.canManage && (
               <CommunityRulesEditor
                 communityId={community.id}

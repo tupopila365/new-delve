@@ -106,11 +106,20 @@ function stopDto(s: {
   notes: string
   highlights: string[]
   mediaUrls: string[]
+  mediaResourceTypes?: string[]
   transportModeToNext: string | null
   transportDurationToNext: string | null
   transportNotes: string | null
   historicalCostHint: string | null
 }): JourneyStopDto {
+  const urls = s.mediaUrls
+  const rawTypes = s.mediaResourceTypes ?? []
+  const mediaResourceTypes = urls.map((url, i) => {
+    const t = rawTypes[i]
+    if (t === 'video' || t === 'image') return t
+    if (/\.(mp4|webm|mov)(\?|$)/i.test(url) || /\/video\/upload\//i.test(url)) return 'video' as const
+    return 'image' as const
+  })
   return {
     id: s.id,
     sortOrder: s.sortOrder,
@@ -120,7 +129,8 @@ function stopDto(s: {
     durationDays: s.durationDays,
     notes: s.notes,
     highlights: s.highlights,
-    mediaUrls: s.mediaUrls,
+    mediaUrls: urls,
+    mediaResourceTypes,
     transportModeToNext: s.transportModeToNext,
     transportDurationToNext: s.transportDurationToNext,
     transportNotes: s.transportNotes,
@@ -389,6 +399,7 @@ export async function ensureJourneySeed() {
                 notes: stop.notes || '',
                 highlights: stop.highlights || [],
                 mediaUrls: stop.mediaUrls || [],
+                mediaResourceTypes: (stop.mediaResourceTypes || []).slice(0, (stop.mediaUrls || []).length),
                 transportModeToNext: stop.transportModeToNext ?? null,
                 transportDurationToNext: stop.transportDurationToNext ?? null,
                 transportNotes: stop.transportNotes ?? null,
@@ -632,6 +643,7 @@ export async function createJourney(userId: string, body: CreateJourneyBody): Pr
           notes: stop.notes?.trim() || '',
           highlights: stop.highlights || [],
           mediaUrls: stop.mediaUrls || [],
+          mediaResourceTypes: (stop.mediaResourceTypes || []).slice(0, (stop.mediaUrls || []).length),
           transportModeToNext: stop.transportModeToNext ?? null,
           transportDurationToNext: stop.transportDurationToNext ?? null,
           transportNotes: stop.transportNotes ?? null,
@@ -697,6 +709,7 @@ export async function updateJourney(
             notes: stop.notes?.trim() || '',
             highlights: stop.highlights || [],
             mediaUrls: stop.mediaUrls || [],
+            mediaResourceTypes: (stop.mediaResourceTypes || []).slice(0, (stop.mediaUrls || []).length),
             transportModeToNext: stop.transportModeToNext ?? null,
             transportDurationToNext: stop.transportDurationToNext ?? null,
             transportNotes: stop.transportNotes ?? null,

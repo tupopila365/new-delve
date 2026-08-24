@@ -247,7 +247,7 @@ export async function getPostDto(env: Env, postId: string, viewerId: string | nu
     where: { id: postId },
     include: {
       media: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
-      event: true,
+      event: { include: { coverMedia: { select: { resourceType: true } } } },
       journey: { include: { _count: { select: { stops: true } } } },
     },
   })
@@ -293,6 +293,12 @@ export async function getPostDto(env: Env, postId: string, viewerId: string | nu
           id: post.event.id,
           title: post.event.title,
           coverUrl: post.event.coverUrl,
+          coverResourceType:
+            post.event.coverMedia?.resourceType === 'video'
+              ? ('video' as const)
+              : post.event.coverUrl
+                ? ('image' as const)
+                : null,
           startAt: post.event.startAt.toISOString(),
           city: post.event.city,
           locationName: post.event.locationName,

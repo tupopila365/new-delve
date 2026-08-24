@@ -79,6 +79,8 @@ export function VideoPreviewPlayer({
   loop = false,
   fit = 'contain',
   className = '',
+  showControls = true,
+  fill = false,
 }: {
   src: string
   trimStart: number
@@ -100,6 +102,8 @@ export function VideoPreviewPlayer({
   loop?: boolean
   fit?: 'contain' | 'cover'
   className?: string
+  showControls?: boolean
+  fill?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<PlayerStatus>('loading')
@@ -170,7 +174,11 @@ export function VideoPreviewPlayer({
             : '4 / 5'
 
   return (
-    <div className={`relative w-full max-w-full min-w-0 overflow-hidden bg-black ${className}`} style={{ aspectRatio: aspect || '4 / 5' }}>
+    <div
+      className={`relative w-full max-w-full min-w-0 overflow-hidden bg-black ${className}`}
+      style={fill ? { height: '100%' } : { aspectRatio: aspect || '4 / 5' }}
+      onClick={() => onPlayingChange(!playing)}
+    >
       {status === 'loading' && posterUrl && <VideoPosterFrame src={posterUrl} />}
       {status === 'loading' && !posterUrl && <VideoLoadingState />}
       <video
@@ -234,19 +242,21 @@ export function VideoPreviewPlayer({
         </div>
       )}
       {status === 'failed' && <VideoPlaybackError message="Playback failed. The preview may be unsupported in this browser." onRetry={() => { setStatus('loading'); videoRef.current?.load() }} />}
-      <VideoPlaybackControls
-        playing={playing}
-        muted={muted}
-        current={currentTime}
-        duration={trimStart + duration}
-        trimStart={trimStart}
-        trimEnd={trimEnd}
-        fullscreen={fullscreen}
-        onTogglePlay={() => onPlayingChange(!playing)}
-        onToggleMute={() => onMutedChange(!muted)}
-        onSeek={onTimeUpdate}
-        onToggleFullscreen={() => setFullscreen(f => !f)}
-      />
+      {showControls && (
+        <VideoPlaybackControls
+          playing={playing}
+          muted={muted}
+          current={currentTime}
+          duration={trimStart + duration}
+          trimStart={trimStart}
+          trimEnd={trimEnd}
+          fullscreen={fullscreen}
+          onTogglePlay={() => onPlayingChange(!playing)}
+          onToggleMute={() => onMutedChange(!muted)}
+          onSeek={onTimeUpdate}
+          onToggleFullscreen={() => setFullscreen(f => !f)}
+        />
+      )}
       <span className="sr-only" aria-live="polite">{playing ? 'Playing' : 'Paused'}</span>
     </div>
   )

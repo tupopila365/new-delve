@@ -9,6 +9,7 @@ export type PurposePolicy = {
   mimeTypes: string[]
   requiresBusiness: boolean
   requiresListing: boolean
+  requiresEvent?: boolean
   /** When true, purpose is rejected until Day 3 models exist. */
   notYetAvailable?: boolean
 }
@@ -80,6 +81,15 @@ export function purposePolicies(env: Env): Record<MediaPurpose, PurposePolicy> {
       requiresBusiness: false,
       requiresListing: false,
     },
+    event: {
+      resourceType: 'auto',
+      maxBytes: env.CLOUDINARY_MAX_VIDEO_BYTES,
+      formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'webm', 'mov'],
+      mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime'],
+      requiresBusiness: false,
+      requiresListing: false,
+      requiresEvent: true,
+    },
   }
 }
 
@@ -89,6 +99,7 @@ export function chooseFolder(
   userId: string,
   businessId?: string,
   listingId?: string,
+  eventId?: string,
 ): string {
   const prefix = (env.CLOUDINARY_FOLDER_PREFIX || 'delve').replace(/\/$/, '')
   switch (purpose) {
@@ -106,6 +117,8 @@ export function chooseFolder(
       return `${prefix}/businesses/${businessId}/profiles`
     case 'listing':
       return `${prefix}/businesses/${businessId}/listings/${listingId}`
+    case 'event':
+      return `${prefix}/events/${eventId}`
     default:
       return `${prefix}/users/${userId}/misc`
   }

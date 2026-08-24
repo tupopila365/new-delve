@@ -26,6 +26,13 @@ export async function openJourneyConversation(journeyId: string) {
   )
 }
 
+export async function openCommunityConversation(communityId: string) {
+  return authorizedJson<ConversationSummary>(
+    `/communities/${encodeURIComponent(communityId)}/conversation`,
+    { method: 'POST', body: JSON.stringify({}) },
+  )
+}
+
 export async function fetchConversationMessages(conversationId: string, after?: string) {
   const qs = after ? `?after=${encodeURIComponent(after)}` : ''
   return authorizedJson<import('@delve/contracts').MessageThread>(

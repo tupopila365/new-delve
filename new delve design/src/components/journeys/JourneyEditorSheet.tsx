@@ -35,6 +35,7 @@ type StopDraft = {
   notes: string
   highlightsText: string
   mediaUrls: string[]
+  mediaResourceTypes: Array<'image' | 'video'>
   transportModeToNext: string
   transportDurationToNext: string
   transportNotes: string
@@ -54,6 +55,7 @@ function emptyStop(order: number): StopDraft {
     notes: '',
     highlightsText: '',
     mediaUrls: [],
+    mediaResourceTypes: [],
     transportModeToNext: '',
     transportDurationToNext: '',
     transportNotes: '',
@@ -97,6 +99,12 @@ function fromDetail(j: JourneyDetail): {
       notes: s.notes,
       highlightsText: s.highlights.join(', '),
       mediaUrls: s.mediaUrls,
+      mediaResourceTypes: s.mediaUrls.map((url, i) => {
+        const t = s.mediaResourceTypes?.[i]
+        if (t === 'video' || t === 'image') return t
+        if (/\.(mp4|webm|mov)(\?|$)/i.test(url) || /\/video\/upload\//i.test(url)) return 'video'
+        return 'image'
+      }),
       transportModeToNext: s.transportModeToNext || '',
       transportDurationToNext: s.transportDurationToNext || '',
       transportNotes: s.transportNotes || '',
@@ -168,6 +176,10 @@ function toBody(state: {
           .filter(Boolean)
           .slice(0, 20),
         mediaUrls: s.mediaUrls.filter(Boolean).slice(0, 10),
+        mediaResourceTypes: s.mediaUrls
+          .map((_, i) => s.mediaResourceTypes[i] || 'image')
+          .slice(0, s.mediaUrls.filter(Boolean).length)
+          .slice(0, 10),
         transportModeToNext: s.transportModeToNext.trim() || null,
         transportDurationToNext: s.transportDurationToNext.trim() || null,
         transportNotes: s.transportNotes.trim() || null,
@@ -636,8 +648,13 @@ export default function JourneyEditorSheet({
                 />
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {stop.mediaUrls.map((url, mi) => (
-                    <div key={`${url}-${mi}`} className="relative w-14 h-14 rounded-lg overflow-hidden">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    <div key={`${url}-${mi}`} className="relative w-14 h-14 rounded-lg overflow-hidden" style={{ background: '#000' }}>
+                      <JourneyCoverMedia
+                        url={url}
+                        resourceType={stop.mediaResourceTypes[mi] || 'image'}
+                        className="w-full h-full object-cover"
+                        variant="card"
+                      />
                       <button
                         type="button"
                         className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
@@ -645,6 +662,7 @@ export default function JourneyEditorSheet({
                         onClick={() =>
                           updateStop(index, {
                             mediaUrls: stop.mediaUrls.filter((_, i) => i !== mi),
+                            mediaResourceTypes: stop.mediaResourceTypes.filter((_, i) => i !== mi),
                           })
                         }
                       >
@@ -652,15 +670,21 @@ export default function JourneyEditorSheet({
                       </button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setStopMediaIndex(index)}
-                    className="w-14 h-14 rounded-lg flex items-center justify-center text-[10px] font-bold text-center leading-tight px-1"
-                    style={{ background: 'var(--surface-subtle)', color: 'var(--primary)', border: '1px dashed var(--border)' }}
-                  >
-                    + Studio
-                  </button>
+                  {stop.mediaUrls.length < 10 && (
+                    <button
+                      type="button"
+                      onClick={() => setStopMediaIndex(index)}
+                      className="w-14 h-14 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold text-center leading-tight px-1 gap-0.5"
+                      style={{ background: 'var(--surface-subtle)', color: 'var(--primary)', border: '1px dashed var(--border)' }}
+                    >
+                      <Camera size={14} />
+                      Add
+                    </button>
+                  )}
                 </div>
+                <p className="text-[10px] m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
+                  Photos & videos for this stop · {stop.mediaUrls.length}/10
+                </p>
                 {index < stops.length - 1 || stop.transportModeToNext ? (
                   <div className="grid grid-cols-2 gap-2">
                     <select
@@ -737,12 +761,22 @@ export default function JourneyEditorSheet({
         initialContext="journey-highlight"
         lockContext
         onMediaReady={(assets: MediaAssetDto[]) => {
-          const url = assets[0]?.delivery?.url
-          if (url && stopMediaIndex !== null) {
-            updateStop(stopMediaIndex, {
-              mediaUrls: [...(stops[stopMediaIndex]?.mediaUrls || []), url].slice(0, 10),
-            })
+          if (stopMediaIndex === null || !assets.length) {
+            setStopMediaIndex(null)
+            return
           }
+          const current = stops[stopMediaIndex]
+          const room = Math.max(0, 10 - (current?.mediaUrls.length || 0))
+          const batch = assets.slice(0, room)
+          const nextUrls = [...(current?.mediaUrls || []), ...batch.map(a => a.delivery.url)].slice(0, 10)
+          const nextTypes: Array<'image' | 'video'> = [
+            ...(current?.mediaResourceTypes || []),
+            ...batch.map(a => (a.resourceType === 'video' ? ('video' as const) : ('image' as const))),
+          ].slice(0, nextUrls.length)
+          updateStop(stopMediaIndex, {
+            mediaUrls: nextUrls,
+            mediaResourceTypes: nextTypes,
+          })
           setStopMediaIndex(null)
         }}
       />

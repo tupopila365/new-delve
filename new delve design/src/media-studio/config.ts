@@ -13,8 +13,9 @@ export const EXAMPLE_UPLOAD_LIMITS: UploadLimits = {
   maxFileSizeBytes: 250 * 1024 * 1024,
   maxDurationSec: 180,
   minDurationSec: 1,
-  minWidth: 480,
-  minHeight: 480,
+  // No practical floor — compressed / phone / landscape clips must not be blocked.
+  minWidth: 1,
+  minHeight: 1,
   maxClips: 10,
   audioSupported: true,
   allowMusic: true,

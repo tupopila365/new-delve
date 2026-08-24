@@ -1,6 +1,7 @@
 import { prisma } from '@delve/database'
 import { AppError } from '../../middleware/error-handler.js'
 import { createCommunityActivityNotification } from '../notifications/notify.js'
+import { removeCommunityChatParticipant } from '../message/message.service.js'
 import type { CommunityDto, CommunityMembershipStatus, CommunityType } from '@delve/contracts'
 
 type DbMembershipStatus = 'JOINED' | 'REQUESTED' | 'MODERATOR' | 'BANNED'
@@ -459,6 +460,7 @@ export async function leaveCommunity(userId: string, communityId: string) {
   }
 
   await prisma.communityMembership.delete({ where: { id: existing.id } })
+  await removeCommunityChatParticipant(communityId, userId)
 
   let memberCount = community.memberCount
   if (existing.status === 'JOINED') {

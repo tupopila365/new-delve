@@ -69,6 +69,8 @@ export interface Conversation {
   otherUserId?: string
   journeyId?: string
   journeySlug?: string
+  communityId?: string
+  communitySlug?: string
   draft?: string
   typing?: boolean
   contextLabel?: string

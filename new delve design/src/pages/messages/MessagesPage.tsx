@@ -153,22 +153,28 @@ export default function MessagesPage({
   onSignIn,
   openJourneyId = null,
   onJourneyOpened,
+  openCommunityId = null,
+  onCommunityOpened,
   openConversationId = null,
   onConversationOpened,
   openUserId = null,
   onUserOpened,
   onOpenJourney,
+  onOpenCommunity,
 }: {
   signedIn?: boolean
   authReady?: boolean
   onSignIn?: () => void
   openJourneyId?: string | null
   onJourneyOpened?: () => void
+  openCommunityId?: string | null
+  onCommunityOpened?: () => void
   openConversationId?: string | null
   onConversationOpened?: () => void
   openUserId?: string | null
   onUserOpened?: () => void
   onOpenJourney?: (journeyId: string) => void
+  onOpenCommunity?: (communityId: string) => void
 } = {}) {
   const liveEnabled = Boolean(signedIn && authReady)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -231,7 +237,7 @@ export default function MessagesPage({
   const showTyping = activeTyping.length > 0
   const cannotReply = active?.canReply === false
 
-  const liveFilterOnly = !['All', 'Unread', 'Personal', 'Requests', 'Journeys', 'Archived'].includes(filter)
+  const liveFilterOnly = !['All', 'Unread', 'Personal', 'Requests', 'Journeys', 'Communities', 'Archived'].includes(filter)
 
   const filtered = useMemo(() => {
     if (liveFilterOnly) return []
@@ -315,6 +321,22 @@ export default function MessagesPage({
         onJourneyOpened?.()
       })
   }, [liveEnabled, openJourneyId, live, onJourneyOpened, setConversations, setToast])
+
+  useEffect(() => {
+    if (!liveEnabled || !openCommunityId) return
+    void live.openCommunityChat(openCommunityId)
+      .then(id => {
+        setActiveId(id)
+        setView('thread')
+        setConversations(prev => prev.map(c => c.id === id ? { ...c, unread: 0 } : c))
+        void live.loadThread(id)
+        onCommunityOpened?.()
+      })
+      .catch(err => {
+        setToast(err instanceof Error ? err.message : 'Could not open community chat')
+        onCommunityOpened?.()
+      })
+  }, [liveEnabled, openCommunityId, live, onCommunityOpened, setConversations, setToast])
 
   function handleInputChange(value: string) {
     setInput(value)
@@ -571,11 +593,11 @@ export default function MessagesPage({
         </div>
       </header>
 
-      {(active.bookingRef || active.contextLabel || active.type === 'journey') && (
+      {(active.bookingRef || active.contextLabel || active.type === 'journey' || active.type === 'community') && (
         <div className="px-3 py-2 flex flex-col gap-2" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <div className="rounded-xl px-3 py-2" style={{ background: 'rgba(95,47,201,0.08)' }}>
             <p className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
-              {active.type === 'business' ? 'Booking context' : active.type === 'transport' ? 'Transport context' : active.type === 'journey' ? 'Journey chat' : 'Context'}
+              {active.type === 'business' ? 'Booking context' : active.type === 'transport' ? 'Transport context' : active.type === 'journey' ? 'Journey chat' : active.type === 'community' ? 'Community chat' : 'Context'}
             </p>
             <p className="text-xs break-anywhere" style={{ color: 'var(--fg-muted)' }}>
               {active.contextLabel}
@@ -598,6 +620,11 @@ export default function MessagesPage({
               <PillButton onClick={() => active.journeyId && onOpenJourney?.(active.journeyId)}>Open Journey</PillButton>
               <PillButton>Itinerary</PillButton>
               <PillButton>Shared bookings</PillButton>
+            </QuickActionRow>
+          )}
+          {active.type === 'community' && (
+            <QuickActionRow>
+              <PillButton onClick={() => active.communityId && onOpenCommunity?.(active.communityId)}>Open community</PillButton>
             </QuickActionRow>
           )}
         </div>

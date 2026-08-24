@@ -100,6 +100,8 @@ export function validateAgainstLimits(input: {
   if (kind === 'video') {
     if (duration > 0 && duration < limits.minDurationSec) return 'video-too-short'
     if (duration > limits.maxDurationSec) return 'video-too-long'
+    // Videos: do not enforce min resolution (WhatsApp compressions, phone clips, etc.).
+    return 'ready'
   }
   if (width > 0 && height > 0 && (width < limits.minWidth || height < limits.minHeight)) {
     return 'resolution-too-low'

@@ -11,6 +11,7 @@ import {
   markConversationRead,
   muteConversation,
   openJourneyConversation,
+  openCommunityConversation,
   sendConversationMessage,
   signalConversationTyping,
   unarchiveConversation,
@@ -59,6 +60,30 @@ export function summaryToConversation(s: ConversationSummary): Conversation {
       onlineAllowed: false,
       readReceiptsAllowed: true,
       contextLabel: `${j.durationDays} days · ${j.startPlace} → ${j.endPlace}`,
+    }
+  }
+
+  if (s.type === 'COMMUNITY') {
+    const c = s.community
+    return {
+      id: s.id,
+      type: 'community',
+      name: c.name,
+      handle: `${s.participantCount} in chat · ${c.memberCount.toLocaleString()} members`,
+      avatar: c.avatarUrl ?? c.coverUrl,
+      preview: s.preview,
+      time: relativeMessageTime(s.lastMessageAt),
+      unread: s.unreadCount,
+      muted: s.muted,
+      pinned: false,
+      verified: false,
+      archived: s.archived,
+      canReply: true,
+      communityId: c.id,
+      communitySlug: c.slug,
+      onlineAllowed: false,
+      readReceiptsAllowed: true,
+      contextLabel: c.privacy === 'PRIVATE' ? 'Private community chat' : 'Community chat',
     }
   }
 
@@ -388,6 +413,17 @@ export function useLiveMessages(enabled: boolean, activeConversationId: string |
     return conv.id
   }, [])
 
+  const openCommunityChat = useCallback(async (communityId: string) => {
+    const summary = await openCommunityConversation(communityId)
+    const conv = summaryToConversation(summary)
+    setConversations(prev => {
+      const exists = prev.some(c => c.id === conv.id)
+      return exists ? prev.map(c => (c.id === conv.id ? conv : c)) : [conv, ...prev]
+    })
+    setThreads(prev => ({ ...prev, [conv.id]: prev[conv.id] ?? [] }))
+    return conv.id
+  }, [])
+
   const acceptRequest = useCallback(async (conversationId: string) => {
     const summary = await acceptConversationRequest(conversationId)
     const conv = summaryToConversation(summary)
@@ -469,6 +505,7 @@ export function useLiveMessages(enabled: boolean, activeConversationId: string |
     signalTyping,
     startWithUser,
     openJourneyChat,
+    openCommunityChat,
     acceptRequest,
     declineRequest,
     blockOtherUser,

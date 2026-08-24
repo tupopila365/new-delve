@@ -16,6 +16,7 @@ import { AuthApiError } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
 import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
 import JourneyCoverMedia from '../components/journeys/JourneyCoverMedia'
+import JourneyStopMediaGallery from '../components/journeys/JourneyStopMediaGallery'
 import JourneyDetailSkeleton from '../components/journeys/JourneyDetailSkeleton'
 import CommentsSheet from '../components/comments/CommentsSheet'
 import { deriveJourneyLifecycle, lifecycleLabel } from '../components/journeys/journeyLifecycle'
@@ -457,9 +458,10 @@ export default function JourneyDetailPage({
               className="rounded-2xl overflow-hidden"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             >
-              {stop.mediaUrls[0] && (
-                <img src={stop.mediaUrls[0]} alt="" className="w-full h-36 object-cover" />
-              )}
+              <JourneyStopMediaGallery
+                mediaUrls={stop.mediaUrls}
+                mediaResourceTypes={stop.mediaResourceTypes}
+              />
               <div className="p-4">
                 <p className="text-xs font-bold m-0 mb-1" style={{ color: 'var(--primary)' }}>
                   Stop {i + 1} · Day {stop.arrivalDay}

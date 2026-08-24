@@ -17,6 +17,7 @@ import { mapPostComment } from '../components/comments/mappers'
 import ExpandableCaption from '../components/mobile/ExpandableCaption'
 import DelversStoryRail from '../components/delvers/DelversStoryRail'
 import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
+import EventCoverMedia from '../components/EventCoverMedia'
 import { DelversListSkeleton } from '../components/skeletons'
 import { formatUsername } from '../lib/formatUsername'
 import { AuthApiError } from '../api/authClient'
@@ -348,7 +349,12 @@ export default function DelversFeedPage({
                   }}
                 >
                   {post.linkedEvent.coverUrl ? (
-                    <img src={post.linkedEvent.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+                    <EventCoverMedia
+                      url={post.linkedEvent.coverUrl}
+                      resourceType={post.linkedEvent.coverResourceType}
+                      className="w-14 h-14 object-cover flex-shrink-0"
+                      controls={false}
+                    />
                   ) : (
                     <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
                   )}

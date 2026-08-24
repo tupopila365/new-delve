@@ -230,6 +230,25 @@ export async function createUploadSignature(
     }
   }
 
+  if (policy.requiresEvent) {
+    if (!body.eventId) {
+      throw new AppError(400, 'EVENT_ID_REQUIRED', 'eventId is required for this upload purpose.')
+    }
+    const event = await prisma.travelerEvent.findFirst({
+      where: { id: body.eventId },
+      select: { id: true, creatorId: true, status: true },
+    })
+    if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found.')
+    if (event.creatorId !== userId) {
+      const attendance = await prisma.eventAttendance.findUnique({
+        where: { eventId_userId: { eventId: body.eventId, userId } },
+      })
+      if (attendance?.status !== 'GOING') {
+        throw new AppError(403, 'FORBIDDEN', 'Join as Going to add media to this event.')
+      }
+    }
+  }
+
   const ext = normalizeFormat(extensionFromFilename(body.originalFilename))
   const mimeOk = policy.mimeTypes.includes(body.mimeType.toLowerCase())
   const formatOk = !ext || policy.formats.includes(ext)
@@ -251,7 +270,7 @@ export async function createUploadSignature(
     void AVATAR_QUOTA_NOTE
   }
 
-  const folder = chooseFolder(env, body.purpose, userId, body.businessId, body.listingId)
+  const folder = chooseFolder(env, body.purpose, userId, body.businessId, body.listingId, body.eventId)
   const ttl = env.CLOUDINARY_UPLOAD_SIGNATURE_TTL_SECONDS
   const expiresAt = new Date(Date.now() + ttl * 1000)
   const timestamp = Math.floor(Date.now() / 1000)
@@ -266,6 +285,7 @@ export async function createUploadSignature(
       folder,
       businessId: body.businessId,
       listingId: body.listingId,
+      eventId: body.eventId,
       originalFilename: body.originalFilename.slice(0, 255),
       reportedMimeType: body.mimeType.slice(0, 128),
       reportedBytes: body.bytes,
@@ -461,6 +481,7 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
         uploadedByUserId: userId,
         businessId: intent.businessId,
         listingId: intent.listingId,
+        eventId: intent.eventId,
         uploadIntentId: intent.id,
       },
     })
@@ -486,6 +507,36 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
         await tx.listing.update({
           where: { id: intent.listingId },
           data: { coverMediaId: created.id },
+        })
+      }
+    }
+
+    // First image for an event becomes cover when none is set.
+    if (
+      intent.purpose === 'event' &&
+      intent.eventId &&
+      (body.resourceType === 'image' || body.resourceType === 'auto')
+    ) {
+      const event = await tx.travelerEvent.findUnique({
+        where: { id: intent.eventId },
+        select: { coverMediaId: true },
+      })
+      if (event && !event.coverMediaId) {
+        const isVideo = created.resourceType === 'video'
+        const coverUrl = env.CLOUDINARY_CLOUD_NAME
+          ? buildDeliveryUrl({
+              cloudName: env.CLOUDINARY_CLOUD_NAME,
+              publicId: created.publicId,
+              version: created.version,
+              resourceType: created.resourceType,
+              width: isVideo ? undefined : 1600,
+              crop: isVideo ? undefined : 'fill',
+              gravity: isVideo ? undefined : 'auto',
+            })
+          : created.secureUrl
+        await tx.travelerEvent.update({
+          where: { id: intent.eventId },
+          data: { coverMediaId: created.id, coverUrl: coverUrl ?? created.secureUrl },
         })
       }
     }
@@ -551,6 +602,13 @@ export async function deleteMedia(env: Env, userId: string, mediaId: string) {
     await prisma.listing.updateMany({
       where: { id: row.listingId, coverMediaId: row.id },
       data: { coverMediaId: null },
+    })
+  }
+
+  if (row.eventId) {
+    await prisma.travelerEvent.updateMany({
+      where: { id: row.eventId, coverMediaId: row.id },
+      data: { coverMediaId: null, coverUrl: null },
     })
   }
 

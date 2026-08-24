@@ -11,6 +11,7 @@ import { AppError } from '../../middleware/error-handler.js'
 import { getPublicDeal } from '../deal/deal.service.js'
 import { createNotification } from '../notifications/notify.js'
 import { rateLimit } from '../auth/rate-limit.js'
+import { isActiveMember } from '../community/community-permissions.js'
 import { listTypingUserIds, setConversationTyping } from './message-typing.js'
 import { publishMessageStream } from './message-events.js'
 
@@ -38,6 +39,18 @@ const conversationInclude = {
       durationDays: true,
       visibility: true,
       authorId: true,
+      deletedAt: true,
+    },
+  },
+  community: {
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      avatarUrl: true,
+      coverUrl: true,
+      privacy: true,
+      memberCount: true,
       deletedAt: true,
     },
   },
@@ -200,11 +213,17 @@ async function resolveMessageMedia(userId: string, mediaId: string) {
 
 async function notifyMessageRecipients(
   senderId: string,
-  conversation: { id: string; type: 'DIRECT' | 'JOURNEY'; participants: { userId: string }[] },
+  conversation: { id: string; type: 'DIRECT' | 'JOURNEY' | 'COMMUNITY'; participants: { userId: string }[] },
   preview: string,
 ) {
   const sender = await authorCard(senderId)
   const snippet = preview.length > 120 ? `${preview.slice(0, 117)}…` : preview
+  const title =
+    conversation.type === 'JOURNEY'
+      ? 'New journey message'
+      : conversation.type === 'COMMUNITY'
+        ? 'New community message'
+        : 'New message'
   await Promise.all(
     conversation.participants.map(async participant => {
       if (participant.userId === senderId) return
@@ -215,7 +234,7 @@ async function notifyMessageRecipients(
       await createNotification({
         userId: participant.userId,
         type: 'MESSAGE_RECEIVED',
-        title: conversation.type === 'JOURNEY' ? 'New journey message' : 'New message',
+        title,
         body: `${sender.displayName}: ${snippet}`,
         entityType: 'conversation',
         entityId: conversation.id,
@@ -428,6 +447,58 @@ async function toJourneySummary(
   }
 }
 
+async function toCommunitySummary(
+  participant: {
+    archived: boolean
+    muted: boolean
+    lastReadAt: Date | null
+    conversation: {
+      id: string
+      lastMessageAt: Date | null
+      messages: { body: string; kind: DbMessageKind }[]
+      community: {
+        id: string
+        slug: string
+        name: string
+        avatarUrl: string | null
+        coverUrl: string | null
+        privacy: 'PUBLIC' | 'PRIVATE'
+        memberCount: number
+        deletedAt: Date | null
+      } | null
+      participants: { userId: string }[]
+    }
+  },
+  viewerId: string,
+): Promise<ConversationSummary | null> {
+  const community = participant.conversation.community
+  if (!community || community.deletedAt) return null
+  const last = participant.conversation.messages[0]
+  const unread = await unreadCount(participant.conversation.id, viewerId, participant.lastReadAt)
+  return {
+    id: participant.conversation.id,
+    type: 'COMMUNITY',
+    community: {
+      id: community.id,
+      slug: community.slug,
+      name: community.name,
+      avatarUrl: community.avatarUrl,
+      coverUrl: community.coverUrl,
+      privacy: community.privacy,
+      memberCount: community.memberCount,
+    },
+    participantCount: participant.conversation.participants.length,
+    preview: messagePreview(last) || 'No messages yet',
+    lastMessageAt: participant.conversation.lastMessageAt?.toISOString() ?? null,
+    unreadCount: unread,
+    muted: participant.muted,
+    archived: participant.archived,
+    requestStatus: 'ACCEPTED',
+    isInitiator: false,
+    canReply: true,
+  }
+}
+
 export async function listConversations(
   userId: string,
   archived = false,
@@ -455,6 +526,9 @@ export async function listConversations(
     rows.map(async row => {
       if (row.conversation.type === 'JOURNEY') {
         return toJourneySummary(row, userId)
+      }
+      if (row.conversation.type === 'COMMUNITY') {
+        return toCommunitySummary(row, userId)
       }
       const other = row.conversation.participants.find(p => p.userId !== userId)
       if (!other) return null
@@ -587,6 +661,78 @@ export async function getOrCreateJourneyConversation(
   const summary = await toJourneySummary(participant, userId)
   if (!summary) throw new AppError(404, 'NOT_FOUND', 'Conversation not found')
   return summary
+}
+
+export async function getOrCreateCommunityConversation(
+  userId: string,
+  communityId: string,
+): Promise<ConversationSummary> {
+  const community = await prisma.community.findFirst({
+    where: { id: communityId, deletedAt: null },
+  })
+  if (!community) throw new AppError(404, 'NOT_FOUND', 'Community not found.')
+
+  const membership = await prisma.communityMembership.findUnique({
+    where: { communityId_userId: { communityId, userId } },
+  })
+  if (
+    !isActiveMember(
+      membership
+        ? { status: membership.status, role: membership.role, mutedUntil: membership.mutedUntil }
+        : null,
+    )
+  ) {
+    throw new AppError(403, 'FORBIDDEN', 'Join this community to use the group chat.')
+  }
+
+  let conversation = await prisma.conversation.findFirst({
+    where: { type: 'COMMUNITY', communityId },
+    include: conversationInclude,
+  })
+
+  if (!conversation) {
+    conversation = await prisma.conversation.create({
+      data: {
+        type: 'COMMUNITY',
+        communityId,
+        requestStatus: 'ACCEPTED',
+      },
+      include: conversationInclude,
+    })
+  }
+
+  const existingParticipant = await prisma.conversationParticipant.findUnique({
+    where: { conversationId_userId: { conversationId: conversation.id, userId } },
+  })
+  if (!existingParticipant) {
+    await prisma.conversationParticipant.create({
+      data: { conversationId: conversation.id, userId },
+    })
+    conversation = await prisma.conversation.findUniqueOrThrow({
+      where: { id: conversation.id },
+      include: conversationInclude,
+    })
+  }
+
+  const participant = await prisma.conversationParticipant.findUnique({
+    where: { conversationId_userId: { conversationId: conversation.id, userId } },
+    include: { conversation: { include: conversationInclude } },
+  })
+  if (!participant) throw new AppError(404, 'NOT_FOUND', 'Conversation not found')
+  const summary = await toCommunitySummary(participant, userId)
+  if (!summary) throw new AppError(404, 'NOT_FOUND', 'Conversation not found')
+  return summary
+}
+
+export async function removeCommunityChatParticipant(communityId: string, userId: string) {
+  const conversation = await prisma.conversation.findFirst({
+    where: { type: 'COMMUNITY', communityId },
+    select: { id: true },
+  })
+  if (!conversation) return
+  await prisma.conversationParticipant.deleteMany({
+    where: { conversationId: conversation.id, userId },
+  })
 }
 
 export async function listMessages(

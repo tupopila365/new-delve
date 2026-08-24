@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { X } from 'lucide-react'
-import type { CommunityCategory, CreateCommunityBody } from '@delve/contracts'
+import { Image as ImageIcon, Upload, X } from 'lucide-react'
+import type { CommunityCategory, CreateCommunityBody, MediaAssetDto } from '@delve/contracts'
 import { createCommunity } from '../../api/communityClient'
 import { AuthApiError } from '../../api/authClient'
+import MediaStudio from '../../pages/MediaStudio'
 import { COMMUNITY_CATEGORIES } from './communityCategories'
 
 function slugify(name: string) {
@@ -33,6 +34,10 @@ export default function CreateCommunitySheet({
   const [isGlobal, setIsGlobal] = useState(true)
   const [privacy, setPrivacy] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC')
   const [requireJoinApproval, setRequireJoinApproval] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [avatarStudioOpen, setAvatarStudioOpen] = useState(false)
+  const [coverStudioOpen, setCoverStudioOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,6 +45,15 @@ export default function CreateCommunitySheet({
   const effectiveSlug = slugTouched ? slug : autoSlug
 
   if (!open) return null
+
+  function resetForm() {
+    setName('')
+    setSlug('')
+    setSlugTouched(false)
+    setDescription('')
+    setAvatarUrl(null)
+    setCoverUrl(null)
+  }
 
   async function submit() {
     if (!name.trim() || !effectiveSlug) return
@@ -57,13 +71,13 @@ export default function CreateCommunitySheet({
         destination: isGlobal ? 'Worldwide' : city.trim() || country.trim() || 'Unknown',
         privacy,
         requireJoinApproval,
+        avatarUrl: avatarUrl || undefined,
+        coverUrl: coverUrl || undefined,
       }
       const created = await createCommunity(body)
       onCreated(created.id)
       onClose()
-      setName('')
-      setSlug('')
-      setDescription('')
+      resetForm()
     } catch (err) {
       setError(err instanceof AuthApiError || err instanceof Error ? err.message : 'Could not create community')
     } finally {
@@ -113,6 +127,60 @@ export default function CreateCommunitySheet({
         <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>Short description</label>
         <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} style={inputStyle} className="mb-3 resize-none" />
 
+        <div className="mb-4 p-3 rounded-xl space-y-3" style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)' }}>
+          <p className="text-xs font-semibold m-0" style={{ color: 'var(--fg-muted)' }}>Branding (optional)</p>
+          <div className="flex items-center gap-3">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-14 h-14 rounded-2xl object-cover" />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--border)' }}>
+                <Upload size={16} style={{ color: 'var(--fg-muted)' }} />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setAvatarStudioOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+              >
+                {avatarUrl ? 'Replace photo' : 'Add photo'}
+              </button>
+              {avatarUrl && (
+                <button type="button" onClick={() => setAvatarUrl(null)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ border: '1px solid var(--border)', color: 'var(--fg-muted)' }}>
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="relative w-full overflow-hidden rounded-xl mb-2" style={{ aspectRatio: '16 / 9', background: 'var(--surface)' }}>
+              {coverUrl ? (
+                <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(140,82,255,0.25), rgba(0,0,0,0.15))' }}>
+                  <ImageIcon size={20} style={{ color: 'var(--fg-muted)' }} />
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setCoverStudioOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+              >
+                {coverUrl ? 'Replace banner' : 'Add banner'}
+              </button>
+              {coverUrl && (
+                <button type="button" onClick={() => setCoverUrl(null)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ border: '1px solid var(--border)', color: 'var(--fg-muted)' }}>
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>Category</label>
         <select value={category} onChange={e => setCategory(e.target.value as CommunityCategory)} style={inputStyle} className="mb-3">
           {COMMUNITY_CATEGORIES.map(c => (
@@ -153,6 +221,29 @@ export default function CreateCommunitySheet({
           {busy ? 'Creating…' : 'Create Community'}
         </button>
       </div>
+
+      <MediaStudio
+        open={avatarStudioOpen}
+        onClose={() => setAvatarStudioOpen(false)}
+        initialContext="community"
+        lockContext
+        onMediaReady={(assets: MediaAssetDto[]) => {
+          const url = assets[0]?.delivery?.url
+          setAvatarStudioOpen(false)
+          if (url) setAvatarUrl(url)
+        }}
+      />
+      <MediaStudio
+        open={coverStudioOpen}
+        onClose={() => setCoverStudioOpen(false)}
+        initialContext="community"
+        lockContext
+        onMediaReady={(assets: MediaAssetDto[]) => {
+          const url = assets[0]?.delivery?.url
+          setCoverStudioOpen(false)
+          if (url) setCoverUrl(url)
+        }}
+      />
     </div>
   )
 }

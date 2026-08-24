@@ -22,6 +22,7 @@ export type StudioUploadOptions = {
   purpose: MediaPurpose
   businessId?: string
   listingId?: string
+  eventId?: string
   onProgress?: (ratio: number) => void
   signal?: AbortSignal
 }
@@ -112,6 +113,9 @@ export async function uploadStudioMediaFiles(
       throw new Error('Listing uploads need a business and listing.')
     }
   }
+  if (purpose === 'event' && !options.eventId) {
+    throw new Error('Event uploads need an event id.')
+  }
   if (purpose === 'business_profile' && !options.businessId) {
     throw new Error('Business media needs a business id.')
   }
@@ -129,6 +133,7 @@ export async function uploadStudioMediaFiles(
       bytes: file.size,
       ...(options.businessId ? { businessId: options.businessId } : {}),
       ...(options.listingId ? { listingId: options.listingId } : {}),
+      ...(options.eventId ? { eventId: options.eventId } : {}),
     })
     const result = await uploadFileToCloudinary(file, sign, {
       signal: options.signal,

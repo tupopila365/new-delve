@@ -86,6 +86,24 @@ export async function listCommunityMembers(communityId: string) {
   return authorizedJson<CommunityMember[]>(`/communities/${encodeURIComponent(communityId)}/members`)
 }
 
+export async function updateCommunityMemberRole(
+  communityId: string,
+  userId: string,
+  role: CommunityMember['role'],
+) {
+  return authorizedJson<{ ok: boolean }>(
+    `/communities/${encodeURIComponent(communityId)}/members/${encodeURIComponent(userId)}/role`,
+    { method: 'PATCH', body: JSON.stringify({ role }) },
+  )
+}
+
+export async function banCommunityMember(communityId: string, userId: string, reason?: string) {
+  return authorizedJson<{ ok: boolean }>(
+    `/communities/${encodeURIComponent(communityId)}/members/${encodeURIComponent(userId)}/ban`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  )
+}
+
 export async function createCommunityReport(communityId: string, body: CreateCommunityReportBody) {
   return authorizedJson<{ id: string }>(`/communities/${encodeURIComponent(communityId)}/reports`, {
     method: 'POST',

@@ -25,6 +25,18 @@ export const journeyChatContextSchema = z.object({
 
 export type JourneyChatContext = z.infer<typeof journeyChatContextSchema>
 
+export const communityChatContextSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  avatarUrl: z.string().nullable(),
+  coverUrl: z.string().nullable(),
+  privacy: z.enum(['PUBLIC', 'PRIVATE']),
+  memberCount: z.number().int().nonnegative(),
+})
+
+export type CommunityChatContext = z.infer<typeof communityChatContextSchema>
+
 const conversationBaseSchema = z.object({
   id: z.string(),
   preview: z.string(),
@@ -55,9 +67,21 @@ export const journeyConversationSummarySchema = conversationBaseSchema.extend({
 
 export type JourneyConversationSummary = z.infer<typeof journeyConversationSummarySchema>
 
+export const communityConversationSummarySchema = conversationBaseSchema.extend({
+  type: z.literal('COMMUNITY'),
+  community: communityChatContextSchema,
+  participantCount: z.number().int().nonnegative(),
+  requestStatus: z.literal('ACCEPTED'),
+  isInitiator: z.literal(false),
+  canReply: z.literal(true),
+})
+
+export type CommunityConversationSummary = z.infer<typeof communityConversationSummarySchema>
+
 export const conversationSummarySchema = z.discriminatedUnion('type', [
   directConversationSummarySchema,
   journeyConversationSummarySchema,
+  communityConversationSummarySchema,
 ])
 
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>
@@ -114,11 +138,14 @@ export const createConversationBodySchema = z
   .object({
     participantUserId: z.string().min(1).optional(),
     journeyId: z.string().min(1).optional(),
+    communityId: z.string().min(1).optional(),
   })
   .strict()
-  .refine(data => Boolean(data.participantUserId) !== Boolean(data.journeyId), {
-    message: 'Provide either participantUserId or journeyId.',
-  })
+  .refine(
+    data =>
+      [data.participantUserId, data.journeyId, data.communityId].filter(Boolean).length === 1,
+    { message: 'Provide exactly one of participantUserId, journeyId, or communityId.' },
+  )
 
 export type CreateConversationBody = z.infer<typeof createConversationBodySchema>
 

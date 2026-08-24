@@ -282,6 +282,7 @@ export function MediaSequenceEditor({
   coverId,
   sharedCaption,
   onCaption,
+  maxItems = 10,
 }: {
   items: { id: string; kind: 'image' | 'video'; thumb: string; label: string; status: string }[]
   onReorder: (from: number, to: number) => void
@@ -292,34 +293,143 @@ export function MediaSequenceEditor({
   coverId: string | null
   sharedCaption: string
   onCaption: (c: string) => void
+  maxItems?: number
 }) {
+  const canAdd = items.length < maxItems
+  const cover = items.find(i => i.id === coverId) || items[0]
+
   return (
-    <div className="p-4 max-w-xl mx-auto w-full flex flex-col gap-3">
-      <h3 className="text-lg font-bold m-0" style={{ fontFamily: 'Syne, sans-serif' }}>Mixed-media carousel</h3>
-      <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>Reorder, remove, and edit each item independently. Music applies only when the publishing context supports it.</p>
-      <div className="flex gap-2 overflow-x-auto scroll-rail pb-1">
-        {items.map((item, index) => (
-          <div key={item.id} className="shrink-0 w-28">
-            <button type="button" className="w-28 h-36 rounded-xl overflow-hidden relative" style={{ border: coverId === item.id ? '2px solid var(--primary)' : '1px solid var(--border)' }} onClick={() => onEdit(item.id)}>
-              {item.kind === 'video' ? (
-                <video src={item.thumb} className="h-full w-full object-cover" muted playsInline />
-              ) : (
-                <img src={item.thumb} alt="" className="h-full w-full object-cover" />
-              )}
-              <span className="absolute top-1 left-1 text-[10px] px-1 rounded bg-black/60 text-white">{item.kind}</span>
-              <span className="absolute bottom-1 left-1 right-1 text-[10px] text-white truncate">{item.status}</span>
-            </button>
-            <div className="flex gap-1 mt-1">
-              <button type="button" className="flex-1 min-h-[36px] text-[10px] rounded-lg" style={{ border: '1px solid var(--border)' }} disabled={index === 0} onClick={() => onReorder(index, index - 1)}>←</button>
-              <button type="button" className="flex-1 min-h-[36px] text-[10px] rounded-lg" style={{ border: '1px solid var(--border)' }} onClick={() => onSetCover(item.id)}>Cover</button>
-              <button type="button" className="flex-1 min-h-[36px] text-[10px] rounded-lg" style={{ border: '1px solid var(--border)', color: '#C83B3B' }} onClick={() => onRemove(item.id)}>✕</button>
-            </div>
+    <div className="p-4 max-w-xl mx-auto w-full flex flex-col gap-4">
+      <div
+        className="relative w-full overflow-hidden rounded-2xl"
+        style={{ aspectRatio: '4 / 5', background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
+      >
+        {cover ? (
+          cover.kind === 'video' ? (
+            <video src={cover.thumb} className="h-full w-full object-cover" muted playsInline loop autoPlay />
+          ) : (
+            <img src={cover.thumb} alt="" className="h-full w-full object-cover" />
+          )
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-sm" style={{ color: 'var(--fg-muted)' }}>
+            Add photos or videos
           </div>
-        ))}
-        <button type="button" onClick={onAdd} className="shrink-0 w-28 h-36 rounded-xl flex items-center justify-center text-sm font-semibold" style={{ border: '2px dashed var(--border)' }}>Add</button>
+        )}
+        {items.length > 1 && (
+          <span
+            className="absolute top-3 right-3 text-[11px] font-semibold px-2 py-1 rounded-full text-white"
+            style={{ background: 'rgba(0,0,0,0.55)' }}
+          >
+            {items.length}/{maxItems}
+          </span>
+        )}
       </div>
-      <label className="text-xs font-semibold flex flex-col gap-1">Shared caption
-        <textarea value={sharedCaption} onChange={e => onCaption(e.target.value)} rows={2} className="rounded-xl px-3 py-2.5 text-sm" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }} />
+
+      <div>
+        <p className="text-xs font-semibold m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
+          {items.length} of {maxItems} · tap to edit · drag order with arrows
+        </p>
+        <div className="flex gap-2 overflow-x-auto scroll-rail pb-1">
+          {items.map((item, index) => (
+            <div key={item.id} className="shrink-0 w-20">
+              <button
+                type="button"
+                className="w-20 h-24 rounded-xl overflow-hidden relative"
+                style={{
+                  border: coverId === item.id ? '2px solid var(--primary)' : '1px solid var(--border)',
+                  padding: 0,
+                  cursor: 'pointer',
+                  background: 'transparent',
+                }}
+                onClick={() => onEdit(item.id)}
+              >
+                {item.kind === 'video' ? (
+                  <video src={item.thumb} className="h-full w-full object-cover" muted playsInline />
+                ) : (
+                  <img src={item.thumb} alt="" className="h-full w-full object-cover" />
+                )}
+                <span className="absolute top-1 left-1 text-[9px] px-1 rounded bg-black/60 text-white">
+                  {index + 1}
+                </span>
+                {item.kind === 'video' && (
+                  <span className="absolute bottom-1 right-1 text-[9px] px-1 rounded bg-black/60 text-white">▶</span>
+                )}
+              </button>
+              <div className="flex gap-0.5 mt-1">
+                <button
+                  type="button"
+                  className="flex-1 min-h-[32px] text-[10px] rounded-lg"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: index === 0 ? 'default' : 'pointer', opacity: index === 0 ? 0.4 : 1 }}
+                  disabled={index === 0}
+                  onClick={() => onReorder(index, index - 1)}
+                  aria-label="Move left"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 min-h-[32px] text-[10px] rounded-lg"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: index === items.length - 1 ? 'default' : 'pointer', opacity: index === items.length - 1 ? 0.4 : 1 }}
+                  disabled={index === items.length - 1}
+                  onClick={() => onReorder(index, index + 1)}
+                  aria-label="Move right"
+                >
+                  →
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 min-h-[32px] text-[10px] rounded-lg"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: '#C83B3B', cursor: 'pointer' }}
+                  onClick={() => onRemove(item.id)}
+                  aria-label="Remove"
+                >
+                  ✕
+                </button>
+              </div>
+              <button
+                type="button"
+                className="w-full mt-0.5 min-h-[28px] text-[10px] rounded-lg font-semibold"
+                style={{
+                  border: 'none',
+                  background: coverId === item.id ? 'rgba(140,82,255,0.15)' : 'transparent',
+                  color: coverId === item.id ? 'var(--primary)' : 'var(--fg-muted)',
+                  cursor: 'pointer',
+                }}
+                onClick={() => onSetCover(item.id)}
+              >
+                {coverId === item.id ? 'Cover' : 'Set cover'}
+              </button>
+            </div>
+          ))}
+          {canAdd && (
+            <button
+              type="button"
+              onClick={onAdd}
+              className="shrink-0 w-20 h-24 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-semibold"
+              style={{
+                border: '2px dashed var(--border)',
+                background: 'var(--surface-subtle)',
+                color: 'var(--fg)',
+                cursor: 'pointer',
+              }}
+            >
+              <span className="text-lg leading-none">+</span>
+              Add
+            </button>
+          )}
+        </div>
+      </div>
+
+      <label className="text-xs font-semibold flex flex-col gap-1">
+        Caption
+        <textarea
+          value={sharedCaption}
+          onChange={e => onCaption(e.target.value)}
+          rows={2}
+          placeholder="Write a caption…"
+          className="rounded-xl px-3 py-2.5 text-sm"
+          style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+        />
       </label>
     </div>
   )

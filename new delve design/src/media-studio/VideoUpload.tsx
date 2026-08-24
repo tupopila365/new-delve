@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import {
   AlertTriangle, Camera, FileVideo, Loader2, Mic, RotateCcw,
-  Square, Upload, Video, X,
+  Square, Upload, X,
 } from 'lucide-react'
 import { newId } from './config'
 import { detectMimeKind, orientationOf, readVideoMetadata, validateAgainstLimits } from './detect'
@@ -259,14 +259,22 @@ export function RecordVideoFlow({
   const [paused, setPaused] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [switching, setSwitching] = useState(false)
   const titleId = useId()
+
+  function stopStream() {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+  }
 
   useEffect(() => {
     return () => {
-      streamRef.current?.getTracks().forEach(t => t.stop())
+      stopStream()
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
-  }, [previewUrl])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount cleanup only
+  }, [])
 
   useEffect(() => {
     if (!recording || paused) return
@@ -282,15 +290,26 @@ export function RecordVideoFlow({
     return () => clearInterval(iv)
   }, [recording, paused, maxDurationSec])
 
-  async function startCamera() {
+  async function startCamera(nextFacing: 'user' | 'environment' = facing) {
     setCamPerm('requesting')
     setMicPerm('requesting')
+    stopStream()
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
-        audio: true,
-      })
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: nextFacing } },
+          audio: true,
+        })
+      } catch {
+        // Fallback without facing constraint (desktop / single-camera devices)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        })
+      }
       streamRef.current = stream
+      setFacing(nextFacing)
       setCamPerm('granted')
       setMicPerm('granted')
       if (videoRef.current) {
@@ -300,6 +319,21 @@ export function RecordVideoFlow({
     } catch {
       setCamPerm('denied')
       setMicPerm('denied')
+    }
+  }
+
+  async function switchCamera() {
+    if (recording || previewUrl || switching) return
+    const next = facing === 'user' ? 'environment' : 'user'
+    setSwitching(true)
+    try {
+      if (camPerm === 'granted' || camPerm === 'idle') {
+        await startCamera(next)
+      } else {
+        setFacing(next)
+      }
+    } finally {
+      setSwitching(false)
     }
   }
 
@@ -315,8 +349,7 @@ export function RecordVideoFlow({
       const blob = new Blob(chunksRef.current, { type: mime })
       const url = URL.createObjectURL(blob)
       setPreviewUrl(url)
-      stream.getTracks().forEach(t => t.stop())
-      if (videoRef.current) videoRef.current.srcObject = null
+      stopStream()
     }
     rec.start(200)
     setElapsed(0)
@@ -352,19 +385,34 @@ export function RecordVideoFlow({
       .then(blob => onCaptured(new File([blob], `recording-${Date.now()}.webm`, { type: blob.type || 'video/webm' })))
   }
 
+  const canSwitch = !recording && !previewUrl && camPerm !== 'denied' && camPerm !== 'permanent'
+
   return (
     <div className="fixed inset-0 z-[320] flex flex-col" style={{ background: '#0C0A09', color: '#FFFAF2' }} role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <div className="flex items-center justify-between px-3 py-3" style={{ borderBottom: '1px solid #39322E' }}>
         <button type="button" className="min-w-[44px] min-h-[44px]" onClick={onCancel} aria-label="Close recorder"><X size={22} /></button>
         <h2 id={titleId} className="text-base font-bold m-0" style={{ fontFamily: 'Syne, sans-serif' }}>Record video</h2>
-        <button type="button" className="min-w-[44px] min-h-[44px]" onClick={() => setFacing(f => f === 'user' ? 'environment' : 'user')} aria-label="Switch camera">
-          <RotateCcw size={18} />
+        <button
+          type="button"
+          className="min-w-[44px] min-h-[44px] disabled:opacity-40"
+          disabled={!canSwitch || switching}
+          onClick={() => void switchCamera()}
+          aria-label={facing === 'user' ? 'Switch to back camera' : 'Switch to front camera'}
+          title={facing === 'user' ? 'Back camera' : 'Front camera'}
+        >
+          {switching ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
         </button>
       </div>
 
       <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
         {!previewUrl ? (
-          <video ref={videoRef} className="max-h-full max-w-full" muted playsInline />
+          <video
+            ref={videoRef}
+            className="max-h-full max-w-full"
+            muted
+            playsInline
+            style={facing === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+          />
         ) : (
           <video src={previewUrl} className="max-h-full max-w-full" controls playsInline />
         )}
@@ -372,6 +420,12 @@ export function RecordVideoFlow({
           <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2" style={{ background: 'rgba(200,59,59,0.9)' }}>
             <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
             {formatTime(elapsed)} / {formatTime(maxDurationSec)}
+          </div>
+        )}
+        {camPerm === 'granted' && !previewUrl && !recording && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[11px] font-semibold"
+            style={{ background: 'rgba(0,0,0,0.55)', color: '#FFFAF2' }}>
+            {facing === 'user' ? 'Front camera' : 'Back camera'}
           </div>
         )}
       </div>
@@ -387,7 +441,15 @@ export function RecordVideoFlow({
         )}
         {camPerm === 'granted' && !previewUrl && (
           <div className="flex items-center justify-center gap-4">
-            <div className="flex items-center gap-1 text-xs" style={{ color: '#B8ADA3' }}><Video size={14} /> Camera</div>
+            <button
+              type="button"
+              className="min-h-[44px] px-3 rounded-xl text-xs font-semibold disabled:opacity-40"
+              style={{ border: '1px solid #39322E' }}
+              disabled={recording || switching}
+              onClick={() => void switchCamera()}
+            >
+              {facing === 'user' ? 'Use back' : 'Use front'}
+            </button>
             <div className="flex items-center gap-1 text-xs" style={{ color: '#B8ADA3' }}><Mic size={14} /> Mic</div>
             {!recording ? (
               <button type="button" className="h-16 w-16 rounded-full border-4 border-white flex items-center justify-center" onClick={startRecording} aria-label="Record">
@@ -408,7 +470,7 @@ export function RecordVideoFlow({
         {previewUrl && (
           <div className="flex gap-2">
             <button type="button" className="flex-1 min-h-[48px] rounded-xl font-semibold" style={{ border: '1px solid #39322E' }}
-              onClick={() => { setPreviewUrl(null); setElapsed(0); void startCamera() }}>Retake</button>
+              onClick={() => { setPreviewUrl(null); setElapsed(0); void startCamera(facing) }}>Retake</button>
             <button type="button" className="flex-1 min-h-[48px] rounded-xl font-semibold text-white" style={{ background: 'var(--primary, #8C52FF)' }} onClick={useVideo}>Use video</button>
           </div>
         )}
