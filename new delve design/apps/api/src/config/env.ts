@@ -45,6 +45,11 @@ const envSchema = z
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     STRIPE_CONNECT_COUNTRY: z.string().optional(),
     DELVE_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10000).default(1000),
+    RECONCILIATION_STALE_MINUTES: z.coerce.number().int().positive().default(15),
+    RECONCILIATION_BATCH_LIMIT: z.coerce.number().int().positive().max(200).default(40),
+    RECONCILIATION_INTERVAL_MINUTES: z.coerce.number().int().positive().default(20),
+    RECONCILIATION_SCHEDULE_ENABLED: z.string().optional(),
+    RECONCILIATION_JOB_SECRET: z.string().optional(),
   })
   .superRefine((value, ctx) => {
     const appEnv = value.APP_ENV ?? (value.NODE_ENV === 'production' ? 'production' : 'development')
@@ -106,6 +111,7 @@ export type Env = Omit<
   storageConfigured: boolean
   cloudinaryConfigured: boolean
   stripeConfigured: boolean
+  reconciliationScheduleEnabled: boolean
   TRUST_GEO_HEADERS: boolean
   /** Explicit admin-web origin for CORS and CSRF checks. */
   ADMIN_WEB_ORIGIN: string
@@ -136,6 +142,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       value.CLOUDINARY_API_SECRET?.trim(),
   )
   const stripeConfigured = Boolean(value.STRIPE_SECRET_KEY?.trim())
+  const scheduleRaw = value.RECONCILIATION_SCHEDULE_ENABLED?.trim().toLowerCase()
+  const reconciliationScheduleEnabled =
+    scheduleRaw === 'true' || scheduleRaw === '1'
+      ? true
+      : scheduleRaw === 'false' || scheduleRaw === '0'
+        ? false
+        : value.NODE_ENV !== 'test'
   const raw = value.TRUST_GEO_HEADERS?.trim().toLowerCase()
   const trustGeo =
     raw === 'true' || raw === '1'
@@ -150,6 +163,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     storageConfigured,
     cloudinaryConfigured,
     stripeConfigured,
+    reconciliationScheduleEnabled,
     TRUST_GEO_HEADERS: trustGeo,
     ADMIN_WEB_ORIGIN: value.ADMIN_WEB_ORIGIN?.trim() || value.ADMIN_WEB_URL,
     STRIPE_CONNECT_COUNTRY: value.STRIPE_CONNECT_COUNTRY?.trim().toUpperCase() || undefined,

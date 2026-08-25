@@ -1,8 +1,10 @@
 import { createApp } from './app.js'
 import { loadEnv } from './config/env.js'
+import { startReconciliationScheduler } from './jobs/reconciliation-scheduler.js'
 
 const env = loadEnv()
 const app = createApp(env)
+const stopReconciliation = startReconciliationScheduler(env)
 
 /** Heroku (and most PaaS) inject PORT. Prefer it over API_PORT. */
 const port = Number(process.env.PORT) || env.API_PORT
@@ -20,6 +22,7 @@ async function shutdown(signal: string) {
   console.log(`[delve-api] ${signal} received — shutting down`)
 
   server.close(err => {
+    stopReconciliation()
     if (err) {
       console.error('[delve-api] error during shutdown', err)
       process.exit(1)

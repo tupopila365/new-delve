@@ -13,6 +13,7 @@ import {
 } from './payment.service.js'
 import { applyRefundStripeStatus } from './refund.service.js'
 import { applyTransferReversedWebhook } from './transfer-reversal.service.js'
+import { applyStripeDisputeEvent } from './dispute.service.js'
 
 function metadataString(meta: Stripe.Metadata | null | undefined, key: string): string | null {
   const value = meta?.[key]
@@ -180,6 +181,15 @@ export async function handleStripeWebhook(env: Env, rawBody: Buffer, signature: 
           nested?.id ?? null,
           metadataString(nested?.metadata, 'transferReversalId') || metadataString(transfer.metadata, 'transferReversalId'),
         )
+        break
+      }
+      case 'charge.dispute.created':
+      case 'charge.dispute.updated':
+      case 'charge.dispute.closed':
+      case 'charge.dispute.funds_reinstated':
+      case 'charge.dispute.funds_withdrawn': {
+        const dispute = event.data.object as Stripe.Dispute
+        await applyStripeDisputeEvent(event, dispute)
         break
       }
       default:

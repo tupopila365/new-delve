@@ -33,6 +33,11 @@ export type NotificationType =
   | 'REFUND_SUCCEEDED'
   | 'REFUND_FAILED'
   | 'SETTLEMENT_REVERSED'
+  | 'PAYMENT_DISPUTE_OPENED'
+  | 'PAYMENT_DISPUTE_WON'
+  | 'PAYMENT_DISPUTE_LOST'
+  | 'PAYMENT_DISPUTE_BLOCKED'
+  | 'PAYMENT_DISPUTE_REVERSED'
 
 export async function createNotification(input: {
   userId: string

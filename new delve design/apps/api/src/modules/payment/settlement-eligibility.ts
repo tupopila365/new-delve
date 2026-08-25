@@ -14,6 +14,7 @@ export type EligibilityInput = {
   stripePayoutsEnabled: boolean
   stripeDetailsSubmitted: boolean
   hasActiveCancellationOrRefund: boolean
+  hasActiveDispute?: boolean
 }
 
 export function evaluateSettlementEligibility(input: EligibilityInput): {
@@ -64,6 +65,15 @@ export function evaluateSettlementEligibility(input: EligibilityInput): {
       eligible: false,
       code: 'REFUND_IN_PROGRESS',
       reason: 'Traveler refund/cancellation is in progress. Settlement cannot be released.',
+      retryable: false,
+      nextStatus: 'BLOCKED',
+    }
+  }
+  if (input.hasActiveDispute) {
+    return {
+      eligible: false,
+      code: 'ACTIVE_DISPUTE',
+      reason: 'An active payment dispute requires attention. Settlement cannot be released.',
       retryable: false,
       nextStatus: 'BLOCKED',
     }
@@ -163,10 +173,18 @@ export function providerSettlementLabel(status: BusinessPayableStatus, eligibili
   if (status === 'REVERSED') return 'Settlement reversed'
   if (status === 'TRANSFERRED') return 'Transferred to your Stripe account'
   if (status === 'PROCESSING') return 'Settlement in progress'
-  if (status === 'CANCELLED') return 'Cancelled'
+  if (status === 'CANCELLED') {
+    if (eligibilityCode === 'DISPUTE_LOST') return 'Settlement cancelled due to dispute'
+    return 'Cancelled'
+  }
   if (status === 'ELIGIBLE') return 'Eligible for settlement'
   if (status === 'BLOCKED') {
     if (eligibilityCode === 'REFUND_IN_PROGRESS') return 'Settlement blocked — refund in progress'
+    if (eligibilityCode === 'ACTIVE_DISPUTE' || eligibilityCode === 'DISPUTE_LOST') {
+      return eligibilityCode === 'DISPUTE_LOST'
+        ? 'Settlement cancelled due to payment dispute'
+        : 'Settlement under dispute review'
+    }
     if (eligibilityCode === 'CONNECT_NOT_READY' || eligibilityCode === 'MISSING_ACCOUNT' || eligibilityCode === 'PAYOUTS_DISABLED') {
       return 'Stripe setup incomplete'
     }

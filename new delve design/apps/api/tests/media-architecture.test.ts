@@ -169,7 +169,21 @@ describe('media architecture — Cloudinary signatures', () => {
   it('rejects unavailable business purposes', async () => {
     await expect(
       createUploadSignature(env, 'u1', {
-        purpose: 'listing',
+        purpose: 'review',
+        originalFilename: 'x.png',
+        mimeType: 'image/png',
+        bytes: 100,
+        businessId: 'b1',
+        listingId: 'l1',
+      }),
+    ).rejects.toMatchObject({
+      name: 'AppError',
+      code: 'PURPOSE_NOT_AVAILABLE',
+      statusCode: 400,
+    })
+    await expect(
+      createUploadSignature(env, 'u1', {
+        purpose: 'review',
         originalFilename: 'x.png',
         mimeType: 'image/png',
         bytes: 100,

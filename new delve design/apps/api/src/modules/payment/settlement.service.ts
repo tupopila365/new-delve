@@ -16,6 +16,8 @@ import { createNotification } from '../notifications/notify.js'
 import { requireStripe } from './stripe-client.js'
 import { toStripeAmount } from './stripe-amount.js'
 import { bookingHasFinancialHold, bookingIdsWithFinancialHold } from './financial-hold.js'
+import { paymentHasOpenDispute, bookingIdsWithOpenDispute } from './dispute-hold.js'
+import { persistDisputeExposuresForPayment } from './dispute-exposure.js'
 import { evaluateSettlementEligibility, providerSettlementLabel } from './settlement-eligibility.js'
 
 const MONEY = 2
@@ -82,6 +84,7 @@ type PayableGraph = {
     createdAt: Date
   }>
   hasActiveCancellationOrRefund?: boolean
+  hasActiveDispute?: boolean
   reversal?: {
     status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED'
     amount: { toString(): string }
@@ -136,6 +139,7 @@ function eligibilityOf(row: PayableGraph) {
     stripePayoutsEnabled: row.business.stripePayoutsEnabled,
     stripeDetailsSubmitted: row.business.stripeDetailsSubmitted,
     hasActiveCancellationOrRefund: Boolean(row.hasActiveCancellationOrRefund),
+    hasActiveDispute: Boolean(row.hasActiveDispute),
   })
 }
 
@@ -219,7 +223,8 @@ export async function persistPayableEligibility(payableId: string) {
   })
   if (!row) return null
   const hold = await bookingHasFinancialHold(row.bookingId)
-  const graph = { ...(row as PayableGraph), hasActiveCancellationOrRefund: hold }
+  const disputeHold = await paymentHasOpenDispute(row.paymentId)
+  const graph = { ...(row as PayableGraph), hasActiveCancellationOrRefund: hold, hasActiveDispute: disputeHold }
   const result = eligibilityOf(graph)
   if (row.status === 'TRANSFERRED' || row.status === 'PROCESSING' || row.status === 'CANCELLED' || row.status === 'REVERSED') {
     return prisma.businessPayable.findUnique({ where: { id: payableId }, include: payableInclude })
@@ -293,6 +298,77 @@ function classifyTransferError(err: unknown): { retryable: boolean; code: string
   return { retryable: !blocked, code: String(code), message }
 }
 
+/** Canonical Transfer success finalizer. Never creates a Stripe Transfer. */
+export async function finalizePayableFromConfirmedTransfer(
+  payableId: string,
+  stripeTransferId: string,
+  actorUserId?: string | null,
+): Promise<BusinessPayableDto> {
+  const current = await prisma.businessPayable.findUnique({
+    where: { id: payableId },
+    include: { ...payableInclude, attempts: { orderBy: { createdAt: 'desc' }, take: 20 } },
+  })
+  if (!current) throw new AppError(404, 'NOT_FOUND', 'Settlement not found.')
+  if (current.status === 'TRANSFERRED' && current.stripeTransferId === stripeTransferId) {
+    return toPayableDto(current as PayableGraph, { includeAttempts: true })
+  }
+  if (current.status === 'TRANSFERRED' && current.stripeTransferId && current.stripeTransferId !== stripeTransferId) {
+    throw new AppError(409, 'TRANSFER_ID_MISMATCH', 'This payable is already tied to a different Stripe Transfer.')
+  }
+
+  const updated = await prisma.businessPayable.update({
+    where: { id: payableId },
+    data: {
+      status: 'TRANSFERRED',
+      stripeTransferId,
+      transferredAt: current.transferredAt ?? new Date(),
+      eligibilityCode: 'ALREADY_TRANSFERRED',
+      lastFailureCode: null,
+      lastFailureMessage: null,
+    },
+    include: { ...payableInclude, attempts: { orderBy: { createdAt: 'desc' }, take: 20 } },
+  })
+  const alreadyLogged = await prisma.settlementAttempt.findFirst({
+    where: { payableId, stripeTransferId, outcome: 'SUCCEEDED' },
+  })
+  if (!alreadyLogged) {
+    await prisma.settlementAttempt.create({
+      data: {
+        payableId,
+        outcome: 'SUCCEEDED',
+        stripeTransferId,
+        actorUserId: actorUserId ?? null,
+      },
+    })
+    await writeAdminAudit({
+      action: 'SETTLEMENT_RELEASED',
+      outcome: 'success',
+      actorUserId: actorUserId ?? null,
+      targetType: 'settlement',
+      targetId: payableId,
+      metadata: { stripeTransferId, bookingId: current.bookingId },
+    })
+    const members = await prisma.businessMember.findMany({
+      where: { businessId: current.businessId, role: { in: ['OWNER', 'MANAGER'] } },
+      select: { userId: true },
+    })
+    await Promise.all(
+      members.map(m =>
+        createNotification({
+          userId: m.userId,
+          type: 'SETTLEMENT_TRANSFERRED',
+          title: `Settlement transferred · ${current.booking.bookingReference}`,
+          body: 'Delve transferred the business share to your Stripe connected account. This is not a bank payout confirmation.',
+          entityType: 'settlement',
+          entityId: payableId,
+        }),
+      ),
+    )
+  }
+  await persistDisputeExposuresForPayment(current.paymentId)
+  return toPayableDto(updated as PayableGraph, { includeAttempts: true })
+}
+
 export async function releaseSettlement(env: Env, adminUserId: string, payableId: string): Promise<BusinessPayableDto> {
   const claimed = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "Payment" WHERE id = (SELECT "paymentId" FROM "BusinessPayable" WHERE id = ${payableId}) FOR UPDATE`
@@ -321,6 +397,7 @@ export async function releaseSettlement(env: Env, adminUserId: string, payableId
     if (reversal) {
       await tx.$queryRaw`SELECT id FROM "TransferReversal" WHERE id = ${reversal.id} FOR UPDATE`
     }
+    await tx.$queryRaw`SELECT id FROM "PaymentDispute" WHERE "paymentId" = ${full.paymentId} FOR UPDATE`
     if (reversal?.status === 'SUCCEEDED') {
       throw new AppError(409, 'SETTLEMENT_REVERSED', 'This settlement transfer was reversed and cannot be released again.')
     }
@@ -335,7 +412,19 @@ export async function releaseSettlement(env: Env, adminUserId: string, payableId
         'Traveler refund/cancellation is in progress. Settlement cannot be released.',
       )
     }
-    const check = eligibilityOf({ ...(full as PayableGraph), hasActiveCancellationOrRefund: hold })
+    const disputeHold = await paymentHasOpenDispute(full.paymentId)
+    if (disputeHold) {
+      throw new AppError(
+        409,
+        'SETTLEMENT_BLOCKED_DISPUTE',
+        'An active payment dispute requires attention. Settlement cannot be released.',
+      )
+    }
+    const check = eligibilityOf({
+      ...(full as PayableGraph),
+      hasActiveCancellationOrRefund: hold,
+      hasActiveDispute: disputeHold,
+    })
     if (!check.eligible || full.status !== 'ELIGIBLE') {
       throw new AppError(400, 'SETTLEMENT_NOT_ELIGIBLE', check.reason)
     }
@@ -388,61 +477,17 @@ export async function releaseSettlement(env: Env, adminUserId: string, payableId
     const transfer = await stripe.transfers.create(transferParams, {
       idempotencyKey: `payable-transfer:${claimed.id}`,
     })
-
-    const updated = await prisma.businessPayable.update({
-      where: { id: payableId },
-      data: {
-        status: 'TRANSFERRED',
-        stripeTransferId: transfer.id,
-        transferredAt: new Date(),
-        eligibilityCode: 'ALREADY_TRANSFERRED',
-        lastFailureCode: null,
-        lastFailureMessage: null,
-      },
-      include: { ...payableInclude, attempts: { orderBy: { createdAt: 'desc' }, take: 20 } },
-    })
-    await prisma.settlementAttempt.create({
-      data: {
-        payableId,
-        outcome: 'SUCCEEDED',
-        stripeTransferId: transfer.id,
-        actorUserId: adminUserId,
-      },
-    })
-    await writeAdminAudit({
-      action: 'SETTLEMENT_RELEASED',
-      outcome: 'success',
-      actorUserId: adminUserId,
-      targetType: 'settlement',
-      targetId: payableId,
-      metadata: { stripeTransferId: transfer.id, bookingId: claimed.bookingId },
-    })
-    const members = await prisma.businessMember.findMany({
-      where: { businessId: claimed.businessId, role: { in: ['OWNER', 'MANAGER'] } },
-      select: { userId: true },
-    })
-    await Promise.all(
-      members.map(m =>
-        createNotification({
-          userId: m.userId,
-          type: 'SETTLEMENT_TRANSFERRED',
-          title: `Settlement transferred · ${claimed.booking.bookingReference}`,
-          body: 'Delve transferred the business share to your Stripe connected account. This is not a bank payout confirmation.',
-          entityType: 'settlement',
-          entityId: payableId,
-        }),
-      ),
-    )
-    return toPayableDto(updated as PayableGraph, { includeAttempts: true })
+    return finalizePayableFromConfirmedTransfer(payableId, transfer.id, adminUserId)
   } catch (err) {
     const classified = classifyTransferError(err)
     const hold = await bookingHasFinancialHold(claimed.bookingId)
-    const nextStatus = hold ? 'BLOCKED' : classified.retryable ? 'ELIGIBLE' : 'BLOCKED'
+    const disputeHold = await paymentHasOpenDispute(claimed.paymentId)
+    const nextStatus = hold || disputeHold ? 'BLOCKED' : classified.retryable ? 'ELIGIBLE' : 'BLOCKED'
     await prisma.businessPayable.update({
       where: { id: payableId },
       data: {
         status: nextStatus,
-        eligibilityCode: hold ? 'REFUND_IN_PROGRESS' : classified.code,
+        eligibilityCode: hold ? 'REFUND_IN_PROGRESS' : disputeHold ? 'ACTIVE_DISPUTE' : classified.code,
         lastFailureCode: classified.code,
         lastFailureMessage: classified.message.slice(0, 500),
         blockedAt: nextStatus === 'BLOCKED' ? new Date() : undefined,
@@ -483,10 +528,12 @@ export async function adminListSettlements(status?: string): Promise<BusinessPay
     take: 200,
   })
   const holds = await bookingIdsWithFinancialHold(rows.map(r => r.bookingId))
+  const disputes = await bookingIdsWithOpenDispute(rows.map(r => r.bookingId))
   return rows.map(row =>
     toPayableDto({
       ...(row as PayableGraph),
       hasActiveCancellationOrRefund: holds.has(row.bookingId),
+      hasActiveDispute: disputes.has(row.bookingId),
       reversal: row.transferReversal,
     }),
   )
@@ -499,10 +546,12 @@ export async function adminGetSettlement(payableId: string): Promise<BusinessPay
   })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Settlement not found.')
   const hold = await bookingHasFinancialHold(row.bookingId)
+  const disputeHold = await paymentHasOpenDispute(row.paymentId)
   return toPayableDto(
     {
       ...(row as PayableGraph),
       hasActiveCancellationOrRefund: hold,
+      hasActiveDispute: disputeHold,
       reversal: row.transferReversal,
     },
     { includeAttempts: true },
@@ -526,6 +575,7 @@ export async function listProviderEarnings(userId: string, businessId: string): 
     else if (row.status === 'PENDING' || row.status === 'BLOCKED') totals.pending = totals.pending.plus(net)
   }
   const holds = await bookingIdsWithFinancialHold(rows.map(r => r.bookingId))
+  const disputes = await bookingIdsWithOpenDispute(rows.map(r => r.bookingId))
   return {
     summary: {
       pending: totals.pending.toFixed(MONEY),
@@ -537,6 +587,7 @@ export async function listProviderEarnings(userId: string, businessId: string): 
       const el = eligibilityOf({
         ...(row as PayableGraph),
         hasActiveCancellationOrRefund: holds.has(row.bookingId),
+        hasActiveDispute: disputes.has(row.bookingId),
       })
       const reversed = row.transferReversal?.status === 'SUCCEEDED' || row.status === 'REVERSED'
       return {

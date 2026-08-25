@@ -8,6 +8,14 @@ export async function lockPaymentThenPayable(
   await tx.$queryRaw`SELECT id FROM "BusinessPayable" WHERE "paymentId" = ${paymentId} FOR UPDATE`
 }
 
+/** After Payment and BusinessPayable. Never lock Dispute before those rows. */
+export async function lockPaymentDisputes(
+  tx: { $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown> },
+  paymentId: string,
+) {
+  await tx.$queryRaw`SELECT id FROM "PaymentDispute" WHERE "paymentId" = ${paymentId} FOR UPDATE`
+}
+
 export async function lockRefundRow(
   tx: { $queryRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown> },
   refundId: string,

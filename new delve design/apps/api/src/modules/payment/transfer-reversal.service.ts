@@ -9,6 +9,8 @@ import { createNotification } from '../notifications/notify.js'
 import { requireStripe } from './stripe-client.js'
 import { toStripeAmount } from './stripe-amount.js'
 import { lockPaymentThenPayable, lockRefundRow, lockTransferReversalRow } from './financial-locks.js'
+import { persistDisputeExposuresForPayment } from './dispute-exposure.js'
+import { upsertFinancialRecoveryCase } from './recovery-case.service.js'
 import { issueRefund } from './refund.service.js'
 
 const MONEY = 2
@@ -194,6 +196,7 @@ export async function persistReversalSucceeded(
       row.bookingId,
     )
   }
+  await persistDisputeExposuresForPayment(row.paymentId)
 }
 
 export async function persistReversalFailed(
@@ -230,6 +233,27 @@ export async function persistReversalFailed(
       businessId: row.businessId,
     },
   })
+  await persistDisputeExposuresForPayment(row.paymentId)
+  const lostDispute =
+    row.reason === 'DISPUTE_LOSS'
+      ? await prisma.paymentDispute.findFirst({ where: { paymentId: row.paymentId, status: 'LOST' }, select: { id: true } })
+      : null
+  await upsertFinancialRecoveryCase({
+    fingerprint: `reversal-failed:${row.id}`,
+    type: row.reason === 'DISPUTE_LOSS' ? 'DISPUTE_LOSS_REVERSAL_FAILED' : 'REFUND_REVERSAL_FAILED',
+    businessId: row.businessId,
+    paymentId: row.paymentId,
+    bookingId: row.bookingId,
+    businessPayableId: row.businessPayableId,
+    disputeId: lostDispute?.id ?? null,
+    transferReversalId: row.id,
+    amount: row.amount,
+    currency: row.currency,
+    reason:
+      row.reason === 'DISPUTE_LOSS'
+        ? 'Stripe Transfer reversal failed after a lost payment dispute. Platform exposure remains. This is tracking only — not a legal debt claim.'
+        : 'Stripe Transfer reversal failed during refund recovery. Platform exposure remains. This is tracking only — not a legal debt claim.',
+  })
 }
 
 export async function applyTransferReversedWebhook(
@@ -245,6 +269,150 @@ export async function applyTransferReversedWebhook(
       })
   if (!row) return
   await persistReversalSucceeded(row.id, stripeReversalId ?? row.stripeTransferReversalId)
+}
+
+export async function reverseSettlementForLostDispute(
+  env: Env,
+  adminUserId: string,
+  paymentId: string,
+  disputeId: string,
+) {
+  const claimed = await prisma.$transaction(async tx => {
+    await lockPaymentThenPayable(tx, paymentId)
+    const payment = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } })
+    const payable = await tx.businessPayable.findUnique({ where: { paymentId } })
+    if (!payable) throw new AppError(400, 'PAYABLE_MISSING', 'No business payable exists for this payment.')
+    if (payable.status === 'PROCESSING') {
+      throw new AppError(409, 'SETTLEMENT_IN_PROGRESS', 'Settlement is in progress. Reversal cannot run at the same time.')
+    }
+    if (!payable.stripeTransferId) {
+      throw new AppError(400, 'TRANSFER_MISSING', 'This payable has no Stripe Transfer to reverse.')
+    }
+    if (payable.status !== 'TRANSFERRED' && payable.status !== 'REVERSED') {
+      throw new AppError(400, 'PAYABLE_NOT_TRANSFERRED', 'Only a transferred settlement can be reversed.')
+    }
+
+    const amount = reversalAmountFromPayableNet(payable.businessNetAmount)
+    if (amount.lte(0)) throw new AppError(400, 'AMOUNT_INVALID', 'Reversal amount must be greater than zero.')
+
+    let reversal = await tx.transferReversal.findUnique({ where: { businessPayableId: payable.id } })
+    if (reversal) {
+      await lockTransferReversalRow(tx, reversal.id)
+      reversal = await tx.transferReversal.findUniqueOrThrow({ where: { id: reversal.id } })
+    }
+    if (reversal?.status === 'SUCCEEDED') {
+      return { skipStripe: true as const, createdNew: false, reversal, payment, payable }
+    }
+    if (reversal?.status === 'PROCESSING') {
+      throw new AppError(409, 'REVERSAL_IN_PROGRESS', 'A transfer reversal is already in progress.')
+    }
+
+    let createdNew = false
+    if (!reversal) {
+      createdNew = true
+      const created = await tx.transferReversal.create({
+        data: {
+          businessPayableId: payable.id,
+          paymentId: payment.id,
+          bookingId: payable.bookingId,
+          businessId: payable.businessId,
+          stripeTransferId: payable.stripeTransferId,
+          status: 'PROCESSING',
+          amount,
+          currency: payable.currency,
+          reason: 'DISPUTE_LOSS',
+          idempotencyKey: `transfer-reversal:dispute:${payable.id}`,
+          processingAt: new Date(),
+        },
+      })
+      reversal = await tx.transferReversal.update({
+        where: { id: created.id },
+        data: { idempotencyKey: `transfer-reversal:${created.id}` },
+      })
+    } else {
+      reversal = await tx.transferReversal.update({
+        where: { id: reversal.id },
+        data: {
+          status: 'PROCESSING',
+          processingAt: reversal.processingAt ?? new Date(),
+          amount,
+          reason: reversal.reason,
+          failureCode: null,
+          failureMessage: null,
+        },
+      })
+    }
+    return { skipStripe: false as const, createdNew, reversal, payment, payable }
+  })
+
+  if (claimed.skipStripe) return toTransferReversalDto(claimed.reversal)
+
+  if (claimed.createdNew) {
+    await writeAdminAudit({
+      action: 'TRANSFER_REVERSAL_CREATED',
+      outcome: 'success',
+      actorUserId: adminUserId,
+      targetType: 'transfer_reversal',
+      targetId: claimed.reversal.id,
+      metadata: {
+        transferReversalId: claimed.reversal.id,
+        businessPayableId: claimed.payable.id,
+        stripeTransferId: claimed.payable.stripeTransferId,
+        paymentId: claimed.payment.id,
+        bookingId: claimed.payable.bookingId,
+        businessId: claimed.payable.businessId,
+        disputeId,
+      },
+    })
+  }
+  await writeAdminAudit({
+    action: 'TRANSFER_REVERSAL_PROCESSING',
+    outcome: 'success',
+    actorUserId: adminUserId,
+    targetType: 'transfer_reversal',
+    targetId: claimed.reversal.id,
+    metadata: {
+      transferReversalId: claimed.reversal.id,
+      businessPayableId: claimed.payable.id,
+      stripeTransferId: claimed.payable.stripeTransferId,
+      paymentId: claimed.payment.id,
+      bookingId: claimed.payable.bookingId,
+      businessId: claimed.payable.businessId,
+      disputeId,
+    },
+  })
+
+  const stripe = requireStripe(env)
+  try {
+    const created = await stripe.transfers.createReversal(
+      claimed.payable.stripeTransferId!,
+      {
+        amount: toStripeAmount(claimed.reversal.amount, claimed.reversal.currency),
+        metadata: {
+          transferReversalId: claimed.reversal.id,
+          businessPayableId: claimed.payable.id,
+          paymentId: claimed.payment.id,
+          bookingId: claimed.payable.bookingId,
+          disputeId,
+        },
+      },
+      { idempotencyKey: `transfer-reversal:${claimed.reversal.id}` },
+    )
+    await persistReversalSucceeded(claimed.reversal.id, created.id, adminUserId)
+  } catch (err) {
+    const classified = classifyReversalError(err)
+    if (classified.alreadyReversed) {
+      const stripeClient = requireStripe(env)
+      const transfer = await stripeClient.transfers.retrieve(claimed.payable.stripeTransferId!, { expand: ['reversals'] })
+      const existingId = transfer.reversals?.data?.[0]?.id ?? null
+      await persistReversalSucceeded(claimed.reversal.id, existingId, adminUserId)
+    } else {
+      await persistReversalFailed(claimed.reversal.id, classified, adminUserId)
+      throw new AppError(classified.retryable ? 502 : 409, classified.code, classified.message)
+    }
+  }
+  const row = await prisma.transferReversal.findUniqueOrThrow({ where: { id: claimed.reversal.id } })
+  return toTransferReversalDto(row)
 }
 
 export async function reverseSettlementAndContinueRefund(env: Env, adminUserId: string, refundId: string) {

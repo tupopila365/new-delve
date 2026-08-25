@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const transferReversalStatusSchema = z.enum(['PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED'])
-export const transferReversalReasonSchema = z.enum(['BOOKING_REFUND'])
+export const transferReversalReasonSchema = z.enum(['BOOKING_REFUND', 'DISPUTE_LOSS'])
 
 export type TransferReversalStatus = z.infer<typeof transferReversalStatusSchema>
 export type TransferReversalReason = z.infer<typeof transferReversalReasonSchema>

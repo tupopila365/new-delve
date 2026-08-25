@@ -349,6 +349,7 @@ export async function findPaymentByStripeRefs(input: {
   paymentId?: string | null
   paymentIntentId?: string | null
   checkoutSessionId?: string | null
+  chargeId?: string | null
 }) {
   if (input.paymentId) {
     const byId = await prisma.payment.findUnique({ where: { id: input.paymentId } })
@@ -357,6 +358,10 @@ export async function findPaymentByStripeRefs(input: {
   if (input.paymentIntentId) {
     const byPi = await prisma.payment.findUnique({ where: { stripePaymentIntentId: input.paymentIntentId } })
     if (byPi) return byPi
+  }
+  if (input.chargeId) {
+    const byCharge = await prisma.payment.findFirst({ where: { stripeChargeId: input.chargeId } })
+    if (byCharge) return byCharge
   }
   if (input.checkoutSessionId) {
     const byCs = await prisma.payment.findUnique({ where: { stripeCheckoutSessionId: input.checkoutSessionId } })

@@ -1,10 +1,12 @@
 import { prisma } from '@delve/database'
+import { Decimal } from '@delve/database/decimal'
 import type { StripeConnectStatusDto } from '@delve/contracts'
 import type { Env } from '../../config/env.js'
 import { AppError } from '../../middleware/error-handler.js'
 import { requireBusinessMembership } from '../business/business.service.js'
 import { writeAdminAudit } from '../admin/admin-audit.js'
 import { requireStripe } from './stripe-client.js'
+import { fromStripeAmount } from './stripe-amount.js'
 import { isSettlementReady, mapStripeAccountStatus } from './stripe-connect-status.js'
 
 const FINANCE_ROLES = ['OWNER', 'MANAGER'] as const
@@ -155,4 +157,27 @@ export function businessIsSettlementReady(row: {
   stripeChargesEnabled: boolean
 }): boolean {
   return isSettlementReady(row)
+}
+
+/** Advisory only. Stripe reversal/transfer results remain authoritative. Not shown to providers. */
+export async function connectedAccountBalanceWarning(
+  env: Env,
+  connectedAccountId: string,
+  currency: string,
+  amount: Decimal | string,
+) {
+  const stripe = requireStripe(env)
+  const needed = new Decimal(amount.toString())
+  try {
+    const balance = await stripe.balance.retrieve({ stripeAccount: connectedAccountId })
+    const available = balance.available.find(b => b.currency.toUpperCase() === currency.toUpperCase())
+    if (!available) return 'Connected account available balance for this currency was not returned.'
+    const have = fromStripeAmount(available.amount, currency)
+    if (have.lt(needed)) {
+      return 'Connected account may not currently have sufficient available balance. Stripe reversal result remains authoritative.'
+    }
+    return null
+  } catch {
+    return 'Could not read connected account balance. Stripe reversal result remains authoritative.'
+  }
 }

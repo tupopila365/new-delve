@@ -44,6 +44,20 @@ describe('settlement eligibility', () => {
     expect(result.nextStatus).toBe('BLOCKED')
   })
 
+  it('blocks untransferred settlement while an active dispute is open', () => {
+    const result = evaluateSettlementEligibility({ ...ready, payableStatus: 'ELIGIBLE', hasActiveDispute: true })
+    expect(result.eligible).toBe(false)
+    expect(result.code).toBe('ACTIVE_DISPUTE')
+    expect(result.nextStatus).toBe('BLOCKED')
+    expect(providerSettlementLabel('BLOCKED', result.code)).toBe('Settlement under dispute review')
+  })
+
+  it('does not auto-transfer after a won dispute — only eligibility can return', () => {
+    const result = evaluateSettlementEligibility(ready)
+    expect(result.eligible).toBe(true)
+    expect(result.nextStatus).toBe('ELIGIBLE')
+  })
+
   it('does not treat TRANSFERRED as a bank payout status', () => {
     const result = evaluateSettlementEligibility({
       ...ready,
