@@ -171,6 +171,22 @@ export function createSocialController(env: Env) {
       }
     },
 
+    async likeEvent(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await eventService.likeEvent(env, requireUserId(req), String(req.params.eventId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async unlikeEvent(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await eventService.unlikeEvent(env, requireUserId(req), String(req.params.eventId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
     async listComments(req: Request, res: Response, next: NextFunction) {
       try {
         ok(res, await postService.listComments(String(req.params.postId)))

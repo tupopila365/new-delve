@@ -348,7 +348,7 @@ export default function EventsPage({
       )}
 
       {!loading && !error && (tab === 'discover' || signedIn) && (listEvents.length > 0 || featured) && (
-        <div className="flex flex-col gap-3 p-3 sm:p-0 sm:pt-4">
+        <div className="flex flex-col sm:gap-4 sm:pt-4">
           {tab === 'discover' && featured && (
             <FeaturedEvent
               event={featured}

@@ -248,6 +248,8 @@ export const eventDtoSchema = z.object({
   myAttendance: z.enum(['GOING', 'INTERESTED']).nullable(),
   isOwner: z.boolean().optional(),
   savedByMe: z.boolean().optional(),
+  likeCount: z.number().int().nonnegative().optional(),
+  likedByMe: z.boolean().optional(),
   canUploadMedia: z.boolean().optional(),
   media: z.array(eventMediaDtoSchema).optional(),
   creator: postAuthorSchema,

@@ -87,6 +87,14 @@ export async function unlikePost(postId: string) {
   return authorizedJson<PostDto>(`/posts/${encodeURIComponent(postId)}/reactions`, { method: 'DELETE' })
 }
 
+export async function likeEvent(eventId: string) {
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}/reactions`, { method: 'POST' })
+}
+
+export async function unlikeEvent(eventId: string) {
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}/reactions`, { method: 'DELETE' })
+}
+
 export async function fetchComments(postId: string) {
   return authorizedJson<CommentDto[]>(`/posts/${encodeURIComponent(postId)}/comments`)
 }

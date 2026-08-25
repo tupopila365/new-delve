@@ -8,22 +8,33 @@ const HEART_PURPLE = '#8C52FF'
 
 export function DoubleTapLike({
   onDoubleLike,
+  onSingleTap,
   className = '',
   children,
 }: {
   onDoubleLike?: () => void
+  /** Fired after a pause so a second tap can still become a like. */
+  onSingleTap?: () => void
   className?: string
   children: ReactNode
 }) {
   const lastTap = useRef(0)
   const lastPos = useRef({ x: 0, y: 0 })
   const [burstId, setBurstId] = useState(0)
-  const burstTimer = useRef<number>(0)
+  const burstTimer = useRef(0)
+  const singleTimer = useRef(0)
 
-  useEffect(() => () => window.clearTimeout(burstTimer.current), [])
+  useEffect(
+    () => () => {
+      window.clearTimeout(burstTimer.current)
+      window.clearTimeout(singleTimer.current)
+    },
+    [],
+  )
 
   function fireLike() {
     window.clearTimeout(burstTimer.current)
+    window.clearTimeout(singleTimer.current)
     setBurstId(n => n + 1)
     burstTimer.current = window.setTimeout(() => setBurstId(0), BURST_MS)
     onDoubleLike?.()
@@ -36,11 +47,17 @@ export function DoubleTapLike({
     const dy = Math.abs(e.clientY - lastPos.current.y)
     if (now - lastTap.current < TAP_MS && dx < TAP_SLOP_PX && dy < TAP_SLOP_PX) {
       lastTap.current = 0
+      e.preventDefault()
+      e.stopPropagation()
       fireLike()
       return
     }
     lastTap.current = now
     lastPos.current = { x: e.clientX, y: e.clientY }
+    if (onSingleTap) {
+      window.clearTimeout(singleTimer.current)
+      singleTimer.current = window.setTimeout(() => onSingleTap(), TAP_MS + 40)
+    }
   }
 
   return (

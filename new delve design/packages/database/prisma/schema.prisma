@@ -95,6 +95,7 @@ enum NotificationType {
   COMMUNITY_POST_APPROVED
   JOURNEY_LIKED
   JOURNEY_COMMENTED
+  EVENT_LIKED
   MESSAGE_RECEIVED
 }
 
@@ -203,6 +204,7 @@ model User {
   followsIncoming         Follow[]             @relation("FollowFollowing")
   travelerEvents          TravelerEvent[]
   eventAttendances        EventAttendance[]
+  eventReactions          EventReaction[]
   notifications           Notification[]
   businessMemberships     BusinessMember[]
   storySlides             StorySlide[]
@@ -663,6 +665,7 @@ model TravelerEvent {
   updatedAt     DateTime        @updatedAt
 
   attendances   EventAttendance[]
+  reactions     EventReaction[]
   journeyLinks  JourneyEvent[]
   sharedPosts   Post[]
   communityThreads CommunityThread[]
@@ -673,6 +676,18 @@ model TravelerEvent {
   @@index([visibility, status])
   @@index([communityId])
   @@index([businessId])
+}
+
+model EventReaction {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     TravelerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@unique([userId, eventId])
+  @@index([eventId])
 }
 
 model EventAttendance {

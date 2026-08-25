@@ -1,9 +1,11 @@
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, Heart, MapPin } from 'lucide-react'
 import type { EventDto } from '@delve/contracts'
 import {
   clearEventAttendance,
+  likeEvent,
   setEventAttendance,
 } from '../../api/socialClient'
+import { DoubleTapLike } from '../delvers/DoubleTapLike'
 import EventCoverMedia from '../EventCoverMedia'
 import { formatEventDateTime, formatGoingLabel } from './eventFilters'
 
@@ -45,19 +47,32 @@ export default function FeaturedEvent({
     }
   }
 
+  async function likeFromDoubleTap() {
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    if (event.likedByMe) return
+    onEventUpdated?.({ ...event, likedByMe: true, likeCount: (event.likeCount ?? 0) + 1 })
+    try {
+      onEventUpdated?.(await likeEvent(event.id))
+    } catch {
+      onEventUpdated?.({ ...event, likedByMe: false, likeCount: event.likeCount ?? 0 })
+    }
+  }
+
   return (
     <section
       className="overflow-hidden rounded-2xl mx-3 sm:mx-0 mb-3"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       aria-label="Featured event"
     >
-      <button
-        type="button"
-        onClick={() => onOpen(event.id)}
-        className="block w-full text-left"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      <DoubleTapLike
+        onDoubleLike={() => void likeFromDoubleTap()}
+        onSingleTap={() => onOpen(event.id)}
+        className="relative w-full overflow-hidden bg-black/10"
       >
-        <div className="relative h-48 sm:h-52 bg-black/10">
+        <div className="relative h-48 sm:h-52">
           {event.coverUrl ? (
             <EventCoverMedia
               url={event.coverUrl}
@@ -77,7 +92,7 @@ export default function FeaturedEvent({
             Featured
           </span>
         </div>
-      </button>
+      </DoubleTapLike>
       <div className="p-4">
         <p className="text-[11px] font-bold uppercase tracking-wider m-0 mb-1" style={{ color: 'var(--primary)' }}>
           Happening soon
@@ -98,9 +113,30 @@ export default function FeaturedEvent({
           {when}
         </p>
         <p className="text-sm font-semibold m-0 mb-3" style={{ color: 'var(--fg)' }}>
-          {formatGoingLabel(event.goingCount)}
+          {event.likeCount ?? 0} likes · {formatGoingLabel(event.goingCount)}
         </p>
         <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (!signedIn) {
+                onSignIn?.()
+                return
+              }
+              if (event.likedByMe) return
+              void likeFromDoubleTap()
+            }}
+            className="flex-1 rounded-xl py-2.5 text-sm font-semibold min-h-[44px] inline-flex items-center justify-center gap-1.5"
+            style={{
+              border: event.likedByMe ? '1px solid var(--primary)' : '1px solid var(--border)',
+              background: event.likedByMe ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
+              color: event.likedByMe ? 'var(--primary)' : 'var(--fg)',
+              cursor: 'pointer',
+            }}
+          >
+            <Heart size={16} fill={event.likedByMe ? 'currentColor' : 'none'} />
+            {event.likedByMe ? 'Liked' : 'Like'}
+          </button>
           <button
             type="button"
             onClick={() => onOpen(event.id)}

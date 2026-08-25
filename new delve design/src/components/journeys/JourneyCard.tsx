@@ -138,21 +138,21 @@ export default function JourneyCard({
 
       <DoubleTapLike
         onDoubleLike={() => {
-          if (!journey.likedByMe) void toggleLike()
+          if (!signedIn) {
+            onSignIn?.()
+            return
+          }
+          if (journey.likedByMe) return
+          patch({ likedByMe: true, likeCount: journey.likeCount + 1 })
+          void likeJourney(journey.id)
+            .then(updated => patch({ likedByMe: updated.likedByMe, likeCount: updated.likeCount }))
+            .catch(() => patch({ likedByMe: false, likeCount: Math.max(0, journey.likeCount) }))
         }}
+        onSingleTap={() => onOpen(journey.id)}
         className="relative w-full overflow-hidden bg-black/10"
       >
         <div
-          role="button"
-          tabIndex={0}
-          onClick={() => onOpen(journey.id)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              onOpen(journey.id)
-            }
-          }}
-          className="block w-full text-left cursor-pointer"
+          className="block w-full text-left"
           aria-label={`Open ${journey.title}`}
         >
           <div className="relative w-full max-h-[70vh] aspect-[4/5] min-h-[22rem]">

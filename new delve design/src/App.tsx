@@ -926,13 +926,13 @@ export default function App() {
 
   const navItems = [
     { label: 'Home', icon: <Home size={22} aria-hidden /> },
-    { label: 'Explore', icon: <Compass size={22} aria-hidden /> },
-    { label: 'Deals', icon: <Tag size={22} aria-hidden /> },
+    { label: 'Delvers', icon: <Flame size={22} aria-hidden /> },
+    { label: 'Communities', icon: <Users size={22} aria-hidden /> },
     { label: 'Journeys', icon: <Navigation size={22} aria-hidden /> },
-    { label: 'Account', icon: <User size={22} aria-hidden /> },
+    { label: 'Events', icon: <Calendar size={22} aria-hidden /> },
   ]
 
-  const EXPLORE_ROUTES = new Set(['Explore', 'Search', 'Services', 'Transport', 'Communities', 'Delvers'])
+  const EXPLORE_ROUTES = new Set(['Explore', 'Search', 'Services', 'Transport'])
 
   // ── Authentication flow (full screen) ─────────────────────────────────
   if (authRoute) {
@@ -1155,8 +1155,6 @@ export default function App() {
   }
 
   function isMobileNavActive(label: string) {
-    if (label === 'Account') return HUB_ROUTES.has(activeNav)
-    if (label === 'Explore') return EXPLORE_ROUTES.has(activeNav)
     return activeNav === label
   }
 
@@ -1963,6 +1961,7 @@ export default function App() {
                 { label: 'Communities', icon: <Users size={18} />, route: 'Communities' },
                 { label: 'Deals', icon: <Tag size={18} />, route: 'Deals' },
                 { label: 'Journeys', icon: <Navigation size={18} />, route: 'Journeys' },
+                { label: 'Events', icon: <Calendar size={18} />, route: 'Events' },
               ].map(item => (
                 <button key={item.label} type="button"
                   onClick={() => { setActiveNav(item.route); setMobileMenuOpen(false) }}

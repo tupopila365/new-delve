@@ -16,6 +16,7 @@ import { AuthApiError } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
 import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
 import JourneyCoverMedia from '../components/journeys/JourneyCoverMedia'
+import { DoubleTapLike } from '../components/delvers/DoubleTapLike'
 import JourneyStopMediaGallery from '../components/journeys/JourneyStopMediaGallery'
 import JourneyDetailSkeleton from '../components/journeys/JourneyDetailSkeleton'
 import CommentsSheet from '../components/comments/CommentsSheet'
@@ -135,6 +136,25 @@ export default function JourneyDetailPage({
       setError(err instanceof Error ? err.message : 'Could not update like')
     } finally {
       setLikeBusy(false)
+    }
+  }
+
+  async function likeFromDoubleTap() {
+    if (!journey) return
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    if (liked) return
+    setLiked(true)
+    setJourney(j => j ? { ...j, likedByMe: true, likeCount: j.likeCount + 1 } : j)
+    try {
+      const updated = await likeJourney(journey.id)
+      setJourney(updated)
+      setLiked(updated.likedByMe)
+    } catch {
+      setLiked(false)
+      setJourney(j => j ? { ...j, likedByMe: false, likeCount: Math.max(0, j.likeCount - 1) } : j)
     }
   }
 
@@ -301,18 +321,20 @@ export default function JourneyDetailPage({
       </div>
 
       <div className="relative h-56 sm:h-72 sm:rounded-2xl overflow-hidden bg-black/10 sm:mx-0">
-        {journey.coverUrl || journey.media[0] ? (
-          <JourneyCoverMedia
-            url={journey.coverUrl || journey.media[0]!}
-            resourceType={journey.coverResourceType}
-            className="w-full h-full object-cover"
-            variant="hero"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <MapPin size={32} style={{ color: 'var(--fg-muted)' }} />
-          </div>
-        )}
+        <DoubleTapLike onDoubleLike={() => void likeFromDoubleTap()} className="h-full w-full">
+          {journey.coverUrl || journey.media[0] ? (
+            <JourneyCoverMedia
+              url={journey.coverUrl || journey.media[0]!}
+              resourceType={journey.coverResourceType}
+              className="w-full h-full object-cover"
+              variant="hero"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <MapPin size={32} style={{ color: 'var(--fg-muted)' }} />
+            </div>
+          )}
+        </DoubleTapLike>
       </div>
 
       <div className="px-4 sm:px-0 pt-4">

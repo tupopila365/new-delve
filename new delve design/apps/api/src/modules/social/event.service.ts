@@ -841,7 +841,7 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
 
   const isOwner = viewerId === event.creatorId
 
-  const [goingCount, interestedCount, mine, saved] = await Promise.all([
+  const [goingCount, interestedCount, mine, saved, likeCount, liked] = await Promise.all([
 
     prisma.eventAttendance.count({ where: { eventId, status: 'GOING' } }),
 
@@ -860,6 +860,14 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
           where: { userId: viewerId, targetType: 'EVENT', targetId: eventId },
 
         })
+
+      : null,
+
+    prisma.eventReaction.count({ where: { eventId } }),
+
+    viewerId
+
+      ? prisma.eventReaction.findUnique({ where: { userId_eventId: { userId: viewerId, eventId } } })
 
       : null,
 
@@ -940,6 +948,10 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
 
     savedByMe: Boolean(saved),
 
+    likeCount,
+
+    likedByMe: Boolean(liked),
+
     canUploadMedia,
 
     media: event.media.map(m => ({
@@ -956,6 +968,35 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
 }
 
 
+
+export async function likeEvent(env: Env, userId: string, eventId: string) {
+  const event = await prisma.travelerEvent.findFirst({ where: { id: eventId } })
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+  await assertCanViewEvent(event, userId)
+  await prisma.eventReaction.upsert({
+    where: { userId_eventId: { userId, eventId } },
+    create: { userId, eventId },
+    update: {},
+  })
+  await createNotification({
+    userId: event.creatorId,
+    type: 'EVENT_LIKED',
+    title: 'New like on your event',
+    body: 'Someone liked your event.',
+    entityType: 'event',
+    entityId: eventId,
+    actorId: userId,
+  })
+  return getEventDto(env, eventId, userId)
+}
+
+export async function unlikeEvent(env: Env, userId: string, eventId: string) {
+  const event = await prisma.travelerEvent.findFirst({ where: { id: eventId } })
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+  await assertCanViewEvent(event, userId)
+  await prisma.eventReaction.deleteMany({ where: { userId, eventId } })
+  return getEventDto(env, eventId, userId)
+}
 
 export async function listEventAttendees(
 

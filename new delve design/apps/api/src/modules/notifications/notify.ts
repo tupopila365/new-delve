@@ -14,6 +14,7 @@ export type NotificationType =
   | 'COMMUNITY_POST_APPROVED'
   | 'JOURNEY_LIKED'
   | 'JOURNEY_COMMENTED'
+  | 'EVENT_LIKED'
   | 'MESSAGE_RECEIVED'
 
 export async function createNotification(input: {

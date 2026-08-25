@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bookmark, Calendar, ExternalLink, MapPin, Navigation, Pencil, Share2, Users, X } from 'lucide-react'
+import {
+  Bookmark, Calendar, ExternalLink, Heart, MapPin, Navigation, Pencil, Share2, Users, X,
+} from 'lucide-react'
 import type { EventAttendeeDto, EventDto } from '@delve/contracts'
 import {
   clearEventAttendance,
   createPost,
   fetchEvent,
   fetchEventAttendees,
+  likeEvent,
   saveItem,
   setEventAttendance,
+  unlikeEvent,
   unsaveItem,
 } from '../api/socialClient'
 import { eventShareUrl, mapsUrlForEvent } from '../lib/eventLinks'
@@ -15,6 +19,7 @@ import { formatUsername } from '../lib/formatUsername'
 import EventCoverMedia from './EventCoverMedia'
 import AddToJourneySheet from './events/AddToJourneySheet'
 import EventMediaEditor from '../media/EventMediaEditor'
+import { DoubleTapLike } from './delvers/DoubleTapLike'
 
 interface EventDetailSheetProps {
   eventId: string | null
@@ -189,6 +194,41 @@ export default function EventDetailSheet({
     }
   }
 
+  async function toggleLike() {
+    if (!event || !signedIn) {
+      onSignIn?.()
+      return
+    }
+    setBusy(true)
+    try {
+      const next = event.likedByMe ? await unlikeEvent(event.id) : await likeEvent(event.id)
+      setEvent(next)
+      onUpdated?.(next)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update like')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function likeFromDoubleTap() {
+    if (!event) return
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    if (event.likedByMe) return
+    const optimistic = { ...event, likedByMe: true, likeCount: (event.likeCount ?? 0) + 1 }
+    setEvent(optimistic)
+    try {
+      const next = await likeEvent(event.id)
+      setEvent(next)
+      onUpdated?.(next)
+    } catch {
+      setEvent(event)
+    }
+  }
+
   async function shareEvent() {
     if (!event) return
     const url = eventShareUrl(event.id)
@@ -245,11 +285,13 @@ export default function EventDetailSheet({
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         {event?.coverUrl && (
-          <EventCoverMedia
-            url={event.coverUrl}
-            resourceType={event.coverResourceType}
-            className="w-full h-40 object-cover"
-          />
+          <DoubleTapLike onDoubleLike={() => void likeFromDoubleTap()}>
+            <EventCoverMedia
+              url={event.coverUrl}
+              resourceType={event.coverResourceType}
+              className="w-full h-52 object-cover"
+            />
+          </DoubleTapLike>
         )}
         <div className="p-4">
           <div className="flex items-start justify-between gap-3 mb-2">
@@ -407,6 +449,21 @@ export default function EventDetailSheet({
               )}
 
               <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void toggleLike()}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
+                  style={{
+                    border: `1px solid ${event.likedByMe ? 'var(--primary)' : 'var(--border)'}`,
+                    background: event.likedByMe ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
+                    color: event.likedByMe ? 'var(--primary)' : 'var(--fg)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Heart size={16} fill={event.likedByMe ? 'currentColor' : 'none'} />
+                  {event.likeCount ?? 0}
+                </button>
                 <button
                   type="button"
                   disabled={busy}

@@ -1,13 +1,19 @@
+import { useState } from 'react'
 import type { MouseEvent } from 'react'
-import { Bookmark, Calendar, MapPin, Users } from 'lucide-react'
+import { Bookmark, Calendar, Heart, MapPin, User, Users } from 'lucide-react'
 import type { EventDto } from '@delve/contracts'
 import {
   clearEventAttendance,
+  likeEvent,
   saveItem,
   setEventAttendance,
+  unlikeEvent,
   unsaveItem,
 } from '../../api/socialClient'
 import { formatUsername } from '../../lib/formatUsername'
+import { timeAgoShort } from '../../lib/timeAgoShort'
+import { DoubleTapLike } from '../delvers/DoubleTapLike'
+import ExpandableCaption from '../mobile/ExpandableCaption'
 import EventCoverMedia from '../EventCoverMedia'
 import { formatEventDateTime } from './eventFilters'
 
@@ -16,6 +22,11 @@ function statusLabel(status: EventDto['status']) {
   if (status === 'CANCELLED') return 'Cancelled'
   if (status === 'COMPLETED') return 'Completed'
   return null
+}
+
+function formatCount(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`
+  return String(n)
 }
 
 interface EventCardProps {
@@ -37,14 +48,52 @@ export default function EventCard({
   onEventUpdated,
   compact = false,
 }: EventCardProps) {
+  const [busy, setBusy] = useState(false)
   const badge = statusLabel(event.status)
   const place = [event.locationName, event.city, event.country].filter(Boolean).join(' · ')
   const { combined: when } = formatEventDateTime(event.startAt)
   const rsvpOpen = event.status === 'PUBLISHED'
+  const likeCount = event.likeCount ?? 0
+  const likedByMe = Boolean(event.likedByMe)
   const atCapacity =
     event.maxAttendees != null
     && event.goingCount >= event.maxAttendees
     && event.myAttendance !== 'GOING'
+  const caption = [event.title, event.description].filter(Boolean).join(' — ')
+  const hostName = event.business?.name || event.creator.displayName || formatUsername(event.creator.username)
+
+  async function toggleLike(e?: MouseEvent) {
+    e?.stopPropagation()
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    if (busy) return
+    setBusy(true)
+    try {
+      const next = likedByMe ? await unlikeEvent(event.id) : await likeEvent(event.id)
+      onEventUpdated?.(next)
+    } catch {
+      /* ignore */
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function likeFromDoubleTap() {
+    if (!signedIn) {
+      onSignIn?.()
+      return
+    }
+    if (likedByMe) return
+    onEventUpdated?.({ ...event, likedByMe: true, likeCount: likeCount + 1 })
+    try {
+      const next = await likeEvent(event.id)
+      onEventUpdated?.(next)
+    } catch {
+      onEventUpdated?.({ ...event, likedByMe: false, likeCount: likeCount })
+    }
+  }
 
   async function toggleSave(e: MouseEvent) {
     e.stopPropagation()
@@ -85,26 +134,59 @@ export default function EventCard({
 
   return (
     <article
-      className="overflow-hidden sm:rounded-2xl w-full min-w-0"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      className="overflow-hidden w-full min-w-0 sm:rounded-2xl"
+      style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
     >
-      <button
-        type="button"
-        onClick={() => onOpen(event.id)}
-        className="block w-full text-left"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      <div className="flex items-center gap-2.5 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onOpenProfile?.(event.creator.username)}
+          className="flex items-center gap-2.5 min-w-0"
+          style={{ background: 'none', border: 'none', cursor: onOpenProfile ? 'pointer' : 'default', padding: 0 }}
+        >
+          <div
+            className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(140,82,255,0.12)' }}
+          >
+            {event.creator.avatarUrl ? (
+              <img src={event.creator.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <User size={18} style={{ color: 'var(--fg-muted)' }} />
+            )}
+          </div>
+          <div className="text-left min-w-0">
+            <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+              {hostName}
+            </p>
+            {place ? (
+              <p className="text-xs m-0 truncate inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
+                <MapPin size={11} className="flex-shrink-0" />
+                {place}
+              </p>
+            ) : null}
+          </div>
+        </button>
+        <span className="ml-auto text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
+          {timeAgoShort(event.createdAt)}
+        </span>
+      </div>
+
+      <DoubleTapLike
+        onDoubleLike={() => void likeFromDoubleTap()}
+        onSingleTap={() => onOpen(event.id)}
+        className="relative w-full overflow-hidden bg-black/10"
       >
-        <div className="relative h-36 sm:h-40 bg-black/10">
+        <div className="relative w-full max-h-[70vh] aspect-[4/5] min-h-[22rem]">
           {event.coverUrl ? (
             <EventCoverMedia
               url={event.coverUrl}
               resourceType={event.coverResourceType}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               controls={false}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Calendar size={28} style={{ color: 'var(--fg-muted)' }} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Calendar size={36} style={{ color: 'var(--fg-muted)' }} />
             </div>
           )}
           {badge && (
@@ -124,82 +206,64 @@ export default function EventCard({
             </span>
           )}
         </div>
-      </button>
+      </DoubleTapLike>
 
-      <div className="px-4 py-3 flex flex-col gap-1.5 min-w-0">
-        <div className="flex items-start gap-2 min-w-0">
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-4 mb-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={e => void toggleLike(e)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: likedByMe ? 'var(--primary)' : 'var(--fg)',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+            aria-label="Like event"
+          >
+            <Heart size={22} fill={likedByMe ? 'currentColor' : 'none'} />
+          </button>
           <button
             type="button"
             onClick={() => onOpen(event.id)}
-            className="flex-1 min-w-0 text-left"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
+            aria-label="Event details"
           >
-            <p
-              className="text-sm font-bold m-0 leading-snug truncate"
-              style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
-            >
-              {event.title}
-            </p>
-            <p className="text-xs m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>
-              {when}
-            </p>
-            {place && (
-              <p className="text-xs m-0 mt-0.5 flex items-center gap-1 truncate" style={{ color: 'var(--fg-muted)' }}>
-                <MapPin size={12} className="flex-shrink-0" />
-                <span className="truncate">{place}</span>
-              </p>
-            )}
+            <Users size={22} />
           </button>
           <button
             type="button"
             onClick={toggleSave}
-            className="flex-shrink-0 p-2 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="ml-auto"
             style={{
               background: 'none',
               border: 'none',
-              color: event.savedByMe ? 'var(--primary)' : 'var(--fg-muted)',
+              color: event.savedByMe ? 'var(--primary)' : 'var(--fg)',
               cursor: 'pointer',
+              padding: 0,
             }}
             aria-label={event.savedByMe ? 'Unsave event' : 'Save event'}
           >
-            <Bookmark size={18} fill={event.savedByMe ? 'currentColor' : 'none'} />
+            <Bookmark size={22} fill={event.savedByMe ? 'currentColor' : 'none'} />
           </button>
         </div>
 
-        <p className="text-xs m-0 inline-flex items-center gap-2 flex-wrap" style={{ color: 'var(--fg-muted)' }}>
-          <span className="inline-flex items-center gap-0.5">
-            <Users size={11} /> {event.goingCount} going
-          </span>
-          {event.interestedCount > 0 && (
-            <span>· {event.interestedCount} interested</span>
-          )}
-          {event.maxAttendees != null && (
-            <span>
-              · {Math.min(event.goingCount, event.maxAttendees)}/{event.maxAttendees} spots
-            </span>
-          )}
+        <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+          {formatCount(likeCount)} likes · {formatCount(event.goingCount)} going
         </p>
 
-        <button
-          type="button"
-          onClick={() => onOpenProfile?.(event.creator.username)}
-          className="flex items-center gap-2 mt-0.5 text-left min-w-0"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: onOpenProfile ? 'pointer' : 'default' }}
-        >
-          {event.creator.avatarUrl ? (
-            <img src={event.creator.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
-          )}
-          <span className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>
-            {event.business?.name
-              || event.creator.displayName
-              || formatUsername(event.creator.username)}
-          </span>
-        </button>
+        {caption ? (
+          <ExpandableCaption authorFirstName={hostName} caption={caption} />
+        ) : null}
+
+        <p className="text-xs m-0 mt-2" style={{ color: 'var(--fg-muted)' }}>
+          {when}
+        </p>
 
         {!compact && rsvpOpen && (
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-3">
             <button
               type="button"
               disabled={atCapacity}
