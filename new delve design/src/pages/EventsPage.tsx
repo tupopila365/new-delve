@@ -135,14 +135,14 @@ export default function EventsPage({
 
   const featured = useMemo(() => {
     if (tab !== 'discover' || loading || searchMode || debouncedSearch.length >= 2) return null
+    if (discoverFiltered.length < 2) return null
     return pickFeaturedEvent(discoverFiltered)
   }, [tab, loading, searchMode, debouncedSearch, discoverFiltered])
 
   const listEvents = useMemo(() => {
     if (tab !== 'discover') return events
-    if (!featured) return discoverFiltered
-    return discoverFiltered.filter(e => e.id !== featured.id)
-  }, [tab, events, discoverFiltered, featured])
+    return discoverFiltered
+  }, [tab, events, discoverFiltered])
 
   const emptyCopy = useMemo(() => {
     if (tab === 'hosting') return 'You have not created any events yet.'

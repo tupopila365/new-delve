@@ -336,7 +336,7 @@ export default function JourneysPage({
       )}
 
       {!loading && !error && list.length > 0 && (tab === 'discover' || signedIn) && (
-        <div className="flex flex-col gap-3 p-4 sm:p-0 sm:pt-4">
+        <div className="flex flex-col sm:gap-4 sm:pt-4">
           {list.map(j => (
             <JourneyCard
               key={j.id}

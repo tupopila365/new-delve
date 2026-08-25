@@ -77,15 +77,20 @@ export default function CommunityThreadCard({
         )}
 
         {thread.linkedJourney && (
-          <div className="flex items-center gap-3 rounded-lg overflow-hidden mb-2" style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)' }}>
+          <div className="rounded-xl overflow-hidden mb-2" style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)' }}>
             {thread.linkedJourney.coverUrl ? (
-              <img src={thread.linkedJourney.coverUrl} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
+              <img
+                src={thread.linkedJourney.coverUrl}
+                alt=""
+                className="w-full object-cover max-h-[70vh] aspect-[4/5] min-h-[18rem]"
+                loading="lazy"
+              />
             ) : (
-              <div className="w-14 h-14 flex-shrink-0" style={{ background: 'var(--border)' }} />
+              <div className="w-full aspect-[4/5] min-h-[18rem]" style={{ background: 'var(--border)' }} />
             )}
-            <div className="min-w-0 py-2 pr-2">
-              <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{thread.linkedJourney.title}</p>
-              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+            <div className="px-3 py-2.5">
+              <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>{thread.linkedJourney.title}</p>
+              <p className="text-xs m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>
                 {thread.linkedJourney.durationDays} days · {thread.linkedJourney.stopCount} stops
               </p>
             </div>

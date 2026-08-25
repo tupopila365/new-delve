@@ -1,10 +1,13 @@
 import { useCallback, useState } from 'react'
 import type { MouseEvent } from 'react'
-import { Bookmark, Heart, MapPin, MessageCircle, Navigation } from 'lucide-react'
+import { Bookmark, Heart, MapPin, MessageCircle, Navigation, User } from 'lucide-react'
 import type { JourneySummary } from '@delve/contracts'
 import { likeJourney, unlikeJourney } from '../../api/journeyClient'
 import { saveItem, unsaveItem } from '../../api/socialClient'
+import { DoubleTapLike } from '../delvers/DoubleTapLike'
+import ExpandableCaption from '../mobile/ExpandableCaption'
 import { formatUsername } from '../../lib/formatUsername'
+import { timeAgoShort } from '../../lib/timeAgoShort'
 import JourneyCoverMedia from './JourneyCoverMedia'
 import { deriveJourneyLifecycle, formatStopRoute, lifecycleLabel } from './journeyLifecycle'
 
@@ -38,16 +41,18 @@ export default function JourneyCard({
       : [journey.startPlace, journey.endPlace].filter(Boolean),
   )
   const destination = journey.countries[0] || journey.endPlace || journey.startPlace
+  const caption = [journey.title, journey.summary || journey.takeaway].filter(Boolean).join(' — ')
+  const postedAt = journey.publishedAt || journey.createdAt
 
   const patch = useCallback(
-    (patch: Partial<JourneySummary>) => {
-      onJourneyUpdated?.({ ...journey, ...patch })
+    (next: Partial<JourneySummary>) => {
+      onJourneyUpdated?.({ ...journey, ...next })
     },
     [journey, onJourneyUpdated],
   )
 
-  async function toggleLike(e: MouseEvent) {
-    e.stopPropagation()
+  async function toggleLike(e?: MouseEvent) {
+    e?.stopPropagation()
     if (!signedIn) {
       onSignIn?.()
       return
@@ -94,131 +99,162 @@ export default function JourneyCard({
 
   return (
     <article
-      className="overflow-hidden sm:rounded-2xl w-full min-w-0"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      className="overflow-hidden w-full min-w-0 sm:rounded-2xl"
+      style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
     >
-      <button
-        type="button"
-        onClick={() => onOpen(journey.id)}
-        className="block w-full text-left"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-      >
-        <div className="relative aspect-[16/10] bg-black/10">
-          {journey.coverUrl ? (
-            <JourneyCoverMedia
-              url={journey.coverUrl}
-              resourceType={journey.coverResourceType}
-              className="w-full h-full object-cover"
-              variant="card"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Navigation size={28} style={{ color: 'var(--fg-muted)' }} />
-            </div>
-          )}
-          {status !== 'UPCOMING' && (
-            <span
-              className="absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-              style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
-            >
-              {lifecycleLabel(status)}
-            </span>
-          )}
-        </div>
-      </button>
-
-      <div className="px-4 py-3 flex flex-col gap-1.5 min-w-0">
+      <div className="flex items-center gap-2.5 px-4 py-3">
         <button
           type="button"
-          onClick={() => onOpen(journey.id)}
-          className="text-left min-w-0"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          onClick={() => onOpenProfile?.(journey.author.username)}
+          className="flex items-center gap-2.5 min-w-0"
+          style={{ background: 'none', border: 'none', cursor: onOpenProfile ? 'pointer' : 'default', padding: 0 }}
         >
-          <p
-            className="text-sm font-bold m-0 leading-snug"
-            style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
+          <div
+            className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(140,82,255,0.12)' }}
           >
-            {journey.title}
-          </p>
-          <p className="text-xs m-0 mt-1 inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-            <MapPin size={12} className="flex-shrink-0" />
-            <span className="truncate">{destination}</span>
-          </p>
-          <p className="text-xs m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-            {journey.durationDays} days · {journey.stopCount} stops
-          </p>
-          {route && (
-            <p className="text-xs m-0 mt-1 truncate" style={{ color: 'var(--fg-muted)' }}>
-              {route}
+            {journey.author.avatarUrl ? (
+              <img src={journey.author.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <User size={18} style={{ color: 'var(--fg-muted)' }} />
+            )}
+          </div>
+          <div className="text-left min-w-0">
+            <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+              {journey.author.displayName || formatUsername(journey.author.username)}
             </p>
-          )}
+            {destination ? (
+              <p className="text-xs m-0 truncate inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
+                <MapPin size={11} className="flex-shrink-0" />
+                {destination}
+              </p>
+            ) : null}
+          </div>
         </button>
+        <span className="ml-auto text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
+          {timeAgoShort(postedAt)}
+        </span>
+      </div>
 
-        <button
-          type="button"
-          onClick={e => {
-            e.stopPropagation()
-            onOpenProfile?.(journey.author.username)
+      <DoubleTapLike
+        onDoubleLike={() => {
+          if (!journey.likedByMe) void toggleLike()
+        }}
+        className="relative w-full overflow-hidden bg-black/10"
+      >
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpen(journey.id)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onOpen(journey.id)
+            }
           }}
-          className="flex items-center gap-2 mt-0.5 text-left min-w-0"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: onOpenProfile ? 'pointer' : 'default' }}
+          className="block w-full text-left cursor-pointer"
+          aria-label={`Open ${journey.title}`}
         >
-          {journey.author.avatarUrl ? (
-            <img src={journey.author.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
-          )}
-          <span className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>
-            {journey.author.displayName || formatUsername(journey.author.username)}
-          </span>
-        </button>
+          <div className="relative w-full max-h-[70vh] aspect-[4/5] min-h-[22rem]">
+            {journey.coverUrl ? (
+              <JourneyCoverMedia
+                url={journey.coverUrl}
+                resourceType={journey.coverResourceType}
+                className="absolute inset-0 w-full h-full object-cover"
+                variant="card"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Navigation size={36} style={{ color: 'var(--fg-muted)' }} />
+              </div>
+            )}
+            {status !== 'UPCOMING' && (
+              <span
+                className="absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
+                style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
+              >
+                {lifecycleLabel(status)}
+              </span>
+            )}
+          </div>
+        </div>
+      </DoubleTapLike>
 
-        <div className="flex items-center gap-3 mt-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-4 mb-2">
           <button
             type="button"
             disabled={busy}
-            onClick={toggleLike}
-            className="inline-flex items-center gap-1 text-xs font-semibold min-h-[44px] min-w-[44px] justify-center"
+            onClick={e => void toggleLike(e)}
             style={{
               background: 'none',
               border: 'none',
-              color: journey.likedByMe ? '#E11D48' : 'var(--fg-muted)',
+              color: journey.likedByMe ? 'var(--primary)' : 'var(--fg)',
               cursor: 'pointer',
+              padding: 0,
             }}
             aria-label="Like journey"
           >
-            <Heart size={16} fill={journey.likedByMe ? 'currentColor' : 'none'} />
-            {formatCount(journey.likeCount)}
+            <Heart size={22} fill={journey.likedByMe ? 'currentColor' : 'none'} />
           </button>
           <button
             type="button"
-            onClick={e => {
-              e.stopPropagation()
-              onOpen(journey.id)
-            }}
-            className="inline-flex items-center gap-1 text-xs font-semibold min-h-[44px]"
-            style={{ background: 'none', border: 'none', color: 'var(--fg-muted)', cursor: 'pointer' }}
+            onClick={() => onOpen(journey.id)}
+            style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
+            aria-label="Comments"
           >
-            <MessageCircle size={16} />
-            {formatCount(journey.commentCount)}
+            <MessageCircle size={22} />
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={toggleSave}
-            className="inline-flex items-center gap-1 text-xs font-semibold min-h-[44px] ml-auto"
+            className="ml-auto"
             style={{
               background: 'none',
               border: 'none',
-              color: journey.savedByMe ? 'var(--primary)' : 'var(--fg-muted)',
+              color: journey.savedByMe ? 'var(--primary)' : 'var(--fg)',
               cursor: 'pointer',
+              padding: 0,
             }}
             aria-label={journey.savedByMe ? 'Unsave journey' : 'Save journey'}
           >
-            <Bookmark size={16} fill={journey.savedByMe ? 'currentColor' : 'none'} />
-            Save
+            <Bookmark size={22} fill={journey.savedByMe ? 'currentColor' : 'none'} />
           </button>
         </div>
+
+        <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+          {formatCount(journey.likeCount)} likes · {formatCount(journey.commentCount)} comments
+        </p>
+
+        {caption ? (
+          <ExpandableCaption
+            authorFirstName={journey.author.displayName || journey.author.username}
+            caption={caption}
+          />
+        ) : null}
+
+        <p className="text-xs m-0 mt-2" style={{ color: 'var(--fg-muted)' }}>
+          {journey.durationDays} days · {journey.stopCount} stops
+          {route ? ` · ${route}` : ''}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => onOpen(journey.id)}
+          className="text-sm mt-1 min-h-[32px] inline-flex items-center"
+          style={{
+            color: 'var(--fg-muted)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          {journey.commentCount > 0
+            ? `View all ${formatCount(journey.commentCount)} comments`
+            : 'Open journey'}
+        </button>
       </div>
     </article>
   )

@@ -349,14 +349,31 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
   )
 }
 
+/** Parse datetime-local as the user's local clock (not UTC). */
+export function datetimeLocalToIso(value: string): string {
+  const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/)
+  if (m) {
+    const local = new Date(
+      Number(m[1]),
+      Number(m[2]) - 1,
+      Number(m[3]),
+      Number(m[4]),
+      Number(m[5]),
+      Number(m[6] || 0),
+    )
+    return local.toISOString()
+  }
+  return new Date(value).toISOString()
+}
+
 export function eventFormToBody(form: EventFormState, status: 'DRAFT' | 'PUBLISHED') {
   const lat = form.latitude.trim() ? Number(form.latitude) : null
   const lng = form.longitude.trim() ? Number(form.longitude) : null
   return {
     title: form.title.trim(),
     description: form.description.trim(),
-    startAt: new Date(form.startAt).toISOString(),
-    endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
+    startAt: datetimeLocalToIso(form.startAt),
+    endAt: form.endAt ? datetimeLocalToIso(form.endAt) : null,
     city: form.city.trim() || null,
     country: form.country.trim() || null,
     timezone: form.timezone.trim() || null,

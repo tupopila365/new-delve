@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search, MapPin, Bell, MessageCircle, Heart, Bookmark, Share2,
@@ -867,7 +867,7 @@ export default function App() {
         onClose={() => setCreateEventOpen(false)}
         onCreated={id => {
           setCreateEventOpen(false)
-          setEventsInitialTab('hosting')
+          setEventsInitialTab('discover')
           openEventDetail(id)
           setSocialRefreshKey(k => k + 1)
         }}

@@ -178,6 +178,18 @@ async function assertCanViewEvent(event: EventRow, viewerId: string | null) {
 
 
 
+/** Upcoming, in progress, or started in the last day with no end time. */
+function discoverScheduleFilter(now: Date) {
+  const startedRecently = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  return {
+    OR: [
+      { startAt: { gte: now } },
+      { endAt: { gte: now } },
+      { AND: [{ endAt: null }, { startAt: { gte: startedRecently } }] },
+    ],
+  }
+}
+
 function discoverVisibilityFilter(viewerId: string | null) {
 
   if (!viewerId) return { visibility: 'PUBLIC' as const }
@@ -525,19 +537,17 @@ export async function listDiscoverEvents(
 
       status: 'PUBLISHED',
 
-      startAt: { gte: after },
+      AND: [discoverScheduleFilter(after), visibilityFilter],
 
       ...(city ? { city: { contains: city, mode: 'insensitive' } } : {}),
 
       ...(category ? { category: { equals: category, mode: 'insensitive' } } : {}),
 
-      ...visibilityFilter,
-
     },
 
     orderBy: { startAt: 'asc' },
 
-    take: 60,
+    take: 120,
 
   })
 
@@ -565,9 +575,7 @@ export async function searchEvents(env: Env, viewerId: string | null, q: string)
 
       status: 'PUBLISHED',
 
-      startAt: { gte: new Date() },
-
-      ...discoverVisibilityFilter(viewerId),
+      AND: [discoverScheduleFilter(new Date()), discoverVisibilityFilter(viewerId)],
 
       OR: [
 
