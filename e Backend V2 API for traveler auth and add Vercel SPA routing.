@@ -10,3 +10,47 @@ new delve design/src/pages/AccountSettingsPage.tsx
 new delve design/src/pages/auth/SignInScreen.tsx
 new delve design/src/pages/auth/SignUpScreen.tsx
 new delve design/src/vite-env.d.ts
+
+
+
+
+
+$env:DATABASE_URL = 'postgresql://neondb_owner:npg_uiJ2Qg6eltRb@ep-shiny-violet-ayodm52y.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require'
+$sql = @'
+ALTER TABLE "DealClaim" ADD COLUMN IF NOT EXISTS "titleSnapshot" TEXT;
+ALTER TABLE "DealClaim" ADD COLUMN IF NOT EXISTS "discountTypeSnapshot" "DealDiscountType";
+ALTER TABLE "DealClaim" ADD COLUMN IF NOT EXISTS "discountValueSnapshot" DECIMAL(12,2);
+ALTER TABLE "DealClaim" ADD COLUMN IF NOT EXISTS "currencySnapshot" TEXT;
+
+UPDATE "DealClaim" AS c
+SET
+  "titleSnapshot" = COALESCE(c."titleSnapshot", d.title, 'Deal'),
+  "discountTypeSnapshot" = COALESCE(c."discountTypeSnapshot", d."discountType"),
+  "discountValueSnapshot" = COALESCE(c."discountValueSnapshot", d."discountValue"),
+  "currencySnapshot" = COALESCE(c."currencySnapshot", d.currency, 'USD')
+FROM "Deal" AS d
+WHERE c."dealId" = d.id;
+
+UPDATE "DealClaim"
+SET
+  "titleSnapshot" = COALESCE("titleSnapshot", 'Deal'),
+  "discountTypeSnapshot" = COALESCE("discountTypeSnapshot", 'PERCENTAGE'),
+  "discountValueSnapshot" = COALESCE("discountValueSnapshot", 0),
+  "currencySnapshot" = COALESCE("currencySnapshot", 'USD');
+
+ALTER TABLE "DealClaim"
+  ALTER COLUMN "titleSnapshot" SET NOT NULL,
+  ALTER COLUMN "discountTypeSnapshot" SET NOT NULL,
+  ALTER COLUMN "discountValueSnapshot" SET NOT NULL,
+  ALTER COLUMN "currencySnapshot" SET NOT NULL;
+
+UPDATE "_prisma_migrations"
+SET checksum = '1c7e9ae67dd272edc0403c6da493e0cec8117db51526b2dbd4f7a6bd0343fda5'
+WHERE migration_name = '20260825180000_deals_system';
+'@
+$sql | pnpm exec prisma db execute --stdin
+
+
+
+$env:DATABASE_URL="postgresql://neondb_owner:npg_uiJ2Qg6eltRb@ep-shiny-violet-ayodm52y.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require"   # your Neon URL
+pnpm --filter @delve/database migrate:deploy

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Plus, Tag } from 'lucide-react'
-import type { CreateDealBody, DealDto, DealStatus, ListingDto, UpdateDealBody } from '@delve/contracts'
-import { createDeal, fetchBusinessDeals, updateDeal } from '../../api/dealClient'
+import type { CreateDealBody, DealDto, DealPricing, DealStatus, ListingDto, UpdateDealBody } from '@delve/contracts'
+import { createDeal, fetchBusinessDeals, previewDealPrice, updateDeal } from '../../api/dealClient'
 import { fetchBusinessListings } from '../../api/listingClient'
+import { formatMoney } from '../../lib/formatMoney'
 
 interface ProviderDealsViewProps {
   businessId: string
@@ -51,7 +52,7 @@ type FormState = {
   currency: string
   startDate: string
   endDate: string
-  status: 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED'
+  status: 'DRAFT' | 'PENDING_REVIEW'
 }
 
 function emptyForm(): FormState {
@@ -63,7 +64,7 @@ function emptyForm(): FormState {
     listingId: '',
     discountType: 'PERCENTAGE',
     discountValue: '10',
-    currency: 'USD',
+    currency: '',
     startDate: toLocalInputValue(start.toISOString()),
     endDate: toLocalInputValue(end.toISOString()),
     status: 'DRAFT',
@@ -80,10 +81,7 @@ function formFromDeal(deal: DealDto): FormState {
     currency: deal.currency,
     startDate: toLocalInputValue(deal.startDate),
     endDate: toLocalInputValue(deal.endDate),
-    status:
-      deal.status === 'PENDING_REVIEW' || deal.status === 'PUBLISHED' || deal.status === 'DRAFT'
-        ? deal.status
-        : 'DRAFT',
+    status: deal.status === 'PENDING_REVIEW' ? 'PENDING_REVIEW' : 'DRAFT',
   }
 }
 
@@ -96,6 +94,8 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<FormState>(emptyForm)
+  const [preview, setPreview] = useState<DealPricing | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
 
   async function reload() {
     const [dealRows, listingRows] = await Promise.all([
@@ -125,9 +125,52 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
   }, [businessId])
 
   const listingOptions = useMemo(
-    () => listings.map(l => ({ id: l.id, title: l.title, status: l.status })),
+    () =>
+      listings.map(l => ({
+        id: l.id,
+        title: l.title,
+        status: l.status,
+        pricing: l.pricing,
+      })),
     [listings],
   )
+
+  const selectedListing = listings.find(l => l.id === form.listingId) ?? null
+
+  useEffect(() => {
+    const listingId = form.listingId
+    const discountValue = Number(form.discountValue)
+    if (!listingId || !Number.isFinite(discountValue)) {
+      setPreview(null)
+      setPreviewError(null)
+      return
+    }
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      void previewDealPrice(businessId, {
+        listingId,
+        discountType: form.discountType,
+        discountValue,
+        currency: selectedListing?.pricing?.currency,
+      })
+        .then(row => {
+          if (!cancelled) {
+            setPreview(row)
+            setPreviewError(null)
+          }
+        })
+        .catch(err => {
+          if (!cancelled) {
+            setPreview(null)
+            setPreviewError(err instanceof Error ? err.message : 'Could not preview price')
+          }
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [businessId, form.listingId, form.discountType, form.discountValue, selectedListing?.pricing?.currency])
 
   function openCreate() {
     setEditingId(null)
@@ -158,7 +201,7 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
         listingId: form.listingId ? form.listingId : null,
         discountType: form.discountType,
         discountValue,
-        currency: form.currency,
+        currency: selectedListing?.pricing?.currency || form.currency || undefined,
         startDate: fromLocalInputValue(form.startDate),
         endDate: fromLocalInputValue(form.endDate),
         status: form.status,
@@ -191,7 +234,7 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
             Deals
           </h1>
           <p className="text-sm m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>
-            Create discounts for your business. Checkout comes later — pricing inputs are stored for Day 5.
+            Create discounts against a priced listing. Advertised deal amounts are calculated by the server.
           </p>
         </div>
         <button
@@ -244,7 +287,7 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
           </label>
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
-              Linked listing (optional)
+              Linked listing
             </span>
             <select
               value={form.listingId}
@@ -252,15 +295,26 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
               className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
               style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
             >
-              <option value="">None</option>
+              <option value="">Select a listing</option>
               {listingOptions.map(l => (
                 <option key={l.id} value={l.id}>
-                  {l.title} ({l.status})
+                  {l.title} ({l.status}
+                  {l.pricing ? ` · ${formatMoney(l.pricing.currency, l.pricing.amount)}` : ' · no price'})
                 </option>
               ))}
             </select>
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {selectedListing?.pricing && (
+            <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>
+              Listing price: {formatMoney(selectedListing.pricing.currency, selectedListing.pricing.amount)}
+            </p>
+          )}
+          {selectedListing && !selectedListing.pricing && (
+            <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+              This listing has no advertised price yet. Add one before submitting for review.
+            </p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
                 Discount type
@@ -293,19 +347,22 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
               />
             </label>
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
-                Currency
-              </span>
-              <input
-                value={form.currency}
-                onChange={e => setForm(f => ({ ...f, currency: e.target.value.toUpperCase() }))}
-                maxLength={3}
-                className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-              />
-            </label>
           </div>
+          {preview && (
+            <div className="rounded-xl px-3 py-3 text-sm" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
+              <p className="m-0 text-xs font-semibold mb-2" style={{ color: 'var(--fg-muted)' }}>
+                Server preview
+              </p>
+              <p className="m-0">Original {formatMoney(preview.currency, preview.originalAmount)}</p>
+              <p className="m-0">Deal price {formatMoney(preview.currency, preview.dealAmount)}</p>
+              <p className="m-0">Customer saves {formatMoney(preview.currency, preview.savingAmount)}</p>
+            </div>
+          )}
+          {previewError && (
+            <p className="text-xs m-0" style={{ color: 'var(--auth-danger)' }}>
+              {previewError}
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--fg-muted)' }}>
@@ -343,8 +400,7 @@ export default function ProviderDealsView({ businessId }: ProviderDealsViewProps
               style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
             >
               <option value="DRAFT">Draft</option>
-              <option value="PENDING_REVIEW">Pending review</option>
-              <option value="PUBLISHED">Published</option>
+              <option value="PENDING_REVIEW">Submit for review</option>
             </select>
           </label>
           <div className="flex gap-2 pt-1">

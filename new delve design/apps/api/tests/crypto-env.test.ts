@@ -107,5 +107,6 @@ describe('env validation', () => {
     })
     expect(ok.appEnv).toBe('production')
     expect(ok.ADMIN_WEB_ORIGIN.startsWith('https://')).toBe(true)
+    expect(ok.stripeConfigured).toBe(false)
   })
 })

@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./decimal": {
+      "types": "./dist/decimal.d.ts",
+      "import": "./dist/decimal.js"
     }
   },
   "files": ["dist", "prisma"],

@@ -33,6 +33,7 @@ const DEAL_TYPES: { id: DealType; label: string; description: string }[] = [
 
 const eligibleListings = listings.filter(l => l.status === 'published' && l.verificationStatus === 'approved')
 
+/** Prototype-only mock builder. Production provider deals use ProviderDealsView + V2 API. */
 export default function DealBuilder({
   mode = 'create',
   entityId,

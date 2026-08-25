@@ -4,6 +4,9 @@ import type { ListingPublicDto } from '@delve/contracts'
 import { fetchPublicListing } from '../api/listingClient'
 import ListingMediaGallery from '../media/ListingMediaGallery'
 import { SectionError } from '../components/SectionStates'
+import { formatMoney } from '../lib/formatMoney'
+import BookingRequestForm from './booking/BookingRequestForm'
+import { getStoredAccessToken } from '../api/authClient'
 
 /** Kept for App booking wiring compatibility — checkout not connected for real listings yet. */
 export type ServiceBookingDraft = {
@@ -17,7 +20,7 @@ interface ServiceDetailPageProps {
   listingId: string
   onBack: () => void
   onOpenBusiness?: (slug: string) => void
-  onBookListing?: (listingId: string, draft?: ServiceBookingDraft) => void
+  onOpenBookings?: () => void
 }
 
 function locationOf(listing: ListingPublicDto) {
@@ -28,6 +31,7 @@ export default function ServiceDetailPage({
   listingId,
   onBack,
   onOpenBusiness,
+  onOpenBookings,
 }: ServiceDetailPageProps) {
   const [listing, setListing] = useState<ListingPublicDto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -136,6 +140,12 @@ export default function ServiceDetailPage({
           {listing.business.category && <span>{listing.business.category}</span>}
         </div>
 
+        {listing.pricing && (
+          <p className="text-xl font-bold m-0 mb-3" style={{ color: 'var(--fg)' }}>
+            {formatMoney(listing.pricing.currency, listing.pricing.amount)}
+          </p>
+        )}
+
         {listing.description ? (
           <p className="text-sm leading-relaxed m-0 mb-5" style={{ color: 'var(--fg)' }}>
             {listing.description}
@@ -150,12 +160,33 @@ export default function ServiceDetailPage({
           className="rounded-2xl px-4 py-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-            Booking coming soon
-          </p>
-          <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-            Checkout is not connected yet. You can still browse listings, deals, and business profiles.
-          </p>
+          {listing.pricing ? (
+            getStoredAccessToken() ? (
+              <BookingRequestForm
+                listingId={listing.id}
+                ctaLabel="Request to book"
+                onCreated={() => onOpenBookings?.()}
+              />
+            ) : (
+              <>
+                <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+                  Sign in to request a booking
+                </p>
+                <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                  Price is taken from this listing on the server. This is not payment.
+                </p>
+              </>
+            )
+          ) : (
+            <>
+              <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+                Booking unavailable
+              </p>
+              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                This listing does not have an advertised price yet.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

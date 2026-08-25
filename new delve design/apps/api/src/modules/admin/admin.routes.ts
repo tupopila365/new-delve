@@ -22,6 +22,9 @@ import {
   setAdminCsrfCookie,
   setAdminSessionCookie,
 } from './admin-cookie.js'
+import { createAdminDealController } from '../deal/deal.controller.js'
+import { createBookingController } from '../booking/booking.controller.js'
+import { createPaymentController } from '../payment/payment.controller.js'
 
 /**
  * Admin API surface.
@@ -33,6 +36,9 @@ export function createAdminRouter(env: Env) {
   const guard = requireAdminSession(env)
   const originGuard = requireAdminMutationOrigin(env)
   const csrfGuard = requireAdminCsrf(env)
+  const deals = createAdminDealController()
+  const bookings = createBookingController()
+  const payments = createPaymentController(env)
 
   router.post('/auth/login', originGuard, (req, res, next) => {
     void (async () => {
@@ -97,6 +103,25 @@ export function createAdminRouter(env: Env) {
   router.get('/health', (_req, res) => {
     res.json({ success: true, data: { status: 'ok', audience: 'admin' } })
   })
+
+  router.get('/deals', (req, res, next) => void deals.list(req, res, next))
+  router.post('/deals/:id/moderate', (req, res, next) => void deals.moderate(req, res, next))
+  router.patch('/deals/:id/featured', (req, res, next) => void deals.feature(req, res, next))
+  router.get('/deal-reports', (req, res, next) => void deals.reports(req, res, next))
+  router.post('/deal-reports/:reportId', (req, res, next) => void deals.resolveReport(req, res, next))
+  router.get('/deal-analytics', (req, res, next) => void deals.analytics(req, res, next))
+  router.get('/bookings', (req, res, next) => void bookings.adminList(req, res, next))
+  router.get('/bookings/:bookingId', (req, res, next) => void bookings.adminGet(req, res, next))
+  router.get('/settlements', (req, res, next) => void payments.adminList(req, res, next))
+  router.get('/settlements/:payableId', (req, res, next) => void payments.adminGet(req, res, next))
+  router.post('/settlements/:payableId/release', (req, res, next) => void payments.adminRelease(req, res, next))
+  router.get('/refunds', (req, res, next) => void payments.adminListRefunds(req, res, next))
+  router.get('/refunds/:refundId', (req, res, next) => void payments.adminGetRefund(req, res, next))
+  router.post('/refunds/:refundId/issue', (req, res, next) => void payments.adminIssueRefund(req, res, next))
+  router.post('/refunds/:refundId/reverse-and-continue', (req, res, next) => void payments.adminReverseAndContinue(req, res, next))
+  router.get('/cancellation-requests', (req, res, next) => void payments.adminListCancellations(req, res, next))
+  router.post('/cancellation-requests/:requestId/approve', (req, res, next) => void payments.adminApproveCancellation(req, res, next))
+  router.post('/cancellation-requests/:requestId/reject', (req, res, next) => void payments.adminRejectCancellation(req, res, next))
 
   return router
 }

@@ -7,6 +7,7 @@ import type { Env } from './config/env.js'
 import { createCorsOptions } from './config/cors.js'
 import { createApiRouter } from './routes/index.js'
 import { createCloudinaryWebhookRouter } from './modules/media/media.routes.js'
+import { createStripeWebhookRouter } from './modules/payment/payment.routes.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { notFoundHandler } from './middleware/not-found.js'
 
@@ -23,6 +24,11 @@ export function createApp(env: Env) {
     `${API_V2_PREFIX}/webhooks/cloudinary`,
     express.raw({ type: '*/*', limit: '2mb' }),
     createCloudinaryWebhookRouter(env),
+  )
+  app.use(
+    `${API_V2_PREFIX}/webhooks/stripe`,
+    express.raw({ type: '*/*', limit: '1mb' }),
+    createStripeWebhookRouter(env),
   )
 
   app.use(express.json({ limit: '1mb' }))

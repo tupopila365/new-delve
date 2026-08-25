@@ -3,6 +3,7 @@ import { Building2, CheckCircle, MapPin, Search, Tag, X } from 'lucide-react'
 import type { ListingPublicDto } from '@delve/contracts'
 import { fetchPublicListings } from '../api/listingClient'
 import { SkeletonCard, SectionEmpty, SectionError } from '../components/SectionStates'
+import { formatMoney } from '../lib/formatMoney'
 import SafeImage from '../components/mobile/SafeImage'
 import ServiceDetailPage from './ServiceDetailPage'
 
@@ -20,6 +21,7 @@ export type ServicesBrowseProps = {
   onOpenTransport: () => void
   onBookListing?: (listingId: string, draft?: import('./ServiceDetailPage').ServiceBookingDraft) => void
   onOpenBusiness?: (slug: string) => void
+  onOpenBookings?: () => void
 }
 
 function coverUrl(listing: ListingPublicDto): string | null {
@@ -89,6 +91,11 @@ function ListingCard({
             {location}
           </p>
         )}
+        {listing.pricing && (
+          <p className="text-sm font-semibold m-0 mt-1.5" style={{ color: 'var(--fg)' }}>
+            {formatMoney(listing.pricing.currency, listing.pricing.amount)}
+          </p>
+        )}
       </div>
     </article>
   )
@@ -140,6 +147,7 @@ export default function ServicesPage({
   selectedId,
   setSelectedId,
   onOpenBusiness,
+  onOpenBookings,
 }: ServicesBrowseProps) {
   const [listings, setListings] = useState<ListingPublicDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -213,6 +221,7 @@ export default function ServicesPage({
         listingId={selectedId}
         onBack={() => setSelectedId(null)}
         onOpenBusiness={onOpenBusiness}
+        onOpenBookings={onOpenBookings}
       />
     )
   }

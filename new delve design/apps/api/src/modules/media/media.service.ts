@@ -7,6 +7,7 @@ import type {
 } from '@delve/contracts'
 import type { Env } from '../../config/env.js'
 import { AppError } from '../../middleware/error-handler.js'
+import { requireBusinessMembership } from '../business/business.service.js'
 import {
   buildDeliveryUrl,
   chooseFolder,
@@ -249,6 +250,18 @@ export async function createUploadSignature(
     }
   }
 
+  if (policy.requiresDeal) {
+    if (!body.dealId) {
+      throw new AppError(400, 'DEAL_ID_REQUIRED', 'dealId is required for this upload purpose.')
+    }
+    const deal = await prisma.deal.findFirst({
+      where: { id: body.dealId, businessId: body.businessId },
+      select: { id: true, businessId: true },
+    })
+    if (!deal) throw new AppError(404, 'NOT_FOUND', 'Deal not found for this business.')
+    await requireBusinessMembership(userId, deal.businessId, ['OWNER', 'MANAGER', 'CONTENT_EDITOR'])
+  }
+
   const ext = normalizeFormat(extensionFromFilename(body.originalFilename))
   const mimeOk = policy.mimeTypes.includes(body.mimeType.toLowerCase())
   const formatOk = !ext || policy.formats.includes(ext)
@@ -270,7 +283,7 @@ export async function createUploadSignature(
     void AVATAR_QUOTA_NOTE
   }
 
-  const folder = chooseFolder(env, body.purpose, userId, body.businessId, body.listingId, body.eventId)
+  const folder = chooseFolder(env, body.purpose, userId, body.businessId, body.listingId, body.eventId, body.dealId)
   const ttl = env.CLOUDINARY_UPLOAD_SIGNATURE_TTL_SECONDS
   const expiresAt = new Date(Date.now() + ttl * 1000)
   const timestamp = Math.floor(Date.now() / 1000)
@@ -286,6 +299,7 @@ export async function createUploadSignature(
       businessId: body.businessId,
       listingId: body.listingId,
       eventId: body.eventId,
+      dealId: body.dealId,
       originalFilename: body.originalFilename.slice(0, 255),
       reportedMimeType: body.mimeType.slice(0, 128),
       reportedBytes: body.bytes,
@@ -482,6 +496,7 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
         businessId: intent.businessId,
         listingId: intent.listingId,
         eventId: intent.eventId,
+        dealId: intent.dealId,
         uploadIntentId: intent.id,
       },
     })
@@ -537,6 +552,23 @@ export async function completeUpload(env: Env, userId: string, body: MediaComple
         await tx.travelerEvent.update({
           where: { id: intent.eventId },
           data: { coverMediaId: created.id, coverUrl: coverUrl ?? created.secureUrl },
+        })
+      }
+    }
+
+    if (
+      intent.purpose === 'deal' &&
+      intent.dealId &&
+      (body.resourceType === 'image' || body.resourceType === 'auto')
+    ) {
+      const deal = await tx.deal.findUnique({
+        where: { id: intent.dealId },
+        select: { coverMediaId: true },
+      })
+      if (deal && !deal.coverMediaId) {
+        await tx.deal.update({
+          where: { id: intent.dealId },
+          data: { coverMediaId: created.id },
         })
       }
     }
@@ -609,6 +641,13 @@ export async function deleteMedia(env: Env, userId: string, mediaId: string) {
     await prisma.travelerEvent.updateMany({
       where: { id: row.eventId, coverMediaId: row.id },
       data: { coverMediaId: null, coverUrl: null },
+    })
+  }
+
+  if (row.dealId) {
+    await prisma.deal.updateMany({
+      where: { id: row.dealId, coverMediaId: row.id },
+      data: { coverMediaId: null },
     })
   }
 

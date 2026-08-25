@@ -89,6 +89,31 @@ export const journeyDetailSchema = journeySummarySchema.extend({
       }),
     )
     .optional(),
+  deals: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        coverUrl: z.string().nullable(),
+        discountSummary: z.string(),
+        city: z.string().nullable(),
+        endDate: z.string().datetime(),
+      }),
+    )
+    .optional(),
+  bookings: z
+    .array(
+      z.object({
+        id: z.string(),
+        bookingReference: z.string(),
+        listingTitle: z.string(),
+        status: z.string(),
+        startDateTime: z.string().datetime().nullable(),
+        finalAmount: z.string(),
+        currency: z.string(),
+      }),
+    )
+    .optional(),
 })
 
 export type JourneyDetail = z.infer<typeof journeyDetailSchema>
@@ -173,3 +198,19 @@ export const addJourneyEventBodySchema = z
   .strict()
 
 export type AddJourneyEventBody = z.infer<typeof addJourneyEventBodySchema>
+
+export const addJourneyDealBodySchema = z
+  .object({
+    dealId: z.string().min(1),
+  })
+  .strict()
+
+export type AddJourneyDealBody = z.infer<typeof addJourneyDealBodySchema>
+
+export const addJourneyBookingBodySchema = z
+  .object({
+    bookingId: z.string().min(1),
+  })
+  .strict()
+
+export type AddJourneyBookingBody = z.infer<typeof addJourneyBookingBodySchema>

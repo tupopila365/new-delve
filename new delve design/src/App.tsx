@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { businessPath, eventPath, navToPath, normalizePath, parseBusinessSlug, parseEventId, pathToNav } from './navigation'
 import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
-import type { PostDto } from '@delve/contracts'
+import type { DealDto, PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 import ResetPasswordPage from './pages/auth/ResetPasswordPage'
@@ -38,6 +38,7 @@ import EditEventSheet from './components/EditEventSheet'
 import MessagesPage from './pages/MessagesPage'
 import { useMessageUnreadCount } from './pages/messages/useLiveMessages'
 import SavedPage from './pages/SavedPage'
+import { fetchPublicDeals } from './api/dealClient'
 import NotificationsPage from './pages/NotificationsPage'
 import MediaStudio, { CreatePostButton } from './pages/MediaStudio'
 import CreateCommunitySheet from './components/communities/CreateCommunitySheet'
@@ -519,6 +520,7 @@ export default function App() {
   const [servicesNeeds, setServicesNeeds] = useState<Set<string>>(new Set())
   const [servicesSelectedId, setServicesSelectedId] = useState<string | null>(null)
   const [dealsSelectedId, setDealsSelectedId] = useState<string | null>(null)
+  const [homeDeals, setHomeDeals] = useState<DealDto[]>([])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [headerMoreOpen, setHeaderMoreOpen] = useState(false)
   const [feedTab, setFeedTab] = useState('following')
@@ -530,6 +532,20 @@ export default function App() {
     if (parseBusinessSlug(location.pathname)) setBusinessAdminOpen(false)
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchPublicDeals(3)
+      .then(rows => {
+        if (!cancelled) setHomeDeals(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setHomeDeals([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function openEventDetail(eventId: string) {
     setEventDetailId(eventId)
@@ -791,6 +807,7 @@ export default function App() {
     onOpenTransport: () => setActiveNav('Transport'),
     onBookListing: bookFromListing,
     onOpenBusiness: openBusiness,
+    onOpenBookings: () => goToNav('Bookings'),
   }
 
   function handleAuthenticated() {
@@ -1314,6 +1331,10 @@ export default function App() {
           setCommunityInitialThreadId(null)
         }}
         onOpenCommunityThread={id => void openCommunityThread(id)}
+        onOpenDeal={id => {
+          setDealsSelectedId(id)
+          goToNav('Deals')
+        }}
       />
     if (activeNav === 'Deals')
       return (
@@ -1337,6 +1358,11 @@ export default function App() {
           <MyBookingsPage
             onBack={openAccountHub}
             highlightRef={lastBookingRef ?? undefined}
+            onOpenBusiness={openBusiness}
+            onOpenDeal={id => {
+              setDealsSelectedId(id)
+              goToNav('Deals')
+            }}
           />
         )
       }
@@ -1400,6 +1426,10 @@ export default function App() {
               setJourneyDetailId(id)
             }}
             onOpenCommunityThread={id => void openCommunityThread(id)}
+            onOpenDeal={id => {
+              setDealsSelectedId(id)
+              goToNav('Deals')
+            }}
             authReady={authReady}
             signedIn={signedIn}
           />
@@ -1836,24 +1866,28 @@ export default function App() {
 
               <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <p className="text-sm font-semibold mb-3" style={{ color: 'var(--fg)' }}>Deals nearby</p>
-                {[
-                  { title: 'Beachfront Bungalow', price: 'N$ 680/night', saving: '20% off', color: '#10A760' },
-                  { title: 'Guided Dune Quad', price: 'N$ 550/person', saving: 'Local rate', color: '#8C52FF' },
-                  { title: 'Set Lunch Bistro', price: 'N$ 195/person', saving: 'Weekdays', color: '#F59E0B' },
-                ].map(deal => (
-                  <button key={deal.title} type="button"
+                {homeDeals.length === 0 ? (
+                  <p className="text-xs m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>No live deals yet.</p>
+                ) : (
+                  homeDeals.map(deal => (
+                  <button key={deal.id} type="button"
+                    onClick={() => {
+                      setDealsSelectedId(deal.id)
+                      setActiveNav('Deals')
+                    }}
                     className="flex items-center justify-between w-full mb-2 last:mb-0 px-3 py-2.5 rounded-xl text-left hover:opacity-80 transition-opacity"
                     style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
                     <div>
                       <p className="text-xs font-medium" style={{ color: 'var(--fg)' }}>{deal.title}</p>
-                      <p className="text-xs tabular-nums" style={{ color: 'var(--fg-muted)' }}>{deal.price}</p>
+                      <p className="text-xs tabular-nums" style={{ color: 'var(--fg-muted)' }}>{deal.business.name}</p>
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                      style={{ background: `${deal.color}18`, color: deal.color }}>
-                      {deal.saving}
+                      style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
+                      {deal.discountSummary}
                     </span>
                   </button>
-                ))}
+                  ))
+                )}
                 <button type="button" onClick={() => setActiveNav('Deals')}
                   className="w-full text-xs font-medium mt-2 py-2 rounded-xl"
                   style={{ color: 'var(--primary)', background: 'rgba(140,82,255,0.08)', border: 'none', cursor: 'pointer' }}>

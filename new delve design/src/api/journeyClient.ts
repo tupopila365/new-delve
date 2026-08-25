@@ -95,3 +95,17 @@ export async function removeEventFromJourney(journeyId: string, eventId: string)
     { method: 'DELETE' },
   )
 }
+
+export async function addDealToJourney(journeyId: string, dealId: string) {
+  return authorizedJson<JourneyDetail>(`/journeys/${encodeURIComponent(journeyId)}/deals`, {
+    method: 'POST',
+    body: JSON.stringify({ dealId }),
+  })
+}
+
+export async function addBookingToJourney(journeyId: string, bookingId: string) {
+  return authorizedJson<JourneyDetail>(`/journeys/${encodeURIComponent(journeyId)}/bookings`, {
+    method: 'POST',
+    body: JSON.stringify({ bookingId }),
+  })
+}

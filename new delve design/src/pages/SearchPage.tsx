@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import {
   Search, X, Clock, MapPin, ArrowRight, Car, Plane, Anchor,
   Bus, Star, CheckCircle, Bookmark, Heart, TrendingUp,
-  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User, Calendar, Users,
+  Filter, ChevronDown, SlidersHorizontal, AlertCircle, User, Calendar, Users, Tag,
 } from 'lucide-react'
-import type { CommunityDto, CommunityThreadSummary, EventDto, JourneySummary, PostDto, PublicTravelerProfile, SearchSuggestion } from '@delve/contracts'
+import type { CommunityDto, CommunityThreadSummary, DealDto, EventDto, JourneySummary, PostDto, PublicTravelerProfile, SearchSuggestion } from '@delve/contracts'
 import {
   popularSearches, suggestedDestinations,
   mockSearchResults, exploreCategories, transportShortcuts,
@@ -12,8 +12,8 @@ import {
   type TransportSearchResult, type JourneySearchResult, type DelversSearchResult,
   type DealSearchResult,
 } from '../data/searchData'
-import { deals } from '../data/mockData'
 import { fetchEvents, fetchFeed } from '../api/socialClient'
+import { fetchPublicDeals } from '../api/dealClient'
 import { listCommunities } from '../api/communityClient'
 import { listJourneys } from '../api/journeyClient'
 import { fetchSearchSuggestions, unifiedSearch } from '../api/searchClient'
@@ -59,6 +59,8 @@ function searchTypesForTab(tab: ResultType): string | undefined {
       return 'journey'
     case 'event':
       return 'event'
+    case 'deal':
+      return 'deal'
     default:
       return undefined
   }
@@ -351,36 +353,39 @@ function ResultCard({ result }: { result: SearchResult }) {
 
 // ─── Landing sections ─────────────────────────────────────────────────────
 
-function LandingDeal({ deal }: { deal: (typeof deals)[0] }) {
-  const [saved, setSaved] = useState(false)
+function LandingDeal({
+  deal,
+  onOpen,
+}: {
+  deal: DealDto
+  onOpen?: () => void
+}) {
   return (
-    <div className="flex-shrink-0 overflow-hidden rounded-2xl"
-      style={{ width: 240, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <div className="relative" style={{ height: 130 }}>
-        <img src={deal.image} alt={deal.title} className="w-full h-full object-cover" />
-        <button onClick={() => setSaved(s => !s)}
-          className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <Bookmark size={14} fill={saved ? '#fff' : 'none'} style={{ color: '#fff' }} />
-        </button>
-        {deal.sponsored && (
-          <span className="absolute bottom-2 left-2 text-xs px-1.5 py-0.5 rounded"
-            style={{ background: 'rgba(0,0,0,0.5)', color: 'rgba(255,255,255,0.7)' }}>Sponsored</span>
-        )}
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex-shrink-0 overflow-hidden rounded-2xl text-left"
+      style={{ width: 240, background: 'var(--surface)', border: '1px solid var(--border)', cursor: onOpen ? 'pointer' : 'default' }}
+    >
+      <div className="relative" style={{ height: 130, background: 'var(--surface-subtle)' }}>
+        {deal.coverUrl ? (
+          <img
+            src={deal.coverUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={e => {
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        ) : null}
       </div>
       <div className="p-3">
         <p className="text-xs font-bold mb-0.5 truncate" style={{ color: 'var(--fg)' }}>{deal.title}</p>
-        <p className="text-xs truncate mb-1.5" style={{ color: 'var(--fg-muted)' }}>{deal.business} · {deal.destination}</p>
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-sm font-extrabold tabular-nums" style={{ color: 'var(--fg)' }}>N$ {deal.price}</span>
-            <span className="text-xs ml-1" style={{ color: 'var(--fg-muted)' }}>/ {deal.priceUnit}</span>
-          </div>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>Save {deal.saving}</span>
-        </div>
+        <p className="text-xs truncate mb-1.5" style={{ color: 'var(--fg-muted)' }}>{deal.business.name}{deal.city ? ` · ${deal.city}` : ''}</p>
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>{deal.discountSummary}</span>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -576,6 +581,7 @@ export default function SearchPage({
   onOpenEvent,
   onOpenCommunity,
   onOpenCommunityThread,
+  onOpenDeal,
 }: {
   onNavigate?: (destination: string) => void
   onOpenProfile?: (username: string) => void
@@ -583,6 +589,7 @@ export default function SearchPage({
   onOpenEvent?: (id: string) => void
   onOpenCommunity?: (id: string) => void
   onOpenCommunityThread?: (threadId: string) => void
+  onOpenDeal?: (id: string) => void
 } = {}) {
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -598,12 +605,14 @@ export default function SearchPage({
   const [threadHits, setThreadHits] = useState<CommunityThreadSummary[]>([])
   const [journeyHits, setJourneyHits] = useState<JourneySummary[]>([])
   const [eventHits, setEventHits] = useState<EventDto[]>([])
+  const [dealHits, setDealHits] = useState<DealDto[]>([])
   const [recentSearches, setRecentSearches] = useState<string[]>(() => loadRecentSearches())
   const [liveSuggestions, setLiveSuggestions] = useState<SearchSuggestion[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
   const [trendingCommunities, setTrendingCommunities] = useState<CommunityDto[]>([])
   const [trendingJourneys, setTrendingJourneys] = useState<JourneySummary[]>([])
   const [trendingEvents, setTrendingEvents] = useState<EventDto[]>([])
+  const [landingDeals, setLandingDeals] = useState<DealDto[]>([])
   const [featuredDelvers, setFeaturedDelvers] = useState<PostDto[]>([])
   const [delversLoading, setDelversLoading] = useState(false)
   const [delversError, setDelversError] = useState<string | null>(null)
@@ -643,6 +652,13 @@ export default function SearchPage({
       })
       .catch(() => {
         if (!cancelled) setTrendingEvents([])
+      })
+    void fetchPublicDeals(4)
+      .then(rows => {
+        if (!cancelled) setLandingDeals(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setLandingDeals([])
       })
     return () => {
       cancelled = true
@@ -699,6 +715,7 @@ export default function SearchPage({
       setThreadHits(result.threads)
       setJourneyHits(result.journeys)
       setEventHits(result.events)
+      setDealHits(result.deals ?? [])
     } catch (err) {
       setTravelers([])
       setDelverPosts([])
@@ -706,6 +723,7 @@ export default function SearchPage({
       setThreadHits([])
       setJourneyHits([])
       setEventHits([])
+      setDealHits([])
       setDelversError(err instanceof Error ? err.message : 'Could not search')
     } finally {
       setDelversLoading(false)
@@ -737,6 +755,11 @@ export default function SearchPage({
     if (suggestion.entityType === 'event') {
       onNavigate?.('Events')
       onOpenEvent?.(suggestion.entityId)
+      return
+    }
+    if (suggestion.entityType === 'deal') {
+      onNavigate?.('Deals')
+      onOpenDeal?.(suggestion.entityId)
       return
     }
     if (suggestion.entityType === 'traveler') {
@@ -808,28 +831,33 @@ export default function SearchPage({
   const showLiveCommunities = activeTab === 'all' || activeTab === 'community'
   const showLiveJourneys = activeTab === 'all' || activeTab === 'journey'
   const showLiveEvents = activeTab === 'all' || activeTab === 'event'
+  const showLiveDeals = activeTab === 'all' || activeTab === 'deal'
   const filteredResults = mockSearchResults.filter(r => {
     if (r.resultType === 'delvers') return false // live Delvers replace mock
     if (r.resultType === 'journey') return false // live Journeys replace mock
     if (r.resultType === 'event') return false // live Events replace mock
+    if (r.resultType === 'deal' && dealHits.length > 0) return false
     return activeTab === 'all' || r.resultType === activeTab
   })
   const hasLiveDelvers = travelers.length > 0 || delverPosts.length > 0
   const hasLiveCommunities = communityHits.length > 0 || threadHits.length > 0
   const hasLiveJourneys = journeyHits.length > 0
   const hasLiveEvents = eventHits.length > 0
+  const hasLiveDeals = dealHits.length > 0
   const liveResultCount =
     (showLiveDelvers ? travelers.length + delverPosts.length : 0)
     + (showLiveCommunities ? communityHits.length + threadHits.length : 0)
     + (showLiveJourneys ? journeyHits.length : 0)
     + (showLiveEvents ? eventHits.length : 0)
-    + (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' ? filteredResults.length : 0)
+    + (showLiveDeals ? dealHits.length : 0)
+    + (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' && activeTab !== 'deal' ? filteredResults.length : 0)
   const hasAnyResults =
     (showLiveDelvers && hasLiveDelvers) ||
     (showLiveCommunities && hasLiveCommunities) ||
     (showLiveJourneys && hasLiveJourneys) ||
     (showLiveEvents && hasLiveEvents) ||
-    (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' && filteredResults.length > 0)
+    (showLiveDeals && hasLiveDeals) ||
+    (activeTab !== 'delvers' && activeTab !== 'community' && activeTab !== 'journey' && activeTab !== 'event' && activeTab !== 'deal' && filteredResults.length > 0)
 
   // ── Search input (shared between landing and results) ──
   const searchInput = (
@@ -1184,6 +1212,42 @@ export default function SearchPage({
           </div>
         )}
 
+        {showLiveDeals && dealHits.length > 0 && (
+          <div className="px-4 sm:px-0 pb-4">
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--fg-muted)' }}>
+              Deals
+            </p>
+            <div className="flex flex-col gap-2">
+              {dealHits.map(deal => (
+                <button
+                  key={deal.id}
+                  type="button"
+                  onClick={() => {
+                    onNavigate?.('Deals')
+                    onOpenDeal?.(deal.id)
+                  }}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  <div className="h-12 w-12 rounded-xl overflow-hidden flex-shrink-0 bg-black/10">
+                    {deal.coverUrl ? (
+                      <img src={deal.coverUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Tag size={18} style={{ color: 'var(--fg-muted)', margin: 'auto' }} />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{deal.title}</p>
+                    <p className="text-xs m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                      {deal.discountSummary} · {deal.business.name}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* No results */}
         {!delversLoading && !hasAnyResults ? (
           <div className="px-4 sm:px-0 py-12 text-center">
@@ -1341,16 +1405,27 @@ export default function SearchPage({
       </div>
 
       {/* Deals near you */}
+      {landingDeals.length > 0 && (
       <div className="py-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="px-4 sm:px-0 flex items-center justify-between mb-3">
           <p className="text-sm font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Deals near you</p>
-          <button onClick={() => runFilteredSearch('deals', 'deal')}
-            className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>See all</button>
+          <button type="button" onClick={() => { onNavigate?.('Deals') }}
+            className="text-xs font-semibold" style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}>See all</button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-4 sm:px-0 pb-1 scroll-rail">
-          {deals.slice(0, 4).map(d => <LandingDeal key={d.id} deal={d} />)}
+          {landingDeals.map(d => (
+            <LandingDeal
+              key={d.id}
+              deal={d}
+              onOpen={() => {
+                onNavigate?.('Deals')
+                onOpenDeal?.(d.id)
+              }}
+            />
+          ))}
         </div>
       </div>
+      )}
 
       {/* Upcoming events */}
       {trendingEvents.length > 0 && (

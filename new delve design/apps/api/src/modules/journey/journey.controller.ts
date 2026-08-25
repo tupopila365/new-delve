@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import {
+  addJourneyBookingBodySchema,
+  addJourneyDealBodySchema,
   addJourneyEventBodySchema,
   createJourneyBodySchema,
   createJourneyCommentBodySchema,
@@ -195,6 +197,68 @@ export function createJourneyController() {
             requireUserId(req),
             String(req.params.journeyId),
             String(req.params.eventId),
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async addBooking(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(addJourneyBookingBodySchema, req.body)
+        ok(
+          res,
+          await journeyService.addBookingToJourney(
+            requireUserId(req),
+            String(req.params.journeyId),
+            body.bookingId,
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async removeBooking(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await journeyService.removeBookingFromJourney(
+            requireUserId(req),
+            String(req.params.journeyId),
+            String(req.params.bookingId),
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async addDeal(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(addJourneyDealBodySchema, req.body)
+        ok(
+          res,
+          await journeyService.addDealToJourney(
+            requireUserId(req),
+            String(req.params.journeyId),
+            body.dealId,
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async removeDeal(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await journeyService.removeDealFromJourney(
+            requireUserId(req),
+            String(req.params.journeyId),
+            String(req.params.dealId),
           ),
         )
       } catch (err) {

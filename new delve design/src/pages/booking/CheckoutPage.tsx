@@ -4,6 +4,7 @@ import {
   HelpCircle, Info, Lock, Moon, Shield, Sun, Tag, X,
 } from 'lucide-react'
 import type { BookingContext, BookingServiceType } from './types'
+import { fetchPublicDeal } from '../../api/dealClient'
 
 export interface CheckoutPageProps {
   context: BookingContext
@@ -57,7 +58,8 @@ export default function CheckoutPage({
   const isDeposit = context.serviceType === 'vehicle' || context.serviceType === 'stay'
   const qty = Math.max(1, context.quantity ?? 2)
   const base = parseAmount(context.unitPrice) * (context.serviceType === 'stay' ? 3 : qty)
-  const dealDiscount = context.dealId ? Math.round(base * 0.12) : 0
+  const [dealSummary, setDealSummary] = useState<string | null>(null)
+  const dealDiscount = 0
   const taxes = Math.round((base - dealDiscount) * 0.08)
   const providerFee = Math.round((base - dealDiscount) * 0.03)
   const delveFee = Math.round((base - dealDiscount) * 0.02)
@@ -82,6 +84,24 @@ export default function CheckoutPage({
 
   const creditBalance = 400 // example display only
   const totalAfterCredits = Math.max(0, dueNow - promoDiscount - creditsApplied)
+
+  useEffect(() => {
+    if (!context.dealId) {
+      setDealSummary(null)
+      return
+    }
+    let cancelled = false
+    void fetchPublicDeal(context.dealId)
+      .then(deal => {
+        if (!cancelled) setDealSummary(deal.discountSummary)
+      })
+      .catch(() => {
+        if (!cancelled) setDealSummary(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [context.dealId])
 
   useEffect(() => {
     if (!announce) return
@@ -257,9 +277,10 @@ export default function CheckoutPage({
               <div className="flex items-start gap-2">
                 <Tag size={16} style={{ color: 'var(--primary)' }} className="mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold">Deal applied · {context.dealTitle ?? 'Selected deal'}</p>
+                  <p className="text-sm font-bold">Deal selected · {context.dealTitle ?? 'Selected deal'}</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--fg-muted)' }}>
-                    Example saving {context.currency} {dealDiscount.toLocaleString()}. Eligibility and inventory are confirmed by the backend. Deals are never removed silently.
+                    {dealSummary ? `Server discount label: ${dealSummary}. ` : ''}
+                    Deal amounts are not applied to this checkout total. Future booking will use DealClaim.dealPriceSnapshot.
                   </p>
                 </div>
               </div>
@@ -274,8 +295,8 @@ export default function CheckoutPage({
             </p>
             <div className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between"><span style={{ color: 'var(--fg-muted)' }}>Base ({context.priceBasis})</span><span className="tabular-nums">{context.currency} {base.toLocaleString()}</span></div>
-              {dealDiscount > 0 && (
-                <div className="flex justify-between" style={{ color: '#16845B' }}><span>Deal discount</span><span className="tabular-nums">−{context.currency} {dealDiscount.toLocaleString()}</span></div>
+              {dealSummary && (
+                <div className="flex justify-between" style={{ color: '#16845B' }}><span>Deal (not applied to total)</span><span>{dealSummary}</span></div>
               )}
               {promoState === 'applied' && (
                 <div className="flex justify-between" style={{ color: '#16845B' }}><span>Promo {promo.toUpperCase()}</span><span className="tabular-nums">−{context.currency} {promoDiscount.toLocaleString()}</span></div>

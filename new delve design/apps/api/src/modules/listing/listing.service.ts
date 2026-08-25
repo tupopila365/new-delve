@@ -1,4 +1,5 @@
 import { prisma } from '@delve/database'
+import { Decimal } from '@delve/database/decimal'
 import type {
   CreateListingBody,
   ListingDto,
@@ -50,6 +51,8 @@ type ListingCore = {
   description: string | null
   status: ListingDto['status']
   coverMediaId: string | null
+  priceAmount: { toString(): string } | number | null
+  currency: string | null
   createdAt: Date
   updatedAt: Date
   media: MediaRow[]
@@ -63,6 +66,16 @@ type BusinessSummaryRow = {
   city: string | null
   countryCode: string | null
   category: string | null
+}
+
+function toMoneyString(value: { toString(): string } | number): string {
+  const raw = typeof value === 'number' ? value : value.toString()
+  return new Decimal(raw).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2)
+}
+
+function listingPricingDto(listing: ListingCore): ListingDto['pricing'] {
+  if (listing.priceAmount == null || !listing.currency) return null
+  return { amount: toMoneyString(listing.priceAmount), currency: listing.currency }
 }
 
 function toListingDto(env: Env, listing: ListingCore): ListingDto {
@@ -80,6 +93,7 @@ function toListingDto(env: Env, listing: ListingCore): ListingDto {
     description: listing.description,
     status: listing.status,
     coverMediaId: listing.coverMediaId,
+    pricing: listingPricingDto(listing),
     media,
     createdAt: listing.createdAt.toISOString(),
     updatedAt: listing.updatedAt.toISOString(),
@@ -139,6 +153,8 @@ export async function createListing(
       title: body.title,
       description: body.description ?? null,
       status: 'DRAFT',
+      priceAmount: body.priceAmount ?? null,
+      currency: body.currency ?? null,
     },
     include: listingInclude,
   })
@@ -293,6 +309,11 @@ export async function updateListing(
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.status !== undefined ? { status: body.status } : {}),
       ...(body.coverMediaId !== undefined ? { coverMediaId: body.coverMediaId } : {}),
+      ...(body.priceAmount !== undefined
+        ? { priceAmount: body.priceAmount, currency: body.priceAmount == null ? null : (body.currency ?? existing.currency) }
+        : body.currency !== undefined
+          ? { currency: body.currency }
+          : {}),
     },
     include: listingInclude,
   })

@@ -19,6 +19,8 @@ export default function ProviderListingsView({ businessId }: ProviderListingsVie
   const [title, setTitle] = useState('')
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [editPrice, setEditPrice] = useState('')
+  const [editCurrency, setEditCurrency] = useState('')
 
   async function reload() {
     const rows = await fetchBusinessListings(businessId)
@@ -51,11 +53,15 @@ export default function ProviderListingsView({ businessId }: ProviderListingsVie
     if (!selected) {
       setEditTitle('')
       setEditDescription('')
+      setEditPrice('')
+      setEditCurrency('')
       return
     }
     setEditTitle(selected.title)
     setEditDescription(selected.description ?? '')
-  }, [selected?.id, selected?.title, selected?.description])
+    setEditPrice(selected.pricing?.amount ?? '')
+    setEditCurrency(selected.pricing?.currency ?? '')
+  }, [selected?.id, selected?.title, selected?.description, selected?.pricing?.amount, selected?.pricing?.currency])
 
   async function handleCreate() {
     const trimmed = title.trim()
@@ -92,12 +98,27 @@ export default function ProviderListingsView({ businessId }: ProviderListingsVie
       setError('Title must be at least 2 characters.')
       return
     }
+    const priceTrim = editPrice.trim()
+    const currencyTrim = editCurrency.trim().toUpperCase()
+    if (Boolean(priceTrim) !== Boolean(currencyTrim)) {
+      setError('Enter both price and currency, or leave both empty.')
+      return
+    }
+    if (priceTrim) {
+      const amount = Number(priceTrim)
+      if (!Number.isFinite(amount) || amount < 0) {
+        setError('Price must be zero or a positive amount.')
+        return
+      }
+    }
     setSaving(true)
     setError(null)
     try {
       const updated = await updateListing(selected.id, {
         title: nextTitle,
         description: editDescription.trim() ? editDescription.trim() : null,
+        priceAmount: priceTrim ? Number(priceTrim) : null,
+        currency: currencyTrim ? currencyTrim : null,
       })
       await onListingChanged(updated)
     } catch (err) {
@@ -312,6 +333,39 @@ export default function ProviderListingsView({ businessId }: ProviderListingsVie
                     style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
                     aria-label="Listing description"
                   />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="text-xs font-semibold" style={{ color: 'var(--fg-muted)' }}>
+                        Price
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editPrice}
+                        onChange={e => setEditPrice(e.target.value)}
+                        placeholder="1200.00"
+                        className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+                        style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold" style={{ color: 'var(--fg-muted)' }}>
+                        Currency
+                      </span>
+                      <input
+                        value={editCurrency}
+                        onChange={e => setEditCurrency(e.target.value.toUpperCase())}
+                        maxLength={3}
+                        placeholder="NAD"
+                        className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+                        style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                    Leave price empty if this listing does not currently have a fixed advertised price.
+                  </p>
                   <button
                     type="button"
                     disabled={saving}

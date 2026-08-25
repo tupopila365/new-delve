@@ -96,7 +96,24 @@ enum NotificationType {
   JOURNEY_LIKED
   JOURNEY_COMMENTED
   EVENT_LIKED
+  DEAL_CLAIMED
+  DEAL_CLAIM_UPDATED
+  DEAL_APPROVED
+  DEAL_REJECTED
   MESSAGE_RECEIVED
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_COMPLETED
+  PAYMENT_PAID
+  PAYMENT_FAILED
+  SETTLEMENT_ELIGIBLE
+  SETTLEMENT_TRANSFERRED
+  BOOKING_CANCELLATION_REQUESTED
+  REFUND_PROCESSING
+  REFUND_SUCCEEDED
+  REFUND_FAILED
+  SETTLEMENT_REVERSED
 }
 
 enum CommunityType {
@@ -185,48 +202,58 @@ model User {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  emailVerificationTokens EmailVerificationToken[]
-  sessions                Session[]
-  usernameHistory         UsernameHistory[]
-  travelerProfile         TravelerProfile?
-  emailChangeRequests     EmailChangeRequest[]
-  notificationPreference  NotificationPreference?
-  securityEvents          SecurityEvent[]
-  passwordResetTokens     PasswordResetToken[]
-  mediaAssets             MediaAsset[]
-  mediaUploadIntents      MediaUploadIntent[]
-  adminAuditLogs          AdminAuditLog[]
-  posts                   Post[]
-  comments                Comment[]
-  reactions               Reaction[]
-  saves                   Save[]
-  followsOutgoing         Follow[]             @relation("FollowFollower")
-  followsIncoming         Follow[]             @relation("FollowFollowing")
-  travelerEvents          TravelerEvent[]
-  eventAttendances        EventAttendance[]
-  eventReactions          EventReaction[]
-  notifications           Notification[]
-  businessMemberships     BusinessMember[]
-  storySlides             StorySlide[]
-  storyViewsAsViewer      StoryView[]          @relation("StoryViewer")
-  storyViewsAsAuthor      StoryView[]          @relation("StoryAuthor")
-  communityMemberships    CommunityMembership[]
-  ownedCommunities        Community[]          @relation("CommunityOwner")
-  communityReportsFiled   CommunityReport[]    @relation("CommunityReportsFiled")
-  communityInvitesReceived CommunityInvite[]   @relation("CommunityInvitesReceived")
-  communityInvitesSent    CommunityInvite[]    @relation("CommunityInvitesSent")
-  communityAuditLogs      CommunityAuditLog[]  @relation("CommunityAuditActor")
-  communityThreads        CommunityThread[]
+  emailVerificationTokens  EmailVerificationToken[]
+  sessions                 Session[]
+  usernameHistory          UsernameHistory[]
+  travelerProfile          TravelerProfile?
+  emailChangeRequests      EmailChangeRequest[]
+  notificationPreference   NotificationPreference?
+  securityEvents           SecurityEvent[]
+  passwordResetTokens      PasswordResetToken[]
+  mediaAssets              MediaAsset[]
+  mediaUploadIntents       MediaUploadIntent[]
+  adminAuditLogs           AdminAuditLog[]
+  posts                    Post[]
+  comments                 Comment[]
+  reactions                Reaction[]
+  saves                    Save[]
+  followsOutgoing          Follow[]                     @relation("FollowFollower")
+  followsIncoming          Follow[]                     @relation("FollowFollowing")
+  travelerEvents           TravelerEvent[]
+  eventAttendances         EventAttendance[]
+  eventReactions           EventReaction[]
+  notifications            Notification[]
+  businessMemberships      BusinessMember[]
+  storySlides              StorySlide[]
+  storyViewsAsViewer       StoryView[]                  @relation("StoryViewer")
+  storyViewsAsAuthor       StoryView[]                  @relation("StoryAuthor")
+  communityMemberships     CommunityMembership[]
+  ownedCommunities         Community[]                  @relation("CommunityOwner")
+  communityReportsFiled    CommunityReport[]            @relation("CommunityReportsFiled")
+  communityInvitesReceived CommunityInvite[]            @relation("CommunityInvitesReceived")
+  communityInvitesSent     CommunityInvite[]            @relation("CommunityInvitesSent")
+  communityAuditLogs       CommunityAuditLog[]          @relation("CommunityAuditActor")
+  communityThreads         CommunityThread[]
   communityThreadReactions CommunityThreadReaction[]
-  communityAnswers        CommunityAnswer[]
-  journeys                Journey[]
-  journeyComments         JourneyComment[]
-  journeyReactions        JourneyReaction[]
-  journeyEvents           JourneyEvent[]
+  communityAnswers         CommunityAnswer[]
+  journeys                 Journey[]
+  journeyComments          JourneyComment[]
+  journeyReactions         JourneyReaction[]
+  journeyEvents            JourneyEvent[]
+  journeyDeals             JourneyDeal[]
+  dealClaims               DealClaim[]
+  bookings                 Booking[]
+  payments                 Payment[]
+  refunds                  Refund[]
+  cancellationRequests     BookingCancellationRequest[] @relation("CancellationRequestedBy")
+  cancellationReviews      BookingCancellationRequest[] @relation("CancellationReviewedBy")
+  journeyBookings          JourneyBooking[]
+  dealReportsFiled         DealReport[]                 @relation("DealReportsFiled")
+  dealReportsReviewed      DealReport[]                 @relation("DealReportsReviewed")
   conversationParticipants ConversationParticipant[]
-  directMessages          DirectMessage[]
-  blocksOutgoing            UserBlock[]          @relation("BlockBlocker")
-  blocksIncoming            UserBlock[]          @relation("BlockBlocked")
+  directMessages           DirectMessage[]
+  blocksOutgoing           UserBlock[]                  @relation("BlockBlocker")
+  blocksIncoming           UserBlock[]                  @relation("BlockBlocked")
 
   @@index([email])
   @@index([usernameNormalized])
@@ -310,32 +337,32 @@ model UsernameHistory {
 }
 
 model TravelerProfile {
-  id                    String           @id @default(cuid())
-  userId                String           @unique
-  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName           String           @default("")
+  id                    String            @id @default(cuid())
+  userId                String            @unique
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName           String            @default("")
   bio                   String?
   /// Legacy S3/public URL — prefer avatarMedia when present. Kept for safe migration.
   avatarUrl             String?
   /// Legacy S3 object key — do not use for new uploads.
   avatarKey             String?
-  avatarMediaId         String?          @unique
-  avatarMedia           MediaAsset?      @relation("TravelerAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  avatarMediaId         String?           @unique
+  avatarMedia           MediaAsset?       @relation("TravelerAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
   /// Profile / dashboard banner image (Cloudinary delivery URL). Metadata only — bytes stay on Cloudinary.
   coverUrl              String?
-  coverMediaId          String?          @unique
-  coverMedia            MediaAsset?      @relation("TravelerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  coverMediaId          String?           @unique
+  coverMedia            MediaAsset?       @relation("TravelerCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   homeCity              String?
   homeCountryCode       String?
-  preferredCurrency     String           @default("USD")
-  preferredLanguage     String           @default("en")
-  interests             String[]         @default([])
+  preferredCurrency     String            @default("USD")
+  preferredLanguage     String            @default("en")
+  interests             String[]          @default([])
   /// PUBLIC profiles are searchable; PRIVATE hide from discovery (owner still sees own).
   profileVisibility     ProfileVisibility @default(PUBLIC)
-  onboardingStatus      OnboardingStatus @default(NOT_STARTED)
+  onboardingStatus      OnboardingStatus  @default(NOT_STARTED)
   onboardingCompletedAt DateTime?
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 }
 
 model EmailChangeRequest {
@@ -382,21 +409,21 @@ model SecurityEvent {
 
 /// Append-only administrator security audit trail. Never store passwords or raw tokens.
 model AdminAuditLog {
-  id               String   @id @default(cuid())
-  actorUserId      String?
-  actorUser        User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
-  actorSessionId   String?
-  action           String
-  targetType       String?
-  targetId         String?
+  id             String   @id @default(cuid())
+  actorUserId    String?
+  actorUser      User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorSessionId String?
+  action         String
+  targetType     String?
+  targetId       String?
   /// success | failure | denied
-  outcome          String
-  reason           String?
-  metadata         Json?
-  correlationId    String?
+  outcome        String
+  reason         String?
+  metadata       Json?
+  correlationId  String?
   /// One-way hash of normalized identifier for anonymous failed logins.
-  identifierHash   String?
-  createdAt        DateTime @default(now())
+  identifierHash String?
+  createdAt      DateTime @default(now())
 
   @@index([createdAt])
   @@index([actorUserId, createdAt])
@@ -424,6 +451,7 @@ enum MediaPurpose {
   listing
   message
   event
+  deal
 }
 
 enum MediaResourceType {
@@ -444,42 +472,45 @@ enum MediaUploadIntentStatus {
 /// User-uploaded media metadata only. Never store binary, blob, or Base64 here.
 /// Bytes live on Cloudinary; Browser → Cloudinary for files; Browser → Delve API → PostgreSQL for metadata.
 model MediaAsset {
-  id                String            @id @default(cuid())
-  cloudinaryAssetId String?           @unique
-  publicId          String            @unique
+  id                String             @id @default(cuid())
+  cloudinaryAssetId String?            @unique
+  publicId          String             @unique
   version           Int?
   resourceType      MediaResourceType
-  deliveryType      String            @default("upload")
+  deliveryType      String             @default("upload")
   format            String?
   bytes             Int?
   width             Int?
   height            Int?
   duration          Float?
   secureUrl         String?
-  status            MediaStatus       @default(PENDING)
+  status            MediaStatus        @default(PENDING)
   purpose           MediaPurpose
   altText           String?
   uploadedByUserId  String
-  uploadedBy        User              @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  uploadedBy        User               @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
   businessId        String?
-  business          Business?         @relation("BusinessMedia", fields: [businessId], references: [id], onDelete: SetNull)
+  business          Business?          @relation("BusinessMedia", fields: [businessId], references: [id], onDelete: SetNull)
   listingId         String?
-  listing           Listing?          @relation("ListingMedia", fields: [listingId], references: [id], onDelete: SetNull)
+  listing           Listing?           @relation("ListingMedia", fields: [listingId], references: [id], onDelete: SetNull)
   eventId           String?
-  event             TravelerEvent?    @relation("EventMedia", fields: [eventId], references: [id], onDelete: SetNull)
+  event             TravelerEvent?     @relation("EventMedia", fields: [eventId], references: [id], onDelete: SetNull)
+  dealId            String?
+  deal              Deal?              @relation("DealMedia", fields: [dealId], references: [id], onDelete: SetNull)
   /// Linked when purpose is post.
   postId            String?
-  post              Post?             @relation(fields: [postId], references: [id], onDelete: SetNull)
-  uploadIntentId    String?           @unique
+  post              Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
+  uploadIntentId    String?            @unique
   uploadIntent      MediaUploadIntent? @relation(fields: [uploadIntentId], references: [id], onDelete: SetNull)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
   sortOrder         Int?
-  travelerAvatarFor TravelerProfile?  @relation("TravelerAvatar")
-  travelerCoverFor  TravelerProfile?  @relation("TravelerCover")
-  eventCoverFor     TravelerEvent?    @relation("EventCover")
-  listingCoverFor   Listing?          @relation("ListingCover")
+  travelerAvatarFor TravelerProfile?   @relation("TravelerAvatar")
+  travelerCoverFor  TravelerProfile?   @relation("TravelerCover")
+  eventCoverFor     TravelerEvent?     @relation("EventCover")
+  listingCoverFor   Listing?           @relation("ListingCover")
+  dealCoverFor      Deal?              @relation("DealCover")
   directMessage     DirectMessage?
   storySlide        StorySlide?
 
@@ -490,30 +521,32 @@ model MediaAsset {
   @@index([businessId])
   @@index([listingId])
   @@index([eventId])
+  @@index([dealId])
   @@index([postId])
   @@index([deletedAt])
 }
 
 model MediaUploadIntent {
-  id                 String                   @id @default(cuid())
-  userId             String
-  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purpose            MediaPurpose
+  id                   String                  @id @default(cuid())
+  userId               String
+  user                 User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose              MediaPurpose
   expectedResourceType MediaResourceType
-  maxBytes           Int
-  permittedFormats   String[]
-  folder             String
-  businessId         String?
-  listingId          String?
-  eventId            String?
-  originalFilename   String?
-  reportedMimeType   String?
-  reportedBytes      Int?
-  status             MediaUploadIntentStatus  @default(PENDING)
-  expiresAt          DateTime
-  completedAt        DateTime?
-  createdAt          DateTime                 @default(now())
-  mediaAsset         MediaAsset?
+  maxBytes             Int
+  permittedFormats     String[]
+  folder               String
+  businessId           String?
+  listingId            String?
+  eventId              String?
+  dealId               String?
+  originalFilename     String?
+  reportedMimeType     String?
+  reportedBytes        Int?
+  status               MediaUploadIntentStatus @default(PENDING)
+  expiresAt            DateTime
+  completedAt          DateTime?
+  createdAt            DateTime                @default(now())
+  mediaAsset           MediaAsset?
 
   @@index([userId, status])
   @@index([expiresAt])
@@ -535,14 +568,14 @@ model Follow {
 
 /// Ephemeral Delvers story slide (24h). See docs/delvers-stories-scope.md.
 model StorySlide {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  mediaId   String    @unique
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  mediaId   String     @unique
   media     MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  caption   String    @default("")
+  caption   String     @default("")
   location  String?
-  createdAt DateTime  @default(now())
+  createdAt DateTime   @default(now())
   expiresAt DateTime
   deletedAt DateTime?
 
@@ -637,39 +670,39 @@ model Save {
 }
 
 model TravelerEvent {
-  id            String          @id @default(cuid())
-  creatorId     String
-  creator       User            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  title         String
-  description   String          @default("")
-  coverUrl      String?
-  coverMediaId  String?         @unique
-  coverMedia    MediaAsset?     @relation("EventCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
-  startAt       DateTime
-  endAt         DateTime?
-  timezone      String?
-  locationName  String?
-  city          String?
-  country       String?
-  latitude      Float?
-  longitude     Float?
-  category      String?
-  communityId   String?
-  community     Community?      @relation(fields: [communityId], references: [id], onDelete: SetNull)
-  businessId    String?
-  business      Business?       @relation(fields: [businessId], references: [id], onDelete: SetNull)
-  visibility    EventVisibility @default(PUBLIC)
-  status        EventStatus     @default(DRAFT)
-  maxAttendees  Int?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  creatorId    String
+  creator      User            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  title        String
+  description  String          @default("")
+  coverUrl     String?
+  coverMediaId String?         @unique
+  coverMedia   MediaAsset?     @relation("EventCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  startAt      DateTime
+  endAt        DateTime?
+  timezone     String?
+  locationName String?
+  city         String?
+  country      String?
+  latitude     Float?
+  longitude    Float?
+  category     String?
+  communityId  String?
+  community    Community?      @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  businessId   String?
+  business     Business?       @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  visibility   EventVisibility @default(PUBLIC)
+  status       EventStatus     @default(DRAFT)
+  maxAttendees Int?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  attendances   EventAttendance[]
-  reactions     EventReaction[]
-  journeyLinks  JourneyEvent[]
-  sharedPosts   Post[]
+  attendances      EventAttendance[]
+  reactions        EventReaction[]
+  journeyLinks     JourneyEvent[]
+  sharedPosts      Post[]
   communityThreads CommunityThread[]
-  media         MediaAsset[]    @relation("EventMedia")
+  media            MediaAsset[]      @relation("EventMedia")
 
   @@index([creatorId, createdAt])
   @@index([status, startAt])
@@ -736,30 +769,115 @@ enum BusinessMemberRole {
   CONTENT_EDITOR
 }
 
+/// Stripe Connect connected-account lifecycle. Having stripeAccountId is not settlement-ready.
+enum StripeConnectStatus {
+  NOT_CONNECTED
+  ONBOARDING
+  RESTRICTED
+  ACTIVE
+  DISABLED
+}
+
+enum PaymentProvider {
+  STRIPE
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum RefundReason {
+  TRAVELER_CANCELLATION
+  PROVIDER_CANCELLATION
+  SERVICE_UNAVAILABLE
+  DUPLICATE_PAYMENT
+  ADMIN_ADJUSTMENT
+  OTHER
+}
+
+enum RefundActorType {
+  TRAVELER
+  PROVIDER
+  ADMIN
+}
+
+enum CancellationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+/// Ledger status for the business share. Not a bank balance. Transfer ≠ Stripe bank payout.
+enum BusinessPayableStatus {
+  PENDING
+  ELIGIBLE
+  PROCESSING
+  TRANSFERRED
+  REVERSED
+  BLOCKED
+  CANCELLED
+}
+
+enum TransferReversalStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum TransferReversalReason {
+  BOOKING_REFUND
+}
+
 /// Provider/business profile. Owned via BusinessMember (same User identity — no separate login).
 model Business {
-  id          String         @id @default(cuid())
-  name        String
-  slug        String         @unique
-  description String?
-  logoUrl     String?
-  coverUrl    String?
-  email       String?
-  phone       String?
-  website     String?
-  city        String?
-  countryCode String?
-  address     String?
-  category    String?
-  status      BusinessStatus @default(DRAFT)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                          String              @id @default(cuid())
+  name                        String
+  slug                        String              @unique
+  description                 String?
+  logoUrl                     String?
+  coverUrl                    String?
+  email                       String?
+  phone                       String?
+  website                     String?
+  city                        String?
+  countryCode                 String?
+  address                     String?
+  category                    String?
+  status                      BusinessStatus      @default(DRAFT)
+  /// Stripe Connect connected-account id (acct_...). Not a bank account number.
+  stripeAccountId             String?             @unique
+  stripeAccountStatus         StripeConnectStatus @default(NOT_CONNECTED)
+  stripeChargesEnabled        Boolean             @default(false)
+  stripePayoutsEnabled        Boolean             @default(false)
+  stripeDetailsSubmitted      Boolean             @default(false)
+  stripeOnboardingCompletedAt DateTime?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
 
-  members     BusinessMember[]
-  mediaAssets MediaAsset[]     @relation("BusinessMedia")
-  listings    Listing[]
-  deals       Deal[]
-  events      TravelerEvent[]
+  members           BusinessMember[]
+  mediaAssets       MediaAsset[]       @relation("BusinessMedia")
+  listings          Listing[]
+  deals             Deal[]
+  bookings          Booking[]
+  payments          Payment[]
+  payables          BusinessPayable[]
+  refunds           Refund[]
+  transferReversals TransferReversal[]
+  events            TravelerEvent[]
 
   @@index([status])
   @@index([slug])
@@ -788,19 +906,25 @@ enum ListingStatus {
 
 /// Minimal listing parent so Cloudinary listing media can attach (Day 3 media checkpoint).
 model Listing {
-  id           String        @id @default(cuid())
-  businessId   String
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  title        String
-  description  String?
-  status       ListingStatus @default(DRAFT)
-  coverMediaId String?       @unique
-  coverMedia   MediaAsset?   @relation("ListingCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
-  media        MediaAsset[]  @relation("ListingMedia")
-  deals        Deal[]
+  id               String            @id @default(cuid())
+  businessId       String
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  status           ListingStatus     @default(DRAFT)
+  /// Authoritative advertised amount. Null = no monetary price (not the same as 0 = free).
+  /// Future: pricing modes (starting-from, contact) can wrap this without replacing it.
+  priceAmount      Decimal?          @db.Decimal(12, 2)
+  /// ISO 4217 alphabetic code (NAD, USD). Required when priceAmount is set.
+  currency         String?           @db.VarChar(3)
+  coverMediaId     String?           @unique
+  coverMedia       MediaAsset?       @relation("ListingCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  media            MediaAsset[]      @relation("ListingMedia")
+  deals            Deal[]
+  bookings         Booking[]
   communityThreads CommunityThread[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([businessId, status])
   @@index([businessId, createdAt])
@@ -820,70 +944,488 @@ enum DealStatus {
   ARCHIVED
 }
 
-/// Business deal. Stores discount inputs for Day 5 server-side price calculation (no checkout yet).
+enum DealClaimMethod {
+  IN_APP
+  SHOW_CODE
+  BOOKING_CODE
+  LINK
+}
+
+enum DealClaimStatus {
+  PENDING
+  CONFIRMED
+  REDEEMED
+  CANCELLED
+  EXPIRED
+}
+
+enum DealReportReason {
+  SPAM
+  MISLEADING
+  INAPPROPRIATE
+  SCAM
+  OTHER
+}
+
+enum DealReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+  ACTIONED
+}
+
+enum DealAnalyticsKind {
+  IMPRESSION
+  CLICK
+  CLAIM
+  SAVE
+  JOURNEY_ADD
+  REDEEM
+}
+
+/// Business deal. Discount inputs for server-side pricing; checkout remains separate.
 model Deal {
-  id            String           @id @default(cuid())
-  businessId    String
-  business      Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  listingId     String?
-  listing       Listing?         @relation(fields: [listingId], references: [id], onDelete: SetNull)
-  title         String
-  description   String?
-  discountType  DealDiscountType
+  id                 String           @id @default(cuid())
+  businessId         String
+  business           Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  listingId          String?
+  listing            Listing?         @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  title              String
+  description        String?
+  discountType       DealDiscountType
   /// PERCENTAGE: 0 < value <= 100. FIXED_AMOUNT: value >= 0 in currency units.
-  discountValue Decimal          @db.Decimal(12, 2)
-  /// ISO currency for FIXED_AMOUNT (and Day 5 pricing). Default USD.
-  currency      String           @default("USD")
-  startDate     DateTime
-  endDate       DateTime
-  status        DealStatus       @default(DRAFT)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  discountValue      Decimal          @db.Decimal(12, 2)
+  /// ISO currency for FIXED_AMOUNT display. When a listing is linked, this is normalized to Listing.currency.
+  currency           String           @default("USD")
+  /// Frozen listing base captured at admin approve. Public/claim pricing uses this, not live Listing.priceAmount.
+  publishedBasePrice Decimal?         @db.Decimal(12, 2)
+  publishedCurrency  String?          @db.VarChar(3)
+  startDate          DateTime
+  endDate            DateTime
+  status             DealStatus       @default(DRAFT)
+  coverMediaId       String?          @unique
+  coverMedia         MediaAsset?      @relation("DealCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  city               String?
+  countryCode        String?
+  category           String?
+  featured           Boolean          @default(false)
+  featuredRank       Int?
+  claimMethod        DealClaimMethod  @default(IN_APP)
+  maxClaims          Int?
+  terms              String?
+  eligibility        String?
+  included           String?
+  excluded           String?
+  viewCount          Int              @default(0)
+  claimCount         Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  media     MediaAsset[]         @relation("DealMedia")
+  journeys  JourneyDeal[]
+  claims    DealClaim[]
+  bookings  Booking[]
+  reports   DealReport[]
+  analytics DealAnalyticsEvent[]
 
   @@index([businessId, status])
   @@index([listingId])
   @@index([status, startDate, endDate])
   @@index([businessId, createdAt])
+  @@index([status, featured, endDate])
+  @@index([city])
+  @@index([category])
+  @@index([featured, featuredRank])
+}
+
+model JourneyDeal {
+  id        String   @id @default(cuid())
+  journeyId String
+  journey   Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  addedById String
+  addedBy   User     @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([journeyId, dealId])
+  @@index([dealId])
+  @@index([addedById])
+}
+
+model JourneyBooking {
+  id        String   @id @default(cuid())
+  journeyId String
+  journey   Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  addedById String
+  addedBy   User     @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([journeyId, bookingId])
+  @@index([bookingId])
+  @@index([addedById])
+}
+
+model DealClaim {
+  id                             String           @id @default(cuid())
+  dealId                         String
+  deal                           Deal             @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  userId                         String
+  user                           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status                         DealClaimStatus  @default(PENDING)
+  code                           String
+  note                           String?
+  /// Snapshot of commercial terms at claim time. Later Deal edits must not rewrite this.
+  titleSnapshot                  String
+  discountTypeSnapshot           DealDiscountType
+  discountValueSnapshot          Decimal          @db.Decimal(12, 2)
+  currencySnapshot               String
+  /// Optional list/deal prices — null until checkout pricing exists. Never invent amounts.
+  originalPriceSnapshot          Decimal?         @db.Decimal(12, 2)
+  dealPriceSnapshot              Decimal?         @db.Decimal(12, 2)
+  discountSummarySnapshot        String
+  termsSnapshot                  String?
+  eligibilitySnapshot            String?
+  includedSnapshot               String?
+  excludedSnapshot               String?
+  redemptionInstructionsSnapshot String?
+  expiresAt                      DateTime
+  redeemedAt                     DateTime?
+  createdAt                      DateTime         @default(now())
+  updatedAt                      DateTime         @updatedAt
+  bookings                       Booking[]
+
+  @@unique([userId, dealId])
+  @@unique([code])
+  @@index([dealId, status])
+  @@index([userId, createdAt])
+  @@index([expiresAt, status])
+}
+
+enum BookingStatus {
+  PENDING
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
+/// Traveler reservation against a Listing. Prices are snapshotted at create; payments are a later domain.
+model Booking {
+  id                      String        @id @default(cuid())
+  bookingReference        String        @unique
+  userId                  String
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId              String
+  business                Business      @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  listingId               String
+  listing                 Listing       @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  dealId                  String?
+  deal                    Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  dealClaimId             String?
+  dealClaim               DealClaim?    @relation(fields: [dealClaimId], references: [id], onDelete: SetNull)
+  status                  BookingStatus @default(PENDING)
+  startDateTime           DateTime?
+  endDateTime             DateTime?
+  quantity                Int           @default(1)
+  guestCount              Int?
+  customerNote            String?
+  originalAmount          Decimal       @db.Decimal(12, 2)
+  discountAmount          Decimal       @db.Decimal(12, 2)
+  finalAmount             Decimal       @db.Decimal(12, 2)
+  currency                String        @db.VarChar(3)
+  listingTitleSnapshot    String
+  dealTitleSnapshot       String?
+  discountSummarySnapshot String?
+  cancelReason            String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  confirmedAt             DateTime?
+  cancelledAt             DateTime?
+  completedAt             DateTime?
+
+  journeys             JourneyBooking[]
+  payments             Payment[]
+  payable              BusinessPayable?
+  refunds              Refund[]
+  cancellationRequests BookingCancellationRequest[]
+  transferReversals    TransferReversal[]
+
+  @@index([userId, createdAt])
+  @@index([businessId, status])
+  @@index([listingId])
+  @@index([dealId])
+  @@index([dealClaimId])
+  @@index([status, createdAt])
+  @@index([bookingReference])
+}
+
+/// Traveler collection attempt against a Booking. Amounts come from the Booking snapshot, never the client.
+model Payment {
+  id                      String             @id @default(cuid())
+  bookingId               String
+  booking                 Booking            @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  userId                  String
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessId              String
+  business                Business           @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  provider                PaymentProvider    @default(STRIPE)
+  stripePaymentIntentId   String?            @unique
+  stripeCheckoutSessionId String?            @unique
+  stripeChargeId          String?
+  status                  PaymentStatus      @default(PENDING)
+  amount                  Decimal            @db.Decimal(12, 2)
+  currency                String             @db.VarChar(3)
+  idempotencyKey          String             @unique
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  processingAt            DateTime?
+  paidAt                  DateTime?
+  failedAt                DateTime?
+  cancelledAt             DateTime?
+  failureCode             String?
+  failureMessage          String?
+  payable                 BusinessPayable?
+  refunds                 Refund[]
+  transferReversals       TransferReversal[]
+
+  @@index([bookingId, status])
+  @@index([userId, createdAt])
+  @@index([businessId, status])
+}
+
+/// Business share of a successful collection. Database amounts are payables, not bank funds.
+model BusinessPayable {
+  id                       String                @id @default(cuid())
+  bookingId                String                @unique
+  booking                  Booking               @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  paymentId                String                @unique
+  payment                  Payment               @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  businessId               String
+  business                 Business              @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  status                   BusinessPayableStatus @default(PENDING)
+  grossAmount              Decimal               @db.Decimal(12, 2)
+  platformCommissionAmount Decimal               @db.Decimal(12, 2)
+  businessNetAmount        Decimal               @db.Decimal(12, 2)
+  currency                 String                @db.VarChar(3)
+  /// Actual Stripe processing fee when known. Null means not retrieved — never a guessed fee.
+  stripeFeeAmount          Decimal?              @db.Decimal(12, 2)
+  stripeTransferId         String?               @unique
+  transferGroup            String
+  eligibilityCode          String?
+  lastFailureCode          String?
+  lastFailureMessage       String?
+  eligibleAt               DateTime?
+  processingAt             DateTime?
+  transferredAt            DateTime?
+  blockedAt                DateTime?
+  cancelledAt              DateTime?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  attempts                 SettlementAttempt[]
+  transferReversal         TransferReversal?
+
+  @@index([businessId, status])
+  @@index([status, createdAt])
+}
+
+/// One Stripe Transfer attempt against a payable. Does not represent a bank payout.
+model SettlementAttempt {
+  id               String          @id @default(cuid())
+  payableId        String
+  payable          BusinessPayable @relation(fields: [payableId], references: [id], onDelete: Cascade)
+  outcome          String
+  stripeTransferId String?
+  failureCode      String?
+  failureMessage   String?
+  actorUserId      String?
+  createdAt        DateTime        @default(now())
+
+  @@index([payableId, createdAt])
+}
+
+/// Idempotent Stripe (or other provider) webhook receipts.
+model PaymentWebhookEvent {
+  id              String          @id @default(cuid())
+  provider        PaymentProvider
+  providerEventId String
+  eventType       String
+  processedAt     DateTime?
+  createdAt       DateTime        @default(now())
+
+  @@unique([provider, providerEventId])
+  @@index([createdAt])
+}
+
+/// Traveler/provider asked to cancel; not the same as Booking CANCELLED.
+model BookingCancellationRequest {
+  id                String                    @id @default(cuid())
+  bookingId         String
+  booking           Booking                   @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  requestedByUserId String
+  requestedBy       User                      @relation("CancellationRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  requestedByType   RefundActorType
+  reason            RefundReason
+  note              String?
+  status            CancellationRequestStatus @default(PENDING)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  reviewedAt        DateTime?
+  reviewedByUserId  String?
+  reviewedBy        User?                     @relation("CancellationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  refunds           Refund[]
+
+  @@index([bookingId, status])
+  @@index([status, createdAt])
+}
+
+/// Money returned to the traveler. Independent of Payment.status.
+model Refund {
+  id                    String                      @id @default(cuid())
+  paymentId             String
+  payment               Payment                     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  bookingId             String
+  booking               Booking                     @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  userId                String
+  user                  User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessId            String
+  business              Business                    @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  cancellationRequestId String?
+  cancellationRequest   BookingCancellationRequest? @relation(fields: [cancellationRequestId], references: [id], onDelete: SetNull)
+  provider              PaymentProvider             @default(STRIPE)
+  stripeRefundId        String?                     @unique
+  status                RefundStatus                @default(PENDING)
+  amount                Decimal                     @db.Decimal(12, 2)
+  currency              String                      @db.VarChar(3)
+  reason                RefundReason
+  explanation           String?
+  requestedByType       RefundActorType
+  requestedByUserId     String?
+  idempotencyKey        String                      @unique
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  processingAt          DateTime?
+  succeededAt           DateTime?
+  failedAt              DateTime?
+  cancelledAt           DateTime?
+  failureCode           String?
+  failureMessage        String?
+  transferReversals     TransferReversal[]
+
+  @@index([paymentId, status])
+  @@index([bookingId, status])
+  @@index([businessId, status])
+  @@index([status, createdAt])
+}
+
+/// Recovers a Stripe Transfer to a connected account. Not a bank payout reversal.
+model TransferReversal {
+  id                       String                 @id @default(cuid())
+  businessPayableId        String                 @unique
+  businessPayable          BusinessPayable        @relation(fields: [businessPayableId], references: [id], onDelete: Restrict)
+  paymentId                String
+  payment                  Payment                @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  bookingId                String
+  booking                  Booking                @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  refundId                 String?
+  refund                   Refund?                @relation(fields: [refundId], references: [id], onDelete: SetNull)
+  businessId               String
+  business                 Business               @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  stripeTransferId         String
+  stripeTransferReversalId String?                @unique
+  status                   TransferReversalStatus @default(PENDING)
+  amount                   Decimal                @db.Decimal(12, 2)
+  currency                 String                 @db.VarChar(3)
+  reason                   TransferReversalReason @default(BOOKING_REFUND)
+  idempotencyKey           String                 @unique
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  processingAt             DateTime?
+  succeededAt              DateTime?
+  failedAt                 DateTime?
+  failureCode              String?
+  failureMessage           String?
+
+  @@index([paymentId, status])
+  @@index([bookingId, status])
+  @@index([refundId])
+  @@index([status, createdAt])
+}
+
+model DealReport {
+  id           String           @id @default(cuid())
+  dealId       String
+  deal         Deal             @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  reporterId   String
+  reporter     User             @relation("DealReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  reason       DealReportReason
+  details      String?
+  status       DealReportStatus @default(OPEN)
+  reviewedById String?
+  reviewedBy   User?            @relation("DealReportsReviewed", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  resolution   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([reporterId, dealId])
+  @@index([dealId])
+  @@index([status, createdAt])
+}
+
+model DealAnalyticsEvent {
+  id        String            @id @default(cuid())
+  dealId    String
+  deal      Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  userId    String?
+  kind      DealAnalyticsKind
+  createdAt DateTime          @default(now())
+
+  @@index([dealId, kind, createdAt])
+  @@index([createdAt])
 }
 
 /// Destination / interest / transport community hub.
 model Community {
-  id                        String           @id @default(cuid())
-  slug                      String           @unique
-  name                      String
-  description               String           @default("")
-  about                     String           @default("")
-  communityType             CommunityType
-  category                  String           @default("OTHER")
-  destination               String
-  city                      String?
-  country                   String?
-  isGlobal                  Boolean          @default(true)
-  topics                    String[]         @default([])
-  avatarUrl                 String?
-  coverUrl                  String?
-  privacy                   CommunityPrivacy @default(PUBLIC)
-  requireJoinApproval       Boolean          @default(false)
-  requireRuleAcknowledgement Boolean         @default(false)
-  requirePostApproval       Boolean          @default(false)
-  postingPermission         String           @default("MEMBERS")
-  official                  Boolean          @default(false)
-  businessManaged           Boolean          @default(false)
-  ownerUserId               String?
-  owner                     User?            @relation("CommunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
-  memberCount               Int              @default(0)
-  lastActivityAt            DateTime         @default(now())
-  createdAt                 DateTime         @default(now())
-  updatedAt                 DateTime         @updatedAt
-  deletedAt                 DateTime?
+  id                         String           @id @default(cuid())
+  slug                       String           @unique
+  name                       String
+  description                String           @default("")
+  about                      String           @default("")
+  communityType              CommunityType
+  category                   String           @default("OTHER")
+  destination                String
+  city                       String?
+  country                    String?
+  isGlobal                   Boolean          @default(true)
+  topics                     String[]         @default([])
+  avatarUrl                  String?
+  coverUrl                   String?
+  privacy                    CommunityPrivacy @default(PUBLIC)
+  requireJoinApproval        Boolean          @default(false)
+  requireRuleAcknowledgement Boolean          @default(false)
+  requirePostApproval        Boolean          @default(false)
+  postingPermission          String           @default("MEMBERS")
+  official                   Boolean          @default(false)
+  businessManaged            Boolean          @default(false)
+  ownerUserId                String?
+  owner                      User?            @relation("CommunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  memberCount                Int              @default(0)
+  lastActivityAt             DateTime         @default(now())
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+  deletedAt                  DateTime?
 
-  memberships CommunityMembership[]
-  threads     CommunityThread[]
-  events      TravelerEvent[]
-  rules       CommunityRule[]
-  reports     CommunityReport[]
-  invites     CommunityInvite[]
-  auditLogs   CommunityAuditLog[]
+  memberships  CommunityMembership[]
+  threads      CommunityThread[]
+  events       TravelerEvent[]
+  rules        CommunityRule[]
+  reports      CommunityReport[]
+  invites      CommunityInvite[]
+  auditLogs    CommunityAuditLog[]
   conversation Conversation?
 
   @@index([communityType, destination])
@@ -909,20 +1451,20 @@ model CommunityRule {
 }
 
 model CommunityReport {
-  id           String                @id @default(cuid())
-  communityId  String
-  community    Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  reporterId   String
-  reporter     User                  @relation("CommunityReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
-  targetType   String
-  targetId     String
-  ruleId       String?
-  rule         CommunityRule?        @relation(fields: [ruleId], references: [id], onDelete: SetNull)
-  reason       String
-  description  String?
-  status       CommunityReportStatus @default(OPEN)
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  id          String                @id @default(cuid())
+  communityId String
+  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User                  @relation("CommunityReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType  String
+  targetId    String
+  ruleId      String?
+  rule        CommunityRule?        @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  reason      String
+  description String?
+  status      CommunityReportStatus @default(OPEN)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   @@index([communityId, status, createdAt])
   @@index([targetType, targetId])
@@ -1009,7 +1551,7 @@ model CommunityThread {
   updatedAt        DateTime              @updatedAt
   deletedAt        DateTime?
 
-  answers CommunityAnswer[] @relation("ThreadAnswers")
+  answers   CommunityAnswer[]         @relation("ThreadAnswers")
   reactions CommunityThreadReaction[]
 
   @@index([communityId, kind, createdAt])
@@ -1052,39 +1594,41 @@ model CommunityThreadReaction {
 
 /// Shared traveler itinerary (Phase 1–3: list, detail, create, save).
 model Journey {
-  id               String            @id @default(cuid())
-  slug             String            @unique
-  authorId         String
-  author           User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  title            String
-  summary          String            @default("")
-  coverUrl         String?
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  authorId          String
+  author            User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title             String
+  summary           String            @default("")
+  coverUrl          String?
   coverResourceType String?
-  startDate        DateTime?
-  endDate          DateTime?
-  startPlace       String
-  endPlace         String
-  countries        String[]          @default([])
-  durationDays     Int               @default(1)
-  transportModes   String[]          @default([])
-  historicalCost   String?
-  currency         String            @default("N$")
-  partyType        JourneyPartyType  @default(SOLO)
-  tags             String[]          @default([])
-  visibility       JourneyVisibility @default(PUBLIC)
-  takeaway         String            @default("")
-  viewCount        Int               @default(0)
-  publishedAt      DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  deletedAt        DateTime?
+  startDate         DateTime?
+  endDate           DateTime?
+  startPlace        String
+  endPlace          String
+  countries         String[]          @default([])
+  durationDays      Int               @default(1)
+  transportModes    String[]          @default([])
+  historicalCost    String?
+  currency          String            @default("N$")
+  partyType         JourneyPartyType  @default(SOLO)
+  tags              String[]          @default([])
+  visibility        JourneyVisibility @default(PUBLIC)
+  takeaway          String            @default("")
+  viewCount         Int               @default(0)
+  publishedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
 
-  stops     JourneyStop[]
-  comments  JourneyComment[]
-  reactions JourneyReaction[]
-  events    JourneyEvent[]
-  conversation Conversation?
-  sharedPosts Post[]
+  stops            JourneyStop[]
+  comments         JourneyComment[]
+  reactions        JourneyReaction[]
+  events           JourneyEvent[]
+  deals            JourneyDeal[]
+  bookings         JourneyBooking[]
+  conversation     Conversation?
+  sharedPosts      Post[]
   communityThreads CommunityThread[]
 
   @@index([authorId, createdAt])
@@ -1136,25 +1680,25 @@ model JourneyReaction {
 }
 
 model JourneyStop {
-  id                       String   @id @default(cuid())
-  journeyId                String
-  journey                  Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  sortOrder                Int
-  place                    String
-  region                   String   @default("")
-  arrivalDay               Int      @default(1)
-  durationDays             Int      @default(1)
-  notes                    String   @default("")
-  highlights               String[] @default([])
-  mediaUrls                String[] @default([])
+  id                      String   @id @default(cuid())
+  journeyId               String
+  journey                 Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  sortOrder               Int
+  place                   String
+  region                  String   @default("")
+  arrivalDay              Int      @default(1)
+  durationDays            Int      @default(1)
+  notes                   String   @default("")
+  highlights              String[] @default([])
+  mediaUrls               String[] @default([])
   /// Parallel to mediaUrls: "image" | "video" per item (same length when set).
-  mediaResourceTypes       String[] @default([])
-  transportModeToNext      String?
-  transportDurationToNext  String?
-  transportNotes           String?
-  historicalCostHint       String?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  mediaResourceTypes      String[] @default([])
+  transportModeToNext     String?
+  transportDurationToNext String?
+  transportNotes          String?
+  historicalCostHint      String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@index([journeyId, sortOrder])
 }
@@ -1180,17 +1724,17 @@ enum ConversationRequestStatus {
 
 /// Traveler message thread (direct, journey, or community group).
 model Conversation {
-  id              String                    @id @default(cuid())
-  type            ConversationType          @default(DIRECT)
-  journeyId       String?                   @unique
-  journey         Journey?                  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  communityId     String?                   @unique
-  community       Community?                @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  initiatedById   String?
-  requestStatus   ConversationRequestStatus @default(ACCEPTED)
-  lastMessageAt   DateTime?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  id            String                    @id @default(cuid())
+  type          ConversationType          @default(DIRECT)
+  journeyId     String?                   @unique
+  journey       Journey?                  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  communityId   String?                   @unique
+  community     Community?                @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  initiatedById String?
+  requestStatus ConversationRequestStatus @default(ACCEPTED)
+  lastMessageAt DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
 
   participants ConversationParticipant[]
   messages     DirectMessage[]

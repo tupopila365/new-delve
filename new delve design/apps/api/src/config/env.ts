@@ -41,6 +41,10 @@ const envSchema = z
     SESSION_LAST_SEEN_THROTTLE_SECONDS: z.coerce.number().int().positive().default(300),
     SESSION_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
     SECURITY_EVENT_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_CONNECT_COUNTRY: z.string().optional(),
+    DELVE_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10000).default(1000),
   })
   .superRefine((value, ctx) => {
     const appEnv = value.APP_ENV ?? (value.NODE_ENV === 'production' ? 'production' : 'development')
@@ -92,15 +96,20 @@ const envSchema = z
     }
   })
 
-export type Env = Omit<z.infer<typeof envSchema>, 'TRUST_GEO_HEADERS' | 'ADMIN_WEB_ORIGIN'> & {
+export type Env = Omit<
+  z.infer<typeof envSchema>,
+  'TRUST_GEO_HEADERS' | 'ADMIN_WEB_ORIGIN' | 'STRIPE_CONNECT_COUNTRY'
+> & {
   appEnv: 'development' | 'staging' | 'production'
   brevoConfigured: boolean
   /** @deprecated Legacy S3 avatar path */
   storageConfigured: boolean
   cloudinaryConfigured: boolean
+  stripeConfigured: boolean
   TRUST_GEO_HEADERS: boolean
   /** Explicit admin-web origin for CORS and CSRF checks. */
   ADMIN_WEB_ORIGIN: string
+  STRIPE_CONNECT_COUNTRY: string | undefined
 }
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -126,6 +135,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       value.CLOUDINARY_API_KEY?.trim() &&
       value.CLOUDINARY_API_SECRET?.trim(),
   )
+  const stripeConfigured = Boolean(value.STRIPE_SECRET_KEY?.trim())
   const raw = value.TRUST_GEO_HEADERS?.trim().toLowerCase()
   const trustGeo =
     raw === 'true' || raw === '1'
@@ -139,7 +149,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     brevoConfigured,
     storageConfigured,
     cloudinaryConfigured,
+    stripeConfigured,
     TRUST_GEO_HEADERS: trustGeo,
     ADMIN_WEB_ORIGIN: value.ADMIN_WEB_ORIGIN?.trim() || value.ADMIN_WEB_URL,
+    STRIPE_CONNECT_COUNTRY: value.STRIPE_CONNECT_COUNTRY?.trim().toUpperCase() || undefined,
   }
 }

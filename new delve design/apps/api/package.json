@@ -10,7 +10,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:auth": "vitest run",
-    "admin:create": "tsx scripts/create-admin.ts"
+    "admin:create": "tsx scripts/create-admin.ts",
+    "db:seed:marketing-deals": "tsx scripts/seed-marketing-deals.ts",
+    "db:seed:marketing-deals:cleanup": "tsx scripts/seed-marketing-deals.ts --cleanup"
   },
   "dependencies": {
     "@delve/config": "workspace:*",
@@ -22,6 +24,7 @@
     "helmet": "^8.0.0",
     "jose": "^6.2.8",
     "morgan": "^1.10.0",
+    "stripe": "^18.4.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

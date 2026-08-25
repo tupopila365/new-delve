@@ -470,6 +470,71 @@ export default function JourneyDetailPage({
           </>
         )}
 
+        {(journey.bookings?.length ?? 0) > 0 && (
+          <>
+            <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+              Booked
+            </h2>
+            <div className="flex flex-col gap-2 mb-5">
+              {journey.bookings!.map(row => (
+                <div
+                  key={row.id}
+                  className="rounded-2xl px-3 py-3"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                >
+                  <p className="text-xs font-semibold m-0" style={{ color: '#0F8A52' }}>
+                    BOOKED ✓ · {row.status}
+                  </p>
+                  <p className="text-sm font-bold m-0">{row.listingTitle}</p>
+                  <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+                    {row.startDateTime
+                      ? new Date(row.startDateTime).toLocaleString(undefined, {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Dates to confirm'}
+                    {' · '}
+                    {row.currency} {row.finalAmount}
+                  </p>
+                  <p className="text-xs font-mono m-0 mt-1">{row.bookingReference}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {(journey.deals?.length ?? 0) > 0 && (
+          <>
+            <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+              Linked deals
+            </h2>
+            <div className="flex flex-col gap-2 mb-5">
+              {journey.deals!.map(deal => (
+                <div
+                  key={deal.id}
+                  className="flex items-center gap-3 rounded-2xl overflow-hidden"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                >
+                  {deal.coverUrl ? (
+                    <img src={deal.coverUrl} alt="" className="w-16 h-16 object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
+                  )}
+                  <div className="min-w-0 pr-3 py-2">
+                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{deal.title}</p>
+                    <p className="text-xs m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                      {deal.discountSummary}
+                      {deal.city ? ` · ${deal.city}` : ''}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
           Stops
         </h2>

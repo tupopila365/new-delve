@@ -7,6 +7,7 @@ import type { Env } from '../../config/env.js'
 import * as communityService from '../community/community.service.js'
 import * as threadService from '../community/thread.service.js'
 import * as journeyService from '../journey/journey.service.js'
+import * as dealService from '../deal/deal.service.js'
 import * as eventService from '../social/event.service.js'
 import * as postService from '../social/post.service.js'
 import * as publicProfile from '../social/profile-public.service.js'
@@ -18,6 +19,7 @@ const ALL_TYPES: SearchEntityType[] = [
   'thread',
   'journey',
   'event',
+  'deal',
 ]
 
 const THREAD_KIND_LABEL: Record<string, string> = {
@@ -39,6 +41,7 @@ function emptyResult(): UnifiedSearchResult {
     threads: [],
     journeys: [],
     events: [],
+    deals: [],
   }
 }
 
@@ -65,13 +68,14 @@ export async function unifiedSearch(
   const limit = opts.limit ?? 40
   const perType = Math.max(5, Math.ceil(limit / types.length))
 
-  const [travelers, posts, communities, threads, journeys, events] = await Promise.all([
+  const [travelers, posts, communities, threads, journeys, events, deals] = await Promise.all([
     types.includes('traveler') ? publicProfile.searchTravelers(q, viewerId) : Promise.resolve([]),
     types.includes('post') ? postService.searchPosts(env, q, viewerId) : Promise.resolve([]),
     types.includes('community') ? communityService.listCommunities(viewerId, { q }) : Promise.resolve([]),
     types.includes('thread') ? threadService.listThreads(viewerId, { q }) : Promise.resolve([]),
     types.includes('journey') ? journeyService.listJourneys(viewerId, { q }) : Promise.resolve([]),
     types.includes('event') ? eventService.searchEvents(env, viewerId, q) : Promise.resolve([]),
+    types.includes('deal') ? dealService.searchPublicDeals(q, perType) : Promise.resolve([]),
   ])
 
   return {
@@ -81,6 +85,7 @@ export async function unifiedSearch(
     threads: threads.slice(0, perType),
     journeys: journeys.slice(0, perType),
     events: events.slice(0, perType) as UnifiedSearchResult['events'],
+    deals: deals.slice(0, perType),
   }
 }
 
@@ -165,6 +170,18 @@ export async function searchSuggest(
       group: 'post',
       entityType: 'post',
       entityId: post.id,
+    })
+  }
+
+  for (const deal of result.deals.slice(0, 3)) {
+    suggestions.push({
+      id: `deal:${deal.id}`,
+      label: deal.title,
+      context: `${deal.discountSummary}${deal.city ? ` · ${deal.city}` : ''} · ${deal.business.name}`,
+      type: 'Deal',
+      group: 'deal',
+      entityType: 'deal',
+      entityId: deal.id,
     })
   }
 

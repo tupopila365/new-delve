@@ -4,6 +4,7 @@ import type { Env } from '../../config/env.js'
 import { AppError } from '../../middleware/error-handler.js'
 import { getPostDto } from './post.service.js'
 import { getEventDto } from './event.service.js'
+import * as dealOps from '../deal/deal-ops.service.js'
 
 export async function saveTarget(userId: string, body: SaveBody) {
   await assertTargetExists(body)
@@ -18,6 +19,9 @@ export async function saveTarget(userId: string, body: SaveBody) {
     create: { userId, targetType: body.targetType, targetId: body.targetId },
     update: {},
   })
+  if (body.targetType === 'DEAL') {
+    await dealOps.recordSaveAnalytics(body.targetId, userId).catch(() => undefined)
+  }
   return { saved: true }
 }
 
@@ -71,6 +75,18 @@ export async function listSaves(env: Env, userId: string) {
                 subtitle: `${journey.startPlace} → ${journey.endPlace}`,
               }
             : { title: 'Journey', subtitle: 'Unavailable' }
+        } else if (row.targetType === 'DEAL') {
+          const deal = await prisma.deal.findFirst({
+            where: { id: row.targetId },
+            include: { business: { select: { name: true } }, coverMedia: { select: { secureUrl: true } } },
+          })
+          preview = deal
+            ? {
+                title: deal.title,
+                imageUrl: deal.coverMedia?.secureUrl ?? null,
+                subtitle: deal.business.name,
+              }
+            : { title: 'Deal', subtitle: 'Unavailable' }
         } else {
           preview = { title: `${row.targetType} saved`, subtitle: 'Coming soon' }
         }
@@ -117,6 +133,16 @@ async function assertTargetExists(body: SaveBody) {
     if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
     return
   }
-  // LISTING / DEAL reserved for later modules — allow save record for forward compat only if we choose.
+  if (body.targetType === 'DEAL') {
+    const deal = await prisma.deal.findFirst({
+      where: {
+        id: body.targetId,
+        status: { in: ['PUBLISHED', 'EXPIRED'] },
+        business: { status: 'VERIFIED' },
+      },
+    })
+    if (!deal) throw new AppError(404, 'NOT_FOUND', 'Deal not found')
+    return
+  }
   throw new AppError(400, 'UNSUPPORTED_SAVE', 'That save type is not available yet.')
 }

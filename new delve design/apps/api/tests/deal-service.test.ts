@@ -10,6 +10,7 @@ vi.mock('@delve/database', () => ({
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }))
@@ -88,6 +89,18 @@ describe('deal contracts', () => {
     })
     expect(parsed.success).toBe(false)
   })
+
+  it('rejects provider self-publish on create', () => {
+    const parsed = createDealBodySchema.safeParse({
+      title: 'Live now',
+      discountType: 'PERCENTAGE',
+      discountValue: 10,
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 1000).toISOString(),
+      status: 'PUBLISHED',
+    })
+    expect(parsed.success).toBe(false)
+  })
 })
 
 describe('deal service', () => {
@@ -141,6 +154,26 @@ describe('deal service', () => {
     await expect(updateDeal('stranger', 'd1', { title: 'Hijack' })).rejects.toMatchObject({
       code: 'NOT_A_MEMBER',
       statusCode: 403,
+    })
+  })
+
+  it('ignores includeScheduled on public discovery', async () => {
+    vi.mocked(prisma.deal.findMany).mockResolvedValue([dealRow()] as never)
+    await listPublicActiveDeals(10, null, { includeScheduled: true })
+    expect(prisma.deal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: 'PUBLISHED',
+          startDate: expect.objectContaining({ lte: expect.any(Date) }),
+        }),
+      }),
+    )
+  })
+
+  it('blocks provider from publishing via update', async () => {
+    vi.mocked(prisma.deal.findUnique).mockResolvedValue(dealRow({ status: 'DRAFT' }) as never)
+    await expect(updateDeal('u1', 'd1', { status: 'PUBLISHED' as never })).rejects.toMatchObject({
+      code: 'INVALID_STATUS_TRANSITION',
     })
   })
 })

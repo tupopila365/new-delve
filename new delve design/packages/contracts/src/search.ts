@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { communityDtoSchema, communityThreadSummarySchema } from './community.js'
 import { journeySummarySchema } from './journey.js'
+import { dealDtoSchema } from './deal.js'
 import { eventDtoSchema, postDtoSchema, publicTravelerProfileSchema } from './social.js'
 
 export const searchEntityTypeSchema = z.enum([
@@ -10,6 +11,7 @@ export const searchEntityTypeSchema = z.enum([
   'thread',
   'journey',
   'event',
+  'deal',
   'query',
 ])
 
@@ -32,6 +34,7 @@ export const unifiedSearchResultSchema = z.object({
   threads: z.array(communityThreadSummarySchema),
   journeys: z.array(journeySummarySchema),
   events: z.array(eventDtoSchema),
+  deals: z.array(dealDtoSchema),
 })
 
 export type UnifiedSearchResult = z.infer<typeof unifiedSearchResultSchema>
@@ -41,7 +44,7 @@ export const searchSuggestionSchema = z.object({
   label: z.string(),
   context: z.string(),
   type: z.string(),
-  group: z.enum(['journey', 'community', 'thread', 'event', 'traveler', 'post', 'recent']),
+  group: z.enum(['journey', 'community', 'thread', 'event', 'traveler', 'post', 'deal', 'recent']),
   entityType: searchEntityTypeSchema,
   entityId: z.string(),
 })

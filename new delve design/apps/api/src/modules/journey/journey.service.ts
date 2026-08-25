@@ -593,6 +593,16 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
     include: { event: true },
     orderBy: { createdAt: 'asc' },
   })
+  const dealLinks = await prisma.journeyDeal.findMany({
+    where: { journeyId: row.id },
+    include: { deal: { include: { coverMedia: { select: { secureUrl: true } } } } },
+    orderBy: { createdAt: 'asc' },
+  })
+  const bookingLinks = await prisma.journeyBooking.findMany({
+    where: { journeyId: row.id },
+    include: { booking: true },
+    orderBy: { createdAt: 'asc' },
+  })
   return {
     ...summary,
     stops: row.stops.map(stopDto),
@@ -605,6 +615,26 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
       city: link.event.city,
       locationName: link.event.locationName,
       category: link.event.category,
+    })),
+    deals: dealLinks.map(link => ({
+      id: link.deal.id,
+      title: link.deal.title,
+      coverUrl: link.deal.coverMedia?.secureUrl ?? null,
+      discountSummary:
+        link.deal.discountType === 'PERCENTAGE'
+          ? `${Number(link.deal.discountValue)}% off`
+          : `${link.deal.currency} ${Number(link.deal.discountValue)} off`,
+      city: link.deal.city,
+      endDate: link.deal.endDate.toISOString(),
+    })),
+    bookings: bookingLinks.map(link => ({
+      id: link.booking.id,
+      bookingReference: link.booking.bookingReference,
+      listingTitle: link.booking.listingTitleSnapshot,
+      status: link.booking.status,
+      startDateTime: link.booking.startDateTime?.toISOString() ?? null,
+      finalAmount: Number(link.booking.finalAmount.toString()).toFixed(2),
+      currency: link.booking.currency,
     })),
   }
 }
@@ -872,5 +902,64 @@ export async function removeEventFromJourney(userId: string, journeyId: string, 
     throw new AppError(403, 'FORBIDDEN', 'You can only remove events from your own journeys.')
   }
   await prisma.journeyEvent.deleteMany({ where: { journeyId, eventId } })
+  return getJourney(journeyId, userId)
+}
+
+export async function addDealToJourney(userId: string, journeyId: string, dealId: string) {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only add deals to your own journeys.')
+  }
+  const { getPublicDeal } = await import('../deal/deal.service.js')
+  const deal = await getPublicDeal(dealId)
+  if (!deal.isActive) {
+    throw new AppError(400, 'DEAL_NOT_ACTIVE', 'Only active deals can be added to a journey.')
+  }
+  await prisma.journeyDeal.upsert({
+    where: { journeyId_dealId: { journeyId, dealId } },
+    create: { journeyId, dealId, addedById: userId },
+    update: {},
+  })
+  const { recordJourneyAddAnalytics } = await import('../deal/deal-ops.service.js')
+  await recordJourneyAddAnalytics(dealId, userId).catch(() => undefined)
+  return getJourney(journeyId, userId)
+}
+
+export async function removeDealFromJourney(userId: string, journeyId: string, dealId: string) {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only remove deals from your own journeys.')
+  }
+  await prisma.journeyDeal.deleteMany({ where: { journeyId, dealId } })
+  return getJourney(journeyId, userId)
+}
+
+export async function addBookingToJourney(userId: string, journeyId: string, bookingId: string) {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only add bookings to your own journeys.')
+  }
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId } })
+  if (!booking || booking.userId !== userId) {
+    throw new AppError(404, 'NOT_FOUND', 'Booking not found.')
+  }
+  await prisma.journeyBooking.upsert({
+    where: { journeyId_bookingId: { journeyId, bookingId } },
+    create: { journeyId, bookingId, addedById: userId },
+    update: {},
+  })
+  return getJourney(journeyId, userId)
+}
+
+export async function removeBookingFromJourney(userId: string, journeyId: string, bookingId: string) {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only remove bookings from your own journeys.')
+  }
+  await prisma.journeyBooking.deleteMany({ where: { journeyId, bookingId } })
   return getJourney(journeyId, userId)
 }

@@ -1,35 +1,31 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  ArrowLeft,
-  Building2,
-  FileText,
-  LayoutDashboard,
-  List,
-  Menu,
-  Settings,
-  ShoppingBag,
-  Tag,
-  X,
-} from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Building2, DollarSign, FileText, LayoutDashboard, List, Menu, Settings, ShoppingBag, Tag, Ticket, Wallet, X } from 'lucide-react'
 import type { BusinessDashboardDto, BusinessMembershipDto } from '@delve/contracts'
 import { createBusiness, fetchMyBusinessDashboard } from '../api/businessClient'
 import { businessPath } from '../navigation'
 import BusinessProfilePanel from './BusinessProfilePanel'
 import ProviderEmptyCatalog from './views/ProviderEmptyCatalog'
 import ProviderDealsView from './views/ProviderDealsView'
+import ProviderClaimsView from './views/ProviderClaimsView'
 import ProviderListingsView from './views/ProviderListingsView'
+import ProviderBookingsView from './views/ProviderBookingsView'
+import ProviderPaymentsView from './views/ProviderPaymentsView'
+import ProviderEarningsView from './views/ProviderEarningsView'
 import ProviderOverview from './views/ProviderOverview'
 
-type Section = 'overview' | 'profile' | 'listings' | 'deals' | 'posts' | 'bookings' | 'settings'
+type Section = 'overview' | 'profile' | 'listings' | 'deals' | 'claims' | 'posts' | 'bookings' | 'payments' | 'earnings' | 'settings'
 
 const NAV: { id: Section; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'profile', label: 'Business Profile', icon: Building2 },
   { id: 'listings', label: 'Listings', icon: List },
   { id: 'deals', label: 'Deals', icon: Tag },
+  { id: 'claims', label: 'Claims', icon: Ticket },
   { id: 'posts', label: 'Posts', icon: FileText },
   { id: 'bookings', label: 'Bookings', icon: ShoppingBag },
+  { id: 'payments', label: 'Payments setup', icon: DollarSign },
+  { id: 'earnings', label: 'Earnings', icon: Wallet },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -65,6 +61,7 @@ export default function ProviderDashboardPage({
   onExit,
 }: ProviderDashboardPageProps) {
   const routerNavigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [section, setSection] = useState<Section>(initialSection)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -111,8 +108,12 @@ export default function ProviderDashboardPage({
   }, [authReady, signedIn])
 
   useEffect(() => {
+    if (searchParams.get('connect')) {
+      setSection('payments')
+      return
+    }
     setSection(initialSection)
-  }, [initialSection])
+  }, [initialSection, searchParams])
 
   async function handleCreate() {
     const name = createName.trim()
@@ -306,6 +307,8 @@ export default function ProviderDashboardPage({
     main = <ProviderListingsView businessId={membership.business.id} />
   } else if (section === 'deals') {
     main = <ProviderDealsView businessId={membership.business.id} />
+  } else if (section === 'claims') {
+    main = <ProviderClaimsView businessId={membership.business.id} role={membership.role} />
   } else if (section === 'posts') {
     main = (
       <Placeholder
@@ -314,12 +317,11 @@ export default function ProviderDashboardPage({
       />
     )
   } else if (section === 'bookings') {
-    main = (
-      <Placeholder
-        title="Bookings"
-        body="Booking management is a later checkpoint. No fake bookings are shown here."
-      />
-    )
+    main = <ProviderBookingsView businessId={membership.business.id} role={membership.role} />
+  } else if (section === 'payments') {
+    main = <ProviderPaymentsView businessId={membership.business.id} role={membership.role} />
+  } else if (section === 'earnings') {
+    main = <ProviderEarningsView businessId={membership.business.id} role={membership.role} />
   } else {
     main = (
       <Placeholder

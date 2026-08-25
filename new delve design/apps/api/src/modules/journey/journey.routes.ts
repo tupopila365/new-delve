@@ -22,6 +22,10 @@ export function createJourneyRouter(_env: Env) {
   router.delete('/journeys/:journeyId/reactions', auth, (req, res, next) => void c.unlike(req, res, next))
   router.post('/journeys/:journeyId/events', auth, (req, res, next) => void c.addEvent(req, res, next))
   router.delete('/journeys/:journeyId/events/:eventId', auth, (req, res, next) => void c.removeEvent(req, res, next))
+  router.post('/journeys/:journeyId/deals', auth, (req, res, next) => void c.addDeal(req, res, next))
+  router.delete('/journeys/:journeyId/deals/:dealId', auth, (req, res, next) => void c.removeDeal(req, res, next))
+  router.post('/journeys/:journeyId/bookings', auth, (req, res, next) => void c.addBooking(req, res, next))
+  router.delete('/journeys/:journeyId/bookings/:bookingId', auth, (req, res, next) => void c.removeBooking(req, res, next))
   router.get('/journeys/:slugOrId', soft, (req, res, next) => void c.get(req, res, next))
 
   return router

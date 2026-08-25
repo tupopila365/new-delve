@@ -22,6 +22,8 @@
     "db:generate": "pnpm --filter @delve/database generate",
     "db:migrate": "pnpm --filter @delve/database migrate",
     "admin:create": "pnpm --filter @delve/api admin:create",
+    "db:seed:marketing-deals": "pnpm --filter @delve/api db:seed:marketing-deals",
+    "db:seed:marketing-deals:cleanup": "pnpm --filter @delve/api db:seed:marketing-deals:cleanup",
     "appwrite:setup-profile": "node scripts/appwrite-setup-traveler-profile.mjs",
     "preview": "vite preview",
     "start": "node scripts/heroku-web.mjs",

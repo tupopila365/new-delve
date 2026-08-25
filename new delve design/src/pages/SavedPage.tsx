@@ -8,6 +8,7 @@ interface SavedPageProps {
   onOpenEvent?: (eventId: string) => void
   onOpenJourney?: (journeyId: string) => void
   onOpenCommunityThread?: (threadId: string) => void
+  onOpenDeal?: (dealId: string) => void
   authReady?: boolean
   signedIn?: boolean
 }
@@ -16,13 +17,14 @@ export default function SavedPage({
   onOpenEvent,
   onOpenJourney,
   onOpenCommunityThread,
+  onOpenDeal,
   authReady = true,
   signedIn = true,
 }: SavedPageProps) {
   const [items, setItems] = useState<SaveDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'ALL' | 'POST' | 'EVENT' | 'JOURNEY' | 'COMMUNITY_THREAD'>('ALL')
+  const [filter, setFilter] = useState<'ALL' | 'POST' | 'EVENT' | 'JOURNEY' | 'COMMUNITY_THREAD' | 'DEAL'>('ALL')
 
   useEffect(() => {
     if (!authReady) {
@@ -81,6 +83,7 @@ export default function SavedPage({
             { key: 'COMMUNITY_THREAD' as const, label: 'Community' },
             { key: 'EVENT' as const, label: 'Events' },
             { key: 'JOURNEY' as const, label: 'Journeys' },
+            { key: 'DEAL' as const, label: 'Deals' },
           ]).map(tab => (
             <button
               key={tab.key}
@@ -111,7 +114,7 @@ export default function SavedPage({
           <Bookmark size={28} style={{ color: 'var(--fg-muted)', margin: '0 auto 10px' }} />
           <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>Nothing saved yet</p>
           <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-            Save Delvers posts, community threads, events, and journeys to find them here later.
+            Save Delvers posts, community threads, events, journeys, and deals to find them here later.
           </p>
         </div>
       )}
@@ -153,7 +156,9 @@ export default function SavedPage({
                     ? 'Journey'
                     : item.targetType === 'COMMUNITY_THREAD'
                       ? 'Community thread'
-                      : item.targetType}{' '}
+                      : item.targetType === 'DEAL'
+                        ? 'Deal'
+                        : item.targetType}{' '}
                   · {new Date(item.createdAt).toLocaleDateString()}
                 </p>
                 <div className="flex gap-3 mt-2">
@@ -181,6 +186,16 @@ export default function SavedPage({
                     <button
                       type="button"
                       onClick={() => onOpenJourney(item.targetId)}
+                      className="text-xs font-semibold"
+                      style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
+                    >
+                      Open
+                    </button>
+                  )}
+                  {item.targetType === 'DEAL' && onOpenDeal && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenDeal(item.targetId)}
                       className="text-xs font-semibold"
                       style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
                     >
