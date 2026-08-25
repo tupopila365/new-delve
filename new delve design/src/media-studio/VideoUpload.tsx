@@ -4,7 +4,7 @@ import {
   Square, Upload, X,
 } from 'lucide-react'
 import { newId } from './config'
-import { detectMimeKind, orientationOf, readVideoMetadata, validateAgainstLimits } from './detect'
+import { detectMimeKind, orientationOf, readVideoMetadata, uploadStatusMessage, validateAgainstLimits } from './detect'
 import { formatBytes, formatTime } from './format'
 import type { MediaAsset, StudioContext, UploadLimits, UploadStatus } from './types'
 
@@ -62,7 +62,7 @@ export function VideoUpload({
       if (validation !== 'ready' && validation !== 'no-audio' && validation !== 'variable-framerate') {
         URL.revokeObjectURL(url)
         setStatus(validation)
-        setErrorDetail(statusMessage(validation, limits))
+        setErrorDetail(uploadStatusMessage(validation, limits))
         return
       }
       const now = new Date().toISOString()
@@ -112,7 +112,7 @@ export function VideoUpload({
       fileSize: file.size,
       width: 1080,
       height: 1920,
-      duration: Math.min(pendingTrim.duration, limits.maxDurationSec),
+      duration: pendingTrim.duration,
       orientation: 'portrait',
       uploadStatus: 'ready',
       processingStatus: 'ready',
@@ -185,7 +185,7 @@ export function VideoUpload({
           <AlertTriangle size={18} className="shrink-0 mt-0.5" style={{ color: '#C83B3B' }} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold m-0">{statusLabel(status)}</p>
-            <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>{errorDetail || statusMessage(status, limits)}</p>
+            <p className="text-xs mt-1 m-0" style={{ color: 'var(--fg-muted)' }}>{errorDetail || uploadStatusMessage(status, limits)}</p>
             <div className="flex flex-wrap gap-2 mt-3">
               {status === 'video-too-long' && pendingTrim && (
                 <button type="button" className="min-h-[44px] px-3 rounded-xl text-xs font-semibold text-white" style={{ background: 'var(--primary)' }} onClick={acceptTrimmed}>
@@ -229,14 +229,6 @@ function statusLabel(s: UploadStatus) {
     'storage-denied': 'Storage permission denied',
   }
   return map[s] ?? s
-}
-
-function statusMessage(s: UploadStatus, limits: UploadLimits) {
-  if (s === 'file-too-large') return `Maximum size from configuration: ${formatBytes(limits.maxFileSizeBytes)}.`
-  if (s === 'video-too-long') return `Maximum duration: ${formatTime(limits.maxDurationSec)}.`
-  if (s === 'video-too-short') return `Minimum duration: ${formatTime(limits.minDurationSec)}.`
-  if (s === 'resolution-too-low') return `Minimum resolution: ${limits.minWidth}×${limits.minHeight}.`
-  return 'Choose another file that meets the configured requirements.'
 }
 
 export function RecordVideoFlow({

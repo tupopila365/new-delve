@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search, MapPin, Bell, MessageCircle, Heart, Bookmark, Share2,
@@ -1145,7 +1145,8 @@ export default function App() {
     activeNav === 'Services' ? 'max-w-[680px]' :
     isFeedLayout ? 'max-w-[620px]' :
     'max-w-[720px]'
-  const showFab = isHome || activeNav === 'Communities' || activeNav === 'Delvers' || activeNav === 'Journeys' || activeNav === 'Events' || (HUB_ROUTES.has(activeNav) && signedIn)
+  const showFab = (isHome || activeNav === 'Communities' || activeNav === 'Delvers' || activeNav === 'Journeys' || activeNav === 'Events' || (HUB_ROUTES.has(activeNav) && signedIn))
+    && !(activeNav === 'Communities' && communityDetailId)
 
   function isSidebarActive(label: string) {
     if (label === 'Explore') return activeNav === 'Explore' || activeNav === 'Search'

@@ -35,7 +35,7 @@ function defaultEdit(asset: MediaAsset, limits: UploadLimits): VideoEditState {
   }
   return {
     sourceAssetId: asset.id,
-    aspectRatio: '4:5',
+    aspectRatio: 'original',
     crop: { ...DEFAULT_CROP_STATE },
     rotation: 0,
     trimStart: 0,
@@ -68,8 +68,8 @@ export function VideoEditorShell({
   limits,
   context,
   onBack,
-  onClose,
-  onDraft,
+  onClose: _onClose,
+  onDraft: _onDraft,
   onPreview,
 }: {
   asset: MediaAsset
@@ -205,12 +205,7 @@ export function VideoEditorShell({
     }, 1600)
   }
 
-  async function goNext() {
-    if (stepIndex < STEPS.length - 1) {
-      setStep(STEPS[stepIndex + 1].id)
-      setMorePanel(null)
-      return
-    }
+  async function finishEditing() {
     const url = coverDataUrl ?? await captureFrame(edit.cover.time || (edit.trimStart + edit.trimEnd) / 2)
     onPreview(edit, url)
   }
@@ -257,15 +252,10 @@ export function VideoEditorShell({
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" className="min-h-[40px] px-3 rounded-full text-xs font-semibold"
-            style={{ background: 'rgba(0,0,0,0.35)', color: 'rgba(255,250,242,0.8)' }}
-            onClick={() => onDraft(edit)}>
-            Draft
-          </button>
           <button type="button" className="min-h-[40px] px-4 rounded-full text-sm font-bold inline-flex items-center gap-1"
             style={{ background: '#8C52FF', color: '#fff' }}
-            onClick={() => void goNext()}>
-            {stepIndex >= STEPS.length - 1 ? 'Next' : 'Next'}
+            onClick={() => void finishEditing()}>
+            Next
             <ChevronRight size={16} />
           </button>
         </div>
@@ -293,7 +283,7 @@ export function VideoEditorShell({
               showSafeAreas={false}
               posterUrl={coverDataUrl}
               loop
-              fit="cover"
+              fit={edit.aspectRatio === 'original' ? 'contain' : 'cover'}
               fill
               showControls={false}
               className="h-full w-full"
@@ -348,17 +338,22 @@ export function VideoEditorShell({
         {/* Step content */}
         <div className="px-3 pt-2 pb-1 min-h-[120px]">
           {step === 'trim' && (
-            <VideoFilmstripTrim
-              src={asset.objectUrl}
-              duration={duration}
-              trimStart={edit.trimStart}
-              trimEnd={edit.trimEnd}
-              minDuration={limits.minDurationSec}
-              maxDuration={limits.maxDurationSec}
-              playhead={currentTime}
-              onTrimChange={(s, e) => update({ trimStart: s, trimEnd: e })}
-              onSeek={t => { setCurrentTime(t); setPlaying(false) }}
-            />
+            <div>
+              <p className="text-[11px] m-0 mb-2 px-0.5" style={{ color: 'rgba(255,250,242,0.55)' }}>
+                Optional — tap Next to keep the clip as-is.
+              </p>
+              <VideoFilmstripTrim
+                src={asset.objectUrl}
+                duration={duration}
+                trimStart={edit.trimStart}
+                trimEnd={edit.trimEnd}
+                minDuration={limits.minDurationSec}
+                maxDuration={limits.maxDurationSec}
+                playhead={currentTime}
+                onTrimChange={(s, e) => update({ trimStart: s, trimEnd: e })}
+                onSeek={t => { setCurrentTime(t); setPlaying(false) }}
+              />
+            </div>
           )}
 
           {step === 'look' && (

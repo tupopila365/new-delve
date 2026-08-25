@@ -1,5 +1,6 @@
 import type { MediaKind, StudioContext, UploadLimits, UploadStatus } from './types'
 import { studioModeForContext } from './config'
+import { formatBytes, formatTime } from './format'
 
 export function detectMimeKind(mimeType: string, fileName = ''): 'image' | 'video' | 'unknown' {
   const mime = mimeType.toLowerCase()
@@ -112,4 +113,18 @@ export function validateAgainstLimits(input: {
 export function orientationOf(width: number, height: number): 'portrait' | 'landscape' | 'square' {
   if (width === height) return 'square'
   return width > height ? 'landscape' : 'portrait'
+}
+
+export function isUsableVideoStatus(status: UploadStatus): boolean {
+  return status === 'ready' || status === 'no-audio' || status === 'variable-framerate'
+}
+
+export function uploadStatusMessage(status: UploadStatus, limits: UploadLimits): string {
+  if (status === 'file-too-large') return `Maximum size is ${formatBytes(limits.maxFileSizeBytes)}.`
+  if (status === 'video-too-long') return `Maximum duration is ${formatTime(limits.maxDurationSec)}.`
+  if (status === 'video-too-short') return `Minimum duration is ${formatTime(limits.minDurationSec)}.`
+  if (status === 'resolution-too-low') return `Minimum resolution is ${limits.minWidth}×${limits.minHeight}.`
+  if (status === 'unsupported-format') return 'Use MP4, WebM, or MOV for video, or JPG, PNG, or WebP for photos.'
+  if (status === 'corrupted') return 'This file could not be read. Try another video.'
+  return 'Choose another file that meets the upload limits.'
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ArrowLeft, Calendar, CheckCircle, Globe, Heart, MapPin, MessageCircle, Plus, Share2,
+  ArrowLeft, Calendar, CheckCircle, Globe, Heart, MapPin, MessageCircle, Plus, Share2, Trash2,
 } from 'lucide-react'
 import {
   TRAVEL_INTEREST_LABELS,
@@ -14,6 +14,7 @@ import {
 import { fetchOnboarding, getStoredUser, invalidateOnboardingCache } from '../api/authClient'
 import {
   addComment,
+  deletePost,
   fetchComments,
   fetchEvents,
   fetchPublicProfile,
@@ -229,6 +230,8 @@ export default function ProfilePage({
   const [followBusy, setFollowBusy] = useState(false)
   const [followListOpen, setFollowListOpen] = useState<FollowListTab | null>(null)
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [avatarFailed, setAvatarFailed] = useState(false)
   const [coverFailed, setCoverFailed] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
@@ -496,6 +499,23 @@ export default function ProfilePage({
     }
   }
 
+  async function likeFromDoubleTap(post: PostDto) {
+    if (post.likedByMe) return
+    setPosts(list =>
+      list.map(p => (p.id === post.id ? { ...p, likedByMe: true, likeCount: p.likeCount + 1 } : p)),
+    )
+    try {
+      const next = await likePost(post.id)
+      setPosts(list => list.map(p => (p.id === post.id ? next : p)))
+    } catch {
+      setPosts(list =>
+        list.map(p =>
+          p.id === post.id ? { ...p, likedByMe: false, likeCount: Math.max(0, p.likeCount - 1) } : p,
+        ),
+      )
+    }
+  }
+
   async function toggleSave(post: PostDto) {
     try {
       if (post.savedByMe) await unsaveItem({ targetType: 'POST', targetId: post.id })
@@ -505,6 +525,28 @@ export default function ProfilePage({
       )
     } catch {
       /* ignore */
+    }
+  }
+
+  async function removeOwnPost(post: PostDto) {
+    if (!isOwner || deletingPostId) return
+    const ok = window.confirm('Delete this Delvers post? It will be removed from your profile and the feed.')
+    if (!ok) return
+    setDeletingPostId(post.id)
+    setDeleteError(null)
+    try {
+      await deletePost(post.id)
+      setPosts(list => list.filter(p => p.id !== post.id))
+      setProfile(current =>
+        current
+          ? { ...current, delversCount: Math.max(0, current.delversCount - 1) }
+          : current,
+      )
+      if (commentsPostId === post.id) setCommentsPostId(null)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete this post.')
+    } finally {
+      setDeletingPostId(null)
     }
   }
 
@@ -933,6 +975,11 @@ export default function ProfilePage({
           />
         ) : (
           <div className="flex flex-col">
+            {deleteError && isOwner && (
+              <p className="px-3 sm:px-4 pt-3 text-sm m-0" style={{ color: 'var(--auth-danger, #C42A2A)' }} role="alert">
+                {deleteError}
+              </p>
+            )}
             {posts.map(post => {
               return (
                 <article
@@ -945,6 +992,7 @@ export default function ProfilePage({
                     className="mb-3 rounded-xl overflow-hidden"
                     mediaClassName="w-full max-h-80 object-cover"
                     maxHeightClass="max-h-80"
+                    onDoubleLike={() => void likeFromDoubleTap(post)}
                   />
                   {post.linkedEvent && (
                     <button
@@ -1044,6 +1092,25 @@ export default function ProfilePage({
                     >
                       {post.savedByMe ? 'Saved' : 'Save'}
                     </button>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => void removeOwnPost(post)}
+                        disabled={deletingPostId === post.id}
+                        className="inline-flex items-center gap-1 text-sm font-semibold min-h-[36px]"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#C42A2A',
+                          cursor: deletingPostId === post.id ? 'wait' : 'pointer',
+                          opacity: deletingPostId && deletingPostId !== post.id ? 0.45 : 1,
+                        }}
+                        aria-label="Delete post"
+                      >
+                        <Trash2 size={16} />
+                        {deletingPostId === post.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                   <button
                     type="button"

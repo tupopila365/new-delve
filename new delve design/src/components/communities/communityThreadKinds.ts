@@ -15,10 +15,18 @@ export const THREAD_KIND_META: Record<
 }
 
 export const FEED_KINDS: CommunityThreadKind[] = ['POST', 'DISCUSSION', 'ANNOUNCEMENT', 'RECOMMENDATION']
+export const POST_KINDS: CommunityThreadKind[] = ['POST']
 export const QUESTION_KINDS: CommunityThreadKind[] = ['QUESTION']
 export const TIP_KINDS: CommunityThreadKind[] = ['TIP']
 export const JOURNEY_KINDS: CommunityThreadKind[] = ['JOURNEY_SHARE']
 export const EVENT_KINDS: CommunityThreadKind[] = ['EVENT_SHARE']
+export const HOME_KINDS: CommunityThreadKind[] = [
+  'POST',
+  'QUESTION',
+  'TIP',
+  'JOURNEY_SHARE',
+  'EVENT_SHARE',
+]
 
 export function kindLabel(kind: CommunityThreadKind) {
   return THREAD_KIND_META[kind]?.label ?? kind

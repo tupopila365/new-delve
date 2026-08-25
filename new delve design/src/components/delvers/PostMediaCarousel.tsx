@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { PostDto } from '@delve/contracts'
+import { DoubleTapLike } from './DoubleTapLike'
 
 type PostMedia = PostDto['media'][number]
 
@@ -13,6 +14,7 @@ interface PostMediaCarouselProps {
   className?: string
   mediaClassName?: string
   maxHeightClass?: string
+  onDoubleLike?: () => void
 }
 
 /**
@@ -21,12 +23,14 @@ interface PostMediaCarouselProps {
 export default function PostMediaCarousel({
   media,
   className = '',
-  mediaClassName = 'w-full max-h-[70vh] object-cover',
+  mediaClassName = 'w-full h-full max-h-[70vh] object-cover',
   maxHeightClass = 'max-h-[70vh]',
+  onDoubleLike,
 }: PostMediaCarouselProps) {
   const items = media.filter(m => Boolean(m?.url))
   const [index, setIndex] = useState(0)
   const scrollerRef = useRef<HTMLDivElement>(null)
+  const videoRefs = useRef<Array<HTMLVideoElement | null>>([])
 
   const goTo = useCallback((i: number) => {
     const el = scrollerRef.current
@@ -43,12 +47,20 @@ export default function PostMediaCarousel({
     setIndex(Math.max(0, Math.min(items.length - 1, i)))
   }
 
+  useEffect(() => {
+    videoRefs.current.forEach((video, i) => {
+      if (!video) return
+      if (i === index) return
+      video.pause()
+    })
+  }, [index])
+
   if (!items.length) return null
 
   if (items.length === 1) {
     const item = items[0]
     return (
-      <div className={`relative bg-black/5 ${className}`}>
+      <DoubleTapLike onDoubleLike={onDoubleLike} className={`relative bg-black/5 ${className}`}>
         {isVideo(item) ? (
           <video
             src={item.url}
@@ -60,25 +72,26 @@ export default function PostMediaCarousel({
         ) : (
           <img src={item.url} alt="" className={mediaClassName} />
         )}
-      </div>
+      </DoubleTapLike>
     )
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <DoubleTapLike onDoubleLike={onDoubleLike} className={`relative w-full overflow-hidden ${className}`}>
       <div
         ref={scrollerRef}
-        className={`flex overflow-x-auto snap-x snap-mandatory scroll-smooth [&::-webkit-scrollbar]:hidden ${maxHeightClass}`}
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as CSSProperties}
+        className={`flex w-full overflow-x-auto snap-x snap-mandatory scroll-smooth [&::-webkit-scrollbar]:hidden ${maxHeightClass}`}
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', touchAction: 'pan-x' } as CSSProperties}
         onScroll={onScroll}
       >
         {items.map((item, i) => (
           <div
             key={item.id || `${item.url}-${i}`}
-            className={`w-full shrink-0 snap-center snap-always bg-black/5 ${maxHeightClass} flex items-center justify-center`}
+            className={`min-w-full w-full shrink-0 snap-center snap-always bg-black/5 ${maxHeightClass} flex items-center justify-center`}
           >
             {isVideo(item) ? (
               <video
+                ref={el => { videoRefs.current[i] = el }}
                 src={item.url}
                 className={mediaClassName}
                 controls
@@ -93,7 +106,7 @@ export default function PostMediaCarousel({
       </div>
 
       <div
-        className="absolute top-3 right-3 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white"
+        className="absolute top-3 right-3 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white pointer-events-none"
         style={{ background: 'rgba(0,0,0,0.55)' }}
         aria-hidden
       >
@@ -118,6 +131,6 @@ export default function PostMediaCarousel({
           />
         ))}
       </div>
-    </div>
+    </DoubleTapLike>
   )
 }

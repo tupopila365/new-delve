@@ -174,6 +174,23 @@ export default function DelversFeedPage({
     }
   }
 
+  async function likeFromDoubleTap(post: PostDto) {
+    if (post.likedByMe) return
+    setFeed(list =>
+      list.map(p => (p.id === post.id ? { ...p, likedByMe: true, likeCount: p.likeCount + 1 } : p)),
+    )
+    try {
+      const next = await likePost(post.id)
+      setFeed(list => list.map(p => (p.id === post.id ? next : p)))
+    } catch {
+      setFeed(list =>
+        list.map(p =>
+          p.id === post.id ? { ...p, likedByMe: false, likeCount: Math.max(0, p.likeCount - 1) } : p,
+        ),
+      )
+    }
+  }
+
   async function toggleSave(post: PostDto) {
     try {
       if (post.savedByMe) await unsaveItem({ targetType: 'POST', targetId: post.id })
@@ -333,7 +350,7 @@ export default function DelversFeedPage({
                 </span>
               </div>
 
-              <PostMediaCarousel media={post.media} />
+              <PostMediaCarousel media={post.media} onDoubleLike={() => void likeFromDoubleTap(post)} />
 
               {post.linkedEvent && (
                 <button
@@ -411,7 +428,7 @@ export default function DelversFeedPage({
                   <button
                     type="button"
                     onClick={() => void toggleLike(post)}
-                    style={{ background: 'none', border: 'none', color: post.likedByMe ? '#E11D48' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: post.likedByMe ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
                     aria-label="Like"
                   >
                     <Heart size={22} fill={post.likedByMe ? 'currentColor' : 'none'} />

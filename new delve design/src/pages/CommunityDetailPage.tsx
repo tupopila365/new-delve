@@ -11,6 +11,7 @@ import type {
   CommunityThreadDetail,
   CommunityThreadKind,
   CommunityThreadSummary,
+  PostDto,
 } from '@delve/contracts'
 import {
   addThreadAnswer,
@@ -42,16 +43,23 @@ import CommunityThreadCard from '../components/communities/CommunityThreadCard'
 import {
   EVENT_KINDS,
   FEED_KINDS,
+  HOME_KINDS,
   JOURNEY_KINDS,
+  POST_KINDS,
   QUESTION_KINDS,
   TIP_KINDS,
 } from '../components/communities/communityThreadKinds'
 import { categoryLabel } from '../components/communities/communityCategories'
+import CreateEventSheet from '../components/CreateEventSheet'
+import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
+import MediaStudio from './MediaStudio'
 
-type Tab = 'feed' | 'questions' | 'tips' | 'journeys' | 'events' | 'members' | 'about' | 'manage'
+type Tab = 'home' | 'feed' | 'posts' | 'questions' | 'tips' | 'journeys' | 'events' | 'members' | 'about' | 'manage'
 
 const TAB_KINDS: Partial<Record<Tab, CommunityThreadKind[]>> = {
+  home: HOME_KINDS,
   feed: FEED_KINDS,
+  posts: POST_KINDS,
   questions: QUESTION_KINDS,
   tips: TIP_KINDS,
   journeys: JOURNEY_KINDS,
@@ -97,7 +105,7 @@ export default function CommunityDetailPage({
   const [memberQuery, setMemberQuery] = useState('')
   const [memberMenuId, setMemberMenuId] = useState<string | null>(null)
   const [memberBusyId, setMemberBusyId] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('feed')
+  const [tab, setTab] = useState<Tab>('home')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [joinBusy, setJoinBusy] = useState(false)
@@ -107,6 +115,9 @@ export default function CommunityDetailPage({
   const [composeKind, setComposeKind] = useState<CommunityThreadKind | null>(null)
   const [composeBusy, setComposeBusy] = useState(false)
   const [composeError, setComposeError] = useState<string | null>(null)
+  const [studioOpen, setStudioOpen] = useState(false)
+  const [journeyEditorOpen, setJourneyEditorOpen] = useState(false)
+  const [eventSheetOpen, setEventSheetOpen] = useState(false)
   const [busyThreadId, setBusyThreadId] = useState<string | null>(null)
   const [reply, setReply] = useState('')
   const [reportTarget, setReportTarget] = useState<{ type: 'POST' | 'COMMENT'; id: string } | null>(null)
@@ -145,7 +156,7 @@ export default function CommunityDetailPage({
         listCommunityRules(communityId).catch(() => [] as CommunityRule[]),
       ])
       setRules(r)
-      await loadThreads('feed')
+      await loadThreads('home')
       const joinedNow = c.membershipStatus === 'joined' || c.membershipStatus === 'moderator'
       const pendingNow = c.membershipStatus === 'requested'
       if (c.privacy === 'PUBLIC' || joinedNow || pendingNow) {
@@ -293,14 +304,6 @@ export default function CommunityDetailPage({
     }
   }
 
-  const composeOptions = useMemo((): CommunityThreadKind[] => {
-    if (tab === 'questions') return ['QUESTION']
-    if (tab === 'tips') return ['TIP']
-    if (tab === 'journeys') return ['JOURNEY_SHARE']
-    if (tab === 'events') return ['EVENT_SHARE']
-    return ['POST', 'DISCUSSION', 'TIP', 'ANNOUNCEMENT']
-  }, [tab])
-
   const filteredMembers = useMemo(() => {
     const q = memberQuery.trim().toLowerCase()
     if (!q) return members
@@ -320,8 +323,18 @@ export default function CommunityDetailPage({
 
   if (loading) {
     return (
-      <div className="py-16 flex justify-center" aria-busy="true">
-        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+      <div className="px-4 py-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold mb-8"
+          style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+          <ArrowLeft size={16} /> Communities
+        </button>
+        <div className="py-12 flex justify-center" aria-busy="true">
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--fg-muted)' }} />
+        </div>
       </div>
     )
   }
@@ -332,7 +345,7 @@ export default function CommunityDetailPage({
         <AlertCircle size={32} className="mx-auto mb-3" style={{ color: 'var(--border)' }} />
         <p className="font-bold mb-2" style={{ color: 'var(--fg)' }}>{error || 'Community not found'}</p>
         <button type="button" onClick={() => void load()} className="text-sm font-semibold mr-3" style={{ color: 'var(--primary)' }}>Retry</button>
-        <button type="button" onClick={onBack} className="text-sm font-semibold" style={{ color: 'var(--fg-muted)' }}>Back</button>
+        <button type="button" onClick={onBack} className="text-sm font-semibold" style={{ color: 'var(--fg-muted)' }}>Back to communities</button>
       </div>
     )
   }
@@ -414,8 +427,72 @@ export default function CommunityDetailPage({
   const joined = community.membershipStatus === 'joined' || community.membershipStatus === 'moderator'
   const pending = community.membershipStatus === 'requested'
 
+  function canCreate(): boolean {
+    if (!signedIn) {
+      onSignIn?.()
+      return false
+    }
+    return joined
+  }
+
+  function openTabCreate() {
+    if (!canCreate()) return
+    if (tab === 'questions') {
+      setComposeError(null)
+      setComposeKind('QUESTION')
+      return
+    }
+    if (tab === 'tips') {
+      setComposeError(null)
+      setComposeKind('TIP')
+      return
+    }
+    if (tab === 'feed') {
+      setComposeError(null)
+      setComposeKind('DISCUSSION')
+      return
+    }
+    if (tab === 'journeys') {
+      setJourneyEditorOpen(true)
+      return
+    }
+    if (tab === 'events') {
+      setEventSheetOpen(true)
+      return
+    }
+    setStudioOpen(true)
+  }
+
+  const createLabel =
+    tab === 'questions'
+      ? 'Ask a question'
+      : tab === 'tips'
+        ? 'Share a tip'
+        : tab === 'feed'
+          ? 'Start a discussion'
+          : tab === 'journeys'
+            ? 'Create journey'
+            : tab === 'events'
+              ? 'Create event'
+              : 'Create post'
+
+  async function shareDelversPostToCommunity(post: PostDto) {
+    setStudioOpen(false)
+    const caption = post.caption?.trim() ?? ''
+    const title = caption.length >= 3 ? caption.slice(0, 200) : caption ? `${caption} post`.slice(0, 200) : 'Shared a post'
+    await submitCompose({
+      kind: 'POST',
+      title,
+      body: caption || undefined,
+      locationName: post.location || null,
+      mediaUrls: post.media.map(m => m.url).filter(Boolean).slice(0, 10),
+    })
+  }
+
   const tabs: { id: Tab; label: string }[] = [
+    { id: 'home', label: 'Home' },
     { id: 'feed', label: 'Feed' },
+    { id: 'posts', label: 'Posts' },
     { id: 'questions', label: 'Questions' },
     { id: 'tips', label: 'Tips' },
     { id: 'journeys', label: 'Journeys' },
@@ -433,6 +510,22 @@ export default function CommunityDetailPage({
         ) : (
           <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, rgba(140,82,255,0.35), rgba(0,0,0,0.2))' }} />
         )}
+        <button
+          type="button"
+          onClick={onBack}
+          className="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-semibold active:scale-95"
+          style={{
+            background: 'rgba(0,0,0,0.45)',
+            color: '#fff',
+            border: 'none',
+            cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
+          }}
+          aria-label="Back to communities"
+        >
+          <ArrowLeft size={18} />
+          Communities
+        </button>
       </div>
 
       <div className="px-4 sm:px-0 -mt-8 relative">
@@ -513,17 +606,63 @@ export default function CommunityDetailPage({
           ))}
         </div>
 
-        {TAB_KINDS[tab] && joined && (
-          <button type="button" onClick={() => setComposeKind(composeOptions[0] ?? 'POST')} className="inline-flex items-center gap-1.5 mb-4 px-3 py-2 rounded-xl text-xs font-bold" style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}>
-            <Plus size={14} /> Create post
-          </button>
+        {TAB_KINDS[tab] && joined && tab !== 'home' && (
+          <>
+            <button
+              type="button"
+              onClick={openTabCreate}
+              className="inline-flex items-center gap-1.5 mb-2 px-3 py-2 rounded-xl text-xs font-bold"
+              style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+            >
+              <Plus size={14} /> {createLabel}
+            </button>
+            {composeError && !composeKind && (
+              <p className="text-xs mb-3 m-0" style={{ color: '#E11D48' }} role="alert">{composeError}</p>
+            )}
+          </>
+        )}
+
+        {tab === 'home' && (
+          <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <p className="text-xs font-bold uppercase tracking-wide m-0 mb-2" style={{ color: 'var(--primary)' }}>Welcome</p>
+            <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>
+              {community.about?.trim() || community.description}
+            </p>
+            {rules.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTab('about')}
+                className="mt-3 text-xs font-semibold"
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
+              >
+                Community rules
+              </button>
+            )}
+          </div>
         )}
 
         {TAB_KINDS[tab] && (
           <div className="space-y-3">
+            {tab === 'home' && threads.length > 0 && (
+              <p className="text-xs font-bold uppercase tracking-wide m-0" style={{ color: 'var(--fg-muted)' }}>
+                From this community
+              </p>
+            )}
             {threads.length === 0 ? (
               <p className="text-sm text-center py-8" style={{ color: 'var(--fg-muted)' }}>
-                {tab === 'questions' ? 'No questions yet. Ask something.' : tab === 'tips' ? 'No tips yet.' : 'Start the first conversation.'}
+                {tab === 'questions'
+                  ? 'No questions yet. Ask something.'
+                  : tab === 'tips'
+                    ? 'No tips yet.'
+                    : tab === 'posts'
+                      ? 'No posts yet. Share the first one.'
+                      : tab === 'journeys'
+                        ? 'No journeys yet. Create one to share with this community.'
+                        : tab === 'events'
+                          ? 'No events yet. Create one for this community.'
+                          : tab === 'home'
+                            ? 'Nothing here yet. Posts, questions, tips, journeys, and events from this community will show up here.'
+                            : 'Start the first conversation.'}
               </p>
             ) : (
               threads.map(thread => (
@@ -693,10 +832,6 @@ export default function CommunityDetailPage({
         )}
       </div>
 
-      <button type="button" onClick={onBack} className="fixed top-4 left-4 z-10 inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold" style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none' }}>
-        <ArrowLeft size={16} /> Back
-      </button>
-
       {composeKind && (
         <CommunityComposeSheet
           open
@@ -707,6 +842,46 @@ export default function CommunityDetailPage({
           error={composeError}
         />
       )}
+
+      <MediaStudio
+        open={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        initialContext="delvers-post"
+        lockContext
+        onCreated={post => {
+          void shareDelversPostToCommunity(post)
+        }}
+      />
+
+      <JourneyEditorSheet
+        open={journeyEditorOpen}
+        mode="create"
+        signedIn={signedIn}
+        onClose={() => setJourneyEditorOpen(false)}
+        onSignIn={onSignIn}
+        onSaved={journey => {
+          setJourneyEditorOpen(false)
+          void submitCompose({
+            kind: 'JOURNEY_SHARE',
+            title: journey.title.trim().length >= 3 ? journey.title.trim().slice(0, 200) : 'Shared a journey',
+            body: journey.summary?.trim() || undefined,
+            journeyId: journey.id,
+          })
+        }}
+      />
+
+      <CreateEventSheet
+        open={eventSheetOpen}
+        onClose={() => setEventSheetOpen(false)}
+        onCreated={eventId => {
+          setEventSheetOpen(false)
+          void submitCompose({
+            kind: 'EVENT_SHARE',
+            title: 'Shared an event',
+            eventId,
+          })
+        }}
+      />
     </div>
   )
 }

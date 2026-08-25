@@ -98,10 +98,12 @@ export async function createPost(env: Env, authorId: string, body: CreatePostBod
       },
     })
     if (mediaIds.length) {
-      await tx.mediaAsset.updateMany({
-        where: { id: { in: mediaIds }, uploadedByUserId: authorId },
-        data: { postId: created.id },
-      })
+      for (let i = 0; i < mediaIds.length; i++) {
+        await tx.mediaAsset.update({
+          where: { id: mediaIds[i] },
+          data: { postId: created.id, sortOrder: i },
+        })
+      }
     }
     return created
   })

@@ -4,7 +4,7 @@ import type { MediaAssetDto, PostDto } from '@delve/contracts'
 import { createPost, createStory } from '../api/socialClient'
 import { EXAMPLE_UPLOAD_LIMITS, limitsForContext, newId, RESTRICTED_CONTEXTS, SOCIAL_VIDEO_CONTEXTS } from './config'
 import { SAMPLE_GALLERY, unsplash } from './data'
-import { classifyStudioMedia, detectMimeKind, orientationOf, readImageMetadata, readVideoMetadata, validateAgainstLimits } from './detect'
+import { detectMimeKind, isUsableVideoStatus, orientationOf, readImageMetadata, readVideoMetadata, uploadStatusMessage, validateAgainstLimits } from './detect'
 import { formatBytes } from './format'
 import { ImageEditor } from './ImageEditor'
 import {
@@ -20,7 +20,7 @@ import {
   uploadStudioMediaFiles,
 } from './publishPostMedia'
 import { bakeImageEdit, hasImageEdits } from './bakeImageEdit'
-import { bakeVideoTrim, hasVideoEdits } from './bakeVideoTrim'
+import { bakeVideoTrim, hasVideoEdits, hasVideoTrimEdits } from './bakeVideoTrim'
 import type {
   FailureReason, ImageEditState, MediaAsset, MediaStudioItem, ProcessingStage,
   PublishingSettings, StudioContext, VideoEditState,
@@ -121,6 +121,7 @@ export default function MediaStudioRoot({
   const [notify, setNotify] = useState(true)
   const [moderation, setModeration] = useState<'none' | 'automated' | 'manual' | 'ready'>('none')
   const fileRef = useRef<HTMLInputElement>(null)
+  const appendPickRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const purpose =
@@ -264,7 +265,30 @@ export default function MediaStudioRoot({
     return 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime'
   }
 
-  async function ingestFiles(fileList: FileList | File[]) {
+  function openLibrary(mode: 'replace' | 'append') {
+    setPublishError(null)
+    appendPickRef.current = mode === 'append'
+    fileRef.current?.click()
+  }
+
+  function seedItemsFromCurrent(): MediaStudioItem[] {
+    if (items.length) return items
+    if (videoAsset) {
+      return [{ id: videoAsset.id, kind: 'video', asset: videoAsset, videoEdit: videoEdit ?? undefined }]
+    }
+    if (primaryFile && imageSrc) {
+      const asset = studioImageAsset({
+        file: primaryFile,
+        url: imageSrc,
+        context,
+        meta: { width: 0, height: 0 },
+      })
+      return [{ id: asset.id, kind: 'image', asset, imageEdit: imageEdit ?? undefined }]
+    }
+    return []
+  }
+
+  async function ingestFiles(fileList: FileList | File[], opts?: { append?: boolean }) {
     let files = Array.from(fileList)
     if (!files.length) return
     if (RESTRICTED_CONTEXTS.includes(context)) {
@@ -292,46 +316,28 @@ export default function MediaStudioRoot({
       files = files.slice(0, limits.maxClips)
     }
 
-    // Instagram-style: when multi is allowed, always build a carousel (even for 1 file)
-    // so the user can keep adding more before posting.
-    if (multi) {
-      const room = Math.max(0, limits.maxClips - (phase === 'carousel' ? items.length : 0))
+    const appending = Boolean(opts?.append) || phase === 'carousel'
+    const seeded = appending ? (items.length ? items : seedItemsFromCurrent()) : []
+    if (appending || files.length > 1) {
+      const room = Math.max(0, limits.maxClips - (appending ? seeded.length : 0))
       if (room <= 0) {
         setPublishError(`Carousel is full (max ${limits.maxClips}). Remove an item to add more.`)
         return
       }
       const batch = files.slice(0, room)
       const nextItems: MediaStudioItem[] = []
+      const skipped: string[] = []
       for (const file of batch) {
         const detected = detectMimeKind(file.type, file.name)
-        if (detected === 'unknown') continue
+        if (detected === 'unknown') {
+          skipped.push(`${file.name}: unsupported file type.`)
+          continue
+        }
         const url = URL.createObjectURL(file)
         trackUrl(url)
         if (detected === 'image') {
           const meta = await readImageMetadata(url).catch(() => ({ width: 0, height: 0 }))
-          const now = new Date().toISOString()
-          const asset: MediaAsset = {
-            id: newId('asset'),
-            ownerId: 'local-user',
-            context,
-            mediaType: 'image',
-            source: 'device',
-            fileName: file.name,
-            mimeType: file.type,
-            fileSize: file.size,
-            width: meta.width,
-            height: meta.height,
-            duration: 0,
-            orientation: orientationOf(meta.width, meta.height),
-            uploadStatus: 'ready',
-            processingStatus: 'ready',
-            moderationStatus: 'none',
-            createdAt: now,
-            updatedAt: now,
-            objectUrl: url,
-            hasAudio: false,
-            file,
-          }
+          const asset = studioImageAsset({ file, url, context, meta })
           nextItems.push({ id: asset.id, kind: 'image', asset })
         } else {
           try {
@@ -345,53 +351,42 @@ export default function MediaStudioRoot({
               mimeType: file.type || 'video/mp4',
               limits,
             })
-            if (status !== 'ready' && status !== 'no-audio' && status !== 'variable-framerate') {
+            if (status === 'video-too-long' || !isUsableVideoStatus(status)) {
+              if (status === 'video-too-long') {
+                const asset = studioVideoAsset({ file, url, context, meta })
+                nextItems.push({ id: asset.id, kind: 'video', asset })
+                skipped.push(`${file.name}: longer than ${Math.round(limits.maxDurationSec)}s — trim it before posting.`)
+                continue
+              }
+              skipped.push(`${file.name}: ${uploadStatusMessage(status, limits)}`)
               URL.revokeObjectURL(url)
               continue
             }
-            const now = new Date().toISOString()
-            const asset: MediaAsset = {
-              id: newId('asset'),
-              ownerId: 'local-user',
-              context,
-              mediaType: 'audio-supported-video',
-              source: 'device',
-              fileName: file.name,
-              mimeType: file.type || 'video/mp4',
-              fileSize: file.size,
-              width: meta.width,
-              height: meta.height,
-              duration: meta.duration,
-              orientation: orientationOf(meta.width, meta.height),
-              uploadStatus: 'ready',
-              processingStatus: 'ready',
-              moderationStatus: 'none',
-              createdAt: now,
-              updatedAt: now,
-              objectUrl: url,
-              hasAudio: meta.hasAudio,
-              file,
-            }
+            const asset = studioVideoAsset({ file, url, context, meta })
             nextItems.push({ id: asset.id, kind: 'video', asset })
           } catch {
             URL.revokeObjectURL(url)
+            skipped.push(`${file.name}: this video could not be read.`)
           }
         }
       }
       if (!nextItems.length) {
-        setPublishError('No valid photos or videos in that selection.')
+        setPublishError(skipped[0] || 'No valid photos or videos in that selection.')
         return
       }
       if (files.length > room) {
         setPublishError(`Only ${room} more slot${room === 1 ? '' : 's'} left — added the first ${room}.`)
+      } else if (skipped.length) {
+        setPublishError(`${skipped.length} file${skipped.length === 1 ? '' : 's'} skipped. ${skipped[0]}`)
       } else {
         setPublishError(null)
       }
       setItems(prev => {
-        const merged = phase === 'carousel' ? [...prev, ...nextItems] : nextItems
+        const start = prev.length ? prev : seeded
+        const merged = appending ? [...start, ...nextItems] : nextItems
         return merged.slice(0, limits.maxClips)
       })
-      setCoverId(prev => (phase === 'carousel' && prev ? prev : nextItems[0]?.id || null))
+      setCoverId(prev => (appending && (prev || seeded[0]?.id) ? (prev || seeded[0].id) : nextItems[0]?.id || null))
       setPrimaryFile(null)
       setVideoAsset(null)
       setImageSrc('')
@@ -419,37 +414,56 @@ export default function MediaStudioRoot({
       trackUrl(url)
       try {
         const meta = await readVideoMetadata(file, url)
-        const now = new Date().toISOString()
-        const asset: MediaAsset = {
-          id: newId('asset'),
-          ownerId: 'local-user',
-          context,
-          mediaType: 'audio-supported-video',
-          source: 'device',
-          fileName: file.name,
-          mimeType: file.type || 'video/mp4',
+        const status = validateAgainstLimits({
+          kind: 'video',
           fileSize: file.size,
+          duration: meta.duration,
           width: meta.width,
           height: meta.height,
-          duration: meta.duration,
-          orientation: orientationOf(meta.width, meta.height),
-          uploadStatus: 'ready',
-          processingStatus: 'ready',
-          moderationStatus: 'none',
-          createdAt: now,
-          updatedAt: now,
-          objectUrl: url,
-          hasAudio: meta.hasAudio,
-          file,
+          mimeType: file.type || 'video/mp4',
+          limits,
+        })
+        if (!isUsableVideoStatus(status) && status !== 'video-too-long') {
+          URL.revokeObjectURL(url)
+          setPublishError(uploadStatusMessage(status, limits))
+          return
         }
+        const asset = studioVideoAsset({ file, url, context, meta })
         setVideoAsset(asset)
+        setVideoEdit(null)
         setPrimaryFile(null)
         setItems([])
-        setPhase('video-edit')
+        setEditingItemId(null)
+        setPhase(status === 'video-too-long' ? 'video-edit' : afterEditPhase)
       } catch {
-        setShowVideoUpload(true)
+        URL.revokeObjectURL(url)
+        setPublishError('This video could not be read. Try MP4, WebM, or MOV.')
       }
+      return
     }
+    setPublishError('Use MP4, WebM, or MOV for video, or JPG, PNG, or WebP for photos.')
+  }
+
+  function finishSingleVideo(edit: VideoEditState, cover: string | null) {
+    setVideoEdit(edit)
+    if (cover) setCoverUrl(cover)
+    if (editingItemId) {
+      setItems(prev => prev.map(i => (i.id === editingItemId ? { ...i, videoEdit: edit } : i)))
+      setEditingItemId(null)
+      setPhase('carousel')
+      return
+    }
+    setPhase(afterEditPhase)
+  }
+
+  function addMoreMedia() {
+    const seed = seedItemsFromCurrent()
+    if (seed.length) {
+      setItems(seed)
+      setCoverId(prev => prev || seed[0]?.id || null)
+    }
+    setPhase('carousel')
+    window.setTimeout(() => openLibrary('append'), 60)
   }
 
   async function startPublish() {
@@ -457,6 +471,25 @@ export default function MediaStudioRoot({
       if (!purpose || purpose === 'review' || purpose === 'message') {
         setPublishError('This studio context is not available for live upload yet.')
         setPhase('preview')
+        return
+      }
+      const longClip =
+        (items.length ? collectOrderedItems() : []).find(
+          i =>
+            i.kind === 'video' &&
+            (i.asset.duration || 0) > limits.maxDurationSec &&
+            !hasVideoTrimEdits(i.videoEdit, i.asset.duration),
+        ) ||
+        (videoAsset &&
+        videoAsset.duration > limits.maxDurationSec &&
+        !hasVideoTrimEdits(videoEdit, videoAsset.duration)
+          ? { id: videoAsset.id, asset: videoAsset }
+          : null)
+      if (longClip) {
+        setPublishError(`Trim this video to ${Math.round(limits.maxDurationSec)} seconds or less, then post.`)
+        setEditingItemId('id' in longClip && items.some(i => i.id === longClip.id) ? longClip.id : null)
+        setVideoAsset('asset' in longClip ? longClip.asset : videoAsset)
+        setPhase('video-edit')
         return
       }
       setPhase('processing')
@@ -471,7 +504,7 @@ export default function MediaStudioRoot({
         const files = await resolvePublishFiles()
         if (!files.length) {
           setPublishError('Add a photo or video from your device to publish.')
-          setPhase('preview')
+          setPhase(mediaOnlyPublish ? 'preview' : 'details')
           return
         }
         setStage('uploading')
@@ -597,6 +630,22 @@ export default function MediaStudioRoot({
 
   return (
     <div className="fixed inset-0 z-[300] flex flex-col min-w-0 overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--fg)' }} role="dialog" aria-modal="true" aria-label="Media Studio">
+      <input
+        ref={fileRef}
+        type="file"
+        accept={fileAccept()}
+        multiple={limits.maxClips > 1}
+        className="sr-only"
+        aria-hidden
+        tabIndex={-1}
+        onChange={e => {
+          const list = e.target.files
+          const append = appendPickRef.current
+          appendPickRef.current = false
+          e.target.value = ''
+          if (list?.length) void ingestFiles(list, { append })
+        }}
+      />
       {phase === 'pick' && !showVideoUpload && (
         <>
           <StudioChromeHeader
@@ -692,21 +741,19 @@ export default function MediaStudioRoot({
               <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
                 {imageOnly
                   ? 'Drop images here'
-                  : limits.maxClips > 1
-                    ? 'Select multiple photos or videos'
-                    : 'Drop a photo or video here'}
+                  : 'Drop a photo or video here'}
               </p>
               <p className="text-xs m-0 text-center px-4" style={{ color: 'var(--fg-muted)' }}>
-                {imageOnly ? 'JPG, PNG, WebP' : 'JPG, PNG, WebP, MP4, WebM'} · up to {formatBytes(limits.maxFileSizeBytes)}
-                {limits.maxClips > 1 ? ` · up to ${limits.maxClips} at once` : ''}
+                {imageOnly ? 'JPG, PNG, WebP' : 'JPG, PNG, WebP, MP4, WebM, MOV'} · up to {formatBytes(limits.maxFileSizeBytes)}
+                {limits.maxClips > 1 ? ` · optional carousel up to ${limits.maxClips}` : ''}
                 {context === 'delvers-short' ? ` · max ${limits.maxDurationSec}s` : ''}
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
-                <button type="button" onClick={() => fileRef.current?.click()}
+                <button type="button" onClick={() => openLibrary('replace')}
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white min-h-[44px]"
                   style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}>
                   <ImageIcon size={16} />
-                  {limits.maxClips > 1 ? 'Choose from gallery' : 'Choose file'}
+                  Choose file
                 </button>
                 {!imageOnly && (
                   <button type="button" onClick={() => setShowVideoUpload(true)}
@@ -715,7 +762,7 @@ export default function MediaStudioRoot({
                     <FileVideo size={14} /> Video upload
                   </button>
                 )}
-                <button type="button" onClick={() => fileRef.current?.click()}
+                <button type="button" onClick={() => openLibrary('replace')}
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px]"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}>
                   <Camera size={14} /> {limits.maxClips > 1 ? 'Multi-select' : 'Camera roll'}
@@ -723,24 +770,12 @@ export default function MediaStudioRoot({
               </div>
               {limits.maxClips > 1 && (
                 <p className="text-[11px] m-0 text-center px-6" style={{ color: 'var(--fg-muted)' }}>
-                  Hold Ctrl/Cmd (or long-press on mobile) to select several files in one go — just like Instagram.
+                  Select more than one file to start a carousel. A single video goes straight to caption and post.
                 </p>
               )}
               {publishError && (
                 <p className="text-xs m-0 text-center px-4" style={{ color: '#C83B3B' }} role="alert">{publishError}</p>
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept={fileAccept()}
-                multiple={limits.maxClips > 1}
-                className="hidden"
-                onChange={e => {
-                  setPublishError(null)
-                  if (e.target.files) void ingestFiles(e.target.files)
-                  e.target.value = ''
-                }}
-              />
             </div>
 
             {!lockContext && (
@@ -779,7 +814,8 @@ export default function MediaStudioRoot({
               allowRecord
               onCancel={() => setShowVideoUpload(false)}
               onReady={asset => {
-                if (limits.maxClips > 1) {
+                const needsTrim = asset.duration > limits.maxDurationSec
+                if (items.length > 0 && limits.maxClips > 1) {
                   const item = { id: asset.id, kind: 'video' as const, asset }
                   setItems(prev => [...prev, item].slice(0, limits.maxClips))
                   setCoverId(prev => prev || asset.id)
@@ -791,10 +827,12 @@ export default function MediaStudioRoot({
                   return
                 }
                 setVideoAsset(asset)
+                setVideoEdit(null)
                 setPrimaryFile(null)
                 setItems([])
                 setEditingItemId(null)
-                setPhase('video-edit')
+                setShowVideoUpload(false)
+                setPhase(needsTrim ? 'video-edit' : afterEditPhase)
               }}
             />
           </div>
@@ -816,37 +854,6 @@ export default function MediaStudioRoot({
               )
               setEditingItemId(null)
               setPhase('carousel')
-            } else if (limits.maxClips > 1 && imageSrc) {
-              const now = new Date().toISOString()
-              const id = newId('asset')
-              const asset: MediaAsset = {
-                id,
-                ownerId: 'local-user',
-                context,
-                mediaType: 'image',
-                source: 'device',
-                fileName: primaryFile?.name || 'photo.jpg',
-                mimeType: primaryFile?.type || 'image/jpeg',
-                fileSize: primaryFile?.size || 0,
-                width: 0,
-                height: 0,
-                duration: 0,
-                orientation: 'portrait',
-                uploadStatus: 'ready',
-                processingStatus: 'ready',
-                moderationStatus: 'none',
-                createdAt: now,
-                updatedAt: now,
-                objectUrl: imageSrc,
-                hasAudio: false,
-                file: primaryFile || undefined,
-              }
-              setItems(prev =>
-                [...prev, { id, kind: 'image' as const, asset, imageEdit: edit }].slice(0, limits.maxClips),
-              )
-              setCoverId(prev => prev || id)
-              setEditingItemId(null)
-              setPhase('carousel')
             } else {
               setPhase(afterEditPhase)
             }
@@ -865,51 +872,8 @@ export default function MediaStudioRoot({
             setShowVideoUpload(false)
           }}
           onClose={onClose}
-          onDraft={edit => {
-            setVideoEdit(edit)
-            if (editingItemId) {
-              setItems(prev =>
-                prev.map(i => (i.id === editingItemId ? { ...i, videoEdit: edit } : i)),
-              )
-              setEditingItemId(null)
-              setPhase('carousel')
-            } else if (limits.maxClips > 1 && videoAsset) {
-              setItems(prev =>
-                [...prev, { id: videoAsset.id, kind: 'video' as const, asset: videoAsset, videoEdit: edit }].slice(
-                  0,
-                  limits.maxClips,
-                ),
-              )
-              setCoverId(prev => prev || videoAsset.id)
-              setEditingItemId(null)
-              setPhase('carousel')
-            } else {
-              setPhase(afterEditPhase)
-            }
-          }}
-          onPreview={(edit, cover) => {
-            setVideoEdit(edit)
-            setCoverUrl(cover)
-            if (editingItemId) {
-              setItems(prev =>
-                prev.map(i => (i.id === editingItemId ? { ...i, videoEdit: edit } : i)),
-              )
-              setEditingItemId(null)
-              setPhase(mediaOnlyPublish ? 'preview' : 'carousel')
-            } else if (limits.maxClips > 1 && videoAsset) {
-              setItems(prev =>
-                [...prev, { id: videoAsset.id, kind: 'video' as const, asset: videoAsset, videoEdit: edit }].slice(
-                  0,
-                  limits.maxClips,
-                ),
-              )
-              setCoverId(prev => prev || videoAsset.id)
-              setEditingItemId(null)
-              setPhase(mediaOnlyPublish ? 'preview' : 'carousel')
-            } else {
-              setPhase('preview')
-            }
-          }}
+          onDraft={edit => finishSingleVideo(edit, coverUrl)}
+          onPreview={(edit, cover) => finishSingleVideo(edit, cover)}
         />
       )}
 
@@ -936,10 +900,7 @@ export default function MediaStudioRoot({
               maxItems={limits.maxClips}
               onCaption={setSharedCaption}
               onSetCover={setCoverId}
-              onAdd={() => {
-                setPublishError(null)
-                fileRef.current?.click()
-              }}
+              onAdd={() => openLibrary('append')}
               onRemove={id => {
                 setItems(prev => {
                   const next = prev.filter(i => i.id !== id)
@@ -975,35 +936,111 @@ export default function MediaStudioRoot({
               <p className="px-4 pb-3 text-xs m-0 text-center" style={{ color: '#C83B3B' }} role="alert">{publishError}</p>
             )}
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept={fileAccept()}
-            multiple={limits.maxClips > 1}
-            className="hidden"
-            onChange={e => {
-              setPublishError(null)
-              if (e.target.files) void ingestFiles(e.target.files)
-              e.target.value = ''
-            }}
-          />
         </div>
       )}
 
       {phase === 'details' && (
         <div className="flex flex-col h-full min-h-0">
           <StudioChromeHeader
-            title="Publishing settings"
-            onBack={() => setPhase(videoAsset && !items.length ? 'video-edit' : imageSrc && !items.length ? 'image-edit' : 'carousel')}
-            primaryLabel="Preview"
-            onPrimary={() => setPhase('preview')}
+            title={delversPublish || storyPublish ? 'New post' : 'Publishing settings'}
+            onBack={() => setPhase(
+              items.length
+                ? 'carousel'
+                : videoEdit
+                  ? 'video-edit'
+                  : imageSrc
+                    ? 'image-edit'
+                    : 'pick',
+            )}
+            primaryLabel={livePublish && !mediaOnlyPublish ? 'Post' : 'Preview'}
+            onPrimary={() => (livePublish && !mediaOnlyPublish ? void startPublish() : setPhase('preview'))}
           />
           <div className="flex-1 overflow-y-auto">
+            {(items.length > 0 || videoAsset || imageSrc) && (
+              <div className="px-4 pt-4 max-w-lg mx-auto w-full">
+                {items.length > 1 ? (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {items.map(item => (
+                      <div key={item.id} className="shrink-0 w-20 h-24 rounded-xl overflow-hidden bg-black">
+                        {item.kind === 'video' ? (
+                          <video src={item.asset.objectUrl} className="h-full w-full object-cover" muted playsInline />
+                        ) : (
+                          <img src={item.asset.objectUrl} alt="" className="h-full w-full object-cover" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : videoAsset ? (
+                  <video
+                    src={videoAsset.objectUrl}
+                    className="w-full rounded-2xl max-h-[40vh] bg-black"
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : imageSrc ? (
+                  <img src={imageSrc} alt="" className="w-full rounded-2xl max-h-[40vh] object-cover bg-black" />
+                ) : items[0] ? (
+                  items[0].kind === 'video' ? (
+                    <video src={items[0].asset.objectUrl} className="w-full rounded-2xl max-h-[40vh] bg-black" controls playsInline />
+                  ) : (
+                    <img src={items[0].asset.objectUrl} alt="" className="w-full rounded-2xl max-h-[40vh] object-cover bg-black" />
+                  )
+                ) : null}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {videoAsset && (
+                    <button
+                      type="button"
+                      className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
+                      style={{ border: '1px solid var(--border)', color: 'var(--fg)', background: 'var(--surface)' }}
+                      onClick={() => setPhase('video-edit')}
+                    >
+                      Edit video
+                    </button>
+                  )}
+                  {imageSrc && !videoAsset && (
+                    <button
+                      type="button"
+                      className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
+                      style={{ border: '1px solid var(--border)', color: 'var(--fg)', background: 'var(--surface)' }}
+                      onClick={() => setPhase('image-edit')}
+                    >
+                      Edit photo
+                    </button>
+                  )}
+                  {items.length > 1 && (
+                    <button
+                      type="button"
+                      className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
+                      style={{ border: '1px solid var(--border)', color: 'var(--fg)', background: 'var(--surface)' }}
+                      onClick={() => setPhase('carousel')}
+                    >
+                      Edit carousel
+                    </button>
+                  )}
+                  {limits.maxClips > 1 && (
+                    <button
+                      type="button"
+                      className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
+                      style={{ border: '1px solid var(--border)', color: 'var(--fg)', background: 'var(--surface)' }}
+                      onClick={addMoreMedia}
+                    >
+                      Add more
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <VideoPublishingSettings
               value={{ ...settings, caption: settings.caption || sharedCaption || imageEdit?.caption || '' }}
               onChange={setSettings}
               musicAttribution={videoEdit?.music?.attribution}
             />
+            {publishError && (
+              <p className="px-4 pb-4 text-sm max-w-lg mx-auto" style={{ color: 'var(--auth-danger, #C42A2A)' }} role="alert">
+                {publishError}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1026,7 +1063,7 @@ export default function MediaStudioRoot({
               aspectLabel={
                 videoEdit?.aspectRatio ||
                 imageEdit?.aspectRatio ||
-                (context === 'delvers-short' || context === 'delvers-story' ? '9:16' : '4:5')
+                'original'
               }
               settings={settings}
               duration={videoEdit ? (videoEdit.trimEnd - videoEdit.trimStart) / (videoEdit.playbackSpeed || 1) : 0}
@@ -1091,6 +1128,68 @@ export default function MediaStudioRoot({
       )}
     </div>
   )
+}
+
+function studioImageAsset(input: {
+  file: File
+  url: string
+  context: StudioContext
+  meta: { width: number; height: number }
+}): MediaAsset {
+  const now = new Date().toISOString()
+  return {
+    id: newId('asset'),
+    ownerId: 'local-user',
+    context: input.context,
+    mediaType: 'image',
+    source: 'device',
+    fileName: input.file.name,
+    mimeType: input.file.type || 'image/jpeg',
+    fileSize: input.file.size,
+    width: input.meta.width,
+    height: input.meta.height,
+    duration: 0,
+    orientation: orientationOf(input.meta.width, input.meta.height),
+    uploadStatus: 'ready',
+    processingStatus: 'ready',
+    moderationStatus: 'none',
+    createdAt: now,
+    updatedAt: now,
+    objectUrl: input.url,
+    hasAudio: false,
+    file: input.file,
+  }
+}
+
+function studioVideoAsset(input: {
+  file: File
+  url: string
+  context: StudioContext
+  meta: { duration: number; width: number; height: number; hasAudio: boolean }
+}): MediaAsset {
+  const now = new Date().toISOString()
+  return {
+    id: newId('asset'),
+    ownerId: 'local-user',
+    context: input.context,
+    mediaType: 'audio-supported-video',
+    source: 'device',
+    fileName: input.file.name,
+    mimeType: input.file.type || 'video/mp4',
+    fileSize: input.file.size,
+    width: input.meta.width,
+    height: input.meta.height,
+    duration: input.meta.duration,
+    orientation: orientationOf(input.meta.width, input.meta.height),
+    uploadStatus: 'ready',
+    processingStatus: 'ready',
+    moderationStatus: 'none',
+    createdAt: now,
+    updatedAt: now,
+    objectUrl: input.url,
+    hasAudio: input.meta.hasAudio,
+    file: input.file,
+  }
 }
 
 function defaultSettings(context: StudioContext): PublishingSettings {

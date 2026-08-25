@@ -168,8 +168,8 @@ export const DEFAULT_CROP_STATE: import('./types').CropState = {
   offsetX: 50,
   offsetY: 50,
   rotation: 0,
-  fit: 'fill',
-  aspectRatio: '4:5',
+  fit: 'fit',
+  aspectRatio: 'original',
 }
 
 export const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2]

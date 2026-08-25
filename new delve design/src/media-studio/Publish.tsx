@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, Loader2, RefreshCw, X,
 } from 'lucide-react'
@@ -296,7 +296,36 @@ export function MediaSequenceEditor({
   maxItems?: number
 }) {
   const canAdd = items.length < maxItems
-  const cover = items.find(i => i.id === coverId) || items[0]
+  const [viewIndex, setViewIndex] = useState(0)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const prevCount = useRef(items.length)
+
+  useEffect(() => {
+    const fromCover = items.findIndex(i => i.id === coverId)
+    if (fromCover >= 0) goTo(fromCover, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when cover choice changes
+  }, [coverId])
+
+  useEffect(() => {
+    if (items.length > prevCount.current) goTo(items.length - 1, true)
+    else if (viewIndex >= items.length) goTo(Math.max(0, items.length - 1), false)
+    prevCount.current = items.length
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length])
+
+  function goTo(i: number, smooth: boolean) {
+    const next = Math.max(0, Math.min(Math.max(items.length - 1, 0), i))
+    setViewIndex(next)
+    const el = scrollerRef.current
+    if (el && items.length) el.scrollTo({ left: next * el.clientWidth, behavior: smooth ? 'smooth' : 'auto' })
+  }
+
+  function onHeroScroll() {
+    const el = scrollerRef.current
+    if (!el || !items.length) return
+    const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
+    setViewIndex(Math.max(0, Math.min(items.length - 1, i)))
+  }
 
   return (
     <div className="p-4 max-w-xl mx-auto w-full flex flex-col gap-4">
@@ -304,24 +333,55 @@ export function MediaSequenceEditor({
         className="relative w-full overflow-hidden rounded-2xl"
         style={{ aspectRatio: '4 / 5', background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
       >
-        {cover ? (
-          cover.kind === 'video' ? (
-            <video src={cover.thumb} className="h-full w-full object-cover" muted playsInline loop autoPlay />
-          ) : (
-            <img src={cover.thumb} alt="" className="h-full w-full object-cover" />
-          )
+        {items.length ? (
+          <div
+            ref={scrollerRef}
+            className="flex h-full w-full overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none', touchAction: 'pan-x' }}
+            onScroll={onHeroScroll}
+          >
+            {items.map(item => (
+              <div key={item.id} className="h-full min-w-full w-full shrink-0 snap-center snap-always">
+                {item.kind === 'video' ? (
+                  <video src={item.thumb} className="h-full w-full object-cover" muted playsInline loop autoPlay={item.id === (items[viewIndex]?.id)} />
+                ) : (
+                  <img src={item.thumb} alt="" className="h-full w-full object-cover" draggable={false} />
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="h-full w-full flex items-center justify-center text-sm" style={{ color: 'var(--fg-muted)' }}>
             Add photos or videos
           </div>
         )}
         {items.length > 1 && (
-          <span
-            className="absolute top-3 right-3 text-[11px] font-semibold px-2 py-1 rounded-full text-white"
-            style={{ background: 'rgba(0,0,0,0.55)' }}
-          >
-            {items.length}/{maxItems}
-          </span>
+          <>
+            <span
+              className="absolute top-3 right-3 text-[11px] font-semibold px-2 py-1 rounded-full text-white z-10"
+              style={{ background: 'rgba(0,0,0,0.55)' }}
+            >
+              {viewIndex + 1}/{items.length}
+            </span>
+            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+              {items.map((item, i) => (
+                <button
+                  key={`dot-${item.id}`}
+                  type="button"
+                  aria-label={`Show media ${i + 1}`}
+                  className="h-1.5 rounded-full"
+                  style={{
+                    width: i === viewIndex ? 16 : 6,
+                    background: i === viewIndex ? '#fff' : 'rgba(255,255,255,0.45)',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => goTo(i, true)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 

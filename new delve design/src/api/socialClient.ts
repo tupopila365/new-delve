@@ -57,6 +57,12 @@ export async function createPost(body: CreatePostBody) {
   })
 }
 
+export async function deletePost(postId: string) {
+  return authorizedJson<{ message: string }>(`/posts/${encodeURIComponent(postId)}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function fetchFeed() {
   const started = performance.now()
   if (import.meta.env.DEV) console.debug('[delve-timing] posts request start')
