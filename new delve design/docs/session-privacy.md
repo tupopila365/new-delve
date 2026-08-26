@@ -47,6 +47,7 @@ Each login starts a `tokenFamilyId`. Refresh rotates by revoking the previous ro
 - Traveler sign-in always creates `isAdminSession: false` (Bearer refresh for traveler-web).
 - Admin sign-in (`POST /api/v2/admin/auth/login`) requires `role = admin`, creates `isAdminSession: true`, and sets the HttpOnly cookie `delve_admin_session` (configurable). Admin tokens are never stored in localStorage.
 - Staging and production **refuse to start** unless `ADMIN_WEB_URL` / `ADMIN_WEB_ORIGIN` use HTTPS, so Secure admin cookies are always available there. Local HTTP development intentionally omits the `Secure` flag.
+- Staging/production admin cookies use `SameSite=None; Secure` so a separately hosted admin SPA (for example Vercel) can send them to Backend V2 on Render/Heroku. Local development keeps `SameSite=Lax` without `Secure`. Mutations still require a trusted admin Origin and CSRF.
 - Admin session TTL defaults to **8 hours** (`ADMIN_SESSION_TTL_HOURS`) with an inactivity timeout of **30 minutes** (`ADMIN_SESSION_IDLE_TIMEOUT_MINUTES`).
 - Cookie-authenticated admin mutations require a trusted `Origin`/`Referer` **and** a double-submit CSRF token (`delve_admin_csrf` cookie + `X-CSRF-Token` header). The token is issued on login and refreshed on `GET /auth/me`; admin-web keeps it in memory only.
 - `/api/v2/admin/**` (except admin login) requires a valid admin cookie session whose user still has the admin role. Frontend flags and localStorage cannot grant admin access.

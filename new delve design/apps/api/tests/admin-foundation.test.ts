@@ -391,6 +391,7 @@ describe('admin cookies and interface', () => {
     setAdminSessionCookie(res, prodEnv, 'raw-token-value')
     expect(headers[0]).toMatch(/HttpOnly/)
     expect(headers[0]).toMatch(/Secure/)
+    expect(headers[0]).toMatch(/SameSite=None/)
     expect(headers[0]).toMatch(/Path=\/api\/v2\/admin/)
     expect(adminCookiesMustBeSecure(prodEnv)).toBe(true)
 
@@ -409,6 +410,7 @@ describe('admin cookies and interface', () => {
     setAdminSessionCookie(res, env, 'raw-token-value')
     expect(headers[0]).toMatch(/HttpOnly/)
     expect(headers[0]).not.toMatch(/Secure/)
+    expect(headers[0]).toMatch(/SameSite=Lax/)
     expect(headers[0]).toMatch(/Path=\/api\/v2\/admin/)
     clearAdminSessionCookie(res, env)
     expect(headers[1]).toMatch(/Max-Age=0/)

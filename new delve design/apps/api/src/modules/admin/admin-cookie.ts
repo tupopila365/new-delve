@@ -34,7 +34,12 @@ export function adminCookieOptions(env: Env) {
     maxAgeSec,
     path: '/api/v2/admin',
     httpOnly: true as const,
-    sameSite: 'lax' as const,
+    /**
+     * Local HTTP uses Lax (None requires Secure).
+     * Staging/production use None so a separately hosted admin SPA (Vercel) can
+     * send cookies to Backend V2 (Render/Heroku). Mutations still require Origin + CSRF.
+     */
+    sameSite: (secure ? 'None' : 'Lax') as 'None' | 'Lax',
     secure,
   }
 }

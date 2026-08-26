@@ -1,6 +1,10 @@
 import type { CorsOptions } from 'cors'
 import type { Env } from './env.js'
 
+function originOf(url: string): string {
+  return new URL(url).origin
+}
+
 function travelerOrigins(configuredUrl: string): string[] {
   const configured = new URL(configuredUrl)
   const origins = [configured.origin]
@@ -18,8 +22,8 @@ function travelerOrigins(configuredUrl: string): string[] {
 export function createCorsOptions(env: Env): CorsOptions {
   const allowed = new Set([
     ...travelerOrigins(env.TRAVELER_WEB_URL),
-    env.ADMIN_WEB_URL,
-    env.ADMIN_WEB_ORIGIN,
+    originOf(env.ADMIN_WEB_URL),
+    originOf(env.ADMIN_WEB_ORIGIN),
   ])
 
   return {
@@ -37,5 +41,5 @@ export function createCorsOptions(env: Env): CorsOptions {
 /** Cookie-authenticated admin mutations must come from the admin web origin. */
 export function isTrustedAdminOrigin(env: Env, origin: string | undefined): boolean {
   if (!origin) return false
-  return origin === env.ADMIN_WEB_ORIGIN || origin === env.ADMIN_WEB_URL
+  return origin === originOf(env.ADMIN_WEB_ORIGIN) || origin === originOf(env.ADMIN_WEB_URL)
 }
