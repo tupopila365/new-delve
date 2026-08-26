@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Bookmark, Calendar, ExternalLink, Heart, MapPin, Navigation, Pencil, Share2, Users, X,
+  Bookmark, Calendar, ExternalLink, Flag, Heart, MapPin, Navigation, Pencil, Share2, Users, X,
 } from 'lucide-react'
 import type { EventAttendeeDto, EventDto } from '@delve/contracts'
 import {
@@ -20,6 +20,7 @@ import EventCoverMedia from './EventCoverMedia'
 import AddToJourneySheet from './events/AddToJourneySheet'
 import EventMediaEditor from '../media/EventMediaEditor'
 import { DoubleTapLike } from './delvers/DoubleTapLike'
+import ContentReportSheet from './safety/ContentReportSheet'
 
 interface EventDetailSheetProps {
   eventId: string | null
@@ -88,6 +89,7 @@ export default function EventDetailSheet({
   const [busy, setBusy] = useState(false)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const [addToJourneyOpen, setAddToJourneyOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
 
   useEffect(() => {
     if (!eventId) {
@@ -486,6 +488,21 @@ export default function EventDetailSheet({
                 >
                   <Share2 size={16} /> Share
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!signedIn) {
+                      onSignIn?.()
+                      return
+                    }
+                    setReportOpen(true)
+                  }}
+                  className="rounded-xl px-3 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
+                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
+                  aria-label="Report event"
+                >
+                  <Flag size={16} />
+                </button>
                 {event.isOwner && onEdit && (
                   <button
                     type="button"
@@ -580,6 +597,7 @@ export default function EventDetailSheet({
           onClose={() => setAddToJourneyOpen(false)}
         />
       )}
+      <ContentReportSheet open={reportOpen && Boolean(event)} targetType="EVENT" targetId={event?.id || ''} onClose={() => setReportOpen(false)} />
     </div>
   )
 }

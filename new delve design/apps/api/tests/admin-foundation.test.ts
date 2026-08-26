@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 vi.mock('@delve/database', () => ({
@@ -422,8 +422,7 @@ describe('admin cookies and interface', () => {
   })
 
   it('admin-web has no Google/Apple controls and gates on /auth/me', () => {
-    const root = join(process.cwd(), '../admin-web/src/App.tsx')
-    const source = readFileSync(root, 'utf8')
+    const source = readAdminWebSrc()
     expect(source).toContain('/admin/auth/me')
     expect(source).toContain("credentials: 'include'")
     expect(source).toContain('X-CSRF-Token')
@@ -488,7 +487,21 @@ describe('admin cookies and interface', () => {
     const mockApi = readFileSync(join(process.cwd(), '../../src/platform/mocks/mockApi.ts'), 'utf8')
     expect(mockApi).not.toMatch(/localStorage|delve_admin_mock_user/)
 
-    const adminWeb = readFileSync(join(process.cwd(), '../admin-web/src/App.tsx'), 'utf8')
+    const adminWeb = readAdminWebSrc()
     expect(adminWeb).not.toMatch(/localStorage\.setItem|localStorage\.getItem\(['\"]delve_admin/)
   })
 })
+
+function readAdminWebSrc() {
+  const root = join(process.cwd(), '../admin-web/src')
+  const files: string[] = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) walk(path)
+      else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) files.push(readFileSync(path, 'utf8'))
+    }
+  }
+  walk(root)
+  return files.join('\n')
+}

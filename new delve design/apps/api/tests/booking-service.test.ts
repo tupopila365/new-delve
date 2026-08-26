@@ -12,6 +12,7 @@ vi.mock('@delve/database', () => ({
       findFirst: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      count: vi.fn(),
     },
     businessMember: { findUnique: vi.fn(), findMany: vi.fn() },
     payment: { findFirst: vi.fn() },
@@ -32,6 +33,7 @@ import {
   createBooking,
   getMyBooking,
   listBusinessBookings,
+  adminListBookingsForUser,
 } from '../src/modules/booking/booking.service.js'
 
 const owner = { id: 'u1', emailVerifiedAt: new Date(), accountStatus: 'active' }
@@ -269,5 +271,16 @@ describe('booking foundation', () => {
   it('blocks a provider from another business', async () => {
     vi.mocked(prisma.businessMember.findUnique).mockResolvedValue(null)
     await expect(listBusinessBookings('u1', 'b2')).rejects.toMatchObject({ code: 'NOT_A_MEMBER' })
+  })
+
+  it('lists admin bookings scoped to a single traveler', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1' } as never)
+    vi.mocked(prisma.booking.updateMany).mockResolvedValue({ count: 0 } as never)
+    vi.mocked(prisma.booking.count).mockResolvedValue(0)
+    vi.mocked(prisma.booking.findMany).mockResolvedValue([])
+    await adminListBookingsForUser('u1', { page: '1', pageSize: '25' })
+    expect(prisma.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ userId: 'u1' }) }),
+    )
   })
 })

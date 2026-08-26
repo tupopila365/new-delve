@@ -12,6 +12,8 @@ import { mediaAssetToDto } from '../media/media.service.js'
 
 import { createNotification } from '../notifications/notify.js'
 
+import { isModerationBlocked, publicModerationWhere } from '../safety/moderation-visibility.js'
+
 
 
 type EventRow = {
@@ -43,6 +45,8 @@ type EventRow = {
   visibility: 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
 
   status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
+
+  moderationStatus?: 'VISIBLE' | 'HIDDEN' | 'REMOVED'
 
   maxAttendees: number | null
 
@@ -151,6 +155,10 @@ async function viewerFollowsCreator(viewerId: string, creatorId: string) {
 async function assertCanViewEvent(event: EventRow, viewerId: string | null) {
 
   if (viewerId === event.creatorId) return
+
+  if (isModerationBlocked(event.moderationStatus)) {
+    throw new AppError(404, 'CONTENT_UNAVAILABLE', 'This content is unavailable.')
+  }
 
   if (event.status === 'DRAFT') {
 
@@ -537,6 +545,8 @@ export async function listDiscoverEvents(
 
       status: 'PUBLISHED',
 
+      ...publicModerationWhere(),
+
       AND: [discoverScheduleFilter(after), visibilityFilter],
 
       ...(city ? { city: { contains: city, mode: 'insensitive' } } : {}),
@@ -574,6 +584,8 @@ export async function searchEvents(env: Env, viewerId: string | null, q: string)
     where: {
 
       status: 'PUBLISHED',
+
+      ...publicModerationWhere(),
 
       AND: [discoverScheduleFilter(new Date()), discoverVisibilityFilter(viewerId)],
 

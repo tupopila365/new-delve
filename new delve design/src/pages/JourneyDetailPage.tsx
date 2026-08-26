@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, AlertCircle, Car, Pencil, Heart, MessageCircle, Share2,
+  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, AlertCircle, Car, Pencil, Heart, MessageCircle, Share2, Flag,
 } from 'lucide-react'
 import type { JourneyDetail } from '@delve/contracts'
 import {
@@ -22,6 +22,7 @@ import JourneyDetailSkeleton from '../components/journeys/JourneyDetailSkeleton'
 import CommentsSheet from '../components/comments/CommentsSheet'
 import { deriveJourneyLifecycle, lifecycleLabel } from '../components/journeys/journeyLifecycle'
 import { mapJourneyComment } from '../components/comments/mappers'
+import ContentReportSheet from '../components/safety/ContentReportSheet'
 
 interface Props {
   journeyId: string
@@ -59,6 +60,7 @@ export default function JourneyDetailPage({
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const [shareBusy, setShareBusy] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const viewerId = getStoredUser()?.id
   const isOwner = Boolean(journey && viewerId && journey.author.id === viewerId)
 
@@ -316,6 +318,20 @@ export default function JourneyDetailPage({
             style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)', cursor: 'pointer' }}
           >
             <Share2 size={16} /> Delvers
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!signedIn) {
+                onSignIn?.()
+                return
+              }
+              setReportOpen(true)
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
+            style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
+          >
+            <Flag size={16} /> Report
           </button>
         </div>
       </div>
@@ -641,6 +657,7 @@ export default function JourneyDetailPage({
           setEditOpen(false)
         }}
       />
+      <ContentReportSheet open={reportOpen} targetType="JOURNEY" targetId={journey.id} onClose={() => setReportOpen(false)} />
     </div>
   )
 }

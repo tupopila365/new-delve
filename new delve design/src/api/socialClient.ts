@@ -15,6 +15,8 @@ import type {
   StorySlideDto,
   StoryViewerDto,
   UpdateEventBody,
+  CreateContentReportBody,
+  CreateContentReportResult,
 } from '@delve/contracts'
 import { AuthApiError, authorizedJson } from './authClient'
 
@@ -234,5 +236,12 @@ export async function markStoriesViewed(userId: string) {
 export async function deleteStorySlide(slideId: string) {
   return authorizedJson<{ message: string; id: string }>(`/stories/${encodeURIComponent(slideId)}`, {
     method: 'DELETE',
+  })
+}
+
+export async function reportContent(body: CreateContentReportBody) {
+  return authorizedJson<CreateContentReportResult>('/reports', {
+    method: 'POST',
+    body: JSON.stringify(body),
   })
 }

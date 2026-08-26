@@ -10,6 +10,7 @@ import type {
 import { AppError } from '../../middleware/error-handler.js'
 import { ensureCommunitySeed } from './community.service.js'
 import { createCommunityActivityNotification } from '../notifications/notify.js'
+import { isModerationBlocked, publicModerationWhere } from '../safety/moderation-visibility.js'
 import type { MembershipCtx } from './community-permissions.js'
 import { canModerateContent } from './community-permissions.js'
 
@@ -285,7 +286,7 @@ export async function listThreads(
     where: {
       deletedAt: null,
       status: canMod ? { in: ['PUBLISHED', 'PENDING'] } : 'PUBLISHED',
-      community: { deletedAt: null },
+      community: { deletedAt: null, ...publicModerationWhere() },
       ...kindFilter,
       ...(opts.communityId ? { communityId: opts.communityId } : {}),
       ...(q
@@ -321,7 +322,7 @@ export async function listThreads(
 export async function getThread(threadId: string, viewerId: string | null): Promise<CommunityThreadDetail> {
   await ensureThreadSeed()
   const row = await prisma.communityThread.findFirst({
-    where: { id: threadId, deletedAt: null, community: { deletedAt: null } },
+    where: { id: threadId, deletedAt: null, community: { deletedAt: null, ...publicModerationWhere() } },
     include: {
       ...threadInclude,
       answers: {
@@ -332,6 +333,9 @@ export async function getThread(threadId: string, viewerId: string | null): Prom
     },
   })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Thread not found')
+  if (row.status === 'REMOVED' && !(await viewerCanModerateCommunity(row.communityId, viewerId))) {
+    throw new AppError(404, 'CONTENT_UNAVAILABLE', 'This content is unavailable.')
+  }
 
   const saved = await savedSet(viewerId, [row.id])
   const reactions = await reactionMeta(viewerId, [row.id])

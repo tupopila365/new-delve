@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Bookmark, Heart, MessageCircle, Plus, User,
+  Bookmark, Heart, MessageCircle, Plus, User, Flag,
 } from 'lucide-react'
 import type { PostDto } from '@delve/contracts'
 import {
@@ -19,6 +19,7 @@ import DelversStoryRail from '../components/delvers/DelversStoryRail'
 import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
 import EventCoverMedia from '../components/EventCoverMedia'
 import { DelversListSkeleton } from '../components/skeletons'
+import ContentReportSheet from '../components/safety/ContentReportSheet'
 import { formatUsername } from '../lib/formatUsername'
 import { AuthApiError } from '../api/authClient'
 
@@ -103,6 +104,7 @@ export default function DelversFeedPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ title: string; body: string; kind: 'auth' | 'forbidden' | 'generic' } | null>(null)
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
+  const [reportPostId, setReportPostId] = useState<string | null>(null)
   const [justPublished, setJustPublished] = useState(false)
 
   const commentsPost = feed.find(p => p.id === commentsPostId)
@@ -443,6 +445,17 @@ export default function DelversFeedPage({
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      if (!signedIn) return
+                      setReportPostId(post.id)
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
+                    aria-label="Report post"
+                  >
+                    <Flag size={20} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void toggleSave(post)}
                     className="ml-auto"
                     style={{ background: 'none', border: 'none', color: post.savedByMe ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
@@ -482,6 +495,7 @@ export default function DelversFeedPage({
         })}
       </main>
 
+      <ContentReportSheet open={Boolean(reportPostId)} targetType="POST" targetId={reportPostId || ''} onClose={() => setReportPostId(null)} />
       <CommentsSheet
         open={Boolean(commentsPostId)}
         onClose={() => setCommentsPostId(null)}

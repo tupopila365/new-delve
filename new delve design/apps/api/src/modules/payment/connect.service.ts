@@ -181,3 +181,28 @@ export async function connectedAccountBalanceWarning(
     return 'Could not read connected account balance. Stripe reversal result remains authoritative.'
   }
 }
+
+export async function adminRefreshConnectStatus(env: Env, businessId: string): Promise<StripeConnectStatusDto> {
+  try {
+    return await syncBusinessConnectFromStripe(env, businessId)
+  } catch (err) {
+    if (err instanceof AppError && err.code === 'STRIPE_NOT_CONFIGURED') {
+      const business = await prisma.business.findUnique({ where: { id: businessId } })
+      if (!business) throw new AppError(404, 'NOT_FOUND', 'Business not found.')
+      return {
+        status: business.stripeAccountStatus,
+        chargesEnabled: business.stripeChargesEnabled,
+        payoutsEnabled: business.stripePayoutsEnabled,
+        detailsSubmitted: business.stripeDetailsSubmitted,
+        requirementsDueCount: 0,
+        settlementReady: isSettlementReady({
+          stripeAccountStatus: business.stripeAccountStatus,
+          stripePayoutsEnabled: business.stripePayoutsEnabled,
+          stripeChargesEnabled: business.stripeChargesEnabled,
+        }),
+        onboardingCompletedAt: business.stripeOnboardingCompletedAt?.toISOString() ?? null,
+      }
+    }
+    throw err
+  }
+}

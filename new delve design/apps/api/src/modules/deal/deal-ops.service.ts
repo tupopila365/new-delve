@@ -13,6 +13,7 @@ import type {
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
 import { writeAdminAudit } from '../admin/admin-audit.js'
+import { paginated, parseAdminPage } from '../admin/admin-query.js'
 import { requireBusinessMembership } from '../business/business.service.js'
 import { createNotification } from '../notifications/notify.js'
 import {
@@ -584,6 +585,32 @@ export async function adminListDeals(status?: string): Promise<DealDto[]> {
     take: 200,
   })
   return rows.map(r => toDealDto(r))
+}
+
+export async function adminListDealsForBusiness(
+  businessId: string,
+  query: { status?: string; page?: unknown; pageSize?: unknown },
+) {
+  if (!businessId.trim()) throw new AppError(400, 'VALIDATION_ERROR', 'businessId required')
+  const exists = await prisma.business.findUnique({ where: { id: businessId }, select: { id: true } })
+  if (!exists) throw new AppError(404, 'NOT_FOUND', 'Business not found.')
+  await persistExpiredDeals()
+  const { page, pageSize, skip } = parseAdminPage(query)
+  const where = {
+    businessId,
+    ...(query.status ? { status: query.status as DealDto['status'] } : {}),
+  }
+  const [total, rows] = await Promise.all([
+    prisma.deal.count({ where }),
+    prisma.deal.findMany({
+      where,
+      include: dealInclude,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: pageSize,
+    }),
+  ])
+  return paginated(rows.map(r => toDealDto(r)), page, pageSize, total)
 }
 
 export async function adminModerateDeal(

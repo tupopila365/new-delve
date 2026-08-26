@@ -11,6 +11,7 @@ import type {
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
 import { writeAdminAudit } from '../admin/admin-audit.js'
+import { paginated, parseAdminPage } from '../admin/admin-query.js'
 import { requireBusinessMembership } from '../business/business.service.js'
 import { createNotification, type NotificationType } from '../notifications/notify.js'
 import { assertBookingTransition } from './booking-lifecycle.js'
@@ -607,6 +608,58 @@ export async function adminListBookings(status?: string): Promise<BookingDto[]> 
     take: 200,
   })
   return rows.map(row => toBookingDto(row, { includeTraveler: true }))
+}
+
+export async function adminListBookingsForBusiness(
+  businessId: string,
+  query: { status?: string; page?: unknown; pageSize?: unknown },
+) {
+  if (!businessId.trim()) throw new AppError(400, 'VALIDATION_ERROR', 'businessId required')
+  const exists = await prisma.business.findUnique({ where: { id: businessId }, select: { id: true } })
+  if (!exists) throw new AppError(404, 'NOT_FOUND', 'Business not found.')
+  await persistExpiredBookings()
+  const { page, pageSize, skip } = parseAdminPage(query)
+  const where = {
+    businessId,
+    ...(query.status ? { status: query.status as BookingStatus } : {}),
+  }
+  const [total, rows] = await Promise.all([
+    prisma.booking.count({ where }),
+    prisma.booking.findMany({
+      where,
+      include: bookingInclude,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: pageSize,
+    }),
+  ])
+  return paginated(rows.map(row => toBookingDto(row, { includeTraveler: true })), page, pageSize, total)
+}
+
+export async function adminListBookingsForUser(
+  userId: string,
+  query: { status?: string; page?: unknown; pageSize?: unknown },
+) {
+  if (!userId.trim()) throw new AppError(400, 'VALIDATION_ERROR', 'userId required')
+  const exists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+  if (!exists) throw new AppError(404, 'NOT_FOUND', 'Traveler not found.')
+  await persistExpiredBookings()
+  const { page, pageSize, skip } = parseAdminPage(query)
+  const where = {
+    userId,
+    ...(query.status ? { status: query.status as BookingStatus } : {}),
+  }
+  const [total, rows] = await Promise.all([
+    prisma.booking.count({ where }),
+    prisma.booking.findMany({
+      where,
+      include: bookingInclude,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: pageSize,
+    }),
+  ])
+  return paginated(rows.map(row => toBookingDto(row, { includeTraveler: true })), page, pageSize, total)
 }
 
 export async function adminGetBooking(bookingId: string): Promise<BookingDto> {

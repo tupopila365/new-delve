@@ -2,6 +2,7 @@ import { Router } from 'express'
 import type { Env } from '../../config/env.js'
 import { requireAuth, optionalAuth } from '../../middleware/require-auth.js'
 import { createSocialController } from './social.controller.js'
+import { reportContent } from '../safety/content-report.controller.js'
 
 export function createSocialRouter(env: Env) {
   const router = Router()
@@ -50,6 +51,8 @@ export function createSocialRouter(env: Env) {
   router.delete('/events/:eventId/reactions', auth, (req, res, next) => void c.unlikeEvent(req, res, next))
   router.post('/events/:eventId/attendance', auth, (req, res, next) => void c.setAttendance(req, res, next))
   router.delete('/events/:eventId/attendance', auth, (req, res, next) => void c.clearAttendance(req, res, next))
+
+  router.post('/reports', auth, (req, res, next) => void reportContent(req, res, next))
 
   router.get('/notifications', auth, (req, res, next) => void c.listNotifications(req, res, next))
   router.post('/notifications/read-all', auth, (req, res, next) => void c.readAllNotifications(req, res, next))

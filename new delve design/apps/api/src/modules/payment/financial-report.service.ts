@@ -558,6 +558,16 @@ export async function adminMonthlyReport(
   return { year, month, period: report.period, byCurrency: report.byCurrency }
 }
 
+export async function adminBusinessFinancialReport(
+  businessId: string,
+  query: QueryPeriod,
+): Promise<{ period: ReturnType<typeof periodDto>; byCurrency: CurrencyFinancialSummary[] }> {
+  if (!businessId.trim()) throw new AppError(400, 'VALIDATION_ERROR', 'businessId required')
+  const period = resolveReportPeriod(query)
+  const source = await loadSource(period, businessId)
+  return { period: periodDto(period), byCurrency: summariesFrom(source, query.currency) }
+}
+
 export async function providerFinancialReport(
   userId: string,
   businessId: string,

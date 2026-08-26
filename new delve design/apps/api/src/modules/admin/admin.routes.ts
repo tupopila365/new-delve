@@ -25,6 +25,9 @@ import {
 import { createAdminDealController } from '../deal/deal.controller.js'
 import { createBookingController } from '../booking/booking.controller.js'
 import { createPaymentController } from '../payment/payment.controller.js'
+import { createAdminMarketplaceController } from './admin-marketplace.controller.js'
+import { createAdminTravelersController } from './admin-travelers.controller.js'
+import { createAdminModerationController } from './admin-moderation.controller.js'
 
 /**
  * Admin API surface.
@@ -39,6 +42,9 @@ export function createAdminRouter(env: Env) {
   const deals = createAdminDealController()
   const bookings = createBookingController()
   const payments = createPaymentController(env)
+  const marketplace = createAdminMarketplaceController(env)
+  const travelers = createAdminTravelersController()
+  const moderation = createAdminModerationController()
 
   router.post('/auth/login', originGuard, (req, res, next) => {
     void (async () => {
@@ -103,6 +109,40 @@ export function createAdminRouter(env: Env) {
   router.get('/health', (_req, res) => {
     res.json({ success: true, data: { status: 'ok', audience: 'admin' } })
   })
+
+  router.get('/ops/marketplace-summary', (req, res, next) => void marketplace.opsSummary(req, res, next))
+  router.get('/ops/traveler-summary', (req, res, next) => void travelers.opsSummary(req, res, next))
+  router.get('/ops/moderation-summary', (req, res, next) => void moderation.opsSummary(req, res, next))
+  router.get('/moderation/queue', (req, res, next) => void moderation.queue(req, res, next))
+  router.get('/moderation/posts', (req, res, next) => void moderation.posts(req, res, next))
+  router.get('/moderation/events', (req, res, next) => void moderation.events(req, res, next))
+  router.get('/moderation/journeys', (req, res, next) => void moderation.journeys(req, res, next))
+  router.get('/moderation/communities', (req, res, next) => void moderation.communities(req, res, next))
+  router.get('/moderation/cases/:targetType/:targetId', (req, res, next) => void moderation.getCase(req, res, next))
+  router.post('/moderation/cases/:targetType/:targetId/decide', (req, res, next) => void moderation.decide(req, res, next))
+  router.get('/travelers', (req, res, next) => void travelers.list(req, res, next))
+  router.get('/travelers/:userId/bookings', (req, res, next) => void travelers.bookings(req, res, next))
+  router.get('/travelers/:userId/claims', (req, res, next) => void travelers.claims(req, res, next))
+  router.get('/travelers/:userId/journeys', (req, res, next) => void travelers.journeys(req, res, next))
+  router.get('/travelers/:userId/events', (req, res, next) => void travelers.events(req, res, next))
+  router.get('/travelers/:userId/communities', (req, res, next) => void travelers.communities(req, res, next))
+  router.get('/travelers/:userId/activity', (req, res, next) => void travelers.activity(req, res, next))
+  router.get('/travelers/:userId/financial', (req, res, next) => void travelers.financial(req, res, next))
+  router.post('/travelers/:userId/restrict', (req, res, next) => void travelers.restrict(req, res, next))
+  router.post('/travelers/:userId/restore', (req, res, next) => void travelers.restore(req, res, next))
+  router.get('/travelers/:userId', (req, res, next) => void travelers.get(req, res, next))
+  router.get('/businesses', (req, res, next) => void marketplace.listBusinesses(req, res, next))
+  router.get('/businesses/:businessId', (req, res, next) => void marketplace.getBusiness(req, res, next))
+  router.get('/businesses/:businessId/members', (req, res, next) => void marketplace.listMembers(req, res, next))
+  router.get('/businesses/:businessId/deals', (req, res, next) => void marketplace.listBusinessDeals(req, res, next))
+  router.get('/businesses/:businessId/bookings', (req, res, next) => void marketplace.listBusinessBookings(req, res, next))
+  router.get('/businesses/:businessId/finance', (req, res, next) => void marketplace.finance(req, res, next))
+  router.get('/businesses/:businessId/activity', (req, res, next) => void marketplace.activity(req, res, next))
+  router.post('/businesses/:businessId/verify', (req, res, next) => void marketplace.verify(req, res, next))
+  router.post('/businesses/:businessId/reject-verification', (req, res, next) => void marketplace.rejectVerification(req, res, next))
+  router.post('/businesses/:businessId/refresh-connect', (req, res, next) => void marketplace.refreshConnect(req, res, next))
+  router.get('/listings', (req, res, next) => void marketplace.listListings(req, res, next))
+  router.get('/listings/:listingId', (req, res, next) => void marketplace.getListing(req, res, next))
 
   router.get('/deals', (req, res, next) => void deals.list(req, res, next))
   router.post('/deals/:id/moderate', (req, res, next) => void deals.moderate(req, res, next))

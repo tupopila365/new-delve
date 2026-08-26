@@ -119,6 +119,9 @@ enum NotificationType {
   PAYMENT_DISPUTE_LOST
   PAYMENT_DISPUTE_BLOCKED
   PAYMENT_DISPUTE_REVERSED
+  CONTENT_REMOVED
+  CONTENT_RESTORED
+  CONTENT_REPORT_REVIEWED
 }
 
 enum CommunityType {
@@ -193,6 +196,57 @@ enum JourneyPartyType {
   FRIENDS
 }
 
+/// Platform Admin visibility. Distinct from creator delete/cancel.
+enum ContentModerationStatus {
+  VISIBLE
+  HIDDEN
+  REMOVED
+}
+
+enum ContentReportTargetType {
+  POST
+  EVENT
+  JOURNEY
+}
+
+enum ContentReportReason {
+  SPAM
+  SCAM_OR_FRAUD
+  HARASSMENT
+  HATE_OR_ABUSE
+  SEXUAL_CONTENT
+  VIOLENCE_OR_THREATS
+  MISLEADING_INFORMATION
+  ILLEGAL_OR_DANGEROUS
+  PRIVACY
+  IMPERSONATION
+  COMMUNITY_RULE_VIOLATION
+  OTHER
+}
+
+enum ContentReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ContentModerationActionType {
+  NO_ACTION
+  HIDE
+  REMOVE
+  RESTORE
+  PLATFORM_RESTRICT
+}
+
+enum AdminModerationTargetType {
+  POST
+  EVENT
+  JOURNEY
+  COMMUNITY
+  COMMUNITY_THREAD
+}
+
 model User {
   id                 String        @id @default(cuid())
   email              String        @unique
@@ -235,6 +289,9 @@ model User {
   communityMemberships     CommunityMembership[]
   ownedCommunities         Community[]                     @relation("CommunityOwner")
   communityReportsFiled    CommunityReport[]               @relation("CommunityReportsFiled")
+  contentReportsFiled      ContentReport[]                 @relation("ContentReportsFiled")
+  contentReportsReviewed   ContentReport[]                 @relation("ContentReportsReviewed")
+  contentModerationActions ContentModerationAction[]
   communityInvitesReceived CommunityInvite[]               @relation("CommunityInvitesReceived")
   communityInvitesSent     CommunityInvite[]               @relation("CommunityInvitesSent")
   communityAuditLogs       CommunityAuditLog[]             @relation("CommunityAuditActor")
@@ -609,22 +666,24 @@ model StoryView {
 }
 
 model Post {
-  id         String         @id @default(cuid())
-  authorId   String
-  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  caption    String         @default("")
-  location   String?
+  id               String                  @id @default(cuid())
+  authorId         String
+  author           User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  caption          String                  @default("")
+  location         String?
   /// Optional reference to a traveler event (Share to Delvers).
-  eventId    String?
-  event      TravelerEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  eventId          String?
+  event            TravelerEvent?          @relation(fields: [eventId], references: [id], onDelete: SetNull)
   /// Optional reference to a journey (Share to Delvers).
-  journeyId  String?
-  journey    Journey?       @relation(fields: [journeyId], references: [id], onDelete: SetNull)
-  visibility PostVisibility @default(PUBLIC)
-  status     PostStatus     @default(PUBLISHED)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  deletedAt  DateTime?
+  journeyId        String?
+  journey          Journey?                @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  visibility       PostVisibility          @default(PUBLIC)
+  status           PostStatus              @default(PUBLISHED)
+  /// Platform moderation. Creator delete uses status/deletedAt instead.
+  moderationStatus ContentModerationStatus @default(VISIBLE)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
 
   media     MediaAsset[]
   reactions Reaction[]
@@ -633,6 +692,7 @@ model Post {
   @@index([authorId, createdAt])
   @@index([status, createdAt])
   @@index([visibility])
+  @@index([moderationStatus])
   @@index([eventId])
   @@index([journeyId])
 }
@@ -679,32 +739,34 @@ model Save {
 }
 
 model TravelerEvent {
-  id           String          @id @default(cuid())
-  creatorId    String
-  creator      User            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  title        String
-  description  String          @default("")
-  coverUrl     String?
-  coverMediaId String?         @unique
-  coverMedia   MediaAsset?     @relation("EventCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
-  startAt      DateTime
-  endAt        DateTime?
-  timezone     String?
-  locationName String?
-  city         String?
-  country      String?
-  latitude     Float?
-  longitude    Float?
-  category     String?
-  communityId  String?
-  community    Community?      @relation(fields: [communityId], references: [id], onDelete: SetNull)
-  businessId   String?
-  business     Business?       @relation(fields: [businessId], references: [id], onDelete: SetNull)
-  visibility   EventVisibility @default(PUBLIC)
-  status       EventStatus     @default(DRAFT)
-  maxAttendees Int?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id               String                  @id @default(cuid())
+  creatorId        String
+  creator          User                    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  title            String
+  description      String                  @default("")
+  coverUrl         String?
+  coverMediaId     String?                 @unique
+  coverMedia       MediaAsset?             @relation("EventCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  startAt          DateTime
+  endAt            DateTime?
+  timezone         String?
+  locationName     String?
+  city             String?
+  country          String?
+  latitude         Float?
+  longitude        Float?
+  category         String?
+  communityId      String?
+  community        Community?              @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  businessId       String?
+  business         Business?               @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  visibility       EventVisibility         @default(PUBLIC)
+  status           EventStatus             @default(DRAFT)
+  /// Platform moderation. Distinct from creator CANCELLED.
+  moderationStatus ContentModerationStatus @default(VISIBLE)
+  maxAttendees     Int?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   attendances      EventAttendance[]
   reactions        EventReaction[]
@@ -716,6 +778,7 @@ model TravelerEvent {
   @@index([creatorId, createdAt])
   @@index([status, startAt])
   @@index([visibility, status])
+  @@index([moderationStatus])
   @@index([communityId])
   @@index([businessId])
 }
@@ -1633,33 +1696,35 @@ model DealAnalyticsEvent {
 
 /// Destination / interest / transport community hub.
 model Community {
-  id                         String           @id @default(cuid())
-  slug                       String           @unique
+  id                         String                  @id @default(cuid())
+  slug                       String                  @unique
   name                       String
-  description                String           @default("")
-  about                      String           @default("")
+  description                String                  @default("")
+  about                      String                  @default("")
   communityType              CommunityType
-  category                   String           @default("OTHER")
+  category                   String                  @default("OTHER")
   destination                String
   city                       String?
   country                    String?
-  isGlobal                   Boolean          @default(true)
-  topics                     String[]         @default([])
+  isGlobal                   Boolean                 @default(true)
+  topics                     String[]                @default([])
   avatarUrl                  String?
   coverUrl                   String?
-  privacy                    CommunityPrivacy @default(PUBLIC)
-  requireJoinApproval        Boolean          @default(false)
-  requireRuleAcknowledgement Boolean          @default(false)
-  requirePostApproval        Boolean          @default(false)
-  postingPermission          String           @default("MEMBERS")
-  official                   Boolean          @default(false)
-  businessManaged            Boolean          @default(false)
+  privacy                    CommunityPrivacy        @default(PUBLIC)
+  requireJoinApproval        Boolean                 @default(false)
+  requireRuleAcknowledgement Boolean                 @default(false)
+  requirePostApproval        Boolean                 @default(false)
+  postingPermission          String                  @default("MEMBERS")
+  official                   Boolean                 @default(false)
+  businessManaged            Boolean                 @default(false)
   ownerUserId                String?
-  owner                      User?            @relation("CommunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
-  memberCount                Int              @default(0)
-  lastActivityAt             DateTime         @default(now())
-  createdAt                  DateTime         @default(now())
-  updatedAt                  DateTime         @updatedAt
+  owner                      User?                   @relation("CommunityOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  memberCount                Int                     @default(0)
+  lastActivityAt             DateTime                @default(now())
+  /// Platform restriction. Distinct from owner deletedAt.
+  moderationStatus           ContentModerationStatus @default(VISIBLE)
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
   deletedAt                  DateTime?
 
   memberships  CommunityMembership[]
@@ -1675,6 +1740,7 @@ model Community {
   @@index([category, city, country])
   @@index([lastActivityAt])
   @@index([deletedAt])
+  @@index([moderationStatus])
   @@index([ownerUserId])
 }
 
@@ -1711,6 +1777,44 @@ model CommunityReport {
 
   @@index([communityId, status, createdAt])
   @@index([targetType, targetId])
+}
+
+/// Traveler reports against Delvers posts, events, and journeys. Community reports stay on CommunityReport.
+model ContentReport {
+  id                String                  @id @default(cuid())
+  reporterId        String
+  reporter          User                    @relation("ContentReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType        ContentReportTargetType
+  targetId          String
+  reason            ContentReportReason
+  details           String?
+  status            ContentReportStatus     @default(OPEN)
+  reviewedAt        DateTime?
+  reviewedByAdminId String?
+  reviewedBy        User?                   @relation("ContentReportsReviewed", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  resolution        String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterId, createdAt])
+}
+
+model ContentModerationAction {
+  id          String                      @id @default(cuid())
+  targetType  AdminModerationTargetType
+  targetId    String
+  action      ContentModerationActionType
+  reason      ContentReportReason?
+  note        String?
+  actorUserId String
+  actor       User                        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  createdAt   DateTime                    @default(now())
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model CommunityInvite {
@@ -1837,31 +1941,33 @@ model CommunityThreadReaction {
 
 /// Shared traveler itinerary (Phase 1–3: list, detail, create, save).
 model Journey {
-  id                String            @id @default(cuid())
-  slug              String            @unique
+  id                String                  @id @default(cuid())
+  slug              String                  @unique
   authorId          String
-  author            User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author            User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
   title             String
-  summary           String            @default("")
+  summary           String                  @default("")
   coverUrl          String?
   coverResourceType String?
   startDate         DateTime?
   endDate           DateTime?
   startPlace        String
   endPlace          String
-  countries         String[]          @default([])
-  durationDays      Int               @default(1)
-  transportModes    String[]          @default([])
+  countries         String[]                @default([])
+  durationDays      Int                     @default(1)
+  transportModes    String[]                @default([])
   historicalCost    String?
-  currency          String            @default("N$")
-  partyType         JourneyPartyType  @default(SOLO)
-  tags              String[]          @default([])
-  visibility        JourneyVisibility @default(PUBLIC)
-  takeaway          String            @default("")
-  viewCount         Int               @default(0)
+  currency          String                  @default("N$")
+  partyType         JourneyPartyType        @default(SOLO)
+  tags              String[]                @default([])
+  visibility        JourneyVisibility       @default(PUBLIC)
+  /// Platform moderation. Distinct from author deletedAt.
+  moderationStatus  ContentModerationStatus @default(VISIBLE)
+  takeaway          String                  @default("")
+  viewCount         Int                     @default(0)
   publishedAt       DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
   deletedAt         DateTime?
 
   stops            JourneyStop[]
@@ -1876,6 +1982,7 @@ model Journey {
 
   @@index([authorId, createdAt])
   @@index([visibility, publishedAt])
+  @@index([moderationStatus])
   @@index([deletedAt])
 }
 

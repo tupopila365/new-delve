@@ -1,6 +1,7 @@
 import { prisma } from '@delve/database'
 import { AppError } from '../../middleware/error-handler.js'
 import { createCommunityActivityNotification } from '../notifications/notify.js'
+import { publicModerationWhere } from '../safety/moderation-visibility.js'
 import { removeCommunityChatParticipant } from '../message/message.service.js'
 import type { CommunityDto, CommunityMembershipStatus, CommunityType } from '@delve/contracts'
 
@@ -269,11 +270,13 @@ export async function listCommunities(
   const q = opts.q?.trim()
   const where: {
     deletedAt: null
+    moderationStatus?: 'VISIBLE'
     communityType?: CommunityType
     destination?: { equals: string; mode: 'insensitive' }
     OR?: Array<Record<string, unknown>>
   } = {
     deletedAt: null,
+    ...publicModerationWhere(),
     ...(opts.type ? { communityType: opts.type } : {}),
     ...(opts.destination ? { destination: { equals: opts.destination, mode: 'insensitive' as const } } : {}),
     ...(q
@@ -343,7 +346,7 @@ export async function getCommunity(slugOrId: string, viewerId: string | null) {
 
 export async function joinCommunity(userId: string, communityId: string) {
   const community = await prisma.community.findFirst({
-    where: { id: communityId, deletedAt: null },
+    where: { id: communityId, deletedAt: null, ...publicModerationWhere() },
   })
   if (!community) throw new AppError(404, 'NOT_FOUND', 'Community not found')
 

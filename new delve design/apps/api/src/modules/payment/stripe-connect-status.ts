@@ -9,6 +9,20 @@ export function isSettlementReady(input: {
   return input.stripeAccountStatus === 'ACTIVE' && input.stripePayoutsEnabled && input.stripeChargesEnabled
 }
 
+export function connectReadinessLabel(input: {
+  stripeAccountStatus: StripeConnectStatus
+  stripePayoutsEnabled: boolean
+  stripeChargesEnabled: boolean
+}): string {
+  if (input.stripeAccountStatus === 'NOT_CONNECTED') return 'Not connected'
+  if (input.stripeAccountStatus === 'ONBOARDING') return 'Setup incomplete'
+  if (input.stripeAccountStatus === 'RESTRICTED') return 'Restricted'
+  if (input.stripeAccountStatus === 'DISABLED') return 'Payouts disabled'
+  if (!input.stripePayoutsEnabled) return 'Payouts disabled'
+  if (isSettlementReady(input)) return 'Settlement ready'
+  return 'Active'
+}
+
 export function mapStripeAccountStatus(account: Stripe.Account): {
   stripeAccountStatus: StripeConnectStatus
   stripeChargesEnabled: boolean

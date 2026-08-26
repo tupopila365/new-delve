@@ -14,6 +14,7 @@ import type {
   UpsertCommunityRuleBody,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
+import { isModerationBlocked, publicModerationWhere } from '../safety/moderation-visibility.js'
 import { removeCommunityChatParticipant } from '../message/message.service.js'
 import {
   canAssignRole,
@@ -296,7 +297,7 @@ export async function updateCommunity(
 
 export async function getCommunityDetail(slugOrId: string, viewerId: string | null): Promise<CommunityDetail> {
   const row = await prisma.community.findFirst({
-    where: { deletedAt: null, OR: [{ slug: slugOrId }, { id: slugOrId }] },
+    where: { deletedAt: null, ...publicModerationWhere(), OR: [{ slug: slugOrId }, { id: slugOrId }] },
     include: {
       owner: { include: { travelerProfile: true } },
       _count: { select: { threads: true, rules: true } },
@@ -465,6 +466,12 @@ export async function createReport(userId: string, communityId: string, body: Cr
   if (!membership || membership.status === 'BANNED') {
     throw new AppError(403, 'FORBIDDEN', 'Join this community to report content')
   }
+
+  const existing = await prisma.communityReport.findFirst({
+    where: { communityId, reporterId: userId, targetType: body.targetType, targetId: body.targetId, status: { in: ['OPEN', 'REVIEWING'] } },
+    select: { id: true },
+  })
+  if (existing) throw new AppError(409, 'REPORT_EXISTS', 'You have already reported this content.')
 
   const row = await prisma.communityReport.create({
     data: {

@@ -4,6 +4,7 @@ import type { Env } from '../../config/env.js'
 import { AppError } from '../../middleware/error-handler.js'
 import { buildDeliveryUrl } from '../media/cloudinary.js'
 import { createNotification } from '../notifications/notify.js'
+import { isModerationBlocked, publicModerationWhere } from '../safety/moderation-visibility.js'
 
 function mediaUrl(env: Env, row: { publicId: string; version: number | null; purpose: string; secureUrl: string | null }) {
   if (!env.CLOUDINARY_CLOUD_NAME) return row.secureUrl || ''
@@ -118,7 +119,7 @@ export async function listPostsForUser(env: Env, profileUserId: string, viewerId
       authorId: profileUserId,
       status: 'PUBLISHED',
       deletedAt: null,
-      ...(isOwner ? {} : { visibility: 'PUBLIC' }),
+      ...(isOwner ? {} : { visibility: 'PUBLIC', ...publicModerationWhere() }),
     },
     orderBy: { createdAt: 'desc' },
     take: 60,
@@ -129,7 +130,7 @@ export async function listPostsForUser(env: Env, profileUserId: string, viewerId
 /** Public Delvers feed: all published PUBLIC posts (not limited to follows). */
 export async function listFeed(env: Env, viewerId: string | null) {
   const rows = await prisma.post.findMany({
-    where: { status: 'PUBLISHED', deletedAt: null, visibility: 'PUBLIC' },
+    where: { status: 'PUBLISHED', deletedAt: null, visibility: 'PUBLIC', ...publicModerationWhere() },
     orderBy: { createdAt: 'desc' },
     take: 80,
   })
@@ -145,6 +146,7 @@ export async function searchPosts(env: Env, q: string, viewerId: string | null) 
       status: 'PUBLISHED',
       deletedAt: null,
       visibility: 'PUBLIC',
+      ...publicModerationWhere(),
       OR: [
         { caption: { contains: query, mode: 'insensitive' } },
         { location: { contains: query, mode: 'insensitive' } },
@@ -169,7 +171,7 @@ export async function softDeletePost(authorId: string, postId: string) {
 }
 
 export async function likePost(env: Env, userId: string, postId: string) {
-  const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null } })
+  const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null, ...publicModerationWhere() } })
   if (!post) throw new AppError(404, 'NOT_FOUND', 'Post not found')
   await prisma.reaction.upsert({
     where: { userId_postId_type: { userId, postId, type: 'LIKE' } },
@@ -194,7 +196,7 @@ export async function unlikePost(env: Env, userId: string, postId: string) {
 }
 
 export async function listComments(postId: string) {
-  const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null } })
+  const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null, ...publicModerationWhere() } })
   if (!post) throw new AppError(404, 'NOT_FOUND', 'Post not found')
   const rows = await prisma.comment.findMany({
     where: { postId, deletedAt: null },
@@ -212,7 +214,7 @@ export async function listComments(postId: string) {
 }
 
 export async function addComment(userId: string, postId: string, body: string) {
-  const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null } })
+  const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null, ...publicModerationWhere() } })
   if (!post) throw new AppError(404, 'NOT_FOUND', 'Post not found')
   const comment = await prisma.comment.create({
     data: { postId, authorId: userId, body, updatedAt: new Date() },
@@ -255,6 +257,9 @@ export async function getPostDto(env: Env, postId: string, viewerId: string | nu
   })
   if (!post || post.status !== 'PUBLISHED' || post.deletedAt) {
     throw new AppError(404, 'NOT_FOUND', 'Post not found')
+  }
+  if (isModerationBlocked(post.moderationStatus) && viewerId !== post.authorId) {
+    throw new AppError(404, 'CONTENT_UNAVAILABLE', 'This content is unavailable.')
   }
   const [likeCount, commentCount, liked, saved] = await Promise.all([
     prisma.reaction.count({ where: { postId, type: 'LIKE' } }),
@@ -321,5 +326,5 @@ export async function getPostDto(env: Env, postId: string, viewerId: string | nu
 }
 
 export async function countPostsForUser(userId: string) {
-  return prisma.post.count({ where: { authorId: userId, status: 'PUBLISHED', deletedAt: null } })
+  return prisma.post.count({ where: { authorId: userId, status: 'PUBLISHED', deletedAt: null, ...publicModerationWhere() } })
 }

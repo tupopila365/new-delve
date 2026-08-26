@@ -38,6 +38,9 @@ export type NotificationType =
   | 'PAYMENT_DISPUTE_LOST'
   | 'PAYMENT_DISPUTE_BLOCKED'
   | 'PAYMENT_DISPUTE_REVERSED'
+  | 'CONTENT_REMOVED'
+  | 'CONTENT_RESTORED'
+  | 'CONTENT_REPORT_REVIEWED'
 
 export async function createNotification(input: {
   userId: string

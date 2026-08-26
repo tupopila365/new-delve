@@ -13,6 +13,7 @@ import type {
 import { AppError } from '../../middleware/error-handler.js'
 import { getPublicProfileByUsername } from '../social/profile-public.service.js'
 import { createNotification } from '../notifications/notify.js'
+import { isModerationBlocked, publicModerationWhere } from '../safety/moderation-visibility.js'
 
 function slugify(title: string) {
   const base = title
@@ -437,6 +438,7 @@ export async function listJourneys(viewerId: string | null, query: JourneyListQu
     where: {
       deletedAt: null,
       visibility: 'PUBLIC',
+      ...publicModerationWhere(),
       ...(followingOnly
         ? { author: { followsIncoming: { some: { followerId: viewerId! } } } }
         : {}),
@@ -503,7 +505,7 @@ export async function listUserJourneys(username: string, viewerId: string | null
     where: {
       authorId: profile.id,
       deletedAt: null,
-      ...(isOwner ? {} : { visibility: 'PUBLIC' }),
+      ...(isOwner ? {} : { visibility: 'PUBLIC', ...publicModerationWhere() }),
     },
     include: { _count: { select: { stops: true } } },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
@@ -566,6 +568,9 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
   })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
   if (!canView(row, viewerId)) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (isModerationBlocked(row.moderationStatus) && viewerId !== row.authorId) {
+    throw new AppError(404, 'CONTENT_UNAVAILABLE', 'This content is unavailable.')
+  }
 
   if (row.visibility === 'PUBLIC') {
     await prisma.journey.update({
@@ -781,6 +786,9 @@ async function requireViewableJourney(journeyId: string, viewerId: string | null
   const row = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
   if (!canView(row, viewerId)) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (isModerationBlocked(row.moderationStatus) && viewerId !== row.authorId) {
+    throw new AppError(404, 'CONTENT_UNAVAILABLE', 'This content is unavailable.')
+  }
   return row
 }
 
