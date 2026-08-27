@@ -12,11 +12,12 @@ vi.mock('@delve/database', () => ({
       groupBy: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       updateMany: vi.fn(),
       create: vi.fn(),
     },
     communityReport: { count: vi.fn(), groupBy: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
-    contentModerationAction: { findMany: vi.fn(), create: vi.fn() },
+    contentModerationAction: { findMany: vi.fn(), create: vi.fn(), count: vi.fn() },
     post: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     travelerEvent: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     journey: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
@@ -25,7 +26,9 @@ vi.mock('@delve/database', () => ({
     communityMembership: { findUnique: vi.fn() },
     communityAuditLog: { findMany: vi.fn() },
     notification: { create: vi.fn() },
-    adminAuditLog: { create: vi.fn() },
+    adminAuditLog: { create: vi.fn(), count: vi.fn() },
+    comment: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    communityAnswer: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   },
 }))
 
@@ -96,7 +99,13 @@ describe('admin moderation HTTP auth', () => {
     vi.mocked(prisma.travelerEvent.count).mockResolvedValue(0)
     vi.mocked(prisma.journey.count).mockResolvedValue(0)
     vi.mocked(prisma.community.count).mockResolvedValue(0)
+    vi.mocked(prisma.comment.count).mockResolvedValue(0)
+    vi.mocked(prisma.comment.findMany).mockResolvedValue([])
+    vi.mocked(prisma.contentModerationAction.count).mockResolvedValue(0)
+    vi.mocked(prisma.contentModerationAction.findMany).mockResolvedValue([])
+    vi.mocked(prisma.contentReport.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.adminAuditLog.create).mockResolvedValue({} as never)
+    vi.mocked(prisma.adminAuditLog.count).mockResolvedValue(0)
   })
 
   it('rejects anonymous queue requests', async () => {

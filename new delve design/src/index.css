@@ -452,3 +452,16 @@ html {
   white-space: nowrap;
   border: 0;
 }
+
+/* Keyboard accessibility focus states */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--primary) !important;
+  outline-offset: 2px !important;
+}
+

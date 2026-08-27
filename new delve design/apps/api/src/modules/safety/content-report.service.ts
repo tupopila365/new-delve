@@ -3,6 +3,42 @@ import type { CreateContentReportBody, CreateContentReportResult } from '@delve/
 import { AppError } from '../../middleware/error-handler.js'
 
 const THANKS = 'Thanks for your report. Our team will review it.'
+const OPEN = ['OPEN', 'UNDER_REVIEW'] as const
+
+async function snapshotFor(targetType: CreateContentReportBody['targetType'], targetId: string) {
+  if (targetType === 'POST') {
+    const post = await prisma.post.findFirst({
+      where: { id: targetId, status: 'PUBLISHED', deletedAt: null },
+      select: { id: true, caption: true },
+    })
+    if (!post) throw new AppError(404, 'NOT_FOUND', 'Content not found.')
+    return (post.caption || '').slice(0, 500)
+  }
+  if (targetType === 'EVENT') {
+    const event = await prisma.travelerEvent.findFirst({
+      where: { id: targetId, status: { not: 'DRAFT' } },
+      select: { id: true, title: true },
+    })
+    if (!event) throw new AppError(404, 'NOT_FOUND', 'Content not found.')
+    return (event.title || '').slice(0, 500)
+  }
+  if (targetType === 'JOURNEY') {
+    const journey = await prisma.journey.findFirst({
+      where: { id: targetId, deletedAt: null, visibility: { not: 'DRAFT' } },
+      select: { id: true, title: true },
+    })
+    if (!journey) throw new AppError(404, 'NOT_FOUND', 'Content not found.')
+    return (journey.title || '').slice(0, 500)
+  }
+  const comment = await prisma.comment.findFirst({
+    where: { id: targetId, deletedAt: null },
+    select: { id: true, body: true, post: { select: { status: true, deletedAt: true } } },
+  })
+  if (!comment || comment.post.status !== 'PUBLISHED' || comment.post.deletedAt) {
+    throw new AppError(404, 'NOT_FOUND', 'Content not found.')
+  }
+  return (comment.body || '').slice(0, 500)
+}
 
 export async function createContentReport(
   reporterId: string,
@@ -11,39 +47,18 @@ export async function createContentReport(
   const targetId = body.targetId.trim()
   if (!targetId) throw new AppError(400, 'VALIDATION_ERROR', 'Invalid content.')
 
-  if (body.targetType === 'POST') {
-    const post = await prisma.post.findFirst({
-      where: { id: targetId, status: 'PUBLISHED', deletedAt: null },
-      select: { id: true },
-    })
-    if (!post) throw new AppError(404, 'NOT_FOUND', 'Content not found.')
-  } else if (body.targetType === 'EVENT') {
-    const event = await prisma.travelerEvent.findFirst({
-      where: { id: targetId, status: { not: 'DRAFT' } },
-      select: { id: true },
-    })
-    if (!event) throw new AppError(404, 'NOT_FOUND', 'Content not found.')
-  } else {
-    const journey = await prisma.journey.findFirst({
-      where: { id: targetId, deletedAt: null, visibility: { not: 'DRAFT' } },
-      select: { id: true },
-    })
-    if (!journey) throw new AppError(404, 'NOT_FOUND', 'Content not found.')
-  }
+  const snapshot = await snapshotFor(body.targetType, targetId)
 
-  const existing = await prisma.contentReport.findUnique({
+  const existingOpen = await prisma.contentReport.findFirst({
     where: {
-      reporterId_targetType_targetId: {
-        reporterId,
-        targetType: body.targetType,
-        targetId,
-      },
+      reporterId,
+      targetType: body.targetType,
+      targetId,
+      status: { in: [...OPEN] },
     },
+    select: { id: true },
   })
-  if (existing) {
-    if (existing.status === 'OPEN' || existing.status === 'UNDER_REVIEW') {
-      throw new AppError(409, 'REPORT_EXISTS', 'You have already reported this content.')
-    }
+  if (existingOpen) {
     throw new AppError(409, 'REPORT_EXISTS', 'You have already reported this content.')
   }
 
@@ -54,6 +69,7 @@ export async function createContentReport(
       targetId,
       reason: body.reason,
       details: body.details?.trim() || null,
+      reportedTextSnapshot: snapshot || null,
     },
   })
   return { message: THANKS }

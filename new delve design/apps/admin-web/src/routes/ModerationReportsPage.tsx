@@ -10,7 +10,16 @@ import { FilterBar } from '../components/admin/FilterBar'
 import { LoadingSkeleton } from '../components/admin/LoadingSkeleton'
 import { StatusBadge } from '../components/admin/StatusBadge'
 
-const TYPES: Array<AdminModerationTargetType | ''> = ['', 'POST', 'EVENT', 'JOURNEY', 'COMMUNITY', 'COMMUNITY_THREAD']
+const TYPES: Array<AdminModerationTargetType | ''> = [
+  '',
+  'POST',
+  'POST_COMMENT',
+  'EVENT',
+  'JOURNEY',
+  'COMMUNITY',
+  'COMMUNITY_THREAD',
+  'COMMUNITY_COMMENT',
+]
 const REASONS: Array<ContentReportReason | ''> = [
   '',
   'SPAM',
@@ -35,7 +44,7 @@ export default function ModerationReportsPage() {
 
   const query = useMemo(() => {
     const next = new URLSearchParams()
-    for (const key of ['targetType', 'reason', 'q', 'minReports', 'page', 'pageSize']) {
+    for (const key of ['status', 'targetType', 'reason', 'q', 'minReports', 'page', 'pageSize']) {
       const value = params.get(key)
       if (value) next.set(key, value)
     }
@@ -75,6 +84,13 @@ export default function ModerationReportsPage() {
         description="Grouped by content target. Duplicate reports on the same item are reviewed together. Reporting never removes content automatically."
       />
       <FilterBar>
+        <select className="admin-input" style={{ maxWidth: 180 }} value={params.get('status') || ''} onChange={e => setFilter('status', e.target.value)}>
+          <option value="">Open</option>
+          <option value="under_review">Under review</option>
+          <option value="resolved">Resolved</option>
+          <option value="dismissed">Dismissed</option>
+          <option value="all">All</option>
+        </select>
         <select className="admin-input" style={{ maxWidth: 200 }} value={params.get('targetType') || ''} onChange={e => setFilter('targetType', e.target.value)}>
           <option value="">All types</option>
           {TYPES.filter(Boolean).map(t => (
@@ -109,7 +125,9 @@ export default function ModerationReportsPage() {
       </FilterBar>
       {loading ? <LoadingSkeleton /> : null}
       {error ? <ErrorState title="Could not load reports" detail={error} onRetry={() => void load()} /> : null}
-      {!loading && !error && data && data.items.length === 0 ? <EmptyState title="No open reports match these filters." /> : null}
+      {!loading && !error && data && data.items.length === 0 ? (
+        <EmptyState title="No reports match these filters." />
+      ) : null}
       {!loading && !error && data && data.items.length > 0 ? (
         <>
           <AdminTable headers={['Content', 'Type', 'Creator', 'Context', 'Open reports', 'Reasons', 'First', 'Latest', 'Status', '']}>

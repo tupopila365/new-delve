@@ -214,3 +214,35 @@ export const addJourneyBookingBodySchema = z
   .strict()
 
 export type AddJourneyBookingBody = z.infer<typeof addJourneyBookingBodySchema>
+
+// ─── My Journeys Personalisation ─────────────────────────────────────────────
+
+/** Shape returned by GET /journeys/mine/personalisation */
+export const journeyPersonalisationDtoSchema = z.object({
+  journeyId: z.string(),
+  customTitle: z.string().nullable(),
+  notes: z.string().nullable(),
+  sortOrder: z.number().int().nullable(),
+})
+
+export type JourneyPersonalisationDto = z.infer<typeof journeyPersonalisationDtoSchema>
+
+/** PATCH /journeys/:journeyId/personalisation — update title or notes for one journey */
+export const patchJourneyPersonalisationBodySchema = z
+  .object({
+    customTitle: z.string().trim().max(200).nullable().optional(),
+    notes: z.string().trim().max(4000).nullable().optional(),
+  })
+  .strict()
+
+export type PatchJourneyPersonalisationBody = z.infer<typeof patchJourneyPersonalisationBodySchema>
+
+/** PATCH /journeys/mine/order — save the user's custom display order */
+export const patchJourneyOrderBodySchema = z
+  .object({
+    /** Ordered array of journey IDs (only IDs the user actually owns). */
+    orderedIds: z.array(z.string().min(1)).max(200),
+  })
+  .strict()
+
+export type PatchJourneyOrderBody = z.infer<typeof patchJourneyOrderBodySchema>

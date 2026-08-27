@@ -4,15 +4,24 @@ interface JourneyCoverMediaProps {
   url: string
   resourceType?: 'image' | 'video' | string | null
   className?: string
+  alt?: string
   /** Card/list mode: autoplay muted, no controls */
   variant?: 'card' | 'hero' | 'inline'
+  /**
+   * 'high' — fetchpriority=high, no lazy-load (use for LCP / above-fold images).
+   * 'low'  — loading=lazy, decoding=async (use for below-fold card images).
+   * Default: 'low'
+   */
+  priority?: 'high' | 'low'
 }
 
 export default function JourneyCoverMedia({
   url,
   resourceType,
   className = 'w-full h-full object-cover',
+  alt = '',
   variant = 'inline',
+  priority = 'low',
 }: JourneyCoverMediaProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -51,5 +60,28 @@ export default function JourneyCoverMedia({
       />
     )
   }
-  return <img src={url} alt="" className={className} loading="lazy" />
+
+  if (priority === 'high') {
+    return (
+      <img
+        src={url}
+        alt={alt}
+        className={className}
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore — fetchpriority is a valid HTML attribute not yet in React types
+        fetchpriority="high"
+        decoding="async"
+      />
+    )
+  }
+
+  return (
+    <img
+      src={url}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      decoding="async"
+    />
+  )
 }

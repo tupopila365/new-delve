@@ -13,6 +13,12 @@ export function createJourneyRouter(_env: Env) {
   router.get('/journeys', soft, (req, res, next) => void c.list(req, res, next))
   router.get('/journeys/mine', auth, (req, res, next) => void c.mine(req, res, next))
   router.post('/journeys', auth, (req, res, next) => void c.create(req, res, next))
+
+  // Personalisation — must be before /:journeyId to avoid route shadowing
+  router.get('/journeys/mine/personalisation', auth, (req, res, next) => void c.listPersonalisations(req, res, next))
+  router.patch('/journeys/mine/order', auth, (req, res, next) => void c.patchMyJourneyOrder(req, res, next))
+  router.patch('/journeys/:journeyId/personalisation', auth, (req, res, next) => void c.patchPersonalisation(req, res, next))
+
   router.patch('/journeys/:journeyId', auth, (req, res, next) => void c.update(req, res, next))
   router.patch('/journeys/:journeyId/cover', auth, (req, res, next) => void c.updateCover(req, res, next))
   router.get('/journeys/:journeyId/comments', soft, (req, res, next) => void c.listComments(req, res, next))

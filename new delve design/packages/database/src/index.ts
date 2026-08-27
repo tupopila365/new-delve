@@ -18,5 +18,5 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.__delvePrisma = prisma
 }
 
-export type { PrismaClient, Prisma } from '@prisma/client'
+export type { PrismaClient, Prisma, ContentReportStatus, CommunityReportStatus } from '@prisma/client'
 export { Decimal } from './decimal.js'

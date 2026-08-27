@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogIn, Navigation, Plus, Search, X } from 'lucide-react'
 import type { JourneySummary } from '@delve/contracts'
 import { fetchOnboarding } from '../api/authClient'
-import { listJourneys, listMyJourneys } from '../api/journeyClient'
+import {
+  listJourneys,
+  listMyJourneys,
+  listMyPersonalisations,
+  patchJourneyPersonalisation,
+  patchMyJourneyOrder,
+} from '../api/journeyClient'
 import JourneyCard from '../components/journeys/JourneyCard'
 import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
 import JourneysPageSkeleton from '../components/journeys/JourneysPageSkeleton'
+import JourneyHeroCarousel from '../components/journeys/JourneyHeroCarousel'
+import JourneyCategoryStrip, {
+  journeyMatchesCategory,
+  CATEGORY_MATCHERS,
+} from '../components/journeys/JourneyCategoryStrip'
+import MyJourneyCard from '../components/journeys/MyJourneyCard'
 import {
   filterMyJourneys,
   JOURNEY_DISCOVER_FILTERS,
@@ -53,6 +65,25 @@ export default function JourneysPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
+
+  // Hero carousel / category strip
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+
+  // My Journeys personalisation (local state — persists in localStorage)
+  const [myOrder, setMyOrder] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('delve_my_journey_order') ?? '[]') } catch { return [] }
+  })
+  const [myTitles, setMyTitles] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('delve_my_journey_titles') ?? '{}') } catch { return {} }
+  })
+  const [myNotes, setMyNotes] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('delve_my_journey_notes') ?? '{}') } catch { return {} }
+  })
+
+  // DnD refs
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (!signedIn) {
@@ -112,7 +143,41 @@ export default function JourneysPage({
     setLoading(true)
     setError(null)
     try {
-      setMine(await listMyJourneys())
+      const [journeys, personalisations] = await Promise.all([
+        listMyJourneys(),
+        listMyPersonalisations().catch(() => []),
+      ])
+      setMine(journeys)
+
+      const titlesMap: Record<string, string> = {}
+      const notesMap: Record<string, string> = {}
+      const orderList: { journeyId: string; sortOrder: number }[] = []
+
+      personalisations.forEach(p => {
+        if (p.customTitle) titlesMap[p.journeyId] = p.customTitle
+        if (p.notes) notesMap[p.journeyId] = p.notes
+        if (typeof p.sortOrder === 'number') {
+          orderList.push({ journeyId: p.journeyId, sortOrder: p.sortOrder })
+        }
+      })
+
+      orderList.sort((a, b) => a.sortOrder - b.sortOrder)
+      const sortedOrderIds = orderList.map(o => o.journeyId)
+
+      setMyTitles(prev => {
+        const next = { ...prev, ...titlesMap }
+        localStorage.setItem('delve_my_journey_titles', JSON.stringify(next))
+        return next
+      })
+      setMyNotes(prev => {
+        const next = { ...prev, ...notesMap }
+        localStorage.setItem('delve_my_journey_notes', JSON.stringify(next))
+        return next
+      })
+      if (sortedOrderIds.length > 0) {
+        setMyOrder(sortedOrderIds)
+        localStorage.setItem('delve_my_journey_order', JSON.stringify(sortedOrderIds))
+      }
     } catch (err) {
       setMine([])
       setError(err instanceof Error ? err.message : 'Unable to load your journeys')
@@ -126,10 +191,102 @@ export default function JourneysPage({
     else void loadMine()
   }, [tab, loadDiscover, loadMine, refreshKey])
 
+  const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'views'>('recent')
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (tab === 'discover') {
+      if (discoverFilter !== 'forYou') count++
+    } else {
+      if (mineFilter !== 'all') count++
+    }
+    if (searchQuery.trim()) count++
+    return count
+  }, [tab, discoverFilter, mineFilter, searchQuery])
+
   const list = useMemo(() => {
-    if (tab === 'discover') return discover
-    return filterMyJourneys(mine, mineFilter)
-  }, [tab, discover, mine, mineFilter])
+    if (tab === 'discover') {
+      // Apply category filter client-side first, then sort
+      const categoryFiltered = activeCategory
+        ? discover.filter(j => journeyMatchesCategory(j, activeCategory))
+        : discover
+      const sorted = [...categoryFiltered]
+      if (sortBy === 'recent') {
+        sorted.sort((a, b) => new Date(b.publishedAt || b.createdAt || 0).getTime() - new Date(a.publishedAt || a.createdAt || 0).getTime())
+      } else if (sortBy === 'popular') {
+        sorted.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
+      } else if (sortBy === 'views') {
+        sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+      }
+      return sorted
+    }
+    // My Journeys — filter then apply custom order
+    const filtered = filterMyJourneys(mine, mineFilter)
+    if (!myOrder.length) return filtered
+    const orderMap = new Map(myOrder.map((id, i) => [id, i]))
+    return [...filtered].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999))
+  }, [tab, discover, mine, mineFilter, sortBy, myOrder, activeCategory])
+
+  // Pre-compute match counts for every category so chips can show badges
+  const categoryMatchCounts = useMemo<Record<string, number>>(() => {
+    if (tab !== 'discover') return {}
+    return Object.fromEntries(
+      Object.keys(CATEGORY_MATCHERS).map(key => [
+        key,
+        discover.filter(j => journeyMatchesCategory(j, key)).length,
+      ])
+    )
+  }, [discover, tab])
+
+  // Personalisation setters (persist to localStorage and sync to backend)
+  const handleTitleChange = useCallback((id: string, title: string) => {
+    setMyTitles(prev => {
+      const next = { ...prev, [id]: title }
+      localStorage.setItem('delve_my_journey_titles', JSON.stringify(next))
+      return next
+    })
+    void patchJourneyPersonalisation(id, { customTitle: title }).catch(() => {})
+  }, [])
+
+  const handleNotesChange = useCallback((id: string, notes: string) => {
+    setMyNotes(prev => {
+      const next = { ...prev, [id]: notes }
+      localStorage.setItem('delve_my_journey_notes', JSON.stringify(next))
+      return next
+    })
+    void patchJourneyPersonalisation(id, { notes: notes }).catch(() => {})
+  }, [])
+
+  // DnD handlers
+  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
+    dragItem.current = idx
+    setDraggingIdx(idx)
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleDragEnter = useCallback((_e: React.DragEvent, idx: number) => {
+    dragOverItem.current = idx
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingIdx(null)
+    if (dragItem.current === null || dragOverItem.current === null) return
+    if (dragItem.current === dragOverItem.current) { dragItem.current = null; dragOverItem.current = null; return }
+    const ids = list.map(j => j.id)
+    const spliced = [...ids]
+    const [removed] = spliced.splice(dragItem.current, 1)
+    spliced.splice(dragOverItem.current, 0, removed!)
+    dragItem.current = null
+    dragOverItem.current = null
+    setMyOrder(spliced)
+    localStorage.setItem('delve_my_journey_order', JSON.stringify(spliced))
+    void patchMyJourneyOrder(spliced).catch(() => {})
+  }, [list])
+
+  // Category chip handler — client-side only, no API call
+  const handleSelectCategory = useCallback((key: string | null) => {
+    setActiveCategory(key)
+  }, [])
 
   const patchJourney = useCallback((updated: JourneySummary) => {
     const patchList = (rows: JourneySummary[]) =>
@@ -202,6 +359,7 @@ export default function JourneysPage({
             placeholder="Search journeys, destinations, travelers…"
             className="w-full pl-9 pr-9 rounded-xl text-sm min-h-[44px]"
             style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
+            aria-label="Search journeys, destinations, travelers"
           />
           {searchQuery && (
             <button
@@ -217,7 +375,7 @@ export default function JourneysPage({
         </div>
       </div>
 
-      <div className="px-4 sm:px-0 py-2 flex gap-2 overflow-x-auto scrollbar-none">
+      <div className="px-4 sm:px-0 py-2 flex gap-2 overflow-x-auto scrollbar-none" role="tablist" aria-label="Journey Feeds">
         {([
           { key: 'discover' as const, label: 'Discover' },
           { key: 'mine' as const, label: 'My Journeys' },
@@ -225,6 +383,8 @@ export default function JourneysPage({
           <button
             key={t.key}
             type="button"
+            role="tab"
+            aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
             className="rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap min-h-[44px]"
             style={{
@@ -240,11 +400,13 @@ export default function JourneysPage({
       </div>
 
       {tab === 'discover' && (
-        <div className="px-4 sm:px-0 pb-2 flex gap-2 overflow-x-auto scrollbar-none">
+        <div className="px-4 sm:px-0 pb-2 flex gap-2 overflow-x-auto scrollbar-none" role="tablist" aria-label="Discover Filters">
           {JOURNEY_DISCOVER_FILTERS.map(f => (
             <button
               key={f.id}
               type="button"
+              role="tab"
+              aria-selected={discoverFilter === f.id}
               onClick={() => {
                 if (f.id === 'following' && !signedIn) {
                   onSignIn?.()
@@ -252,7 +414,7 @@ export default function JourneysPage({
                 }
                 setDiscoverFilter(f.id)
               }}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
+              className="rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
               style={chipStyle(discoverFilter === f.id)}
             >
               {f.label}
@@ -262,13 +424,15 @@ export default function JourneysPage({
       )}
 
       {tab === 'mine' && signedIn && (
-        <div className="px-4 sm:px-0 pb-2 flex gap-2 overflow-x-auto scrollbar-none">
+        <div className="px-4 sm:px-0 pb-2 flex gap-2 overflow-x-auto scrollbar-none" role="tablist" aria-label="My Journey Filters">
           {MY_JOURNEY_FILTERS.map(f => (
             <button
               key={f.id}
               type="button"
+              role="tab"
+              aria-selected={mineFilter === f.id}
               onClick={() => setMineFilter(f.id)}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
+              className="rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
               style={chipStyle(mineFilter === f.id)}
             >
               {f.label}
@@ -276,6 +440,61 @@ export default function JourneysPage({
           ))}
         </div>
       )}
+
+      {/* Hero Carousel — only on Discover tab when there are results */}
+      {tab === 'discover' && !loading && !error && list.length > 0 && (
+        <JourneyHeroCarousel journeys={list} onOpen={id => onOpenJourney?.(id)} />
+      )}
+
+      {/* Category Strip — only on Discover tab */}
+      {tab === 'discover' && (
+        <JourneyCategoryStrip
+          activeCategory={activeCategory}
+          matchCounts={categoryMatchCounts}
+          onSelectCategory={handleSelectCategory}
+        />
+      )}
+
+      {/* Filter control strip */}
+      <div className="px-4 sm:px-0 py-3 flex items-center justify-between gap-3 border-b border-[var(--border)] flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeFilterCount > 0 && (
+            <span
+              className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold rounded-xl bg-[var(--primary)] text-white"
+              aria-label={`${activeFilterCount} active filters`}
+            >
+              {activeFilterCount} Active
+            </span>
+          )}
+          <span className="text-xs font-medium text-[var(--fg-muted)]">
+            {loading ? 'Searching…' : `${list.length} ${list.length === 1 ? 'journey' : 'journeys'} found`}
+          </span>
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => { setSearchQuery(''); setDiscoverFilter('forYou'); setMineFilter('all'); setActiveCategory(null) }}
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] hover:bg-[var(--surface)] text-[var(--fg)] cursor-pointer"
+              aria-label="Clear all filters"
+            >
+              <X size={12} /> Clear all
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="journeys-sort" className="text-xs font-medium text-[var(--fg-muted)]">Sort by:</label>
+          <select
+            id="journeys-sort"
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as 'recent' | 'popular' | 'views')}
+            className="rounded-xl px-2.5 py-1.5 text-xs font-semibold bg-[var(--surface)] border border-[var(--border)] text-[var(--fg)] cursor-pointer"
+            style={{ minHeight: '36px' }}
+          >
+            <option value="recent">Recent</option>
+            <option value="popular">Most Liked</option>
+            <option value="views">Most Viewed</option>
+          </select>
+        </div>
+      </div>
 
       {tab === 'mine' && !signedIn && (
         <div className="px-6 py-14 text-center">
@@ -335,20 +554,50 @@ export default function JourneysPage({
         </div>
       )}
 
+      {/* Journey card lists */}
       {!loading && !error && list.length > 0 && (tab === 'discover' || signedIn) && (
-        <div className="flex flex-col sm:gap-4 sm:pt-4">
-          {list.map(j => (
-            <JourneyCard
-              key={j.id}
-              journey={j}
-              signedIn={signedIn}
-              onSignIn={onSignIn}
-              onOpen={id => onOpenJourney?.(id)}
-              onOpenProfile={onOpenProfile}
-              onJourneyUpdated={patchJourney}
-            />
-          ))}
-        </div>
+        tab === 'mine' ? (
+          /* My Journeys — personalised cards with DnD */
+          <div
+            className="flex flex-col sm:gap-4 sm:pt-4"
+            onDragOver={e => e.preventDefault()}
+          >
+            {list.map((j, idx) => (
+              <MyJourneyCard
+                key={j.id}
+                journey={j}
+                signedIn={signedIn}
+                onSignIn={onSignIn}
+                onOpen={id => onOpenJourney?.(id)}
+                onJourneyUpdated={patchJourney}
+                customTitle={myTitles[j.id]}
+                customNotes={myNotes[j.id]}
+                onTitleChange={handleTitleChange}
+                onNotesChange={handleNotesChange}
+                dragging={draggingIdx === idx}
+                onDragStart={e => handleDragStart(e, idx)}
+                onDragEnter={e => handleDragEnter(e, idx)}
+                onDragEnd={handleDragEnd}
+                onDragOver={e => e.preventDefault()}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Discover — regular cards */
+          <div className="flex flex-col sm:gap-4 sm:pt-4">
+            {list.map(j => (
+              <JourneyCard
+                key={j.id}
+                journey={j}
+                signedIn={signedIn}
+                onSignIn={onSignIn}
+                onOpen={id => onOpenJourney?.(id)}
+                onOpenProfile={onOpenProfile}
+                onJourneyUpdated={patchJourney}
+              />
+            ))}
+          </div>
+        )
       )}
 
       <JourneyEditorSheet

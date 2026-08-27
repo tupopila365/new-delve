@@ -1,9 +1,0 @@
-/* Messages page canvas — charcoal base; cream desk lives in messages-redesign.css */
-
-.app-main:has(.msg-trail) {
-  background: #12100e;
-}
-
-.udash {
-  display: none;
-}

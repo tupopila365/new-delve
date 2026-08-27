@@ -16,6 +16,7 @@ interface CommentsSheetProps {
   fetchComments: () => Promise<CommentItem[]>
   submitComment: (body: string) => Promise<CommentItem>
   onCommentAdded?: () => void
+  onReportComment?: (commentId: string) => void
 }
 
 function CommentSkeleton() {
@@ -43,6 +44,7 @@ export default function CommentsSheet({
   fetchComments,
   submitComment,
   onCommentAdded,
+  onReportComment,
 }: CommentsSheetProps) {
   const [items, setItems] = useState<CommentItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -175,7 +177,7 @@ export default function CommentsSheet({
             </p>
           ) : (
             items.map(c => (
-              <CommentRow key={c.id} comment={c} onOpenProfile={onOpenProfile} />
+              <CommentRow key={c.id} comment={c} onOpenProfile={onOpenProfile} onReport={onReportComment} />
             ))
           )}
         </div>

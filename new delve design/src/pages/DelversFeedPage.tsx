@@ -105,6 +105,7 @@ export default function DelversFeedPage({
   const [error, setError] = useState<{ title: string; body: string; kind: 'auth' | 'forbidden' | 'generic' } | null>(null)
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
   const [reportPostId, setReportPostId] = useState<string | null>(null)
+  const [reportCommentId, setReportCommentId] = useState<string | null>(null)
   const [justPublished, setJustPublished] = useState(false)
 
   const commentsPost = feed.find(p => p.id === commentsPostId)
@@ -496,6 +497,7 @@ export default function DelversFeedPage({
       </main>
 
       <ContentReportSheet open={Boolean(reportPostId)} targetType="POST" targetId={reportPostId || ''} onClose={() => setReportPostId(null)} />
+      <ContentReportSheet open={Boolean(reportCommentId)} targetType="POST_COMMENT" targetId={reportCommentId || ''} onClose={() => setReportCommentId(null)} />
       <CommentsSheet
         open={Boolean(commentsPostId)}
         onClose={() => setCommentsPostId(null)}
@@ -509,6 +511,7 @@ export default function DelversFeedPage({
         onOpenProfile={onOpenProfile}
         fetchComments={loadPostComments}
         submitComment={submitPostComment}
+        onReportComment={setReportCommentId}
         onCommentAdded={() => {
           if (!commentsPostId) return
           setFeed(list =>

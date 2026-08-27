@@ -199,7 +199,7 @@ export async function listComments(postId: string) {
   const post = await prisma.post.findFirst({ where: { id: postId, status: 'PUBLISHED', deletedAt: null, ...publicModerationWhere() } })
   if (!post) throw new AppError(404, 'NOT_FOUND', 'Post not found')
   const rows = await prisma.comment.findMany({
-    where: { postId, deletedAt: null },
+    where: { postId, deletedAt: null, ...publicModerationWhere() },
     orderBy: { createdAt: 'asc' },
     take: 200,
   })
@@ -263,7 +263,7 @@ export async function getPostDto(env: Env, postId: string, viewerId: string | nu
   }
   const [likeCount, commentCount, liked, saved] = await Promise.all([
     prisma.reaction.count({ where: { postId, type: 'LIKE' } }),
-    prisma.comment.count({ where: { postId, deletedAt: null } }),
+    prisma.comment.count({ where: { postId, deletedAt: null, ...publicModerationWhere() } }),
     viewerId
       ? prisma.reaction.findUnique({
           where: { userId_postId_type: { userId: viewerId, postId, type: 'LIKE' } },

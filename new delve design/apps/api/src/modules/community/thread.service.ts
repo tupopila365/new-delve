@@ -326,7 +326,7 @@ export async function getThread(threadId: string, viewerId: string | null): Prom
     include: {
       ...threadInclude,
       answers: {
-        where: { deletedAt: null },
+        where: { deletedAt: null, ...publicModerationWhere() },
         orderBy: { createdAt: 'asc' },
         take: 200,
       },

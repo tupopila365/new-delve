@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { AppError } from '../../middleware/error-handler.js'
 import type { AdminAuthedRequest } from '../../middleware/require-admin-session.js'
 import * as travelers from './admin-travelers.service.js'
+import { adminGetTravelerSafetyHistory } from './admin-moderation.service.js'
 import * as booking from '../booking/booking.service.js'
 
 function ok<T>(res: Response, data: T, status = 200) {
@@ -76,6 +77,13 @@ export function createAdminTravelersController() {
     async communities(req: Request, res: Response, next: NextFunction) {
       try {
         ok(res, await travelers.adminListTravelerCommunities(requireId(req.params.userId, 'userId'), req.query))
+      } catch (err) {
+        next(err)
+      }
+    },
+    async safety(req: Request, res: Response, next: NextFunction) {
+      try {
+        ok(res, await adminGetTravelerSafetyHistory(requireId(req.params.userId, 'userId')))
       } catch (err) {
         next(err)
       }

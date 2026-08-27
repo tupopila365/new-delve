@@ -14,7 +14,9 @@ vi.mock('@delve/database', () => ({
     communityReport: { count: vi.fn() },
     contentReport: { count: vi.fn() },
     post: { count: vi.fn(), findMany: vi.fn() },
-    comment: { count: vi.fn() },
+    comment: { count: vi.fn(), findMany: vi.fn() },
+    contentModerationAction: { count: vi.fn() },
+    adminAuditLog: { count: vi.fn(), create: vi.fn() },
     save: { count: vi.fn() },
     follow: { count: vi.fn() },
     payment: { groupBy: vi.fn(), findMany: vi.fn(), count: vi.fn() },
@@ -105,6 +107,9 @@ function mockDetailCounts() {
   vi.mocked(prisma.post.findMany).mockResolvedValue([])
   vi.mocked(prisma.travelerEvent.findMany).mockResolvedValue([])
   vi.mocked(prisma.journey.findMany).mockResolvedValue([])
+  vi.mocked(prisma.comment.findMany).mockResolvedValue([])
+  vi.mocked(prisma.contentModerationAction.count).mockResolvedValue(0)
+  vi.mocked(prisma.adminAuditLog.count).mockResolvedValue(0)
 }
 
 describe('admin travelers', () => {

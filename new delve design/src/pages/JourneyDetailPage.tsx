@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, AlertCircle, Car, Pencil, Heart, MessageCircle, Share2, Flag,
+  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, AlertCircle, Car, Pencil, Heart, MessageCircle, Share2, Flag, MoreHorizontal,
 } from 'lucide-react'
 import type { JourneyDetail } from '@delve/contracts'
 import {
@@ -61,6 +61,7 @@ export default function JourneyDetailPage({
   const [shareNote, setShareNote] = useState<string | null>(null)
   const [shareBusy, setShareBusy] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const viewerId = getStoredUser()?.id
   const isOwner = Boolean(journey && viewerId && journey.author.id === viewerId)
 
@@ -83,6 +84,35 @@ export default function JourneyDetailPage({
   useEffect(() => {
     void load()
   }, [load])
+
+  // Structured data — schema.org/TravelAction
+  useEffect(() => {
+    if (!journey) return
+    const script = document.createElement('script')
+    script.id = `journey-ld-${journey.id}`
+    script.type = 'application/ld+json'
+    script.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'TravelAction',
+      name: journey.title,
+      description: journey.summary || `${journey.startPlace} → ${journey.endPlace}`,
+      image: journey.coverUrl || undefined,
+      agent: {
+        '@type': 'Person',
+        name: journey.author.displayName || journey.author.username,
+        identifier: journey.author.username,
+      },
+      ...(journey.startDate ? { startTime: journey.startDate } : {}),
+      ...(journey.endDate ? { endTime: journey.endDate } : {}),
+      location: journey.startPlace
+        ? { '@type': 'Place', name: journey.startPlace }
+        : undefined,
+    })
+    document.head.appendChild(script)
+    return () => {
+      document.getElementById(`journey-ld-${journey.id}`)?.remove()
+    }
+  }, [journey])
 
   const loadJourneyComments = useCallback(async () => {
     const rows = await fetchJourneyComments(journeyId)
@@ -235,7 +265,8 @@ export default function JourneyDetailPage({
           type="button"
           onClick={onBack}
           className="inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ color: 'var(--primary)' }}
+          style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          aria-label="Back to Journeys list"
         >
           <ArrowLeft size={16} /> Back
         </button>
@@ -245,94 +276,94 @@ export default function JourneyDetailPage({
               type="button"
               onClick={() => setEditOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
-              style={{
-                background: 'var(--surface)',
-                color: 'var(--fg)',
-                border: '1px solid var(--border)',
-              }}
+              style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)', cursor: 'pointer' }}
+              aria-label="Edit journey details"
             >
               <Pencil size={16} /> Edit
             </button>
           )}
-          <button
-            type="button"
-            disabled={likeBusy}
-            onClick={() => void toggleLike()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-            style={{
-              background: liked ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-              color: liked ? 'var(--primary)' : 'var(--fg)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <Heart size={16} fill={liked ? 'var(--primary)' : 'none'} />
-            {journey.likeCount}
-          </button>
-          <button
-            type="button"
-            disabled={saveBusy}
-            onClick={() => void toggleSave()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-            style={{
-              background: saved ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-              color: saved ? 'var(--primary)' : 'var(--fg)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <Bookmark size={16} fill={saved ? 'var(--primary)' : 'none'} />
-            {saved ? 'Saved' : 'Save'}
-          </button>
-          {onOpenGroupChat && (
+          {/* ⋯ overflow menu */}
+          <div className="relative">
             <button
               type="button"
-              onClick={() => {
-                if (!signedIn) {
-                  onSignIn?.()
-                  return
-                }
-                onOpenGroupChat(journey.id)
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
-              style={{
-                background: 'var(--primary)',
-                color: '#fff',
-                border: 'none',
-              }}
+              onClick={() => setMoreOpen(v => !v)}
+              className="inline-flex items-center justify-center w-10 h-10 rounded-xl"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--fg)' }}
+              aria-label="More options"
+              aria-expanded={moreOpen}
             >
-              <MessageCircle size={16} /> Group chat
+              <MoreHorizontal size={20} />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => void shareJourney()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
-            style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
-          >
-            <Share2 size={16} /> Share
-          </button>
-          <button
-            type="button"
-            disabled={shareBusy}
-            onClick={() => void shareToDelvers()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-            style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)', cursor: 'pointer' }}
-          >
-            <Share2 size={16} /> Delvers
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!signedIn) {
-                onSignIn?.()
-                return
-              }
-              setReportOpen(true)
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
-            style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
-          >
-            <Flag size={16} /> Report
-          </button>
+            {moreOpen && (
+              <>
+                {/* Transparent backdrop to close menu on outside click */}
+                <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                <div
+                  className="absolute right-0 top-12 z-50 rounded-2xl overflow-hidden"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
+                    minWidth: 200,
+                  }}
+                  role="menu"
+                  aria-label="Journey actions"
+                >
+                  <button
+                    type="button"
+                    onClick={() => { void shareJourney(); setMoreOpen(false) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left"
+                    style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
+                    role="menuitem"
+                    aria-label="Share journey link"
+                  >
+                    <Share2 size={15} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} /> Share link
+                  </button>
+                  <button
+                    type="button"
+                    disabled={shareBusy}
+                    onClick={() => { void shareToDelvers(); setMoreOpen(false) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left disabled:opacity-60"
+                    style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
+                    role="menuitem"
+                    aria-label="Share journey to Delvers feed"
+                  >
+                    <Share2 size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} /> Share to Delvers
+                  </button>
+                  {onOpenGroupChat && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!signedIn) { onSignIn?.(); setMoreOpen(false); return }
+                        onOpenGroupChat(journey.id)
+                        setMoreOpen(false)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left"
+                      style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
+                      role="menuitem"
+                      aria-label="Open journey group chat"
+                    >
+                      <MessageCircle size={15} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} /> Group chat
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!signedIn) { onSignIn?.(); setMoreOpen(false); return }
+                      setReportOpen(true)
+                      setMoreOpen(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left"
+                    style={{ background: 'none', border: 'none', color: 'var(--auth-danger)', cursor: 'pointer' }}
+                    role="menuitem"
+                    aria-label="Report journey content"
+                  >
+                    <Flag size={15} style={{ flexShrink: 0 }} /> Report
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -343,7 +374,9 @@ export default function JourneyDetailPage({
               url={journey.coverUrl || journey.media[0]!}
               resourceType={journey.coverResourceType}
               className="w-full h-full object-cover"
+              alt={journey.title}
               variant="hero"
+              priority="high"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -351,6 +384,50 @@ export default function JourneyDetailPage({
             </div>
           )}
         </DoubleTapLike>
+      </div>
+
+      {/* Social action bar — like, comments, save */}
+      <div
+        className="px-4 sm:px-0 py-3 flex items-center gap-5"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
+        <button
+          type="button"
+          disabled={likeBusy}
+          onClick={() => void toggleLike()}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold disabled:opacity-60"
+          style={{ background: 'none', border: 'none', color: liked ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
+          aria-label={liked ? "Unlike journey" : "Like journey"}
+          aria-pressed={liked}
+        >
+          <Heart size={22} fill={liked ? 'currentColor' : 'none'} />
+          <span>{journey.likeCount}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCommentsOpen(true)}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold"
+          style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
+          aria-label={`View comments, ${journey.commentCount} comment${journey.commentCount === 1 ? '' : 's'}`}
+        >
+          <MessageCircle size={22} />
+          <span>{journey.commentCount}</span>
+        </button>
+        {shareNote && (
+          <p className="text-xs m-0" style={{ color: 'var(--primary)' }} role="status">{shareNote}</p>
+        )}
+        <button
+          type="button"
+          disabled={saveBusy}
+          onClick={() => void toggleSave()}
+          className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold disabled:opacity-60"
+          style={{ background: 'none', border: 'none', color: saved ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
+          aria-label={saved ? 'Unsave journey' : 'Save journey'}
+          aria-pressed={saved}
+        >
+          <Bookmark size={22} fill={saved ? 'currentColor' : 'none'} />
+          <span>{saved ? 'Saved' : 'Save'}</span>
+        </button>
       </div>
 
       <div className="px-4 sm:px-0 pt-4">
@@ -363,9 +440,6 @@ export default function JourneyDetailPage({
         <p className="text-xs font-bold uppercase tracking-wide m-0 mb-2" style={{ color: 'var(--primary)' }}>
           {lifecycleLabel(lifecycle)}
         </p>
-        {shareNote && (
-          <p className="text-xs mb-2" style={{ color: 'var(--primary)' }} role="status">{shareNote}</p>
-        )}
         {progressPct != null && (
           <div className="mb-3">
             <p className="text-xs m-0 mb-1" style={{ color: 'var(--fg-muted)' }}>
@@ -385,11 +459,12 @@ export default function JourneyDetailPage({
           onClick={() => onOpenProfile?.(journey.author.username)}
           className="flex items-center gap-2 mb-4"
           style={{ background: 'none', border: 'none', padding: 0, cursor: onOpenProfile ? 'pointer' : 'default' }}
+          aria-label={`View profile of ${journey.author.displayName || journey.author.username}`}
         >
           {journey.author.avatarUrl ? (
-            <img src={journey.author.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+            <img src={journey.author.avatarUrl} alt={`Avatar of ${journey.author.displayName || journey.author.username}`} className="w-8 h-8 rounded-full object-cover" />
           ) : (
-            <div className="w-8 h-8 rounded-full" style={{ background: 'var(--surface-subtle)' }} />
+            <div className="w-8 h-8 rounded-full" style={{ background: 'var(--surface-subtle)' }} aria-hidden="true" />
           )}
           <div className="text-left">
             <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
@@ -454,7 +529,7 @@ export default function JourneyDetailPage({
             <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
               Linked events
             </h2>
-            <div className="flex flex-col gap-2 mb-5">
+            <div className="flex flex-col gap-2 mb-5" role="list" aria-label="Linked events">
               {journey.events!.map(ev => (
                 <button
                   key={ev.id}
@@ -467,11 +542,13 @@ export default function JourneyDetailPage({
                     cursor: onOpenEvent ? 'pointer' : 'default',
                     padding: 0,
                   }}
+                  role="listitem"
+                  aria-label={`Open event details for ${ev.title}`}
                 >
                   {ev.coverUrl ? (
-                    <img src={ev.coverUrl} alt="" className="w-16 h-16 object-cover flex-shrink-0" />
+                    <img src={ev.coverUrl} alt={`Cover for event ${ev.title}`} className="w-16 h-16 object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
+                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} aria-hidden="true" />
                   )}
                   <div className="min-w-0 pr-3 py-2">
                     <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{ev.title}</p>
@@ -491,12 +568,14 @@ export default function JourneyDetailPage({
             <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
               Booked
             </h2>
-            <div className="flex flex-col gap-2 mb-5">
+            <div className="flex flex-col gap-2 mb-5" role="list" aria-label="Bookings">
               {journey.bookings!.map(row => (
                 <div
                   key={row.id}
                   className="rounded-2xl px-3 py-3"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                  role="listitem"
+                  aria-label={`Booking: ${row.listingTitle}, status: ${row.status}`}
                 >
                   <p className="text-xs font-semibold m-0" style={{ color: '#0F8A52' }}>
                     BOOKED ✓ · {row.status}
@@ -526,17 +605,19 @@ export default function JourneyDetailPage({
             <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
               Linked deals
             </h2>
-            <div className="flex flex-col gap-2 mb-5">
+            <div className="flex flex-col gap-2 mb-5" role="list" aria-label="Linked deals">
               {journey.deals!.map(deal => (
                 <div
                   key={deal.id}
                   className="flex items-center gap-3 rounded-2xl overflow-hidden"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+                  role="listitem"
+                  aria-label={`Deal: ${deal.title}, discount: ${deal.discountSummary}`}
                 >
                   {deal.coverUrl ? (
-                    <img src={deal.coverUrl} alt="" className="w-16 h-16 object-cover flex-shrink-0" />
+                    <img src={deal.coverUrl} alt={`Cover for deal ${deal.title}`} className="w-16 h-16 object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
+                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} aria-hidden="true" />
                   )}
                   <div className="min-w-0 pr-3 py-2">
                     <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{deal.title}</p>
@@ -551,49 +632,88 @@ export default function JourneyDetailPage({
           </>
         )}
 
-        <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+        <h2 className="text-base font-bold m-0 mb-4" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
           Stops
         </h2>
-        <div className="flex flex-col gap-3">
+        {/* Timeline layout */}
+        <div className="relative" role="list" aria-label="Journey stops timeline">
+          {/* Vertical gradient line */}
+          <div
+            className="absolute"
+            style={{
+              left: 19,
+              top: 20,
+              bottom: 20,
+              width: 2,
+              background: 'linear-gradient(to bottom, var(--primary), var(--border))',
+              borderRadius: 1,
+              zIndex: 0,
+            }}
+          />
           {journey.stops.map((stop, i) => (
-            <article
-              key={stop.id}
-              className="rounded-2xl overflow-hidden"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <JourneyStopMediaGallery
-                mediaUrls={stop.mediaUrls}
-                mediaResourceTypes={stop.mediaResourceTypes}
-              />
-              <div className="p-4">
-                <p className="text-xs font-bold m-0 mb-1" style={{ color: 'var(--primary)' }}>
-                  Stop {i + 1} · Day {stop.arrivalDay}
-                </p>
-                <p className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-                  {stop.place}
-                  {stop.region ? ` · ${stop.region}` : ''}
-                </p>
-                {stop.notes && (
-                  <p className="text-sm m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                    {stop.notes}
-                  </p>
-                )}
-                {stop.highlights.length > 0 && (
-                  <ul className="m-0 pl-4 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                    {stop.highlights.map(h => (
-                      <li key={h}>{h}</li>
-                    ))}
-                  </ul>
-                )}
-                {stop.transportModeToNext && (
-                  <p className="text-xs m-0 mt-2 inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                    <Car size={12} />
-                    Next: {stop.transportModeToNext}
-                    {stop.transportDurationToNext ? ` · ${stop.transportDurationToNext}` : ''}
-                  </p>
-                )}
+            <div key={stop.id} role="listitem" aria-label={`Stop ${i + 1} of ${journey.stops.length}: ${stop.place}${stop.region ? `, ${stop.region}` : ''}. Day ${stop.arrivalDay}.`}>
+              <div className="flex gap-4 items-start">
+                {/* Numbered timeline dot */}
+                <div className="flex-shrink-0 relative" style={{ zIndex: 1 }}>
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                    style={{
+                      background: i === 0 || i === journey.stops.length - 1 ? 'var(--primary)' : 'var(--surface)',
+                      color: i === 0 || i === journey.stops.length - 1 ? '#fff' : 'var(--primary)',
+                      border: '2px solid var(--primary)',
+                    }}
+                    aria-hidden="true"
+                  >
+                    {i + 1}
+                  </div>
+                </div>
+                {/* Stop card */}
+                <article
+                  className="flex-1 rounded-2xl overflow-hidden mb-4"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 0 }}
+                >
+                  <JourneyStopMediaGallery
+                    mediaUrls={stop.mediaUrls}
+                    mediaResourceTypes={stop.mediaResourceTypes}
+                  />
+                  <div className="p-4">
+                    <p className="text-xs font-bold m-0 mb-1" style={{ color: 'var(--primary)' }}>
+                      Day {stop.arrivalDay}
+                    </p>
+                    <p className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+                      {stop.place}
+                      {stop.region ? ` · ${stop.region}` : ''}
+                    </p>
+                    {stop.notes && (
+                      <p className="text-sm m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
+                        {stop.notes}
+                      </p>
+                    )}
+                    {stop.highlights.length > 0 && (
+                      <ul className="m-0 pl-4 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                        {stop.highlights.map(h => (
+                          <li key={h}>{h}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </article>
               </div>
-            </article>
+              {/* Transport connector between stops */}
+              {stop.transportModeToNext && i < journey.stops.length - 1 && (
+                <div
+                  className="flex items-center gap-2 mb-3 ml-14"
+                  style={{ color: 'var(--fg-muted)' }}
+                >
+                  <Car size={13} aria-hidden="true" />
+
+                  <span className="text-xs font-medium">
+                    {stop.transportModeToNext}
+                    {stop.transportDurationToNext ? ` · ${stop.transportDurationToNext}` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
           ))}
         </div>
 

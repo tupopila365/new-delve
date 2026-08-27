@@ -161,7 +161,9 @@ export default function JourneyCard({
                 url={journey.coverUrl}
                 resourceType={journey.coverResourceType}
                 className="absolute inset-0 w-full h-full object-cover"
+                alt={journey.title}
                 variant="card"
+                priority="low"
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">

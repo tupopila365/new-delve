@@ -207,6 +207,7 @@ enum ContentReportTargetType {
   POST
   EVENT
   JOURNEY
+  POST_COMMENT
 }
 
 enum ContentReportReason {
@@ -245,6 +246,8 @@ enum AdminModerationTargetType {
   JOURNEY
   COMMUNITY
   COMMUNITY_THREAD
+  POST_COMMENT
+  COMMUNITY_COMMENT
 }
 
 model User {
@@ -292,6 +295,7 @@ model User {
   contentReportsFiled      ContentReport[]                 @relation("ContentReportsFiled")
   contentReportsReviewed   ContentReport[]                 @relation("ContentReportsReviewed")
   contentModerationActions ContentModerationAction[]
+  contentAppeals           ContentAppeal[]
   communityInvitesReceived CommunityInvite[]               @relation("CommunityInvitesReceived")
   communityInvitesSent     CommunityInvite[]               @relation("CommunityInvitesSent")
   communityAuditLogs       CommunityAuditLog[]             @relation("CommunityAuditActor")
@@ -303,6 +307,7 @@ model User {
   journeyReactions         JourneyReaction[]
   journeyEvents            JourneyEvent[]
   journeyDeals             JourneyDeal[]
+  journeyPersonalisations  JourneyPersonalisation[]
   dealClaims               DealClaim[]
   bookings                 Booking[]
   payments                 Payment[]
@@ -711,18 +716,21 @@ model Reaction {
 }
 
 model Comment {
-  id        String    @id @default(cuid())
-  postId    String
-  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  body      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id               String                  @id @default(cuid())
+  postId           String
+  post             Post                    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId         String
+  author           User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body             String
+  /// Platform Admin visibility. Distinct from creator deletedAt.
+  moderationStatus ContentModerationStatus @default(VISIBLE)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
 
   @@index([postId, createdAt])
   @@index([authorId])
+  @@index([moderationStatus])
 }
 
 model Save {
@@ -1779,27 +1787,31 @@ model CommunityReport {
   @@index([targetType, targetId])
 }
 
-/// Traveler reports against Delvers posts, events, and journeys. Community reports stay on CommunityReport.
+/// Traveler reports against Delvers posts, events, journeys, and post comments.
+/// Community thread/answer reports stay on CommunityReport.
+/// Open-report uniqueness is a partial unique index (see migration), not a lifetime unique.
 model ContentReport {
-  id                String                  @id @default(cuid())
-  reporterId        String
-  reporter          User                    @relation("ContentReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
-  targetType        ContentReportTargetType
-  targetId          String
-  reason            ContentReportReason
-  details           String?
-  status            ContentReportStatus     @default(OPEN)
-  reviewedAt        DateTime?
-  reviewedByAdminId String?
-  reviewedBy        User?                   @relation("ContentReportsReviewed", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
-  resolution        String?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  id                   String                  @id @default(cuid())
+  reporterId           String
+  reporter             User                    @relation("ContentReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType           ContentReportTargetType
+  targetId             String
+  reason               ContentReportReason
+  details              String?
+  /// Text/title as seen at report time. Media assets are not copied.
+  reportedTextSnapshot String?
+  status               ContentReportStatus     @default(OPEN)
+  reviewedAt           DateTime?
+  reviewedByAdminId    String?
+  reviewedBy           User?                   @relation("ContentReportsReviewed", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  resolution           String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
 
-  @@unique([reporterId, targetType, targetId])
   @@index([status, createdAt])
   @@index([targetType, targetId])
   @@index([reporterId, createdAt])
+  @@index([reporterId, targetType, targetId, status])
 }
 
 model ContentModerationAction {
@@ -1812,9 +1824,39 @@ model ContentModerationAction {
   actorUserId String
   actor       User                        @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
   createdAt   DateTime                    @default(now())
+  appeals     ContentAppeal[]
 
   @@index([targetType, targetId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+/// Future Content Appeal domain. Distinct from ContentReport. No traveler submission UI in Phase 5.
+enum ContentAppealStatus {
+  OPEN
+  UNDER_REVIEW
+  UPHELD
+  OVERTURNED
+  WITHDRAWN
+}
+
+model ContentAppeal {
+  id                 String                    @id @default(cuid())
+  moderationActionId String
+  moderationAction   ContentModerationAction   @relation(fields: [moderationActionId], references: [id], onDelete: Restrict)
+  appellantUserId    String
+  appellant          User                      @relation(fields: [appellantUserId], references: [id], onDelete: Cascade)
+  targetType         AdminModerationTargetType
+  targetId           String
+  statement          String?
+  status             ContentAppealStatus       @default(OPEN)
+  reviewedAt         DateTime?
+  reviewedByAdminId  String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  @@index([moderationActionId])
+  @@index([targetType, targetId])
+  @@index([appellantUserId, createdAt])
 }
 
 model CommunityInvite {
@@ -1909,22 +1951,25 @@ model CommunityThread {
 }
 
 model CommunityAnswer {
-  id           String          @id @default(cuid())
-  threadId     String
-  thread       CommunityThread @relation("ThreadAnswers", fields: [threadId], references: [id], onDelete: Cascade)
-  authorId     String
-  author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  body         String
-  helpfulCount Int             @default(0)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  deletedAt    DateTime?
+  id               String                  @id @default(cuid())
+  threadId         String
+  thread           CommunityThread         @relation("ThreadAnswers", fields: [threadId], references: [id], onDelete: Cascade)
+  authorId         String
+  author           User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body             String
+  helpfulCount     Int                     @default(0)
+  /// Platform Admin visibility. Distinct from creator deletedAt.
+  moderationStatus ContentModerationStatus @default(VISIBLE)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
 
   acceptedFor CommunityThread? @relation("AcceptedAnswer")
 
   @@index([threadId, createdAt])
   @@index([authorId])
   @@index([deletedAt])
+  @@index([moderationStatus])
 }
 
 model CommunityThreadReaction {
@@ -1984,6 +2029,27 @@ model Journey {
   @@index([visibility, publishedAt])
   @@index([moderationStatus])
   @@index([deletedAt])
+  personalisations JourneyPersonalisation[]
+}
+
+/// Per-user personalisation layer for journeys the user has authored or saved.
+/// Stores private custom title, personal notes, and display sort order.
+/// Never exposed to other users — owner-only read/write via authenticated API.
+model JourneyPersonalisation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journeyId   String
+  journey     Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  customTitle String?  @db.VarChar(200)
+  notes       String?  @db.VarChar(4000)
+  /// Lower = shown first in My Journeys list. Null = no custom order (use createdAt).
+  sortOrder   Int?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, journeyId])
+  @@index([userId, sortOrder])
+  @@index([journeyId])
 }
 
 /// Reference link: event added to a journey (does not duplicate event data).

@@ -1,9 +1,0 @@
-/* Travel dashboard page canvas — charcoal base; passport lives in user-dashboard.css */
-
-.app-main:has(.t-dash) {
-  background: #12100e;
-}
-
-.udash {
-  display: none;
-}

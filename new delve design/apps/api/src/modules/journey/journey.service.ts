@@ -6,9 +6,11 @@ import type {
   JourneyLifecycleStatus,
   JourneyListQuery,
   JourneyPartyType,
+  JourneyPersonalisationDto,
   JourneyStopDto,
   JourneySummary,
   JourneyVisibility,
+  PatchJourneyPersonalisationBody,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
 import { getPublicProfileByUsername } from '../social/profile-public.service.js'
@@ -970,4 +972,84 @@ export async function removeBookingFromJourney(userId: string, journeyId: string
   }
   await prisma.journeyBooking.deleteMany({ where: { journeyId, bookingId } })
   return getJourney(journeyId, userId)
+}
+
+// ─── Personalisation ─────────────────────────────────────────────────────────
+
+/** Returns all personalisation rows for the user's journeys. */
+export async function listMyPersonalisations(userId: string): Promise<JourneyPersonalisationDto[]> {
+  const rows = await prisma.journeyPersonalisation.findMany({
+    where: { userId },
+    select: { journeyId: true, customTitle: true, notes: true, sortOrder: true },
+  })
+  return rows.map(r => ({
+    journeyId: r.journeyId,
+    customTitle: r.customTitle ?? null,
+    notes: r.notes ?? null,
+    sortOrder: r.sortOrder ?? null,
+  }))
+}
+
+/**
+ * Upsert customTitle and/or notes for a single journey.
+ * Only the journey's author may personalise it.
+ */
+export async function patchPersonalisation(
+  userId: string,
+  journeyId: string,
+  body: PatchJourneyPersonalisationBody,
+): Promise<JourneyPersonalisationDto> {
+  const journey = await prisma.journey.findFirst({ where: { id: journeyId, deletedAt: null } })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+  if (journey.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You can only personalise your own journeys.')
+  }
+  const row = await prisma.journeyPersonalisation.upsert({
+    where: { userId_journeyId: { userId, journeyId } },
+    create: {
+      userId,
+      journeyId,
+      customTitle: body.customTitle ?? null,
+      notes: body.notes ?? null,
+    },
+    update: {
+      ...(body.customTitle !== undefined ? { customTitle: body.customTitle } : {}),
+      ...(body.notes !== undefined ? { notes: body.notes } : {}),
+    },
+    select: { journeyId: true, customTitle: true, notes: true, sortOrder: true },
+  })
+  return {
+    journeyId: row.journeyId,
+    customTitle: row.customTitle ?? null,
+    notes: row.notes ?? null,
+    sortOrder: row.sortOrder ?? null,
+  }
+}
+
+/**
+ * Bulk-update sort order for the user's journeys.
+ * orderedIds is the full desired ordering (index = sortOrder value).
+ * Only IDs that belong to the calling user are written.
+ */
+export async function patchMyJourneyOrder(
+  userId: string,
+  orderedIds: string[],
+): Promise<void> {
+  // Verify every ID belongs to the user (ignore unknown/foreign IDs silently)
+  const myJourneys = await prisma.journey.findMany({
+    where: { authorId: userId, id: { in: orderedIds }, deletedAt: null },
+    select: { id: true },
+  })
+  const mySet = new Set(myJourneys.map(j => j.id))
+  const validIds = orderedIds.filter(id => mySet.has(id))
+
+  await prisma.$transaction(
+    validIds.map((id, idx) =>
+      prisma.journeyPersonalisation.upsert({
+        where: { userId_journeyId: { userId, journeyId: id } },
+        create: { userId, journeyId: id, sortOrder: idx },
+        update: { sortOrder: idx },
+      })
+    )
+  )
 }

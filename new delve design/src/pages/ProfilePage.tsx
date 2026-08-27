@@ -40,6 +40,7 @@ import PostMediaCarousel from '../components/delvers/PostMediaCarousel'
 import EventCoverMedia from '../components/EventCoverMedia'
 import FollowListSheet, { type FollowListTab } from '../components/profile/FollowListSheet'
 import CommentsSheet from '../components/comments/CommentsSheet'
+import ContentReportSheet from '../components/safety/ContentReportSheet'
 import { mapPostComment } from '../components/comments/mappers'
 
 type ProfileTab = 'Delvers' | 'Events' | 'Journeys' | 'Communities' | 'Reviews' | 'About'
@@ -230,6 +231,7 @@ export default function ProfilePage({
   const [followBusy, setFollowBusy] = useState(false)
   const [followListOpen, setFollowListOpen] = useState<FollowListTab | null>(null)
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null)
+  const [reportCommentId, setReportCommentId] = useState<string | null>(null)
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [avatarFailed, setAvatarFailed] = useState(false)
@@ -1431,6 +1433,7 @@ export default function ProfilePage({
       }}
       fetchComments={loadPostComments}
       submitComment={submitPostComment}
+      onReportComment={setReportCommentId}
       onCommentAdded={() => {
         if (!commentsPostId) return
         setPosts(list =>
@@ -1439,6 +1442,12 @@ export default function ProfilePage({
           ),
         )
       }}
+    />
+    <ContentReportSheet
+      open={Boolean(reportCommentId)}
+      targetType="POST_COMMENT"
+      targetId={reportCommentId || ''}
+      onClose={() => setReportCommentId(null)}
     />
     </>
   )

@@ -10,7 +10,8 @@ vi.mock('@delve/database', () => ({
     post: { findFirst: vi.fn() },
     travelerEvent: { findFirst: vi.fn() },
     journey: { findFirst: vi.fn() },
-    contentReport: { findUnique: vi.fn(), create: vi.fn() },
+    comment: { findFirst: vi.fn() },
+    contentReport: { findFirst: vi.fn(), create: vi.fn() },
   },
 }))
 
@@ -82,8 +83,8 @@ describe('traveler content report HTTP', () => {
       role: 'traveler',
       accountStatus: 'active',
     } as never)
-    vi.mocked(prisma.post.findFirst).mockResolvedValue({ id: 'post-1' } as never)
-    vi.mocked(prisma.contentReport.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.post.findFirst).mockResolvedValue({ id: 'post-1', caption: 'Hello' } as never)
+    vi.mocked(prisma.contentReport.findFirst).mockResolvedValue(null)
     vi.mocked(prisma.contentReport.create).mockResolvedValue({ id: 'rep-1' } as never)
     const res = await fetch(`${base}/reports`, {
       method: 'POST',

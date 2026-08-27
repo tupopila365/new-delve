@@ -77,6 +77,9 @@ export const adminTravelerDetailSchema = z.object({
     openReportsAgainstContent: z.number().int().min(0),
     removedContentCount: z.number().int().min(0),
     resolvedReportCount: z.number().int().min(0),
+    commentsRemoved: z.number().int().min(0),
+    removedLast30Days: z.number().int().min(0),
+    priorAccountRestrictions: z.number().int().min(0),
   }),
 })
 

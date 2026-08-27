@@ -10,8 +10,9 @@ import type {
 } from '@delve/contracts'
 import { adminJson } from './adminClient'
 
-export function adminModerationOpsSummary() {
-  return adminJson<AdminModerationOpsSummary>('/admin/ops/moderation-summary')
+export function adminModerationOpsSummary(period?: string) {
+  const qs = period ? `?period=${encodeURIComponent(period)}` : ''
+  return adminJson<AdminModerationOpsSummary>(`/admin/ops/moderation-summary${qs}`)
 }
 
 export function adminListModerationQueue(params: URLSearchParams) {
@@ -44,6 +45,12 @@ export function adminListModerationEvents(params: URLSearchParams) {
 export function adminListModerationJourneys(params: URLSearchParams) {
   return adminJson<{ items: AdminJourneyModerationSummary[]; page: number; pageSize: number; total: number; hasNext: boolean; hasPrevious: boolean }>(
     `/admin/moderation/journeys?${params.toString()}`,
+  )
+}
+
+export function adminListModerationComments(params: URLSearchParams) {
+  return adminJson<{ items: import('@delve/contracts').AdminCommentModerationSummary[]; page: number; pageSize: number; total: number; hasNext: boolean; hasPrevious: boolean }>(
+    `/admin/moderation/comments?${params.toString()}`,
   )
 }
 

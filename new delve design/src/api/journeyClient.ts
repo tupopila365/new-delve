@@ -109,3 +109,34 @@ export async function addBookingToJourney(journeyId: string, bookingId: string) 
     body: JSON.stringify({ bookingId }),
   })
 }
+
+// ─── Personalisation ─────────────────────────────────────────────────────────
+
+import type {
+  JourneyPersonalisationDto,
+  PatchJourneyPersonalisationBody,
+} from '@delve/contracts'
+
+/** Fetch all personalisation rows for the signed-in user's journeys. */
+export async function listMyPersonalisations() {
+  return authorizedJson<JourneyPersonalisationDto[]>('/journeys/mine/personalisation')
+}
+
+/** Upsert customTitle and/or notes for one journey. */
+export async function patchJourneyPersonalisation(
+  journeyId: string,
+  body: PatchJourneyPersonalisationBody,
+) {
+  return authorizedJson<JourneyPersonalisationDto>(
+    `/journeys/${encodeURIComponent(journeyId)}/personalisation`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  )
+}
+
+/** Save the user's preferred display order for their My Journeys list. */
+export async function patchMyJourneyOrder(orderedIds: string[]) {
+  return authorizedJson<{ ok: boolean }>('/journeys/mine/order', {
+    method: 'PATCH',
+    body: JSON.stringify({ orderedIds }),
+  })
+}

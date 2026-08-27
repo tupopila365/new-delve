@@ -1,4 +1,4 @@
-import { User } from 'lucide-react'
+import { Flag, User } from 'lucide-react'
 import { formatUsername } from '../../lib/formatUsername'
 import { timeAgoShort } from '../../lib/timeAgoShort'
 import type { CommentItem } from './types'
@@ -6,9 +6,10 @@ import type { CommentItem } from './types'
 interface CommentRowProps {
   comment: CommentItem
   onOpenProfile?: (username: string) => void
+  onReport?: (commentId: string) => void
 }
 
-export default function CommentRow({ comment, onOpenProfile }: CommentRowProps) {
+export default function CommentRow({ comment, onOpenProfile, onReport }: CommentRowProps) {
   const name = comment.author.displayName || formatUsername(comment.author.username)
 
   return (
@@ -58,6 +59,17 @@ export default function CommentRow({ comment, onOpenProfile }: CommentRowProps) 
           <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
             {timeAgoShort(comment.createdAt)}
           </span>
+          {onReport ? (
+            <button
+              type="button"
+              aria-label="Report comment"
+              onClick={() => onReport(comment.id)}
+              className="ml-auto"
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--fg-muted)' }}
+            >
+              <Flag size={12} />
+            </button>
+          ) : null}
         </div>
         <p
           className="text-sm m-0 mt-0.5 leading-relaxed break-words"

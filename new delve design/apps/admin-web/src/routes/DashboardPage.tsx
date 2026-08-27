@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [newTravelers, setNewTravelers] = useState<Count | null>(null)
   const [restrictedTravelers, setRestrictedTravelers] = useState<Count | null>(null)
   const [contentReports, setContentReports] = useState<Count | null>(null)
+  const [oldestPending, setOldestPending] = useState<Count | null>(null)
   const [repeatReports, setRepeatReports] = useState<Count | null>(null)
   const [upcomingEventReports, setUpcomingEventReports] = useState<Count | null>(null)
 
@@ -83,6 +84,15 @@ export default function DashboardPage() {
         value: String(moderationOps.openReportCount),
         tone: moderationOps.openReportCount > 0 ? 'warning' : 'default',
       })
+      setOldestPending({
+        value:
+          moderationOps.oldestOpenReportAgeSeconds == null
+            ? 'None'
+            : moderationOps.oldestOpenReportAgeSeconds >= 86400
+              ? `${Math.floor(moderationOps.oldestOpenReportAgeSeconds / 86400)} d`
+              : `${Math.max(1, Math.floor(moderationOps.oldestOpenReportAgeSeconds / 3600))} h`,
+        tone: (moderationOps.oldestOpenReportAgeSeconds || 0) > 86400 ? 'warning' : 'default',
+      })
       setRepeatReports({
         value: String(moderationOps.repeatTargetCount),
         tone: moderationOps.repeatTargetCount > 0 ? 'warning' : 'default',
@@ -116,6 +126,7 @@ export default function DashboardPage() {
           <AttentionCard label="New travelers this month" value={newTravelers?.value ?? '—'} to="/travelers" tone={newTravelers?.tone} />
           <AttentionCard label="Restricted traveler accounts" value={restrictedTravelers?.value ?? '—'} to="/travelers?accountStatus=restricted" tone={restrictedTravelers?.tone} />
           <AttentionCard label="Content reports awaiting review" value={contentReports?.value ?? '—'} to="/moderation/reports" tone={contentReports?.tone} />
+          <AttentionCard label="Oldest pending moderation case" value={oldestPending?.value ?? '—'} to="/moderation/reports" tone={oldestPending?.tone} />
           <AttentionCard label="Repeated reports on the same content" value={repeatReports?.value ?? '—'} to="/moderation/reports?minReports=3" tone={repeatReports?.tone} />
           <AttentionCard label="Upcoming events with open reports" value={upcomingEventReports?.value ?? '—'} to="/moderation/events?reported=true" tone={upcomingEventReports?.tone} />
           <AttentionCard label="Businesses pending verification" value={pendingBiz?.value ?? '—'} to="/businesses?status=PENDING_VERIFICATION" tone={pendingBiz?.tone} />

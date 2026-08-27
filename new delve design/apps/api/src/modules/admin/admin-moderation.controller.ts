@@ -18,9 +18,9 @@ function requireTarget(req: Request) {
 
 export function createAdminModerationController() {
   return {
-    async opsSummary(_req: Request, res: Response, next: NextFunction) {
+    async opsSummary(req: Request, res: Response, next: NextFunction) {
       try {
-        ok(res, await moderation.adminModerationOpsSummary())
+        ok(res, await moderation.adminModerationOpsSummary(req.query))
       } catch (err) {
         next(err)
       }
@@ -69,6 +69,13 @@ export function createAdminModerationController() {
     async journeys(req: Request, res: Response, next: NextFunction) {
       try {
         ok(res, await moderation.adminListModerationJourneys(req.query))
+      } catch (err) {
+        next(err)
+      }
+    },
+    async comments(req: Request, res: Response, next: NextFunction) {
+      try {
+        ok(res, await moderation.adminListModerationComments(req.query))
       } catch (err) {
         next(err)
       }

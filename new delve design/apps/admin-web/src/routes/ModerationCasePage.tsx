@@ -22,17 +22,17 @@ const REASONS: ContentReportReason[] = [
   'OTHER',
 ]
 
-function confirmCopy(action: ContentModerationActionType) {
+function confirmCopy(action: ContentModerationActionType, targetType: string) {
   if (action === 'REMOVE') {
     return {
-      title: 'Remove this content?',
+      title: targetType.includes('COMMENT') ? 'Remove this comment?' : 'Remove this content?',
       body: 'It will no longer appear publicly on Delve. The report and moderation history will be preserved.',
       confirm: 'Remove',
     }
   }
   if (action === 'HIDE') {
     return {
-      title: 'Hide this content?',
+      title: targetType.includes('COMMENT') ? 'Hide this comment?' : 'Hide this content?',
       body: 'It will no longer appear publicly on Delve. History and media records stay in place.',
       confirm: 'Hide',
     }
@@ -46,8 +46,10 @@ function confirmCopy(action: ContentModerationActionType) {
   }
   if (action === 'RESTORE') {
     return {
-      title: 'Restore this content?',
-      body: 'It can appear publicly again if it still meets its own visibility rules. Previous moderation history remains.',
+      title: targetType.includes('COMMENT') ? 'Restore this comment?' : 'Restore this content?',
+      body: targetType.includes('COMMENT')
+        ? 'It will become visible again where its parent content is available. The previous moderation history will remain preserved.'
+        : 'It can appear publicly again if it still meets its own visibility rules. Previous moderation history remains.',
       confirm: 'Restore',
     }
   }
@@ -93,6 +95,7 @@ export default function ModerationCasePage() {
         reason: action === 'NO_ACTION' || action === 'RESTORE' ? undefined : reason,
         note: note.trim() || null,
         reportResolution: action === 'NO_ACTION' ? 'DISMISSED' : 'RESOLVED',
+        expectedModerationStatus: detail?.moderationStatus ?? undefined,
       })
       setDetail(next)
       setPending(null)
@@ -119,6 +122,12 @@ export default function ModerationCasePage() {
               <h2 className="text-sm font-semibold m-0 mb-2">Content</h2>
               <p className="text-sm m-0">{detail.preview}</p>
               {detail.body ? <p className="text-sm m-0 mt-2 whitespace-pre-wrap">{detail.body}</p> : null}
+              {detail.reports.some(r => r.reportedTextSnapshot && r.reportedTextSnapshot !== detail.body) ? (
+                <p className="text-xs m-0 mt-2" style={{ color: 'var(--muted)' }}>
+                  Reported text snapshot:{' '}
+                  {detail.reports.find(r => r.reportedTextSnapshot)?.reportedTextSnapshot}
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2 mt-2">
                 {detail.mediaUrls.map(url => (
                   <img key={url} src={url} alt="" style={{ maxWidth: 160, maxHeight: 120, objectFit: 'cover', borderRadius: 8 }} />
@@ -137,6 +146,11 @@ export default function ModerationCasePage() {
             </section>
             <section>
               <h2 className="text-sm font-semibold m-0 mb-2">Context</h2>
+              {detail.context.parentId ? (
+                <p className="text-xs m-0">
+                  Parent: {detail.context.parentLabel || detail.context.parentId}
+                </p>
+              ) : null}
               {detail.context.communityId ? (
                 <p className="text-xs m-0">
                   Community{' '}
@@ -206,10 +220,26 @@ export default function ModerationCasePage() {
                   <p className="text-xs m-0 mt-1">
                     Account <StatusBadge>{detail.creatorAccountStatus || 'unknown'}</StatusBadge>
                   </p>
-                  <p className="text-xs m-0 mt-2">Hidden or removed content: {detail.creatorRemovedContentCount}</p>
+                  <p className="text-xs m-0 mt-2">Creator content: {detail.creatorContentCount} posts</p>
+                  <p className="text-xs m-0">Prior Admin removals: {detail.creatorPriorRemovals}</p>
+                  <p className="text-xs m-0">Current open reports: {detail.creatorOpenReports}</p>
+                  <p className="text-xs m-0">Hidden or removed content: {detail.creatorRemovedContentCount}</p>
                   <p className="text-xs m-0">Resolved reports against content: {detail.creatorResolvedReportCount}</p>
+                  {detail.policyContext.facts.length ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold m-0 mb-1">Moderation context</p>
+                      {detail.policyContext.facts.map(fact => (
+                        <p key={fact} className="text-xs m-0">
+                          {fact}
+                        </p>
+                      ))}
+                      {detail.policyContext.recommendation ? (
+                        <p className="text-xs m-0 mt-1">{detail.policyContext.recommendation}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <p className="text-xs m-0 mt-2">
-                    <Link to={`/travelers/${detail.creatorUserId}`}>Open Traveler 360</Link>
+                    <Link to={`/travelers/${detail.creatorUserId}?tab=safety`}>Review Traveler Account</Link>
                   </p>
                 </>
               ) : (
@@ -249,14 +279,14 @@ export default function ModerationCasePage() {
       {pending ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}>
           <div className="rounded-xl p-5 max-w-md" style={{ background: 'var(--elevated)', border: '1px solid var(--border)' }}>
-            <h3 className="text-sm font-semibold m-0 mb-2">{confirmCopy(pending).title}</h3>
-            <p className="text-xs m-0 mb-4">{confirmCopy(pending).body}</p>
+            <h3 className="text-sm font-semibold m-0 mb-2">{confirmCopy(pending, targetType).title}</h3>
+            <p className="text-xs m-0 mb-4">{confirmCopy(pending, targetType).body}</p>
             <div className="flex gap-2 justify-end">
               <button type="button" className="admin-btn-secondary" disabled={busy} onClick={() => setPending(null)}>
                 Cancel
               </button>
               <button type="button" className="admin-btn-secondary" disabled={busy} onClick={() => void apply(pending)}>
-                {confirmCopy(pending).confirm}
+                {confirmCopy(pending, targetType).confirm}
               </button>
             </div>
           </div>

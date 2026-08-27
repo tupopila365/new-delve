@@ -2,13 +2,15 @@ import { z } from 'zod'
 import { adminPaginatedSchema } from './admin-marketplace.js'
 import { adminAccountStatusSchema } from './admin-travelers.js'
 
-export const contentReportTargetTypeSchema = z.enum(['POST', 'EVENT', 'JOURNEY'])
+export const contentReportTargetTypeSchema = z.enum(['POST', 'EVENT', 'JOURNEY', 'POST_COMMENT'])
 export const adminModerationTargetTypeSchema = z.enum([
   'POST',
   'EVENT',
   'JOURNEY',
   'COMMUNITY',
   'COMMUNITY_THREAD',
+  'POST_COMMENT',
+  'COMMUNITY_COMMENT',
 ])
 export const contentReportReasonSchema = z.enum([
   'SPAM',
@@ -64,6 +66,7 @@ export const adminModerationDecisionBodySchema = z
     reason: contentReportReasonSchema.optional(),
     note: z.string().trim().max(500).optional().nullable(),
     reportResolution: z.enum(['RESOLVED', 'DISMISSED']).optional(),
+    expectedModerationStatus: contentModerationStatusSchema.optional().nullable(),
   })
   .strict()
 
@@ -97,6 +100,7 @@ export const adminContentReportRowSchema = z.object({
   details: z.string().nullable(),
   status: z.string(),
   createdAt: z.string().datetime(),
+  reportedTextSnapshot: z.string().nullable(),
   reporterUsername: z.string(),
   reporterDisplayName: z.string().nullable(),
   communityRuleTitle: z.string().nullable(),
@@ -135,24 +139,44 @@ export const adminModerationDetailSchema = z.object({
     location: z.string().nullable(),
     startAt: z.string().datetime().nullable(),
     memberRole: z.string().nullable(),
+    parentId: z.string().nullable(),
+    parentLabel: z.string().nullable(),
   }),
   communityRules: z.array(z.object({ id: z.string(), title: z.string(), description: z.string() })),
   communityAudit: z.array(z.object({ action: z.string(), createdAt: z.string().datetime() })),
   reports: z.array(adminContentReportRowSchema),
   history: z.array(adminModerationActionRowSchema),
   allowedActions: z.array(contentModerationActionTypeSchema),
+  creatorContentCount: z.number().int().min(0),
+  creatorPriorRemovals: z.number().int().min(0),
+  creatorOpenReports: z.number().int().min(0),
+  policyContext: z.object({
+    facts: z.array(z.string()),
+    recommendation: z.string().nullable(),
+  }),
 })
 
 export type AdminModerationDetail = z.infer<typeof adminModerationDetailSchema>
 
 export const adminModerationOpsSummarySchema = z.object({
+  period: z.enum(['today', '7d', '30d', 'month']),
   openReportCount: z.number().int().min(0),
+  underReviewCount: z.number().int().min(0),
   needsReviewCount: z.number().int().min(0),
   repeatTargetCount: z.number().int().min(0),
+  resolvedCount: z.number().int().min(0),
+  dismissedCount: z.number().int().min(0),
   resolvedTodayCount: z.number().int().min(0),
   hiddenOrRemovedCount: z.number().int().min(0),
+  postsRemovedCount: z.number().int().min(0),
+  commentsRemovedCount: z.number().int().min(0),
+  eventsRemovedCount: z.number().int().min(0),
+  journeysRemovedCount: z.number().int().min(0),
+  restorationsCount: z.number().int().min(0),
   communityOpenReportCount: z.number().int().min(0),
   upcomingEventsWithReports: z.number().int().min(0),
+  oldestOpenReportAgeSeconds: z.number().int().min(0).nullable(),
+  reasonCounts: z.array(z.object({ reason: z.string(), count: z.number().int().min(0) })),
 })
 
 export type AdminModerationOpsSummary = z.infer<typeof adminModerationOpsSummarySchema>
@@ -221,3 +245,44 @@ export const adminCommunityModerationSummarySchema = z.object({
 
 export type AdminCommunityModerationSummary = z.infer<typeof adminCommunityModerationSummarySchema>
 export const adminCommunityModerationListDtoSchema = adminPaginatedSchema(adminCommunityModerationSummarySchema)
+
+export const adminCommentModerationSummarySchema = z.object({
+  id: z.string(),
+  bodyPreview: z.string(),
+  authorUsername: z.string(),
+  postId: z.string(),
+  createdAt: z.string().datetime(),
+  moderationStatus: contentModerationStatusSchema,
+  authorDeleted: z.boolean(),
+  openReportCount: z.number().int().min(0),
+})
+export type AdminCommentModerationSummary = z.infer<typeof adminCommentModerationSummarySchema>
+export const adminCommentModerationListDtoSchema = adminPaginatedSchema(adminCommentModerationSummarySchema)
+
+export const adminTravelerSafetyHistorySchema = z.object({
+  openReportsAgainstContent: z.number().int().min(0),
+  resolvedReportCount: z.number().int().min(0),
+  dismissedReportCount: z.number().int().min(0),
+  postsRemoved: z.number().int().min(0),
+  commentsRemoved: z.number().int().min(0),
+  eventsRemoved: z.number().int().min(0),
+  journeysRemoved: z.number().int().min(0),
+  communityActions: z.number().int().min(0),
+  removedLast30Days: z.number().int().min(0),
+  priorAccountRestrictions: z.number().int().min(0),
+  accountStatus: adminAccountStatusSchema,
+  actions: z.array(
+    z.object({
+      id: z.string(),
+      targetType: adminModerationTargetTypeSchema,
+      targetId: z.string(),
+      action: contentModerationActionTypeSchema,
+      createdAt: z.string().datetime(),
+    }),
+  ),
+  policyContext: z.object({
+    facts: z.array(z.string()),
+    recommendation: z.string().nullable(),
+  }),
+})
+export type AdminTravelerSafetyHistory = z.infer<typeof adminTravelerSafetyHistorySchema>

@@ -7,6 +7,8 @@ import {
   createJourneyBodySchema,
   createJourneyCommentBodySchema,
   journeyListQuerySchema,
+  patchJourneyOrderBodySchema,
+  patchJourneyPersonalisationBodySchema,
   updateJourneyBodySchema,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
@@ -261,6 +263,42 @@ export function createJourneyController() {
             String(req.params.dealId),
           ),
         )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    // ─── Personalisation ─────────────────────────────────────────────────────
+
+    async listPersonalisations(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await journeyService.listMyPersonalisations(requireUserId(req)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async patchPersonalisation(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(patchJourneyPersonalisationBodySchema, req.body) as z.infer<typeof patchJourneyPersonalisationBodySchema>
+        ok(
+          res,
+          await journeyService.patchPersonalisation(
+            requireUserId(req),
+            String(req.params.journeyId),
+            body,
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async patchMyJourneyOrder(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(patchJourneyOrderBodySchema, req.body) as z.infer<typeof patchJourneyOrderBodySchema>
+        await journeyService.patchMyJourneyOrder(requireUserId(req), body.orderedIds)
+        ok(res, { ok: true })
       } catch (err) {
         next(err)
       }

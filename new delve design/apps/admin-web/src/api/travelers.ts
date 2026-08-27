@@ -8,6 +8,7 @@ import type {
   AdminTravelerJourneyListDto,
   AdminTravelerListDto,
   AdminTravelerOpsSummary,
+  AdminTravelerSafetyHistory,
   BookingDto,
 } from '@delve/contracts'
 import { adminJson } from './adminClient'
@@ -46,6 +47,10 @@ export function adminListTravelerCommunities(userId: string, params: URLSearchPa
   return adminJson<AdminTravelerCommunityListDto>(
     `/admin/travelers/${encodeURIComponent(userId)}/communities?${params.toString()}`,
   )
+}
+
+export function adminGetTravelerSafety(userId: string) {
+  return adminJson<AdminTravelerSafetyHistory>(`/admin/travelers/${encodeURIComponent(userId)}/safety`)
 }
 
 export function adminGetTravelerActivity(userId: string, params: URLSearchParams) {

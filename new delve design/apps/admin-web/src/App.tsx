@@ -30,6 +30,7 @@ const ModerationPostsPage = lazy(() => import('./routes/ModerationPostsPage'))
 const ModerationCommunitiesPage = lazy(() => import('./routes/ModerationCommunitiesPage'))
 const ModerationEventsPage = lazy(() => import('./routes/ModerationEventsPage'))
 const ModerationJourneysPage = lazy(() => import('./routes/ModerationJourneysPage'))
+const ModerationCommentsPage = lazy(() => import('./routes/ModerationCommentsPage'))
 
 function RouteFallback() {
   return (
@@ -95,6 +96,7 @@ export default function App() {
                 <Route path="/moderation/communities" element={<Suspense fallback={<RouteFallback />}><ModerationCommunitiesPage /></Suspense>} />
                 <Route path="/moderation/events" element={<Suspense fallback={<RouteFallback />}><ModerationEventsPage /></Suspense>} />
                 <Route path="/moderation/journeys" element={<Suspense fallback={<RouteFallback />}><ModerationJourneysPage /></Suspense>} />
+                <Route path="/moderation/comments" element={<Suspense fallback={<RouteFallback />}><ModerationCommentsPage /></Suspense>} />
               </Route>
             </Route>
             <Route path="*" element={<HomeRedirect />} />

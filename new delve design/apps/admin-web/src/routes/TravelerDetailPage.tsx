@@ -8,12 +8,14 @@ import type {
   AdminTravelerEventListDto,
   AdminTravelerFinancialDto,
   AdminTravelerJourneyListDto,
+  AdminTravelerSafetyHistory,
   BookingDto,
 } from '@delve/contracts'
 import {
   adminGetTraveler,
   adminGetTravelerActivity,
   adminGetTravelerFinancial,
+  adminGetTravelerSafety,
   adminListTravelerBookings,
   adminListTravelerClaims,
   adminListTravelerCommunities,
@@ -32,7 +34,7 @@ import { MetricCard } from '../components/admin/MetricCard'
 import { Money } from '../components/admin/Money'
 import { StatusBadge } from '../components/admin/StatusBadge'
 
-const TABS = ['overview', 'bookings', 'claims', 'journeys', 'events', 'communities', 'activity', 'financial'] as const
+const TABS = ['overview', 'safety', 'bookings', 'claims', 'journeys', 'events', 'communities', 'activity', 'financial'] as const
 type Tab = (typeof TABS)[number]
 
 function usePager() {
@@ -210,6 +212,7 @@ export default function TravelerDetailPage() {
         ))}
       </div>
       {tab === 'overview' ? <OverviewTab detail={detail} /> : null}
+      {tab === 'safety' ? <SafetyTab userId={detail.id} accountStatus={detail.accountStatus} /> : null}
       {tab === 'bookings' ? <BookingsTab userId={detail.id} /> : null}
       {tab === 'claims' ? <ClaimsTab userId={detail.id} /> : null}
       {tab === 'journeys' ? <JourneysTab userId={detail.id} /> : null}
@@ -283,13 +286,83 @@ function OverviewTab({ detail }: { detail: AdminTravelerDetail }) {
         <h2 className="text-sm font-semibold m-0 mb-2">Trust & Safety</h2>
         <p className="text-xs m-0">Open reports against authored content: {detail.safety.openReportsAgainstContent}</p>
         <p className="text-xs m-0">Hidden or removed content: {detail.safety.removedContentCount}</p>
+        <p className="text-xs m-0">Comments removed: {detail.safety.commentsRemoved}</p>
+        <p className="text-xs m-0">Removed in last 30 days: {detail.safety.removedLast30Days}</p>
+        <p className="text-xs m-0">Prior account restrictions: {detail.safety.priorAccountRestrictions}</p>
         <p className="text-xs m-0">Resolved reports against content: {detail.safety.resolvedReportCount}</p>
         <p className="text-xs m-0 mt-2">
-          <Link to={`/moderation/reports?q=${encodeURIComponent(detail.username)}`}>View moderation history</Link>
+          <Link to={`/travelers/${detail.id}?tab=safety`}>Open safety history</Link>
         </p>
         <p className="text-xs m-0 mt-2" style={{ color: 'var(--muted)' }}>
           Reporter identities are not shown here. Removing content does not restrict this account.
         </p>
+      </section>
+    </div>
+  )
+}
+
+function SafetyTab({ userId, accountStatus }: { userId: string; accountStatus: string }) {
+  const [data, setData] = useState<AdminTravelerSafetyHistory | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      setData(await adminGetTravelerSafety(userId))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load safety history')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [userId])
+
+  if (loading) return <LoadingSkeleton rows={4} />
+  if (error) return <ErrorState title="Safety history unavailable" detail={error} onRetry={() => void load()} />
+  if (!data) return null
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section>
+        <h2 className="text-sm font-semibold m-0 mb-2">Safety / Moderation History</h2>
+        <p className="text-xs m-0">Account status: {accountStatus}</p>
+        <p className="text-xs m-0">Open reports against authored content: {data.openReportsAgainstContent}</p>
+        <p className="text-xs m-0">Reports resolved: {data.resolvedReportCount}</p>
+        <p className="text-xs m-0">Reports dismissed: {data.dismissedReportCount}</p>
+        <p className="text-xs m-0">Posts removed: {data.postsRemoved}</p>
+        <p className="text-xs m-0">Comments removed: {data.commentsRemoved}</p>
+        <p className="text-xs m-0">Events removed: {data.eventsRemoved}</p>
+        <p className="text-xs m-0">Journeys hidden/removed: {data.journeysRemoved}</p>
+        <p className="text-xs m-0">Community platform actions on owned content: {data.communityActions}</p>
+        <p className="text-xs m-0">Content removed in last 30 days: {data.removedLast30Days}</p>
+        <p className="text-xs m-0">Previous account restrictions: {data.priorAccountRestrictions}</p>
+      </section>
+      <section>
+        <h2 className="text-sm font-semibold m-0 mb-2">Moderation context</h2>
+        {data.policyContext.facts.map(fact => (
+          <p key={fact} className="text-xs m-0">
+            {fact}
+          </p>
+        ))}
+        {data.policyContext.recommendation ? <p className="text-xs m-0 mt-1">{data.policyContext.recommendation}</p> : null}
+        <p className="text-xs m-0 mt-2" style={{ color: 'var(--muted)' }}>
+          Guidance only. Account restriction is a separate action on this traveler and is never applied from these counts.
+        </p>
+      </section>
+      <section>
+        <h2 className="text-sm font-semibold m-0 mb-2">Actions</h2>
+        {data.actions.length === 0 ? <p className="text-xs m-0">No platform moderation actions on this traveler’s content.</p> : null}
+        {data.actions.map(item => (
+          <p key={item.id} className="text-xs m-0">
+            {item.action} · {item.targetType} · {new Date(item.createdAt).toLocaleString()} ·{' '}
+            <Link to={`/moderation/reports/${item.targetType}/${item.targetId}`}>Open case</Link>
+          </p>
+        ))}
       </section>
     </div>
   )
