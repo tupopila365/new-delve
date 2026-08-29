@@ -28,6 +28,7 @@ export const createListingBodySchema = z
   .object({
     title: z.string().trim().min(2).max(160),
     description: z.string().trim().max(4000).optional(),
+    businessAreaId: z.string().min(1).nullable().optional(),
     priceAmount: z.number().finite().gte(0).nullable().optional(),
     currency: isoCurrencyCodeSchema.nullable().optional(),
   })
@@ -38,6 +39,7 @@ export const updateListingBodySchema = z
   .object({
     title: z.string().trim().min(2).max(160).optional(),
     description: z.string().trim().max(4000).nullable().optional(),
+    businessAreaId: z.string().min(1).nullable().optional(),
     status: listingStatusSchema.optional(),
     coverMediaId: z.string().min(1).nullable().optional(),
     priceAmount: z.number().finite().gte(0).nullable().optional(),
@@ -55,9 +57,17 @@ export const listingPricingDtoSchema = z.object({
   currency: z.string(),
 })
 
+export const listingBusinessAreaSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.string(),
+})
+
 export const listingDtoSchema = z.object({
   id: z.string(),
   businessId: z.string(),
+  businessAreaId: z.string().nullable().default(null),
+  businessArea: listingBusinessAreaSummarySchema.nullable().default(null),
   title: z.string(),
   description: z.string().nullable(),
   status: listingStatusSchema,
@@ -88,6 +98,7 @@ export type ListingStatus = z.infer<typeof listingStatusSchema>
 export type CreateListingBody = z.infer<typeof createListingBodySchema>
 export type UpdateListingBody = z.infer<typeof updateListingBodySchema>
 export type ListingMediaDto = z.infer<typeof listingMediaDtoSchema>
+export type ListingBusinessAreaSummary = z.infer<typeof listingBusinessAreaSummarySchema>
 export type ListingDto = z.infer<typeof listingDtoSchema>
 export type ListingPricing = z.infer<typeof listingPricingDtoSchema>
 export type ListingBusinessSummary = z.infer<typeof listingBusinessSummarySchema>

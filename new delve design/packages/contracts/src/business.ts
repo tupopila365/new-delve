@@ -56,6 +56,38 @@ export const updateBusinessBodySchema = z
   })
   .strict()
 
+export const businessAreaDtoSchema = z.object({
+  id: z.string(),
+  businessId: z.string(),
+  name: z.string(),
+  category: z.string(),
+  description: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  coverUrl: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+})
+
+export const createBusinessAreaBodySchema = z
+  .object({
+    name: z.string().trim().min(2).max(100),
+    category: z.string().trim().min(2).max(80),
+    description: z.string().trim().max(2000).optional(),
+    logoUrl: z.string().trim().url().max(2000).optional(),
+    coverUrl: z.string().trim().url().max(2000).optional(),
+  })
+  .strict()
+
+export const updateBusinessAreaBodySchema = z
+  .object({
+    name: z.string().trim().min(2).max(100).optional(),
+    category: z.string().trim().min(2).max(80).optional(),
+    description: z.string().trim().max(2000).nullable().optional(),
+    logoUrl: z.union([z.string().trim().url().max(2000), z.null()]).optional(),
+    coverUrl: z.union([z.string().trim().url().max(2000), z.null()]).optional(),
+  })
+  .strict()
+
 export const businessDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -70,6 +102,7 @@ export const businessDtoSchema = z.object({
   countryCode: z.string().nullable(),
   address: z.string().nullable(),
   category: z.string().nullable(),
+  areas: z.array(businessAreaDtoSchema).default([]),
   status: businessStatusSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -92,6 +125,7 @@ export const businessPublicDtoSchema = z.object({
   countryCode: z.string().nullable(),
   address: z.string().nullable(),
   category: z.string().nullable(),
+  areas: z.array(businessAreaDtoSchema).default([]),
   /** Always VERIFIED on public responses. */
   status: z.literal('VERIFIED'),
   createdAt: z.string().datetime(),
@@ -118,6 +152,9 @@ export type BusinessStatus = z.infer<typeof businessStatusSchema>
 export type BusinessMemberRole = z.infer<typeof businessMemberRoleSchema>
 export type CreateBusinessBody = z.infer<typeof createBusinessBodySchema>
 export type UpdateBusinessBody = z.infer<typeof updateBusinessBodySchema>
+export type BusinessAreaDto = z.infer<typeof businessAreaDtoSchema>
+export type CreateBusinessAreaBody = z.infer<typeof createBusinessAreaBodySchema>
+export type UpdateBusinessAreaBody = z.infer<typeof updateBusinessAreaBodySchema>
 export type BusinessDto = z.infer<typeof businessDtoSchema>
 export type BusinessPublicDto = z.infer<typeof businessPublicDtoSchema>
 export type BusinessMembershipDto = z.infer<typeof businessMembershipDtoSchema>

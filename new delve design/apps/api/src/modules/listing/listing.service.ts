@@ -44,9 +44,17 @@ type MediaRow = {
   deletedAt: Date | null
 }
 
+type BusinessAreaSummaryRow = {
+  id: string
+  name: string
+  category: string
+}
+
 type ListingCore = {
   id: string
   businessId: string
+  businessAreaId?: string | null
+  businessArea?: BusinessAreaSummaryRow | null
   title: string
   description: string | null
   status: ListingDto['status']
@@ -89,6 +97,14 @@ function toListingDto(env: Env, listing: ListingCore): ListingDto {
   return {
     id: listing.id,
     businessId: listing.businessId,
+    businessAreaId: listing.businessAreaId ?? null,
+    businessArea: listing.businessArea
+      ? {
+          id: listing.businessArea.id,
+          name: listing.businessArea.name,
+          category: listing.businessArea.category,
+        }
+      : null,
     title: listing.title,
     description: listing.description,
     status: listing.status,
@@ -116,6 +132,13 @@ function toListingPublicDto(env: Env, listing: ListingCore & { business: Busines
 }
 
 const listingInclude = {
+  businessArea: {
+    select: {
+      id: true,
+      name: true,
+      category: true,
+    },
+  },
   media: {
     where: { deletedAt: null, purpose: 'listing' as const },
     orderBy: [{ sortOrder: 'asc' as const }, { createdAt: 'asc' as const }],
@@ -138,6 +161,17 @@ const listingPublicInclude = {
   },
 }
 
+async function validateBusinessAreaOwnership(businessId: string, businessAreaId?: string | null) {
+  if (!businessAreaId) return
+  const area = await prisma.businessArea.findUnique({
+    where: { id: businessAreaId },
+    select: { id: true, businessId: true },
+  })
+  if (!area || area.businessId !== businessId) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'businessAreaId must belong to the same business.')
+  }
+}
+
 export async function createListing(
   env: Env,
   userId: string,
@@ -146,10 +180,12 @@ export async function createListing(
 ): Promise<ListingDto> {
   await requireVerifiedUser(userId)
   await requireBusinessMembership(userId, businessId, ['OWNER', 'MANAGER'])
+  await validateBusinessAreaOwnership(businessId, body.businessAreaId)
 
   const listing = await prisma.listing.create({
     data: {
       businessId,
+      businessAreaId: body.businessAreaId ?? null,
       title: body.title,
       description: body.description ?? null,
       status: 'DRAFT',
@@ -211,7 +247,7 @@ export type PublicListingFilters = {
 
 /**
  * Traveler discovery: published listings for VERIFIED businesses only.
- * Optional city/category filter against Business fields (Listing has no price/city/category).
+ * Optional city/category filter against BusinessArea fields or fallback Business fields.
  */
 export async function listPublicListings(
   env: Env,
@@ -230,10 +266,18 @@ export async function listPublicListings(
         ...(city
           ? { city: { equals: city, mode: 'insensitive' as const } }
           : {}),
-        ...(category
-          ? { category: { equals: category, mode: 'insensitive' as const } }
-          : {}),
       },
+      ...(category
+        ? {
+            OR: [
+              { businessArea: { category: { equals: category, mode: 'insensitive' as const } } },
+              {
+                businessAreaId: null,
+                business: { category: { equals: category, mode: 'insensitive' as const } },
+              },
+            ],
+          }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -287,6 +331,10 @@ export async function updateListing(
   if (!existing) throw new AppError(404, 'NOT_FOUND', 'Listing not found.')
   await requireBusinessMembership(userId, existing.businessId, ['OWNER', 'MANAGER'])
 
+  if (body.businessAreaId !== undefined && body.businessAreaId !== null) {
+    await validateBusinessAreaOwnership(existing.businessId, body.businessAreaId)
+  }
+
   if (body.coverMediaId) {
     const media = await prisma.mediaAsset.findFirst({
       where: {
@@ -307,6 +355,7 @@ export async function updateListing(
     data: {
       ...(body.title !== undefined ? { title: body.title } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.businessAreaId !== undefined ? { businessAreaId: body.businessAreaId } : {}),
       ...(body.status !== undefined ? { status: body.status } : {}),
       ...(body.coverMediaId !== undefined ? { coverMediaId: body.coverMediaId } : {}),
       ...(body.priceAmount !== undefined

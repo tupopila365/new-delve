@@ -1003,6 +1003,7 @@ model Business {
   updatedAt                   DateTime            @updatedAt
 
   members                BusinessMember[]
+  areas                  BusinessArea[]
   mediaAssets            MediaAsset[]            @relation("BusinessMedia")
   listings               Listing[]
   deals                  Deal[]
@@ -1018,6 +1019,24 @@ model Business {
   @@index([status])
   @@index([slug])
   @@index([stripeAccountStatus, updatedAt])
+}
+
+model BusinessArea {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  category    String
+  description String?
+  logoUrl     String?
+  coverUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  listings Listing[]
+
+  @@index([businessId])
+  @@index([businessId, category])
 }
 
 model BusinessMember {
@@ -1046,6 +1065,8 @@ model Listing {
   id               String            @id @default(cuid())
   businessId       String
   business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessAreaId   String?
+  businessArea     BusinessArea?     @relation(fields: [businessAreaId], references: [id], onDelete: SetNull)
   title            String
   description      String?
   status           ListingStatus     @default(DRAFT)
@@ -1065,6 +1086,7 @@ model Listing {
 
   @@index([businessId, status])
   @@index([businessId, createdAt])
+  @@index([businessAreaId])
 }
 
 enum DealDiscountType {
@@ -2024,12 +2046,12 @@ model Journey {
   conversation     Conversation?
   sharedPosts      Post[]
   communityThreads CommunityThread[]
+  personalisations JourneyPersonalisation[]
 
   @@index([authorId, createdAt])
   @@index([visibility, publishedAt])
   @@index([moderationStatus])
   @@index([deletedAt])
-  personalisations JourneyPersonalisation[]
 }
 
 /// Per-user personalisation layer for journeys the user has authored or saved.

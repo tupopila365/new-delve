@@ -12,7 +12,9 @@
     "test:auth": "vitest run",
     "admin:create": "tsx scripts/create-admin.ts",
     "db:seed:marketing-deals": "tsx scripts/seed-marketing-deals.ts",
-    "db:seed:marketing-deals:cleanup": "tsx scripts/seed-marketing-deals.ts --cleanup"
+    "db:seed:marketing-deals:cleanup": "tsx scripts/seed-marketing-deals.ts --cleanup",
+    "db:seed:marketing-journeys": "tsx scripts/seed-marketing-journeys.ts",
+    "db:seed:marketing-journeys:cleanup": "tsx scripts/seed-marketing-journeys.ts --cleanup"
   },
   "dependencies": {
     "@delve/config": "workspace:*",

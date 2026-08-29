@@ -1,14 +1,29 @@
 import { prisma } from '@delve/database'
 import type {
+  BusinessAreaDto,
   BusinessDashboardDto,
   BusinessDto,
   BusinessMemberRole,
   BusinessMembershipDto,
   BusinessPublicDto,
+  CreateBusinessAreaBody,
   CreateBusinessBody,
+  UpdateBusinessAreaBody,
   UpdateBusinessBody,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
+
+type BusinessAreaRow = {
+  id: string
+  businessId: string
+  name: string
+  category: string
+  description: string | null
+  logoUrl: string | null
+  coverUrl: string | null
+  createdAt: Date
+  updatedAt: Date
+}
 
 type BusinessRow = {
   id: string
@@ -27,6 +42,21 @@ type BusinessRow = {
   status: BusinessDto['status']
   createdAt: Date
   updatedAt: Date
+  areas?: BusinessAreaRow[]
+}
+
+function toBusinessAreaDto(a: BusinessAreaRow): BusinessAreaDto {
+  return {
+    id: a.id,
+    businessId: a.businessId,
+    name: a.name,
+    category: a.category,
+    description: a.description,
+    logoUrl: a.logoUrl,
+    coverUrl: a.coverUrl,
+    createdAt: a.createdAt.toISOString(),
+    updatedAt: a.updatedAt.toISOString(),
+  }
 }
 
 function toBusinessDto(b: BusinessRow): BusinessDto {
@@ -44,6 +74,7 @@ function toBusinessDto(b: BusinessRow): BusinessDto {
     countryCode: b.countryCode,
     address: b.address,
     category: b.category,
+    areas: (b.areas ?? []).map(toBusinessAreaDto),
     status: b.status,
     createdAt: b.createdAt.toISOString(),
     updatedAt: b.updatedAt.toISOString(),
@@ -64,6 +95,7 @@ function toBusinessPublicDto(b: BusinessRow): BusinessPublicDto {
     countryCode: b.countryCode,
     address: b.address,
     category: b.category,
+    areas: (b.areas ?? []).map(toBusinessAreaDto),
     status: 'VERIFIED',
     createdAt: b.createdAt.toISOString(),
   }
@@ -165,7 +197,7 @@ export async function listMyBusinesses(userId: string): Promise<BusinessMembersh
   await requireVerifiedUser(userId)
   const rows = await prisma.businessMember.findMany({
     where: { userId },
-    include: { business: true },
+    include: { business: { include: { areas: { orderBy: { createdAt: 'asc' } } } } },
     orderBy: { createdAt: 'asc' },
   })
   return rows.map((row) => ({
@@ -180,7 +212,7 @@ export async function getBusinessForMember(userId: string, businessId: string): 
   await requireVerifiedUser(userId)
   const membership = await prisma.businessMember.findUnique({
     where: { userId_businessId: { userId, businessId } },
-    include: { business: true },
+    include: { business: { include: { areas: { orderBy: { createdAt: 'asc' } } } } },
   })
   if (!membership) {
     throw new AppError(404, 'NOT_FOUND', 'Business not found.')
@@ -216,6 +248,7 @@ export async function updateBusiness(
       ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl } : {}),
       ...(body.coverUrl !== undefined ? { coverUrl: body.coverUrl } : {}),
     },
+    include: { areas: { orderBy: { createdAt: 'asc' } } },
   })
   return toBusinessDto(updated)
 }
@@ -282,9 +315,88 @@ export async function getPublicBusinessBySlug(slug: string): Promise<BusinessPub
   const normalized = slug.trim().toLowerCase()
   if (!normalized) throw new AppError(400, 'VALIDATION_ERROR', 'Business slug required')
 
-  const business = await prisma.business.findUnique({ where: { slug: normalized } })
+  const business = await prisma.business.findUnique({
+    where: { slug: normalized },
+    include: { areas: { orderBy: { createdAt: 'asc' } } },
+  })
   if (!business || business.status !== 'VERIFIED') {
     throw new AppError(404, 'NOT_FOUND', 'Business not found.')
   }
   return toBusinessPublicDto(business)
+}
+
+export async function listBusinessAreas(userId: string, businessId: string): Promise<BusinessAreaDto[]> {
+  await requireVerifiedUser(userId)
+  await requireBusinessMembership(userId, businessId, ['OWNER', 'MANAGER', 'CONTENT_EDITOR'])
+
+  const rows = await prisma.businessArea.findMany({
+    where: { businessId },
+    orderBy: { createdAt: 'asc' },
+  })
+  return rows.map(toBusinessAreaDto)
+}
+
+export async function createBusinessArea(
+  userId: string,
+  businessId: string,
+  body: CreateBusinessAreaBody,
+): Promise<BusinessAreaDto> {
+  await requireVerifiedUser(userId)
+  await requireBusinessMembership(userId, businessId, ['OWNER', 'MANAGER'])
+
+  const area = await prisma.businessArea.create({
+    data: {
+      businessId,
+      name: body.name,
+      category: body.category,
+      description: body.description ?? null,
+      logoUrl: body.logoUrl ?? null,
+      coverUrl: body.coverUrl ?? null,
+    },
+  })
+  return toBusinessAreaDto(area)
+}
+
+export async function updateBusinessArea(
+  userId: string,
+  businessId: string,
+  areaId: string,
+  body: UpdateBusinessAreaBody,
+): Promise<BusinessAreaDto> {
+  await requireVerifiedUser(userId)
+  await requireBusinessMembership(userId, businessId, ['OWNER', 'MANAGER'])
+
+  const existing = await prisma.businessArea.findUnique({ where: { id: areaId } })
+  if (!existing || existing.businessId !== businessId) {
+    throw new AppError(404, 'NOT_FOUND', 'Business area not found.')
+  }
+
+  const updated = await prisma.businessArea.update({
+    where: { id: areaId },
+    data: {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.category !== undefined ? { category: body.category } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl } : {}),
+      ...(body.coverUrl !== undefined ? { coverUrl: body.coverUrl } : {}),
+    },
+  })
+  return toBusinessAreaDto(updated)
+}
+
+export async function deleteBusinessArea(
+  userId: string,
+  businessId: string,
+  areaId: string,
+): Promise<{ success: true }> {
+  await requireVerifiedUser(userId)
+  await requireBusinessMembership(userId, businessId, ['OWNER', 'MANAGER'])
+
+  const existing = await prisma.businessArea.findUnique({ where: { id: areaId } })
+  if (!existing || existing.businessId !== businessId) {
+    throw new AppError(404, 'NOT_FOUND', 'Business area not found.')
+  }
+
+  await prisma.businessArea.delete({ where: { id: areaId } })
+  return { success: true }
 }

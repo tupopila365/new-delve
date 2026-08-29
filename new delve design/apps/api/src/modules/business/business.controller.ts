@@ -1,5 +1,10 @@
 import type { NextFunction, Response } from 'express'
-import { createBusinessBodySchema, updateBusinessBodySchema } from '@delve/contracts'
+import {
+  createBusinessAreaBodySchema,
+  createBusinessBodySchema,
+  updateBusinessAreaBodySchema,
+  updateBusinessBodySchema,
+} from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
 import type { AuthedRequest } from '../../middleware/require-auth.js'
 import * as business from './business.service.js'
@@ -72,6 +77,46 @@ export function createBusinessController() {
         if (!id) throw new AppError(400, 'VALIDATION_ERROR', 'Business id required')
         const body = parseOrThrow(updateBusinessBodySchema, req.body)
         ok(res, await business.updateBusiness(requireUserId(req), id, body))
+      } catch (err) {
+        next(err)
+      }
+    },
+    async listAreas(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const businessId = String(req.params.businessId || '')
+        if (!businessId) throw new AppError(400, 'VALIDATION_ERROR', 'Business id required')
+        ok(res, await business.listBusinessAreas(requireUserId(req), businessId))
+      } catch (err) {
+        next(err)
+      }
+    },
+    async createArea(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const businessId = String(req.params.businessId || '')
+        if (!businessId) throw new AppError(400, 'VALIDATION_ERROR', 'Business id required')
+        const body = parseOrThrow(createBusinessAreaBodySchema, req.body)
+        ok(res, await business.createBusinessArea(requireUserId(req), businessId, body), 201)
+      } catch (err) {
+        next(err)
+      }
+    },
+    async updateArea(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const businessId = String(req.params.businessId || '')
+        const areaId = String(req.params.areaId || '')
+        if (!businessId || !areaId) throw new AppError(400, 'VALIDATION_ERROR', 'Business id and area id required')
+        const body = parseOrThrow(updateBusinessAreaBodySchema, req.body)
+        ok(res, await business.updateBusinessArea(requireUserId(req), businessId, areaId, body))
+      } catch (err) {
+        next(err)
+      }
+    },
+    async deleteArea(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const businessId = String(req.params.businessId || '')
+        const areaId = String(req.params.areaId || '')
+        if (!businessId || !areaId) throw new AppError(400, 'VALIDATION_ERROR', 'Business id and area id required')
+        ok(res, await business.deleteBusinessArea(requireUserId(req), businessId, areaId))
       } catch (err) {
         next(err)
       }

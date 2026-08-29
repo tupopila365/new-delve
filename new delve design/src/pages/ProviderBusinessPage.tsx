@@ -7,6 +7,7 @@ import {
   updateBusiness,
 } from '../api/businessClient'
 import { useMediaUpload } from '../media/useMediaUpload'
+import CreateBusinessPage from './business/CreateBusinessPage'
 
 interface ProviderBusinessPageProps {
   authReady?: boolean
@@ -221,62 +222,24 @@ export default function ProviderBusinessPage({
 
   if (!membership) {
     return (
-      <div className="pb-8 px-4 sm:px-0">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="mb-4 inline-flex items-center gap-2 text-sm font-semibold"
-            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
-          >
-            <ArrowLeft size={16} />
-            Back
-          </button>
-        )}
-        <div
-          className="rounded-2xl px-5 py-8 text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-        >
-          <Building2 size={28} style={{ color: 'var(--primary)', margin: '0 auto 12px' }} />
-          <h1 className="font-display text-xl font-extrabold m-0 mb-2" style={{ color: 'var(--fg)' }}>
-            Create your business
-          </h1>
-          <p className="text-sm m-0 mb-5" style={{ color: 'var(--fg-muted)' }}>
-            Set up a provider profile on Delve. Listings and deals come next.
-          </p>
-          <input
-            type="text"
-            value={createName}
-            onChange={e => setCreateName(e.target.value)}
-            placeholder="Business name"
-            className="w-full max-w-sm mx-auto block rounded-xl px-3 py-2.5 text-sm mb-3"
-            style={{
-              background: 'var(--bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--fg)',
-            }}
-          />
-          {error && (
-            <p className="text-sm mb-3" style={{ color: 'var(--auth-danger)' }} role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            type="button"
-            disabled={creating || createName.trim().length < 2}
-            onClick={() => void handleCreate()}
-            className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
-            style={{
-              background: 'var(--primary)',
-              border: 'none',
-              cursor: creating ? 'wait' : 'pointer',
-              opacity: creating || createName.trim().length < 2 ? 0.6 : 1,
-            }}
-          >
-            {creating ? 'Creating…' : 'Create business'}
-          </button>
-        </div>
-      </div>
+      <CreateBusinessPage
+        onBack={onBack}
+        onSuccess={newMem => {
+          setMembership(newMem)
+          const b = newMem.business
+          setForm({
+            name: b.name,
+            description: b.description ?? '',
+            email: b.email ?? '',
+            phone: b.phone ?? '',
+            website: b.website ?? '',
+            city: b.city ?? '',
+            countryCode: b.countryCode ?? '',
+            address: b.address ?? '',
+            category: b.category ?? '',
+          })
+        }}
+      />
     )
   }
 

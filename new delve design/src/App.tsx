@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search, MapPin, Bell, MessageCircle, Heart, Bookmark, Share2,
@@ -48,6 +48,7 @@ import EventDetailSheet from './components/EventDetailSheet'
 import CompanyPage, { COMPANY_ROUTES } from './pages/CompanyPage'
 import type { CompanyRoute } from './pages/CompanyPage'
 import ProviderDashboardPage from './business/ProviderDashboardPage'
+import CreateBusinessPage from './pages/business/CreateBusinessPage'
 import PublicBusinessPage from './pages/PublicBusinessPage'
 import AuthFlow from './pages/auth/AuthFlow'
 import type { AuthRoute } from './pages/auth/AuthFlow'
@@ -997,6 +998,19 @@ export default function App() {
     return (
       <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
         <ResetPasswordPage />
+      </div>
+    )
+  }
+
+  if (location.pathname === '/business/create' || activeNav === 'Create business') {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+        <CreateBusinessPage
+          onBack={() => goToNav('Provider')}
+          onSuccess={() => {
+            goToNav('Provider business')
+          }}
+        />
       </div>
     )
   }

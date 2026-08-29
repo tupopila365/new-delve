@@ -24,6 +24,8 @@
     "admin:create": "pnpm --filter @delve/api admin:create",
     "db:seed:marketing-deals": "pnpm --filter @delve/api db:seed:marketing-deals",
     "db:seed:marketing-deals:cleanup": "pnpm --filter @delve/api db:seed:marketing-deals:cleanup",
+    "db:seed:marketing-journeys": "pnpm --filter @delve/api db:seed:marketing-journeys",
+    "db:seed:marketing-journeys:cleanup": "pnpm --filter @delve/api db:seed:marketing-journeys:cleanup",
     "appwrite:setup-profile": "node scripts/appwrite-setup-traveler-profile.mjs",
     "preview": "vite preview",
     "start": "node scripts/heroku-web.mjs",

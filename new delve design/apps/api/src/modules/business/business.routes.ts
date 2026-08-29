@@ -14,6 +14,10 @@ export function createBusinessRouter(env: Env) {
   router.get('/me/dashboard', auth, (req, res, next) => void c.dashboard(req, res, next))
   /** Public profile — must be registered before `/:id`. */
   router.get('/public/:slug', soft, (req, res, next) => void c.getPublic(req, res, next))
+  router.get('/:businessId/areas', auth, (req, res, next) => void c.listAreas(req, res, next))
+  router.post('/:businessId/areas', auth, (req, res, next) => void c.createArea(req, res, next))
+  router.patch('/:businessId/areas/:areaId', auth, (req, res, next) => void c.updateArea(req, res, next))
+  router.delete('/:businessId/areas/:areaId', auth, (req, res, next) => void c.deleteArea(req, res, next))
   router.get('/:id', auth, (req, res, next) => void c.getOne(req, res, next))
   router.patch('/:id', auth, (req, res, next) => void c.update(req, res, next))
 
