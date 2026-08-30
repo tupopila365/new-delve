@@ -40,6 +40,9 @@ import { useMessageUnreadCount } from './pages/messages/useLiveMessages'
 import SavedPage from './pages/SavedPage'
 import { fetchPublicDeals } from './api/dealClient'
 import NotificationsPage from './pages/NotificationsPage'
+import { useLiveNotifications } from './hooks/useLiveNotifications'
+import InAppNotificationToast from './components/notifications/InAppNotificationToast'
+import type { NotificationDto } from '@delve/contracts'
 import MediaStudio, { CreatePostButton } from './pages/MediaStudio'
 import CreateCommunitySheet from './components/communities/CreateCommunitySheet'
 import { fetchThread } from './api/communityClient'
@@ -483,6 +486,11 @@ export default function App() {
   const signedIn = authStatus === 'authenticated'
   const authReady = authStatus !== 'loading'
   const messageUnreadCount = useMessageUnreadCount(signedIn && authReady)
+  const {
+    unreadCount: notificationUnreadCount,
+    activeToast,
+    dismissToast,
+  } = useLiveNotifications(signedIn && authReady)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showOnboardingResume, setShowOnboardingResume] = useState(false)
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false)
@@ -572,6 +580,28 @@ export default function App() {
     } catch {
       setActiveNav('Communities')
     }
+  }
+
+  function handleNotificationSelect(n: NotificationDto) {
+    if (n.entityType === 'conversation' && n.entityId) {
+      setMessagesConversationId(n.entityId)
+      setActiveNav('Messages')
+      return
+    }
+    if (n.entityType === 'journey' && n.entityId) {
+      setActiveNav('Journeys')
+      setJourneyDetailId(n.entityId)
+      return
+    }
+    if (n.entityType === 'event' && n.entityId) {
+      openEventDetail(n.entityId)
+      return
+    }
+    if (n.entityType === 'community_thread' && n.entityId) {
+      void openCommunityThread(n.entityId)
+      return
+    }
+    setActiveNav('Notifications')
   }
 
   useEffect(() => {
@@ -1653,9 +1683,17 @@ export default function App() {
             <button type="button" onClick={() => setActiveNav('Notifications')}
               className="relative p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center"
               style={{ color: activeNav === 'Notifications' ? 'var(--primary)' : 'var(--fg-muted)' }}
-              aria-label="Notifications">
+              aria-label={notificationUnreadCount > 0 ? `Notifications, ${notificationUnreadCount} unread` : 'Notifications'}>
               <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: 'var(--primary)' }} aria-hidden />
+              {notificationUnreadCount > 0 && (
+                <span
+                  className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                  style={{ background: 'var(--primary)' }}
+                  aria-hidden
+                >
+                  {notificationUnreadCount > 9 ? '9+' : notificationUnreadCount}
+                </span>
+              )}
             </button>
             <button type="button" onClick={() => setActiveNav('Messages')}
               className="relative p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -2019,7 +2057,17 @@ export default function App() {
                     minHeight: 52,
                   }}>
                   <span style={{ color: 'var(--primary)' }}>{item.icon}</span>
-                  {item.label}
+                  <span className="truncate">{item.label}</span>
+                  {item.route === 'Notifications' && notificationUnreadCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-indigo-600">
+                      {notificationUnreadCount > 9 ? '9+' : notificationUnreadCount}
+                    </span>
+                  )}
+                  {item.route === 'Messages' && messageUnreadCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-indigo-600">
+                      {messageUnreadCount > 9 ? '9+' : messageUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2115,6 +2163,12 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <InAppNotificationToast
+        notification={activeToast}
+        onDismiss={dismissToast}
+        onOpen={handleNotificationSelect}
+      />
 
       {createLayers}
     </div>

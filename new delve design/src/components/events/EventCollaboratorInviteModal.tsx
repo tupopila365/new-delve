@@ -292,7 +292,7 @@ export default function EventCollaboratorInviteModal({
             {loadingInitial || isSearching ? (
               <div className="text-center py-8 text-neutral-400 text-xs flex items-center justify-center gap-2">
                 <Loader2 size={14} className="animate-spin" />
-                <span>Searching database...</span>
+                <span>searching for delvers...</span>
               </div>
             ) : travelers.length === 0 ? (
               <div className="text-center py-8 text-neutral-500 text-xs">
