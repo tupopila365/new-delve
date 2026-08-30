@@ -176,22 +176,22 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
 
       {/* City & Country - Floating Labels in Grid */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="relative">
-          <input
-            type="text"
-            id="event-city"
-            value={form.city}
-            onChange={e => onChange({ city: e.target.value })}
-            placeholder="City"
-            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-          />
-          <label
-            htmlFor="event-city"
-            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
-          >
-            City
-          </label>
-        </div>
+        <LocationAutocompleteInput
+          id="event-city"
+          value={form.city}
+          onChange={val => onChange({ city: val })}
+          onSelectPlace={res => {
+            onChange({
+              city: res.city || res.name,
+              ...(res.country ? { country: res.country } : {}),
+              ...(res.latitude ? { latitude: res.latitude } : {}),
+              ...(res.longitude ? { longitude: res.longitude } : {}),
+            })
+          }}
+          label="City"
+          placeholder="City"
+          className="mb-0"
+        />
 
         <div className="relative">
           <input
@@ -211,22 +211,108 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
         </div>
       </div>
 
-      {/* Category */}
+      {/* Multi-Select Category with Custom Other */}
       <div className="mb-3">
-        <label htmlFor="event-category" className="block text-xs font-semibold mb-1 text-neutral-400">
-          Category
-        </label>
-        <select
-          id="event-category"
-          value={form.category}
-          onChange={e => onChange({ category: e.target.value })}
-          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-        >
-          <option value="" className="bg-neutral-900 text-neutral-400">Choose a category</option>
-          {EVENT_CATEGORIES.map(cat => (
-            <option key={cat} value={cat} className="bg-neutral-900 text-white">{cat}</option>
-          ))}
-        </select>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-semibold text-neutral-400">
+            Category
+          </label>
+          <span className="text-[11px] text-neutral-500">Select all that apply</span>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {EVENT_CATEGORIES.map(cat => {
+            const isStandard = EVENT_CATEGORIES.includes(cat)
+            const isSelected = isStandard
+              ? (form.category || '')
+                  .split(',')
+                  .map(s => s.trim())
+                  .includes(cat)
+              : false
+            const isOther = cat === 'Other'
+            const hasCustom = isOther && (form.category || '')
+              .split(',')
+              .map(s => s.trim())
+              .some(c => c && !EVENT_CATEGORIES.includes(c as any) || c === 'Other')
+
+            const active = isSelected || hasCustom
+
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => {
+                  const current = (form.category || '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean)
+
+                  let next: string[]
+                  if (active) {
+                    if (isOther) {
+                      // Remove Other and any custom typed categories
+                      next = current.filter(c => EVENT_CATEGORIES.includes(c as any) && c !== 'Other')
+                    } else {
+                      next = current.filter(c => c !== cat)
+                    }
+                  } else {
+                    next = [...current, cat]
+                  }
+                  onChange({ category: Array.from(new Set(next)).join(', ') })
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                  active
+                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/25 scale-[1.02]'
+                    : 'bg-white/[0.04] border-white/10 text-neutral-300 hover:bg-white/[0.08] hover:text-white'
+                } active:scale-95`}
+              >
+                {cat}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Custom "Other" Free-Text Input */}
+        {(form.category || '')
+          .split(',')
+          .map(s => s.trim())
+          .some(c => c === 'Other' || (c && !EVENT_CATEGORIES.includes(c as any))) && (
+          <div className="relative mt-2">
+            <input
+              type="text"
+              id="event-custom-category"
+              value={
+                (form.category || '')
+                  .split(',')
+                  .map(s => s.trim())
+                  .filter(c => !EVENT_CATEGORIES.includes(c as any) && c !== 'Other')
+                  .join(', ')
+              }
+              onChange={e => {
+                const standards = (form.category || '')
+                  .split(',')
+                  .map(s => s.trim())
+                  .filter(c => EVENT_CATEGORIES.includes(c as any) && c !== 'Other')
+
+                const customTyped = e.target.value.trim()
+                const combined = customTyped
+                  ? [...standards, customTyped]
+                  : [...standards, 'Other']
+
+                onChange({ category: combined.join(', ') })
+              }}
+              placeholder="e.g. Photography, Workshops, Tech Meetup"
+              className="peer w-full rounded-xl bg-white/[0.04] border border-indigo-500/40 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+              autoFocus
+            />
+            <label
+              htmlFor="event-custom-category"
+              className="absolute left-3.5 top-1.5 text-xs text-indigo-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+            >
+              Specify custom category (free type)
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Timezone - Floating Label */}
