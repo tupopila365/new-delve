@@ -20,44 +20,6 @@ interface TravelerItem {
   subtitle: string
 }
 
-const FALLBACK_USERS: TravelerItem[] = [
-  {
-    id: 'user_johan_v',
-    username: 'johan_overland',
-    displayName: 'Johan V.',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Overland Host · 14 Expeditions',
-  },
-  {
-    id: 'user_sarah_m',
-    username: 'sarah_safari',
-    displayName: 'Sarah Miller',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Wildlife Photographer · Swakopmund',
-  },
-  {
-    id: 'user_taimi_n',
-    username: 'taimi_namibia',
-    displayName: 'Taimi N.',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Community Organizer · Windhoek',
-  },
-  {
-    id: 'user_alex_r',
-    username: 'alex_trails',
-    displayName: 'Alex Rivera',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Trail Lead · Damaraland',
-  },
-  {
-    id: 'user_elena_d',
-    username: 'elena_dune',
-    displayName: 'Elena Rostova',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Event Planner · Sossusvlei',
-  },
-]
-
 export default function EventCollaboratorInviteModal({
   isOpen,
   onClose,
@@ -69,23 +31,29 @@ export default function EventCollaboratorInviteModal({
   const [role, setRole] = useState<EventCollaboratorRole>('CO_HOST')
   const [invitingId, setInvitingId] = useState<string | null>(null)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
-  const [travelers, setTravelers] = useState<TravelerItem[]>(FALLBACK_USERS)
+  const [travelers, setTravelers] = useState<TravelerItem[]>([])
+  const [loadingInitial, setLoadingInitial] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const existingIds = new Set(existingCollaborators.map(c => c.userId))
 
-  // 1. Initial Load: Fetch real Event Attendees first
+  // 1. Initial Load: Fetch real Event Attendees + Suggested registered travelers from database
   useEffect(() => {
     if (!isOpen || !eventId) return
 
     let cancelled = false
-    async function loadAttendees() {
+    async function loadInitialTravelers() {
+      setLoadingInitial(true)
       try {
-        const attendees = await fetchEventAttendees(eventId)
-        if (cancelled || !attendees || attendees.length === 0) return
+        const [attendees, initialTravelers] = await Promise.all([
+          fetchEventAttendees(eventId).catch(() => []),
+          searchTravelers('').catch(() => []),
+        ])
 
-        const formattedAttendees: TravelerItem[] = attendees.map(a => ({
+        if (cancelled) return
+
+        const formattedAttendees: TravelerItem[] = (attendees || []).map(a => ({
           id: a.user.id,
           username: a.user.username,
           displayName: a.user.displayName,
@@ -93,17 +61,30 @@ export default function EventCollaboratorInviteModal({
           subtitle: a.status === 'GOING' ? 'RSVP: Going' : 'RSVP: Interested',
         }))
 
-        setTravelers(prev => {
-          const ids = new Set(formattedAttendees.map(u => u.id))
-          const remaining = prev.filter(u => !ids.has(u.id))
-          return [...formattedAttendees, ...remaining]
-        })
+        const formattedGeneral: TravelerItem[] = (initialTravelers || []).map((t: PublicTravelerProfile) => ({
+          id: t.id,
+          username: t.username,
+          displayName: t.displayName || t.username,
+          avatarUrl: t.avatarUrl,
+          subtitle: t.homeCity ? `${t.homeCity} · Delver` : 'Delve Traveler',
+        }))
+
+        // Merge attendees on top, followed by general database travelers (without duplicates)
+        const attendeeIds = new Set(formattedAttendees.map(u => u.id))
+        const combined = [
+          ...formattedAttendees,
+          ...formattedGeneral.filter(u => !attendeeIds.has(u.id)),
+        ]
+
+        setTravelers(combined)
       } catch {
-        // Fallback to initial suggestions if no attendees found
+        if (!cancelled) setTravelers([])
+      } finally {
+        if (!cancelled) setLoadingInitial(false)
       }
     }
 
-    loadAttendees()
+    loadInitialTravelers()
     return () => {
       cancelled = true
     }
@@ -127,30 +108,16 @@ export default function EventCollaboratorInviteModal({
     debounceTimerRef.current = setTimeout(async () => {
       try {
         const results = await searchTravelers(query)
-        if (results && results.length > 0) {
-          const mapped: TravelerItem[] = results.map((t: PublicTravelerProfile) => ({
-            id: t.id,
-            username: t.username,
-            displayName: t.displayName || t.username,
-            avatarUrl: t.avatarUrl,
-            subtitle: t.homeCity ? `${t.homeCity} · Delver` : 'Delve Traveler',
-          }))
-          setTravelers(mapped)
-        } else {
-          // If no backend match, filter local list as fallback
-          const localFiltered = FALLBACK_USERS.filter(u =>
-            u.displayName.toLowerCase().includes(query.toLowerCase()) ||
-            u.username.toLowerCase().includes(query.toLowerCase())
-          )
-          setTravelers(localFiltered)
-        }
+        const mapped: TravelerItem[] = (results || []).map((t: PublicTravelerProfile) => ({
+          id: t.id,
+          username: t.username,
+          displayName: t.displayName || t.username,
+          avatarUrl: t.avatarUrl,
+          subtitle: t.homeCity ? `${t.homeCity} · Delver` : `@${t.username}`,
+        }))
+        setTravelers(mapped)
       } catch {
-        // Fallback to local filter on network issue
-        const localFiltered = FALLBACK_USERS.filter(u =>
-          u.displayName.toLowerCase().includes(query.toLowerCase()) ||
-          u.username.toLowerCase().includes(query.toLowerCase())
-        )
-        setTravelers(localFiltered)
+        setTravelers([])
       } finally {
         setIsSearching(false)
       }
@@ -193,6 +160,8 @@ export default function EventCollaboratorInviteModal({
       setInvitingId(null)
     }
   }
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -314,20 +283,22 @@ export default function EventCollaboratorInviteModal({
         <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between text-xs text-neutral-400 px-0.5">
             <span className="font-semibold text-neutral-300">
-              {search.trim() ? 'Search Results' : 'Suggested Travelers & Attendees'}
+              {search.trim() ? 'Search Results' : 'Event Attendees & Travelers'}
             </span>
-            <span>{travelers.length} available</span>
+            <span>{travelers.length} found</span>
           </div>
 
           <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-            {isSearching && travelers.length === 0 ? (
+            {loadingInitial || isSearching ? (
               <div className="text-center py-8 text-neutral-400 text-xs flex items-center justify-center gap-2">
                 <Loader2 size={14} className="animate-spin" />
                 <span>Searching database...</span>
               </div>
             ) : travelers.length === 0 ? (
               <div className="text-center py-8 text-neutral-500 text-xs">
-                No travelers found matching &ldquo;{search}&rdquo;
+                {search.trim()
+                  ? `No travelers found matching "${search}"`
+                  : 'Search by name or username above to find travelers.'}
               </div>
             ) : (
               travelers.map(user => {
