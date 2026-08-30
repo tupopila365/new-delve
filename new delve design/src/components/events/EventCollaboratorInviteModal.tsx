@@ -118,21 +118,21 @@ export default function EventCollaboratorInviteModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden p-6 z-10 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg bg-[#121214] border border-white/10 rounded-3xl shadow-2xl overflow-hidden p-6 z-10 space-y-5 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <UserPlus size={20} />
+            <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white shadow-inner">
+              <UserPlus size={18} />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-white m-0">Invite Co-Hosts & Staff</h3>
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight m-0">Invite Co-Hosts & Staff</h3>
               <p className="text-xs text-neutral-400 m-0 mt-0.5">
                 Co-manage attendees, broadcast event updates, and coordinate schedules.
               </p>
@@ -150,75 +150,75 @@ export default function EventCollaboratorInviteModal({
         </div>
 
         {/* Role Selector Pill Tabs */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+        <div className="space-y-2">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
             Permission Role
           </label>
-          <div className="grid grid-cols-3 gap-2 bg-neutral-950/60 p-1.5 rounded-2xl border border-white/5">
+          <div className="grid grid-cols-3 gap-1.5 bg-neutral-950/80 p-1.5 rounded-2xl border border-white/10">
             <button
               type="button"
               onClick={() => setRole('CO_HOST')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-medium transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs transition-all ${
                 role === 'CO_HOST'
-                  ? 'bg-amber-500 text-black font-semibold shadow-lg shadow-amber-500/20'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-white text-neutral-950 font-semibold shadow-md shadow-white/5'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5 font-medium'
               }`}
             >
-              <Crown size={14} />
+              <Crown size={14} className={role === 'CO_HOST' ? 'text-neutral-950' : 'text-neutral-400'} />
               Co-Host
             </button>
             <button
               type="button"
               onClick={() => setRole('HOST')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-medium transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs transition-all ${
                 role === 'HOST'
-                  ? 'bg-amber-500 text-black font-semibold shadow-lg shadow-amber-500/20'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-white text-neutral-950 font-semibold shadow-md shadow-white/5'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5 font-medium'
               }`}
             >
-              <Shield size={14} />
+              <Shield size={14} className={role === 'HOST' ? 'text-neutral-950' : 'text-neutral-400'} />
               Lead Host
             </button>
             <button
               type="button"
               onClick={() => setRole('EDITOR')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-medium transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs transition-all ${
                 role === 'EDITOR'
-                  ? 'bg-amber-500 text-black font-semibold shadow-lg shadow-amber-500/20'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-white text-neutral-950 font-semibold shadow-md shadow-white/5'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/5 font-medium'
               }`}
             >
-              <User size={14} />
+              <User size={14} className={role === 'EDITOR' ? 'text-neutral-950' : 'text-neutral-400'} />
               Editor
             </button>
           </div>
-          <p className="text-[11px] text-neutral-500 px-1">
-            {role === 'HOST' && '👑 Lead Host: Full control over details, media, co-hosts, and cancellation.'}
-            {role === 'CO_HOST' && '🤝 Co-Host: Manage attendee lists, upload media, and broadcast announcements.'}
-            {role === 'EDITOR' && '📝 Editor: Edit event details, schedule times, and location.'}
+          <p className="text-[11px] text-neutral-400 px-1">
+            {role === 'HOST' && '👑 Lead Host: Full control over event details, media uploads, co-hosts, and settings.'}
+            {role === 'CO_HOST' && '🤝 Co-Host: Manage attendee RSVPs, upload media, and broadcast event updates.'}
+            {role === 'EDITOR' && '📝 Editor: Edit description, schedule timings, and venue location.'}
           </p>
         </div>
 
         {/* Live Search Input */}
         <div className="relative">
           <Search
-            size={18}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
           />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search traveler by name, username, or handle..."
-            className="w-full bg-neutral-950/80 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 transition-all"
+            className="w-full bg-neutral-950/80 border border-white/10 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-white/25 focus:ring-2 focus:ring-white/10 transition-all"
           />
         </div>
 
         {/* Suggested Travelers List */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-neutral-400 px-1">
-            <span>Suggested Travelers</span>
-            <span>{filteredUsers.length} found</span>
+            <span className="font-semibold uppercase tracking-wider text-[11px] text-neutral-400">Suggested Travelers</span>
+            <span className="text-[11px] text-neutral-500">{filteredUsers.length} found</span>
           </div>
 
           <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
@@ -235,7 +235,7 @@ export default function EventCollaboratorInviteModal({
                 return (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-neutral-950/40 border border-white/5 hover:border-white/10 hover:bg-neutral-950/80 transition-all"
+                    className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-neutral-950/50 border border-white/5 hover:border-white/10 hover:bg-neutral-950/90 transition-all"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {user.avatarUrl ? (
@@ -245,7 +245,7 @@ export default function EventCollaboratorInviteModal({
                           className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0"
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-xs shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center text-neutral-200 font-bold text-xs shrink-0">
                           {user.displayName.charAt(0)}
                         </div>
                       )}
@@ -266,7 +266,7 @@ export default function EventCollaboratorInviteModal({
 
                     <div className="shrink-0">
                       {isExisting ? (
-                        <span className="text-[11px] font-medium text-neutral-500 bg-white/5 border border-white/5 px-2.5 py-1 rounded-full">
+                        <span className="text-[11px] font-medium text-neutral-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full">
                           Already Co-Host
                         </span>
                       ) : isInvited ? (
@@ -279,7 +279,7 @@ export default function EventCollaboratorInviteModal({
                           type="button"
                           disabled={isBusy}
                           onClick={() => handleInvite(user)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs transition-all shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-neutral-200 text-neutral-950 font-semibold text-xs transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
                         >
                           {isBusy ? (
                             <Loader2 size={13} className="animate-spin" />

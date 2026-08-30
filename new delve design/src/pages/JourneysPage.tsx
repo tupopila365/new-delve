@@ -726,7 +726,7 @@ export default function JourneysPage({
 
       {/* Task 2: Granular Filters Strip (Duration, Budget, Party Size, Season) */}
       {tab === 'discover' && (
-        <div className="px-4 sm:px-0 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none border-t border-white/5">
+        <div className="px-4 sm:px-0 py-2.5 flex items-center gap-2 flex-wrap relative z-30 border-t border-white/5 overflow-visible">
           {/* Duration Filter Dropdown */}
           <div className="relative">
             <button
@@ -748,12 +748,12 @@ export default function JourneysPage({
                   ? '4-7 Days'
                   : '8+ Days'}
               </span>
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className={`transition-transform duration-150 ${activeDropdown === 'duration' ? 'rotate-180' : ''}`} />
             </button>
             {activeDropdown === 'duration' && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setActiveDropdown(null)} />
-                <div className="absolute left-0 top-9 z-40 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[140px]">
+                <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                <div className="absolute left-0 top-full mt-1.5 z-50 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[160px] animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
                   {[
                     { id: 'all', label: 'All Durations' },
                     { id: 'weekend', label: 'Weekend (1-3d)' },
@@ -767,8 +767,8 @@ export default function JourneysPage({
                         setDurationFilter(opt.id as any)
                         setActiveDropdown(null)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs rounded-xl transition-colors ${
-                        durationFilter === opt.id ? 'bg-indigo-600 text-white' : 'text-neutral-300 hover:bg-white/5'
+                      className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors ${
+                        durationFilter === opt.id ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-300 hover:bg-white/5 hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -792,12 +792,12 @@ export default function JourneysPage({
             >
               <DollarSign size={12} className="text-emerald-400" />
               <span>{budgetFilter === 'all' ? 'Budget' : budgetFilter === 'budget' ? 'Budget Friendly' : 'Luxury / Premium'}</span>
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className={`transition-transform duration-150 ${activeDropdown === 'budget' ? 'rotate-180' : ''}`} />
             </button>
             {activeDropdown === 'budget' && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setActiveDropdown(null)} />
-                <div className="absolute left-0 top-9 z-40 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[140px]">
+                <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                <div className="absolute left-0 top-full mt-1.5 z-50 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[160px] animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
                   {[
                     { id: 'all', label: 'Any Budget' },
                     { id: 'budget', label: 'Budget Friendly' },
@@ -810,8 +810,8 @@ export default function JourneysPage({
                         setBudgetFilter(opt.id as any)
                         setActiveDropdown(null)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs rounded-xl transition-colors ${
-                        budgetFilter === opt.id ? 'bg-indigo-600 text-white' : 'text-neutral-300 hover:bg-white/5'
+                      className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors ${
+                        budgetFilter === opt.id ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-300 hover:bg-white/5 hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -835,12 +835,12 @@ export default function JourneysPage({
             >
               <Users size={12} className="text-purple-400" />
               <span>{partyFilter === 'all' ? 'Party Size' : partyFilter.toUpperCase()}</span>
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className={`transition-transform duration-150 ${activeDropdown === 'party' ? 'rotate-180' : ''}`} />
             </button>
             {activeDropdown === 'party' && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setActiveDropdown(null)} />
-                <div className="absolute left-0 top-9 z-40 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[140px]">
+                <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                <div className="absolute left-0 top-full mt-1.5 z-50 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[160px] animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
                   {[
                     { id: 'all', label: 'All Parties' },
                     { id: 'solo', label: 'Solo' },
@@ -855,8 +855,8 @@ export default function JourneysPage({
                         setPartyFilter(opt.id as any)
                         setActiveDropdown(null)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs rounded-xl transition-colors ${
-                        partyFilter === opt.id ? 'bg-indigo-600 text-white' : 'text-neutral-300 hover:bg-white/5'
+                      className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors ${
+                        partyFilter === opt.id ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-300 hover:bg-white/5 hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -880,12 +880,12 @@ export default function JourneysPage({
             >
               <Calendar size={12} className="text-amber-400" />
               <span>{seasonFilter === 'all' ? 'Season' : seasonFilter.toUpperCase()}</span>
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className={`transition-transform duration-150 ${activeDropdown === 'season' ? 'rotate-180' : ''}`} />
             </button>
             {activeDropdown === 'season' && (
               <>
-                <div className="fixed inset-0 z-30" onClick={() => setActiveDropdown(null)} />
-                <div className="absolute left-0 top-9 z-40 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[140px]">
+                <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                <div className="absolute left-0 top-full mt-1.5 z-50 rounded-2xl bg-neutral-900 border border-white/10 p-1.5 shadow-2xl min-w-[160px] animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
                   {[
                     { id: 'all', label: 'Any Season' },
                     { id: 'summer', label: 'Summer / Dry' },
@@ -898,8 +898,8 @@ export default function JourneysPage({
                         setSeasonFilter(opt.id as any)
                         setActiveDropdown(null)
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs rounded-xl transition-colors ${
-                        seasonFilter === opt.id ? 'bg-indigo-600 text-white' : 'text-neutral-300 hover:bg-white/5'
+                      className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors ${
+                        seasonFilter === opt.id ? 'bg-indigo-600 text-white font-semibold' : 'text-neutral-300 hover:bg-white/5 hover:text-white'
                       }`}
                     >
                       {opt.label}
