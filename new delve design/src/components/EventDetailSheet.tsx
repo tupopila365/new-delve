@@ -675,6 +675,7 @@ export default function EventDetailSheet({
                     setEvent(next)
                     onUpdated?.(next)
                   }}
+                  onOpenProfile={onOpenProfile}
                   editable={Boolean(
                     signedIn
                     && event.status !== 'CANCELLED'

@@ -7,6 +7,12 @@ export interface LightboxMediaItem {
   type: 'image' | 'video' | string
   alt?: string
   canDelete?: boolean
+  uploadedBy?: {
+    id: string
+    username: string
+    displayName: string
+    avatarUrl: string | null
+  }
 }
 
 interface MediaLightboxProps {
@@ -14,6 +20,7 @@ interface MediaLightboxProps {
   initialIndex?: number
   onClose: () => void
   onDelete?: (mediaId: string) => Promise<void>
+  onOpenProfile?: (username: string) => void
 }
 
 export default function MediaLightbox({
@@ -21,6 +28,7 @@ export default function MediaLightbox({
   initialIndex = 0,
   onClose,
   onDelete,
+  onOpenProfile,
 }: MediaLightboxProps) {
   const [index, setIndex] = useState(initialIndex)
   const [zoom, setZoom] = useState(1)
@@ -71,10 +79,41 @@ export default function MediaLightbox({
     >
       {/* Header Controls Bar */}
       <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent z-10">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10 text-white/90 tabular-nums">
             {index + 1} / {count}
           </span>
+          {currentItem.uploadedBy && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                onOpenProfile?.(currentItem.uploadedBy!.username)
+              }}
+              className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-left transition-all text-white group"
+              title={`View ${currentItem.uploadedBy.displayName}'s profile`}
+            >
+              {currentItem.uploadedBy.avatarUrl ? (
+                <img
+                  src={currentItem.uploadedBy.avatarUrl}
+                  alt={currentItem.uploadedBy.displayName}
+                  className="w-5 h-5 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                  {currentItem.uploadedBy.displayName.charAt(0)}
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-semibold text-white group-hover:underline">
+                  {currentItem.uploadedBy.displayName}
+                </span>
+                <span className="text-[11px] text-neutral-400">
+                  @{currentItem.uploadedBy.username}
+                </span>
+              </div>
+            </button>
+          )}
           {currentItem.alt && (
             <span className="text-xs text-neutral-300 truncate max-w-[200px] sm:max-w-md hidden sm:inline">
               {currentItem.alt}

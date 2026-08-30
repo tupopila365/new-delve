@@ -8,12 +8,14 @@ interface EventMediaEditorProps {
   event: EventDto
   onChanged: (event: EventDto) => void
   editable?: boolean
+  onOpenProfile?: (username: string) => void
 }
 
 export default function EventMediaEditor({
   event,
   onChanged,
   editable = true,
+  onOpenProfile,
 }: EventMediaEditorProps) {
   const [studioOpen, setStudioOpen] = useState(false)
   const media = event.media ?? []
@@ -51,6 +53,7 @@ export default function EventMediaEditor({
         coverMediaId={event.coverMediaId ?? null}
         isOwner={event.isOwner}
         onDeleteMedia={handleDeleteMedia}
+        onOpenProfile={onOpenProfile}
       />
 
       {editable ? (

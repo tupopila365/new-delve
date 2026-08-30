@@ -832,6 +832,13 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
       business: { select: { id: true, slug: true, name: true, logoUrl: true } },
       media: {
         where: { deletedAt: null, purpose: 'event' },
+        include: {
+          uploadedBy: {
+            include: {
+              travelerProfile: true,
+            },
+          },
+        },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       },
     },
@@ -848,45 +855,50 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
     prisma.eventAttendance.count({ where: { eventId, status: 'INTERESTED' } }),
     viewerId
       ? prisma.eventAttendance.findUnique({ where: { eventId_userId: { eventId, userId: viewerId } } })
-      : null,
+      : Promise.resolve(null),
     viewerId
-      ? prisma.save.findFirst({
-          where: { userId: viewerId, targetType: 'EVENT', targetId: eventId },
+      ? prisma.save.findUnique({
+          where: { userId_targetType_targetId: { userId: viewerId, targetType: 'EVENT', targetId: eventId } },
         })
-      : null,
+      : Promise.resolve(null),
     prisma.eventReaction.count({ where: { eventId } }),
     viewerId
       ? prisma.eventReaction.findUnique({ where: { userId_eventId: { userId: viewerId, eventId } } })
-      : null,
+      : Promise.resolve(null),
   ])
 
-  const canUploadMedia = Boolean(isOwner || mine?.status === 'GOING')
+  const canUploadMedia = Boolean(
+    viewerId && event.status !== 'CANCELLED' && (isOwner || mine?.status === 'GOING'),
+  )
 
   return {
     id: event.id,
+    creatorId: event.creatorId,
     title: event.title,
     description: event.description,
-    coverUrl: event.coverUrl,
+    category: event.category,
     coverMediaId: event.coverMediaId,
-    coverResourceType: event.coverMedia?.resourceType === 'video'
-      ? ('video' as const)
-      : event.coverUrl
-        ? ('image' as const)
-        : null,
+    coverUrl: event.coverUrl,
+    coverResourceType:
+      event.coverMedia?.resourceType === 'video'
+        ? ('video' as const)
+        : event.coverUrl
+          ? ('image' as const)
+          : null,
+    coverMedia: event.coverMedia ? mediaAssetToDto(env, event.coverMedia) : null,
     startAt: event.startAt.toISOString(),
-    endAt: event.endAt?.toISOString() ?? null,
+    endAt: event.endAt ? event.endAt.toISOString() : null,
     timezone: event.timezone,
     locationName: event.locationName,
     city: event.city,
     country: event.country,
     latitude: event.latitude,
     longitude: event.longitude,
-    category: event.category,
     communityId: event.communityId,
-    businessId: event.businessId,
     community: event.community
       ? { id: event.community.id, slug: event.community.slug, name: event.community.name }
       : null,
+    businessId: event.businessId,
     business: event.business
       ? {
           id: event.business.id,
@@ -911,6 +923,14 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
       isCover: event.coverMediaId === m.id,
       uploadedByUserId: m.uploadedByUserId,
       isMine: viewerId ? m.uploadedByUserId === viewerId : false,
+      uploadedBy: m.uploadedBy
+        ? {
+            id: m.uploadedBy.id,
+            username: m.uploadedBy.username,
+            displayName: m.uploadedBy.travelerProfile?.displayName?.trim() || m.uploadedBy.username,
+            avatarUrl: m.uploadedBy.travelerProfile?.avatarUrl ?? null,
+          }
+        : undefined,
     })),
     collaborators: event.collaborators.map(c => ({
       id: c.id,

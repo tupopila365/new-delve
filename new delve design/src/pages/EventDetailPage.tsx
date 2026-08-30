@@ -30,6 +30,7 @@ import { getStoredUser } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
 import { eventShareUrl, mapsUrlForEvent } from '../lib/eventLinks'
 import EventCollaboratorInviteModal from '../components/events/EventCollaboratorInviteModal'
+import EventMediaEditor from '../media/EventMediaEditor'
 
 interface Props {
   eventId: string
@@ -326,6 +327,20 @@ export default function EventDetailPage({ eventId, onBack, onOpenProfile }: Prop
             <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-line m-0">
               {event.description || 'No description provided for this event.'}
             </p>
+          </div>
+
+          {/* Event Media Gallery */}
+          <div className="bg-neutral-900/90 border border-white/10 rounded-2xl p-5 backdrop-blur-md">
+            <EventMediaEditor
+              event={event}
+              onChanged={updated => setEvent(updated)}
+              onOpenProfile={onOpenProfile}
+              editable={Boolean(
+                currentUser &&
+                  event.status !== 'CANCELLED' &&
+                  (isOrganizerOrHost || event.myAttendance === 'GOING')
+              )}
+            />
           </div>
         </div>
 
