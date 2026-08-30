@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Bookmark, Calendar, ExternalLink, Flag, Heart, MapPin, Navigation, Pencil, Share2, Users, X,
+  Bookmark, Calendar, ExternalLink, Flag, Heart, MapPin, Navigation, Pencil, Share2, UserPlus, Users, X,
 } from 'lucide-react'
 import type { EventAttendeeDto, EventDto } from '@delve/contracts'
 import {
@@ -18,6 +18,7 @@ import { eventShareUrl, mapsUrlForEvent } from '../lib/eventLinks'
 import { formatUsername } from '../lib/formatUsername'
 import EventCoverMedia from './EventCoverMedia'
 import AddToJourneySheet from './events/AddToJourneySheet'
+import EventCollaboratorInviteModal from './events/EventCollaboratorInviteModal'
 import EventMediaEditor from '../media/EventMediaEditor'
 import { DoubleTapLike } from './delvers/DoubleTapLike'
 import ContentReportSheet from './safety/ContentReportSheet'
@@ -135,6 +136,7 @@ export default function EventDetailSheet({
   const [shareNote, setShareNote] = useState<string | null>(null)
   const [addToJourneyOpen, setAddToJourneyOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
 
   useEffect(() => {
     if (!eventId) {
@@ -365,32 +367,96 @@ export default function EventDetailSheet({
             </button>
           </div>
 
-          {/* Host Info */}
+          {/* Host & Co-Hosts Info */}
           {event && (
-            <button
-              type="button"
-              onClick={() => onOpenProfile?.(event.creator.username)}
-              className="flex items-center gap-2.5 mb-3.5 text-left group"
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-            >
-              {event.creator.avatarUrl ? (
-                <img src={event.creator.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-neutral-300">
-                  {event.creator.username[0]?.toUpperCase() || 'U'}
-                </div>
+            <div className="flex items-center justify-between gap-3 mb-3.5 flex-wrap">
+              <div className="flex items-center gap-3">
+                {/* Creator */}
+                <button
+                  type="button"
+                  onClick={() => onOpenProfile?.(event.creator.username)}
+                  className="flex items-center gap-2.5 text-left group"
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: onOpenProfile ? 'pointer' : 'default' }}
+                >
+                  {event.creator.avatarUrl ? (
+                    <img src={event.creator.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-xs font-bold border border-amber-500/30">
+                      {event.creator.username[0]?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-neutral-300 group-hover:text-white transition-colors leading-tight">
+                      {event.business?.name
+                        || event.creator.displayName
+                        || formatUsername(event.creator.username)}
+                    </span>
+                    <span className="text-[10px] text-neutral-500 font-medium">Organizer</span>
+                  </div>
+                  {event.business && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                      Business
+                    </span>
+                  )}
+                </button>
+
+                {/* Co-Hosts Overlapping Avatar Cluster */}
+                {event.collaborators && event.collaborators.length > 0 && (
+                  <div className="flex items-center pl-2.5 border-l border-white/10">
+                    <div className="flex items-center -space-x-2 mr-2">
+                      {event.collaborators.slice(0, 4).map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => onOpenProfile?.(c.username)}
+                          className="relative group/collab rounded-full transition-transform hover:scale-110 hover:z-10 focus:outline-none"
+                          title={`${c.displayName} (@${c.username}) · ${c.role.replace('_', ' ')}`}
+                        >
+                          {c.avatarUrl ? (
+                            <img
+                              src={c.avatarUrl}
+                              alt={c.displayName}
+                              className="w-7 h-7 rounded-full object-cover border-2 border-neutral-900 shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-amber-500/20 border-2 border-neutral-900 flex items-center justify-center text-[10px] font-bold text-amber-300 shadow-sm">
+                              {c.displayName.charAt(0) || c.username.charAt(0)}
+                            </div>
+                          )}
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/collab:flex flex-col items-center pointer-events-none z-30">
+                            <div className="bg-neutral-950 text-white text-[10px] py-1 px-2.5 rounded-lg border border-white/10 whitespace-nowrap shadow-xl">
+                              <span className="font-semibold">{c.displayName}</span>
+                              <span className="text-amber-400 ml-1 text-[9px]">({c.role.replace('_', ' ')})</span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                      {event.collaborators.length > 4 && (
+                        <div className="w-7 h-7 rounded-full bg-neutral-800 border-2 border-neutral-900 flex items-center justify-center text-[9px] font-bold text-neutral-400 shadow-sm">
+                          +{event.collaborators.length - 4}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-neutral-400 font-medium hidden sm:inline">
+                      {event.collaborators.length} {event.collaborators.length === 1 ? 'co-host' : 'co-hosts'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Invite Co-Host Trigger for Organizer / Host */}
+              {signedIn && (event.isOwner || event.collaborators?.some(c => c.role === 'HOST')) && (
+                <button
+                  type="button"
+                  onClick={() => setInviteModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <UserPlus size={13} />
+                  <span>+ Invite Co-Host</span>
+                </button>
               )}
-              <span className="text-sm font-semibold text-neutral-300 group-hover:text-white transition-colors">
-                {event.business?.name
-                  || event.creator.displayName
-                  || formatUsername(event.creator.username)}
-              </span>
-              {event.business && (
-                <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                  Business
-                </span>
-              )}
-            </button>
+            </div>
           )}
 
           {/* Metadata Chips */}
@@ -669,6 +735,25 @@ export default function EventDetailSheet({
           eventId={event.id}
           eventTitle={event.title}
           onClose={() => setAddToJourneyOpen(false)}
+        />
+      )}
+      {event && (
+        <EventCollaboratorInviteModal
+          isOpen={inviteModalOpen}
+          onClose={() => setInviteModalOpen(false)}
+          eventId={event.id}
+          existingCollaborators={event.collaborators}
+          onCollaboratorAdded={newCollab => {
+            setEvent(prev => {
+              if (!prev) return prev
+              const currentList = prev.collaborators || []
+              const exists = currentList.some(c => c.userId === newCollab.userId)
+              const nextCollabs = exists ? currentList : [...currentList, newCollab]
+              const updated = { ...prev, collaborators: nextCollabs }
+              onUpdated?.(updated)
+              return updated
+            })
+          }}
         />
       )}
       <ContentReportSheet open={reportOpen && Boolean(event)} targetType="EVENT" targetId={event?.id || ''} onClose={() => setReportOpen(false)} />

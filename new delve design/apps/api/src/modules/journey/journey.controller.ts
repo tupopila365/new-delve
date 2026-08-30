@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import {
   addJourneyBookingBodySchema,
+  addJourneyCollaboratorSchema,
   addJourneyDealBodySchema,
   addJourneyEventBodySchema,
   createJourneyBodySchema,
@@ -9,6 +10,7 @@ import {
   journeyListQuerySchema,
   patchJourneyOrderBodySchema,
   patchJourneyPersonalisationBodySchema,
+  reorderJourneyStopsBodySchema,
   updateJourneyBodySchema,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
@@ -98,6 +100,64 @@ export function createJourneyController() {
       try {
         const body = parseOrThrow(updateJourneyBodySchema, req.body)
         ok(res, await journeyService.updateJourney(requireUserId(req), String(req.params.journeyId), body))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async fork(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(res, await journeyService.forkJourney(requireUserId(req), String(req.params.journeyId)), 201)
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async reorderStops(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(reorderJourneyStopsBodySchema, req.body)
+        const items = Array.isArray(body) ? body : body.stops
+        ok(
+          res,
+          await journeyService.reorderJourneyStops(
+            requireUserId(req),
+            String(req.params.journeyId),
+            items,
+          ),
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async addCollaborator(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(addJourneyCollaboratorSchema, req.body)
+        ok(
+          res,
+          await journeyService.addCollaborator(
+            String(req.params.journeyId),
+            requireUserId(req),
+            body.userId,
+            body.role,
+          ),
+          201,
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async removeCollaborator(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await journeyService.removeCollaborator(
+            String(req.params.journeyId),
+            requireUserId(req),
+            String(req.params.userId),
+          ),
+        )
       } catch (err) {
         next(err)
       }

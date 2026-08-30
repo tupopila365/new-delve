@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { EventDto } from '@delve/contracts'
 import EventMediaGallery from './EventMediaGallery'
-import { fetchEvent, updateEvent } from '../api/socialClient'
+import { fetchEvent, updateEvent, deleteEventMedia } from '../api/socialClient'
 import MediaStudio from '../pages/MediaStudio'
 
 interface EventMediaEditorProps {
@@ -28,6 +28,11 @@ export default function EventMediaEditor({
     onChanged(updated)
   }
 
+  async function handleDeleteMedia(mediaId: string) {
+    const updated = await deleteEventMedia(event.id, mediaId)
+    onChanged(updated)
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -41,7 +46,12 @@ export default function EventMediaEditor({
         )}
       </div>
 
-      <EventMediaGallery media={media} coverMediaId={event.coverMediaId ?? null} />
+      <EventMediaGallery
+        media={media}
+        coverMediaId={event.coverMediaId ?? null}
+        isOwner={event.isOwner}
+        onDeleteMedia={handleDeleteMedia}
+      />
 
       {editable ? (
         <>

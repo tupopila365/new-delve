@@ -76,6 +76,12 @@ enum EventStatus {
   COMPLETED
 }
 
+enum EventCollaboratorRole {
+  HOST
+  CO_HOST
+  EDITOR
+}
+
 enum AttendanceStatus {
   GOING
   INTERESTED
@@ -196,6 +202,18 @@ enum JourneyPartyType {
   FRIENDS
 }
 
+enum JourneyStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+}
+
+enum JourneyCollaboratorRole {
+  VIEWER
+  EDITOR
+  ADMIN
+}
+
 /// Platform Admin visibility. Distinct from creator delete/cancel.
 enum ContentModerationStatus {
   VISIBLE
@@ -283,6 +301,7 @@ model User {
   followsOutgoing          Follow[]                        @relation("FollowFollower")
   followsIncoming          Follow[]                        @relation("FollowFollowing")
   travelerEvents           TravelerEvent[]
+  eventCollaborations      EventCollaborator[]
   eventAttendances         EventAttendance[]
   eventReactions           EventReaction[]
   notifications            Notification[]
@@ -304,6 +323,7 @@ model User {
   communityThreadReactions CommunityThreadReaction[]
   communityAnswers         CommunityAnswer[]
   journeys                 Journey[]
+  journeyCollaborations    JourneyCollaborator[]
   journeyComments          JourneyComment[]
   journeyReactions         JourneyReaction[]
   journeyEvents            JourneyEvent[]
@@ -817,6 +837,7 @@ model TravelerEvent {
   updatedAt        DateTime                @updatedAt
 
   attendances      EventAttendance[]
+  collaborators    EventCollaborator[]
   reactions        EventReaction[]
   journeyLinks     JourneyEvent[]
   sharedPosts      Post[]
@@ -829,6 +850,21 @@ model TravelerEvent {
   @@index([moderationStatus])
   @@index([communityId])
   @@index([businessId])
+}
+
+model EventCollaborator {
+  id        String                @id @default(cuid())
+  eventId   String
+  event     TravelerEvent         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      EventCollaboratorRole @default(CO_HOST)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([eventId])
 }
 
 model EventReaction {
@@ -2061,7 +2097,9 @@ model Journey {
   startPlace        String
   endPlace          String
   countries         String[]                @default([])
-  durationDays      Int                     @default(1)
+  durationDays      Int?                    @default(1)
+  status            JourneyStatus           @default(PLANNING)
+  isOngoing         Boolean                 @default(false)
   transportModes    String[]                @default([])
   historicalCost    String?
   currency          String                  @default("N$")
@@ -2077,7 +2115,13 @@ model Journey {
   updatedAt         DateTime                @updatedAt
   deletedAt         DateTime?
 
+  // Self-relation for itinerary forking/duplication
+  clonedFromId      String?
+  clonedFrom        Journey?                @relation("JourneyForks", fields: [clonedFromId], references: [id], onDelete: SetNull)
+  clones            Journey[]               @relation("JourneyForks")
+
   stops            JourneyStop[]
+  collaborators    JourneyCollaborator[]
   comments         JourneyComment[]
   reactions        JourneyReaction[]
   events           JourneyEvent[]
@@ -2090,8 +2134,25 @@ model Journey {
 
   @@index([authorId, createdAt])
   @@index([visibility, publishedAt])
+  @@index([status, startDate])
+  @@index([clonedFromId])
   @@index([moderationStatus])
   @@index([deletedAt])
+}
+
+model JourneyCollaborator {
+  id        String                  @id @default(cuid())
+  journeyId String
+  journey   Journey                 @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      JourneyCollaboratorRole @default(EDITOR)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  @@unique([journeyId, userId])
+  @@index([userId])
+  @@index([journeyId])
 }
 
 /// Per-user personalisation layer for journeys the user has authored or saved.

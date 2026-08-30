@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import {
+  addEventCollaboratorSchema,
   attendanceBodySchema,
   createCommentBodySchema,
   createEventBodySchema,
@@ -300,6 +301,17 @@ export function createSocialController(env: Env) {
       }
     },
 
+    async deleteEventMedia(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const userId = requireUserId(req)
+        const eventId = String(req.params.eventId)
+        const mediaId = String(req.params.mediaId)
+        ok(res, await eventService.deleteEventMedia(env, userId, eventId, mediaId))
+      } catch (err) {
+        next(err)
+      }
+    },
+
     async listEventAttendees(req: Request, res: Response, next: NextFunction) {
       try {
         const query = parseOrThrow(eventAttendeesQuerySchema, {
@@ -340,6 +352,41 @@ export function createSocialController(env: Env) {
     async clearAttendance(req: AuthedRequest, res: Response, next: NextFunction) {
       try {
         ok(res, await eventService.clearAttendance(env, requireUserId(req), String(req.params.eventId)))
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async addCollaborator(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        const body = parseOrThrow(addEventCollaboratorSchema, req.body)
+        ok(
+          res,
+          await eventService.addEventCollaborator(
+            env,
+            String(req.params.eventId),
+            requireUserId(req),
+            body.userId,
+            body.role,
+          ),
+          201,
+        )
+      } catch (err) {
+        next(err)
+      }
+    },
+
+    async removeCollaborator(req: AuthedRequest, res: Response, next: NextFunction) {
+      try {
+        ok(
+          res,
+          await eventService.removeEventCollaborator(
+            env,
+            String(req.params.eventId),
+            requireUserId(req),
+            String(req.params.userId),
+          ),
+        )
       } catch (err) {
         next(err)
       }

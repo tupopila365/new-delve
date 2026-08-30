@@ -1,4 +1,6 @@
 import type {
+  AddEventCollaboratorBody,
+  EventCollaboratorRole,
   CommentDto,
   CreateEventBody,
   CreatePostBody,
@@ -195,6 +197,34 @@ export async function clearEventAttendance(eventId: string) {
   return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}/attendance`, {
     method: 'DELETE',
   })
+}
+
+export async function addEventCollaborator(
+  eventId: string,
+  body: { userId: string; role?: EventCollaboratorRole },
+) {
+  return authorizedJson<EventDto>(`/events/${encodeURIComponent(eventId)}/collaborators`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function removeEventCollaborator(eventId: string, userId: string) {
+  return authorizedJson<EventDto>(
+    `/events/${encodeURIComponent(eventId)}/collaborators/${encodeURIComponent(userId)}`,
+    {
+      method: 'DELETE',
+    },
+  )
+}
+
+export async function deleteEventMedia(eventId: string, mediaId: string) {
+  return authorizedJson<EventDto>(
+    `/events/${encodeURIComponent(eventId)}/media/${encodeURIComponent(mediaId)}`,
+    {
+      method: 'DELETE',
+    },
+  )
 }
 
 export async function fetchNotifications() {

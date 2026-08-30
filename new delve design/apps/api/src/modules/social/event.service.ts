@@ -1,6 +1,11 @@
 import { prisma } from '@delve/database'
 
-import type { CreateEventBody, EventListQuery, UpdateEventBody } from '@delve/contracts'
+import type {
+  CreateEventBody,
+  EventCollaboratorRole,
+  EventListQuery,
+  UpdateEventBody,
+} from '@delve/contracts'
 
 import type { Env } from '../../config/env.js'
 
@@ -790,53 +795,239 @@ export async function setAttendance(env: Env, userId: string, eventId: string, s
     where: { eventId_userId: { eventId, userId } },
 
     create: { eventId, userId, status, updatedAt: new Date() },
+        { city: { contains: term, mode: 'insensitive' } },
+
+        { locationName: { contains: term, mode: 'insensitive' } },
+
+        { country: { contains: term, mode: 'insensitive' } },
+
+        { category: { contains: term, mode: 'insensitive' } },
+
+      ],
+
+    },
+
+    orderBy: { startAt: 'asc' },
+
+    take: 40,
+
+  })
+
+  const visible = await Promise.all(
+
+    rows.map(async row => {
+
+      try {
+
+        await assertCanViewEvent(row, viewerId)
+
+        return row
+
+      } catch {
+
+        return null
+
+      }
+
+    }),
+
+  )
+
+  return Promise.all(
+
+    visible.filter((r): r is (typeof rows)[number] => Boolean(r)).map(r => getEventDto(env, r.id, viewerId)),
+
+  )
+
+}
+
+
+
+export async function listMyHostingEvents(env: Env, userId: string) {
+
+  const rows = await prisma.travelerEvent.findMany({
+
+    where: { creatorId: userId },
+
+    orderBy: { startAt: 'asc' },
+
+    take: 60,
+
+  })
+
+  return Promise.all(rows.map(r => getEventDto(env, r.id, userId)))
+
+}
+
+
+
+export async function listMyAttendingEvents(env: Env, userId: string) {
+
+  const rows = await prisma.eventAttendance.findMany({
+
+    where: { userId },
+
+    include: { event: true },
+
+    orderBy: { event: { startAt: 'asc' } },
+
+    take: 60,
+
+  })
+
+  const events = rows.map(r => r.event)
+
+  const visible = await Promise.all(
+
+    events.map(async event => {
+
+      try {
+
+        await assertCanViewEvent(event, userId)
+
+        return event
+
+      } catch {
+
+        return null
+
+      }
+
+    }),
+
+  )
+
+  return Promise.all(
+
+    visible.filter((e): e is (typeof events)[number] => Boolean(e)).map(e => getEventDto(env, e.id, userId)),
+
+  )
+
+}
+
+
+
+export async function listEventsForUser(env: Env, profileUserId: string, viewerId: string | null) {
+
+  const rows = await prisma.travelerEvent.findMany({
+
+    where: {
+
+      creatorId: profileUserId,
+
+      ...profileListVisibilityFilter(viewerId, profileUserId),
+
+    },
+
+    orderBy: { startAt: 'asc' },
+
+    take: 60,
+
+  })
+
+  const visible = await Promise.all(
+
+    rows.map(async row => {
+
+      try {
+
+        await assertCanViewEvent(row, viewerId)
+
+        return row
+
+      } catch {
+
+        return null
+
+      }
+
+    }),
+
+  )
+
+  return Promise.all(
+
+    visible.filter((r): r is (typeof rows)[number] => Boolean(r)).map(r => getEventDto(env, r.id, viewerId)),
+
+  )
+
+}
+
+
+
+export async function setAttendance(env: Env, userId: string, eventId: string, status: 'GOING' | 'INTERESTED') {
+
+  const event = await prisma.travelerEvent.findFirst({ where: { id: eventId } })
+
+  if (!event || event.status !== 'PUBLISHED') {
+
+    throw new AppError(404, 'NOT_FOUND', 'Event not found')
+
+  }
+
+  await assertCanViewEvent(event, userId)
+
+  if (status === 'GOING' && event.maxAttendees != null) {
+
+    const going = await prisma.eventAttendance.count({ where: { eventId, status: 'GOING' } })
+
+    const mine = await prisma.eventAttendance.findUnique({
+
+      where: { eventId_userId: { eventId, userId } },
+
+    })
+
+    if (going >= event.maxAttendees && mine?.status !== 'GOING') {
+
+      throw new AppError(409, 'EVENT_FULL', 'This event is at capacity.')
+
+    }
+
+  }
+
+  await prisma.eventAttendance.upsert({
+
+    where: { eventId_userId: { eventId, userId } },
+
+    create: { eventId, userId, status, updatedAt: new Date() },
 
     update: { status, updatedAt: new Date() },
 
   })
 
   await createNotification({
-
     userId: event.creatorId,
-
     type: 'EVENT_ATTENDANCE',
-
     title: 'Event attendance',
-
     body: `Someone marked ${status === 'GOING' ? 'Going' : 'Interested'}.`,
-
     entityType: 'event',
-
     entityId: eventId,
-
     actorId: userId,
-
   })
 
   return getEventDto(env, eventId, userId)
-
 }
-
-
 
 export async function clearAttendance(env: Env, userId: string, eventId: string) {
-
   await prisma.eventAttendance.deleteMany({ where: { eventId, userId } })
-
   return getEventDto(env, eventId, userId)
-
 }
 
-
-
 export async function getEventDto(env: Env, eventId: string, viewerId: string | null) {
-
   const event = await prisma.travelerEvent.findUnique({
-
     where: { id: eventId },
-
     include: {
       coverMedia: true,
+      collaborators: {
+        include: {
+          user: {
+            include: {
+              travelerProfile: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
       community: { select: { id: true, slug: true, name: true } },
       business: { select: { id: true, slug: true, name: true, logoUrl: true } },
       media: {
@@ -844,7 +1035,6 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       },
     },
-
   })
 
   if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
@@ -854,87 +1044,49 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
   const isOwner = viewerId === event.creatorId
 
   const [goingCount, interestedCount, mine, saved, likeCount, liked] = await Promise.all([
-
     prisma.eventAttendance.count({ where: { eventId, status: 'GOING' } }),
-
     prisma.eventAttendance.count({ where: { eventId, status: 'INTERESTED' } }),
-
     viewerId
-
       ? prisma.eventAttendance.findUnique({ where: { eventId_userId: { eventId, userId: viewerId } } })
-
       : null,
-
     viewerId
-
       ? prisma.save.findFirst({
-
           where: { userId: viewerId, targetType: 'EVENT', targetId: eventId },
-
         })
-
       : null,
-
     prisma.eventReaction.count({ where: { eventId } }),
-
     viewerId
-
       ? prisma.eventReaction.findUnique({ where: { userId_eventId: { userId: viewerId, eventId } } })
-
       : null,
-
   ])
 
   const canUploadMedia = Boolean(isOwner || mine?.status === 'GOING')
 
   return {
-
     id: event.id,
-
     title: event.title,
-
     description: event.description,
-
     coverUrl: event.coverUrl,
-
     coverMediaId: event.coverMediaId,
-
     coverResourceType: event.coverMedia?.resourceType === 'video'
-
-      ? 'video'
-
+      ? ('video' as const)
       : event.coverUrl
-
-        ? 'image'
-
+        ? ('image' as const)
         : null,
-
     startAt: event.startAt.toISOString(),
-
     endAt: event.endAt?.toISOString() ?? null,
-
     timezone: event.timezone,
-
     locationName: event.locationName,
-
     city: event.city,
-
     country: event.country,
-
     latitude: event.latitude,
-
     longitude: event.longitude,
-
     category: event.category,
-
     communityId: event.communityId,
-
     businessId: event.businessId,
-
     community: event.community
       ? { id: event.community.id, slug: event.community.slug, name: event.community.name }
       : null,
-
     business: event.business
       ? {
           id: event.business.id,
@@ -943,43 +1095,133 @@ export async function getEventDto(env: Env, eventId: string, viewerId: string | 
           logoUrl: event.business.logoUrl,
         }
       : null,
-
     visibility: event.visibility,
-
     status: event.status,
-
     maxAttendees: event.maxAttendees,
-
     goingCount,
-
     interestedCount,
-
     myAttendance: mine?.status ?? null,
-
     isOwner,
-
     savedByMe: Boolean(saved),
-
     likeCount,
-
     likedByMe: Boolean(liked),
-
     canUploadMedia,
-
     media: event.media.map(m => ({
       ...mediaAssetToDto(env, m),
       isCover: event.coverMediaId === m.id,
+      uploadedByUserId: m.uploadedByUserId,
+      isMine: viewerId ? m.uploadedByUserId === viewerId : false,
     })),
-
+    collaborators: event.collaborators.map(c => ({
+      id: c.id,
+      userId: c.userId,
+      username: c.user.username,
+      displayName: c.user.travelerProfile?.displayName?.trim() || c.user.username,
+      avatarUrl: c.user.travelerProfile?.avatarUrl ?? null,
+      role: c.role,
+      createdAt: c.createdAt.toISOString(),
+    })),
     creator: await creatorCard(event.creatorId),
-
     createdAt: event.createdAt.toISOString(),
-
   }
-
 }
 
+export async function addEventCollaborator(
+  env: Env,
+  eventId: string,
+  currentUserId: string,
+  targetUserId: string,
+  role: EventCollaboratorRole = 'CO_HOST',
+) {
+  const event = await prisma.travelerEvent.findUnique({
+    where: { id: eventId },
+    include: {
+      collaborators: { where: { userId: currentUserId } },
+    },
+  })
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
 
+  const isCreator = event.creatorId === currentUserId
+  const isHost = event.collaborators.some(c => c.role === 'HOST')
+
+  if (!isCreator && !isHost) {
+    throw new AppError(
+      403,
+      'FORBIDDEN',
+      'You must be the event creator or a HOST to invite co-hosts.',
+    )
+  }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } })
+  if (!targetUser) throw new AppError(404, 'NOT_FOUND', 'Target user not found')
+
+  await prisma.eventCollaborator.upsert({
+    where: {
+      eventId_userId: {
+        eventId,
+        userId: targetUserId,
+      },
+    },
+    create: {
+      eventId,
+      userId: targetUserId,
+      role,
+    },
+    update: {
+      role,
+    },
+  })
+
+  try {
+    await createNotification({
+      userId: targetUserId,
+      type: 'EVENT_UPDATED',
+      title: 'Event co-host invitation',
+      body: `You were invited as a ${role.toLowerCase().replace('_', '-')} for "${event.title}".`,
+      entityType: 'event',
+      entityId: eventId,
+      actorId: currentUserId,
+    })
+  } catch {}
+
+  return getEventDto(env, eventId, currentUserId)
+}
+
+export async function removeEventCollaborator(
+  env: Env,
+  eventId: string,
+  currentUserId: string,
+  targetUserId: string,
+) {
+  const event = await prisma.travelerEvent.findUnique({
+    where: { id: eventId },
+    include: {
+      collaborators: { where: { userId: currentUserId } },
+    },
+  })
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+
+  const isCreator = event.creatorId === currentUserId
+  const isHost = event.collaborators.some(c => c.role === 'HOST')
+  const isSelf = currentUserId === targetUserId
+
+  if (!isCreator && !isHost && !isSelf) {
+    throw new AppError(
+      403,
+      'FORBIDDEN',
+      'You do not have permission to remove this collaborator.',
+    )
+  }
+
+  await prisma.eventCollaborator.deleteMany({
+    where: {
+      eventId,
+      userId: targetUserId,
+    },
+  })
+
+  return getEventDto(env, eventId, currentUserId)
+}
 
 export async function likeEvent(env: Env, userId: string, eventId: string) {
   const event = await prisma.travelerEvent.findFirst({ where: { id: eventId } })
@@ -1011,52 +1253,61 @@ export async function unlikeEvent(env: Env, userId: string, eventId: string) {
 }
 
 export async function listEventAttendees(
-
   env: Env,
-
   eventId: string,
-
   viewerId: string | null,
-
   status?: 'GOING' | 'INTERESTED',
-
 ) {
-
   const event = await prisma.travelerEvent.findUnique({ where: { id: eventId } })
-
   if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
-
   await assertCanViewEvent(event, viewerId)
-
   const rows = await prisma.eventAttendance.findMany({
-
     where: {
-
       eventId,
-
       ...(status ? { status } : {}),
-
     },
-
     orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
-
     take: 100,
-
   })
-
   return Promise.all(
-
     rows.map(async row => ({
-
       user: await creatorCard(row.userId),
-
       status: row.status,
-
       updatedAt: row.updatedAt.toISOString(),
-
     })),
-
   )
-
 }
 
+export async function deleteEventMedia(env: Env, userId: string, eventId: string, mediaId: string) {
+  const event = await prisma.travelerEvent.findUnique({
+    where: { id: eventId },
+    select: { id: true, creatorId: true, coverMediaId: true },
+  })
+  if (!event) throw new AppError(404, 'NOT_FOUND', 'Event not found')
+
+  const media = await prisma.mediaAsset.findFirst({
+    where: { id: mediaId, eventId, deletedAt: null },
+  })
+  if (!media) throw new AppError(404, 'NOT_FOUND', 'Media not found')
+
+  const isEventOwner = event.creatorId === userId
+  const isMediaOwner = media.uploadedByUserId === userId
+
+  if (!isEventOwner && !isMediaOwner) {
+    throw new AppError(403, 'FORBIDDEN', 'You do not have permission to delete this media.')
+  }
+
+  await prisma.mediaAsset.update({
+    where: { id: mediaId },
+    data: { status: 'DELETED', deletedAt: new Date() },
+  })
+
+  if (event.coverMediaId === mediaId) {
+    await prisma.travelerEvent.update({
+      where: { id: eventId },
+      data: { coverMediaId: null, coverUrl: null },
+    })
+  }
+
+  return getEventDto(env, eventId, userId)
+}

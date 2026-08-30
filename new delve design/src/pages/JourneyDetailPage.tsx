@@ -1,18 +1,57 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft, Bookmark, MapPin, Clock, Users, Eye, AlertCircle, Car, Pencil, Heart, MessageCircle, Share2, Flag, MoreHorizontal,
+  ArrowLeft,
+  Bookmark,
+  MapPin,
+  Clock,
+  Users,
+  Eye,
+  AlertCircle,
+  Car,
+  Pencil,
+  Heart,
+  MessageCircle,
+  Share2,
+  Flag,
+  MoreHorizontal,
+  GripVertical,
+  Upload,
+  GitFork,
+  DollarSign,
+  Tag,
+  Sparkles,
+  Loader2,
+  Calendar,
+  UserPlus,
 } from 'lucide-react'
-import type { JourneyDetail } from '@delve/contracts'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import type { JourneyDetail, MediaAssetDto, UpdateJourneyBody } from '@delve/contracts'
 import {
   addJourneyComment,
   fetchJourney,
   fetchJourneyComments,
+  forkJourney,
   likeJourney,
   unlikeJourney,
+  updateJourney,
+  reorderJourneyStops,
 } from '../api/journeyClient'
-import { createPost, saveItem, unsaveItem } from '../api/socialClient'
-import { getStoredUser } from '../api/authClient'
-import { AuthApiError } from '../api/authClient'
+import { saveItem, unsaveItem } from '../api/socialClient'
+import { getStoredUser, AuthApiError } from '../api/authClient'
 import { formatUsername } from '../lib/formatUsername'
 import JourneyEditorSheet from '../components/journeys/JourneyEditorSheet'
 import JourneyCoverMedia from '../components/journeys/JourneyCoverMedia'
@@ -23,6 +62,8 @@ import CommentsSheet from '../components/comments/CommentsSheet'
 import { deriveJourneyLifecycle, lifecycleLabel } from '../components/journeys/journeyLifecycle'
 import { mapJourneyComment } from '../components/comments/mappers'
 import ContentReportSheet from '../components/safety/ContentReportSheet'
+import CollaboratorInviteModal from '../components/journeys/CollaboratorInviteModal'
+import MediaStudio from './MediaStudio'
 
 interface Props {
   journeyId: string
@@ -33,6 +74,7 @@ interface Props {
   onOpenGroupChat?: (journeyId: string) => void
   onOpenEvent?: (eventId: string) => void
   onSharedToDelvers?: () => void
+  onForked?: (clonedJourneyId: string) => void
 }
 
 function partyLabel(p: JourneyDetail['partyType']) {
@@ -48,6 +90,7 @@ export default function JourneyDetailPage({
   onOpenGroupChat,
   onOpenEvent,
   onSharedToDelvers,
+  onForked,
 }: Props) {
   const [journey, setJourney] = useState<JourneyDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,8 +105,21 @@ export default function JourneyDetailPage({
   const [shareBusy, setShareBusy] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [forking, setForking] = useState(false)
+  const [uploadStopId, setUploadStopId] = useState<string | null>(null)
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
+
   const viewerId = getStoredUser()?.id
   const isOwner = Boolean(journey && viewerId && journey.author.id === viewerId)
+
+  // Configure PointerSensor with distance constraint to prevent accidental mobile scroll drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -159,72 +215,175 @@ export default function JourneyDetailPage({
     }
     setLikeBusy(true)
     try {
-      const updated = liked
-        ? await unlikeJourney(journey.id)
-        : await likeJourney(journey.id)
-      setJourney(updated)
-      setLiked(updated.likedByMe)
+      if (liked) {
+        await unlikeJourney(journey.id)
+        setLiked(false)
+        setJourney(j => (j ? { ...j, likeCount: Math.max(0, j.likeCount - 1), likedByMe: false } : j))
+      } else {
+        await likeJourney(journey.id)
+        setLiked(true)
+        setJourney(j => (j ? { ...j, likeCount: j.likeCount + 1, likedByMe: true } : j))
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update like')
+      setError(err instanceof Error ? err.message : 'Could not update reaction')
     } finally {
       setLikeBusy(false)
     }
   }
 
   async function likeFromDoubleTap() {
+    if (!liked && !likeBusy) {
+      await toggleLike()
+    }
+  }
+
+  async function handleFork() {
     if (!journey) return
     if (!signedIn) {
       onSignIn?.()
       return
     }
-    if (liked) return
-    setLiked(true)
-    setJourney(j => j ? { ...j, likedByMe: true, likeCount: j.likeCount + 1 } : j)
+    setForking(true)
     try {
-      const updated = await likeJourney(journey.id)
-      setJourney(updated)
-      setLiked(updated.likedByMe)
-    } catch {
-      setLiked(false)
-      setJourney(j => j ? { ...j, likedByMe: false, likeCount: Math.max(0, j.likeCount - 1) } : j)
-    }
-  }
-
-  async function shareJourney() {
-    if (!journey) return
-    const url = `${window.location.origin}/journeys/${journey.slug || journey.id}`
-    const text = `${journey.title}\n${url}`
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: journey.title, text, url })
+      const cloned = await forkJourney(journey.id)
+      if (onForked) {
+        onForked(cloned.id)
       } else {
-        await navigator.clipboard.writeText(text)
-        setShareNote('Link copied')
-        window.setTimeout(() => setShareNote(null), 2000)
+        setJourney(cloned)
+        setShareNote('Journey duplicated successfully!')
+        setTimeout(() => setShareNote(null), 3000)
       }
-    } catch {
-      /* dismissed */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not duplicate journey')
+    } finally {
+      setForking(false)
     }
   }
 
-  async function shareToDelvers() {
-    if (!journey || shareBusy) return
-    if (!signedIn) {
-      onSignIn?.()
-      return
-    }
-    setShareBusy(true)
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id || !journey) return
+
+    const oldIndex = journey.stops.findIndex(s => s.id === active.id)
+    const newIndex = journey.stops.findIndex(s => s.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+
+    // Optimistic UI state update using arrayMove
+    const reorderedStops = arrayMove(journey.stops, oldIndex, newIndex).map((s, idx) => ({
+      ...s,
+      sortOrder: idx + 1,
+    }))
+
+    setJourney(j => (j ? { ...j, stops: reorderedStops } : j))
+
+    // Prepare payload for backend transaction
+    const payload = reorderedStops.map((s, idx) => ({
+      stopId: s.id,
+      orderIndex: idx + 1,
+    }))
+
     try {
-      await createPost({ journeyId: journey.id })
-      setShareNote('Shared to Delvers')
-      onSharedToDelvers?.()
-      window.setTimeout(() => setShareNote(null), 2500)
+      await reorderJourneyStops(journey.id, payload)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not share to Delvers')
-    } finally {
-      setShareBusy(false)
+      setError(err instanceof Error ? err.message : 'Could not save reordered stops')
+      void load()
     }
   }
+
+  async function handleStopMediaUpload(assets: MediaAssetDto[]) {
+    if (!journey || !uploadStopId || assets.length === 0) {
+      setUploadStopId(null)
+      return
+    }
+    try {
+      const newUrls = assets.map(a => a.delivery?.url || '').filter(Boolean)
+      const newTypes = assets.map(a => (a.resourceType === 'video' ? 'video' : 'image'))
+      
+      const updatedStops = journey.stops.map(s => {
+        if (s.id === uploadStopId) {
+          return {
+            place: s.place,
+            region: s.region,
+            arrivalDay: s.arrivalDay,
+            durationDays: s.durationDays,
+            notes: s.notes,
+            highlights: s.highlights,
+            mediaUrls: [...s.mediaUrls, ...newUrls],
+            mediaResourceTypes: [...(s.mediaResourceTypes || []), ...newTypes],
+            transportModeToNext: s.transportModeToNext,
+            transportDurationToNext: s.transportDurationToNext,
+            transportNotes: s.transportNotes,
+            historicalCostHint: s.historicalCostHint,
+          }
+        }
+        return {
+          place: s.place,
+          region: s.region,
+          arrivalDay: s.arrivalDay,
+          durationDays: s.durationDays,
+          notes: s.notes,
+          highlights: s.highlights,
+          mediaUrls: s.mediaUrls,
+          mediaResourceTypes: s.mediaResourceTypes,
+          transportModeToNext: s.transportModeToNext,
+          transportDurationToNext: s.transportDurationToNext,
+          transportNotes: s.transportNotes,
+          historicalCostHint: s.historicalCostHint,
+        }
+      })
+
+      const body: UpdateJourneyBody = {
+        title: journey.title,
+        summary: journey.summary,
+        coverUrl: journey.coverUrl,
+        coverResourceType: journey.coverResourceType,
+        startDate: journey.startDate ?? null,
+        endDate: journey.endDate ?? null,
+        status: journey.status,
+        isOngoing: journey.isOngoing,
+        startPlace: journey.startPlace,
+        endPlace: journey.endPlace,
+        durationDays: journey.durationDays,
+        countries: journey.countries,
+        transportModes: journey.transportModes,
+        historicalCost: journey.historicalCost,
+        currency: journey.currency,
+        partyType: journey.partyType,
+        tags: journey.tags,
+        visibility: journey.visibility,
+        takeaway: journey.takeaway,
+        stops: updatedStops,
+      }
+
+      const updated = await updateJourney(journey.id, body)
+      setJourney(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not upload stop media')
+    } finally {
+      setUploadStopId(null)
+    }
+  }
+
+  // Calculate estimated total for planning state
+  const estimatedPlanningTotal = useMemo(() => {
+    if (!journey) return 0
+    let total = 0
+    let hasHints = false
+    for (const stop of journey.stops) {
+      if (stop.historicalCostHint) {
+        const num = parseFloat(stop.historicalCostHint.replace(/[^0-9.]/g, ''))
+        if (!isNaN(num) && num > 0) {
+          total += num
+          hasHints = true
+        }
+      }
+    }
+    if (!hasHints && journey.historicalCost) {
+      const overall = parseFloat(journey.historicalCost.replace(/[^0-9.]/g, ''))
+      if (!isNaN(overall)) return overall
+    }
+    return total
+  }, [journey])
 
   if (loading) {
     return <JourneyDetailSkeleton />
@@ -232,63 +391,83 @@ export default function JourneyDetailPage({
 
   if (error || !journey) {
     return (
-      <div className="px-4 py-12 text-center">
-        <AlertCircle size={32} className="mx-auto mb-3" style={{ color: 'var(--border)' }} />
-        <p className="text-base font-bold m-0 mb-2" style={{ color: 'var(--fg)' }}>
-          {error || "We couldn't load this Journey."}
-        </p>
-        <button type="button" onClick={() => void load()} className="text-sm font-semibold mr-4" style={{ color: 'var(--primary)' }}>
+      <div className="p-8 text-center">
+        <AlertCircle size={40} className="mx-auto mb-3 text-red-400" />
+        <p className="text-sm text-neutral-400 mb-4">{error || 'Journey not found'}</p>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="text-sm font-semibold mr-4 text-indigo-400 hover:underline"
+        >
           Retry
         </button>
-        <button type="button" onClick={onBack} className="text-sm font-semibold" style={{ color: 'var(--fg-muted)' }}>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm font-semibold text-neutral-400 hover:text-white"
+        >
           Back to Journeys
         </button>
       </div>
     )
   }
 
-  const lifecycle = deriveJourneyLifecycle(journey)
-  const progressPct =
-    lifecycle === 'ACTIVE' && journey.durationDays > 0 && journey.startDate
-      ? Math.min(
-          100,
-          Math.round(
-            ((Date.now() - new Date(journey.startDate).getTime()) / 86400000 / journey.durationDays) * 100,
-          ),
-        )
-      : null
+  const effectiveStatus = journey.status || deriveJourneyLifecycle(journey)
+  const isPlanning = effectiveStatus === 'PLANNING'
+  const isActive = effectiveStatus === 'ACTIVE'
+  const isCompleted = effectiveStatus === 'COMPLETED'
+  const isOngoing = Boolean(journey.isOngoing)
+
+  // Reverse stops order in ongoing active state so newest stop is on top
+  const renderedStops = isOngoing && isActive ? [...journey.stops].reverse() : journey.stops
 
   return (
-    <div className="pb-10">
+    <div className="pb-16 max-w-4xl mx-auto">
+      {/* Top Navigation Bar */}
       <div className="px-4 sm:px-0 pt-3 pb-3 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
           aria-label="Back to Journeys list"
         >
           <ArrowLeft size={16} /> Back
         </button>
+
         <div className="flex items-center gap-2">
+          {/* Duplicate / Fork Journey Button */}
+          <button
+            type="button"
+            disabled={forking}
+            onClick={handleFork}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/15 text-white transition-all border border-white/10 shadow-sm"
+            title="Fork this itinerary into your private workspace"
+          >
+            {forking ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <GitFork size={15} className="text-indigo-400" />
+            )}
+            <span>Duplicate Journey</span>
+          </button>
+
           {isOwner && (
             <button
               type="button"
               onClick={() => setEditOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold"
-              style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)', cursor: 'pointer' }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-white border border-white/10 transition-all"
               aria-label="Edit journey details"
             >
-              <Pencil size={16} /> Edit
+              <Pencil size={15} /> Edit
             </button>
           )}
-          {/* ⋯ overflow menu */}
+
+          {/* More actions menu */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setMoreOpen(v => !v)}
-              className="inline-flex items-center justify-center w-10 h-10 rounded-xl"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--fg)' }}
+              className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/10 transition-all"
               aria-label="More options"
               aria-expanded={moreOpen}
             >
@@ -296,69 +475,57 @@ export default function JourneyDetailPage({
             </button>
             {moreOpen && (
               <>
-                {/* Transparent backdrop to close menu on outside click */}
                 <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
                 <div
-                  className="absolute right-0 top-12 z-50 rounded-2xl overflow-hidden"
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
-                    minWidth: 200,
-                  }}
+                  className="absolute right-0 top-12 z-50 rounded-2xl overflow-hidden bg-neutral-900 border border-white/10 shadow-2xl min-w-[200px]"
                   role="menu"
-                  aria-label="Journey actions"
                 >
                   <button
                     type="button"
-                    onClick={() => { void shareJourney(); setMoreOpen(false) }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left"
-                    style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
+                    onClick={() => {
+                      setMoreOpen(false)
+                      navigator.clipboard.writeText(window.location.href)
+                      setShareNote('Link copied to clipboard!')
+                      setTimeout(() => setShareNote(null), 2500)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left text-neutral-300 hover:bg-white/5 border-b border-white/10"
                     role="menuitem"
-                    aria-label="Share journey link"
                   >
-                    <Share2 size={15} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} /> Share link
-                  </button>
-                  <button
-                    type="button"
-                    disabled={shareBusy}
-                    onClick={() => { void shareToDelvers(); setMoreOpen(false) }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left disabled:opacity-60"
-                    style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
-                    role="menuitem"
-                    aria-label="Share journey to Delvers feed"
-                  >
-                    <Share2 size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} /> Share to Delvers
+                    <Share2 size={15} className="text-neutral-400" /> Share link
                   </button>
                   {onOpenGroupChat && (
                     <button
                       type="button"
                       onClick={() => {
-                        if (!signedIn) { onSignIn?.(); setMoreOpen(false); return }
+                        if (!signedIn) {
+                          onSignIn?.()
+                          setMoreOpen(false)
+                          return
+                        }
                         onOpenGroupChat(journey.id)
                         setMoreOpen(false)
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left"
-                      style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left text-neutral-300 hover:bg-white/5 border-b border-white/10"
                       role="menuitem"
-                      aria-label="Open journey group chat"
                     >
-                      <MessageCircle size={15} style={{ color: 'var(--fg-muted)', flexShrink: 0 }} /> Group chat
+                      <MessageCircle size={15} className="text-neutral-400" /> Group chat
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => {
-                      if (!signedIn) { onSignIn?.(); setMoreOpen(false); return }
+                      if (!signedIn) {
+                        onSignIn?.()
+                        setMoreOpen(false)
+                        return
+                      }
                       setReportOpen(true)
                       setMoreOpen(false)
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left"
-                    style={{ background: 'none', border: 'none', color: 'var(--auth-danger)', cursor: 'pointer' }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-left text-red-400 hover:bg-red-500/10"
                     role="menuitem"
-                    aria-label="Report journey content"
                   >
-                    <Flag size={15} style={{ flexShrink: 0 }} /> Report
+                    <Flag size={15} /> Report
                   </button>
                 </div>
               </>
@@ -367,7 +534,8 @@ export default function JourneyDetailPage({
         </div>
       </div>
 
-      <div className="relative h-56 sm:h-72 sm:rounded-2xl overflow-hidden bg-black/10 sm:mx-0">
+      {/* Hero Cover */}
+      <div className="relative h-60 sm:h-80 sm:rounded-3xl overflow-hidden bg-black/40 border border-white/10">
         <DoubleTapLike onDoubleLike={() => void likeFromDoubleTap()} className="h-full w-full">
           {journey.coverUrl || journey.media[0] ? (
             <JourneyCoverMedia
@@ -380,373 +548,298 @@ export default function JourneyDetailPage({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <MapPin size={32} style={{ color: 'var(--fg-muted)' }} />
+              <MapPin size={36} className="text-neutral-500" />
             </div>
           )}
         </DoubleTapLike>
       </div>
 
-      {/* Social action bar — like, comments, save */}
-      <div
-        className="px-4 sm:px-0 py-3 flex items-center gap-5"
-        style={{ borderBottom: '1px solid var(--border)' }}
-      >
+      {/* Social Action Bar */}
+      <div className="px-4 sm:px-0 py-3 flex items-center gap-5 border-b border-white/10">
         <button
           type="button"
           disabled={likeBusy}
           onClick={() => void toggleLike()}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold disabled:opacity-60"
-          style={{ background: 'none', border: 'none', color: liked ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
-          aria-label={liked ? "Unlike journey" : "Like journey"}
-          aria-pressed={liked}
+          className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-colors ${
+            liked ? 'text-red-500' : 'text-neutral-300 hover:text-white'
+          }`}
+          aria-label={liked ? 'Unlike journey' : 'Like journey'}
         >
-          <Heart size={22} fill={liked ? 'currentColor' : 'none'} />
+          <Heart size={20} fill={liked ? 'currentColor' : 'none'} />
           <span>{journey.likeCount}</span>
         </button>
         <button
           type="button"
           onClick={() => setCommentsOpen(true)}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
-          aria-label={`View comments, ${journey.commentCount} comment${journey.commentCount === 1 ? '' : 's'}`}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-neutral-300 hover:text-white transition-colors"
+          aria-label="Comments"
         >
-          <MessageCircle size={22} />
+          <MessageCircle size={20} />
           <span>{journey.commentCount}</span>
         </button>
-        {shareNote && (
-          <p className="text-xs m-0" style={{ color: 'var(--primary)' }} role="status">{shareNote}</p>
-        )}
+        {shareNote && <p className="text-xs text-indigo-400 m-0 animate-pulse">{shareNote}</p>}
         <button
           type="button"
           disabled={saveBusy}
           onClick={() => void toggleSave()}
-          className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold disabled:opacity-60"
-          style={{ background: 'none', border: 'none', color: saved ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
-          aria-label={saved ? 'Unsave journey' : 'Save journey'}
-          aria-pressed={saved}
+          className={`ml-auto inline-flex items-center gap-1.5 text-sm font-semibold transition-colors ${
+            saved ? 'text-indigo-400' : 'text-neutral-300 hover:text-white'
+          }`}
         >
-          <Bookmark size={22} fill={saved ? 'currentColor' : 'none'} />
+          <Bookmark size={20} fill={saved ? 'currentColor' : 'none'} />
           <span>{saved ? 'Saved' : 'Save'}</span>
         </button>
       </div>
 
-      <div className="px-4 sm:px-0 pt-4">
-        <h1
-          className="text-2xl font-extrabold m-0 mb-2"
-          style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
-        >
-          {journey.title}
-        </h1>
-        <p className="text-xs font-bold uppercase tracking-wide m-0 mb-2" style={{ color: 'var(--primary)' }}>
-          {lifecycleLabel(lifecycle)}
-        </p>
-        {progressPct != null && (
-          <div className="mb-3">
-            <p className="text-xs m-0 mb-1" style={{ color: 'var(--fg-muted)' }}>
-              Trip in progress · Day {Math.max(1, Math.ceil((Date.now() - new Date(journey.startDate!).getTime()) / 86400000))} of {journey.durationDays}
-            </p>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-subtle)' }}>
-              <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: 'var(--primary)' }} />
-            </div>
-          </div>
-        )}
-        <p className="text-sm m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-          {journey.summary || `${journey.startPlace} → ${journey.endPlace}`}
-        </p>
-
-        <button
-          type="button"
-          onClick={() => onOpenProfile?.(journey.author.username)}
-          className="flex items-center gap-2 mb-4"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: onOpenProfile ? 'pointer' : 'default' }}
-          aria-label={`View profile of ${journey.author.displayName || journey.author.username}`}
-        >
-          {journey.author.avatarUrl ? (
-            <img src={journey.author.avatarUrl} alt={`Avatar of ${journey.author.displayName || journey.author.username}`} className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            <div className="w-8 h-8 rounded-full" style={{ background: 'var(--surface-subtle)' }} aria-hidden="true" />
-          )}
-          <div className="text-left">
-            <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
-              {journey.author.displayName || formatUsername(journey.author.username)}
-            </p>
-            <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-              {formatUsername(journey.author.username)}
-            </p>
-          </div>
-        </button>
-
-        <div className="flex flex-wrap gap-3 mb-5 text-xs" style={{ color: 'var(--fg-muted)' }}>
-          <span className="inline-flex items-center gap-1">
-            <MapPin size={13} /> {journey.startPlace} → {journey.endPlace}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Clock size={13} /> {journey.durationDays} days · {journey.stopCount} stops
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Users size={13} /> {partyLabel(journey.partyType)}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Eye size={13} /> {journey.viewCount} views · {journey.likeCount} likes · {journey.commentCount} comments · {journey.saveCount} saves
-          </span>
-          {journey.historicalCost && (
-            <span>
-              {journey.currency} {journey.historicalCost}
-            </span>
-          )}
-        </div>
-
-        {journey.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-5">
-            {journey.tags.map(t => (
-              <span
-                key={t}
-                className="text-[11px] px-2 py-0.5 rounded-full"
-                style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {journey.takeaway && (
-          <div
-            className="rounded-2xl p-4 mb-5"
-            style={{ background: 'rgba(140,82,255,0.08)', border: '1px solid var(--border)' }}
-          >
-            <p className="text-xs font-bold uppercase tracking-wider m-0 mb-1" style={{ color: 'var(--primary)' }}>
-              Takeaway
-            </p>
-            <p className="text-sm m-0" style={{ color: 'var(--fg)' }}>
-              {journey.takeaway}
-            </p>
-          </div>
-        )}
-
-        {(journey.events?.length ?? 0) > 0 && (
-          <>
-            <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-              Linked events
-            </h2>
-            <div className="flex flex-col gap-2 mb-5" role="list" aria-label="Linked events">
-              {journey.events!.map(ev => (
-                <button
-                  key={ev.id}
-                  type="button"
-                  onClick={() => onOpenEvent?.(ev.id)}
-                  className="flex items-center gap-3 rounded-2xl overflow-hidden text-left min-h-[64px]"
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    cursor: onOpenEvent ? 'pointer' : 'default',
-                    padding: 0,
-                  }}
-                  role="listitem"
-                  aria-label={`Open event details for ${ev.title}`}
-                >
-                  {ev.coverUrl ? (
-                    <img src={ev.coverUrl} alt={`Cover for event ${ev.title}`} className="w-16 h-16 object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} aria-hidden="true" />
-                  )}
-                  <div className="min-w-0 pr-3 py-2">
-                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{ev.title}</p>
-                    <p className="text-xs m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                      {new Date(ev.startAt).toLocaleString()}
-                      {ev.city ? ` · ${ev.city}` : ''}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {(journey.bookings?.length ?? 0) > 0 && (
-          <>
-            <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-              Booked
-            </h2>
-            <div className="flex flex-col gap-2 mb-5" role="list" aria-label="Bookings">
-              {journey.bookings!.map(row => (
-                <div
-                  key={row.id}
-                  className="rounded-2xl px-3 py-3"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-                  role="listitem"
-                  aria-label={`Booking: ${row.listingTitle}, status: ${row.status}`}
-                >
-                  <p className="text-xs font-semibold m-0" style={{ color: '#0F8A52' }}>
-                    BOOKED ✓ · {row.status}
-                  </p>
-                  <p className="text-sm font-bold m-0">{row.listingTitle}</p>
-                  <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-                    {row.startDateTime
-                      ? new Date(row.startDateTime).toLocaleString(undefined, {
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : 'Dates to confirm'}
-                    {' · '}
-                    {row.currency} {row.finalAmount}
-                  </p>
-                  <p className="text-xs font-mono m-0 mt-1">{row.bookingReference}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {(journey.deals?.length ?? 0) > 0 && (
-          <>
-            <h2 className="text-base font-bold m-0 mb-3" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-              Linked deals
-            </h2>
-            <div className="flex flex-col gap-2 mb-5" role="list" aria-label="Linked deals">
-              {journey.deals!.map(deal => (
-                <div
-                  key={deal.id}
-                  className="flex items-center gap-3 rounded-2xl overflow-hidden"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-                  role="listitem"
-                  aria-label={`Deal: ${deal.title}, discount: ${deal.discountSummary}`}
-                >
-                  {deal.coverUrl ? (
-                    <img src={deal.coverUrl} alt={`Cover for deal ${deal.title}`} className="w-16 h-16 object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-16 h-16 flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} aria-hidden="true" />
-                  )}
-                  <div className="min-w-0 pr-3 py-2">
-                    <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>{deal.title}</p>
-                    <p className="text-xs m-0 mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                      {deal.discountSummary}
-                      {deal.city ? ` · ${deal.city}` : ''}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        <h2 className="text-base font-bold m-0 mb-4" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-          Stops
-        </h2>
-        {/* Timeline layout */}
-        <div className="relative" role="list" aria-label="Journey stops timeline">
-          {/* Vertical gradient line */}
-          <div
-            className="absolute"
-            style={{
-              left: 19,
-              top: 20,
-              bottom: 20,
-              width: 2,
-              background: 'linear-gradient(to bottom, var(--primary), var(--border))',
-              borderRadius: 1,
-              zIndex: 0,
-            }}
-          />
-          {journey.stops.map((stop, i) => (
-            <div key={stop.id} role="listitem" aria-label={`Stop ${i + 1} of ${journey.stops.length}: ${stop.place}${stop.region ? `, ${stop.region}` : ''}. Day ${stop.arrivalDay}.`}>
-              <div className="flex gap-4 items-start">
-                {/* Numbered timeline dot */}
-                <div className="flex-shrink-0 relative" style={{ zIndex: 1 }}>
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                    style={{
-                      background: i === 0 || i === journey.stops.length - 1 ? 'var(--primary)' : 'var(--surface)',
-                      color: i === 0 || i === journey.stops.length - 1 ? '#fff' : 'var(--primary)',
-                      border: '2px solid var(--primary)',
-                    }}
-                    aria-hidden="true"
-                  >
-                    {i + 1}
-                  </div>
-                </div>
-                {/* Stop card */}
-                <article
-                  className="flex-1 rounded-2xl overflow-hidden mb-4"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', minWidth: 0 }}
-                >
-                  <JourneyStopMediaGallery
-                    mediaUrls={stop.mediaUrls}
-                    mediaResourceTypes={stop.mediaResourceTypes}
-                  />
-                  <div className="p-4">
-                    <p className="text-xs font-bold m-0 mb-1" style={{ color: 'var(--primary)' }}>
-                      Day {stop.arrivalDay}
-                    </p>
-                    <p className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-                      {stop.place}
-                      {stop.region ? ` · ${stop.region}` : ''}
-                    </p>
-                    {stop.notes && (
-                      <p className="text-sm m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                        {stop.notes}
-                      </p>
-                    )}
-                    {stop.highlights.length > 0 && (
-                      <ul className="m-0 pl-4 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                        {stop.highlights.map(h => (
-                          <li key={h}>{h}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </article>
+      {/* Task 1: The Logistics Snapshot Card */}
+      <div className="px-4 sm:px-0 mt-4">
+        <div className="bg-neutral-900 border border-white/10 p-4 sm:p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            {/* Total Cost */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <DollarSign size={16} />
               </div>
-              {/* Transport connector between stops */}
-              {stop.transportModeToNext && i < journey.stops.length - 1 && (
-                <div
-                  className="flex items-center gap-2 mb-3 ml-14"
-                  style={{ color: 'var(--fg-muted)' }}
-                >
-                  <Car size={13} aria-hidden="true" />
+              <div>
+                <span className="text-[10px] font-semibold text-neutral-400 block uppercase tracking-wider">Total Cost</span>
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  {journey.historicalCost ? `${journey.currency} ${journey.historicalCost}` : 'Flexible / TBD'}
+                </span>
+              </div>
+            </div>
 
-                  <span className="text-xs font-medium">
-                    {stop.transportModeToNext}
-                    {stop.transportDurationToNext ? ` · ${stop.transportDurationToNext}` : ''}
+            {/* Duration / Ongoing Badge */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                {isOngoing ? <Calendar size={16} /> : <Clock size={16} />}
+              </div>
+              <div>
+                <span className="text-[10px] font-semibold text-neutral-400 block uppercase tracking-wider">Timeline</span>
+                {isOngoing ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    Ongoing • Since {new Date(journey.startDate || journey.createdAt).getFullYear()}
                   </span>
-                </div>
-              )}
+                ) : (
+                  <span className="text-xs sm:text-sm font-bold text-white">
+                    {journey.durationDays || journey.stops.length} Days · {journey.stopCount} Stops
+                  </span>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
 
-        <div
-          className="mt-6 rounded-2xl overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-        >
-          <button
-            type="button"
-            onClick={() => setCommentsOpen(true)}
-            className="w-full flex items-center justify-between gap-3 p-4 text-left"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-          >
-            <div>
-              <h2
-                className="text-base font-bold m-0 mb-1 inline-flex items-center gap-2"
-                style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}
-              >
-                <MessageCircle size={18} /> Comments
-              </h2>
-              <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-                {journey.commentCount > 0
-                  ? `${journey.commentCount} comment${journey.commentCount === 1 ? '' : 's'}`
-                  : 'Be the first to ask a question or share a tip'}
-              </p>
+            {/* Party Size */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <Users size={16} />
+              </div>
+              <div>
+                <span className="text-[10px] font-semibold text-neutral-400 block uppercase tracking-wider">Party Size</span>
+                <span className="text-xs sm:text-sm font-bold text-white">{partyLabel(journey.partyType)}</span>
+              </div>
             </div>
-            <span className="text-sm font-semibold flex-shrink-0" style={{ color: 'var(--primary)' }}>
-              {journey.commentCount > 0 ? 'View all' : 'Add comment'}
-            </span>
-          </button>
+          </div>
+
+          {/* Standardized Tags */}
+          {journey.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {journey.tags.map(t => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-neutral-300"
+                >
+                  <Tag size={10} className="text-indigo-400" />
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Main Details */}
+      <div className="px-4 sm:px-0 pt-5">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+            {effectiveStatus}
+          </span>
+          {isOngoing && (
+            <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
+              Live Ongoing
+            </span>
+          )}
+        </div>
+
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white m-0 mb-2 tracking-tight">
+          {journey.title}
+        </h1>
+
+        <p className="text-sm text-neutral-400 m-0 mb-4 leading-relaxed">
+          {journey.summary || `${journey.startPlace} → ${journey.endPlace}`}
+        </p>
+
+        {/* Task 1: Author & Co-Authors Row */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 p-2 rounded-2xl bg-white/[0.03] border border-white/5">
+          <button
+            type="button"
+            onClick={() => onOpenProfile?.(journey.author.username)}
+            className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity"
+          >
+            {journey.author.avatarUrl ? (
+              <img
+                src={journey.author.avatarUrl}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover border border-white/10"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-indigo-600/30 flex items-center justify-center text-sm font-bold text-indigo-300 border border-indigo-500/30">
+                {journey.author.username[0]?.toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-bold text-white m-0">
+                {journey.author.displayName || formatUsername(journey.author.username)}
+              </p>
+              <p className="text-xs text-neutral-400 m-0">@{journey.author.username} · Creator</p>
+            </div>
+          </button>
+
+          {/* Co-Authors Cluster & Invite Trigger */}
+          <div className="flex items-center gap-2">
+            {journey.collaborators && journey.collaborators.length > 0 && (
+              <div className="flex items-center -space-x-2.5">
+                {journey.collaborators.map(c => (
+                  <div
+                    key={c.id || c.userId}
+                    title={`${c.displayName || c.username} (${c.role})`}
+                    className="relative shrink-0"
+                  >
+                    {c.avatarUrl ? (
+                      <img
+                        src={c.avatarUrl}
+                        alt={c.displayName}
+                        className="w-8 h-8 rounded-full object-cover border-2 border-neutral-900 ring-1 ring-white/10"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-purple-600/40 border-2 border-neutral-900 flex items-center justify-center text-xs font-bold text-purple-200">
+                        {(c.displayName || c.username)[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Invite Button (Active in PLANNING state) */}
+            {isPlanning && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!signedIn) {
+                    onSignIn?.()
+                    return
+                  }
+                  setInviteModalOpen(true)
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-all shadow-sm"
+                title="Invite Co-Authors to plan together"
+              >
+                <UserPlus size={14} />
+                <span>Invite</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Takeaway Advice */}
+        {journey.takeaway && (
+          <div className="rounded-2xl p-4 mb-6 bg-indigo-950/40 border border-indigo-500/30 text-white">
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-300 m-0 mb-1 flex items-center gap-1.5">
+              <Sparkles size={13} /> Creator Takeaway & Advice
+            </p>
+            <p className="text-sm text-neutral-200 m-0 leading-relaxed">{journey.takeaway}</p>
+          </div>
+        )}
+
+        {/* Timeline Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white m-0 tracking-tight">
+            Itinerary Timeline {isOngoing && isActive ? '(Newest on top)' : ''}
+          </h2>
+          <span className="text-xs text-neutral-400">
+            {renderedStops.length} stop{renderedStops.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {/* Timeline Layout with DndContext & SortableContext */}
+        <div className="relative space-y-4" role="list">
+          {/* Vertical timeline line */}
+          <div
+            className="absolute left-5 top-5 bottom-5 w-0.5 bg-gradient-to-b from-indigo-500 via-indigo-500/40 to-transparent rounded-full pointer-events-none"
+            aria-hidden="true"
+          />
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={renderedStops.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+              disabled={!isPlanning}
+            >
+              {renderedStops.map((stop, i) => {
+                const stopIndex = journey.stops.findIndex(s => s.id === stop.id)
+                const displayIndex = stopIndex >= 0 ? stopIndex + 1 : i + 1
+
+                return (
+                  <SortableStopItem
+                    key={stop.id}
+                    stop={stop}
+                    displayIndex={displayIndex}
+                    isPlanning={isPlanning}
+                    isActive={isActive}
+                    isCompleted={isCompleted}
+                    signedIn={signedIn}
+                    onSignIn={onSignIn}
+                    onUploadClick={stopId => setUploadStopId(stopId)}
+                  />
+                )
+              })}
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
+
+      {/* Task 2: PLANNING State Sticky Footer */}
+      {isPlanning && (
+        <div className="sticky bottom-4 z-30 mx-4 sm:mx-0 mt-6 p-4 rounded-2xl bg-neutral-900/95 backdrop-blur-md border border-indigo-500/30 shadow-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+              $
+            </div>
+            <div>
+              <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+                Workspace Estimate
+              </span>
+              <span className="text-sm font-extrabold text-white">
+                Estimated Total: {journey.currency} {estimatedPlanningTotal.toLocaleString()}
+              </span>
+            </div>
+          </div>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/30"
+            >
+              Edit Itinerary
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Comments Drawer */}
       <CommentsSheet
         open={commentsOpen}
         onClose={() => setCommentsOpen(false)}
@@ -763,6 +856,7 @@ export default function JourneyDetailPage({
         }}
       />
 
+      {/* Edit Journey Sheet */}
       <JourneyEditorSheet
         open={editOpen}
         mode="edit"
@@ -777,7 +871,178 @@ export default function JourneyDetailPage({
           setEditOpen(false)
         }}
       />
-      <ContentReportSheet open={reportOpen} targetType="JOURNEY" targetId={journey.id} onClose={() => setReportOpen(false)} />
+
+      {/* Content Safety Report Sheet */}
+      <ContentReportSheet
+        open={reportOpen}
+        targetType="JOURNEY"
+        targetId={journey.id}
+        onClose={() => setReportOpen(false)}
+      />
+
+      {/* Stop Media Upload Modal */}
+      {uploadStopId !== null && (
+        <MediaStudio
+          open={uploadStopId !== null}
+          onClose={() => setUploadStopId(null)}
+          onMediaReady={handleStopMediaUpload}
+        />
+      )}
+
+      {/* Task 2 & 3: Collaborator Invite Modal */}
+      <CollaboratorInviteModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        journeyId={journey.id}
+        existingCollaborators={journey.collaborators}
+        onCollaboratorAdded={collab => {
+          setJourney(j =>
+            j
+              ? {
+                  ...j,
+                  collaborators: [...(j.collaborators || []), collab],
+                }
+              : j,
+          )
+          setShareNote(`Invited @${collab.username} as ${collab.role}`)
+          setTimeout(() => setShareNote(null), 3000)
+        }}
+      />
+    </div>
+  )
+}
+
+/** Task 2: Sub-component `<SortableStopItem>` with strict handle listeners */
+function SortableStopItem({
+  stop,
+  displayIndex,
+  isPlanning,
+  isActive,
+  isCompleted,
+  signedIn,
+  onSignIn,
+  onUploadClick,
+}: {
+  stop: JourneyDetail['stops'][number]
+  displayIndex: number
+  isPlanning: boolean
+  isActive: boolean
+  isCompleted: boolean
+  signedIn: boolean
+  onSignIn?: () => void
+  onUploadClick: (stopId: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: stop.id,
+    disabled: !isPlanning,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.75 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative flex gap-4 items-start"
+      role="listitem"
+    >
+      {/* Numbered timeline dot with Planning Grip */}
+      <div className="flex-shrink-0 relative z-10 flex items-center gap-1">
+        {isPlanning && (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="text-neutral-500 cursor-grab active:cursor-grabbing hover:text-white p-1 rounded-lg touch-none bg-transparent border-0"
+            title="Drag to reorder stop"
+            aria-label={`Drag stop ${displayIndex} to reorder`}
+          >
+            <GripVertical size={16} />
+          </button>
+        )}
+        <div className="w-10 h-10 rounded-2xl bg-neutral-900 border-2 border-indigo-500 flex items-center justify-center text-sm font-bold text-indigo-400 shadow-md">
+          {displayIndex}
+        </div>
+      </div>
+
+      {/* Stop Card */}
+      <article className="flex-1 rounded-2xl overflow-hidden bg-neutral-900 border border-white/10 shadow-lg min-w-0">
+        {/* Media Gallery (Hidden in Planning state; Strict aspect-video in Completed state) */}
+        {!isPlanning && (
+          <JourneyStopMediaGallery
+            mediaUrls={stop.mediaUrls}
+            mediaResourceTypes={stop.mediaResourceTypes}
+            aspectVideo={isCompleted}
+          />
+        )}
+
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-indigo-400">Day {stop.arrivalDay}</span>
+            {stop.historicalCostHint && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-white/5 text-neutral-300 border border-white/5">
+                {stop.historicalCostHint}
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-base font-bold text-white m-0">
+              {stop.place}
+              {stop.region ? <span className="text-neutral-400 font-normal"> · {stop.region}</span> : ''}
+            </h3>
+            {stop.notes && (
+              <p className="text-sm text-neutral-300 m-0 mt-1.5 leading-relaxed">{stop.notes}</p>
+            )}
+          </div>
+
+          {stop.highlights.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {stop.highlights.map(h => (
+                <span
+                  key={h}
+                  className="text-xs px-2 py-0.5 rounded-md bg-white/5 text-neutral-300 border border-white/5"
+                >
+                  ✓ {h}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Transport connector hint */}
+          {stop.transportModeToNext && (
+            <div className="flex items-center gap-1.5 text-xs text-neutral-400 pt-1">
+              <Car size={13} className="text-indigo-400" />
+              <span>
+                To next: {stop.transportModeToNext}
+                {stop.transportDurationToNext ? ` · ${stop.transportDurationToNext}` : ''}
+              </span>
+            </div>
+          )}
+
+          {/* Task 3: ACTIVE Massive Full-Width Upload Button */}
+          {isActive && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!signedIn) {
+                  onSignIn?.()
+                  return
+                }
+                onUploadClick(stop.id)
+              }}
+              className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/30"
+            >
+              <Upload size={16} /> Upload Media to Stop {displayIndex}
+            </button>
+          )}
+        </div>
+      </article>
     </div>
   )
 }

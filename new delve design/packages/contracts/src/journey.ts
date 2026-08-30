@@ -3,11 +3,15 @@ import { z } from 'zod'
 export const journeyVisibilitySchema = z.enum(['PUBLIC', 'PRIVATE', 'DRAFT'])
 export const journeyPartyTypeSchema = z.enum(['SOLO', 'COUPLE', 'FAMILY', 'GROUP', 'FRIENDS'])
 export const journeyLifecycleStatusSchema = z.enum(['DRAFT', 'UPCOMING', 'ACTIVE', 'COMPLETED'])
+export const journeyStatusSchema = z.enum(['PLANNING', 'ACTIVE', 'COMPLETED'])
+export const journeyCollaboratorRoleSchema = z.enum(['VIEWER', 'EDITOR', 'ADMIN'])
 export const journeyCoverResourceTypeSchema = z.enum(['image', 'video'])
 
 export type JourneyVisibility = z.infer<typeof journeyVisibilitySchema>
 export type JourneyPartyType = z.infer<typeof journeyPartyTypeSchema>
 export type JourneyLifecycleStatus = z.infer<typeof journeyLifecycleStatusSchema>
+export type JourneyStatus = z.infer<typeof journeyStatusSchema>
+export type JourneyCollaboratorRole = z.infer<typeof journeyCollaboratorRoleSchema>
 
 export const journeyAuthorSchema = z.object({
   id: z.string(),
@@ -17,6 +21,18 @@ export const journeyAuthorSchema = z.object({
 })
 
 export type JourneyAuthor = z.infer<typeof journeyAuthorSchema>
+
+export const journeyCollaboratorDtoSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  role: journeyCollaboratorRoleSchema,
+  createdAt: z.string().datetime(),
+})
+
+export type JourneyCollaboratorDto = z.infer<typeof journeyCollaboratorDtoSchema>
 
 export const journeyStopDtoSchema = z.object({
   id: z.string(),
@@ -46,12 +62,16 @@ export const journeySummarySchema = z.object({
   coverResourceType: journeyCoverResourceTypeSchema.nullable().optional(),
   startDate: z.string().datetime().nullable().optional(),
   endDate: z.string().datetime().nullable().optional(),
+  status: journeyStatusSchema.optional(),
+  isOngoing: z.boolean().optional(),
+  clonedFromId: z.string().nullable().optional(),
   lifecycleStatus: journeyLifecycleStatusSchema.optional(),
   startPlace: z.string(),
   endPlace: z.string(),
   countries: z.array(z.string()),
-  durationDays: z.number().int().positive(),
+  durationDays: z.number().int().nullable().optional(),
   stopCount: z.number().int().nonnegative(),
+  collaboratorCount: z.number().int().nonnegative().optional(),
   stopPreview: z.array(z.string()).optional(),
   transportModes: z.array(z.string()),
   historicalCost: z.string().nullable(),
@@ -75,6 +95,7 @@ export type JourneySummary = z.infer<typeof journeySummarySchema>
 
 export const journeyDetailSchema = journeySummarySchema.extend({
   stops: z.array(journeyStopDtoSchema),
+  collaborators: z.array(journeyCollaboratorDtoSchema).optional(),
   media: z.array(z.string()),
   events: z
     .array(
@@ -143,10 +164,13 @@ export const createJourneyBodySchema = z
     coverResourceType: journeyCoverResourceTypeSchema.optional().nullable(),
     startDate: z.string().datetime().optional().nullable(),
     endDate: z.string().datetime().optional().nullable(),
+    status: journeyStatusSchema.optional(),
+    isOngoing: z.boolean().optional(),
+    clonedFromId: z.string().optional().nullable(),
     startPlace: z.string().trim().min(1).max(120),
     endPlace: z.string().trim().min(1).max(120),
     countries: z.array(z.string().trim().max(80)).max(20).optional(),
-    durationDays: z.number().int().min(1).max(365).optional(),
+    durationDays: z.number().int().min(1).max(365).optional().nullable(),
     transportModes: z.array(z.string().trim().max(80)).max(20).optional(),
     historicalCost: z.string().trim().max(40).optional().nullable(),
     currency: z.string().trim().max(8).optional(),
@@ -214,6 +238,31 @@ export const addJourneyBookingBodySchema = z
   .strict()
 
 export type AddJourneyBookingBody = z.infer<typeof addJourneyBookingBodySchema>
+
+export const reorderJourneyStopItemSchema = z.object({
+  stopId: z.string().min(1),
+  orderIndex: z.number().int().min(0),
+})
+
+export type ReorderJourneyStopItem = z.infer<typeof reorderJourneyStopItemSchema>
+
+export const reorderJourneyStopsBodySchema = z.union([
+  z.array(reorderJourneyStopItemSchema).min(1).max(100),
+  z.object({
+    stops: z.array(reorderJourneyStopItemSchema).min(1).max(100),
+  }),
+])
+
+export type ReorderJourneyStopsBody = z.infer<typeof reorderJourneyStopsBodySchema>
+
+export const addJourneyCollaboratorSchema = z
+  .object({
+    userId: z.string().min(1),
+    role: journeyCollaboratorRoleSchema.default('EDITOR'),
+  })
+  .strict()
+
+export type AddJourneyCollaboratorBody = z.infer<typeof addJourneyCollaboratorSchema>
 
 // ─── My Journeys Personalisation ─────────────────────────────────────────────
 

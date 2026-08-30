@@ -20,6 +20,10 @@ export function createJourneyRouter(_env: Env) {
   router.patch('/journeys/:journeyId/personalisation', auth, (req, res, next) => void c.patchPersonalisation(req, res, next))
 
   router.patch('/journeys/:journeyId', auth, (req, res, next) => void c.update(req, res, next))
+  router.put('/journeys/:journeyId/stops/reorder', auth, (req, res, next) => void c.reorderStops(req, res, next))
+  router.post('/journeys/:journeyId/collaborators', auth, (req, res, next) => void c.addCollaborator(req, res, next))
+  router.delete('/journeys/:journeyId/collaborators/:userId', auth, (req, res, next) => void c.removeCollaborator(req, res, next))
+  router.post('/journeys/:journeyId/fork', auth, (req, res, next) => void c.fork(req, res, next))
   router.patch('/journeys/:journeyId/cover', auth, (req, res, next) => void c.updateCover(req, res, next))
   router.get('/journeys/:journeyId/comments', soft, (req, res, next) => void c.listComments(req, res, next))
   router.post('/journeys/:journeyId/comments', auth, (req, res, next) => void c.addComment(req, res, next))

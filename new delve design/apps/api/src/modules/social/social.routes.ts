@@ -47,10 +47,13 @@ export function createSocialRouter(env: Env) {
   router.patch('/events/:eventId', auth, (req, res, next) => void c.updateEvent(req, res, next))
   router.get('/events/:eventId/attendees', soft, (req, res, next) => void c.listEventAttendees(req, res, next))
   router.get('/events/:eventId', soft, (req, res, next) => void c.getEvent(req, res, next))
+  router.delete('/events/:eventId/media/:mediaId', auth, (req, res, next) => void c.deleteEventMedia(req, res, next))
   router.post('/events/:eventId/reactions', auth, (req, res, next) => void c.likeEvent(req, res, next))
   router.delete('/events/:eventId/reactions', auth, (req, res, next) => void c.unlikeEvent(req, res, next))
   router.post('/events/:eventId/attendance', auth, (req, res, next) => void c.setAttendance(req, res, next))
   router.delete('/events/:eventId/attendance', auth, (req, res, next) => void c.clearAttendance(req, res, next))
+  router.post('/events/:eventId/collaborators', auth, (req, res, next) => void c.addCollaborator(req, res, next))
+  router.delete('/events/:eventId/collaborators/:userId', auth, (req, res, next) => void c.removeCollaborator(req, res, next))
 
   router.post('/reports', auth, (req, res, next) => void reportContent(req, res, next))
 

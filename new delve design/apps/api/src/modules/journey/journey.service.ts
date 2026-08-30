@@ -1,6 +1,7 @@
 import { prisma } from '@delve/database'
 import type {
   CreateJourneyBody,
+  JourneyCollaboratorRole,
   JourneyCommentDto,
   JourneyDetail,
   JourneyLifecycleStatus,
@@ -11,6 +12,8 @@ import type {
   JourneySummary,
   JourneyVisibility,
   PatchJourneyPersonalisationBody,
+  ReorderJourneyStopItem,
+  ReorderJourneyStopsBody,
 } from '@delve/contracts'
 import { AppError } from '../../middleware/error-handler.js'
 import { getPublicProfileByUsername } from '../social/profile-public.service.js'
@@ -166,10 +169,13 @@ async function toSummary(
     coverResourceType?: string | null
     startDate?: Date | null
     endDate?: Date | null
+    status?: any
+    isOngoing?: boolean
+    clonedFromId?: string | null
     startPlace: string
     endPlace: string
     countries: string[]
-    durationDays: number
+    durationDays: number | null
     transportModes: string[]
     historicalCost: string | null
     currency: string
@@ -181,7 +187,7 @@ async function toSummary(
     publishedAt: Date | null
     createdAt: Date
     authorId: string
-    _count?: { stops: number }
+    _count?: { stops: number; collaborators?: number }
     stops?: { place: string }[]
   },
   opts: {
@@ -191,6 +197,7 @@ async function toSummary(
     likeCount?: number
     commentCount?: number
     likedByMe?: boolean
+    collaboratorCount?: number
   },
 ): Promise<JourneySummary> {
   const startDate = row.startDate?.toISOString() ?? null
@@ -205,6 +212,9 @@ async function toSummary(
       row.coverResourceType === 'video' ? 'video' : row.coverUrl ? 'image' : null,
     startDate,
     endDate,
+    status: row.status,
+    isOngoing: row.isOngoing ?? false,
+    clonedFromId: row.clonedFromId ?? null,
     lifecycleStatus: deriveLifecycle({
       visibility: row.visibility,
       startDate: row.startDate ?? null,
@@ -215,6 +225,7 @@ async function toSummary(
     countries: row.countries,
     durationDays: row.durationDays,
     stopCount: opts.stopCount ?? row._count?.stops ?? 0,
+    collaboratorCount: opts.collaboratorCount ?? row._count?.collaborators ?? 0,
     stopPreview: row.stops?.map(s => s.place) ?? [],
     transportModes: row.transportModes,
     historicalCost: row.historicalCost,
@@ -565,7 +576,11 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
     },
     include: {
       stops: { orderBy: { sortOrder: 'asc' } },
-      _count: { select: { stops: true } },
+      collaborators: {
+        include: { user: { include: { travelerProfile: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
+      _count: { select: { stops: true, collaborators: true } },
     },
   })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
@@ -585,6 +600,7 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
   const counts = await socialCounts(viewerId, [row.id])
   const summary = await toSummary(row, {
     stopCount: row._count.stops,
+    collaboratorCount: row._count.collaborators,
     saveCount: counts.saves.get(row.id) || 0,
     savedByMe: counts.saved.has(row.id),
     likeCount: counts.likes.get(row.id) || 0,
@@ -613,6 +629,15 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
   return {
     ...summary,
     stops: row.stops.map(stopDto),
+    collaborators: (row.collaborators || []).map(c => ({
+      id: c.id,
+      userId: c.userId,
+      username: c.user.username,
+      displayName: c.user.travelerProfile?.displayName?.trim() || c.user.username,
+      avatarUrl: c.user.travelerProfile?.avatarUrl ?? null,
+      role: c.role,
+      createdAt: c.createdAt.toISOString(),
+    })),
     media: [...new Set(media)],
     events: eventLinks.map(link => ({
       id: link.event.id,
@@ -648,6 +673,9 @@ export async function getJourney(slugOrId: string, viewerId: string | null): Pro
 
 export async function createJourney(userId: string, body: CreateJourneyBody): Promise<JourneyDetail> {
   const visibility = body.visibility || 'PUBLIC'
+  const isOngoing = Boolean(body.isOngoing)
+  const status = body.status || (isOngoing ? 'ACTIVE' : 'PLANNING')
+
   const created = await prisma.journey.create({
     data: {
       slug: slugify(body.title),
@@ -657,11 +685,14 @@ export async function createJourney(userId: string, body: CreateJourneyBody): Pr
       coverUrl: body.coverUrl || null,
       coverResourceType: body.coverResourceType || (body.coverUrl ? 'image' : null),
       startDate: body.startDate ? new Date(body.startDate) : null,
-      endDate: body.endDate ? new Date(body.endDate) : null,
+      endDate: isOngoing ? null : (body.endDate ? new Date(body.endDate) : null),
+      status,
+      isOngoing,
+      clonedFromId: body.clonedFromId || null,
       startPlace: body.startPlace.trim(),
       endPlace: body.endPlace.trim(),
       countries: body.countries?.length ? body.countries : [],
-      durationDays: body.durationDays || body.stops.length,
+      durationDays: isOngoing ? null : (body.durationDays ?? body.stops.length),
       transportModes: body.transportModes || [],
       historicalCost: body.historicalCost || null,
       currency: body.currency || 'N$',
@@ -706,6 +737,8 @@ export async function updateJourney(
   }
 
   const visibility = body.visibility || existing.visibility
+  const isOngoing = body.isOngoing !== undefined ? Boolean(body.isOngoing) : existing.isOngoing
+  const status = body.status || existing.status
   const publishedAt =
     visibility === 'PUBLIC'
       ? existing.publishedAt || new Date()
@@ -723,11 +756,13 @@ export async function updateJourney(
         coverUrl: body.coverUrl || null,
         coverResourceType: body.coverResourceType || (body.coverUrl ? 'image' : null),
         startDate: body.startDate ? new Date(body.startDate) : null,
-        endDate: body.endDate ? new Date(body.endDate) : null,
+        endDate: isOngoing ? null : (body.endDate ? new Date(body.endDate) : null),
+        status,
+        isOngoing,
         startPlace: body.startPlace.trim(),
         endPlace: body.endPlace.trim(),
         countries: body.countries?.length ? body.countries : existing.countries,
-        durationDays: body.durationDays || body.stops.length,
+        durationDays: isOngoing ? null : (body.durationDays ?? body.stops.length),
         transportModes: body.transportModes || [],
         historicalCost: body.historicalCost || null,
         currency: body.currency || existing.currency,
@@ -760,6 +795,103 @@ export async function updateJourney(
   return getJourney(journeyId, userId)
 }
 
+export async function forkJourney(userId: string, sourceJourneyId: string): Promise<JourneyDetail> {
+  const source = await prisma.journey.findFirst({
+    where: { id: sourceJourneyId, deletedAt: null },
+    include: { stops: { orderBy: { sortOrder: 'asc' } } },
+  })
+  if (!source) throw new AppError(404, 'NOT_FOUND', 'Source journey not found')
+
+  if (source.visibility === 'PRIVATE' && source.authorId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'Cannot fork private journeys.')
+  }
+
+  const created = await prisma.journey.create({
+    data: {
+      slug: slugify(`${source.title} Fork`),
+      authorId: userId,
+      title: `${source.title} (Fork)`,
+      summary: source.summary,
+      coverUrl: source.coverUrl,
+      coverResourceType: source.coverResourceType,
+      startPlace: source.startPlace,
+      endPlace: source.endPlace,
+      countries: source.countries,
+      durationDays: source.durationDays,
+      status: 'PLANNING',
+      isOngoing: source.isOngoing,
+      clonedFromId: source.id,
+      transportModes: source.transportModes,
+      currency: source.currency,
+      partyType: source.partyType,
+      tags: source.tags,
+      visibility: 'PRIVATE',
+      stops: {
+        create: source.stops.map(s => ({
+          sortOrder: s.sortOrder,
+          place: s.place,
+          region: s.region,
+          arrivalDay: s.arrivalDay,
+          durationDays: s.durationDays,
+          notes: s.notes,
+          highlights: s.highlights,
+          mediaUrls: s.mediaUrls,
+          mediaResourceTypes: s.mediaResourceTypes,
+          transportModeToNext: s.transportModeToNext,
+          transportDurationToNext: s.transportDurationToNext,
+          transportNotes: s.transportNotes,
+          historicalCostHint: s.historicalCostHint,
+        })),
+      },
+    },
+  })
+
+  return getJourney(created.id, userId)
+}
+
+export async function reorderJourneyStops(
+  userId: string,
+  journeyId: string,
+  items: ReorderJourneyStopItem[],
+): Promise<JourneyDetail> {
+  const journey = await prisma.journey.findFirst({
+    where: { id: journeyId, deletedAt: null },
+    include: {
+      collaborators: { where: { userId } },
+    },
+  })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+
+  const isAuthor = journey.authorId === userId
+  const isEditorOrAdmin = journey.collaborators.some(
+    c => c.role === 'ADMIN' || c.role === 'EDITOR',
+  )
+
+  if (!isAuthor && !isEditorOrAdmin) {
+    throw new AppError(
+      403,
+      'FORBIDDEN',
+      'You must be an ADMIN or EDITOR collaborator on this journey to reorder stops.',
+    )
+  }
+
+  await prisma.$transaction(async tx => {
+    for (const item of items) {
+      await tx.journeyStop.updateMany({
+        where: {
+          id: item.stopId,
+          journeyId: journeyId,
+        },
+        data: {
+          sortOrder: item.orderIndex,
+        },
+      })
+    }
+  })
+
+  return getJourney(journeyId, userId)
+}
+
 /** Patch cover URL only (Media Studio journey context). */
 export async function updateJourneyCover(
   userId: string,
@@ -782,6 +914,103 @@ export async function updateJourneyCover(
     },
   })
   return getJourney(journeyId, userId)
+}
+
+export async function addCollaborator(
+  journeyId: string,
+  currentUserId: string,
+  targetUserId: string,
+  role: JourneyCollaboratorRole = 'EDITOR',
+): Promise<JourneyDetail> {
+  const journey = await prisma.journey.findFirst({
+    where: { id: journeyId, deletedAt: null },
+    include: {
+      collaborators: { where: { userId: currentUserId } },
+    },
+  })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+
+  const isAuthor = journey.authorId === currentUserId
+  const isCurrentAdmin = journey.collaborators.some(c => c.role === 'ADMIN')
+
+  if (!isAuthor && !isCurrentAdmin) {
+    throw new AppError(
+      403,
+      'FORBIDDEN',
+      'You must be the journey author or an ADMIN collaborator to invite co-authors.',
+    )
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  })
+  if (!targetUser) throw new AppError(404, 'NOT_FOUND', 'Target user not found')
+
+  await prisma.journeyCollaborator.upsert({
+    where: {
+      journeyId_userId: {
+        journeyId,
+        userId: targetUserId,
+      },
+    },
+    create: {
+      journeyId,
+      userId: targetUserId,
+      role,
+    },
+    update: {
+      role,
+    },
+  })
+
+  // Notify invited user
+  try {
+    await createNotification({
+      recipientUserId: targetUserId,
+      actorUserId: currentUserId,
+      type: 'JOURNEY_COLLABORATION_INVITE',
+      targetType: 'JOURNEY',
+      targetId: journeyId,
+      bodyPreview: `You were invited as an ${role.toLowerCase()} to collaborate on ${journey.title}`,
+    })
+  } catch {}
+
+  return getJourney(journeyId, currentUserId)
+}
+
+export async function removeCollaborator(
+  journeyId: string,
+  currentUserId: string,
+  targetUserId: string,
+): Promise<JourneyDetail> {
+  const journey = await prisma.journey.findFirst({
+    where: { id: journeyId, deletedAt: null },
+    include: {
+      collaborators: { where: { userId: currentUserId } },
+    },
+  })
+  if (!journey) throw new AppError(404, 'NOT_FOUND', 'Journey not found')
+
+  const isAuthor = journey.authorId === currentUserId
+  const isCurrentAdmin = journey.collaborators.some(c => c.role === 'ADMIN')
+  const isSelf = currentUserId === targetUserId
+
+  if (!isAuthor && !isCurrentAdmin && !isSelf) {
+    throw new AppError(
+      403,
+      'FORBIDDEN',
+      'You do not have permission to remove this collaborator.',
+    )
+  }
+
+  await prisma.journeyCollaborator.deleteMany({
+    where: {
+      journeyId,
+      userId: targetUserId,
+    },
+  })
+
+  return getJourney(journeyId, currentUserId)
 }
 
 async function requireViewableJourney(journeyId: string, viewerId: string | null) {

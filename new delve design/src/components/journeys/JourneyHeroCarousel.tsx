@@ -99,7 +99,7 @@ export default function JourneyHeroCarousel({ journeys, onOpen }: Props) {
             </h2>
             <p className="text-xs text-white/80 m-0 mb-3 inline-flex items-center gap-2">
               {j.author.displayName || formatUsername(j.author.username)}
-              {j.durationDays > 0 && (
+              {Boolean(j.durationDays && j.durationDays > 0) && (
                 <span className="inline-flex items-center gap-1"><Clock size={11} />{j.durationDays}d</span>
               )}
               {j.startPlace && (

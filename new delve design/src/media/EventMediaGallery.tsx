@@ -1,18 +1,26 @@
 import { useState } from 'react'
 import type { EventMediaDto } from '@delve/contracts'
+import { Maximize2, Trash2, Loader2 } from 'lucide-react'
 import SafeImage from '../components/mobile/SafeImage'
+import MediaLightbox, { LightboxMediaItem } from '../components/media/MediaLightbox'
 
 interface EventMediaGalleryProps {
   media: EventMediaDto[]
   coverMediaId?: string | null
   className?: string
+  isOwner?: boolean
+  onDeleteMedia?: (mediaId: string) => Promise<void>
 }
 
 export default function EventMediaGallery({
   media,
   coverMediaId = null,
   className = '',
+  isOwner = false,
+  onDeleteMedia,
 }: EventMediaGalleryProps) {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
   const items = [...media].sort((a, b) => {
     if (a.id === coverMediaId) return -1
     if (b.id === coverMediaId) return 1
@@ -37,27 +45,70 @@ export default function EventMediaGallery({
     )
   }
 
+  const lightboxItems: LightboxMediaItem[] = items.map(m => ({
+    id: m.id,
+    url: m.delivery?.url || '',
+    type: m.resourceType || 'image',
+    alt: m.altText || undefined,
+    canDelete: Boolean(isOwner || m.isMine),
+  }))
+
   const [hero, ...rest] = items
   if (!hero) return null
 
   return (
     <div className={`space-y-3 ${className}`}>
-      <EventMediaItem media={hero} priority />
+      <EventMediaItem
+        media={hero}
+        priority
+        canDelete={Boolean(isOwner || hero.isMine)}
+        onDelete={onDeleteMedia ? () => onDeleteMedia(hero.id) : undefined}
+        onClick={() => setLightboxIndex(0)}
+      />
       {rest.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {rest.map(item => (
-            <EventMediaItem key={item.id} media={item} />
+          {rest.map((item, idx) => (
+            <EventMediaItem
+              key={item.id}
+              media={item}
+              canDelete={Boolean(isOwner || item.isMine)}
+              onDelete={onDeleteMedia ? () => onDeleteMedia(item.id) : undefined}
+              onClick={() => setLightboxIndex(idx + 1)}
+            />
           ))}
         </div>
+      )}
+
+      {lightboxIndex !== null && (
+        <MediaLightbox
+          items={lightboxItems}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onDelete={onDeleteMedia}
+        />
       )}
     </div>
   )
 }
 
-function EventMediaItem({ media, priority = false }: { media: EventMediaDto; priority?: boolean }) {
+function EventMediaItem({
+  media,
+  priority = false,
+  canDelete = false,
+  onDelete,
+  onClick,
+}: {
+  media: EventMediaDto
+  priority?: boolean
+  canDelete?: boolean
+  onDelete?: () => Promise<void>
+  onClick?: () => void
+}) {
   const url = media.delivery?.url || ''
   const isVideo = media.resourceType === 'video'
   const [videoFailed, setVideoFailed] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   if (!url) {
     return (
@@ -65,6 +116,63 @@ function EventMediaItem({ media, priority = false }: { media: EventMediaDto; pri
         className="rounded-xl overflow-hidden"
         style={{ minHeight: priority ? 200 : 120, background: 'var(--surface-subtle)' }}
       />
+    )
+  }
+
+  const renderDeleteControl = () => {
+    if (!canDelete || !onDelete) return null
+
+    if (confirming) {
+      return (
+        <div
+          className="absolute top-2 left-2 z-20 flex items-center gap-1 bg-red-950/90 border border-red-500/50 rounded-xl px-2 py-1 shadow-lg backdrop-blur-md"
+          onClick={e => e.stopPropagation()}
+        >
+          <span className="text-[10px] text-red-200 font-semibold">Delete?</span>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={async e => {
+              e.stopPropagation()
+              setDeleting(true)
+              try {
+                await onDelete()
+              } catch {
+                setDeleting(false)
+                setConfirming(false)
+              }
+            }}
+            className="px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-500 text-[10px] font-bold text-white transition-all"
+          >
+            {deleting ? <Loader2 size={10} className="animate-spin" /> : 'Yes'}
+          </button>
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation()
+              setConfirming(false)
+            }}
+            className="px-1 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-neutral-300 transition-all"
+          >
+            No
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        aria-label="Delete media"
+        onClick={e => {
+          e.stopPropagation()
+          setConfirming(true)
+        }}
+        className="absolute top-2 left-2 z-10 p-1.5 rounded-lg bg-black/60 hover:bg-red-600/80 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all border border-white/10"
+        title="Delete media"
+      >
+        <Trash2 size={13} />
+      </button>
     )
   }
 
@@ -86,31 +194,50 @@ function EventMediaItem({ media, priority = false }: { media: EventMediaDto; pri
     }
     return (
       <div
-        className="rounded-xl overflow-hidden"
+        className="rounded-xl overflow-hidden relative group cursor-pointer"
         style={{ background: '#000', minHeight: priority ? 200 : 120 }}
       >
+        {renderDeleteControl()}
         <video
           src={url}
-          controls
           playsInline
+          muted
           preload={priority ? 'metadata' : 'none'}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           style={{ minHeight: priority ? 200 : 120, maxHeight: priority ? 360 : 180 }}
           onError={() => setVideoFailed(true)}
+          onClick={onClick}
+        />
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label="Expand video"
+          className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity border border-white/10"
         >
-          <track kind="captions" />
-        </video>
+          <Maximize2 size={14} />
+        </button>
       </div>
     )
   }
 
   return (
-    <SafeImage
-      src={url}
-      alt={media.altText || ''}
-      kind="listing"
-      className="rounded-xl w-full"
-      style={{ minHeight: priority ? 200 : 120, height: priority ? 240 : 140 }}
-    />
+    <div
+      className="relative group cursor-pointer overflow-hidden rounded-xl"
+      onClick={onClick}
+    >
+      {renderDeleteControl()}
+      <SafeImage
+        src={url}
+        alt={media.altText || ''}
+        kind="listing"
+        className="rounded-xl w-full transition-transform duration-300 group-hover:scale-[1.03]"
+        style={{ minHeight: priority ? 200 : 120, height: priority ? 240 : 140 }}
+      />
+      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        <div className="p-2 rounded-xl bg-black/60 text-white backdrop-blur-sm border border-white/10 shadow-lg scale-90 group-hover:scale-100 transition-transform">
+          <Maximize2 size={16} />
+        </div>
+      </div>
+    </div>
   )
 }

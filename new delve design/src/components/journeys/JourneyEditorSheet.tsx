@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Camera, ChevronDown, ChevronUp, Plus, Trash2, X } from 'lucide-react'
+import { Camera, ChevronDown, ChevronUp, Plus, Trash2, X, Check, Sparkles } from 'lucide-react'
 import type {
   CreateJourneyBody,
   JourneyDetail,
@@ -25,6 +25,24 @@ const TRANSPORT_OPTIONS = [
 
 const PARTY_OPTIONS: JourneyPartyType[] = ['SOLO', 'COUPLE', 'FAMILY', 'GROUP', 'FRIENDS']
 const VISIBILITY_OPTIONS: JourneyVisibility[] = ['PUBLIC', 'PRIVATE', 'DRAFT']
+
+const STANDARD_TAGS = [
+  '4x4 Required',
+  'Budget',
+  'Weekend',
+  'Luxury',
+  'Road Trip',
+  'Wildlife',
+  'Adventure',
+  'Camping',
+  'Beach',
+  'Culture',
+  'Solo Traveler',
+  'Family Friendly',
+  'Off the Grid',
+  'Photography',
+  'Scenic',
+]
 
 type StopDraft = {
   key: string
@@ -74,7 +92,8 @@ function fromDetail(j: JourneyDetail): {
   partyType: JourneyPartyType
   visibility: JourneyVisibility
   takeaway: string
-  tagsText: string
+  tags: string[]
+  isOngoing: boolean
   stops: StopDraft[]
 } {
   return {
@@ -83,13 +102,14 @@ function fromDetail(j: JourneyDetail): {
     coverUrl: j.coverUrl || '',
     startPlace: j.startPlace,
     endPlace: j.endPlace,
-    durationDays: j.durationDays,
+    durationDays: j.durationDays ?? Math.max(1, j.stops.length),
     historicalCost: j.historicalCost || '',
-    currency: j.currency,
+    currency: j.currency || 'N$',
     partyType: j.partyType,
     visibility: j.visibility,
     takeaway: j.takeaway,
-    tagsText: j.tags.join(', '),
+    tags: j.tags || [],
+    isOngoing: j.isOngoing ?? false,
     stops: j.stops.map(s => ({
       key: s.id,
       place: s.place,
@@ -119,6 +139,7 @@ function toBody(state: {
   coverResourceType: 'image' | 'video' | null
   startDate: string
   endDate: string
+  isOngoing: boolean
   startPlace: string
   endPlace: string
   durationDays: number
@@ -127,7 +148,7 @@ function toBody(state: {
   partyType: JourneyPartyType
   visibility: JourneyVisibility
   takeaway: string
-  tagsText: string
+  tags: string[]
   stops: StopDraft[]
 }): CreateJourneyBody | null {
   const places = state.stops.map(s => s.place.trim()).filter(Boolean)
@@ -147,20 +168,18 @@ function toBody(state: {
     coverUrl: state.coverUrl.trim() || null,
     coverResourceType: state.coverResourceType,
     startDate: state.startDate ? new Date(state.startDate).toISOString() : null,
-    endDate: state.endDate ? new Date(state.endDate).toISOString() : null,
+    endDate: state.isOngoing ? null : (state.endDate ? new Date(state.endDate).toISOString() : null),
+    isOngoing: state.isOngoing,
+    status: state.isOngoing ? 'ACTIVE' : 'PLANNING',
     startPlace: state.startPlace.trim(),
     endPlace: state.endPlace.trim(),
-    durationDays: state.durationDays || places.length,
+    durationDays: state.isOngoing ? null : (state.durationDays || places.length),
     historicalCost: state.historicalCost.trim() || null,
     currency: state.currency.trim() || 'N$',
     partyType: state.partyType,
     visibility: state.visibility,
     takeaway: state.takeaway.trim() || undefined,
-    tags: state.tagsText
-      .split(',')
-      .map(t => t.trim())
-      .filter(Boolean)
-      .slice(0, 20),
+    tags: state.tags.slice(0, 20),
     transportModes: modes,
     stops: state.stops
       .filter(s => s.place.trim())
@@ -210,6 +229,7 @@ export default function JourneyEditorSheet({
   const [coverResourceType, setCoverResourceType] = useState<'image' | 'video' | null>(null)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [isOngoing, setIsOngoing] = useState(false)
   const [startPlace, setStartPlace] = useState('')
   const [endPlace, setEndPlace] = useState('')
   const [durationDays, setDurationDays] = useState(1)
@@ -218,7 +238,8 @@ export default function JourneyEditorSheet({
   const [partyType, setPartyType] = useState<JourneyPartyType>('SOLO')
   const [visibility, setVisibility] = useState<JourneyVisibility>('PUBLIC')
   const [takeaway, setTakeaway] = useState('')
-  const [tagsText, setTagsText] = useState('')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [customTagInput, setCustomTagInput] = useState('')
   const [stops, setStops] = useState<StopDraft[]>([emptyStop(1)])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -235,6 +256,7 @@ export default function JourneyEditorSheet({
       setCoverResourceType(initial.coverResourceType ?? (d.coverUrl ? 'image' : null))
       setStartDate(initial.startDate ? initial.startDate.slice(0, 10) : '')
       setEndDate(initial.endDate ? initial.endDate.slice(0, 10) : '')
+      setIsOngoing(d.isOngoing)
       setStartPlace(d.startPlace)
       setEndPlace(d.endPlace)
       setDurationDays(d.durationDays)
@@ -243,7 +265,7 @@ export default function JourneyEditorSheet({
       setPartyType(d.partyType)
       setVisibility(d.visibility)
       setTakeaway(d.takeaway)
-      setTagsText(d.tagsText)
+      setSelectedTags(d.tags)
       setStops(d.stops.length ? d.stops : [emptyStop(1)])
     } else {
       setTitle('')
@@ -252,6 +274,7 @@ export default function JourneyEditorSheet({
       setCoverResourceType(null)
       setStartDate('')
       setEndDate('')
+      setIsOngoing(false)
       setStartPlace('')
       setEndPlace('')
       setDurationDays(1)
@@ -260,11 +283,26 @@ export default function JourneyEditorSheet({
       setPartyType('SOLO')
       setVisibility('PUBLIC')
       setTakeaway('')
-      setTagsText('')
+      setSelectedTags([])
       setStops([emptyStop(1)])
     }
+    setCustomTagInput('')
     setError(null)
   }, [open, mode, initial])
+
+  function toggleTag(tag: string) {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
+    )
+  }
+
+  function addCustomTag() {
+    const trimmed = customTagInput.trim()
+    if (trimmed && !selectedTags.includes(trimmed)) {
+      setSelectedTags(prev => [...prev, trimmed])
+      setCustomTagInput('')
+    }
+  }
 
   function moveStop(index: number, dir: -1 | 1) {
     const next = index + dir
@@ -294,6 +332,7 @@ export default function JourneyEditorSheet({
       coverResourceType,
       startDate,
       endDate,
+      isOngoing,
       startPlace,
       endPlace,
       durationDays,
@@ -302,7 +341,7 @@ export default function JourneyEditorSheet({
       partyType,
       visibility,
       takeaway,
-      tagsText,
+      tags: selectedTags,
       stops,
     })
     if (!body) {
@@ -326,460 +365,533 @@ export default function JourneyEditorSheet({
 
   if (!open) return null
 
-  const field = (label: string, children: ReactNode) => (
-    <div className="mb-3">
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-
-  const inputStyle = {
-    background: 'var(--surface-subtle)',
-    color: 'var(--fg)',
-    border: '1px solid var(--border)',
-  } as const
-
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-        style={{ background: 'rgba(0,0,0,0.45)' }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+        style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
         onClick={onClose}
       >
         <div
-          className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-4 max-h-[92vh] overflow-y-auto"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          className="w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl p-5 max-h-[92vh] overflow-y-auto bg-neutral-900 border border-white/10 text-white shadow-2xl space-y-4"
           onClick={e => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-bold m-0" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
-              {mode === 'edit' ? 'Edit journey' : 'Share a journey'}
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <h3 className="text-lg font-bold m-0 tracking-tight text-white">
+              {mode === 'edit' ? 'Edit Journey' : 'Create a Journey'}
             </h3>
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--surface-subtle)' }}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-all"
             >
-              <X size={16} style={{ color: 'var(--fg-muted)' }} />
+              <X size={16} className="text-neutral-300" />
             </button>
           </div>
 
-          {field(
-            'Title',
+          {/* Title - Floating Label */}
+          <div className="relative">
             <input
+              id="journey-title"
+              type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={inputStyle}
-            />,
-          )}
-          {field(
-            'Summary',
+              placeholder=" "
+              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
+            />
+            <label
+              htmlFor="journey-title"
+              className="absolute left-4 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
+            >
+              Journey Title
+            </label>
+          </div>
+
+          {/* Summary - Floating Label */}
+          <div className="relative">
             <textarea
+              id="journey-summary"
               value={summary}
               onChange={e => setSummary(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
-              style={inputStyle}
-            />,
-          )}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {field(
-              'Start date',
-              <input
-                type="date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
-              />,
-            )}
-            {field(
-              'End date',
-              <input
-                type="date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
-              />,
-            )}
+              placeholder=" "
+              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
+            />
+            <label
+              htmlFor="journey-summary"
+              className="absolute left-4 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
+            >
+              Summary & Overview
+            </label>
           </div>
 
-          {field(
-            'Cover',
-            <div className="flex flex-col gap-2">
-              {coverUrl ? (
-                <JourneyCoverMedia
-                  url={coverUrl}
-                  resourceType={coverResourceType}
-                  className="w-full h-32 object-cover rounded-xl"
-                  variant="inline"
+          {/* Start Date & Ongoing Toggle Switch */}
+          <div className="space-y-3 p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <label className="block text-[11px] font-semibold text-neutral-400 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                 />
-              ) : null}
-              <div className="flex gap-2">
+              </div>
+
+              {!isOngoing && (
+                <div className="relative">
+                  <label className="block text-[11px] font-semibold text-neutral-400 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Ongoing Toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <span className="text-xs font-semibold text-white block">This is an ongoing journey</span>
+                <span className="text-[11px] text-neutral-400">Ongoing trips do not require fixed end dates</span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isOngoing}
+                onClick={() => setIsOngoing(!isOngoing)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isOngoing ? 'bg-indigo-600' : 'bg-neutral-700'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isOngoing ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Cover Photo */}
+          <div className="space-y-2">
+            <span className="block text-xs font-semibold text-neutral-400">Cover Media</span>
+            {coverUrl ? (
+              <JourneyCoverMedia
+                url={coverUrl}
+                resourceType={coverResourceType}
+                className="w-full h-36 object-cover rounded-2xl border border-white/10"
+                variant="inline"
+              />
+            ) : null}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCoverStudioOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/20"
+              >
+                <Camera size={14} /> {coverUrl ? 'Replace Cover Media' : 'Add Cover from Media Studio'}
+              </button>
+              {coverUrl && (
                 <button
                   type="button"
-                  onClick={() => setCoverStudioOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
-                  style={{ background: 'var(--primary)', color: '#fff' }}
+                  onClick={() => {
+                    setCoverUrl('')
+                    setCoverResourceType(null)
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-neutral-300 transition-all"
                 >
-                  <Camera size={14} /> {coverUrl ? 'Replace in Media Studio' : 'Open Media Studio'}
+                  Clear
                 </button>
-                {coverUrl && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCoverUrl('')
-                      setCoverResourceType(null)
-                    }}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold"
-                    style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>,
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            {field(
-              'Start place',
-              <input
-                value={startPlace}
-                onChange={e => setStartPlace(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
-              />,
-            )}
-            {field(
-              'End place',
-              <input
-                value={endPlace}
-                onChange={e => setEndPlace(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
-              />,
-            )}
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            {field(
-              'Duration (days)',
+          {/* Start Place & End Place - Floating Labels */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
               <input
-                type="number"
-                min={1}
-                value={durationDays}
-                onChange={e => setDurationDays(Math.max(1, Number(e.target.value) || 1))}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
-              />,
+                id="start-place"
+                type="text"
+                value={startPlace}
+                onChange={e => setStartPlace(e.target.value)}
+                placeholder=" "
+                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+              />
+              <label
+                htmlFor="start-place"
+                className="absolute left-4 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
+              >
+                Start Place / Venue
+              </label>
+            </div>
+
+            <div className="relative">
+              <input
+                id="end-place"
+                type="text"
+                value={endPlace}
+                onChange={e => setEndPlace(e.target.value)}
+                placeholder=" "
+                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+              />
+              <label
+                htmlFor="end-place"
+                className="absolute left-4 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
+              >
+                End Place / City
+              </label>
+            </div>
+          </div>
+
+          {/* Duration, Party, Visibility & Embedded Currency Cost */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {!isOngoing && (
+              <div className="relative">
+                <input
+                  id="duration-days"
+                  type="number"
+                  min={1}
+                  value={durationDays}
+                  onChange={e => setDurationDays(Math.max(1, Number(e.target.value) || 1))}
+                  placeholder=" "
+                  className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                />
+                <label
+                  htmlFor="duration-days"
+                  className="absolute left-4 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
+                >
+                  Duration (days)
+                </label>
+              </div>
             )}
-            {field(
-              'Party',
+
+            {/* Historical Cost with Embedded Currency Prefix */}
+            <div className="relative">
+              <span className="absolute left-4 top-4 text-xs font-bold text-neutral-400 pointer-events-none select-none z-10">
+                {currency || 'N$'}
+              </span>
+              <input
+                id="historical-cost"
+                type="text"
+                value={historicalCost}
+                onChange={e => setHistoricalCost(e.target.value)}
+                placeholder=" "
+                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 pl-11 pr-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+              />
+              <label
+                htmlFor="historical-cost"
+                className="absolute left-11 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
+              >
+                Historical Cost
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Party Type</label>
               <select
                 value={partyType}
                 onChange={e => setPartyType(e.target.value as JourneyPartyType)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
               >
                 {PARTY_OPTIONS.map(p => (
-                  <option key={p} value={p}>
+                  <option key={p} value={p} className="bg-neutral-900 text-white">
                     {p.charAt(0) + p.slice(1).toLowerCase()}
                   </option>
                 ))}
-              </select>,
-            )}
-          </div>
+              </select>
+            </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            {field(
-              'Visibility',
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Visibility</label>
               <select
                 value={visibility}
                 onChange={e => setVisibility(e.target.value as JourneyVisibility)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-                style={inputStyle}
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
               >
                 {VISIBILITY_OPTIONS.map(v => (
-                  <option key={v} value={v}>
+                  <option key={v} value={v} className="bg-neutral-900 text-white">
                     {v.charAt(0) + v.slice(1).toLowerCase()}
                   </option>
                 ))}
-              </select>,
-            )}
-            {field(
-              'Historical cost',
-              <div className="flex gap-2">
-                <input
-                  value={currency}
-                  onChange={e => setCurrency(e.target.value)}
-                  className="w-16 px-2 py-2.5 rounded-xl text-sm outline-none"
-                  style={inputStyle}
-                />
-                <input
-                  value={historicalCost}
-                  onChange={e => setHistoricalCost(e.target.value)}
-                  placeholder="14200"
-                  className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none"
-                  style={inputStyle}
-                />
-              </div>,
-            )}
+              </select>
+            </div>
           </div>
 
-          {field(
-            'Tags (comma-separated)',
-            <input
-              value={tagsText}
-              onChange={e => setTagsText(e.target.value)}
-              placeholder="nature, budget, adventure"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={inputStyle}
-            />,
-          )}
-          {field(
-            'Takeaway',
+          {/* Standardized Tags Combobox / Multi-Select */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-neutral-400">Standardized Tags</label>
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-2xl bg-white/[0.03] border border-white/5">
+              {STANDARD_TAGS.map(tag => {
+                const isSelected = selectedTags.includes(tag)
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                        : 'bg-white/5 text-neutral-300 hover:bg-white/10 border border-white/5'
+                    }`}
+                  >
+                    {isSelected && <Check size={12} className="stroke-[3]" />}
+                    {tag}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Custom Tag Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customTagInput}
+                onChange={e => setCustomTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addCustomTag()
+                  }
+                }}
+                placeholder="Add custom tag..."
+                className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={addCustomTag}
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-all"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* Takeaway - Floating Label */}
+          <div className="relative">
             <textarea
+              id="journey-takeaway"
               value={takeaway}
               onChange={e => setTakeaway(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
-              style={inputStyle}
-            />,
-          )}
-
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-bold m-0" style={{ color: 'var(--fg)' }}>
-              Stops
-            </p>
-            <button
-              type="button"
-              onClick={() => setStops(prev => [...prev, emptyStop(prev.length + 1)])}
-              className="inline-flex items-center gap-1 text-xs font-bold"
-              style={{ color: 'var(--primary)' }}
+              placeholder=" "
+              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
+            />
+            <label
+              htmlFor="journey-takeaway"
+              className="absolute left-4 top-4 text-xs font-semibold text-neutral-400 duration-200 transform -translate-y-2.5 scale-75 origin-[0] peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-2.5 peer-focus:text-indigo-400 pointer-events-none"
             >
-              <Plus size={14} /> Add stop
-            </button>
+              Key Takeaway & Travel Advice
+            </label>
           </div>
 
-          <div className="flex flex-col gap-3 mb-4">
-            {stops.map((stop, index) => (
-              <div
-                key={stop.key}
-                className="rounded-xl p-3"
-                style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
+          {/* Stops List */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold m-0 text-white">Itinerary Stops</p>
+              <button
+                type="button"
+                onClick={() => setStops(prev => [...prev, emptyStop(prev.length + 1)])}
+                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold m-0" style={{ color: 'var(--fg-muted)' }}>
-                    Stop {index + 1}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => moveStop(index, -1)} className="p-1" aria-label="Move up">
-                      <ChevronUp size={14} style={{ color: 'var(--fg-muted)' }} />
-                    </button>
-                    <button type="button" onClick={() => moveStop(index, 1)} className="p-1" aria-label="Move down">
-                      <ChevronDown size={14} style={{ color: 'var(--fg-muted)' }} />
-                    </button>
-                    {stops.length > 1 && (
+                <Plus size={14} /> Add Stop
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {stops.map((stop, index) => (
+                <div
+                  key={stop.key}
+                  className="rounded-2xl p-4 bg-white/[0.03] border border-white/10 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-400">Stop {index + 1}</span>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setStops(prev => prev.filter((_, i) => i !== index))}
-                        className="p-1"
-                        aria-label="Remove stop"
+                        onClick={() => moveStop(index, -1)}
+                        className="p-1 text-neutral-400 hover:text-white"
+                        aria-label="Move up"
                       >
-                        <Trash2 size={14} style={{ color: 'var(--auth-danger, #C42A2A)' }} />
+                        <ChevronUp size={14} />
                       </button>
-                    )}
-                  </div>
-                </div>
-                <input
-                  value={stop.place}
-                  onChange={e => updateStop(index, { place: e.target.value })}
-                  placeholder="Place"
-                  className="w-full mb-2 px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                />
-                <input
-                  value={stop.region}
-                  onChange={e => updateStop(index, { region: e.target.value })}
-                  placeholder="Region (optional)"
-                  className="w-full mb-2 px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                />
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <input
-                    type="number"
-                    min={1}
-                    value={stop.arrivalDay}
-                    onChange={e => updateStop(index, { arrivalDay: Math.max(1, Number(e.target.value) || 1) })}
-                    placeholder="Arrival day"
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={stop.durationDays}
-                    onChange={e => updateStop(index, { durationDays: Math.max(1, Number(e.target.value) || 1) })}
-                    placeholder="Days here"
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                  />
-                </div>
-                <textarea
-                  value={stop.notes}
-                  onChange={e => updateStop(index, { notes: e.target.value })}
-                  rows={2}
-                  placeholder="Notes"
-                  className="w-full mb-2 px-3 py-2 rounded-lg text-sm outline-none resize-none"
-                  style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                />
-                <input
-                  value={stop.highlightsText}
-                  onChange={e => updateStop(index, { highlightsText: e.target.value })}
-                  placeholder="Highlights (comma-separated)"
-                  className="w-full mb-2 px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                />
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  {stop.mediaUrls.map((url, mi) => (
-                    <div key={`${url}-${mi}`} className="relative w-14 h-14 rounded-lg overflow-hidden" style={{ background: '#000' }}>
-                      <JourneyCoverMedia
-                        url={url}
-                        resourceType={stop.mediaResourceTypes[mi] || 'image'}
-                        className="w-full h-full object-cover"
-                        variant="card"
-                      />
                       <button
                         type="button"
-                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
-                        style={{ background: 'rgba(0,0,0,0.55)' }}
-                        onClick={() =>
-                          updateStop(index, {
-                            mediaUrls: stop.mediaUrls.filter((_, i) => i !== mi),
-                            mediaResourceTypes: stop.mediaResourceTypes.filter((_, i) => i !== mi),
-                          })
-                        }
+                        onClick={() => moveStop(index, 1)}
+                        className="p-1 text-neutral-400 hover:text-white"
+                        aria-label="Move down"
                       >
-                        <X size={10} color="#fff" />
+                        <ChevronDown size={14} />
                       </button>
+                      {stops.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setStops(prev => prev.filter((_, i) => i !== index))}
+                          className="p-1 text-red-400 hover:text-red-300 ml-1"
+                          aria-label="Remove stop"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
-                  ))}
-                  {stop.mediaUrls.length < 10 && (
+                  </div>
+
+                  <input
+                    value={stop.place}
+                    onChange={e => updateStop(index, { place: e.target.value })}
+                    placeholder="Place / Stop Name *"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 transition-all"
+                  />
+
+                  <input
+                    value={stop.region}
+                    onChange={e => updateStop(index, { region: e.target.value })}
+                    placeholder="Region / Area (optional)"
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 transition-all"
+                  />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      value={stop.arrivalDay}
+                      onChange={e => updateStop(index, { arrivalDay: Math.max(1, Number(e.target.value) || 1) })}
+                      placeholder="Arrival day"
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      value={stop.durationDays}
+                      onChange={e => updateStop(index, { durationDays: Math.max(1, Number(e.target.value) || 1) })}
+                      placeholder="Days here"
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <textarea
+                    value={stop.notes}
+                    onChange={e => updateStop(index, { notes: e.target.value })}
+                    rows={2}
+                    placeholder="Stop notes & descriptions..."
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 resize-none"
+                  />
+
+                  <input
+                    value={stop.highlightsText}
+                    onChange={e => updateStop(index, { highlightsText: e.target.value })}
+                    placeholder="Highlights (comma-separated)"
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500"
+                  />
+
+                  {/* Stop Media */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {stop.mediaUrls.map((url, mi) => (
+                      <div key={`${url}-${mi}`} className="relative group w-14 h-14 rounded-lg overflow-hidden border border-white/10">
+                        {stop.mediaResourceTypes[mi] === 'video' ? (
+                          <video src={url} className="w-full h-full object-cover" muted />
+                        ) : (
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateStop(index, {
+                              mediaUrls: stop.mediaUrls.filter((_, i) => i !== mi),
+                              mediaResourceTypes: stop.mediaResourceTypes.filter((_, i) => i !== mi),
+                            })
+                          }}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
                     <button
                       type="button"
                       onClick={() => setStopMediaIndex(index)}
-                      className="w-14 h-14 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold text-center leading-tight px-1 gap-0.5"
-                      style={{ background: 'var(--surface-subtle)', color: 'var(--primary)', border: '1px dashed var(--border)' }}
+                      className="w-14 h-14 rounded-lg border border-dashed border-white/20 hover:border-indigo-400 flex items-center justify-center text-neutral-400 hover:text-indigo-400 transition-colors"
                     >
-                      <Camera size={14} />
-                      Add
+                      <Plus size={16} />
                     </button>
-                  )}
-                </div>
-                <p className="text-[10px] m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
-                  Photos & videos for this stop · {stop.mediaUrls.length}/10
-                </p>
-                {index < stops.length - 1 || stop.transportModeToNext ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={stop.transportModeToNext}
-                      onChange={e => updateStop(index, { transportModeToNext: e.target.value })}
-                      className="w-full px-2 py-2 rounded-lg text-xs outline-none"
-                      style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                    >
-                      <option value="">Transport to next</option>
-                      {TRANSPORT_OPTIONS.map(t => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={stop.transportDurationToNext}
-                      onChange={e => updateStop(index, { transportDurationToNext: e.target.value })}
-                      placeholder="Duration (e.g. 5 hrs)"
-                      className="w-full px-2 py-2 rounded-lg text-xs outline-none"
-                      style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                    />
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => updateStop(index, { transportModeToNext: 'Car rental' })}
-                    className="text-xs font-semibold"
-                    style={{ color: 'var(--primary)' }}
-                  >
-                    + Transport to next stop
-                  </button>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
 
           {error && (
-            <p className="text-xs mb-2" style={{ color: 'var(--auth-danger, #C42A2A)' }}>
+            <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-xs text-red-200 font-medium">
               {error}
-            </p>
+            </div>
           )}
 
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void submit()}
-            className="w-full py-3 rounded-xl text-sm font-bold disabled:opacity-60"
-            style={{ background: 'var(--primary)', color: '#fff' }}
-          >
-            {busy ? 'Saving…' : signedIn ? (mode === 'edit' ? 'Save changes' : 'Publish journey') : 'Sign in to publish'}
-          </button>
+          {/* Submit */}
+          <div className="pt-3 border-t border-white/10 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-neutral-300 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={submit}
+              className="flex-1 py-3 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white transition-all shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+            >
+              {busy ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Publish Journey'}
+            </button>
+          </div>
         </div>
       </div>
 
-      <MediaStudio
-        open={coverStudioOpen}
-        onClose={() => setCoverStudioOpen(false)}
-        initialContext="journey"
-        lockContext
-        onMediaReady={(assets: MediaAssetDto[]) => {
-          const asset = assets[0]
-          if (asset) {
-            setCoverUrl(asset.delivery.url)
-            setCoverResourceType(asset.resourceType === 'video' ? 'video' : 'image')
-          }
-          setCoverStudioOpen(false)
-        }}
-      />
+      {/* Cover Studio Modal */}
+      {coverStudioOpen && (
+        <MediaStudio
+          open={coverStudioOpen}
+          onClose={() => setCoverStudioOpen(false)}
+          onMediaReady={(assets: MediaAssetDto[]) => {
+            const asset = assets[0]
+            if (asset) {
+              setCoverUrl(asset.delivery?.url || '')
+              const rType = asset.resourceType === 'video' ? 'video' : 'image'
+              setCoverResourceType(rType)
+            }
+            setCoverStudioOpen(false)
+          }}
+        />
+      )}
 
-      <MediaStudio
-        open={stopMediaIndex !== null}
-        onClose={() => setStopMediaIndex(null)}
-        initialContext="journey-highlight"
-        lockContext
-        onMediaReady={(assets: MediaAssetDto[]) => {
-          if (stopMediaIndex === null || !assets.length) {
+      {/* Stop Media Studio Modal */}
+      {stopMediaIndex !== null && (
+        <MediaStudio
+          open={stopMediaIndex !== null}
+          onClose={() => setStopMediaIndex(null)}
+          onMediaReady={(assets: MediaAssetDto[]) => {
+            if (stopMediaIndex !== null && assets.length > 0) {
+              const cur = stops[stopMediaIndex]
+              if (cur) {
+                const newUrls = assets.map(a => a.delivery?.url || '').filter(Boolean)
+                const newTypes = assets.map(a => (a.resourceType === 'video' ? ('video' as const) : ('image' as const)))
+                updateStop(stopMediaIndex, {
+                  mediaUrls: [...cur.mediaUrls, ...newUrls],
+                  mediaResourceTypes: [...cur.mediaResourceTypes, ...newTypes],
+                })
+              }
+            }
             setStopMediaIndex(null)
-            return
-          }
-          const current = stops[stopMediaIndex]
-          const room = Math.max(0, 10 - (current?.mediaUrls.length || 0))
-          const batch = assets.slice(0, room)
-          const nextUrls = [...(current?.mediaUrls || []), ...batch.map(a => a.delivery.url)].slice(0, 10)
-          const nextTypes: Array<'image' | 'video'> = [
-            ...(current?.mediaResourceTypes || []),
-            ...batch.map(a => (a.resourceType === 'video' ? ('video' as const) : ('image' as const))),
-          ].slice(0, nextUrls.length)
-          updateStop(stopMediaIndex, {
-            mediaUrls: nextUrls,
-            mediaResourceTypes: nextTypes,
-          })
-          setStopMediaIndex(null)
-        }}
-      />
+          }}
+        />
+      )}
     </>
   )
 }

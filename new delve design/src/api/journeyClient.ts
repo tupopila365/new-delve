@@ -47,6 +47,25 @@ export async function updateJourney(journeyId: string, body: UpdateJourneyBody) 
   })
 }
 
+export async function forkJourney(journeyId: string) {
+  return authorizedJson<JourneyDetail>(`/journeys/${encodeURIComponent(journeyId)}/fork`, {
+    method: 'POST',
+  })
+}
+
+export async function reorderJourneyStops(
+  journeyId: string,
+  stops: Array<{ stopId: string; orderIndex: number }>,
+) {
+  return authorizedJson<JourneyDetail>(
+    `/journeys/${encodeURIComponent(journeyId)}/stops/reorder`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(stops),
+    },
+  )
+}
+
 export async function updateJourneyCover(
   journeyId: string,
   coverUrl: string,
@@ -67,6 +86,29 @@ export async function addJourneyComment(journeyId: string, body: string) {
     method: 'POST',
     body: JSON.stringify({ body }),
   })
+}
+
+export async function addCollaborator(
+  journeyId: string,
+  userId: string,
+  role: 'EDITOR' | 'VIEWER' | 'ADMIN' = 'EDITOR',
+) {
+  return authorizedJson<JourneyDetail>(
+    `/journeys/${encodeURIComponent(journeyId)}/collaborators`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ userId, role }),
+    },
+  )
+}
+
+export async function removeCollaborator(journeyId: string, userId: string) {
+  return authorizedJson<JourneyDetail>(
+    `/journeys/${encodeURIComponent(journeyId)}/collaborators/${encodeURIComponent(userId)}`,
+    {
+      method: 'DELETE',
+    },
+  )
 }
 
 export async function likeJourney(journeyId: string) {

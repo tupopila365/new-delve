@@ -8,9 +8,11 @@ type StopMediaItem = {
 export default function JourneyStopMediaGallery({
   mediaUrls,
   mediaResourceTypes = [],
+  aspectVideo = false,
 }: {
   mediaUrls: string[]
   mediaResourceTypes?: Array<'image' | 'video' | string | null | undefined>
+  aspectVideo?: boolean
 }) {
   const items: StopMediaItem[] = mediaUrls.filter(Boolean).map((url, i) => {
     const t = mediaResourceTypes[i]
@@ -29,11 +31,16 @@ export default function JourneyStopMediaGallery({
 
   return (
     <div className="space-y-2">
-      <div className="relative w-full overflow-hidden" style={{ maxHeight: 280, background: '#000' }}>
+      <div
+        className={`relative w-full overflow-hidden ${
+          aspectVideo ? 'aspect-video max-h-[360px]' : 'max-h-[280px]'
+        }`}
+        style={{ background: '#000' }}
+      >
         <JourneyCoverMedia
           url={hero.url}
           resourceType={hero.resourceType}
-          className="w-full object-cover"
+          className="w-full h-full object-cover"
           variant="inline"
         />
       </div>
