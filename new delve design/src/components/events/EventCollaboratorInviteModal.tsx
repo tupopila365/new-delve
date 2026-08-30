@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Search, Check, Loader2 } from 'lucide-react'
-import type { EventCollaboratorDto, EventCollaboratorRole } from '@delve/contracts'
+import type { EventCollaboratorDto, EventCollaboratorRole, PublicTravelerProfile } from '@delve/contracts'
 import { eventClient } from '../../api/eventClient'
+import { searchTravelers, fetchEventAttendees } from '../../api/socialClient'
 
 interface Props {
   isOpen: boolean
@@ -11,7 +12,7 @@ interface Props {
   onCollaboratorAdded?: (collaborator: EventCollaboratorDto) => void
 }
 
-interface MockUser {
+interface TravelerItem {
   id: string
   username: string
   displayName: string
@@ -19,7 +20,7 @@ interface MockUser {
   subtitle: string
 }
 
-const SUGGESTED_USERS: MockUser[] = [
+const FALLBACK_USERS: TravelerItem[] = [
   {
     id: 'user_johan_v',
     username: 'johan_overland',
@@ -68,22 +69,101 @@ export default function EventCollaboratorInviteModal({
   const [role, setRole] = useState<EventCollaboratorRole>('CO_HOST')
   const [invitingId, setInvitingId] = useState<string | null>(null)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
-
-  if (!isOpen) return null
+  const [travelers, setTravelers] = useState<TravelerItem[]>(FALLBACK_USERS)
+  const [isSearching, setIsSearching] = useState(false)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const existingIds = new Set(existingCollaborators.map(c => c.userId))
 
-  const filteredUsers = SUGGESTED_USERS.filter(u => {
-    const q = search.toLowerCase().trim()
-    if (!q) return true
-    return (
-      u.displayName.toLowerCase().includes(q) ||
-      u.username.toLowerCase().includes(q) ||
-      u.subtitle.toLowerCase().includes(q)
-    )
-  })
+  // 1. Initial Load: Fetch real Event Attendees first
+  useEffect(() => {
+    if (!isOpen || !eventId) return
 
-  async function handleInvite(user: MockUser) {
+    let cancelled = false
+    async function loadAttendees() {
+      try {
+        const attendees = await fetchEventAttendees(eventId)
+        if (cancelled || !attendees || attendees.length === 0) return
+
+        const formattedAttendees: TravelerItem[] = attendees.map(a => ({
+          id: a.user.id,
+          username: a.user.username,
+          displayName: a.user.displayName,
+          avatarUrl: a.user.avatarUrl,
+          subtitle: a.status === 'GOING' ? 'RSVP: Going' : 'RSVP: Interested',
+        }))
+
+        setTravelers(prev => {
+          const ids = new Set(formattedAttendees.map(u => u.id))
+          const remaining = prev.filter(u => !ids.has(u.id))
+          return [...formattedAttendees, ...remaining]
+        })
+      } catch {
+        // Fallback to initial suggestions if no attendees found
+      }
+    }
+
+    loadAttendees()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, eventId])
+
+  // 2. Live Real-Time Database Search
+  useEffect(() => {
+    if (!isOpen) return
+
+    const query = search.trim()
+    if (!query) {
+      setIsSearching(false)
+      return
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+
+    setIsSearching(true)
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchTravelers(query)
+        if (results && results.length > 0) {
+          const mapped: TravelerItem[] = results.map((t: PublicTravelerProfile) => ({
+            id: t.id,
+            username: t.username,
+            displayName: t.displayName || t.username,
+            avatarUrl: t.avatarUrl,
+            subtitle: t.homeCity ? `${t.homeCity} · Delver` : 'Delve Traveler',
+          }))
+          setTravelers(mapped)
+        } else {
+          // If no backend match, filter local list as fallback
+          const localFiltered = FALLBACK_USERS.filter(u =>
+            u.displayName.toLowerCase().includes(query.toLowerCase()) ||
+            u.username.toLowerCase().includes(query.toLowerCase())
+          )
+          setTravelers(localFiltered)
+        }
+      } catch {
+        // Fallback to local filter on network issue
+        const localFiltered = FALLBACK_USERS.filter(u =>
+          u.displayName.toLowerCase().includes(query.toLowerCase()) ||
+          u.username.toLowerCase().includes(query.toLowerCase())
+        )
+        setTravelers(localFiltered)
+      } finally {
+        setIsSearching(false)
+      }
+    }, 280)
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [search, isOpen])
+
+  async function handleInvite(user: TravelerItem) {
     setInvitingId(user.id)
     try {
       try {
@@ -215,29 +295,42 @@ export default function EventCollaboratorInviteModal({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by name, username, or handle..."
-              className="w-full rounded-xl pl-9 pr-4 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
+              className="w-full rounded-xl pl-9 pr-9 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
               style={{
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid var(--border, rgba(255,255,255,0.12))',
               }}
             />
+            {isSearching && (
+              <Loader2
+                size={15}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 animate-spin"
+              />
+            )}
           </div>
         </div>
 
         {/* Suggested Travelers List */}
         <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between text-xs text-neutral-400 px-0.5">
-            <span className="font-semibold text-neutral-300">Suggested Travelers</span>
-            <span>{filteredUsers.length} available</span>
+            <span className="font-semibold text-neutral-300">
+              {search.trim() ? 'Search Results' : 'Suggested Travelers & Attendees'}
+            </span>
+            <span>{travelers.length} available</span>
           </div>
 
           <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-            {filteredUsers.length === 0 ? (
+            {isSearching && travelers.length === 0 ? (
+              <div className="text-center py-8 text-neutral-400 text-xs flex items-center justify-center gap-2">
+                <Loader2 size={14} className="animate-spin" />
+                <span>Searching database...</span>
+              </div>
+            ) : travelers.length === 0 ? (
               <div className="text-center py-8 text-neutral-500 text-xs">
                 No travelers found matching &ldquo;{search}&rdquo;
               </div>
             ) : (
-              filteredUsers.map(user => {
+              travelers.map(user => {
                 const isExisting = existingIds.has(user.id)
                 const isInvited = invitedIds.has(user.id)
                 const isBusy = invitingId === user.id
