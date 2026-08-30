@@ -25,18 +25,40 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- 4. Create JourneyCollaborator table
-CREATE TABLE IF NOT EXISTS "JourneyCollaborator" (
-  "id" TEXT NOT NULL,
-  "journeyId" TEXT NOT NULL,
-  "userId" TEXT NOT NULL,
-  "role" "JourneyCollaboratorRole" NOT NULL DEFAULT 'EDITOR',
-  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt" TIMESTAMP(3) NOT NULL,
+DO $$ BEGIN
+  CREATE TABLE IF NOT EXISTS "JourneyCollaborator" (
+    "id" TEXT NOT NULL,
+    "journeyId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "role" "JourneyCollaboratorRole" NOT NULL DEFAULT 'EDITOR',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+EXCEPTION
+  WHEN duplicate_table THEN null;
+  WHEN others THEN null;
+END $$;
 
-  CONSTRAINT "JourneyCollaborator_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "JourneyCollaborator_journeyId_fkey" FOREIGN KEY ("journeyId") REFERENCES "Journey"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "JourneyCollaborator_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
+DO $$ BEGIN
+  ALTER TABLE "JourneyCollaborator" ADD CONSTRAINT "JourneyCollaborator_pkey" PRIMARY KEY ("id");
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "JourneyCollaborator" ADD CONSTRAINT "JourneyCollaborator_journeyId_fkey" FOREIGN KEY ("journeyId") REFERENCES "Journey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "JourneyCollaborator" ADD CONSTRAINT "JourneyCollaborator_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
+END $$;
 
 -- 5. Create Indices
 CREATE UNIQUE INDEX IF NOT EXISTS "JourneyCollaborator_journeyId_userId_key" ON "JourneyCollaborator"("journeyId", "userId");

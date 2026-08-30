@@ -1,31 +1,39 @@
 -- CreateEnum
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MediaUploadSessionStatus') THEN
-        CREATE TYPE "MediaUploadSessionStatus" AS ENUM ('PENDING', 'COMPLETED', 'ABANDONED');
-    END IF;
+DO $$ BEGIN
+  CREATE TYPE "MediaUploadSessionStatus" AS ENUM ('PENDING', 'COMPLETED', 'ABANDONED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
 END $$;
 
 -- CreateEnum
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MediaModerationStatus') THEN
-        CREATE TYPE "MediaModerationStatus" AS ENUM ('APPROVED', 'PENDING', 'REJECTED', 'FLAGGED');
-    END IF;
+DO $$ BEGIN
+  CREATE TYPE "MediaModerationStatus" AS ENUM ('APPROVED', 'PENDING', 'REJECTED', 'FLAGGED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
 END $$;
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "MediaUploadSession" (
+DO $$ BEGIN
+  CREATE TABLE IF NOT EXISTS "MediaUploadSession" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "purpose" "MediaPurpose" NOT NULL,
     "expectedCount" INTEGER NOT NULL DEFAULT 1,
     "status" "MediaUploadSessionStatus" NOT NULL DEFAULT 'PENDING',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+EXCEPTION
+  WHEN duplicate_table THEN null;
+  WHEN others THEN null;
+END $$;
 
-    CONSTRAINT "MediaUploadSession_pkey" PRIMARY KEY ("id")
-);
+DO $$ BEGIN
+  ALTER TABLE "MediaUploadSession" ADD CONSTRAINT "MediaUploadSession_pkey" PRIMARY KEY ("id");
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
+END $$;
 
 -- AlterTable MediaAsset
 ALTER TABLE "MediaAsset" ADD COLUMN IF NOT EXISTS "moderationStatus" "MediaModerationStatus" NOT NULL DEFAULT 'APPROVED';
@@ -46,31 +54,23 @@ CREATE INDEX IF NOT EXISTS "MediaAsset_draftId_idx" ON "MediaAsset"("draftId");
 CREATE INDEX IF NOT EXISTS "MediaUploadIntent_draftId_idx" ON "MediaUploadIntent"("draftId");
 
 -- AddForeignKey
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'MediaUploadSession_userId_fkey'
-    ) THEN
-        ALTER TABLE "MediaUploadSession" ADD CONSTRAINT "MediaUploadSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    END IF;
+DO $$ BEGIN
+  ALTER TABLE "MediaUploadSession" ADD CONSTRAINT "MediaUploadSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
 END $$;
 
--- AddForeignKey
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'MediaAsset_draftId_fkey'
-    ) THEN
-        ALTER TABLE "MediaAsset" ADD CONSTRAINT "MediaAsset_draftId_fkey" FOREIGN KEY ("draftId") REFERENCES "MediaUploadSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-    END IF;
+DO $$ BEGIN
+  ALTER TABLE "MediaAsset" ADD CONSTRAINT "MediaAsset_draftId_fkey" FOREIGN KEY ("draftId") REFERENCES "MediaUploadSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
 END $$;
 
--- AddForeignKey
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'MediaUploadIntent_draftId_fkey'
-    ) THEN
-        ALTER TABLE "MediaUploadIntent" ADD CONSTRAINT "MediaUploadIntent_draftId_fkey" FOREIGN KEY ("draftId") REFERENCES "MediaUploadSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-    END IF;
+DO $$ BEGIN
+  ALTER TABLE "MediaUploadIntent" ADD CONSTRAINT "MediaUploadIntent_draftId_fkey" FOREIGN KEY ("draftId") REFERENCES "MediaUploadSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+  WHEN others THEN null;
 END $$;
