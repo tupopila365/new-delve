@@ -324,9 +324,6 @@ export async function createUploadSignature(
   if (body.purpose === 'story') {
     signParams.tags = 'delvers_story,delete_after_24h'
   }
-  if (body.purpose === 'event') {
-    signParams.moderation = 'aws_rek'
-  }
 
   const signature = signCloudinaryParams(signParams, env.CLOUDINARY_API_SECRET!)
   const completionToken = signCloudinaryParams(
@@ -362,7 +359,6 @@ export async function createUploadSignature(
       api_key: env.CLOUDINARY_API_KEY!,
       context: contextStr,
       ...(signParams.tags ? { tags: String(signParams.tags) } : {}),
-      ...(signParams.moderation ? { moderation: String(signParams.moderation) } : {}),
     },
     completionToken,
     chunkThresholdBytes: 100 * 1024 * 1024,
