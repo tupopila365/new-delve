@@ -205,14 +205,32 @@ export function buildDeliveryUrl(input: {
   crop?: string
   gravity?: string
 }): string {
-  const transforms = ['f_auto', 'q_auto']
-  if (input.width) transforms.push(`w_${input.width}`)
-  if (input.height) transforms.push(`h_${input.height}`)
-  if (input.crop) transforms.push(`c_${input.crop}`)
-  if (input.gravity) transforms.push(`g_${input.gravity}`)
-  const version = input.version ? `/v${input.version}` : ''
-  const resource = input.resourceType === 'video' ? 'video' : 'image'
-  return `https://res.cloudinary.com/${input.cloudName}/${resource}/upload/${transforms.join(',')}${version}/${input.publicId}`
+  if (!input.publicId) return ''
+  if (input.publicId.startsWith('http://') || input.publicId.startsWith('https://')) {
+    return input.publicId
+  }
+  const isVideo =
+    input.resourceType === 'video' ||
+    /\.(mp4|webm|mov|mkv|avi|m3u8)$/i.test(input.publicId)
+  const resource = isVideo ? 'video' : 'image'
+
+  const transforms: string[] = []
+  if (!isVideo) {
+    transforms.push('f_auto', 'q_auto')
+    if (input.width) transforms.push(`w_${input.width}`)
+    if (input.height) transforms.push(`h_${input.height}`)
+    if (input.crop) transforms.push(`c_${input.crop}`)
+    if (input.gravity) transforms.push(`g_${input.gravity}`)
+  } else {
+    // For videos, use f_auto,q_auto without conflicting image crop directives unless specified
+    transforms.push('f_auto', 'q_auto')
+    if (input.width) transforms.push(`w_${input.width}`)
+    if (input.height) transforms.push(`h_${input.height}`)
+  }
+
+  const transformSegment = transforms.length > 0 ? `${transforms.join(',')}/` : ''
+  const version = input.version ? `v${input.version}/` : ''
+  return `https://res.cloudinary.com/${input.cloudName}/${resource}/upload/${transformSegment}${version}${input.publicId}`
 }
 
 export type CloudinaryDestroyResult = { ok: boolean; result?: string }

@@ -100,30 +100,46 @@ export default function FeedVideoCard({
   const localVideo = useLocalVideo(assetId) || (publicId ? useLocalVideo(publicId) : undefined)
   const hasLocalBlob = Boolean(localVideo?.blobUrl)
 
+  const rawSource = publicId || assetId || ''
+  const isFullUrl = rawSource.startsWith('http://') || rawSource.startsWith('https://')
+
+  // Resolve cloud name and publicId safely
   const effectiveCloudName =
     cloudName ||
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME) ||
     'delve'
 
-  const effectivePublicId = (publicId || assetId || '').replace(/\.[^/.]+$/, '')
+  const effectivePublicId = isFullUrl
+    ? rawSource
+    : rawSource.replace(/\.[^/.]+$/, '')
 
   // Generate Cloudinary blurred image URL for Scenario 2 (Viewer Processing)
   const blurredPosterUrl = useMemo(() => {
     if (posterUrl) return posterUrl
     if (!effectivePublicId) return ''
+    if (isFullUrl) {
+      return effectivePublicId.replace(/\/video\/upload\//, '/video/upload/e_blur:1000,f_auto,q_auto/').replace(/\.[^/.]+$/, '.jpg')
+    }
     return `https://res.cloudinary.com/${effectiveCloudName}/video/upload/e_blur:1000,f_auto,q_auto/${effectivePublicId}.jpg`
-  }, [effectiveCloudName, effectivePublicId, posterUrl])
+  }, [effectiveCloudName, effectivePublicId, isFullUrl, posterUrl])
 
   // Generate HLS playlist (.m3u8) and MP4 fallback URLs for Scenario 3
   const hlsStreamUrl = useMemo(() => {
     if (!effectivePublicId) return ''
+    if (isFullUrl) {
+      if (effectivePublicId.endsWith('.m3u8')) return effectivePublicId
+      return effectivePublicId.replace(/\/image\/upload\//, '/video/upload/').replace(/\.[^/.]+$/, '.m3u8')
+    }
     return `https://res.cloudinary.com/${effectiveCloudName}/video/upload/${effectivePublicId}.m3u8`
-  }, [effectiveCloudName, effectivePublicId])
+  }, [effectiveCloudName, effectivePublicId, isFullUrl])
 
   const mp4FallbackUrl = useMemo(() => {
     if (!effectivePublicId) return ''
+    if (isFullUrl) {
+      return effectivePublicId.replace(/\/image\/upload\//, '/video/upload/')
+    }
     return `https://res.cloudinary.com/${effectiveCloudName}/video/upload/f_auto,q_auto/${effectivePublicId}.mp4`
-  }, [effectiveCloudName, effectivePublicId])
+  }, [effectiveCloudName, effectivePublicId, isFullUrl])
 
   // SCENARIO 3: HLS Adaptive Bitrate Setup with Native Fallback & Lifecycle Cleanup
   useEffect(() => {

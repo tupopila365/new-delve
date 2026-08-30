@@ -6,14 +6,16 @@ import { buildDeliveryUrl } from '../media/cloudinary.js'
 import { createNotification } from '../notifications/notify.js'
 import { isModerationBlocked, publicModerationWhere } from '../safety/moderation-visibility.js'
 
-function mediaUrl(env: Env, row: { publicId: string; version: number | null; purpose: string; secureUrl: string | null }) {
+function mediaUrl(env: Env, row: { publicId: string; version: number | null; purpose: string; secureUrl: string | null; resourceType?: string }) {
   if (!env.CLOUDINARY_CLOUD_NAME) return row.secureUrl || ''
+  const isVideo = row.resourceType === 'video'
   return buildDeliveryUrl({
     cloudName: env.CLOUDINARY_CLOUD_NAME,
     publicId: row.publicId,
     version: row.version,
-    width: row.purpose === 'avatar' ? 192 : 1200,
-    crop: row.purpose === 'avatar' ? 'fill' : 'limit',
+    resourceType: row.resourceType,
+    width: row.purpose === 'avatar' ? 192 : isVideo ? undefined : 1200,
+    crop: row.purpose === 'avatar' ? 'fill' : isVideo ? undefined : 'limit',
   })
 }
 
