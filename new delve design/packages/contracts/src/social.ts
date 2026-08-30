@@ -220,6 +220,30 @@ export const eventBusinessRefSchema = z.object({
   logoUrl: z.string().nullable(),
 })
 
+export const eventCollaboratorRoleSchema = z.enum(['HOST', 'CO_HOST', 'EDITOR'])
+export type EventCollaboratorRole = z.infer<typeof eventCollaboratorRoleSchema>
+
+export const eventCollaboratorDtoSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  role: eventCollaboratorRoleSchema,
+  createdAt: z.string().datetime(),
+})
+
+export type EventCollaboratorDto = z.infer<typeof eventCollaboratorDtoSchema>
+
+export const addEventCollaboratorSchema = z
+  .object({
+    userId: z.string().min(1),
+    role: eventCollaboratorRoleSchema.default('CO_HOST'),
+  })
+  .strict()
+
+export type AddEventCollaboratorBody = z.infer<typeof addEventCollaboratorSchema>
+
 export const eventDtoSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -258,30 +282,6 @@ export const eventDtoSchema = z.object({
 })
 
 export type EventDto = z.infer<typeof eventDtoSchema>
-
-export const eventCollaboratorRoleSchema = z.enum(['HOST', 'CO_HOST', 'EDITOR'])
-export type EventCollaboratorRole = z.infer<typeof eventCollaboratorRoleSchema>
-
-export const eventCollaboratorDtoSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  username: z.string(),
-  displayName: z.string(),
-  avatarUrl: z.string().nullable(),
-  role: eventCollaboratorRoleSchema,
-  createdAt: z.string().datetime(),
-})
-
-export type EventCollaboratorDto = z.infer<typeof eventCollaboratorDtoSchema>
-
-export const addEventCollaboratorSchema = z
-  .object({
-    userId: z.string().min(1),
-    role: eventCollaboratorRoleSchema.default('CO_HOST'),
-  })
-  .strict()
-
-export type AddEventCollaboratorBody = z.infer<typeof addEventCollaboratorSchema>
 
 export const eventAttendeeDtoSchema = z.object({
   user: postAuthorSchema,

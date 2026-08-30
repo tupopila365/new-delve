@@ -3,7 +3,8 @@ import type { EventCollaboratorRole } from '@delve/contracts'
 
 export const eventClient = {
   fetchEvent: socialClient.fetchEvent,
-  listEvents: socialClient.listEvents,
+  fetchEvents: socialClient.fetchEvents,
+  listEvents: socialClient.fetchEvents,
   createEvent: socialClient.createEvent,
   updateEvent: socialClient.updateEvent,
   fetchEventAttendees: socialClient.fetchEventAttendees,
@@ -20,7 +21,7 @@ export const eventClient = {
 
 export {
   fetchEvent,
-  listEvents,
+  fetchEvents,
   createEvent,
   updateEvent,
   fetchEventAttendees,
