@@ -34,10 +34,54 @@ interface EventDetailSheetProps {
 }
 
 function statusBadge(status: EventDto['status']) {
-  if (status === 'CANCELLED') return { label: 'Cancelled', color: '#C83B3B' }
-  if (status === 'COMPLETED') return { label: 'Completed', color: 'var(--fg-muted)' }
-  if (status === 'DRAFT') return { label: 'Draft', color: '#B76808' }
+  if (status === 'CANCELLED') return { label: 'Cancelled', color: '#EF4444' }
+  if (status === 'COMPLETED') return { label: 'Completed', color: '#9CA3AF' }
+  if (status === 'DRAFT') return { label: 'Draft', color: '#F59E0B' }
   return null
+}
+
+function formatEventDateTime(startAt: string, endAt?: string | null): string {
+  const start = new Date(startAt)
+  if (isNaN(start.getTime())) return startAt
+  const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const timeFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+
+  if (!endAt) {
+    return `${dateFormatter.format(start)} • ${timeFormatter.format(start)}`
+  }
+
+  const end = new Date(endAt)
+  if (isNaN(end.getTime())) {
+    return `${dateFormatter.format(start)} • ${timeFormatter.format(start)}`
+  }
+
+  const isSameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate()
+
+  if (isSameDay) {
+    return `${dateFormatter.format(start)} • ${timeFormatter.format(start)} – ${timeFormatter.format(end)}`
+  }
+
+  return `${dateFormatter.format(start)}, ${timeFormatter.format(start)} – ${dateFormatter.format(end)}, ${timeFormatter.format(end)}`
+}
+
+function cleanLocationString(parts: (string | null | undefined)[]): string {
+  const seen = new Set<string>()
+  const clean: string[] = []
+  for (const part of parts) {
+    if (!part) continue
+    const segments = part.split(/[,·•|]/).map(s => s.trim()).filter(Boolean)
+    for (const seg of segments) {
+      const lower = seg.toLowerCase()
+      if (!seen.has(lower)) {
+        seen.add(lower)
+        clean.push(seg)
+      }
+    }
+  }
+  return clean.join(' · ')
 }
 
 function AttendeeRow({
@@ -52,18 +96,19 @@ function AttendeeRow({
     <button
       type="button"
       onClick={() => onOpenProfile?.(attendee.user.username)}
-      className="flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5"
+      className="flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 hover:bg-white/5 transition-colors"
       style={{ background: 'none', border: 'none', cursor: onOpenProfile ? 'pointer' : 'default' }}
     >
       {attendee.user.avatarUrl ? (
-        <img src={attendee.user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+        <img src={attendee.user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border border-white/10" />
       ) : (
-        <div className="w-8 h-8 rounded-full flex-shrink-0" style={{ background: 'var(--surface-subtle)' }} />
+        <div className="w-8 h-8 rounded-full shrink-0 bg-white/10" />
       )}
-      <span className="text-sm font-medium truncate" style={{ color: 'var(--fg)' }}>{name}</span>
+      <span className="text-sm font-medium truncate text-neutral-200">{name}</span>
       <span
-        className="ml-auto text-[10px] font-bold uppercase tracking-wide flex-shrink-0"
-        style={{ color: attendee.status === 'GOING' ? 'var(--primary)' : 'var(--fg-muted)' }}
+        className={`ml-auto text-[10px] font-bold uppercase tracking-wide shrink-0 px-2 py-0.5 rounded-full ${
+          attendee.status === 'GOING' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-white/5 text-neutral-400'
+        }`}
       >
         {attendee.status === 'GOING' ? 'Going' : 'Interested'}
       </span>
@@ -234,7 +279,7 @@ export default function EventDetailSheet({
   async function shareEvent() {
     if (!event) return
     const url = eventShareUrl(event.id)
-    const text = `${event.title} — ${new Date(event.startAt).toLocaleString()}\n${url}`
+    const text = `${event.title} — ${formatEventDateTime(event.startAt, event.endAt)}\n${url}`
     try {
       if (navigator.share) {
         await navigator.share({ title: event.title, text, url })
@@ -258,7 +303,7 @@ export default function EventDetailSheet({
     setError(null)
     try {
       await createPost({ eventId: event.id })
-      setShareNote('Shared to Delvers')
+      setShareNote('Shared to Delvers feed')
       onSharedToDelvers?.()
       window.setTimeout(() => setShareNote(null), 2500)
     } catch (err) {
@@ -268,7 +313,7 @@ export default function EventDetailSheet({
     }
   }
 
-  const place = [event?.locationName, event?.city, event?.country].filter(Boolean).join(' · ')
+  const place = event ? cleanLocationString([event.locationName, event.city, event.country]) : ''
   const badge = event ? statusBadge(event.status) : null
   const rsvpOpen = event?.status === 'PUBLISHED'
   const atCapacity = event?.maxAttendees != null && event.goingCount >= event.maxAttendees
@@ -276,114 +321,127 @@ export default function EventDetailSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(20,12,40,0.55)' }}
+      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: 'rgba(10, 8, 20, 0.75)', backdropFilter: 'blur(8px)' }}
       role="dialog"
       aria-modal
     >
       <button type="button" className="absolute inset-0" aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none' }} />
       <div
-        className="relative w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+        className="relative w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-neutral-900 border border-white/10 shadow-2xl text-white scrollbar-thin"
       >
         {event?.coverUrl && (
           <DoubleTapLike onDoubleLike={() => void likeFromDoubleTap()}>
             <EventCoverMedia
               url={event.coverUrl}
               resourceType={event.coverResourceType}
-              className="w-full h-52 object-cover"
+              className="w-full h-56 object-cover"
             />
           </DoubleTapLike>
         )}
-        <div className="p-4">
+        <div className="p-5">
+          {/* Header & Title (Task 1: Normalized Typography) */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="min-w-0 flex-1">
               {badge && (
                 <span
-                  className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full mb-2"
+                  className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-2 border border-white/10"
                   style={{ background: 'rgba(140,82,255,0.12)', color: badge.color }}
                 >
                   {badge.label}
                 </span>
               )}
-              <h2 className="font-display text-xl font-extrabold m-0" style={{ color: 'var(--fg)' }}>
+              <h2 className="text-2xl font-bold tracking-tight text-white m-0">
                 {event?.title || 'Event'}
               </h2>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="h-10 w-10 rounded-xl inline-flex items-center justify-center flex-shrink-0"
-              style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
+              className="h-9 w-9 rounded-xl inline-flex items-center justify-center shrink-0 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white border border-white/10 transition-colors"
+              aria-label="Close modal"
             >
               <X size={18} />
             </button>
           </div>
 
+          {/* Host Info */}
           {event && (
             <button
               type="button"
               onClick={() => onOpenProfile?.(event.creator.username)}
-              className="flex items-center gap-2 mb-3 text-left"
+              className="flex items-center gap-2.5 mb-3.5 text-left group"
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
             >
               {event.creator.avatarUrl ? (
-                <img src={event.creator.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                <img src={event.creator.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10" />
               ) : (
-                <div className="w-8 h-8 rounded-full" style={{ background: 'var(--surface-subtle)' }} />
+                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-neutral-300">
+                  {event.creator.username[0]?.toUpperCase() || 'U'}
+                </div>
               )}
-              <span className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+              <span className="text-sm font-semibold text-neutral-300 group-hover:text-white transition-colors">
                 {event.business?.name
                   || event.creator.displayName
                   || formatUsername(event.creator.username)}
               </span>
               {event.business && (
-                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--primary)' }}>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
                   Business
                 </span>
               )}
             </button>
           )}
 
-          {event?.community && (
-            <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-              Community · {event.community.name}
-            </p>
-          )}
-          {event?.category && (
-            <p className="text-xs font-semibold uppercase tracking-wide m-0 mb-3" style={{ color: 'var(--primary)' }}>
-              {event.category}
-            </p>
-          )}
+          {/* Metadata Chips */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {event?.community && (
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-neutral-400">
+                Community · {event.community.name}
+              </span>
+            )}
+            {event?.category && (
+              <span className="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                {event.category}
+              </span>
+            )}
+          </div>
+
+          {/* Alerts / Error Messages */}
           {error && (
-            <p className="text-sm mb-2" style={{ color: 'var(--auth-danger)' }} role="alert">
+            <p className="text-xs mb-2 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
               {error}
             </p>
           )}
           {shareNote && (
-            <p className="text-xs mb-2" style={{ color: 'var(--primary)' }} role="status">{shareNote}</p>
+            <p className="text-xs mb-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300" role="status">
+              {shareNote}
+            </p>
           )}
+
           {event && (
             <>
-              <p className="text-sm mb-2 inline-flex items-center gap-1.5" style={{ color: 'var(--fg-muted)' }}>
-                <Calendar size={14} />
-                {new Date(event.startAt).toLocaleString()}
-                {event.endAt ? ` — ${new Date(event.endAt).toLocaleString()}` : ''}
-              </p>
+              {/* Task 2: Formatted Date & Time */}
+              <div className="mb-2">
+                <p className="text-sm m-0 inline-flex items-center gap-2 text-neutral-300">
+                  <Calendar size={15} className="text-indigo-400 shrink-0" />
+                  <span>{formatEventDateTime(event.startAt, event.endAt)}</span>
+                </p>
+              </div>
 
+              {/* Task 3: Deduplicated Location */}
               {place && (
-                <div className="mb-3">
-                  <p className="text-sm m-0 inline-flex items-center gap-1.5" style={{ color: 'var(--fg-muted)' }}>
-                    <MapPin size={14} />
-                    {place}
+                <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm m-0 inline-flex items-center gap-2 text-neutral-300">
+                    <MapPin size={15} className="text-indigo-400 shrink-0" />
+                    <span>{place}</span>
                   </p>
                   {mapsUrl && (
                     <a
                       href={mapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold"
-                      style={{ color: 'var(--primary)' }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
                     >
                       <ExternalLink size={12} />
                       Open in Maps
@@ -392,131 +450,91 @@ export default function EventDetailSheet({
                 </div>
               )}
 
-              {event.description && (
-                <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--fg)' }}>
-                  {event.description}
-                </p>
-              )}
-
-              <div className="mb-4">
-                <EventMediaEditor
-                  event={event}
-                  onChanged={next => {
-                    setEvent(next)
-                    onUpdated?.(next)
-                  }}
-                  editable={Boolean(
-                    signedIn
-                    && event.status !== 'CANCELLED'
-                    && (event.canUploadMedia || event.isOwner || event.myAttendance === 'GOING'),
-                  )}
-                />
-              </div>
-
-              <p className="text-xs mb-3 inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                <Users size={12} />
-                {event.goingCount} going · {event.interestedCount} interested
-                {event.maxAttendees != null && ` · ${event.maxAttendees} max`}
-                {atCapacity && ' · Full'}
-              </p>
-
-              {(attendeesLoading || attendees.length > 0) && (
-                <div
-                  className="mb-4 rounded-xl px-2 py-2"
-                  style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}
-                >
-                  <p className="text-xs font-bold uppercase tracking-wide px-2 mb-1" style={{ color: 'var(--fg-muted)' }}>
-                    Who&apos;s going
+              {/* Task 4: Elevated RSVP Section (Top Placement) */}
+              {rsvpOpen ? (
+                <div className="flex gap-2.5 my-4 p-1.5 rounded-2xl bg-white/[0.04] border border-white/10">
+                  <button
+                    type="button"
+                    disabled={busy || atCapacity}
+                    onClick={() => void setStatus('GOING')}
+                    className={`flex-1 rounded-xl py-2.5 px-3 text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                      event.myAttendance === 'GOING'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        : 'bg-white/5 text-neutral-200 hover:bg-white/10 hover:text-white'
+                    } ${atCapacity ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'}`}
+                  >
+                    <span>{atCapacity ? 'Full' : 'Going'}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-black/30 font-mono">
+                      {event.goingCount}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void setStatus('INTERESTED')}
+                    className={`flex-1 rounded-xl py-2.5 px-3 text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
+                      event.myAttendance === 'INTERESTED'
+                        ? 'bg-indigo-500/20 border border-indigo-500/40 text-indigo-300'
+                        : 'bg-white/5 text-neutral-200 hover:bg-white/10 hover:text-white'
+                    } active:scale-[0.98]`}
+                  >
+                    <span>Interested</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-black/30 font-mono">
+                      {event.interestedCount}
+                    </span>
+                  </button>
+                </div>
+              ) : (
+                <div className="my-3.5 py-2.5 px-3.5 rounded-xl bg-white/[0.03] border border-white/10">
+                  <p className="text-xs m-0 text-neutral-400">
+                    {event.status === 'CANCELLED'
+                      ? 'This event was cancelled.'
+                      : event.status === 'COMPLETED'
+                        ? 'This event has ended.'
+                        : 'RSVP opens when the event is published.'}
                   </p>
-                  {attendeesLoading ? (
-                    <p className="text-xs px-2 py-2 m-0" style={{ color: 'var(--fg-muted)' }}>Loading attendees…</p>
-                  ) : (
-                    <>
-                      {visibleAttendees.map(a => (
-                        <AttendeeRow key={`${a.user.id}-${a.status}`} attendee={a} onOpenProfile={onOpenProfile} />
-                      ))}
-                      {attendees.length > 8 && !showAllAttendees && (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllAttendees(true)}
-                          className="w-full text-xs font-semibold py-2"
-                          style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          Show all {attendees.length} ({goingAttendees.length} going, {interestedAttendees.length} interested)
-                        </button>
-                      )}
-                    </>
-                  )}
                 </div>
               )}
 
-              <div className="flex gap-2 mb-3">
+              {/* Task 4: Consolidated Secondary Actions Toolbar */}
+              <div className="flex items-center gap-2 mb-4">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void toggleLike()}
-                  className="flex-1 rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
-                  style={{
-                    border: `1px solid ${event.likedByMe ? 'var(--primary)' : 'var(--border)'}`,
-                    background: event.likedByMe ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-                    color: event.likedByMe ? 'var(--primary)' : 'var(--fg)',
-                    cursor: 'pointer',
-                  }}
+                  className={`flex-1 rounded-xl py-2 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors border ${
+                    event.likedByMe
+                      ? 'border-rose-500/40 bg-rose-500/10 text-rose-400'
+                      : 'border-white/10 bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08]'
+                  }`}
                 >
-                  <Heart size={16} fill={event.likedByMe ? 'currentColor' : 'none'} />
-                  {event.likeCount ?? 0}
+                  <Heart size={14} fill={event.likedByMe ? 'currentColor' : 'none'} className={event.likedByMe ? 'text-rose-400' : ''} />
+                  <span>{event.likeCount ?? 0}</span>
                 </button>
+
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void toggleSave()}
-                  className="flex-1 rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
-                  style={{
-                    border: `1px solid ${event.savedByMe ? 'var(--primary)' : 'var(--border)'}`,
-                    background: event.savedByMe ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-                    color: 'var(--fg)',
-                    cursor: 'pointer',
-                  }}
+                  className={`flex-1 rounded-xl py-2 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors border ${
+                    event.savedByMe
+                      ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-300'
+                      : 'border-white/10 bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08]'
+                  }`}
                 >
-                  <Bookmark size={16} /> {event.savedByMe ? 'Saved' : 'Save'}
+                  <Bookmark size={14} fill={event.savedByMe ? 'currentColor' : 'none'} />
+                  <span>{event.savedByMe ? 'Saved' : 'Save'}</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => void shareEvent()}
-                  className="flex-1 rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
-                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
+                  className="flex-1 rounded-xl py-2 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1.5 border border-white/10 bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] transition-colors"
                 >
-                  <Share2 size={16} /> Share
+                  <Share2 size={14} />
+                  <span>Share</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!signedIn) {
-                      onSignIn?.()
-                      return
-                    }
-                    setReportOpen(true)
-                  }}
-                  className="rounded-xl px-3 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
-                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
-                  aria-label="Report event"
-                >
-                  <Flag size={16} />
-                </button>
-                {event.isOwner && onEdit && (
-                  <button
-                    type="button"
-                    onClick={() => onEdit(event.id)}
-                    className="rounded-xl px-3 py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5"
-                    style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
-                    aria-label="Edit event"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                )}
-              </div>
 
-              <div className="flex flex-col gap-2 mb-3">
                 <button
                   type="button"
                   disabled={busy}
@@ -527,62 +545,118 @@ export default function EventDetailSheet({
                     }
                     setAddToJourneyOpen(true)
                   }}
-                  className="w-full rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px]"
-                  style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)', cursor: 'pointer' }}
+                  className="p-2 rounded-xl border border-white/10 bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] transition-colors"
+                  title="Add to Journey"
+                  aria-label="Add to Journey"
                 >
-                  <Navigation size={16} /> Add to Journey
+                  <Navigation size={14} />
                 </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void shareToDelvers()}
-                  className="w-full rounded-xl py-2.5 text-sm font-semibold inline-flex items-center justify-center gap-1.5 min-h-[44px]"
-                  style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
-                >
-                  <Share2 size={16} /> Share to Delvers
-                </button>
-              </div>
 
-              {rsvpOpen ? (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={busy || atCapacity}
-                    onClick={() => void setStatus('GOING')}
-                    className="flex-1 rounded-xl py-2.5 text-sm font-semibold"
-                    style={{
-                      border: event.myAttendance === 'GOING' ? '1px solid var(--primary)' : '1px solid var(--border)',
-                      background: event.myAttendance === 'GOING' ? 'var(--primary)' : 'var(--surface)',
-                      color: event.myAttendance === 'GOING' ? '#fff' : 'var(--fg)',
-                      cursor: atCapacity ? 'not-allowed' : 'pointer',
-                      opacity: atCapacity ? 0.6 : 1,
-                    }}
-                  >
-                    {atCapacity ? 'Full' : 'Going'}
-                  </button>
+                {onSharedToDelvers && (
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void setStatus('INTERESTED')}
-                    className="flex-1 rounded-xl py-2.5 text-sm font-semibold"
-                    style={{
-                      border: event.myAttendance === 'INTERESTED' ? '1px solid var(--primary)' : '1px solid var(--border)',
-                      background: event.myAttendance === 'INTERESTED' ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-                      color: 'var(--fg)',
-                      cursor: 'pointer',
-                    }}
+                    onClick={() => void shareToDelvers()}
+                    className="p-2 rounded-xl border border-white/10 bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] transition-colors"
+                    title="Post to Delvers feed"
+                    aria-label="Post to Delvers feed"
                   >
-                    Interested
+                    <Share2 size={14} className="text-indigo-400" />
                   </button>
-                </div>
-              ) : (
-                <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-                  {event.status === 'CANCELLED'
-                    ? 'This event was cancelled.'
-                    : event.status === 'COMPLETED'
-                      ? 'This event has ended.'
-                      : 'RSVP opens when the event is published.'}
+                )}
+
+                {event.isOwner && onEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(event.id)}
+                    className="p-2 rounded-xl border border-white/10 bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] transition-colors"
+                    title="Edit event"
+                    aria-label="Edit event"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!signedIn) {
+                      onSignIn?.()
+                      return
+                    }
+                    setReportOpen(true)
+                  }}
+                  className="p-2 rounded-xl border border-white/10 bg-white/[0.04] text-neutral-400 hover:text-rose-400 hover:bg-white/[0.08] transition-colors"
+                  title="Report event"
+                  aria-label="Report event"
+                >
+                  <Flag size={14} />
+                </button>
+              </div>
+
+              {/* Event Description */}
+              {event.description && (
+                <p className="text-sm leading-relaxed mb-4 text-neutral-300">
+                  {event.description}
                 </p>
+              )}
+
+              {/* Task 5: Conditional Media Uploads (Going / Host Only) */}
+              <div className="mb-4">
+                <EventMediaEditor
+                  event={event}
+                  onChanged={next => {
+                    setEvent(next)
+                    onUpdated?.(next)
+                  }}
+                  editable={Boolean(
+                    signedIn
+                    && event.status !== 'CANCELLED'
+                    && (event.isOwner || event.myAttendance === 'GOING'),
+                  )}
+                />
+              </div>
+
+              {/* Attendees Summary */}
+              <p className="text-xs mb-3 inline-flex items-center gap-1.5 text-neutral-400">
+                <Users size={13} className="text-indigo-400" />
+                <span>
+                  {event.goingCount} going · {event.interestedCount} interested
+                  {event.maxAttendees != null && ` · ${event.maxAttendees} max`}
+                  {atCapacity && ' · Full'}
+                </span>
+              </p>
+
+              {/* Attendees List */}
+              {(attendeesLoading || attendees.length > 0) && (
+                <div
+                  className="mb-2 rounded-2xl p-3 bg-white/[0.03] border border-white/10"
+                >
+                  <p className="text-xs font-bold uppercase tracking-wider px-1 mb-2 text-neutral-400">
+                    Who&apos;s going
+                  </p>
+                  {attendeesLoading ? (
+                    <p className="text-xs px-1 py-2 m-0 text-neutral-500">Loading attendees…</p>
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        {visibleAttendees.map(a => (
+                          <AttendeeRow key={`${a.user.id}-${a.status}`} attendee={a} onOpenProfile={onOpenProfile} />
+                        ))}
+                      </div>
+                      {attendees.length > 8 && !showAllAttendees && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllAttendees(true)}
+                          className="w-full text-xs font-semibold pt-2 text-indigo-400 hover:text-indigo-300 text-center transition-colors"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                        >
+                          Show all {attendees.length} ({goingAttendees.length} going, {interestedAttendees.length} interested)
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
             </>
           )}

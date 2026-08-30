@@ -31,11 +31,11 @@ export default function EventMediaEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-bold m-0" style={{ color: 'var(--fg)', fontFamily: 'Syne, sans-serif' }}>
+        <h3 className="text-base font-bold tracking-tight text-white m-0">
           Event media
         </h3>
         {media.length > 0 && (
-          <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>
+          <span className="text-xs text-neutral-400">
             {media.length} item{media.length === 1 ? '' : 's'}
           </span>
         )}
@@ -43,19 +43,24 @@ export default function EventMediaEditor({
 
       <EventMediaGallery media={media} coverMediaId={event.coverMediaId ?? null} />
 
-      {editable && (
+      {editable ? (
         <>
           <button
             type="button"
             onClick={() => setStudioOpen(true)}
-            className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white"
-            style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+            className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] transition-all shadow-lg shadow-indigo-600/20"
           >
             Add photos or videos
           </button>
-          <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+          <p className="text-xs m-0 text-neutral-400">
             Keep adding images and clips from this event. Hosts and Going guests can upload.
           </p>
+        </>
+      ) : (
+        <p className="text-xs m-0 text-neutral-500 italic">
+          RSVP &quot;Going&quot; to contribute photos and videos to this event gallery.
+        </p>
+      )}
 
           {event.isOwner && media.filter(m => m.resourceType === 'image').length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -83,8 +88,6 @@ export default function EventMediaEditor({
                 ))}
             </div>
           )}
-        </>
-      )}
 
       <MediaStudio
         open={studioOpen}

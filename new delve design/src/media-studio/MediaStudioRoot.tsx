@@ -455,7 +455,7 @@ export default function MediaStudioRoot({
         setPrimaryFile(null)
         setItems([])
         setEditingItemId(null)
-        setPhase(status === 'video-too-long' ? 'video-edit' : afterEditPhase)
+        setPhase('video-edit')
       } catch {
         URL.revokeObjectURL(url)
         setPublishError('This video could not be read. Try MP4, WebM, or MOV.')
@@ -990,7 +990,7 @@ export default function MediaStudioRoot({
             onBack={() => setPhase(
               items.length
                 ? 'carousel'
-                : videoEdit
+                : videoAsset
                   ? 'video-edit'
                   : imageSrc
                     ? 'image-edit'
@@ -1014,22 +1014,16 @@ export default function MediaStudioRoot({
                       </div>
                     ))}
                   </div>
-                ) : videoAsset ? (
+                ) : (items[0]?.kind === 'video' || videoAsset) ? (
                   <video
-                    src={videoAsset.objectUrl}
-                    className="w-full rounded-2xl max-h-[40vh] bg-black"
+                    src={items[0]?.asset.objectUrl || videoAsset?.objectUrl}
+                    className="w-full rounded-2xl max-h-[40vh] object-cover bg-black"
                     controls
+                    muted
                     playsInline
-                    preload="metadata"
                   />
-                ) : imageSrc ? (
-                  <img src={imageSrc} alt="" className="w-full rounded-2xl max-h-[40vh] object-cover bg-black" />
-                ) : items[0] ? (
-                  items[0].kind === 'video' ? (
-                    <video src={items[0].asset.objectUrl} className="w-full rounded-2xl max-h-[40vh] bg-black" controls playsInline />
-                  ) : (
-                    <img src={items[0].asset.objectUrl} alt="" className="w-full rounded-2xl max-h-[40vh] object-cover bg-black" />
-                  )
+                ) : (items[0]?.asset.objectUrl || imageSrc) ? (
+                  <img src={items[0]?.asset.objectUrl || imageSrc} alt="" className="w-full rounded-2xl max-h-[40vh] object-cover bg-black" />
                 ) : null}
                 <div className="flex flex-wrap gap-2 mt-3">
                   {videoAsset && (
@@ -1094,7 +1088,7 @@ export default function MediaStudioRoot({
           <StudioChromeHeader
             title="Preview"
             onBack={() => setPhase(
-              videoEdit && !items.length
+              videoAsset && !items.length
                 ? 'video-edit'
                 : mediaOnlyPublish
                   ? (items.length ? 'carousel' : imageSrc ? 'image-edit' : 'pick')
@@ -1122,7 +1116,7 @@ export default function MediaStudioRoot({
                       ? 'Delvers post'
                       : context.replace(/-/g, ' ')
               }
-              onEdit={() => setPhase(videoEdit && !items.length ? 'video-edit' : items.length ? 'carousel' : 'image-edit')}
+              onEdit={() => setPhase(videoAsset && !items.length ? 'video-edit' : items.length ? 'carousel' : 'image-edit')}
               onDraft={() => (livePublish ? setPhase(mediaOnlyPublish ? 'pick' : 'details') : setPhase('done'))}
               onPublish={() => void startPublish()}
             />

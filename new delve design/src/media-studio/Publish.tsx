@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, Loader2, RefreshCw, X,
 } from 'lucide-react'
+import { LocationAutocompleteInput } from '../components/maps'
 import type {
   FailureReason, ProcessingStage, PublishingSettings, StudioContext, Visibility,
 } from './types'
@@ -133,10 +134,21 @@ export function VideoPublishingSettings({
         <textarea value={value.caption} rows={3} onChange={e => onChange({ ...value, caption: e.target.value })}
           className="rounded-xl px-3 py-2.5 text-sm" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }} />
       </label>
-      <label className="text-xs font-semibold flex flex-col gap-1">Location
-        <input value={value.location} onChange={e => onChange({ ...value, location: e.target.value })}
-          className="rounded-xl px-3 py-2.5 text-sm min-h-[44px]" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }} />
-      </label>
+      <div>
+        <LocationAutocompleteInput
+          id="post-location-tag"
+          value={value.location}
+          onChange={loc => onChange({ ...value, location: loc })}
+          onSelectPlace={res => {
+            onChange({
+              ...value,
+              location: res.name || res.formattedAddress || value.location,
+            })
+          }}
+          label="Location tag"
+          placeholder="Tag city, place or venue…"
+        />
+      </div>
       <label className="text-xs font-semibold flex flex-col gap-1">Visibility
         <select value={value.visibility} onChange={e => onChange({ ...value, visibility: e.target.value as Visibility })}
           className="rounded-xl px-3 py-2.5 text-sm min-h-[44px]" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>

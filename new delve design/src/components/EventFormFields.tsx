@@ -4,6 +4,7 @@ import { listMyCommunities } from '../api/communityClient'
 import { fetchMyBusinesses } from '../api/businessClient'
 import EventCoverMedia from './EventCoverMedia'
 import { EVENT_CATEGORIES } from './events/eventCategories'
+import { LocationAutocompleteInput, DelveInteractiveMap } from './maps'
 
 export type EventVisibility = 'PUBLIC' | 'FOLLOWERS' | 'PRIVATE'
 
@@ -155,23 +156,23 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
         />
       </div>
 
-      {/* Venue / Location Name - Floating Label */}
-      <div className="relative mb-3">
-        <input
-          type="text"
-          id="event-location-name"
-          value={form.locationName}
-          onChange={e => onChange({ locationName: e.target.value })}
-          placeholder="Venue or meeting point"
-          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-        />
-        <label
-          htmlFor="event-location-name"
-          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
-        >
-          Venue or meeting point
-        </label>
-      </div>
+      {/* Venue / Location Name - Google Places Autocomplete */}
+      <LocationAutocompleteInput
+        id="event-location-name"
+        value={form.locationName}
+        onChange={val => onChange({ locationName: val })}
+        onSelectPlace={res => {
+          onChange({
+            locationName: res.name,
+            ...(res.city ? { city: res.city } : {}),
+            ...(res.country ? { country: res.country } : {}),
+            ...(res.latitude ? { latitude: res.latitude } : {}),
+            ...(res.longitude ? { longitude: res.longitude } : {}),
+          })
+        }}
+        label="Venue or meeting point"
+        placeholder="Venue, address or place"
+      />
 
       {/* City & Country - Floating Labels in Grid */}
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -407,6 +408,18 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           </label>
         </div>
       </div>
+
+      {/* Interactive Map Preview */}
+      {form.latitude && form.longitude && !isNaN(Number(form.latitude)) && !isNaN(Number(form.longitude)) && (
+        <div className="mb-3">
+          <DelveInteractiveMap
+            latitude={Number(form.latitude)}
+            longitude={Number(form.longitude)}
+            markerTitle={form.locationName || form.title || 'Event venue'}
+            height={160}
+          />
+        </div>
+      )}
 
       <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
         Cover (optional)
