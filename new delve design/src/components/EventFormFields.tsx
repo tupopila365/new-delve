@@ -56,9 +56,6 @@ export function toDatetimeLocal(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-const inputClass = 'w-full rounded-xl px-3 py-2.5 text-sm mb-3'
-const inputStyle = { border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }
-
 interface EventFormFieldsProps {
   form: EventFormState
   onChange: (patch: Partial<EventFormState>) => void
@@ -92,147 +89,241 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
 
   return (
     <>
-      <input
-        value={form.title}
-        onChange={e => onChange({ title: e.target.value })}
-        placeholder="Event title"
-        maxLength={120}
-        className={inputClass}
-        style={inputStyle}
-      />
-      <textarea
-        value={form.description}
-        onChange={e => onChange({ description: e.target.value })}
-        placeholder="What is this meetup about?"
-        rows={3}
-        maxLength={4000}
-        className={`${inputClass} resize-none`}
-        style={inputStyle}
-      />
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
-        Starts
-      </label>
-      <input
-        type="datetime-local"
-        value={form.startAt}
-        onChange={e => onChange({ startAt: e.target.value })}
-        className={inputClass}
-        style={inputStyle}
-      />
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
-        Ends (optional)
-      </label>
-      <input
-        type="datetime-local"
-        value={form.endAt}
-        onChange={e => onChange({ endAt: e.target.value })}
-        className={inputClass}
-        style={inputStyle}
-      />
-      <input
-        value={form.locationName}
-        onChange={e => onChange({ locationName: e.target.value })}
-        placeholder="Venue or meeting point"
-        className={inputClass}
-        style={inputStyle}
-      />
-      <input
-        value={form.city}
-        onChange={e => onChange({ city: e.target.value })}
-        placeholder="City"
-        className={inputClass}
-        style={inputStyle}
-      />
-      <input
-        value={form.country}
-        onChange={e => onChange({ country: e.target.value })}
-        placeholder="Country"
-        className={inputClass}
-        style={inputStyle}
-      />
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
-        Category
-      </label>
-      <select
-        value={form.category}
-        onChange={e => onChange({ category: e.target.value })}
-        className={inputClass}
-        style={inputStyle}
-      >
-        <option value="">Choose a category</option>
-        {EVENT_CATEGORIES.map(cat => (
-          <option key={cat} value={cat}>{cat}</option>
-        ))}
-      </select>
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
-        Timezone
-      </label>
-      <input
-        value={form.timezone}
-        onChange={e => onChange({ timezone: e.target.value })}
-        placeholder="e.g. Africa/Windhoek"
-        className={inputClass}
-        style={inputStyle}
-      />
+      {/* Event Title - Floating Label */}
+      <div className="relative mb-3">
+        <input
+          type="text"
+          id="event-title"
+          value={form.title}
+          onChange={e => onChange({ title: e.target.value })}
+          placeholder="Event title"
+          maxLength={120}
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        />
+        <label
+          htmlFor="event-title"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+        >
+          Event title
+        </label>
+      </div>
+
+      {/* Description - Floating Label */}
+      <div className="relative mb-3">
+        <textarea
+          id="event-description"
+          value={form.description}
+          onChange={e => onChange({ description: e.target.value })}
+          placeholder="What is this meetup about?"
+          rows={3}
+          maxLength={4000}
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
+        />
+        <label
+          htmlFor="event-description"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+        >
+          What is this meetup about?
+        </label>
+      </div>
+
+      {/* Starts Date/Time */}
+      <div className="mb-3">
+        <label htmlFor="event-start-at" className="block text-xs font-semibold mb-1 text-neutral-400">
+          Starts
+        </label>
+        <input
+          id="event-start-at"
+          type="datetime-local"
+          value={form.startAt}
+          onChange={e => onChange({ startAt: e.target.value })}
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        />
+      </div>
+
+      {/* Ends Date/Time */}
+      <div className="mb-3">
+        <label htmlFor="event-end-at" className="block text-xs font-semibold mb-1 text-neutral-400">
+          Ends (optional)
+        </label>
+        <input
+          id="event-end-at"
+          type="datetime-local"
+          value={form.endAt}
+          onChange={e => onChange({ endAt: e.target.value })}
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        />
+      </div>
+
+      {/* Venue / Location Name - Floating Label */}
+      <div className="relative mb-3">
+        <input
+          type="text"
+          id="event-location-name"
+          value={form.locationName}
+          onChange={e => onChange({ locationName: e.target.value })}
+          placeholder="Venue or meeting point"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        />
+        <label
+          htmlFor="event-location-name"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+        >
+          Venue or meeting point
+        </label>
+      </div>
+
+      {/* City & Country - Floating Labels in Grid */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="relative">
+          <input
+            type="text"
+            id="event-city"
+            value={form.city}
+            onChange={e => onChange({ city: e.target.value })}
+            placeholder="City"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          />
+          <label
+            htmlFor="event-city"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          >
+            City
+          </label>
+        </div>
+
+        <div className="relative">
+          <input
+            type="text"
+            id="event-country"
+            value={form.country}
+            onChange={e => onChange({ country: e.target.value })}
+            placeholder="Country"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          />
+          <label
+            htmlFor="event-country"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          >
+            Country
+          </label>
+        </div>
+      </div>
+
+      {/* Category */}
+      <div className="mb-3">
+        <label htmlFor="event-category" className="block text-xs font-semibold mb-1 text-neutral-400">
+          Category
+        </label>
+        <select
+          id="event-category"
+          value={form.category}
+          onChange={e => onChange({ category: e.target.value })}
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        >
+          <option value="" className="bg-neutral-900 text-neutral-400">Choose a category</option>
+          {EVENT_CATEGORIES.map(cat => (
+            <option key={cat} value={cat} className="bg-neutral-900 text-white">{cat}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Timezone - Floating Label */}
+      <div className="relative mb-3">
+        <input
+          type="text"
+          id="event-timezone"
+          value={form.timezone}
+          onChange={e => onChange({ timezone: e.target.value })}
+          placeholder="Timezone"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        />
+        <label
+          htmlFor="event-timezone"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+        >
+          Timezone (e.g. Africa/Windhoek)
+        </label>
+      </div>
+
+      {/* Communities Select */}
       {(communities.length > 0 || form.communityId) && (
-        <>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+        <div className="mb-3">
+          <label htmlFor="event-community" className="block text-xs font-semibold mb-1 text-neutral-400">
             Community (optional)
           </label>
           <select
+            id="event-community"
             value={form.communityId}
             onChange={e => onChange({ communityId: e.target.value })}
-            className={inputClass}
-            style={inputStyle}
+            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           >
-            <option value="">No community</option>
+            <option value="" className="bg-neutral-900 text-neutral-400">No community</option>
             {communities.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id} className="bg-neutral-900 text-white">{c.name}</option>
             ))}
           </select>
-        </>
+        </div>
       )}
+
+      {/* Businesses Select */}
       {(businesses.length > 0 || form.businessId) && (
-        <>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+        <div className="mb-3">
+          <label htmlFor="event-business" className="block text-xs font-semibold mb-1 text-neutral-400">
             Host as business (optional)
           </label>
           <select
+            id="event-business"
             value={form.businessId}
             onChange={e => onChange({ businessId: e.target.value })}
-            className={inputClass}
-            style={inputStyle}
+            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           >
-            <option value="">Personal event</option>
+            <option value="" className="bg-neutral-900 text-neutral-400">Personal event</option>
             {businesses.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id} className="bg-neutral-900 text-white">{b.name}</option>
             ))}
           </select>
-        </>
+        </div>
       )}
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
-        Who can see this?
-      </label>
-      <select
-        value={form.visibility}
-        onChange={e => onChange({ visibility: e.target.value as EventVisibility })}
-        className={inputClass}
-        style={inputStyle}
-      >
-        <option value="PUBLIC">Public — anyone on Delve</option>
-        <option value="FOLLOWERS">Followers only</option>
-        <option value="PRIVATE">Private — only you</option>
-      </select>
-      <input
-        value={form.maxAttendees}
-        onChange={e => onChange({ maxAttendees: e.target.value.replace(/\D/g, '') })}
-        placeholder="Max attendees (optional)"
-        inputMode="numeric"
-        className={inputClass}
-        style={inputStyle}
-      />
 
-      <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>
+      {/* Visibility */}
+      <div className="mb-3">
+        <label htmlFor="event-visibility" className="block text-xs font-semibold mb-1 text-neutral-400">
+          Who can see this?
+        </label>
+        <select
+          id="event-visibility"
+          value={form.visibility}
+          onChange={e => onChange({ visibility: e.target.value as EventVisibility })}
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        >
+          <option value="PUBLIC" className="bg-neutral-900 text-white">Public — anyone on Delve</option>
+          <option value="FOLLOWERS" className="bg-neutral-900 text-white">Followers only</option>
+          <option value="PRIVATE" className="bg-neutral-900 text-white">Private — only you</option>
+        </select>
+      </div>
+
+      {/* Max Attendees - Floating Label */}
+      <div className="relative mb-3">
+        <input
+          type="text"
+          id="event-max-attendees"
+          value={form.maxAttendees}
+          onChange={e => onChange({ maxAttendees: e.target.value.replace(/\D/g, '') })}
+          placeholder="Max attendees"
+          inputMode="numeric"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+        />
+        <label
+          htmlFor="event-max-attendees"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+        >
+          Max attendees (optional)
+        </label>
+      </div>
+
+      {/* Map Pin */}
+      <label className="block text-xs font-semibold mb-1 text-neutral-400">
         Map pin (optional)
       </label>
       <div className="flex gap-2 mb-2">
@@ -260,7 +351,7 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
               { enableHighAccuracy: true, timeout: 12000 },
             )
           }}
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold"
+          className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors hover:bg-white/10"
           style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)', cursor: 'pointer' }}
         >
           <LocateFixed size={14} />
@@ -270,30 +361,51 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           <button
             type="button"
             onClick={() => onChange({ latitude: '', longitude: '' })}
-            className="rounded-xl px-3 py-2 text-xs font-semibold"
+            className="rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors hover:bg-white/10"
             style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg-muted)', cursor: 'pointer' }}
           >
             Clear pin
           </button>
         )}
       </div>
+
+      {/* Latitude & Longitude - Floating Labels in Grid */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <input
-          value={form.latitude}
-          onChange={e => onChange({ latitude: e.target.value })}
-          placeholder="Latitude"
-          inputMode="decimal"
-          className="w-full rounded-xl px-3 py-2.5 text-sm"
-          style={inputStyle}
-        />
-        <input
-          value={form.longitude}
-          onChange={e => onChange({ longitude: e.target.value })}
-          placeholder="Longitude"
-          inputMode="decimal"
-          className="w-full rounded-xl px-3 py-2.5 text-sm"
-          style={inputStyle}
-        />
+        <div className="relative">
+          <input
+            type="text"
+            id="event-latitude"
+            value={form.latitude}
+            onChange={e => onChange({ latitude: e.target.value })}
+            placeholder="Latitude"
+            inputMode="decimal"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          />
+          <label
+            htmlFor="event-latitude"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          >
+            Latitude
+          </label>
+        </div>
+
+        <div className="relative">
+          <input
+            type="text"
+            id="event-longitude"
+            value={form.longitude}
+            onChange={e => onChange({ longitude: e.target.value })}
+            placeholder="Longitude"
+            inputMode="decimal"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          />
+          <label
+            htmlFor="event-longitude"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          >
+            Longitude
+          </label>
+        </div>
       </div>
 
       <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--fg-muted)' }}>

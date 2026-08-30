@@ -21,10 +21,10 @@ if (service === 'api') {
   run('pnpm', ['--filter', '@delve/config', 'build'])
   run('pnpm', ['--filter', '@delve/database', 'generate'])
   if (process.env.DATABASE_URL) {
-    try {
-      run('pnpm', ['--filter', '@delve/database', 'migrate:deploy'])
-    } catch {
-      console.warn('[heroku-postbuild] migrate:deploy warning')
+    console.log('[heroku-postbuild] Running database migrations...')
+    const mig = spawnSync('pnpm', ['--filter', '@delve/database', 'migrate:deploy'], { stdio: 'inherit', shell: true })
+    if (mig.status !== 0) {
+      console.warn('[heroku-postbuild] migrate:deploy exited with code', mig.status)
     }
   }
   run('pnpm', ['--filter', '@delve/database', 'build'])

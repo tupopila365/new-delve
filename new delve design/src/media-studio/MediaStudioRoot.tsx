@@ -264,8 +264,8 @@ export default function MediaStudioRoot({
   }
 
   function fileAccept() {
-    if (imageOnly) return 'image/jpeg,image/png,image/webp'
-    return 'image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime'
+    if (imageOnly) return 'image/*'
+    return 'image/*,video/*'
   }
 
   function openLibrary(mode: 'replace' | 'append') {
@@ -660,11 +660,11 @@ export default function MediaStudioRoot({
         aria-hidden
         tabIndex={-1}
         onChange={e => {
-          const list = e.target.files
+          const files = e.target.files ? Array.from(e.target.files) : []
           const append = appendPickRef.current
           appendPickRef.current = false
           e.target.value = ''
-          if (list?.length) void ingestFiles(list, { append })
+          if (files.length) void ingestFiles(files, { append })
         }}
       />
       {phase === 'pick' && !showVideoUpload && (

@@ -72,14 +72,14 @@ export default function CreateEventSheet({ open, onClose, onCreated }: CreateEve
           className="relative w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-display text-lg font-extrabold m-0" style={{ color: 'var(--fg)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold tracking-tight text-white m-0">
               Create event
-            </h2>
+            </h1>
             <button
               type="button"
               onClick={onClose}
-              className="h-10 w-10 rounded-xl inline-flex items-center justify-center"
+              className="h-10 w-10 rounded-xl inline-flex items-center justify-center transition-colors hover:bg-white/10"
               style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', cursor: 'pointer' }}
             >
               <X size={18} />

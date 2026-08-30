@@ -3,10 +3,20 @@ import { studioModeForContext } from './config'
 import { formatBytes, formatTime } from './format'
 
 export function detectMimeKind(mimeType: string, fileName = ''): 'image' | 'video' | 'unknown' {
-  const mime = mimeType.toLowerCase()
-  const name = fileName.toLowerCase()
-  if (mime.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic)$/.test(name)) return 'image'
-  if (mime.startsWith('video/') || /\.(mp4|mov|webm|m4v)$/.test(name)) return 'video'
+  const mime = (mimeType || '').toLowerCase()
+  const name = (fileName || '').toLowerCase()
+  if (
+    mime.startsWith('image/') ||
+    /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg)$/i.test(name)
+  ) {
+    return 'image'
+  }
+  if (
+    mime.startsWith('video/') ||
+    /\.(mp4|mov|webm|m4v|mkv|avi|3gp|wmv|ogv)$/i.test(name)
+  ) {
+    return 'video'
+  }
   return 'unknown'
 }
 

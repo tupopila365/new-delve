@@ -17,28 +17,25 @@ export type LocalFileValidation = {
 const AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp']
 const AVATAR_MAX = 5 * 1024 * 1024
 
-const POST_MIME = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'video/mp4',
-  'video/webm',
-  'video/quicktime',
-]
-const POST_MAX = 100 * 1024 * 1024
+const POST_MAX = 250 * 1024 * 1024 // 250 MB
 
 export function validateLocalFile(file: File, purpose: MediaPurpose): LocalFileValidation {
+  const type = (file.type || '').toLowerCase()
+  const name = (file.name || '').toLowerCase()
+  const isImg = type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?|svg)$/i.test(name)
+  const isVid = type.startsWith('video/') || /\.(mp4|mov|webm|m4v|mkv|avi|3gp|wmv|ogv)$/i.test(name)
+
   if (purpose === 'avatar' || purpose === 'cover' || purpose === 'business_profile') {
-    if (!AVATAR_MIME.includes(file.type)) {
-      return { ok: false, error: 'Use a JPEG, PNG or WebP image.' }
+    if (!isImg) {
+      return { ok: false, error: 'Use a JPEG, PNG, WebP or HEIC image.' }
     }
     const max =
-      purpose === 'cover' || purpose === 'business_profile' ? 10 * 1024 * 1024 : AVATAR_MAX
+      purpose === 'cover' || purpose === 'business_profile' ? 25 * 1024 * 1024 : AVATAR_MAX
     if (file.size > max) {
       return {
         ok: false,
         error:
-          purpose === 'avatar' ? 'Images must be 5 MB or smaller.' : 'Images must be 10 MB or smaller.',
+          purpose === 'avatar' ? 'Images must be 5 MB or smaller.' : 'Images must be 25 MB or smaller.',
       }
     }
     return { ok: true }
@@ -50,11 +47,11 @@ export function validateLocalFile(file: File, purpose: MediaPurpose): LocalFileV
     || purpose === 'message'
     || purpose === 'event'
   ) {
-    if (!POST_MIME.includes(file.type)) {
-      return { ok: false, error: 'Use a JPEG, PNG, WebP image or MP4/WebM video.' }
+    if (!isImg && !isVid) {
+      return { ok: false, error: 'Use a valid photo (JPG, PNG, WebP, HEIC) or video (MP4, WebM, MOV).' }
     }
     if (file.size > POST_MAX) {
-      return { ok: false, error: 'Media must be 100 MB or smaller.' }
+      return { ok: false, error: 'Media must be 250 MB or smaller.' }
     }
     return { ok: true }
   }
