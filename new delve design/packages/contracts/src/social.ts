@@ -97,7 +97,7 @@ export const postLinkedJourneySchema = z.object({
   coverUrl: z.string().nullable(),
   startPlace: z.string(),
   endPlace: z.string(),
-  durationDays: z.number().int().positive(),
+  durationDays: z.number().int().positive().nullable(),
   stopCount: z.number().int().nonnegative(),
 })
 

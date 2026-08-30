@@ -966,12 +966,13 @@ export async function addCollaborator(
   // Notify invited user
   try {
     await createNotification({
-      recipientUserId: targetUserId,
-      actorUserId: currentUserId,
-      type: 'JOURNEY_COLLABORATION_INVITE',
-      targetType: 'JOURNEY',
-      targetId: journeyId,
-      bodyPreview: `You were invited as an ${role.toLowerCase()} to collaborate on ${journey.title}`,
+      userId: targetUserId,
+      actorId: currentUserId,
+      type: 'JOURNEY_COMMENTED',
+      title: 'Journey co-author invitation',
+      body: `You were invited as an ${role.toLowerCase()} to collaborate on "${journey.title}".`,
+      entityType: 'journey',
+      entityId: journeyId,
     })
   } catch {}
 

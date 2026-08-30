@@ -412,7 +412,7 @@ async function toJourneySummary(
         coverUrl: string | null
         startPlace: string
         endPlace: string
-        durationDays: number
+        durationDays: number | null
       } | null
       participants: { userId: string }[]
     }

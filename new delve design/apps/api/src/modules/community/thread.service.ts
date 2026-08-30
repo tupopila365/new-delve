@@ -100,7 +100,7 @@ async function toSummary(
       id: string
       title: string
       coverUrl: string | null
-      durationDays: number
+      durationDays: number | null
       _count: { stops: number }
     } | null
     event?: {

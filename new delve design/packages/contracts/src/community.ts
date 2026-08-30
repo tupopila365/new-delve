@@ -229,7 +229,7 @@ export const communityThreadSummarySchema = z.object({
       id: z.string(),
       title: z.string(),
       coverUrl: z.string().nullable(),
-      durationDays: z.number().int().positive(),
+      durationDays: z.number().int().positive().nullable(),
       stopCount: z.number().int().nonnegative(),
     })
     .nullable()

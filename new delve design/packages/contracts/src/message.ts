@@ -20,7 +20,7 @@ export const journeyChatContextSchema = z.object({
   coverUrl: z.string().nullable(),
   startPlace: z.string(),
   endPlace: z.string(),
-  durationDays: z.number().int().positive(),
+  durationDays: z.number().int().positive().nullable(),
 })
 
 export type JourneyChatContext = z.infer<typeof journeyChatContextSchema>
