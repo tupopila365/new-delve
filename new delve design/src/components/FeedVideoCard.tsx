@@ -18,10 +18,6 @@ export interface FeedVideoCardProps {
    */
   moderationStatus?: 'APPROVED' | 'PENDING' | 'REJECTED' | 'FLAGGED' | string
   /**
-   * Auto-generated speech-to-text WebVTT transcription URL
-   */
-  captionVttUrl?: string
-  /**
    * Cloudinary public ID if distinct from assetId (e.g. 'delve/users/u1/posts/vid-123')
    */
   publicId?: string
@@ -81,7 +77,6 @@ export default function FeedVideoCard({
   assetId,
   status,
   moderationStatus,
-  captionVttUrl,
   publicId,
   cloudName,
   posterUrl,
@@ -351,19 +346,7 @@ export default function FeedVideoCard({
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onError={() => setHasPlaybackError(true)}
-      >
-        {captionVttUrl ? (
-          <track
-            kind="captions"
-            src={captionVttUrl}
-            srcLang="en"
-            label="English"
-            default
-          />
-        ) : (
-          <track kind="captions" />
-        )}
-      </video>
+      />
 
       {/* Floating Author Preview / Upload Progress Badge */}
       {localVideo && localVideo.status !== 'ready' && (

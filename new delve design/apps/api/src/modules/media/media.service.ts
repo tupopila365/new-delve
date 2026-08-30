@@ -327,9 +327,6 @@ export async function createUploadSignature(
   if (body.purpose === 'event') {
     signParams.moderation = 'aws_rek'
   }
-  if (policy.resourceType === 'video' || body.mimeType.toLowerCase().startsWith('video/')) {
-    signParams.raw_convert = 'google_speech:vtt'
-  }
 
   const signature = signCloudinaryParams(signParams, env.CLOUDINARY_API_SECRET!)
   const completionToken = signCloudinaryParams(
@@ -366,7 +363,6 @@ export async function createUploadSignature(
       context: contextStr,
       ...(signParams.tags ? { tags: String(signParams.tags) } : {}),
       ...(signParams.moderation ? { moderation: String(signParams.moderation) } : {}),
-      ...(signParams.raw_convert ? { raw_convert: String(signParams.raw_convert) } : {}),
     },
     completionToken,
     chunkThresholdBytes: 100 * 1024 * 1024,
@@ -756,28 +752,6 @@ export async function handleCloudinaryWebhook(env: Env, rawBody: string, timesta
       })
       recordMediaMetric('moderation_approved', { publicId })
       return { ok: true, moderated: 'approved' }
-    }
-  }
-
-  // 2. Intercept Speech-to-Text Transcription (.vtt) Webhooks
-  const isRawConvertNotification =
-    payload.notification_type === 'raw_convert' || payload.raw_convert_status === 'complete'
-
-  if (isRawConvertNotification && existingAsset) {
-    const vttUrl =
-      payload.resources?.[0]?.secure_url ||
-      payload.resources?.[0]?.url ||
-      payload.secure_url ||
-      (env.CLOUDINARY_CLOUD_NAME
-        ? `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/raw/upload/${publicId}.vtt`
-        : null)
-
-    if (vttUrl) {
-      await prisma.mediaAsset.update({
-        where: { id: existingAsset.id },
-        data: { captionVttUrl: vttUrl },
-      })
-      return { ok: true, raw_convert: 'complete', captionVttUrl: vttUrl }
     }
   }
 
