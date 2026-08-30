@@ -21,6 +21,7 @@ import {
 } from './publishPostMedia'
 import { bakeImageEdit, hasImageEdits } from './bakeImageEdit'
 import { bakeVideoTrim, hasVideoEdits, hasVideoTrimEdits } from './bakeVideoTrim'
+import { preScaleImageFile } from '../media/preScaleImageFile'
 import type {
   FailureReason, ImageEditState, MediaAsset, MediaStudioItem, ProcessingStage,
   PublishingSettings, StudioContext, VideoEditState,
@@ -327,11 +328,14 @@ export default function MediaStudioRoot({
       const batch = files.slice(0, room)
       const nextItems: MediaStudioItem[] = []
       const skipped: string[] = []
-      for (const file of batch) {
+      for (let file of batch) {
         const detected = detectMimeKind(file.type, file.name)
         if (detected === 'unknown') {
           skipped.push(`${file.name}: unsupported file type.`)
           continue
+        }
+        if (detected === 'image') {
+          file = await preScaleImageFile(file)
         }
         const url = URL.createObjectURL(file)
         trackUrl(url)
@@ -395,9 +399,10 @@ export default function MediaStudioRoot({
       return
     }
 
-    const file = files[0]
+    let file = files[0]
     const detected = detectMimeKind(file.type, file.name)
     if (detected === 'image') {
+      file = await preScaleImageFile(file)
       const url = URL.createObjectURL(file)
       trackUrl(url)
       setPrimaryFile(file)

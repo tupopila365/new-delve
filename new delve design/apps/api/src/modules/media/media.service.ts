@@ -155,6 +155,9 @@ function toDto(
     height: row.height,
     duration: row.duration,
     status: row.status as MediaAssetDto['status'],
+    moderationStatus: (row as any).moderationStatus,
+    moderationReason: (row as any).moderationReason,
+    captionVttUrl: (row as any).captionVttUrl,
     purpose: row.purpose as MediaAssetDto['purpose'],
     altText: row.altText,
     delivery: {
@@ -181,6 +184,9 @@ export function mediaAssetToDto(
     height: number | null
     duration: number | null
     status: string
+    moderationStatus?: string
+    moderationReason?: string | null
+    captionVttUrl?: string | null
     purpose: string
     altText: string | null
     createdAt: Date
@@ -300,6 +306,7 @@ export async function createUploadSignature(
       listingId: body.listingId,
       eventId: body.eventId,
       dealId: body.dealId,
+      draftId: body.draftId,
       originalFilename: body.originalFilename.slice(0, 255),
       reportedMimeType: body.mimeType.slice(0, 128),
       reportedBytes: body.bytes,
@@ -308,11 +315,22 @@ export async function createUploadSignature(
     },
   })
 
+  const contextStr = `delve_intent_id=${intent.id}${body.draftId ? `|delve_draft_id=${body.draftId}` : ''}`
   const signParams: Record<string, string | number> = {
     folder,
     timestamp,
-    context: `delve_intent_id=${intent.id}`,
+    context: contextStr,
   }
+  if (body.purpose === 'story') {
+    signParams.tags = 'delvers_story,delete_after_24h'
+  }
+  if (body.purpose === 'event') {
+    signParams.moderation = 'aws_rek'
+  }
+  if (policy.resourceType === 'video' || body.mimeType.toLowerCase().startsWith('video/')) {
+    signParams.raw_convert = 'google_speech:vtt'
+  }
+
   const signature = signCloudinaryParams(signParams, env.CLOUDINARY_API_SECRET!)
   const completionToken = signCloudinaryParams(
     { upload_intent_id: intent.id },
@@ -345,7 +363,10 @@ export async function createUploadSignature(
       timestamp: String(timestamp),
       signature,
       api_key: env.CLOUDINARY_API_KEY!,
-      context: `delve_intent_id=${intent.id}`,
+      context: contextStr,
+      ...(signParams.tags ? { tags: String(signParams.tags) } : {}),
+      ...(signParams.moderation ? { moderation: String(signParams.moderation) } : {}),
+      ...(signParams.raw_convert ? { raw_convert: String(signParams.raw_convert) } : {}),
     },
     completionToken,
     chunkThresholdBytes: 100 * 1024 * 1024,
@@ -669,9 +690,28 @@ export async function handleCloudinaryWebhook(env: Env, rawBody: string, timesta
   }
 
   let payload: {
+    notification_type?: string
+    asset_id?: string
     public_id?: string
+    version?: number
+    width?: number
+    height?: number
+    format?: string
+    resource_type?: 'image' | 'video' | 'raw'
+    bytes?: number
+    secure_url?: string
+    url?: string
+    moderation_status?: 'approved' | 'rejected' | 'pending'
+    moderation_kind?: string
+    moderation?: Array<{ kind?: string; status?: 'approved' | 'rejected' | 'pending' }>
+    raw_convert_status?: string
+    resources?: Array<{ secure_url?: string; url?: string }>
+    context?: {
+      custom?: Record<string, string>
+    } | string
     error?: { message?: string }
   }
+
   try {
     payload = JSON.parse(rawBody) as typeof payload
   } catch {
@@ -681,22 +721,159 @@ export async function handleCloudinaryWebhook(env: Env, rawBody: string, timesta
   const publicId = payload.public_id
   if (!publicId) return { ok: true, ignored: true }
 
-  const asset = await prisma.mediaAsset.findUnique({ where: { publicId } })
-  if (!asset) return { ok: true, ignored: true }
+  const existingAsset = await prisma.mediaAsset.findUnique({ where: { publicId } })
+
+  // 1. Intercept AI Moderation Notifications (NSFW / Content Safety)
+  const isModerationNotification =
+    payload.notification_type === 'moderation' || Boolean(payload.moderation_status) || Boolean(payload.moderation)
+
+  if (isModerationNotification && existingAsset) {
+    const isRejected =
+      payload.moderation_status === 'rejected' ||
+      (Array.isArray(payload.moderation) && payload.moderation.some(m => m.status === 'rejected'))
+
+    if (isRejected) {
+      await prisma.mediaAsset.update({
+        where: { id: existingAsset.id },
+        data: {
+          moderationStatus: 'REJECTED',
+          status: 'FAILED',
+          moderationReason: 'AI moderation flagged NSFW content',
+        },
+      })
+      // Purge offensive binary from Cloudinary in background
+      const resType =
+        existingAsset.resourceType === 'video' ? 'video' : existingAsset.resourceType === 'raw' ? 'raw' : 'image'
+      void destroyCloudinaryAsset(env, publicId, resType).catch(() => {})
+      recordMediaMetric('moderation_rejected', { publicId })
+      return { ok: true, moderated: 'rejected' }
+    } else {
+      await prisma.mediaAsset.update({
+        where: { id: existingAsset.id },
+        data: {
+          moderationStatus: 'APPROVED',
+        },
+      })
+      recordMediaMetric('moderation_approved', { publicId })
+      return { ok: true, moderated: 'approved' }
+    }
+  }
+
+  // 2. Intercept Speech-to-Text Transcription (.vtt) Webhooks
+  const isRawConvertNotification =
+    payload.notification_type === 'raw_convert' || payload.raw_convert_status === 'complete'
+
+  if (isRawConvertNotification && existingAsset) {
+    const vttUrl =
+      payload.resources?.[0]?.secure_url ||
+      payload.resources?.[0]?.url ||
+      payload.secure_url ||
+      (env.CLOUDINARY_CLOUD_NAME
+        ? `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/raw/upload/${publicId}.vtt`
+        : null)
+
+    if (vttUrl) {
+      await prisma.mediaAsset.update({
+        where: { id: existingAsset.id },
+        data: { captionVttUrl: vttUrl },
+      })
+      return { ok: true, raw_convert: 'complete', captionVttUrl: vttUrl }
+    }
+  }
+
+  // Extract intent ID if passed in context string or object
+  let intentId: string | undefined
+  let draftId: string | undefined
+  if (typeof payload.context === 'object' && payload.context?.custom) {
+    intentId = payload.context.custom.delve_intent_id
+    draftId = payload.context.custom.delve_draft_id
+  } else if (typeof payload.context === 'string') {
+    const intentMatch = payload.context.match(/delve_intent_id=([^|;,\s]+)/)
+    if (intentMatch) intentId = intentMatch[1]
+    const draftMatch = payload.context.match(/delve_draft_id=([^|;,\s]+)/)
+    if (draftMatch) draftId = draftMatch[1]
+  }
 
   if (payload.error?.message) {
-    if (asset.status !== 'FAILED') {
-      await prisma.mediaAsset.update({ where: { id: asset.id }, data: { status: 'FAILED' } })
+    if (existingAsset && existingAsset.status !== 'FAILED') {
+      await prisma.mediaAsset.update({ where: { id: existingAsset.id }, data: { status: 'FAILED' } })
     }
     recordMediaMetric('upload_failed', { reason: 'processing' })
     return { ok: true }
   }
 
-  if (asset.status === 'PROCESSING' || asset.status === 'PENDING' || asset.status === 'UPLOADING') {
-    await prisma.mediaAsset.update({ where: { id: asset.id }, data: { status: 'READY' } })
+  if (existingAsset) {
+    if (existingAsset.status === 'PROCESSING' || existingAsset.status === 'PENDING' || existingAsset.status === 'UPLOADING') {
+      await prisma.mediaAsset.update({
+        where: { id: existingAsset.id },
+        data: {
+          status: 'READY',
+          ...(payload.bytes ? { bytes: payload.bytes } : {}),
+          ...(payload.width ? { width: payload.width } : {}),
+          ...(payload.height ? { height: payload.height } : {}),
+          ...(payload.secure_url ? { secureUrl: payload.secure_url } : {}),
+        },
+      })
+    }
+    return { ok: true }
   }
 
-  return { ok: true }
+  // If asset record doesn't exist yet (client dropped connection before /complete):
+  // Recover orphaned upload via matching MediaUploadIntent
+  if (intentId) {
+    const intent = await prisma.mediaUploadIntent.findUnique({ where: { id: intentId } })
+    if (intent && (intent.status === 'PENDING' || intent.status === 'EXPIRED')) {
+      const resType = (payload.resource_type || intent.expectedResourceType || 'image').toLowerCase()
+      const resourceType = resType === 'video' ? 'video' : resType === 'raw' ? 'raw' : 'image'
+      
+      const createdAsset = await prisma.$transaction(async tx => {
+        const row = await tx.mediaAsset.create({
+          data: {
+            cloudinaryAssetId: payload.asset_id ?? null,
+            publicId,
+            version: payload.version ?? null,
+            resourceType,
+            format: payload.format ?? null,
+            bytes: payload.bytes ?? intent.reportedBytes ?? null,
+            width: payload.width ?? null,
+            height: payload.height ?? null,
+            secureUrl: payload.secure_url ?? null,
+            status: 'READY',
+            purpose: intent.purpose,
+            uploadedByUserId: intent.userId,
+            businessId: intent.businessId,
+            listingId: intent.listingId,
+            eventId: intent.eventId,
+            dealId: intent.dealId,
+            draftId: draftId || intent.draftId,
+            uploadIntentId: intent.id,
+          },
+        })
+
+        await tx.mediaUploadIntent.update({
+          where: { id: intent.id },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        })
+
+        await ensureProfileAndLinkMedia(tx, env, intent.userId, intent.purpose, {
+          id: row.id,
+          publicId: row.publicId,
+          version: row.version,
+        })
+
+        return row
+      })
+
+      recordMediaMetric('upload_completed', {
+        purpose: intent.purpose,
+        resourceType: createdAsset.resourceType,
+        source: 'webhook_recovery',
+      })
+      return { ok: true, recovered: true, id: createdAsset.id }
+    }
+  }
+
+  return { ok: true, ignored: true }
 }
 
 export async function cleanupMediaRecords(env: Env) {

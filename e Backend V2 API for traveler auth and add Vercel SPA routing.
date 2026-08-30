@@ -15,7 +15,7 @@ new delve design/src/vite-env.d.ts
 
 
 
-$env:DATABASE_URL = 'postgresql://neondb_owner:npg_uiJ2Qg6eltRb@ep-shiny-violet-ayodm52y.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require'
+$env:DATABASE_URL =
 $sql = @'
 ALTER TABLE "DealClaim" ADD COLUMN IF NOT EXISTS "titleSnapshot" TEXT;
 ALTER TABLE "DealClaim" ADD COLUMN IF NOT EXISTS "discountTypeSnapshot" "DealDiscountType";

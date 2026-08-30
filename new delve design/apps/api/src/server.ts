@@ -1,10 +1,14 @@
 import { createApp } from './app.js'
 import { loadEnv } from './config/env.js'
 import { startReconciliationScheduler } from './jobs/reconciliation-scheduler.js'
+import { startStoryCleanupScheduler } from './jobs/story-cleanup.job.js'
+import { startDraftCleanupScheduler } from './jobs/draft-cleanup.job.js'
 
 const env = loadEnv()
 const app = createApp(env)
 const stopReconciliation = startReconciliationScheduler(env)
+const stopStoryCleanup = startStoryCleanupScheduler(env)
+const stopDraftCleanup = startDraftCleanupScheduler(env)
 
 /** Heroku (and most PaaS) inject PORT. Prefer it over API_PORT. */
 const port = Number(process.env.PORT) || env.API_PORT
@@ -23,6 +27,8 @@ async function shutdown(signal: string) {
 
   server.close(err => {
     stopReconciliation()
+    stopStoryCleanup()
+    stopDraftCleanup()
     if (err) {
       console.error('[delve-api] error during shutdown', err)
       process.exit(1)

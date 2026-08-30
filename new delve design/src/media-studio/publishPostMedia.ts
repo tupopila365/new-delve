@@ -135,20 +135,67 @@ export async function uploadStudioMediaFiles(
       ...(options.listingId ? { listingId: options.listingId } : {}),
       ...(options.eventId ? { eventId: options.eventId } : {}),
     })
-    const result = await uploadFileToCloudinary(file, sign, {
-      signal: options.signal,
-      onProgress: ratio => {
-        options.onProgress?.((i + ratio) / list.length)
-      },
-    })
-    const asset = await completeMediaUpload({
-      uploadIntentId: sign.uploadIntentId,
-      completionToken: sign.completionToken,
-      result,
-      ...(altText?.trim() ? { altText: altText.trim() } : {}),
-    })
-    saved.push(asset)
-    options.onProgress?.((i + 1) / list.length)
+
+    const isVideo = (file.type || '').startsWith('video/')
+    if (isVideo) {
+      try {
+        const { useLocalMediaStore } = await import('../media/useLocalMediaStore')
+        useLocalMediaStore.getState().addLocalVideo({
+          pendingAssetId: sign.uploadIntentId,
+          file,
+          fileName: file.name,
+          mimeType: file.type,
+          context: options.purpose,
+        })
+      } catch {
+        // Store tracking is optional
+      }
+    }
+
+    try {
+      const result = await uploadFileToCloudinary(file, sign, {
+        signal: options.signal,
+        onProgress: ratio => {
+          if (isVideo) {
+            import('../media/useLocalMediaStore').then(({ useLocalMediaStore }) => {
+              useLocalMediaStore.getState().updateLocalVideoProgress(sign.uploadIntentId, ratio)
+            }).catch(() => {})
+          }
+          options.onProgress?.((i + ratio) / list.length)
+        },
+      })
+      const asset = await completeMediaUpload({
+        uploadIntentId: sign.uploadIntentId,
+        completionToken: sign.completionToken,
+        result,
+        ...(altText?.trim() ? { altText: altText.trim() } : {}),
+      })
+
+      if (isVideo) {
+        try {
+          const { useLocalMediaStore } = await import('../media/useLocalMediaStore')
+          useLocalMediaStore.getState().promoteToRemote(sign.uploadIntentId, asset.delivery.url)
+        } catch {
+          // Store cleanup fallback
+        }
+      }
+
+      saved.push(asset)
+      options.onProgress?.((i + 1) / list.length)
+    } catch (uploadErr) {
+      if (isVideo) {
+        try {
+          const { useLocalMediaStore } = await import('../media/useLocalMediaStore')
+          useLocalMediaStore.getState().markLocalVideoError(
+            sign.uploadIntentId,
+            uploadErr instanceof Error ? uploadErr.message : 'Upload failed',
+          )
+        } catch {
+          // Error tracking fallback
+        }
+      }
+      throw uploadErr
+    }
   }
   return saved
 }

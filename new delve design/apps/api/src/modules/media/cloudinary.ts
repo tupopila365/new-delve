@@ -177,7 +177,20 @@ export function verifyCloudinaryNotification(
   timestamp: string,
   signature: string,
   secret: string,
+  options?: { maxAgeSeconds?: number },
 ): boolean {
+  if (!rawBody || !timestamp || !signature || !secret) {
+    return false
+  }
+
+  if (options?.maxAgeSeconds) {
+    const ts = parseInt(timestamp, 10)
+    const now = Math.floor(Date.now() / 1000)
+    if (Number.isNaN(ts) || Math.abs(now - ts) > options.maxAgeSeconds) {
+      return false
+    }
+  }
+
   const expected = createHash('sha1').update(rawBody + timestamp + secret).digest('hex')
   return safeEqualHex(expected, signature)
 }

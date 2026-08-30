@@ -274,6 +274,7 @@ model User {
   passwordResetTokens      PasswordResetToken[]
   mediaAssets              MediaAsset[]
   mediaUploadIntents       MediaUploadIntent[]
+  mediaUploadSessions      MediaUploadSession[]
   adminAuditLogs           AdminAuditLog[]
   posts                    Post[]
   comments                 Comment[]
@@ -540,53 +541,72 @@ enum MediaUploadIntentStatus {
   CANCELLED
 }
 
+enum MediaUploadSessionStatus {
+  PENDING
+  COMPLETED
+  ABANDONED
+}
+
+enum MediaModerationStatus {
+  APPROVED
+  PENDING
+  REJECTED
+  FLAGGED
+}
+
 /// User-uploaded media metadata only. Never store binary, blob, or Base64 here.
 /// Bytes live on Cloudinary; Browser → Cloudinary for files; Browser → Delve API → PostgreSQL for metadata.
 model MediaAsset {
-  id                String             @id @default(cuid())
-  cloudinaryAssetId String?            @unique
-  publicId          String             @unique
+  id                String                @id @default(cuid())
+  cloudinaryAssetId String?               @unique
+  publicId          String                @unique
   version           Int?
   resourceType      MediaResourceType
-  deliveryType      String             @default("upload")
+  deliveryType      String                @default("upload")
   format            String?
   bytes             Int?
   width             Int?
   height            Int?
   duration          Float?
   secureUrl         String?
-  status            MediaStatus        @default(PENDING)
+  status            MediaStatus           @default(PENDING)
+  moderationStatus  MediaModerationStatus @default(APPROVED)
+  moderationReason  String?
+  captionVttUrl     String?
   purpose           MediaPurpose
   altText           String?
   uploadedByUserId  String
-  uploadedBy        User               @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  uploadedBy        User                  @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
   businessId        String?
-  business          Business?          @relation("BusinessMedia", fields: [businessId], references: [id], onDelete: SetNull)
+  business          Business?             @relation("BusinessMedia", fields: [businessId], references: [id], onDelete: SetNull)
   listingId         String?
-  listing           Listing?           @relation("ListingMedia", fields: [listingId], references: [id], onDelete: SetNull)
+  listing           Listing?              @relation("ListingMedia", fields: [listingId], references: [id], onDelete: SetNull)
   eventId           String?
-  event             TravelerEvent?     @relation("EventMedia", fields: [eventId], references: [id], onDelete: SetNull)
+  event             TravelerEvent?        @relation("EventMedia", fields: [eventId], references: [id], onDelete: SetNull)
   dealId            String?
-  deal              Deal?              @relation("DealMedia", fields: [dealId], references: [id], onDelete: SetNull)
+  deal              Deal?                 @relation("DealMedia", fields: [dealId], references: [id], onDelete: SetNull)
   /// Linked when purpose is post.
   postId            String?
-  post              Post?              @relation(fields: [postId], references: [id], onDelete: SetNull)
-  uploadIntentId    String?            @unique
-  uploadIntent      MediaUploadIntent? @relation(fields: [uploadIntentId], references: [id], onDelete: SetNull)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  post              Post?                 @relation(fields: [postId], references: [id], onDelete: SetNull)
+  uploadIntentId    String?               @unique
+  uploadIntent      MediaUploadIntent?    @relation(fields: [uploadIntentId], references: [id], onDelete: SetNull)
+  draftId           String?
+  draftSession      MediaUploadSession?   @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
   deletedAt         DateTime?
   sortOrder         Int?
-  travelerAvatarFor TravelerProfile?   @relation("TravelerAvatar")
-  travelerCoverFor  TravelerProfile?   @relation("TravelerCover")
-  eventCoverFor     TravelerEvent?     @relation("EventCover")
-  listingCoverFor   Listing?           @relation("ListingCover")
-  dealCoverFor      Deal?              @relation("DealCover")
+  travelerAvatarFor TravelerProfile?      @relation("TravelerAvatar")
+  travelerCoverFor  TravelerProfile?      @relation("TravelerCover")
+  eventCoverFor     TravelerEvent?        @relation("EventCover")
+  listingCoverFor   Listing?              @relation("ListingCover")
+  dealCoverFor      Deal?                 @relation("DealCover")
   directMessage     DirectMessage?
   storySlide        StorySlide?
 
   @@index([uploadedByUserId, purpose, status])
   @@index([status])
+  @@index([moderationStatus])
   @@index([purpose])
   @@index([createdAt])
   @@index([businessId])
@@ -594,7 +614,24 @@ model MediaAsset {
   @@index([eventId])
   @@index([dealId])
   @@index([postId])
+  @@index([draftId])
   @@index([deletedAt])
+}
+
+model MediaUploadSession {
+  id            String                   @id @default(cuid())
+  userId        String
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose       MediaPurpose
+  expectedCount Int                      @default(1)
+  status        MediaUploadSessionStatus @default(PENDING)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  mediaAssets   MediaAsset[]
+  uploadIntents MediaUploadIntent[]
+
+  @@index([userId, status])
+  @@index([status, createdAt])
 }
 
 model MediaUploadIntent {
@@ -610,6 +647,8 @@ model MediaUploadIntent {
   listingId            String?
   eventId              String?
   dealId               String?
+  draftId              String?
+  draftSession         MediaUploadSession?     @relation(fields: [draftId], references: [id], onDelete: SetNull)
   originalFilename     String?
   reportedMimeType     String?
   reportedBytes        Int?
@@ -622,6 +661,7 @@ model MediaUploadIntent {
   @@index([userId, status])
   @@index([expiresAt])
   @@index([status, createdAt])
+  @@index([draftId])
 }
 
 model Follow {

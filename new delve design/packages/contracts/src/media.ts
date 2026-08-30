@@ -35,6 +35,7 @@ export const mediaUploadSignatureBodySchema = z
     listingId: z.string().min(1).optional(),
     eventId: z.string().min(1).optional(),
     dealId: z.string().min(1).optional(),
+    draftId: z.string().min(1).optional(),
   })
   .strict()
 
@@ -77,6 +78,13 @@ export const mediaCompleteBodySchema = z
   })
   .strict()
 
+export const mediaModerationStatusSchema = z.enum([
+  'APPROVED',
+  'PENDING',
+  'REJECTED',
+  'FLAGGED',
+])
+
 export const mediaAssetSchema = z.object({
   id: z.string(),
   publicId: z.string(),
@@ -88,6 +96,9 @@ export const mediaAssetSchema = z.object({
   height: z.number().int().nullable(),
   duration: z.number().nullable(),
   status: mediaStatusSchema,
+  moderationStatus: mediaModerationStatusSchema.optional(),
+  moderationReason: z.string().nullable().optional(),
+  captionVttUrl: z.string().nullable().optional(),
   purpose: mediaPurposeSchema,
   altText: z.string().nullable(),
   delivery: z.object({

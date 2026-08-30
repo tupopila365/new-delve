@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useLocalVideo } from '../../media/useLocalMediaStore'
 
 interface JourneyCoverMediaProps {
   url: string
@@ -24,9 +25,12 @@ export default function JourneyCoverMedia({
   priority = 'low',
 }: JourneyCoverMediaProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const localVideo = useLocalVideo(url)
+  const activeUrl = localVideo?.blobUrl || url
+  const isVideo = resourceType === 'video' || Boolean(localVideo)
 
   useEffect(() => {
-    if (resourceType !== 'video' || variant === 'inline') return
+    if (!isVideo || variant === 'inline') return
     const el = videoRef.current
     if (!el) return
     const observer = new IntersectionObserver(
@@ -43,13 +47,13 @@ export default function JourneyCoverMedia({
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [resourceType, variant, url])
+  }, [isVideo, variant, activeUrl])
 
-  if (resourceType === 'video') {
+  if (isVideo) {
     return (
       <video
         ref={videoRef}
-        src={url}
+        src={activeUrl}
         className={className}
         controls={variant === 'inline'}
         playsInline

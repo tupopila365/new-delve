@@ -6,6 +6,10 @@ type MetricName =
   | 'upload_failed'
   | 'deletion_failed'
   | 'abandoned_upload_intent'
+  | 'story_cleanup_executed'
+  | 'draft_cleanup_executed'
+  | 'moderation_rejected'
+  | 'moderation_approved'
 
 export function recordMediaMetric(name: MetricName, fields: Record<string, string | number | undefined> = {}) {
   const safe: Record<string, string | number> = {}
