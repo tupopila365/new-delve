@@ -20,6 +20,13 @@ if (service === 'api') {
   run('pnpm', ['--filter', '@delve/contracts', 'build'])
   run('pnpm', ['--filter', '@delve/config', 'build'])
   run('pnpm', ['--filter', '@delve/database', 'generate'])
+  if (process.env.DATABASE_URL) {
+    try {
+      run('pnpm', ['--filter', '@delve/database', 'migrate:deploy'])
+    } catch {
+      console.warn('[heroku-postbuild] migrate:deploy warning')
+    }
+  }
   run('pnpm', ['--filter', '@delve/database', 'build'])
   run('pnpm', ['--filter', '@delve/api', 'build'])
   console.log('[heroku-postbuild] Backend V2 build complete')

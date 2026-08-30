@@ -1176,8 +1176,6 @@ export default function App() {
     activeNav === 'Services' ? 'max-w-[680px]' :
     isFeedLayout ? 'max-w-[620px]' :
     'max-w-[720px]'
-  const showFab = (isHome || activeNav === 'Communities' || activeNav === 'Delvers' || activeNav === 'Journeys' || activeNav === 'Events' || (HUB_ROUTES.has(activeNav) && signedIn))
-    && !(activeNav === 'Communities' && communityDetailId)
 
   function isSidebarActive(label: string) {
     if (label === 'Explore') return activeNav === 'Explore' || activeNav === 'Search'
@@ -1941,33 +1939,6 @@ export default function App() {
         {activeNav === 'Transport' && <TransportAside />}
         {activeNav === 'Services' && !servicesSelectedId && <ServicesAside {...servicesBrowseProps} />}
       </div>
-
-      {showFab && (
-        <CreatePostButton
-          variant="fab"
-          onClick={
-            activeNav === 'Events'
-              ? () => setCreateEventOpen(true)
-              : activeNav === 'Journeys' && !journeyDetailId
-                ? () => {
-                    if (!signedIn) {
-                      openAuth('signIn')
-                      return
-                    }
-                    setJourneysCreateRequestKey(k => k + 1)
-                  }
-                : activeNav === 'Communities' && !communityDetailId
-                  ? () => {
-                      if (!signedIn) {
-                        openAuth('signIn')
-                        return
-                      }
-                      setCreateCommunityOpen(true)
-                    }
-                  : openCreate
-          }
-        />
-      )}
 
       {/* Mobile full menu — pages that are desktop-sidebar / header only */}
       {mobileMenuOpen && (

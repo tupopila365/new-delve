@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, FileVideo, Image as ImageIcon, Plus, Shield, Upload } from 'lucide-react'
+import { AlertCircle, Camera, FileVideo, FolderOpen, Image as ImageIcon, Plus, RotateCcw, Shield, Upload } from 'lucide-react'
 import type { MediaAssetDto, PostDto } from '@delve/contracts'
 import { createPost, createStory } from '../api/socialClient'
 import { EXAMPLE_UPLOAD_LIMITS, limitsForContext, newId, RESTRICTED_CONTEXTS, SOCIAL_VIDEO_CONTEXTS } from './config'
@@ -119,6 +119,7 @@ export default function MediaStudioRoot({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [failure, setFailure] = useState<FailureReason | null>(null)
   const [publishError, setPublishError] = useState<string | null>(null)
+  const [fileError, setFileError] = useState<{ filename: string; size: string } | null>(null)
   const [notify, setNotify] = useState(true)
   const [moderation, setModeration] = useState<'none' | 'automated' | 'manual' | 'ready'>('none')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -162,6 +163,7 @@ export default function MediaStudioRoot({
     setUploadProgress(null)
     setFailure(null)
     setPublishError(null)
+    setFileError(null)
     setModeration('none')
     setShowVideoUpload(false)
     abortRef.current?.abort()
@@ -267,6 +269,7 @@ export default function MediaStudioRoot({
   }
 
   function openLibrary(mode: 'replace' | 'append') {
+    setFileError(null)
     setPublishError(null)
     appendPickRef.current = mode === 'append'
     fileRef.current?.click()
@@ -292,6 +295,19 @@ export default function MediaStudioRoot({
   async function ingestFiles(fileList: FileList | File[], opts?: { append?: boolean }) {
     let files = Array.from(fileList)
     if (!files.length) return
+
+    // 250MB limit check across all dropped or picked files
+    const MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024 // 250MB
+    const oversized = files.find(f => f.size > MAX_FILE_SIZE_BYTES)
+    if (oversized) {
+      setFileError({
+        filename: oversized.name || 'Selected file',
+        size: formatBytes(oversized.size),
+      })
+      return
+    }
+    setFileError(null)
+
     if (RESTRICTED_CONTEXTS.includes(context)) {
       setPhase('restricted')
       return
@@ -639,8 +655,8 @@ export default function MediaStudioRoot({
         ref={fileRef}
         type="file"
         accept={fileAccept()}
-        multiple={limits.maxClips > 1}
-        className="sr-only"
+        multiple
+        className="hidden"
         aria-hidden
         tabIndex={-1}
         onChange={e => {
@@ -722,18 +738,20 @@ export default function MediaStudioRoot({
               </div>
             )}
             {livePublish && (
-              <p className="px-4 pt-3 text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+              <p className="px-4 pt-2 pb-0 text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
                 {contextHeadline(context, mediaOnlyPublish)}
                 {limits.maxClips > 1 ? ` Up to ${limits.maxClips} items.` : ''}
               </p>
             )}
 
             <div
-              className="mx-4 mt-4 rounded-2xl flex flex-col items-center justify-center gap-4 py-10"
-              style={{
-                border: `2px dashed ${dragging ? 'var(--primary)' : 'var(--border)'}`,
-                background: dragging ? 'rgba(140,82,255,0.08)' : 'var(--surface-subtle)',
-              }}
+              className={`mx-4 mt-2.5 sm:mt-3 rounded-2xl flex flex-col items-center justify-center gap-3.5 py-9 px-6 transition-all duration-200 select-none ${
+                fileError
+                  ? 'border-2 border-dashed border-rose-500/50 bg-rose-500/5'
+                  : dragging
+                    ? 'border-2 border-dashed border-indigo-500 bg-indigo-500/10'
+                    : 'border-2 border-dashed border-white/15 bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/25'
+              }`}
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
               onDrop={e => {
@@ -742,44 +760,65 @@ export default function MediaStudioRoot({
                 if (e.dataTransfer.files?.length) void ingestFiles(e.dataTransfer.files)
               }}
             >
-              <Upload size={32} style={{ color: 'var(--primary)' }} />
-              <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
-                {imageOnly
-                  ? 'Drop images here'
-                  : 'Drop a photo or video here'}
-              </p>
-              <p className="text-xs m-0 text-center px-4" style={{ color: 'var(--fg-muted)' }}>
-                {imageOnly ? 'JPG, PNG, WebP' : 'JPG, PNG, WebP, MP4, WebM, MOV'} · up to {formatBytes(limits.maxFileSizeBytes)}
-                {limits.maxClips > 1 ? ` · optional carousel up to ${limits.maxClips}` : ''}
-                {context === 'delvers-short' ? ` · max ${limits.maxDurationSec}s` : ''}
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button type="button" onClick={() => openLibrary('replace')}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white min-h-[44px]"
-                  style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}>
-                  <ImageIcon size={16} />
-                  Choose file
-                </button>
-                {!imageOnly && (
-                  <button type="button" onClick={() => setShowVideoUpload(true)}
-                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px]"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}>
-                    <FileVideo size={14} /> Video upload
+              {fileError ? (
+                <>
+                  <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <AlertCircle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="text-center space-y-1 max-w-[380px]">
+                    <p className="text-sm font-semibold text-rose-400 m-0">
+                      "{fileError.filename}" is too large ({fileError.size}).
+                    </p>
+                    <p className="text-xs text-neutral-400 m-0">
+                      The maximum size is 250 MB. Please choose a smaller file or trim your video.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFileError(null)}
+                    className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-95 shadow-md hover:brightness-110"
+                    style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+                  >
+                    <RotateCcw size={15} />
+                    Try Again
                   </button>
-                )}
-                <button type="button" onClick={() => openLibrary('replace')}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold min-h-[44px]"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)', cursor: 'pointer' }}>
-                  <Camera size={14} /> {limits.maxClips > 1 ? 'Multi-select' : 'Camera roll'}
-                </button>
-              </div>
-              {limits.maxClips > 1 && (
-                <p className="text-[11px] m-0 text-center px-6" style={{ color: 'var(--fg-muted)' }}>
-                  Select more than one file to start a carousel. A single video goes straight to caption and post.
-                </p>
-              )}
-              {publishError && (
-                <p className="text-xs m-0 text-center px-4" style={{ color: '#C83B3B' }} role="alert">{publishError}</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                    <Upload size={24} style={{ color: 'var(--primary)' }} />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
+                      {imageOnly ? 'Drop images here' : 'Drop photos or videos here'}
+                    </p>
+                    <p className="text-xs m-0 text-neutral-400">
+                      {imageOnly ? 'JPG, PNG, WebP' : 'JPG, PNG, WebP, MP4, WebM, MOV'} · up to 250 MB
+                      {limits.maxClips > 1 ? ` · up to ${limits.maxClips} files` : ''}
+                      {context === 'delvers-short' ? ` · max ${limits.maxDurationSec}s` : ''}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => openLibrary('replace')}
+                    className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-95 shadow-lg hover:brightness-110 min-h-[44px]"
+                    style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
+                  >
+                    <FolderOpen size={16} />
+                    Browse Files
+                  </button>
+
+                  {limits.maxClips > 1 && (
+                    <p className="text-[11px] m-0 text-center text-neutral-400 px-4">
+                      Select multiple files to start a carousel, or a single video for an instant short/feed post.
+                    </p>
+                  )}
+
+                  {publishError && (
+                    <p className="text-xs m-0 text-center px-4 text-rose-400" role="alert">{publishError}</p>
+                  )}
+                </>
               )}
             </div>
 
