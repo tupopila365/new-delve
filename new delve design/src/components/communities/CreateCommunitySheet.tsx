@@ -92,13 +92,14 @@ export default function CreateCommunitySheet({
     border: '1px solid var(--border)',
     background: 'var(--surface-subtle)',
     color: 'var(--fg)',
+    fontSize: 16,
   } as const
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center">
       <button type="button" aria-label="Close" className="absolute inset-0 border-0" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
       <div
-        className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-4 max-h-[92vh] overflow-y-auto"
+        className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-4 max-h-[92dvh] pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         <div className="flex items-center justify-between mb-4">

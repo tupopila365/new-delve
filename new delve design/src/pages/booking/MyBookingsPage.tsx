@@ -341,7 +341,7 @@ export default function MyBookingsPage({ onBack, initialBookingId, highlightRef,
 
   if (selected) {
     return (
-      <div className="min-h-screen px-3 sm:px-6 py-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+      <div className="min-h-[100dvh] px-3 sm:px-6 py-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
         <div className="max-w-[960px] mx-auto">
           {(confirming || confirmNote) && (
             <p className="text-sm m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
@@ -361,9 +361,9 @@ export default function MyBookingsPage({ onBack, initialBookingId, highlightRef,
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="min-h-[100dvh]" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <header
-        className="sticky top-0 z-40 px-3 sm:px-6 py-3"
+        className="sticky top-0 z-40 px-3 sm:px-6 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]"
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
       >
         <div className="max-w-[960px] mx-auto flex items-center gap-3">

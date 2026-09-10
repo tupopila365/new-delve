@@ -69,7 +69,7 @@ export default function CreateEventSheet({ open, onClose, onCreated }: CreateEve
       >
         <button type="button" className="absolute inset-0" aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none' }} />
         <div
-          className="relative w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4"
+          className="relative w-full sm:max-w-md max-h-[92dvh] pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
           <div className="flex items-center justify-between mb-4">

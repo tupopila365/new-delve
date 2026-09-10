@@ -128,10 +128,10 @@ export default function BookingConfirmationPage({
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="min-h-[100dvh]" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <div id={liveId} className="sr-only" aria-live="polite">{announce}</div>
 
-      <header className="sticky top-0 z-40 flex items-center gap-2 px-3 sm:px-6 h-14"
+      <header className="sticky top-0 z-40 flex items-center gap-2 px-3 sm:px-6 h-14 pt-[env(safe-area-inset-top)]"
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <span className="text-lg font-extrabold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--primary)' }}>Delve</span>
         <div className="flex-1" />

@@ -308,7 +308,7 @@ export default function BusinessAdminPage({ onExit }: BusinessAdminPageProps) {
 
   return (
     <div
-      className="flex h-screen overflow-hidden"
+      className="flex h-[100dvh] overflow-hidden"
       data-theme="light"
       style={{ backgroundColor: 'var(--bg)', color: 'var(--fg)' }}
     >

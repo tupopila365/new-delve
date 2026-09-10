@@ -135,7 +135,7 @@ export default function UsernameSettingsPanel() {
             setNextUsername(e.target.value)
             scheduleCheck(e.target.value)
           }}
-          className="rounded-xl px-3 py-2.5 text-sm"
+          className="rounded-xl px-3 py-2.5 text-base"
           style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           autoComplete="username"
         />
@@ -151,7 +151,7 @@ export default function UsernameSettingsPanel() {
           value={password}
           disabled={!canChange || busy}
           onChange={e => setPassword(e.target.value)}
-          className="rounded-xl px-3 py-2.5 text-sm"
+          className="rounded-xl px-3 py-2.5 text-base"
           style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           autoComplete="current-password"
         />

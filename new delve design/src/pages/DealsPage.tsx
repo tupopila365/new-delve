@@ -123,7 +123,7 @@ export default function DealsPage({
   }
 
   return (
-    <div className="pb-8" style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <div className="pb-8" style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
       <div className="px-4 sm:px-0 pt-4 mb-4">
         <h1 className="font-display text-2xl font-extrabold m-0 mb-1" style={{ color: 'var(--fg)' }}>
           Deals

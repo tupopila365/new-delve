@@ -65,7 +65,7 @@ export default function BookingRequestForm({
             type="datetime-local"
             value={startDateTime}
             onChange={e => setStartDateTime(e.target.value)}
-            className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+            className="mt-1 w-full rounded-xl px-3 py-2.5 text-base"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           />
         </label>
@@ -75,7 +75,7 @@ export default function BookingRequestForm({
             type="datetime-local"
             value={endDateTime}
             onChange={e => setEndDateTime(e.target.value)}
-            className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+            className="mt-1 w-full rounded-xl px-3 py-2.5 text-base"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           />
         </label>
@@ -86,7 +86,7 @@ export default function BookingRequestForm({
             min={1}
             value={quantity}
             onChange={e => setQuantity(e.target.value)}
-            className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+            className="mt-1 w-full rounded-xl px-3 py-2.5 text-base"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           />
         </label>
@@ -97,7 +97,7 @@ export default function BookingRequestForm({
             min={1}
             value={guestCount}
             onChange={e => setGuestCount(e.target.value)}
-            className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+            className="mt-1 w-full rounded-xl px-3 py-2.5 text-base"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           />
         </label>
@@ -108,7 +108,7 @@ export default function BookingRequestForm({
           value={customerNote}
           onChange={e => setCustomerNote(e.target.value)}
           rows={2}
-          className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm resize-y"
+          className="mt-1 w-full rounded-xl px-3 py-2.5 text-base resize-y"
           style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
         />
       </label>

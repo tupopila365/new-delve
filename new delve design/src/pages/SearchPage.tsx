@@ -882,7 +882,7 @@ export default function SearchPage({
           onFocus={() => query.length > 0 && setShowAutocomplete(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search journeys, communities, events, people, places…"
-          className="flex-1 bg-transparent text-sm outline-none"
+          className="flex-1 bg-transparent text-base outline-none"
           style={{ color: 'var(--fg)', fontFamily: 'DM Sans, sans-serif' }}
         />
         {query && (
@@ -919,7 +919,7 @@ export default function SearchPage({
   // ─────────────────────────────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
 
         {/* Search input */}
         <div className="px-4 sm:px-0 pt-4 pb-3">
@@ -1290,7 +1290,7 @@ export default function SearchPage({
   // LANDING VIEW
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
 
       {/* Hero heading */}
       <div className="px-4 sm:px-0 pt-5 pb-3">

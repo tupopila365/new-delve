@@ -125,7 +125,7 @@ export default function AccountSettingsPage({
       language !== profile.preferredLanguage ||
       JSON.stringify(interests) !== JSON.stringify(profile.interests))
 
-  const fieldClass = 'w-full min-h-[44px] rounded-xl px-3 py-2.5 text-sm'
+  const fieldClass = 'w-full min-h-[44px] rounded-xl px-3 py-2.5 text-base'
   const fieldStyle = {
     background: 'var(--surface-subtle)',
     border: '1px solid var(--border)',
@@ -231,7 +231,7 @@ export default function AccountSettingsPage({
           <label className="text-sm font-semibold">Display name</label>
           <input className={fieldClass} style={fieldStyle} value={displayName} onChange={e => setDisplayName(e.target.value)} />
           <label className="text-sm font-semibold">Bio ({bio.length}/280)</label>
-          <textarea className="w-full rounded-xl px-3 py-2.5 text-sm min-h-[88px]" style={fieldStyle} maxLength={280} value={bio} onChange={e => setBio(e.target.value)} />
+          <textarea className="w-full rounded-xl px-3 py-2.5 text-base min-h-[88px]" style={fieldStyle} maxLength={280} value={bio} onChange={e => setBio(e.target.value)} />
           <label className="text-sm font-semibold">Home city</label>
           <input className={fieldClass} style={fieldStyle} value={homeCity} onChange={e => setHomeCity(e.target.value)} />
           <label className="text-sm font-semibold">Country code</label>

@@ -161,7 +161,7 @@ export default function OnboardingFlow({ onComplete, onLeave }: OnboardingFlowPr
   }
 
   const fieldClass =
-    'w-full min-h-[44px] rounded-xl px-3 py-2.5 text-sm outline-none'
+    'w-full min-h-[44px] rounded-xl px-3 py-2.5 text-base outline-none'
   const fieldStyle = {
     background: 'var(--surface-subtle)',
     border: '1px solid var(--border)',

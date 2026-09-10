@@ -141,12 +141,12 @@ export default function Team() {
                 <label className="text-xs font-semibold text-[#6F695F] uppercase tracking-wide mb-1.5 block">Email address</label>
                 <div className="relative">
                   <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6F695F]" />
-                  <input placeholder="colleague@example.com" className="w-full pl-9 pr-3 py-2.5 border border-[#DDD6CA] rounded-lg text-sm focus:outline-none focus:border-[#8C52FF]" />
+                  <input placeholder="colleague@example.com" className="w-full pl-9 pr-3 py-2.5 border border-[#DDD6CA] rounded-lg text-base focus:outline-none focus:border-[#8C52FF]" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-[#6F695F] uppercase tracking-wide mb-1.5 block">Role</label>
-                <select className="w-full px-3 py-2.5 border border-[#DDD6CA] rounded-lg text-sm focus:outline-none focus:border-[#8C52FF] bg-white text-[#1A1814]">
+                <select className="w-full px-3 py-2.5 border border-[#DDD6CA] rounded-lg text-base focus:outline-none focus:border-[#8C52FF] bg-white text-[#1A1814]">
                   <option>Booking Manager</option>
                   <option>Operations Manager</option>
                   <option>Finance Manager</option>

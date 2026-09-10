@@ -173,7 +173,7 @@ export default function PaymentPage({
     }
     const c = copy[result]
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+      <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
         <div className="max-w-md w-full p-8 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <AlertCircle size={32} className="mb-4" style={{ color: result === 'pending' ? '#2769C7' : '#B76808' }} />
           <h1 className="text-2xl font-extrabold mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>{c.title}</h1>
@@ -199,7 +199,7 @@ export default function PaymentPage({
 
   if (phase === 'verifying' || phase === 'processing') {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+      <div className="min-h-[100dvh] flex items-center justify-center px-4" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
         <div className="max-w-md w-full p-8 rounded-2xl text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="w-12 h-12 rounded-full mx-auto mb-4 border-2 animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--primary)' }} />
           <h1 className="text-xl font-extrabold mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>
@@ -227,13 +227,14 @@ export default function PaymentPage({
     padding: '0 14px',
     width: '100%' as const,
     outline: 'none',
+    fontSize: 16,
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="min-h-[100dvh]" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <div id={liveId} className="sr-only" aria-live="polite">{announce}</div>
 
-      <header className="sticky top-0 z-50" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+      <header className="sticky top-0 z-50 pt-[env(safe-area-inset-top)]" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-[1440px] mx-auto px-3 sm:px-6 h-14 flex items-center gap-2">
           <button type="button" onClick={onBackToCheckout} className="p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Back to checkout">
             <ArrowLeft size={20} />

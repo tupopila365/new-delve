@@ -561,10 +561,10 @@ export default function BookingSetupPage({
   )
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="min-h-[100dvh]" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <div id={liveId} className="sr-only" aria-live="polite">{announce}</div>
 
-      <header className="sticky top-0 z-50"
+      <header className="sticky top-0 z-50 pt-[env(safe-area-inset-top)]"
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-[1440px] mx-auto px-3 sm:px-6 h-14 flex items-center gap-2 sm:gap-3">
           <button type="button" onClick={onExit}

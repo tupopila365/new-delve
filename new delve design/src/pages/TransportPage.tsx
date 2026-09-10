@@ -245,7 +245,7 @@ function TransportSearch() {
                       placeholder={activeField === 'from' ? 'City, airport, or address…' : 'Where are you going?'}
                       value={activeField === 'from' ? search.from : search.to}
                       onChange={e => setSearch(s => ({ ...s, [activeField]: e.target.value }))}
-                      className="w-full pl-9 pr-4 rounded-xl text-sm"
+                      className="w-full pl-9 pr-4 rounded-xl text-base"
                       style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)', outline: 'none', height: 42 }}
                       onFocus={e => { e.target.style.borderColor = 'var(--primary)' }}
                       onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
@@ -542,7 +542,7 @@ function ListingCard({ result, saved, liked, onSave, onLike, onViewDetail }: {
             <div className="w-8 h-8 rounded-full flex-shrink-0"
               style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }} />
             <input placeholder="Ask a question…"
-              className="flex-1 text-sm rounded-2xl px-4"
+              className="flex-1 text-base rounded-2xl px-4"
               style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)', outline: 'none', height: 40 }}
               onFocus={e => { e.target.style.borderColor = 'var(--primary)' }}
               onBlur={e => { e.target.style.borderColor = 'var(--border)' }}

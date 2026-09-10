@@ -373,7 +373,7 @@ export default function JourneyEditorSheet({
         onClick={onClose}
       >
         <div
-          className="w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl p-5 max-h-[92vh] overflow-y-auto bg-neutral-900 border border-white/10 text-white shadow-2xl space-y-4"
+          className="w-full sm:max-w-xl rounded-t-3xl sm:rounded-3xl p-5 max-h-[92dvh] pb-[calc(1.25rem+env(safe-area-inset-bottom))] overflow-y-auto bg-neutral-900 border border-white/10 text-white shadow-2xl space-y-4"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -398,7 +398,7 @@ export default function JourneyEditorSheet({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder=" "
-              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
+              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-medium"
             />
             <label
               htmlFor="journey-title"
@@ -416,7 +416,7 @@ export default function JourneyEditorSheet({
               onChange={e => setSummary(e.target.value)}
               rows={2}
               placeholder=" "
-              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
+              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
             />
             <label
               htmlFor="journey-summary"
@@ -437,7 +437,7 @@ export default function JourneyEditorSheet({
                   type="date"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-base bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                 />
               </div>
 
@@ -450,7 +450,7 @@ export default function JourneyEditorSheet({
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-base bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                   />
                 </div>
               )}
@@ -523,7 +523,7 @@ export default function JourneyEditorSheet({
                 value={startPlace}
                 onChange={e => setStartPlace(e.target.value)}
                 placeholder=" "
-                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
               />
               <label
                 htmlFor="start-place"
@@ -540,7 +540,7 @@ export default function JourneyEditorSheet({
                 value={endPlace}
                 onChange={e => setEndPlace(e.target.value)}
                 placeholder=" "
-                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
               />
               <label
                 htmlFor="end-place"
@@ -562,7 +562,7 @@ export default function JourneyEditorSheet({
                   value={durationDays}
                   onChange={e => setDurationDays(Math.max(1, Number(e.target.value) || 1))}
                   placeholder=" "
-                  className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
                 />
                 <label
                   htmlFor="duration-days"
@@ -584,7 +584,7 @@ export default function JourneyEditorSheet({
                 value={historicalCost}
                 onChange={e => setHistoricalCost(e.target.value)}
                 placeholder=" "
-                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 pl-11 pr-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                className="peer block w-full rounded-2xl border border-white/10 bg-white/5 pl-11 pr-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
               />
               <label
                 htmlFor="historical-cost"
@@ -599,7 +599,7 @@ export default function JourneyEditorSheet({
               <select
                 value={partyType}
                 onChange={e => setPartyType(e.target.value as JourneyPartyType)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl text-base bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
               >
                 {PARTY_OPTIONS.map(p => (
                   <option key={p} value={p} className="bg-neutral-900 text-white">
@@ -614,7 +614,7 @@ export default function JourneyEditorSheet({
               <select
                 value={visibility}
                 onChange={e => setVisibility(e.target.value as JourneyVisibility)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl text-base bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
               >
                 {VISIBILITY_OPTIONS.map(v => (
                   <option key={v} value={v} className="bg-neutral-900 text-white">
@@ -682,7 +682,7 @@ export default function JourneyEditorSheet({
               onChange={e => setTakeaway(e.target.value)}
               rows={2}
               placeholder=" "
-              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-sm text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
+              className="peer block w-full rounded-2xl border border-white/10 bg-white/5 px-4 pt-6 pb-2 text-base text-white placeholder-transparent focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
             />
             <label
               htmlFor="journey-takeaway"
@@ -747,14 +747,14 @@ export default function JourneyEditorSheet({
                     value={stop.place}
                     onChange={e => updateStop(index, { place: e.target.value })}
                     placeholder="Place / Stop Name *"
-                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-base bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 transition-all"
                   />
 
                   <input
                     value={stop.region}
                     onChange={e => updateStop(index, { region: e.target.value })}
                     placeholder="Region / Area (optional)"
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 transition-all"
+                    className="w-full px-3.5 py-2 rounded-xl text-base bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 transition-all"
                   />
 
                   <div className="grid grid-cols-2 gap-2">
@@ -764,7 +764,7 @@ export default function JourneyEditorSheet({
                       value={stop.arrivalDay}
                       onChange={e => updateStop(index, { arrivalDay: Math.max(1, Number(e.target.value) || 1) })}
                       placeholder="Arrival day"
-                      className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 rounded-xl text-base bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500"
                     />
                     <input
                       type="number"
@@ -772,7 +772,7 @@ export default function JourneyEditorSheet({
                       value={stop.durationDays}
                       onChange={e => updateStop(index, { durationDays: Math.max(1, Number(e.target.value) || 1) })}
                       placeholder="Days here"
-                      className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2 rounded-xl text-base bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500"
                     />
                   </div>
 
@@ -781,14 +781,14 @@ export default function JourneyEditorSheet({
                     onChange={e => updateStop(index, { notes: e.target.value })}
                     rows={2}
                     placeholder="Stop notes & descriptions..."
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 resize-none"
+                    className="w-full px-3.5 py-2 rounded-xl text-base bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 resize-none"
                   />
 
                   <input
                     value={stop.highlightsText}
                     onChange={e => updateStop(index, { highlightsText: e.target.value })}
                     placeholder="Highlights (comma-separated)"
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 rounded-xl text-base bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500"
                   />
 
                   {/* Stop Media */}

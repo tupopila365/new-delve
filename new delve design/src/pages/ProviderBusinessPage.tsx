@@ -342,7 +342,7 @@ export default function ProviderBusinessPage({
                   value={form[key]}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                   rows={3}
-                  className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+                  className="mt-1 w-full rounded-xl px-3 py-2.5 text-base"
                   style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
                 />
               ) : (
@@ -350,7 +350,7 @@ export default function ProviderBusinessPage({
                   type="text"
                   value={form[key]}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  className="mt-1 w-full rounded-xl px-3 py-2.5 text-sm"
+                  className="mt-1 w-full rounded-xl px-3 py-2.5 text-base"
                   style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--fg)' }}
                 />
               )}

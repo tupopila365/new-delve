@@ -106,7 +106,7 @@ export default function CreateBusinessPage({
   }
 
   return (
-    <div className="min-h-screen pb-16 pt-4 sm:pt-8" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="min-h-[100dvh] pb-16 pt-[calc(1rem+env(safe-area-inset-top))] sm:pt-8" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         {/* Navigation & Header */}
         <div className="mb-6 flex items-center justify-between">

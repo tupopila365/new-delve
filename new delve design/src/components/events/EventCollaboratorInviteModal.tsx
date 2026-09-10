@@ -264,7 +264,7 @@ export default function EventCollaboratorInviteModal({
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by name, username, or handle..."
-              className="w-full rounded-xl pl-9 pr-9 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
+              className="w-full rounded-xl pl-9 pr-9 py-2.5 text-base text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
               style={{
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid var(--border, rgba(255,255,255,0.12))',

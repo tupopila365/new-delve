@@ -130,7 +130,7 @@ export default function EventDetailPage({ eventId, onBack, onOpenProfile }: Prop
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-4">
         <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-3" />
         <p className="text-xs text-neutral-400">Loading expedition details...</p>
       </div>
@@ -139,7 +139,7 @@ export default function EventDetailPage({ eventId, onBack, onOpenProfile }: Prop
 
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-4">
         <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
         <h3 className="text-lg font-bold text-white mb-1">Event Unavailable</h3>
         <p className="text-xs text-neutral-400 mb-4">{error || 'Event could not be found'}</p>
@@ -157,9 +157,9 @@ export default function EventDetailPage({ eventId, onBack, onOpenProfile }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white pb-20">
+    <div className="min-h-[100dvh] bg-neutral-950 text-white pb-20">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-md border-b border-white/10 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-neutral-950/80 backdrop-blur-md border-b border-white/10 px-4 sm:px-8 py-3.5 pt-[calc(0.875rem+env(safe-area-inset-top))] flex items-center justify-between">
         <div className="flex items-center gap-3">
           {onBack && (
             <button

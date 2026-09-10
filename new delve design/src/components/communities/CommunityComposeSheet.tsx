@@ -72,12 +72,13 @@ export default function CommunityComposeSheet({
     border: '1px solid var(--border)',
     background: 'var(--surface-subtle)',
     color: 'var(--fg)',
+    fontSize: 16,
   } as const
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center">
       <button type="button" aria-label="Close" className="absolute inset-0 border-0" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-4 max-h-[92vh] overflow-y-auto" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl p-4 max-h-[92dvh] pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold m-0" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>{meta.composeLabel}</h2>
           <button type="button" onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', color: 'var(--fg-muted)' }}><X size={20} /></button>

@@ -73,12 +73,13 @@ export default function CommunityReportSheet({
     border: '1px solid var(--border)',
     background: 'var(--surface-subtle)',
     color: 'var(--fg)',
+    fontSize: 16,
   } as const
 
   return (
     <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center">
       <button type="button" aria-label="Close" className="absolute inset-0 border-0" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
-      <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-bold m-0" style={{ color: 'var(--fg)' }}>Report content</h2>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none' }}><X size={18} /></button>

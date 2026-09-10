@@ -468,7 +468,7 @@ export function VideoCaptionsEditor({
               {!c.reviewed && <span className="text-[10px] px-1.5 rounded-full" style={{ background: 'rgba(183,104,8,0.15)', color: '#B76808' }}>Review</span>}
               {c.confidence != null && c.confidence < 0.7 && <span className="text-[10px]" style={{ color: '#B76808' }}>Low confidence</span>}
             </div>
-            <textarea value={c.text} rows={2} className="w-full text-sm rounded-lg px-2 py-2" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+            <textarea value={c.text} rows={2} className="w-full text-base rounded-lg px-2 py-2" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
               onChange={e => onChange(c.id, { text: e.target.value, reviewed: true })} />
             <div className="flex gap-2 mt-1">
               <button type="button" className="text-[11px] min-h-[36px] px-2" style={{ color: 'var(--fg-muted)' }} onClick={() => onChange(c.id, { reviewed: true })}>Mark reviewed</button>

@@ -502,7 +502,7 @@ export default function JourneysPage({
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search journeys, destinations, 4x4 trails, national parks…"
-            className="w-full pl-10 pr-10 rounded-2xl text-sm min-h-[46px] bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 focus:bg-white/[0.08] focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="w-full pl-10 pr-10 rounded-2xl text-base min-h-[46px] bg-white/5 border border-white/10 text-white placeholder-neutral-500 outline-none focus:border-indigo-500 focus:bg-white/[0.08] focus:ring-1 focus:ring-indigo-500 transition-all"
             aria-label="Search journeys"
           />
           {searchQuery && (

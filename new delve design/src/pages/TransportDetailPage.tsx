@@ -276,7 +276,7 @@ export default function TransportDetailPage({ resultId, onBack, onBook }: Props)
   const [showFullGallery, setShowFullGallery] = useState(false)
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
 
       {/* ─── Sticky back bar ─── */}
       <div className="sticky top-14 z-40 flex items-center gap-3 px-4 py-3"

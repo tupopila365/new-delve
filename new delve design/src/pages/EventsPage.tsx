@@ -233,7 +233,7 @@ export default function EventsPage({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search events, cities, venues…"
-                className="w-full pl-9 pr-9 rounded-xl text-sm min-h-[44px]"
+                className="w-full pl-9 pr-9 rounded-xl text-base min-h-[44px]"
                 style={{ border: '1px solid var(--border)', background: 'var(--surface-subtle)', color: 'var(--fg)' }}
               />
               {searchQuery && (

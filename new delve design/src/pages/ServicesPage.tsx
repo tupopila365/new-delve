@@ -247,7 +247,7 @@ export default function ServicesPage({
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search listings or businesses"
-            className="flex-1 bg-transparent text-sm outline-none border-none"
+            className="flex-1 bg-transparent text-base outline-none border-none"
             style={{ color: 'var(--fg)' }}
           />
           {query && (

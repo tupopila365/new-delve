@@ -514,7 +514,7 @@ export default function MessagesPage({
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} aria-hidden />
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search conversations or booking refs"
-            className="w-full pl-9 pr-3 rounded-xl text-sm min-h-[44px]"
+            className="w-full pl-9 pr-3 rounded-xl text-base min-h-[44px]"
             style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
             aria-label="Search conversations" />
         </div>
@@ -734,7 +734,7 @@ export default function MessagesPage({
           rows={1}
           placeholder={cannotReply ? 'Accept to reply' : 'Message'}
           disabled={cannotReply}
-          className="flex-1 min-w-0 w-0 rounded-2xl px-3 py-2.5 text-sm resize-none max-h-28 box-border"
+          className="flex-1 min-w-0 w-0 rounded-2xl px-3 py-2.5 text-base resize-none max-h-28 box-border"
           style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
           aria-label="Message"
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText() } }}
@@ -803,7 +803,7 @@ export default function MessagesPage({
 
   if (view === 'new') {
     return (
-      <div className="sm:rounded-2xl overflow-hidden flex flex-col" style={{ border: '1px solid var(--border)', background: 'var(--bg)', minHeight: '70vh' }}>
+      <div className="sm:rounded-2xl overflow-hidden flex flex-col" style={{ border: '1px solid var(--border)', background: 'var(--bg)', minHeight: '70dvh' }}>
         <header className="flex items-center gap-2 px-3 py-3" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <button type="button" onClick={() => setView('inbox')} className="p-2.5 min-w-[44px] min-h-[44px]" aria-label="Back"><ArrowLeft size={18} /></button>
           <h1 className="text-lg font-bold" style={{ fontFamily: 'Syne, sans-serif' }}>New conversation</h1>
@@ -824,7 +824,7 @@ export default function MessagesPage({
                 }
               }}
               placeholder="Search travelers by name or @username"
-              className="w-full pl-9 pr-3 rounded-xl text-sm min-h-[44px]"
+              className="w-full pl-9 pr-3 rounded-xl text-base min-h-[44px]"
               style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
             />
           </div>

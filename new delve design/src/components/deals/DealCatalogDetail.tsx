@@ -27,7 +27,7 @@ export default function DealCatalogDetail({
   const current = deal.media[index] ?? deal.media[0]!
 
   return (
-    <div className="pb-10" style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+    <div className="pb-10" style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
       <button
         type="button"
         onClick={onBack}
