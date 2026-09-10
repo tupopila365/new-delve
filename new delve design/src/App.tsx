@@ -5,7 +5,7 @@ import {
   MoreHorizontal, CheckCircle, Home, Compass, Users, User, Plus,
   Sun, Moon, Monitor, ChevronRight, Star, Tag, Car, Plane, Bus,
   Navigation, Utensils, Zap, Map, ShoppingBag, Calendar, HelpCircle,
-  TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu,
+  TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu, Bed,
 } from 'lucide-react'
 import { businessPath, eventPath, navToPath, normalizePath, parseBusinessSlug, parseEventId, pathToNav } from './navigation'
 import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
@@ -212,9 +212,15 @@ const trending = [
 ]
 
 const categories = [
-  { icon: '🛏', label: 'Stays' }, { icon: '🏷', label: 'Deals' }, { icon: '🍽', label: 'Food' },
-  { icon: '⚡', label: 'Activities' }, { icon: '🗺', label: 'Guides' }, { icon: '🎟', label: 'Events' },
-  { icon: '🚗', label: 'Transport' }, { icon: '🛍', label: 'Shops' }, { icon: '🧭', label: 'Journeys' },
+  { icon: <Bed size={14} className="flex-shrink-0" />, label: 'Stays' },
+  { icon: <Tag size={14} className="flex-shrink-0" />, label: 'Deals' },
+  { icon: <Utensils size={14} className="flex-shrink-0" />, label: 'Food' },
+  { icon: <Zap size={14} className="flex-shrink-0" />, label: 'Activities' },
+  { icon: <Map size={14} className="flex-shrink-0" />, label: 'Guides' },
+  { icon: <Calendar size={14} className="flex-shrink-0" />, label: 'Events' },
+  { icon: <Car size={14} className="flex-shrink-0" />, label: 'Transport' },
+  { icon: <ShoppingBag size={14} className="flex-shrink-0" />, label: 'Shops' },
+  { icon: <Navigation size={14} className="flex-shrink-0" />, label: 'Journeys' },
 ]
 
 // ─── Sub-components ───────────────────────────────────────────────────────
@@ -985,7 +991,7 @@ export default function App() {
   // ── Authentication flow (full screen) ─────────────────────────────────
   if (authRoute) {
     return (
-      <div style={{ background: 'var(--bg)', color: 'var(--fg)', height: '100vh' }}>
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
         <AuthFlow
           initialRoute={authRoute}
           destinationLabel="Delve"
@@ -999,7 +1005,7 @@ export default function App() {
 
   if (showOnboarding && signedIn) {
     return (
-      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
         <OnboardingFlow
           onComplete={() => {
             setShowOnboarding(false)
@@ -1018,7 +1024,7 @@ export default function App() {
 
   if (location.pathname.startsWith('/account/email-change')) {
     return (
-      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
         <EmailChangeVerifyPage />
       </div>
     )
@@ -1026,7 +1032,7 @@ export default function App() {
 
   if (location.pathname.startsWith('/reset-password')) {
     return (
-      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
         <ResetPasswordPage />
       </div>
     )
@@ -1034,7 +1040,7 @@ export default function App() {
 
   if (location.pathname === '/business/create' || activeNav === 'Create business') {
     return (
-      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
         <CreateBusinessPage
           onBack={() => goToNav('Provider')}
           onSuccess={() => {
@@ -1603,11 +1609,11 @@ export default function App() {
   }
 
   return (
-    <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
       <ShimmerStyle />
 
-      <header className="sticky top-0 z-50"
-        style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', paddingTop: 'var(--safe-top)' }}>
+      <header className="sticky top-0 z-50 pt-[env(safe-area-inset-top)]"
+        style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         {/* Primary header row — never wraps into unpredictable rows */}
         <div className="max-w-[1280px] mx-auto px-3 md:px-6 h-14 flex items-center gap-2 md:gap-4 min-w-0">
           <DelveLogo size="md" showWordmark={false} onClick={() => setActiveNav('Home')} ariaLabel="DELVE Home" />
@@ -1624,7 +1630,7 @@ export default function App() {
           <div className="hidden sm:block flex-1 relative min-w-0" style={{ maxWidth: 360 }}>
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fg-muted)' }} aria-hidden />
             <input placeholder="Search places, people…"
-              className="w-full pl-9 pr-3 rounded-xl text-sm min-w-0"
+              className="w-full pl-9 pr-3 rounded-xl text-base min-w-0"
               style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)', outline: 'none', height: 38 }}
               onFocus={e => {
                 e.target.style.borderColor = 'var(--primary)'
@@ -1810,9 +1816,13 @@ export default function App() {
                 <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--fg-muted)' }}>Explore</p>
                 <div className="flex flex-wrap gap-2">
                   {categories.map(c => (
-                    <button key={c.label} type="button" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
-                      style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>
-                      <span>{c.icon}</span> {c.label}
+                    <button
+                      key={c.label}
+                      type="button"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80 bg-[var(--surface-subtle)] border border-[var(--border)] text-[var(--fg)] cursor-pointer"
+                    >
+                      <span className="flex-shrink-0 inline-flex items-center text-[var(--primary)]">{c.icon}</span>
+                      <span>{c.label}</span>
                     </button>
                   ))}
                 </div>
@@ -2098,7 +2108,7 @@ export default function App() {
         </div>
       )}
 
-      <nav className="mobile-nav fixed bottom-0 left-0 right-0 z-50 lg:hidden"
+      <nav className="mobile-nav fixed bottom-0 left-0 right-0 z-50 lg:hidden pb-[env(safe-area-inset-bottom)]"
         style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}
         aria-label="Mobile navigation">
         <div className="mobile-nav__row">

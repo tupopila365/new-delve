@@ -19,7 +19,7 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react'
-import { GoogleMap, useLoadScript, MarkerF } from '@react-google-maps/api'
+import JourneysMapView from '../components/journeys/JourneysMapView'
 import type { JourneySummary } from '@delve/contracts'
 import { fetchOnboarding } from '../api/authClient'
 import {
@@ -54,97 +54,7 @@ const GOOGLE_MAPS_API_KEY =
   (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY)) ||
   ''
 
-const MAP_LIBRARIES: ('places' | 'geometry')[] = ['places']
 
-const DEFAULT_MAP_CENTER = { lat: -22.5609, lng: 17.0658 } // Windhoek, Namibia
-
-const MAP_CONTAINER_STYLE = {
-  width: '100%',
-  height: '100%',
-  minHeight: '600px',
-  borderRadius: '1.5rem',
-}
-
-const DARK_MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: 'geometry', stylers: [{ color: '#17171c' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#17171c' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8e8e93' }] },
-  {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d1d5db' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#6366f1' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#1c221c' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#4ade80' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#27272a' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1e1e24' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#9ca3af' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry',
-    stylers: [{ color: '#312e81' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1e1b4b' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#c7d2fe' }],
-  },
-  {
-    featureType: 'transit',
-    elementType: 'geometry',
-    stylers: [{ color: '#27272a' }],
-  },
-  {
-    featureType: 'transit.station',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#818cf8' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#0f172a' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#38bdf8' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.stroke',
-    stylers: [{ color: '#0f172a' }],
-  },
-]
 
 const PLACE_COORDINATES: Record<string, { lat: number; lng: number }> = {
   windhoek: { lat: -22.5609, lng: 17.0658 },
@@ -239,11 +149,7 @@ export default function JourneysPage({
   const [error, setError] = useState<string | null>(null)
   const [composeOpen, setComposeOpen] = useState(false)
 
-  // Google Maps Load Script
-  const { isLoaded: isMapScriptLoaded, loadError: mapScriptError } = useLoadScript({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: MAP_LIBRARIES,
-  })
+
 
   // Granular secondary filter states
   const [durationFilter, setDurationFilter] = useState<'all' | 'weekend' | 'week' | 'extended'>('all')
@@ -1011,109 +917,17 @@ export default function JourneysPage({
         </div>
       )}
 
-      {/* Task 1, 2, 3: Live Interactive Google Map View */}
+      {/* Live Interactive Map View */}
       {!loading && !error && tab === 'discover' && viewMode === 'map' && list.length > 0 && (
         <div className="mt-4 px-4 sm:px-0">
-          <div className="relative min-h-[600px] w-full rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-neutral-900">
-            {isMapScriptLoaded ? (
-              <GoogleMap
-                mapContainerStyle={MAP_CONTAINER_STYLE}
-                center={DEFAULT_MAP_CENTER}
-                zoom={5}
-                options={{
-                  styles: DARK_MAP_STYLES,
-                  disableDefaultUI: true,
-                  zoomControl: true,
-                }}
-              >
-                {/* Task 2: Render Journey Markers */}
-                {list.map(journey => {
-                  const position = getJourneyCoordinates(journey)
-                  const isSelected = selectedMapJourney?.id === journey.id
-
-                  return (
-                    <MarkerF
-                      key={journey.id}
-                      position={position}
-                      title={journey.title}
-                      onClick={() => setSelectedMapJourney(journey)}
-                      icon={
-                        isSelected
-                          ? 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png'
-                          : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                      }
-                    />
-                  )
-                })}
-              </GoogleMap>
-            ) : (
-              <div className="min-h-[600px] w-full flex flex-col items-center justify-center bg-neutral-900 text-neutral-400 gap-3">
-                <Loader2 size={32} className="animate-spin text-indigo-500" />
-                <p className="text-sm font-medium">Loading Google Maps…</p>
-              </div>
-            )}
-
-            {/* Top Control Overlay on Map */}
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-neutral-900/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 shadow-lg">
-              <Compass className="text-indigo-400 animate-spin-slow" size={18} />
-              <div>
-                <span className="text-xs font-bold text-white block">Live Route Map</span>
-                <span className="text-[10px] text-neutral-400">Centered at Windhoek · {list.length} routes</span>
-              </div>
-            </div>
-
-            {/* Task 3: Interactive Selection State & Floating Preview Card */}
-            {selectedMapJourney && (
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-11/12 max-w-sm bg-neutral-900/95 backdrop-blur-md border border-white/15 p-4 rounded-3xl shadow-2xl space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {selectedMapJourney.coverUrl ? (
-                      <img
-                        src={selectedMapJourney.coverUrl}
-                        alt=""
-                        className="w-14 h-14 rounded-2xl object-cover border border-white/10 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
-                        <MapPin size={22} />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-bold text-white m-0 truncate">
-                        {selectedMapJourney.title}
-                      </h4>
-                      <p className="text-xs text-neutral-400 m-0 truncate mt-0.5">
-                        {selectedMapJourney.startPlace} → {selectedMapJourney.endPlace}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-neutral-300">
-                        <span>{selectedMapJourney.durationDays || selectedMapJourney.stopCount} Days</span>
-                        {selectedMapJourney.historicalCost && (
-                          <span>• {selectedMapJourney.currency} {selectedMapJourney.historicalCost}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMapJourney(null)}
-                    className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-neutral-400 hover:text-white shrink-0"
-                    aria-label="Close preview"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => onOpenJourney?.(selectedMapJourney.id)}
-                  className="w-full py-2.5 px-4 rounded-2xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5"
-                >
-                  <span>View Itinerary</span>
-                  <span>→</span>
-                </button>
-              </div>
-            )}
-          </div>
+          <JourneysMapView
+            journeys={list}
+            selectedJourney={selectedMapJourney}
+            onSelectJourney={setSelectedMapJourney}
+            onOpenJourney={onOpenJourney}
+            getCoordinates={getJourneyCoordinates}
+            apiKey={GOOGLE_MAPS_API_KEY}
+          />
         </div>
       )}
 

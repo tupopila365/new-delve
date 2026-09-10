@@ -98,44 +98,41 @@ export default function JourneyCard({
   }
 
   return (
-    <article
-      className="overflow-hidden w-full min-w-0 sm:rounded-2xl"
-      style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
-    >
+    <article className="overflow-hidden w-full min-w-0 rounded-none border-b border-[var(--border)] sm:rounded-2xl sm:border sm:border-[var(--border)] bg-[var(--surface)]">
+      {/* Header: Author profile & timestamp */}
       <div className="flex items-center gap-2.5 px-4 py-3">
         <button
           type="button"
           onClick={() => onOpenProfile?.(journey.author.username)}
-          className="flex items-center gap-2.5 min-w-0"
-          style={{ background: 'none', border: 'none', cursor: onOpenProfile ? 'pointer' : 'default', padding: 0 }}
+          className={`flex items-center gap-2.5 min-w-0 bg-transparent border-0 p-0 text-left ${
+            onOpenProfile ? 'cursor-pointer' : 'cursor-default'
+          }`}
         >
-          <div
-            className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(140,82,255,0.12)' }}
-          >
+          <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-[var(--primary)]/12">
             {journey.author.avatarUrl ? (
               <img src={journey.author.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <User size={18} style={{ color: 'var(--fg-muted)' }} />
+              <User size={18} className="text-[var(--fg-muted)]" />
             )}
           </div>
-          <div className="text-left min-w-0">
-            <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold m-0 truncate text-[var(--fg)]">
               {journey.author.displayName || formatUsername(journey.author.username)}
             </p>
             {destination ? (
-              <p className="text-xs m-0 truncate inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                <MapPin size={11} className="flex-shrink-0" />
+              <p className="text-xs m-0 truncate inline-flex items-center gap-1 text-[var(--fg-muted)]">
+                <MapPin size={11} className="shrink-0" />
                 {destination}
               </p>
             ) : null}
           </div>
         </button>
-        <span className="ml-auto text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
+        <span className="ml-auto text-xs shrink-0 text-[var(--fg-muted)]">
           {timeAgoShort(postedAt)}
         </span>
       </div>
 
+      {/* Media: Strictly enforcing aspect-[4/5] without drop shadows */}
       <DoubleTapLike
         onDoubleLike={() => {
           if (!signedIn) {
@@ -155,7 +152,7 @@ export default function JourneyCard({
           className="block w-full text-left"
           aria-label={`Open ${journey.title}`}
         >
-          <div className="relative w-full max-h-[70vh] aspect-[4/5] min-h-[22rem]">
+          <div className="relative w-full aspect-[4/5] overflow-hidden">
             {journey.coverUrl ? (
               <JourneyCoverMedia
                 url={journey.coverUrl}
@@ -167,14 +164,11 @@ export default function JourneyCard({
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <Navigation size={36} style={{ color: 'var(--fg-muted)' }} />
+                <Navigation size={36} className="text-[var(--fg-muted)]" />
               </div>
             )}
             {status !== 'UPCOMING' && (
-              <span
-                className="absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-                style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
-              >
+              <span className="absolute top-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-black/60 text-white">
                 {lifecycleLabel(status)}
               </span>
             )}
@@ -182,19 +176,16 @@ export default function JourneyCard({
         </div>
       </DoubleTapLike>
 
+      {/* Footer: Social actions, counts & details */}
       <div className="px-4 py-3">
         <div className="flex items-center gap-4 mb-2">
           <button
             type="button"
             disabled={busy}
             onClick={e => void toggleLike(e)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: journey.likedByMe ? 'var(--primary)' : 'var(--fg)',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className={`bg-transparent border-0 p-0 cursor-pointer transition-colors ${
+              journey.likedByMe ? 'text-[var(--primary)]' : 'text-[var(--fg)]'
+            }`}
             aria-label="Like journey"
           >
             <Heart size={22} fill={journey.likedByMe ? 'currentColor' : 'none'} />
@@ -202,7 +193,7 @@ export default function JourneyCard({
           <button
             type="button"
             onClick={() => onOpen(journey.id)}
-            style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
+            className="bg-transparent border-0 p-0 text-[var(--fg)] cursor-pointer"
             aria-label="Comments"
           >
             <MessageCircle size={22} />
@@ -211,21 +202,16 @@ export default function JourneyCard({
             type="button"
             disabled={busy}
             onClick={toggleSave}
-            className="ml-auto"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: journey.savedByMe ? 'var(--primary)' : 'var(--fg)',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className={`ml-auto bg-transparent border-0 p-0 cursor-pointer transition-colors ${
+              journey.savedByMe ? 'text-[var(--primary)]' : 'text-[var(--fg)]'
+            }`}
             aria-label={journey.savedByMe ? 'Unsave journey' : 'Save journey'}
           >
             <Bookmark size={22} fill={journey.savedByMe ? 'currentColor' : 'none'} />
           </button>
         </div>
 
-        <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+        <p className="text-sm font-semibold m-0 mb-1 text-[var(--fg)]">
           {formatCount(journey.likeCount)} likes · {formatCount(journey.commentCount)} comments
         </p>
 
@@ -236,7 +222,7 @@ export default function JourneyCard({
           />
         ) : null}
 
-        <p className="text-xs m-0 mt-2" style={{ color: 'var(--fg-muted)' }}>
+        <p className="text-xs m-0 mt-2 text-[var(--fg-muted)]">
           {journey.durationDays} days · {journey.stopCount} stops
           {route ? ` · ${route}` : ''}
         </p>
@@ -244,14 +230,7 @@ export default function JourneyCard({
         <button
           type="button"
           onClick={() => onOpen(journey.id)}
-          className="text-sm mt-1 min-h-[32px] inline-flex items-center"
-          style={{
-            color: 'var(--fg-muted)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-          }}
+          className="text-sm mt-1 min-h-[32px] inline-flex items-center text-[var(--fg-muted)] bg-transparent border-0 cursor-pointer p-0 hover:text-[var(--fg)] transition-colors"
         >
           {journey.commentCount > 0
             ? `View all ${formatCount(journey.commentCount)} comments`

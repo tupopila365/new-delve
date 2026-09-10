@@ -18,27 +18,27 @@ const groupColors: Record<string, string> = {
 }
 
 const modeIcon: Record<string, React.ReactNode> = {
-  'Car rental':       <Car size={16} />,
-  'Community ride':   <Users size={16} />,
-  'Private driver':   <Car size={16} />,
-  'Bus':              <Bus size={16} />,
-  'Airport transfer': <Plane size={16} />,
-  'Regional flight':  <Plane size={16} />,
-  'Charter flight':   <Plane size={16} />,
-  'Ferry':            <Anchor size={16} />,
-  'Water taxi':       <Anchor size={16} />,
+  'Car rental':       <Car size={16} className="flex-shrink-0" />,
+  'Community ride':   <Users size={16} className="flex-shrink-0" />,
+  'Private driver':   <Car size={16} className="flex-shrink-0" />,
+  'Bus':              <Bus size={16} className="flex-shrink-0" />,
+  'Airport transfer': <Plane size={16} className="flex-shrink-0" />,
+  'Regional flight':  <Plane size={16} className="flex-shrink-0" />,
+  'Charter flight':   <Plane size={16} className="flex-shrink-0" />,
+  'Ferry':            <Anchor size={16} className="flex-shrink-0" />,
+  'Water taxi':       <Anchor size={16} className="flex-shrink-0" />,
 }
 
 // ─── Highlights (stories-style row) ──────────────────────────────────────
 
 const highlights = [
-  { id: 'h0', label: 'All', icon: <Navigation size={20} />, color: '#8C52FF', count: 8 },
-  { id: 'h1', label: 'Car rental', icon: <Car size={20} />, color: '#E05C1A', count: 3 },
-  { id: 'h2', label: 'Rides', icon: <Users size={20} />, color: '#10A760', count: 2 },
-  { id: 'h3', label: 'Bus', icon: <Bus size={20} />, color: '#F59E0B', count: 1 },
-  { id: 'h4', label: 'Flights', icon: <Plane size={20} />, color: '#3B82F6', count: 2 },
-  { id: 'h5', label: 'Ferry', icon: <Anchor size={20} />, color: '#06B6D4', count: 1 },
-  { id: 'h6', label: 'Transfer', icon: <Truck size={20} />, color: '#6366F1', count: 1 },
+  { id: 'h0', label: 'All', icon: <Navigation size={20} className="flex-shrink-0" />, color: '#8C52FF', count: 8 },
+  { id: 'h1', label: 'Car rental', icon: <Car size={20} className="flex-shrink-0" />, color: '#E05C1A', count: 3 },
+  { id: 'h2', label: 'Rides', icon: <Users size={20} className="flex-shrink-0" />, color: '#10A760', count: 2 },
+  { id: 'h3', label: 'Bus', icon: <Bus size={20} className="flex-shrink-0" />, color: '#F59E0B', count: 1 },
+  { id: 'h4', label: 'Flights', icon: <Plane size={20} className="flex-shrink-0" />, color: '#3B82F6', count: 2 },
+  { id: 'h5', label: 'Ferry', icon: <Anchor size={20} className="flex-shrink-0" />, color: '#06B6D4', count: 1 },
+  { id: 'h6', label: 'Transfer', icon: <Truck size={20} className="flex-shrink-0" />, color: '#6366F1', count: 1 },
 ]
 
 // ─── Trending routes ──────────────────────────────────────────────────────
@@ -379,11 +379,15 @@ function ListingCard({ result, saved, liked, onSave, onLike, onViewDetail }: {
             <img src={avatar} alt={result.operator} className="w-full h-full object-cover" />
           </div>
           {/* Group dot */}
-          <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+          <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white"
             style={{ background: color, border: '2px solid var(--surface)' }}>
-            <span style={{ color: '#fff', fontSize: 8 }}>
-              {result.transportGroup === 'road' ? '🚗' : result.transportGroup === 'air' ? '✈' : '⚓'}
-            </span>
+            {result.transportGroup === 'road' ? (
+              <Car size={8} className="flex-shrink-0" />
+            ) : result.transportGroup === 'air' ? (
+              <Plane size={8} className="flex-shrink-0" />
+            ) : (
+              <Anchor size={8} className="flex-shrink-0" />
+            )}
           </span>
         </div>
 
@@ -413,7 +417,7 @@ function ListingCard({ result, saved, liked, onSave, onLike, onViewDetail }: {
 
         {/* Mode pill + more */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="hidden sm:inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold"
+          <span className="hidden sm:inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full font-semibold"
             style={{ background: `${color}18`, color }}>
             {modeIcon[result.transportMode]} {result.transportMode}
           </span>

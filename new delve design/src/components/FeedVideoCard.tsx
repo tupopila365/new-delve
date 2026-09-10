@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import Hls from 'hls.js'
 import { Loader2, Play, Volume2, VolumeX, AlertCircle, ShieldAlert } from 'lucide-react'
 import { useLocalVideo } from '../media/useLocalMediaStore'
 
@@ -90,7 +89,7 @@ export default function FeedVideoCard({
   onError,
 }: FeedVideoCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const hlsRef = useRef<Hls | null>(null)
+  const hlsRef = useRef<any>(null)
 
   const [isMuted, setIsMuted] = useState(muted)
   const [isPlaying, setIsPlaying] = useState(autoPlay)
@@ -159,9 +158,11 @@ export default function FeedVideoCard({
       hlsRef.current = null
     }
 
-    // Branch A: MediaSource Extensions with hls.js
-    if (Hls.isSupported()) {
-      const hls = new Hls({
+    const HlsClass = typeof window !== 'undefined' ? (window as any).Hls : null
+
+    // Branch A: MediaSource Extensions with window.Hls if available
+    if (HlsClass && HlsClass.isSupported?.()) {
+      const hls = new HlsClass({
         enableWorker: true,
         lowLatencyMode: true,
         backBufferLength: 30,
@@ -173,7 +174,7 @@ export default function FeedVideoCard({
       hls.loadSource(hlsStreamUrl)
       hls.attachMedia(videoEl)
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      hls.on(HlsClass.Events?.MANIFEST_PARSED || 'hlsManifestParsed', () => {
         onReady?.()
         if (autoPlay) {
           videoEl.play().catch(() => {
@@ -185,14 +186,14 @@ export default function FeedVideoCard({
         }
       })
 
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
+      hls.on(HlsClass.Events?.ERROR || 'hlsError', (_event: any, data: any) => {
+        if (data?.fatal) {
           switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
+            case HlsClass.ErrorTypes?.NETWORK_ERROR:
               console.warn('[FeedVideoCard] HLS network error, attempting recovery...', data)
               hls.startLoad()
               break
-            case Hls.ErrorTypes.MEDIA_ERROR:
+            case HlsClass.ErrorTypes?.MEDIA_ERROR:
               console.warn('[FeedVideoCard] HLS media error, attempting recovery...', data)
               hls.recoverMediaError()
               break
@@ -209,7 +210,7 @@ export default function FeedVideoCard({
         }
       })
     }
-    // Branch B: Native iOS Safari HLS Support
+    // Branch B: Native iOS Safari / WebKit HLS Support
     else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
       videoEl.src = hlsStreamUrl
 
@@ -238,13 +239,29 @@ export default function FeedVideoCard({
         videoEl.removeEventListener('error', handleNativeError)
       }
     }
-    // Branch C: Direct MP4 Fallback for legacy browsers
+    // Branch C: Direct MP4 Fallback (standard for modern browsers)
     else {
       videoEl.src = mp4FallbackUrl
-      if (autoPlay) void videoEl.play().catch(() => {})
+
+      const handleLoadedMetadata = () => {
+        onReady?.()
+        if (autoPlay) {
+          videoEl.play().catch(() => {
+            videoEl.muted = true
+            setIsMuted(true)
+            void videoEl.play()
+          })
+        }
+      }
+
+      videoEl.addEventListener('loadedmetadata', handleLoadedMetadata)
+
+      return () => {
+        videoEl.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      }
     }
 
-    // CRITICAL: Cleanup function to destroy hls.js instance on unmount (prevents memory leaks)
+    // Cleanup function to destroy hls instance on unmount
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy()

@@ -88,11 +88,13 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
   scroll-behavior: smooth;
   max-width: 100%;
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -105,6 +107,24 @@ body {
   max-width: 100%;
   /* Prefer fixing overflow at the component; this only catches residual page scroll */
   overflow-x: clip;
+  overscroll-behavior-y: none;
+}
+
+/* iOS Safari auto-zoom prevention: enforce 16px minimum font-size on all form inputs */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* iOS dynamic viewport fixes: enforce 100dvh over 100vh to prevent browser bar cutoffs */
+.min-h-screen {
+  min-height: 100dvh;
+}
+.h-screen {
+  height: 100dvh;
 }
 
 #root {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Bookmark,
@@ -15,6 +15,8 @@ import {
   Flag,
   MoreHorizontal,
   GripVertical,
+  ChevronUp,
+  ChevronDown,
   Upload,
   GitFork,
   DollarSign,
@@ -24,22 +26,14 @@ import {
   Calendar,
   UserPlus,
 } from 'lucide-react'
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import type { JourneyDetail, MediaAssetDto, UpdateJourneyBody } from '@delve/contracts'
+
+function arrayMove<T>(array: T[], from: number, to: number): T[] {
+  const copy = [...array]
+  const [item] = copy.splice(from, 1)
+  copy.splice(to, 0, item!)
+  return copy
+}
 import {
   addJourneyComment,
   fetchJourney,
@@ -112,14 +106,10 @@ export default function JourneyDetailPage({
   const viewerId = getStoredUser()?.id
   const isOwner = Boolean(journey && viewerId && journey.author.id === viewerId)
 
-  // Configure PointerSensor with distance constraint to prevent accidental mobile scroll drags
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-  )
+  // Drag-and-drop and reorder refs & state
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -260,35 +250,61 @@ export default function JourneyDetailPage({
     }
   }
 
-  async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    if (!over || active.id === over.id || !journey) return
+  const reorderStops = useCallback(
+    async (fromIndex: number, toIndex: number) => {
+      if (
+        !journey ||
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= journey.stops.length ||
+        toIndex >= journey.stops.length
+      ) {
+        return
+      }
 
-    const oldIndex = journey.stops.findIndex(s => s.id === active.id)
-    const newIndex = journey.stops.findIndex(s => s.id === over.id)
-    if (oldIndex < 0 || newIndex < 0) return
+      const reorderedStops = arrayMove(journey.stops, fromIndex, toIndex).map((s, idx) => ({
+        ...s,
+        sortOrder: idx + 1,
+      }))
 
-    // Optimistic UI state update using arrayMove
-    const reorderedStops = arrayMove(journey.stops, oldIndex, newIndex).map((s, idx) => ({
-      ...s,
-      sortOrder: idx + 1,
-    }))
+      setJourney(j => (j ? { ...j, stops: reorderedStops } : j))
 
-    setJourney(j => (j ? { ...j, stops: reorderedStops } : j))
+      const payload = reorderedStops.map((s, idx) => ({
+        stopId: s.id,
+        orderIndex: idx + 1,
+      }))
 
-    // Prepare payload for backend transaction
-    const payload = reorderedStops.map((s, idx) => ({
-      stopId: s.id,
-      orderIndex: idx + 1,
-    }))
+      try {
+        await reorderJourneyStops(journey.id, payload)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not save reordered stops')
+        void load()
+      }
+    },
+    [journey, load],
+  )
 
-    try {
-      await reorderJourneyStops(journey.id, payload)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save reordered stops')
-      void load()
+  const handleDragStart = useCallback((index: number) => {
+    dragItem.current = index
+    setDraggingIndex(index)
+  }, [])
+
+  const handleDragEnter = useCallback((index: number) => {
+    dragOverItem.current = index
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    const from = dragItem.current
+    const to = dragOverItem.current
+    dragItem.current = null
+    dragOverItem.current = null
+    setDraggingIndex(null)
+
+    if (from !== null && to !== null && from !== to) {
+      void reorderStops(from, to)
     }
-  }
+  }, [reorderStops])
 
   async function handleStopMediaUpload(assets: MediaAssetDto[]) {
     if (!journey || !uploadStopId || assets.length === 0) {
@@ -770,7 +786,7 @@ export default function JourneyDetailPage({
           </span>
         </div>
 
-        {/* Timeline Layout with DndContext & SortableContext */}
+        {/* Timeline Layout */}
         <div className="relative space-y-4" role="list">
           {/* Vertical timeline line */}
           <div
@@ -778,36 +794,33 @@ export default function JourneyDetailPage({
             aria-hidden="true"
           />
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={renderedStops.map(s => s.id)}
-              strategy={verticalListSortingStrategy}
-              disabled={!isPlanning}
-            >
-              {renderedStops.map((stop, i) => {
-                const stopIndex = journey.stops.findIndex(s => s.id === stop.id)
-                const displayIndex = stopIndex >= 0 ? stopIndex + 1 : i + 1
+          {renderedStops.map((stop, i) => {
+            const stopIndex = journey.stops.findIndex(s => s.id === stop.id)
+            const resolvedIndex = stopIndex >= 0 ? stopIndex : i
+            const displayIndex = resolvedIndex + 1
 
-                return (
-                  <SortableStopItem
-                    key={stop.id}
-                    stop={stop}
-                    displayIndex={displayIndex}
-                    isPlanning={isPlanning}
-                    isActive={isActive}
-                    isCompleted={isCompleted}
-                    signedIn={signedIn}
-                    onSignIn={onSignIn}
-                    onUploadClick={stopId => setUploadStopId(stopId)}
-                  />
-                )
-              })}
-            </SortableContext>
-          </DndContext>
+            return (
+              <SortableStopItem
+                key={stop.id}
+                stop={stop}
+                index={resolvedIndex}
+                displayIndex={displayIndex}
+                totalStops={journey.stops.length}
+                isPlanning={isPlanning}
+                isActive={isActive}
+                isCompleted={isCompleted}
+                signedIn={signedIn}
+                isDragging={draggingIndex === resolvedIndex}
+                onSignIn={onSignIn}
+                onUploadClick={stopId => setUploadStopId(stopId)}
+                onDragStart={handleDragStart}
+                onDragEnter={handleDragEnter}
+                onDragEnd={handleDragEnd}
+                onMoveUp={() => reorderStops(resolvedIndex, resolvedIndex - 1)}
+                onMoveDown={() => reorderStops(resolvedIndex, resolvedIndex + 1)}
+              />
+            )
+          })}
         </div>
       </div>
 
@@ -912,58 +925,88 @@ export default function JourneyDetailPage({
   )
 }
 
-/** Task 2: Sub-component `<SortableStopItem>` with strict handle listeners */
+/** Task 2: Sub-component `<SortableStopItem>` with native drag and accessible move controls */
 function SortableStopItem({
   stop,
+  index,
   displayIndex,
+  totalStops,
   isPlanning,
   isActive,
   isCompleted,
   signedIn,
+  isDragging,
   onSignIn,
   onUploadClick,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
+  onMoveUp,
+  onMoveDown,
 }: {
   stop: JourneyDetail['stops'][number]
+  index: number
   displayIndex: number
+  totalStops: number
   isPlanning: boolean
   isActive: boolean
   isCompleted: boolean
   signedIn: boolean
+  isDragging?: boolean
   onSignIn?: () => void
   onUploadClick: (stopId: string) => void
+  onDragStart?: (index: number) => void
+  onDragEnter?: (index: number) => void
+  onDragEnd?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: stop.id,
-    disabled: !isPlanning,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.75 : 1,
-  }
-
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className="relative flex gap-4 items-start"
+      draggable={isPlanning}
+      onDragStart={isPlanning ? () => onDragStart?.(index) : undefined}
+      onDragEnter={isPlanning ? () => onDragEnter?.(index) : undefined}
+      onDragEnd={isPlanning ? onDragEnd : undefined}
+      onDragOver={isPlanning ? e => e.preventDefault() : undefined}
+      className={`relative flex gap-4 items-start transition-opacity ${
+        isDragging ? 'opacity-50' : 'opacity-100'
+      }`}
       role="listitem"
     >
-      {/* Numbered timeline dot with Planning Grip */}
+      {/* Numbered timeline dot with Planning Grip & Move Buttons */}
       <div className="flex-shrink-0 relative z-10 flex items-center gap-1">
         {isPlanning && (
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            className="text-neutral-500 cursor-grab active:cursor-grabbing hover:text-white p-1 rounded-lg touch-none bg-transparent border-0"
-            title="Drag to reorder stop"
-            aria-label={`Drag stop ${displayIndex} to reorder`}
-          >
-            <GripVertical size={16} />
-          </button>
+          <div className="flex items-center">
+            <div
+              className="text-neutral-500 hover:text-white p-1 rounded-lg cursor-grab active:cursor-grabbing"
+              title="Drag to reorder stop"
+              aria-label={`Drag stop ${displayIndex} to reorder`}
+            >
+              <GripVertical size={16} />
+            </div>
+            <div className="flex flex-col -space-y-1">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={onMoveUp}
+                className="text-neutral-500 hover:text-white disabled:opacity-20 disabled:pointer-events-none p-0.5 rounded transition-colors"
+                title="Move up"
+                aria-label={`Move stop ${displayIndex} up`}
+              >
+                <ChevronUp size={13} />
+              </button>
+              <button
+                type="button"
+                disabled={index === totalStops - 1}
+                onClick={onMoveDown}
+                className="text-neutral-500 hover:text-white disabled:opacity-20 disabled:pointer-events-none p-0.5 rounded transition-colors"
+                title="Move down"
+                aria-label={`Move stop ${displayIndex} down`}
+              >
+                <ChevronDown size={13} />
+              </button>
+            </div>
+          </div>
         )}
         <div className="w-10 h-10 rounded-2xl bg-neutral-900 border-2 border-indigo-500 flex items-center justify-center text-sm font-bold text-indigo-400 shadow-md">
           {displayIndex}

@@ -77,6 +77,7 @@ function inputStyle(hasError?: boolean): CSSProperties {
     background: 'var(--surface-subtle)',
     border: `1.5px solid ${hasError ? '#C83B3B' : 'var(--border)'}`,
     color: 'var(--fg)',
+    fontSize: 16,
     height: 48,
     borderRadius: 12,
     padding: '0 14px',
@@ -271,10 +272,10 @@ export default function TravelerDetailsPage({
   )
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="min-h-[100dvh]" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <div id={liveId} className="sr-only" aria-live="polite">{announce}</div>
 
-      <header className="sticky top-0 z-50" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+      <header className="sticky top-0 z-50 pt-[env(safe-area-inset-top)]" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-[1440px] mx-auto px-3 sm:px-6 h-14 flex items-center gap-2">
           <button type="button" onClick={onBackToSetup} className="p-2.5 rounded-xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Back to booking setup">
             <ArrowLeft size={20} />
@@ -567,7 +568,7 @@ export default function TravelerDetailsPage({
             {assistance === 'yes' && (
               <Field id="assist-notes" label="Assistance details" hint="Describe the assistance you need. A medical diagnosis is not required.">
                 <textarea id="assist-notes" value={assistanceNotes} onChange={e => setAssistanceNotes(e.target.value)} rows={3}
-                  className="w-full p-3 rounded-xl text-sm mt-3"
+                  className="w-full p-3 rounded-xl text-base mt-3"
                   style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)', resize: 'vertical' }} />
               </Field>
             )}
@@ -612,7 +613,7 @@ export default function TravelerDetailsPage({
               onChange={e => setSpecialRequest(e.target.value.slice(0, 400))}
               rows={4}
               placeholder="Arrival notes, seating preference, pickup instructions…"
-              className="w-full p-3 rounded-xl text-sm"
+              className="w-full p-3 rounded-xl text-base"
               style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)', resize: 'vertical' }}
             />
             <p className="text-xs mt-2" style={{ color: 'var(--fg-muted)' }}>{400 - specialRequest.length} characters remaining</p>

@@ -99,11 +99,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           onChange={e => onChange({ title: e.target.value })}
           placeholder="Event title"
           maxLength={120}
-          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
         />
         <label
           htmlFor="event-title"
-          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
         >
           Event title
         </label>
@@ -118,11 +118,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           placeholder="What is this meetup about?"
           rows={3}
           maxLength={4000}
-          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none transition-all"
         />
         <label
           htmlFor="event-description"
-          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
         >
           What is this meetup about?
         </label>
@@ -138,7 +138,7 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           type="datetime-local"
           value={form.startAt}
           onChange={e => onChange({ startAt: e.target.value })}
-          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
         />
       </div>
 
@@ -152,7 +152,7 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           type="datetime-local"
           value={form.endAt}
           onChange={e => onChange({ endAt: e.target.value })}
-          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
         />
       </div>
 
@@ -200,11 +200,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
             value={form.country}
             onChange={e => onChange({ country: e.target.value })}
             placeholder="Country"
-            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           />
           <label
             htmlFor="event-country"
-            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
           >
             Country
           </label>
@@ -302,12 +302,12 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
                 onChange({ category: combined.join(', ') })
               }}
               placeholder="e.g. Photography, Workshops, Tech Meetup"
-              className="peer w-full rounded-xl bg-white/[0.04] border border-indigo-500/40 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+              className="peer w-full rounded-xl bg-white/[0.04] border border-indigo-500/40 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
               autoFocus
             />
             <label
               htmlFor="event-custom-category"
-              className="absolute left-3.5 top-1.5 text-xs text-indigo-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+              className="absolute left-3.5 top-1.5 text-xs text-indigo-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
             >
               Specify custom category (free type)
             </label>
@@ -323,11 +323,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           value={form.timezone}
           onChange={e => onChange({ timezone: e.target.value })}
           placeholder="Timezone"
-          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
         />
         <label
           htmlFor="event-timezone"
-          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
         >
           Timezone (e.g. Africa/Windhoek)
         </label>
@@ -343,7 +343,7 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
             id="event-community"
             value={form.communityId}
             onChange={e => onChange({ communityId: e.target.value })}
-            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           >
             <option value="" className="bg-neutral-900 text-neutral-400">No community</option>
             {communities.map(c => (
@@ -363,7 +363,7 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
             id="event-business"
             value={form.businessId}
             onChange={e => onChange({ businessId: e.target.value })}
-            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           >
             <option value="" className="bg-neutral-900 text-neutral-400">Personal event</option>
             {businesses.map(b => (
@@ -382,7 +382,7 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           id="event-visibility"
           value={form.visibility}
           onChange={e => onChange({ visibility: e.target.value as EventVisibility })}
-          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 py-2.5 text-base text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
         >
           <option value="PUBLIC" className="bg-neutral-900 text-white">Public — anyone on Delve</option>
           <option value="FOLLOWERS" className="bg-neutral-900 text-white">Followers only</option>
@@ -399,11 +399,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
           onChange={e => onChange({ maxAttendees: e.target.value.replace(/\D/g, '') })}
           placeholder="Max attendees"
           inputMode="numeric"
-          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
         />
         <label
           htmlFor="event-max-attendees"
-          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+          className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
         >
           Max attendees (optional)
         </label>
@@ -466,11 +466,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
             onChange={e => onChange({ latitude: e.target.value })}
             placeholder="Latitude"
             inputMode="decimal"
-            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           />
           <label
             htmlFor="event-latitude"
-            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
           >
             Latitude
           </label>
@@ -484,11 +484,11 @@ export default function EventFormFields({ form, onChange, onError, onOpenCoverSt
             onChange={e => onChange({ longitude: e.target.value })}
             placeholder="Longitude"
             inputMode="decimal"
-            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-sm text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="peer w-full rounded-xl bg-white/[0.04] border border-white/10 px-3.5 pt-5 pb-2 text-base text-white placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
           />
           <label
             htmlFor="event-longitude"
-            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
+            className="absolute left-3.5 top-1.5 text-xs text-neutral-400 pointer-events-none transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-placeholder-shown:text-neutral-500 peer-focus:top-1.5 peer-focus:text-xs peer-focus:text-indigo-400"
           >
             Longitude
           </label>

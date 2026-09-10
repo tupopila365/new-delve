@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import LoadingSpinner from './LoadingSpinner'
+import Button from '../ui/Button'
 import type { ButtonState } from '../../data/authConfig'
 
 export interface PrimaryButtonProps {
@@ -15,8 +15,14 @@ export interface PrimaryButtonProps {
   loadingLabel?: string
   /** Forces a visual state so the design board can show hover/pressed/focus. */
   previewState?: ButtonState
+  className?: string
 }
 
+/**
+ * Authentication Primary Button
+ * Refactored to wrap core primitive Button (`variant="primary"`)
+ * Enforces 48px height and 12px radius rules while preserving legacy auth props.
+ */
 export default function PrimaryButton({
   children,
   onClick,
@@ -24,58 +30,29 @@ export default function PrimaryButton({
   loading = false,
   disabled = false,
   fullWidth = true,
-  size = 'lg',
+  size = 'md',
   iconLeft,
   iconRight,
   loadingLabel = 'Working…',
   previewState,
+  className = '',
 }: PrimaryButtonProps) {
-  const isLoading = loading || previewState === 'loading'
-  const isDisabled = disabled || previewState === 'disabled'
-  // A loading button must never accept a second submit.
-  const inactive = isLoading || isDisabled
-
-  const height = size === 'lg' ? 52 : 44
-  const hovered = previewState === 'hover'
-  const pressed = previewState === 'pressed'
-
   return (
-    <button
+    <Button
+      variant="primary"
       type={type}
-      onClick={inactive ? undefined : onClick}
-      disabled={inactive}
-      aria-busy={isLoading || undefined}
-      className={`auth-button auth-button--primary inline-flex items-center justify-center gap-2 font-semibold ${
-        fullWidth ? 'w-full' : ''
-      }`}
-      data-preview-focus={previewState === 'focus' ? 'true' : undefined}
-      style={{
-        minHeight: height,
-        padding: '0 20px',
-        borderRadius: 12,
-        border: 'none',
-        background: pressed ? 'var(--primary-focus)' : 'var(--primary)',
-        color: '#FFFFFF',
-        fontSize: size === 'lg' ? 16 : 15,
-        cursor: inactive ? 'not-allowed' : 'pointer',
-        opacity: isDisabled ? 0.45 : 1,
-        filter: hovered ? 'brightness(1.08)' : undefined,
-        transform: pressed ? 'scale(0.99)' : undefined,
-        transition: 'filter 0.15s, transform 0.1s, opacity 0.15s',
-      }}
+      onClick={onClick}
+      loading={loading}
+      disabled={disabled}
+      fullWidth={fullWidth}
+      size={size}
+      iconLeft={iconLeft}
+      iconRight={iconRight}
+      loadingLabel={loadingLabel}
+      previewState={previewState}
+      className={`auth-button auth-button--primary ${className}`}
     >
-      {isLoading ? (
-        <>
-          <LoadingSpinner size={17} />
-          <span>{loadingLabel}</span>
-        </>
-      ) : (
-        <>
-          {iconLeft}
-          <span>{children}</span>
-          {iconRight}
-        </>
-      )}
-    </button>
+      {children}
+    </Button>
   )
 }

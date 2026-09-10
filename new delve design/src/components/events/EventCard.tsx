@@ -91,7 +91,7 @@ export default function EventCard({
       const next = await likeEvent(event.id)
       onEventUpdated?.(next)
     } catch {
-      onEventUpdated?.({ ...event, likedByMe: false, likeCount: likeCount })
+      onEventUpdated?.({ ...event, likedByMe: false, likeCount })
     }
   }
 
@@ -133,50 +133,47 @@ export default function EventCard({
   }
 
   return (
-    <article
-      className="overflow-hidden w-full min-w-0 sm:rounded-2xl"
-      style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
-    >
+    <article className="overflow-hidden w-full min-w-0 rounded-none border-b border-[var(--border)] sm:rounded-2xl sm:border sm:border-[var(--border)] bg-[var(--surface)]">
+      {/* Header: Host profile & time */}
       <div className="flex items-center gap-2.5 px-4 py-3">
         <button
           type="button"
           onClick={() => onOpenProfile?.(event.creator.username)}
-          className="flex items-center gap-2.5 min-w-0"
-          style={{ background: 'none', border: 'none', cursor: onOpenProfile ? 'pointer' : 'default', padding: 0 }}
+          className={`flex items-center gap-2.5 min-w-0 bg-transparent border-0 p-0 text-left ${
+            onOpenProfile ? 'cursor-pointer' : 'cursor-default'
+          }`}
         >
-          <div
-            className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(140,82,255,0.12)' }}
-          >
+          <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-[var(--primary)]/12">
             {event.creator.avatarUrl ? (
               <img src={event.creator.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <User size={18} style={{ color: 'var(--fg-muted)' }} />
+              <User size={18} className="text-[var(--fg-muted)]" />
             )}
           </div>
-          <div className="text-left min-w-0">
-            <p className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold m-0 truncate text-[var(--fg)]">
               {hostName}
             </p>
             {place ? (
-              <p className="text-xs m-0 truncate inline-flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                <MapPin size={11} className="flex-shrink-0" />
+              <p className="text-xs m-0 truncate inline-flex items-center gap-1 text-[var(--fg-muted)]">
+                <MapPin size={11} className="shrink-0" />
                 {place}
               </p>
             ) : null}
           </div>
         </button>
-        <span className="ml-auto text-xs flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>
+        <span className="ml-auto text-xs shrink-0 text-[var(--fg-muted)]">
           {timeAgoShort(event.createdAt)}
         </span>
       </div>
 
+      {/* Media: Strictly enforcing aspect-[4/5] without drop shadows */}
       <DoubleTapLike
         onDoubleLike={() => void likeFromDoubleTap()}
         onSingleTap={() => onOpen(event.id)}
         className="relative w-full overflow-hidden bg-black/10"
       >
-        <div className="relative w-full max-h-[70vh] aspect-[4/5] min-h-[22rem]">
+        <div className="relative w-full aspect-[4/5] overflow-hidden">
           {event.coverUrl ? (
             <EventCoverMedia
               url={event.coverUrl}
@@ -186,41 +183,32 @@ export default function EventCard({
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              <Calendar size={36} style={{ color: 'var(--fg-muted)' }} />
+              <Calendar size={36} className="text-[var(--fg-muted)]" />
             </div>
           )}
           {badge && (
-            <span
-              className="absolute top-3 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
-            >
+            <span className="absolute top-3 left-3 text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white">
               {badge}
             </span>
           )}
           {event.category && (
-            <span
-              className="absolute bottom-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-              style={{ background: 'rgba(140,82,255,0.85)', color: '#fff' }}
-            >
+            <span className="absolute bottom-3 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-[var(--primary)] text-white">
               {event.category}
             </span>
           )}
         </div>
       </DoubleTapLike>
 
+      {/* Footer: Social actions, counts & RSVP */}
       <div className="px-4 py-3">
         <div className="flex items-center gap-4 mb-2">
           <button
             type="button"
             disabled={busy}
             onClick={e => void toggleLike(e)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: likedByMe ? 'var(--primary)' : 'var(--fg)',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className={`bg-transparent border-0 p-0 cursor-pointer transition-colors ${
+              likedByMe ? 'text-[var(--primary)]' : 'text-[var(--fg)]'
+            }`}
             aria-label="Like event"
           >
             <Heart size={22} fill={likedByMe ? 'currentColor' : 'none'} />
@@ -228,7 +216,7 @@ export default function EventCard({
           <button
             type="button"
             onClick={() => onOpen(event.id)}
-            style={{ background: 'none', border: 'none', color: 'var(--fg)', cursor: 'pointer', padding: 0 }}
+            className="bg-transparent border-0 p-0 text-[var(--fg)] cursor-pointer"
             aria-label="Event details"
           >
             <Users size={22} />
@@ -236,21 +224,16 @@ export default function EventCard({
           <button
             type="button"
             onClick={toggleSave}
-            className="ml-auto"
-            style={{
-              background: 'none',
-              border: 'none',
-              color: event.savedByMe ? 'var(--primary)' : 'var(--fg)',
-              cursor: 'pointer',
-              padding: 0,
-            }}
+            className={`ml-auto bg-transparent border-0 p-0 cursor-pointer transition-colors ${
+              event.savedByMe ? 'text-[var(--primary)]' : 'text-[var(--fg)]'
+            }`}
             aria-label={event.savedByMe ? 'Unsave event' : 'Save event'}
           >
             <Bookmark size={22} fill={event.savedByMe ? 'currentColor' : 'none'} />
           </button>
         </div>
 
-        <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+        <p className="text-sm font-semibold m-0 mb-1 text-[var(--fg)]">
           {formatCount(likeCount)} likes · {formatCount(event.goingCount)} going
         </p>
 
@@ -258,7 +241,7 @@ export default function EventCard({
           <ExpandableCaption authorFirstName={hostName} caption={caption} />
         ) : null}
 
-        <p className="text-xs m-0 mt-2" style={{ color: 'var(--fg-muted)' }}>
+        <p className="text-xs m-0 mt-2 text-[var(--fg-muted)]">
           {when}
         </p>
 
@@ -266,16 +249,17 @@ export default function EventCard({
           <div className="flex gap-2 mt-3">
             <button
               type="button"
-              disabled={atCapacity}
+              disabled={atCapacity && event.myAttendance !== 'INTERESTED'}
               onClick={e => void setStatus(e, 'INTERESTED')}
-              className="flex-1 rounded-xl py-2.5 text-xs font-semibold min-h-[44px]"
-              style={{
-                border: event.myAttendance === 'INTERESTED' ? '1px solid var(--primary)' : '1px solid var(--border)',
-                background: event.myAttendance === 'INTERESTED' ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-                color: 'var(--fg)',
-                cursor: atCapacity && event.myAttendance !== 'INTERESTED' ? 'not-allowed' : 'pointer',
-                opacity: atCapacity && event.myAttendance !== 'INTERESTED' ? 0.6 : 1,
-              }}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold min-h-[44px] transition-all duration-150 ${
+                event.myAttendance === 'INTERESTED'
+                  ? 'border border-[var(--primary)] bg-[var(--primary)]/12 text-[var(--primary)]'
+                  : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[var(--surface-subtle)]'
+              } ${
+                atCapacity && event.myAttendance !== 'INTERESTED'
+                  ? 'cursor-not-allowed opacity-60'
+                  : 'cursor-pointer active:scale-[0.99]'
+              }`}
             >
               {event.myAttendance === 'INTERESTED' ? 'Interested ✓' : 'Interested'}
             </button>
@@ -283,14 +267,15 @@ export default function EventCard({
               type="button"
               disabled={atCapacity}
               onClick={e => void setStatus(e, 'GOING')}
-              className="flex-1 rounded-xl py-2.5 text-xs font-semibold min-h-[44px]"
-              style={{
-                border: event.myAttendance === 'GOING' ? 'none' : '1px solid var(--border)',
-                background: event.myAttendance === 'GOING' ? 'var(--primary)' : 'var(--surface)',
-                color: event.myAttendance === 'GOING' ? '#fff' : 'var(--fg)',
-                cursor: atCapacity ? 'not-allowed' : 'pointer',
-                opacity: atCapacity ? 0.6 : 1,
-              }}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold min-h-[44px] transition-all duration-150 ${
+                event.myAttendance === 'GOING'
+                  ? 'border-0 bg-[var(--primary)] text-white'
+                  : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)] hover:bg-[var(--surface-subtle)]'
+              } ${
+                atCapacity
+                  ? 'cursor-not-allowed opacity-60'
+                  : 'cursor-pointer active:scale-[0.99]'
+              }`}
             >
               {atCapacity ? 'Event full' : event.myAttendance === 'GOING' ? 'Going ✓' : 'Going'}
             </button>

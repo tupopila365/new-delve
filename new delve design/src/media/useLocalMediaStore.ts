@@ -1,4 +1,45 @@
-import { create } from 'zustand'
+import { useSyncExternalStore } from 'react'
+
+function create<T>(initializer: (set: (updater: Partial<T> | ((prev: T) => Partial<T>)) => void, get: () => T) => T) {
+  let state: T
+  const listeners = new Set<() => void>()
+
+  const get = () => state
+
+  const set = (updater: Partial<T> | ((prev: T) => Partial<T>)) => {
+    const next = typeof updater === 'function' ? (updater as (prev: T) => Partial<T>)(state) : updater
+    state = { ...state, ...next }
+    listeners.forEach((l) => l())
+  }
+
+  state = initializer(set, get)
+
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
+
+  const useStore = <U>(selector?: (state: T) => U): U => {
+    const slice = useSyncExternalStore(
+      subscribe,
+      () => (selector ? selector(state) : (state as unknown as U)),
+      () => (selector ? selector(state) : (state as unknown as U)),
+    )
+    return slice
+  }
+
+  Object.assign(useStore, {
+    getState: get,
+    setState: set,
+    subscribe,
+  })
+
+  return useStore as typeof useStore & {
+    getState: () => T
+    setState: typeof set
+    subscribe: typeof subscribe
+  }
+}
 
 export type LocalMediaStatus = 'pending' | 'uploading' | 'transcoding' | 'ready' | 'error'
 

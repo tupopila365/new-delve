@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { MapPin, Loader2, X, Globe2 } from 'lucide-react'
+
+function usePlacesLibrary() {
+  const [lib, setLib] = useState<any>(null)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).google?.maps?.places) {
+      setLib((window as any).google.maps.places)
+    }
+  }, [])
+  return lib
+}
 
 export interface PlaceSelectionResult {
   name: string
@@ -42,7 +51,7 @@ export function LocationAutocompleteInput({
   label = 'Venue or meeting point',
   className = '',
 }: LocationAutocompleteInputProps) {
-  const placesLibrary = useMapsLibrary('places')
+  const placesLibrary = usePlacesLibrary()
   const [predictions, setPredictions] = useState<PredictionItem[]>([])
   const [loading, setLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)

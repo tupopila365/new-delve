@@ -1,5 +1,4 @@
-import React from 'react'
-import { Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps'
+import { MapPin } from 'lucide-react'
 import { GOOGLE_MAPS_API_KEY } from './GoogleMapsProvider'
 
 interface DelveInteractiveMapProps {
@@ -16,39 +15,46 @@ export function DelveInteractiveMap({
   latitude,
   longitude,
   zoom = 15,
-  mapId = 'DEMO_MAP_ID',
   markerTitle = 'Location',
   height = 200,
   className = '',
 }: DelveInteractiveMapProps) {
-  if (!GOOGLE_MAPS_API_KEY || isNaN(latitude) || isNaN(longitude)) {
+  if (isNaN(latitude) || isNaN(longitude)) {
     return null
   }
 
-  const position = { lat: latitude, lng: longitude }
+  const heightVal = typeof height === 'number' ? `${height}px` : height
+
+  if (GOOGLE_MAPS_API_KEY) {
+    const embedUrl = `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${latitude},${longitude}&zoom=${zoom}`
+    return (
+      <div
+        className={`relative w-full rounded-xl overflow-hidden border border-white/10 ${className}`}
+        style={{ height: heightVal }}
+      >
+        <iframe
+          title={markerTitle}
+          src={embedUrl}
+          className="w-full h-full border-0"
+          loading="lazy"
+          allowFullScreen
+        />
+      </div>
+    )
+  }
 
   return (
     <div
-      className={`relative w-full rounded-xl overflow-hidden border border-white/10 ${className}`}
-      style={{ height: typeof height === 'number' ? `${height}px` : height }}
+      className={`relative w-full rounded-xl overflow-hidden border border-white/10 bg-neutral-900 flex items-center justify-center text-center p-4 ${className}`}
+      style={{ height: heightVal }}
     >
-      <Map
-        mapId={mapId}
-        defaultCenter={position}
-        center={position}
-        defaultZoom={zoom}
-        gestureHandling="cooperative"
-        disableDefaultUI={false}
-        className="w-full h-full"
-      >
-        <AdvancedMarker position={position} title={markerTitle}>
-          <Pin
-            background="#8C52FF"
-            glyphColor="#FFFFFF"
-            borderColor="#5918CA"
-          />
-        </AdvancedMarker>
-      </Map>
+      <div className="flex flex-col items-center gap-1.5 text-neutral-400">
+        <MapPin size={24} className="text-indigo-400" />
+        <span className="text-xs font-semibold text-white">{markerTitle}</span>
+        <span className="text-[11px] font-mono text-neutral-400">
+          {latitude.toFixed(4)}, {longitude.toFixed(4)}
+        </span>
+      </div>
     </div>
   )
 }
