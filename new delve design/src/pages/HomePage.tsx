@@ -60,14 +60,16 @@ export default function HomePage({
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set())
   const [serviceFilter, setServiceFilter] = useState('All')
   const [refreshKey, setReloadKey] = useState(0)
+  const [inquiryListing, setInquiryListing] = useState<NormalizedListing | null>(null)
 
   // 11 Core Delve Services definition
   const CORE_SERVICES = [
     {
       id: 'stays',
       label: 'Stays',
-      desc: 'Lodges, desert chalets, campsites & hotels',
-      icon: <Bed size={22} />,
+      badge: 'Lodges & Camps',
+      desc: 'Desert chalets, guest farms & boutique hotels',
+      icon: <Bed size={20} />,
       color: '#8C52FF',
       category: 'Stay',
       action: () => onOpenServices ? onOpenServices('Stay') : onNavigate('Services'),
@@ -75,8 +77,9 @@ export default function HomePage({
     {
       id: 'transport',
       label: 'Transport',
-      desc: 'Rentals, private drivers, rides & buses',
-      icon: <Car size={22} />,
+      badge: '4x4 & Shuttles',
+      desc: 'Overland rentals, transfers, regional coaches',
+      icon: <Car size={20} />,
       color: '#3B82F6',
       category: 'Transport',
       action: () => onOpenTransport ? onOpenTransport() : onNavigate('Transport'),
@@ -84,17 +87,19 @@ export default function HomePage({
     {
       id: 'food',
       label: 'Food & Drink',
-      desc: 'Waterfront dining, authentic spots & cafes',
-      icon: <Utensils size={22} />,
-      color: '#E05C1A',
+      badge: 'Bomas & Seafood',
+      desc: 'Coastal seafood, craft beer & local dining',
+      icon: <Utensils size={20} />,
+      color: '#F59E0B',
       category: 'Food',
       action: () => onOpenServices ? onOpenServices('Food') : onNavigate('Services'),
     },
     {
       id: 'activities',
       label: 'Activities',
-      desc: 'Dunes, quad biking, cruises & safaris',
-      icon: <Zap size={22} />,
+      badge: 'Dunes & Ocean',
+      desc: 'Quad biking, catamaran tours, sandboarding',
+      icon: <Zap size={20} />,
       color: '#10A760',
       category: 'Activity',
       action: () => onOpenServices ? onOpenServices('Activity') : onNavigate('Services'),
@@ -102,17 +107,19 @@ export default function HomePage({
     {
       id: 'deals',
       label: 'Deals',
-      desc: 'Genuine discounts & local resident rates',
-      icon: <Tag size={22} />,
-      color: '#F59E0B',
+      badge: 'Direct Savings',
+      desc: 'Resident rates & limited-time promotions',
+      icon: <Tag size={20} />,
+      color: '#FF6B00',
       category: 'Deals',
       action: () => onNavigate('Deals'),
     },
     {
       id: 'journeys',
       label: 'Journeys',
-      desc: 'Traveler-tested routes & real trip budgets',
-      icon: <Navigation size={22} />,
+      badge: 'Road Trips',
+      desc: 'Tested itineraries with real traveler budgets',
+      icon: <Navigation size={20} />,
       color: '#6366F1',
       category: 'Journeys',
       action: () => onNavigate('Journeys'),
@@ -120,45 +127,50 @@ export default function HomePage({
     {
       id: 'events',
       label: 'Events',
-      desc: 'Live music, cultural festivals & gatherings',
-      icon: <Calendar size={22} />,
-      color: '#EC4899',
+      badge: 'Gatherings',
+      desc: 'Night markets, cultural shows & stargazing',
+      icon: <Calendar size={20} />,
+      color: '#8B5CF6',
       category: 'Events',
       action: () => onNavigate('Events'),
     },
     {
       id: 'guides',
       label: 'Guides',
-      desc: 'Licensed local guides & wildlife spotters',
-      icon: <Map size={22} />,
-      color: '#06B6D4',
+      badge: 'Certified',
+      desc: 'Local wildlife spotters & cultural mentors',
+      icon: <Compass size={20} />,
+      color: '#14B8A6',
       category: 'Guide',
       action: () => onOpenServices ? onOpenServices('Guide') : onNavigate('Services'),
     },
     {
       id: 'shops',
       label: 'Shops',
-      desc: 'Namibian crafts, gear & artisan goods',
-      icon: <ShoppingBag size={22} />,
-      color: '#8B5CF6',
+      badge: 'Artisans',
+      desc: 'Craft centers, Namibian curios & gems',
+      icon: <ShoppingBag size={20} />,
+      color: '#EC4899',
       category: 'Shop',
       action: () => onOpenServices ? onOpenServices('Shop') : onNavigate('Services'),
     },
     {
       id: 'delvers',
       label: 'Delvers',
-      desc: 'Visual recommendations from travelers',
-      icon: <Flame size={22} />,
-      color: '#EF4444',
+      badge: 'Live Feed',
+      desc: 'Real-time photos & tips from travelers',
+      icon: <Flame size={20} />,
+      color: '#F43F5E',
       category: 'Delvers',
       action: () => onNavigate('Delvers'),
     },
     {
       id: 'ask-locals',
       label: 'Ask Locals',
-      desc: 'Community Q&A on roads, weather & tips',
-      icon: <HelpCircle size={22} />,
-      color: '#14B8A6',
+      badge: 'Community Q&A',
+      desc: 'Advice on roads, 4x4 trails & weather',
+      icon: <HelpCircle size={20} />,
+      color: '#06B6D4',
       category: 'Communities',
       action: () => onNavigate('Communities'),
     },
@@ -234,13 +246,32 @@ export default function HomePage({
         }}
       >
         <div className="max-w-3xl">
-          {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold mb-2.5"
-            style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
-            <Sparkles size={12} />
-            <span>Discover your entire trip in one place</span>
-            {data?.isLiveBackend?.listings && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Connected to Backend V2 API" />
+          {/* Eyebrow badge & Connection Status */}
+          <div className="flex flex-wrap items-center gap-2 mb-2.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
+              <Sparkles size={12} />
+              <span>Discover your entire trip in one place</span>
+            </div>
+
+            {data?.isLiveBackend?.listings ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Live Backend Connected</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span>Offline Demo Mode</span>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey(k => k + 1)}
+                  title="Retry connecting to Backend API"
+                  className="ml-1 p-0.5 hover:rotate-180 transition-transform cursor-pointer text-amber-600 dark:text-amber-400"
+                >
+                  <RefreshCw size={11} />
+                </button>
+              </span>
             )}
           </div>
 
@@ -388,25 +419,33 @@ export default function HomePage({
                 onClick={() => {
                   if (srv.action) srv.action()
                 }}
-                className="p-3 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between group hover:-translate-y-0.5"
+                className="p-3 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between group hover:-translate-y-0.5 hover:shadow-xs"
                 style={{
                   background: isFilterActive ? 'rgba(140,82,255,0.08)' : 'var(--surface)',
                   border: `1px solid ${isFilterActive ? 'var(--primary)' : 'var(--border)'}`,
-                  minHeight: 100,
+                  minHeight: 104,
                 }}
               >
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-transform group-hover:scale-105"
-                  style={{ background: `${srv.color}15`, color: srv.color }}
-                >
-                  {srv.icon}
+                <div className="flex items-center justify-between mb-2">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110"
+                    style={{ background: `${srv.color}18`, color: srv.color }}
+                  >
+                    {srv.icon}
+                  </div>
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                    style={{ background: `${srv.color}12`, color: srv.color }}
+                  >
+                    {srv.badge}
+                  </span>
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold m-0 flex items-center justify-between" style={{ color: 'var(--fg)' }}>
+                  <h3 className="text-xs font-bold m-0 flex items-center justify-between" style={{ color: 'var(--fg)' }}>
                     <span>{srv.label}</span>
                     <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--primary)' }} />
                   </h3>
-                  <p className="text-[10px] m-0 mt-0.5 line-clamp-1" style={{ color: 'var(--fg-muted)' }}>
+                  <p className="text-[10px] m-0 mt-0.5 line-clamp-1 leading-tight" style={{ color: 'var(--fg-muted)' }}>
                     {srv.desc}
                   </p>
                 </div>
@@ -474,8 +513,8 @@ export default function HomePage({
             {filteredListings.slice(0, 6).map(listing => (
               <article
                 key={listing.id}
-                onClick={() => onOpenListing ? onOpenListing(listing.id) : onOpenServices ? onOpenServices() : onNavigate('Services')}
-                className="overflow-hidden rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
+                onClick={() => setInquiryListing(listing)}
+                className="overflow-hidden rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md group"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div>
@@ -556,14 +595,12 @@ export default function HomePage({
                     type="button"
                     onClick={e => {
                       e.stopPropagation()
-                      if (onOpenListing) onOpenListing(listing.id)
-                      else if (onOpenServices) onOpenServices()
-                      else onNavigate('Services')
+                      setInquiryListing(listing)
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 inline-flex items-center gap-1 cursor-pointer"
                     style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
                   >
-                    <span>View details</span>
+                    <span>Contact provider</span>
                     <ChevronRight size={13} />
                   </button>
                 </div>
@@ -1093,6 +1130,99 @@ export default function HomePage({
           </div>
         </div>
       </footer>
+
+      {/* ─── DIRECT INQUIRY / PROVIDER CONNECTION MODAL ─── */}
+      {inquiryListing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setInquiryListing(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-5 shadow-2xl relative"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setInquiryListing(null)}
+              className="absolute top-4 right-4 p-1 rounded-lg text-[var(--fg-muted)] hover:text-[var(--fg)] cursor-pointer bg-transparent border-none"
+              aria-label="Close modal"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider" style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
+                {inquiryListing.category}
+              </span>
+              {inquiryListing.verified && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                  <CheckCircle size={12} />
+                  Verified Operator
+                </span>
+              )}
+            </div>
+
+            <h3 className="text-base font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+              {inquiryListing.title}
+            </h3>
+            <p className="text-xs m-0 mb-3 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
+              <MapPin size={12} />
+              <span>{inquiryListing.destination} · {inquiryListing.businessName}</span>
+            </p>
+
+            <div className="p-3 rounded-xl mb-4 text-xs" style={{ background: 'rgba(16,167,96,0.08)', border: '1px solid rgba(16,167,96,0.2)' }}>
+              <p className="font-bold m-0 text-emerald-700 dark:text-emerald-400 mb-0.5">
+                0% Middleman Booking Fees
+              </p>
+              <p className="m-0 text-emerald-600/90 dark:text-emerald-400/80 text-[11px] leading-relaxed">
+                Connect directly with {inquiryListing.businessName}. No booking markups or credit card processing surcharges.
+              </p>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <a
+                href={`https://wa.me/264811234567?text=${encodeURIComponent(`Hi ${inquiryListing.businessName}, I found your listing "${inquiryListing.title}" on Delve and would like to inquire about availability and rates.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-95 no-underline"
+                style={{ background: '#25D366' }}
+              >
+                <span>Chat directly on WhatsApp</span>
+                <ArrowUpRight size={14} />
+              </a>
+
+              <a
+                href="tel:+264811234567"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 no-underline"
+                style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+              >
+                <span>Call Operator (+264 81 123 4567)</span>
+              </a>
+            </div>
+
+            <div className="pt-3 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border)' }}>
+              <span className="font-bold" style={{ color: 'var(--fg)' }}>
+                {inquiryListing.priceFormatted || 'Direct inquiry'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = inquiryListing.id
+                  setInquiryListing(null)
+                  if (onOpenListing) onOpenListing(id)
+                  else if (onOpenServices) onOpenServices()
+                  else onNavigate('Services')
+                }}
+                className="font-semibold text-[var(--primary)] hover:underline cursor-pointer bg-transparent border-none p-0 inline-flex items-center gap-1"
+              >
+                <span>View full listing</span>
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

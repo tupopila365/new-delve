@@ -28,7 +28,11 @@ export function createCorsOptions(env: Env): CorsOptions {
 
   return {
     origin(origin, callback) {
-      if (!origin || allowed.has(origin)) {
+      if (
+        !origin ||
+        allowed.has(origin) ||
+        (env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))
+      ) {
         callback(null, true)
         return
       }
