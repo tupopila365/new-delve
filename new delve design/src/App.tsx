@@ -8,7 +8,6 @@ import {
   TrendingUp, Send, X, Flame, Building2, Briefcase, Mail, Menu, Bed,
 } from 'lucide-react'
 import { businessPath, eventPath, navToPath, normalizePath, parseBusinessSlug, parseEventId, pathToNav } from './navigation'
-import { getStoredUser, getStoredAccessToken, logoutSession, refreshSession } from './api/authClient'
 import type { DealDto, PostDto } from '@delve/contracts'
 import { formatUsername } from './lib/formatUsername'
 import VerifyEmailPage from './pages/auth/VerifyEmailPage'
@@ -16,7 +15,6 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import OnboardingFlow from './pages/onboarding/OnboardingFlow'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import EmailChangeVerifyPage from './pages/EmailChangeVerifyPage'
-import { fetchOnboarding } from './api/authClient'
 import { ShimmerStyle } from './components/SectionStates'
 import SafeImage from './components/mobile/SafeImage'
 import ExpandableCaption from './components/mobile/ExpandableCaption'
@@ -53,9 +51,19 @@ import type { CompanyRoute } from './pages/CompanyPage'
 import ProviderDashboardPage from './business/ProviderDashboardPage'
 import CreateBusinessPage from './pages/business/CreateBusinessPage'
 import PublicBusinessPage from './pages/PublicBusinessPage'
-import AuthFlow from './pages/auth/AuthFlow'
-import type { AuthRoute } from './pages/auth/AuthFlow'
-import { AuthRequiredBottomSheet, AuthRequiredModal, DelveLogo, type GuestAction } from './components/auth'
+import {
+  AuthRequiredBottomSheet,
+  AuthRequiredModal,
+  DelveLogo,
+  ProtectedRoute,
+  PublicOnlyRoute,
+  type GuestAction,
+} from './components/auth'
+import SignInScreen from './pages/auth/SignInScreen'
+import SignUpScreen from './pages/auth/SignUpScreen'
+import ForgotPasswordFlow from './pages/auth/ForgotPasswordFlow'
+import EmailVerificationScreen from './pages/auth/EmailVerificationScreen'
+import { useAuth } from './context'
 import HomePage from './pages/HomePage'
 
 // ─── Theme ────────────────────────────────────────────────────────────────
@@ -463,13 +471,8 @@ export default function App() {
   const [activeNav, setActiveNavRaw] = useState(() => pathToNav(location.pathname))
   const [following, setFollowing] = useState<Set<string>>(new Set(['d1']))
   const [activeStory, setActiveStory] = useState<string | null>(null)
-  const [authRoute, setAuthRoute] = useState<AuthRoute | null>(null)
-  /** Canonical traveler auth status — no separate AuthContext. */
-  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>(() =>
-    getStoredUser() ? 'loading' : 'unauthenticated',
-  )
-  const signedIn = authStatus === 'authenticated'
-  const authReady = authStatus !== 'loading'
+  const { user, profile, isAuthenticated: signedIn, isLoading, logout } = useAuth()
+  const authReady = !isLoading
   const messageUnreadCount = useMessageUnreadCount(signedIn && authReady)
   const {
     unreadCount: notificationUnreadCount,
@@ -584,34 +587,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      if (!getStoredUser()) {
-        setAuthStatus('unauthenticated')
-        return
-      }
-      const refreshed = await refreshSession()
-      if (cancelled) return
-      // Prefer a live session. Stale user-only storage must not look signed-in.
-      const ok = Boolean(refreshed || (getStoredUser() && getStoredAccessToken()))
-      if (!ok) {
-        setAuthStatus('unauthenticated')
-        return
-      }
-      setAuthStatus('authenticated')
-      try {
-        const profile = await fetchOnboarding()
-        if (cancelled) return
-        if (profile.onboardingStatus === 'NOT_STARTED') setShowOnboarding(true)
-        else if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
-      } catch {
-        /* profile fetch may fail if API/migration not ready — never force logout */
-      }
-    })()
-    return () => {
-      cancelled = true
+    if (signedIn && profile) {
+      if (profile.onboardingStatus === 'NOT_STARTED') setShowOnboarding(true)
+      else if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
     }
-  }, [])
+  }, [signedIn, profile])
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -663,7 +643,7 @@ export default function App() {
       setPostAuthNav(label)
       setPendingCreatePost(false)
       setGuestPrompt(null)
-      setAuthRoute('signIn')
+      navigate('/login', { state: { from: { pathname: navToPath(label) } } })
       return
     }
     if (label === 'Account') {
@@ -676,29 +656,19 @@ export default function App() {
     goToNav(label)
   }
 
-  function openAuth(route: AuthRoute) {
+  function openAuth(route: 'signIn' | 'signUp' = 'signIn') {
     setGuestPrompt(null)
     setPostAuthNav(null)
     setPendingCreatePost(false)
-    setAuthRoute(route)
+    navigate(route === 'signUp' ? '/signup' : '/login', { state: { from: location } })
   }
-
-  useEffect(() => {
-    const state = location.state as { openAuth?: AuthRoute } | null
-    if (state?.openAuth) {
-      openAuth(state.openAuth)
-      navigate(location.pathname, { replace: true, state: null })
-    }
-  }, [location.state, location.pathname, navigate])
-
-
 
   function openCreate() {
     if (!signedIn) {
       setPendingCreatePost(true)
       setPostAuthNav(null)
       setGuestPrompt(null)
-      setAuthRoute('signIn')
+      navigate('/login', { state: { from: location } })
       return
     }
     setCreatePostOpen(true)
@@ -768,36 +738,23 @@ export default function App() {
     onOpenBusiness: openBusiness,
   }
 
-  function handleAuthenticated() {
-    setAuthStatus('authenticated')
-    setAuthRoute(null)
-    void (async () => {
-      try {
-        const profile = await fetchOnboarding()
-        if (profile.onboardingStatus === 'NOT_STARTED') {
-          setShowOnboarding(true)
-          return
-        }
-        if (profile.onboardingStatus === 'IN_PROGRESS') setShowOnboardingResume(true)
-      } catch {
-        /* ignore — never block sign-in on profile fetch failure */
-      }
-
-      if (pendingCreatePost) {
-        setCreatePostOpen(true)
-        setPendingCreatePost(false)
-        return
-      }
-      if (postAuthNav) {
-        goToNav(postAuthNav)
-        setPostAuthNav(null)
-      }
-    })()
+  function handleSignedIn() {
+    const from = (location.state as { from?: { pathname?: string; search?: string } })?.from
+    const destination = from
+      ? `${from.pathname ?? ''}${from.search ?? ''}`
+      : postAuthNav
+        ? navToPath(postAuthNav)
+        : '/account'
+    setPostAuthNav(null)
+    if (pendingCreatePost) {
+      setCreatePostOpen(true)
+      setPendingCreatePost(false)
+    }
+    navigate(destination, { replace: true })
   }
 
   function handleSignOut() {
-    void logoutSession()
-    setAuthStatus('unauthenticated')
+    void logout()
     setShowOnboarding(false)
     setShowOnboardingResume(false)
     setAccountSettingsOpen(false)
@@ -903,16 +860,66 @@ export default function App() {
 
   const EXPLORE_ROUTES = new Set(['Explore', 'Search', 'Services', 'Transport'])
 
-  // ── Authentication flow (full screen) ─────────────────────────────────
-  if (authRoute) {
+  const currentPath = normalizePath(location.pathname)
+
+  // ── Dedicated Full-Page Auth Routes ──────────────────────────────────
+  if (currentPath === '/login') {
     return (
       <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
-        <AuthFlow
-          initialRoute={authRoute}
-          destinationLabel="Delve"
+        <PublicOnlyRoute redirectPath="/account">
+          <SignInScreen
+            headerTrailing={<ThemeToggle theme={theme} setTheme={setTheme} />}
+            onSignedIn={handleSignedIn}
+            onNavigateSignUp={() => navigate('/signup', { state: location.state })}
+            onNavigateForgotPassword={() => navigate('/forgot-password', { state: location.state })}
+            onNavigateVerifyEmail={email => navigate('/verify-email', { state: { email } })}
+            onClose={() => navigate('/')}
+          />
+        </PublicOnlyRoute>
+      </div>
+    )
+  }
+
+  if (currentPath === '/signup') {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
+        <PublicOnlyRoute redirectPath="/account">
+          <SignUpScreen
+            headerTrailing={<ThemeToggle theme={theme} setTheme={setTheme} />}
+            onNavigateSignIn={() => navigate('/login', { state: location.state })}
+            onComplete={() => navigate('/onboarding')}
+            onClose={() => navigate('/')}
+          />
+        </PublicOnlyRoute>
+      </div>
+    )
+  }
+
+  if (currentPath === '/forgot-password') {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
+        <PublicOnlyRoute redirectPath="/account">
+          <ForgotPasswordFlow
+            headerTrailing={<ThemeToggle theme={theme} setTheme={setTheme} />}
+            onBackToSignIn={() => navigate('/login', { state: location.state })}
+            onDone={() => navigate('/login')}
+            onClose={() => navigate('/')}
+          />
+        </PublicOnlyRoute>
+      </div>
+    )
+  }
+
+  if (currentPath === '/verify-email') {
+    return (
+      <div style={{ background: 'var(--bg)', color: 'var(--fg)', minHeight: '100dvh' }}>
+        <EmailVerificationScreen
           headerTrailing={<ThemeToggle theme={theme} setTheme={setTheme} />}
-          onAuthenticated={handleAuthenticated}
-          onExit={() => { setAuthRoute(null); setPendingCreatePost(false) }}
+          email={(location.state as { email?: string })?.email || user?.email || ''}
+          onContinue={() => navigate('/account')}
+          onChangeEmail={() => navigate('/signup')}
+          onBackToSignIn={() => navigate('/login')}
+          onClose={() => navigate('/')}
         />
       </div>
     )
@@ -1208,142 +1215,140 @@ export default function App() {
         />
       )
     if (activeNav === 'Transport') return <TransportPage />
-    if (HUB_ROUTES.has(activeNav) && signedIn) {
-      if (activeNav === 'Profile')
-        return (
-          <ProfilePage
-            username={profileUsername}
-            viewerUserId={getStoredUser()?.id}
-            authReady={authReady}
-            signedIn={signedIn}
-            onBack={openAccountHub}
-            onCreatePost={openCreate}
-            onCreateEvent={() => setCreateEventOpen(true)}
-            onOpenEvent={openEventDetail}
-            onOpenJourney={id => {
-              setActiveNav('Journeys')
-              setJourneyDetailId(id)
-            }}
-            onOpenUser={uname => openProfile(uname)}
-            onOpenCommunities={() => setActiveNav('Communities')}
-            contentRefreshKey={socialRefreshKey}
-            onEditProfile={openEditProfile}
-            onOpenAccountSettings={() => openAccountSettings('profile')}
-            onMessageUser={id => {
-              setMessagesTargetUserId(id)
-              setActiveNav('Messages')
-            }}
-          />
-        )
-      if (activeNav === 'Messages')
-        return (
-          <MessagesPage
-            signedIn={signedIn}
-            authReady={authReady}
-            onSignIn={() => openAuth('signIn')}
-            openJourneyId={messagesJourneyId}
-            onJourneyOpened={() => setMessagesJourneyId(null)}
-            openCommunityId={messagesCommunityId}
-            onCommunityOpened={() => setMessagesCommunityId(null)}
-            openConversationId={messagesConversationId}
-            onConversationOpened={() => setMessagesConversationId(null)}
-            openUserId={messagesTargetUserId}
-            onUserOpened={() => setMessagesTargetUserId(null)}
-            onOpenJourney={id => {
-              setActiveNav('Journeys')
-              setJourneyDetailId(id)
-            }}
-            onOpenCommunity={id => {
-              setActiveNav('Communities')
-              setCommunityDetailId(id)
-              setCommunityInitialThreadId(null)
-            }}
-          />
-        )
-      if (activeNav === 'Saved')
-        return (
-          <SavedPage
-            onOpenEvent={openEventDetail}
-            onOpenJourney={id => {
-              setActiveNav('Journeys')
-              setJourneyDetailId(id)
-            }}
-            onOpenCommunityThread={id => void openCommunityThread(id)}
-            onOpenDeal={id => {
-              setDealsSelectedId(id)
-              goToNav('Deals')
-            }}
-            authReady={authReady}
-            signedIn={signedIn}
-          />
-        )
-      if (activeNav === 'Notifications')
-        return (
-          <NotificationsPage
-            authReady={authReady}
-            signedIn={signedIn}
-            onOpenJourney={id => {
-              setActiveNav('Journeys')
-              setJourneyDetailId(id)
-            }}
-            onOpenEvent={openEventDetail}
-            onOpenConversation={id => {
-              setMessagesConversationId(id)
-              setActiveNav('Messages')
-            }}
-            onOpenCommunityThread={id => void openCommunityThread(id)}
-          />
-        )
-      if (accountSettingsOpen || activeNav === 'Account settings') {
-        return (
-          <AccountSettingsPage
-            onSignOut={handleSignOut}
-            onOpenOnboarding={() => setShowOnboarding(true)}
-            onBack={openAccountHub}
-            initialSection={settingsInitialSection}
-          />
-        )
-      }
+    if (HUB_ROUTES.has(activeNav) || activeNav === 'Account settings') {
       return (
-        <>
-          {showOnboardingResume && (
-            <div className="mb-3 rounded-2xl px-3 py-3 flex items-center justify-between gap-3" style={{ background: 'rgba(140,82,255,0.1)', border: '1px solid var(--border)' }}>
-              <p className="text-sm" style={{ color: 'var(--fg)' }}>Finish setting up your Delve profile when you are ready.</p>
-              <button
-                type="button"
-                className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
-                style={{ background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}
-                onClick={() => setShowOnboarding(true)}
-              >
-                Resume
-              </button>
-            </div>
+        <ProtectedRoute redirectPath="/login">
+          {activeNav === 'Profile' && (
+            <ProfilePage
+              username={profileUsername}
+              viewerUserId={user?.id}
+              authReady={authReady}
+              signedIn={signedIn}
+              onBack={openAccountHub}
+              onCreatePost={openCreate}
+              onCreateEvent={() => setCreateEventOpen(true)}
+              onOpenEvent={openEventDetail}
+              onOpenJourney={id => {
+                setActiveNav('Journeys')
+                setJourneyDetailId(id)
+              }}
+              onOpenUser={uname => openProfile(uname)}
+              onOpenCommunities={() => setActiveNav('Communities')}
+              contentRefreshKey={socialRefreshKey}
+              onEditProfile={openEditProfile}
+              onOpenAccountSettings={() => openAccountSettings('profile')}
+              onMessageUser={id => {
+                setMessagesTargetUserId(id)
+                setActiveNav('Messages')
+              }}
+            />
           )}
-          <AccountDashboardPage
-            travelerName={getStoredUser()?.username ?? 'Traveler'}
-            authReady={authReady}
-            signedIn={signedIn}
-            onOpenJourney={id => {
-              setActiveNav('Journeys')
-              setJourneyDetailId(id)
-            }}
-            onOpenEvent={openEventDetail}
-            onNavigate={target => {
-              if (target === 'Profile') {
-                setAccountSettingsOpen(false)
-                setProfileUsername(null)
-              }
-              if (target === 'Events') {
-                setEventsInitialTab('attending')
-              }
-              handleAccountNavigate(target)
-            }}
-            onOpenBusinessAdmin={() => goToNav('Provider')}
-            onSignOut={handleSignOut}
-            onOpenSettings={() => openAccountSettings('profile')}
-            onEditProfile={openEditProfile}
-          />
-        </>
+          {activeNav === 'Messages' && (
+            <MessagesPage
+              signedIn={signedIn}
+              authReady={authReady}
+              onSignIn={() => openAuth('signIn')}
+              openJourneyId={messagesJourneyId}
+              onJourneyOpened={() => setMessagesJourneyId(null)}
+              openCommunityId={messagesCommunityId}
+              onCommunityOpened={() => setMessagesCommunityId(null)}
+              openConversationId={messagesConversationId}
+              onConversationOpened={() => setMessagesConversationId(null)}
+              openUserId={messagesTargetUserId}
+              onUserOpened={() => setMessagesTargetUserId(null)}
+              onOpenJourney={id => {
+                setActiveNav('Journeys')
+                setJourneyDetailId(id)
+              }}
+              onOpenCommunity={id => {
+                setActiveNav('Communities')
+                setCommunityDetailId(id)
+                setCommunityInitialThreadId(null)
+              }}
+            />
+          )}
+          {activeNav === 'Saved' && (
+            <SavedPage
+              onOpenEvent={openEventDetail}
+              onOpenJourney={id => {
+                setActiveNav('Journeys')
+                setJourneyDetailId(id)
+              }}
+              onOpenCommunityThread={id => void openCommunityThread(id)}
+              onOpenDeal={id => {
+                setDealsSelectedId(id)
+                goToNav('Deals')
+              }}
+              authReady={authReady}
+              signedIn={signedIn}
+            />
+          )}
+          {activeNav === 'Notifications' && (
+            <NotificationsPage
+              authReady={authReady}
+              signedIn={signedIn}
+              onOpenJourney={id => {
+                setActiveNav('Journeys')
+                setJourneyDetailId(id)
+              }}
+              onOpenEvent={openEventDetail}
+              onOpenConversation={id => {
+                setMessagesConversationId(id)
+                setActiveNav('Messages')
+              }}
+              onOpenCommunityThread={id => void openCommunityThread(id)}
+            />
+          )}
+          {(accountSettingsOpen || activeNav === 'Account settings') && (
+            <AccountSettingsPage
+              onSignOut={handleSignOut}
+              onOpenOnboarding={() => setShowOnboarding(true)}
+              onBack={openAccountHub}
+              initialSection={settingsInitialSection}
+            />
+          )}
+          {activeNav === 'Account' && !accountSettingsOpen && (
+            <>
+              {showOnboardingResume && (
+                <div className="mb-3 rounded-2xl px-3 py-3 flex items-center justify-between gap-3" style={{ background: 'rgba(140,82,255,0.1)', border: '1px solid var(--border)' }}>
+                  <p className="text-sm" style={{ color: 'var(--fg)' }}>Finish setting up your Delve profile when you are ready.</p>
+                  <button
+                    type="button"
+                    className="min-h-[44px] px-3 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                    onClick={() => setShowOnboarding(true)}
+                  >
+                    Resume
+                  </button>
+                </div>
+              )}
+              <AccountDashboardPage
+                travelerName={user?.username ?? 'Traveler'}
+                authReady={authReady}
+                signedIn={signedIn}
+                onOpenJourney={id => {
+                  setActiveNav('Journeys')
+                  setJourneyDetailId(id)
+                }}
+                onOpenEvent={openEventDetail}
+                onNavigate={target => {
+                  if (target === 'Profile') {
+                    setAccountSettingsOpen(false)
+                    setProfileUsername(null)
+                  }
+                  if (target === 'Events') {
+                    setEventsInitialTab('attending')
+                  }
+                  handleAccountNavigate(target)
+                }}
+                onOpenBusinessAdmin={() => goToNav('Provider')}
+                onSignOut={handleSignOut}
+                onOpenSettings={() => openAccountSettings('profile')}
+                onEditProfile={openEditProfile}
+              />
+            </>
+          )}
+        </ProtectedRoute>
       )
     }
 
@@ -1496,7 +1501,7 @@ export default function App() {
               <button type="button" onClick={() => setActiveNav('Account')}
                 className="px-3 py-2 rounded-xl text-sm font-semibold hidden lg:flex items-center gap-2"
                 style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
-                <CheckCircle size={14} /> {formatUsername(getStoredUser()?.username) || 'Account'}
+                <CheckCircle size={14} /> {formatUsername(user?.username) || 'Account'}
               </button>
             ) : (
               <>

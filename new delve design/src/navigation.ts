@@ -27,6 +27,9 @@ export const NAV_PATHS: Record<string, string> = {
   Onboarding: '/onboarding',
   'Account settings': '/account/settings',
   'Email change': '/account/email-change',
+  Login: '/login',
+  Signup: '/signup',
+  'Forgot password': '/forgot-password',
 }
 
 export function normalizePath(pathname: string): string {

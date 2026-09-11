@@ -43,28 +43,7 @@ interface AccountDashboardPageProps {
   signedIn?: boolean
 }
 
-const BOOKINGS = [
-  {
-    id: 1,
-    type: 'Stay',
-    name: 'Riad Dar Zitoun',
-    location: 'Marrakech, Morocco',
-    dates: 'Aug 14 – 18, 2026',
-    status: 'Confirmed',
-    ref: 'DLV-83421',
-    img: 'https://images.unsplash.com/photo-1539635278303-d4002c07eae3?w=640&h=360&fit=crop&auto=format',
-  },
-  {
-    id: 2,
-    type: 'Transport',
-    name: 'CMN → RAK Train',
-    location: 'ONCF Rail · Coach 4, Seat 12A',
-    dates: 'Aug 14, 2026 · 08:40',
-    status: 'Confirmed',
-    ref: 'DLV-83390',
-    img: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=640&h=360&fit=crop&auto=format',
-  },
-]
+
 
 
 const ALERTS = [

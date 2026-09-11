@@ -111,3 +111,9 @@ export type { SupportLinkProps } from './SupportLink'
 
 export { default as AuthThemeToggle } from './AuthThemeToggle'
 export type { AuthThemeToggleProps, AuthTheme } from './AuthThemeToggle'
+
+export { default as ProtectedRoute } from './ProtectedRoute'
+export type { ProtectedRouteProps } from './ProtectedRoute'
+
+export { default as PublicOnlyRoute } from './PublicOnlyRoute'
+export type { PublicOnlyRouteProps } from './PublicOnlyRoute'

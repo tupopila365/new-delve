@@ -561,3 +561,49 @@ export async function deactivateAccount(input: { currentPassword: string; confir
   clearSession()
   return data
 }
+
+/** Unified current user + profile fetcher for AuthContext */
+export async function fetchCurrentUser(): Promise<{
+  user: PublicUser
+  profile: TravelerProfileDto | null
+} | null> {
+  const storedUser = getStoredUser()
+  const token = getStoredAccessToken()
+  if (!storedUser && !token) return null
+
+  const session = await refreshSession()
+  const activeUser = session?.user || storedUser
+  if (!activeUser) return null
+
+  try {
+    const profile = await fetchOnboarding()
+    return { user: activeUser, profile }
+  } catch {
+    return { user: activeUser, profile: null }
+  }
+}
+
+export interface LoginCredentials {
+  identifier?: string
+  email?: string
+  username?: string
+  password: string
+}
+
+export async function loginUser(
+  credentialsOrIdentifier: LoginCredentials | string,
+  maybePassword?: string
+): Promise<LoginSuccessData> {
+  if (typeof credentialsOrIdentifier === 'string') {
+    return loginWithIdentifier(credentialsOrIdentifier, maybePassword || '')
+  }
+  const id =
+    credentialsOrIdentifier.identifier ||
+    credentialsOrIdentifier.email ||
+    credentialsOrIdentifier.username ||
+    ''
+  return loginWithIdentifier(id, credentialsOrIdentifier.password)
+}
+
+export const logoutUser = logoutSession
+
