@@ -16,7 +16,6 @@ export const NAV_PATHS: Record<string, string> = {
   Messages: '/messages',
   Saved: '/saved',
   Notifications: '/notifications',
-  Bookings: '/bookings',
   Provider: '/provider',
   'Provider business': '/provider/business',
   'Create business': '/business/create',

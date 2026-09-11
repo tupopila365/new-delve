@@ -23,7 +23,7 @@ export type AccountNavTarget =
   | 'Saved'
   | 'Messages'
   | 'Home'
-  | 'Bookings'
+  | 'Services'
 
 interface AccountDashboardPageProps {
   onNavigate: (target: AccountNavTarget) => void
@@ -85,7 +85,7 @@ const ALERTS = [
 ]
 
 const ACTIONS: { label: string; icon: ReactNode; target: AccountNavTarget }[] = [
-  { label: 'My Bookings', icon: <Calendar size={20} />, target: 'Bookings' },
+  { label: 'Explore Services', icon: <Building2 size={20} />, target: 'Services' },
   { label: 'Open Journey', icon: <Navigation size={20} />, target: 'Journeys' },
   { label: 'Saved Items', icon: <Heart size={20} />, target: 'Saved' },
   { label: 'Messages', icon: <MessageCircle size={20} />, target: 'Messages' },
@@ -449,65 +449,6 @@ export default function AccountDashboardPage({
           })}
         </div>
 
-        {/* Upcoming bookings */}
-        <SectionHeader label="Upcoming" action="See all" onAction={() => onNavigate('Bookings')} />
-        <div className="flex flex-col gap-3 mb-6">
-          {BOOKINGS.map(booking => (
-            <article
-              key={booking.id}
-              className="overflow-hidden rounded-2xl"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <div className="relative h-28 overflow-hidden">
-                <img src={booking.img} alt="" className="h-full w-full object-cover" />
-              </div>
-              <div className="p-3.5">
-                <div className="flex items-start justify-between gap-3 mb-1">
-                  <div className="min-w-0">
-                    <p
-                      className="text-[11px] font-bold uppercase tracking-wider mb-0.5"
-                      style={{ color: 'var(--primary)' }}
-                    >
-                      {booking.type}
-                    </p>
-                    <h3 className="font-display text-[15px] font-bold truncate" style={{ color: 'var(--fg)' }}>
-                      {booking.name}
-                    </h3>
-                  </div>
-                  <span
-                    className="rounded-md px-2 py-0.5 text-[11px] font-bold flex-shrink-0"
-                    style={{ background: 'color-mix(in srgb, var(--auth-success) 14%, transparent)', color: 'var(--auth-success)' }}
-                  >
-                    {booking.status}
-                  </span>
-                </div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--fg-muted)' }}>{booking.location}</p>
-                <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>{booking.dates}</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="flex-1 rounded-xl py-2 text-sm font-semibold text-white active:opacity-90"
-                    style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-                  >
-                    View details
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 rounded-xl py-2 text-sm font-semibold active:opacity-80"
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid var(--border)',
-                      color: 'var(--fg)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Contact
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
 
         {/* Your journeys */}
         <SectionHeader label="Your journeys" action="See all" onAction={() => onNavigate('Journeys')} />

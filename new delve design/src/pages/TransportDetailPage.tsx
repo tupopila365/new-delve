@@ -218,18 +218,17 @@ function BookingPanel({ result, onBook }: { result: TransportResult; onBook?: (p
         </p>
 
         {/* CTA */}
-        <button
-          disabled={result.status === 'sold-out'}
-          onClick={() => result.bookingMethod !== 'external' && onBook?.(passengers)}
-          className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 hover:opacity-90"
+        <a
+          href="tel:+26481000000"
+          className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 hover:opacity-90 no-underline"
           style={{
-            background: result.status === 'sold-out' ? 'var(--border)' : color === '#8C52FF' ? 'var(--primary)' : color,
-            color: result.status === 'sold-out' ? 'var(--fg-muted)' : '#fff',
+            background: color === '#8C52FF' ? 'var(--primary)' : color,
+            color: '#fff',
             minHeight: 48,
           }}>
-          {result.status === 'sold-out' ? 'Sold out' : actionLabel}
-          {result.bookingMethod === 'external' && <ExternalLink size={14} />}
-        </button>
+          <span>Contact Operator</span>
+          <Phone size={14} />
+        </a>
 
         {/* Contact */}
         <div className="flex gap-2">
@@ -599,17 +598,15 @@ export default function TransportDetailPage({ resultId, onBack, onBook }: Props)
             </span>
             <span className="text-xs ml-1" style={{ color: 'var(--fg-muted)' }}>/ {result.priceBasis}</span>
           </div>
-          <button
-            type="button"
-            disabled={result.status === 'sold-out'}
-            onClick={() => result.bookingMethod !== 'external' && result.status !== 'sold-out' && onBook?.(1)}
-            className="flex-shrink-0 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 min-h-[48px]"
+          <a
+            href="tel:+26481000000"
+            className="flex-shrink-0 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 min-h-[48px] inline-flex items-center gap-1.5 no-underline"
             style={{
-              background: result.status === 'sold-out' ? 'var(--border)' : color,
-              color: result.status === 'sold-out' ? 'var(--fg-muted)' : '#fff',
+              background: color,
+              color: '#fff',
             }}>
-            {result.status === 'sold-out' ? 'Sold out' : result.bookingMethod === 'request' ? 'Send request' : 'Book now'}
-          </button>
+            <span>Contact Operator</span>
+          </a>
         </div>
       </div>
 

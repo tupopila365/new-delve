@@ -19,9 +19,7 @@ export type ServicesBrowseProps = {
   selectedId: string | null
   setSelectedId: (id: string | null) => void
   onOpenTransport: () => void
-  onBookListing?: (listingId: string, draft?: import('./ServiceDetailPage').ServiceBookingDraft) => void
   onOpenBusiness?: (slug: string) => void
-  onOpenBookings?: () => void
 }
 
 function coverUrl(listing: ListingPublicDto): string | null {
@@ -147,7 +145,6 @@ export default function ServicesPage({
   selectedId,
   setSelectedId,
   onOpenBusiness,
-  onOpenBookings,
 }: ServicesBrowseProps) {
   const [listings, setListings] = useState<ListingPublicDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -221,7 +218,6 @@ export default function ServicesPage({
         listingId={selectedId}
         onBack={() => setSelectedId(null)}
         onOpenBusiness={onOpenBusiness}
-        onOpenBookings={onOpenBookings}
       />
     )
   }

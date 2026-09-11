@@ -1,0 +1,1098 @@
+import { useState, useEffect, useMemo } from 'react'
+import {
+  Search, MapPin, Sparkles, Tag, Car, Bed, Utensils, Zap, Map,
+  Calendar, ShoppingBag, Navigation, Users, Flame, HelpCircle,
+  ShieldCheck, ChevronRight, ArrowUpRight, CheckCircle, Bookmark,
+  Star, RefreshCw, MessageSquare, Award, Clock, ArrowRight,
+  Plane, Bus, Check, X, Compass
+} from 'lucide-react'
+import { fetchHomePageData, type HomeFeedData, type NormalizedListing, type NormalizedDeal, type NormalizedJourney } from '../api/homeClient'
+import type { TransportResult } from '../data/transportData'
+import SafeImage from '../components/mobile/SafeImage'
+import { SkeletonCard, SectionEmpty, SectionError } from '../components/SectionStates'
+
+export interface HomePageProps {
+  onNavigate: (nav: string) => void
+  onOpenListing?: (id: string) => void
+  onOpenDeal?: (id: string) => void
+  onOpenJourney?: (id: string) => void
+  onOpenTransport?: () => void
+  onOpenExplore?: () => void
+  onOpenServices?: (category?: string) => void
+  signedIn?: boolean
+  onSignIn?: () => void
+}
+
+const DESTINATIONS = [
+  { id: 'all', label: 'All Namibia', subtitle: 'Explore nationwide' },
+  { id: 'Swakopmund', label: 'Swakopmund', subtitle: 'Coast & dunes' },
+  { id: 'Windhoek', label: 'Windhoek', subtitle: 'Capital & culture' },
+  { id: 'Walvis Bay', label: 'Walvis Bay', subtitle: 'Lagoon & marine life' },
+  { id: 'Sossusvlei', label: 'Sossusvlei', subtitle: 'Red dunes & Deadvlei' },
+  { id: 'Etosha', label: 'Etosha', subtitle: 'Wildlife & safaris' },
+]
+
+const MOOD_SHORTCUTS = [
+  { label: 'Weekend away', category: 'Stays', icon: <Bed size={14} /> },
+  { label: 'Coast & Dunes', category: 'Activities', icon: <Zap size={14} /> },
+  { label: 'Wildlife Safaris', category: 'Activities', icon: <Compass size={14} /> },
+  { label: 'Easy on the wallet', category: 'Deals', icon: <Tag size={14} /> },
+  { label: 'Road trips', category: 'Transport', icon: <Car size={14} /> },
+  { label: 'Local dining', category: 'Food', icon: <Utensils size={14} /> },
+]
+
+export default function HomePage({
+  onNavigate,
+  onOpenListing,
+  onOpenDeal,
+  onOpenJourney,
+  onOpenTransport,
+  onOpenExplore,
+  onOpenServices,
+  signedIn,
+  onSignIn,
+}: HomePageProps) {
+  const [selectedDestination, setSelectedDestination] = useState<string | null>(null)
+  const [data, setData] = useState<HomeFeedData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [savedItems, setSavedItems] = useState<Set<string>>(new Set())
+  const [serviceFilter, setServiceFilter] = useState('All')
+  const [refreshKey, setReloadKey] = useState(0)
+
+  // 11 Core Delve Services definition
+  const CORE_SERVICES = [
+    {
+      id: 'stays',
+      label: 'Stays',
+      desc: 'Lodges, desert chalets, campsites & hotels',
+      icon: <Bed size={22} />,
+      color: '#8C52FF',
+      category: 'Stay',
+      action: () => onOpenServices ? onOpenServices('Stay') : onNavigate('Services'),
+    },
+    {
+      id: 'transport',
+      label: 'Transport',
+      desc: 'Rentals, private drivers, rides & buses',
+      icon: <Car size={22} />,
+      color: '#3B82F6',
+      category: 'Transport',
+      action: () => onOpenTransport ? onOpenTransport() : onNavigate('Transport'),
+    },
+    {
+      id: 'food',
+      label: 'Food & Drink',
+      desc: 'Waterfront dining, authentic spots & cafes',
+      icon: <Utensils size={22} />,
+      color: '#E05C1A',
+      category: 'Food',
+      action: () => onOpenServices ? onOpenServices('Food') : onNavigate('Services'),
+    },
+    {
+      id: 'activities',
+      label: 'Activities',
+      desc: 'Dunes, quad biking, cruises & safaris',
+      icon: <Zap size={22} />,
+      color: '#10A760',
+      category: 'Activity',
+      action: () => onOpenServices ? onOpenServices('Activity') : onNavigate('Services'),
+    },
+    {
+      id: 'deals',
+      label: 'Deals',
+      desc: 'Genuine discounts & local resident rates',
+      icon: <Tag size={22} />,
+      color: '#F59E0B',
+      category: 'Deals',
+      action: () => onNavigate('Deals'),
+    },
+    {
+      id: 'journeys',
+      label: 'Journeys',
+      desc: 'Traveler-tested routes & real trip budgets',
+      icon: <Navigation size={22} />,
+      color: '#6366F1',
+      category: 'Journeys',
+      action: () => onNavigate('Journeys'),
+    },
+    {
+      id: 'events',
+      label: 'Events',
+      desc: 'Live music, cultural festivals & gatherings',
+      icon: <Calendar size={22} />,
+      color: '#EC4899',
+      category: 'Events',
+      action: () => onNavigate('Events'),
+    },
+    {
+      id: 'guides',
+      label: 'Guides',
+      desc: 'Licensed local guides & wildlife spotters',
+      icon: <Map size={22} />,
+      color: '#06B6D4',
+      category: 'Guide',
+      action: () => onOpenServices ? onOpenServices('Guide') : onNavigate('Services'),
+    },
+    {
+      id: 'shops',
+      label: 'Shops',
+      desc: 'Namibian crafts, gear & artisan goods',
+      icon: <ShoppingBag size={22} />,
+      color: '#8B5CF6',
+      category: 'Shop',
+      action: () => onOpenServices ? onOpenServices('Shop') : onNavigate('Services'),
+    },
+    {
+      id: 'delvers',
+      label: 'Delvers',
+      desc: 'Visual recommendations from travelers',
+      icon: <Flame size={22} />,
+      color: '#EF4444',
+      category: 'Delvers',
+      action: () => onNavigate('Delvers'),
+    },
+    {
+      id: 'ask-locals',
+      label: 'Ask Locals',
+      desc: 'Community Q&A on roads, weather & tips',
+      icon: <HelpCircle size={22} />,
+      color: '#14B8A6',
+      category: 'Communities',
+      action: () => onNavigate('Communities'),
+    },
+  ]
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const feed = await fetchHomePageData(selectedDestination)
+        if (!cancelled) {
+          setData(feed)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not load Delve services.')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedDestination, refreshKey])
+
+  function toggleSave(id: string) {
+    setSavedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Filter listings by active category pill
+  const filteredListings = useMemo(() => {
+    if (!data?.listings) return []
+    let list = data.listings
+    if (serviceFilter !== 'All') {
+      list = list.filter(l => {
+        const cat = (l.category || l.businessCategory || '').toLowerCase()
+        return cat.includes(serviceFilter.toLowerCase())
+      })
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(l =>
+        l.title.toLowerCase().includes(q) ||
+        l.businessName.toLowerCase().includes(q) ||
+        l.destination.toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [data?.listings, serviceFilter, searchQuery])
+
+  // Budget friendly listings
+  const budgetListings = useMemo(() => {
+    if (!data?.listings) return []
+    return data.listings.slice(0, 4)
+  }, [data?.listings])
+
+  return (
+    <div className="min-w-0 pb-20 overflow-x-hidden">
+      {/* ─── 1. HERO & DISCOVERY SECTION ───────────────────────────────────── */}
+      <section
+        className="relative overflow-hidden rounded-2xl p-5 sm:p-7 mb-6 sm:mb-8"
+        style={{
+          background: 'linear-gradient(135deg, rgba(140,82,255,0.08) 0%, rgba(224,92,26,0.04) 50%, var(--surface) 100%)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <div className="max-w-3xl">
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold mb-2.5"
+            style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
+            <Sparkles size={12} />
+            <span>Discover your entire trip in one place</span>
+            {data?.isLiveBackend?.listings && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Connected to Backend V2 API" />
+            )}
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight m-0 mb-2" style={{ color: 'var(--fg)', lineHeight: 1.2 }}>
+            Discover your whole trip in one place.
+          </h1>
+
+          <p className="text-xs sm:text-sm m-0 mb-4 leading-relaxed max-w-xl" style={{ color: 'var(--fg-muted)' }}>
+            Find stays, transport, food, activities, and real deals. See journeys shared by travelers with direct provider contact and zero hidden booking fees.
+          </p>
+
+          {/* Quick Search Bar */}
+          <div
+            className="flex items-center gap-2 p-1.5 rounded-xl mb-3.5 max-w-xl shadow-xs"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <Search size={16} className="ml-1.5 flex-shrink-0" style={{ color: 'var(--fg-muted)' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search places, activities, stays, or transport…"
+              className="flex-1 bg-transparent text-xs sm:text-sm outline-none border-none py-1"
+              style={{ color: 'var(--fg)' }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="p-1 rounded-md text-xs cursor-pointer"
+                style={{ background: 'none', border: 'none', color: 'var(--fg-muted)' }}
+              >
+                <X size={14} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpenExplore ? onOpenExplore() : onNavigate('Explore')}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0 cursor-pointer inline-flex items-center gap-1 transition-opacity hover:opacity-90"
+              style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+            >
+              <span>Explore</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+
+          {/* Destination Switcher */}
+          <div className="mb-3.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fg-muted)' }}>
+              Choose Destination
+            </p>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+              {DESTINATIONS.map(dest => {
+                const isSelected = (!selectedDestination && dest.id === 'all') || selectedDestination === dest.id
+                return (
+                  <button
+                    key={dest.id}
+                    type="button"
+                    onClick={() => setSelectedDestination(dest.id === 'all' ? null : dest.id)}
+                    className="flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-all cursor-pointer"
+                    style={{
+                      background: isSelected ? 'var(--primary)' : 'var(--surface)',
+                      color: isSelected ? '#ffffff' : 'var(--fg)',
+                      border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                      boxShadow: isSelected ? '0 1px 4px rgba(140,82,255,0.2)' : 'none',
+                    }}
+                  >
+                    <MapPin size={11} className={isSelected ? 'text-white' : 'text-[var(--primary)]'} />
+                    <span>{dest.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Mood Shortcuts */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+            <span className="text-[11px] font-medium flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>Quick ideas:</span>
+            {MOOD_SHORTCUTS.map(chip => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => setServiceFilter(chip.category)}
+                className="flex-shrink-0 px-2 py-1 rounded-md text-[11px] font-medium inline-flex items-center gap-1 transition-all cursor-pointer"
+                style={{
+                  background: serviceFilter === chip.category ? 'rgba(140,82,255,0.12)' : 'var(--surface-subtle)',
+                  color: serviceFilter === chip.category ? 'var(--primary)' : 'var(--fg-muted)',
+                  border: `1px solid ${serviceFilter === chip.category ? 'rgba(140,82,255,0.3)' : 'var(--border)'}`,
+                }}
+              >
+                {chip.icon}
+                <span>{chip.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Proof points */}
+          <div className="mt-4 pt-3 flex flex-wrap items-center gap-3 sm:gap-6 border-t text-[11px]" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex items-center gap-1.5" style={{ color: 'var(--fg-muted)' }}>
+              <CheckCircle size={13} style={{ color: '#10A760' }} />
+              <span>Verified local providers</span>
+            </div>
+            <div className="flex items-center gap-1.5" style={{ color: 'var(--fg-muted)' }}>
+              <ShieldCheck size={13} style={{ color: 'var(--primary)' }} />
+              <span>Direct provider contact</span>
+            </div>
+            <div className="flex items-center gap-1.5" style={{ color: 'var(--fg-muted)' }}>
+              <Check size={13} style={{ color: '#10A760' }} />
+              <span>Transparent local rates</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 2. EXPLORE BY SERVICE (11 CATEGORIES) ─────────────────────────── */}
+      <section className="mb-10 sm:mb-14">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold m-0 mb-0.5" style={{ color: 'var(--fg)' }}>
+              Explore Delve Services
+            </h2>
+            <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
+              All 11 ways Delve helps you plan and navigate your Namibian journey.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenExplore ? onOpenExplore() : onNavigate('Explore')}
+            className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+            style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+          >
+            <span>All categories</span>
+            <ChevronRight size={13} />
+          </button>
+        </div>
+
+        {/* 11 Services Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+          {CORE_SERVICES.map(srv => {
+            const isFilterActive = serviceFilter === srv.category
+            return (
+              <button
+                key={srv.id}
+                type="button"
+                onClick={() => {
+                  if (srv.action) srv.action()
+                }}
+                className="p-3 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between group hover:-translate-y-0.5"
+                style={{
+                  background: isFilterActive ? 'rgba(140,82,255,0.08)' : 'var(--surface)',
+                  border: `1px solid ${isFilterActive ? 'var(--primary)' : 'var(--border)'}`,
+                  minHeight: 100,
+                }}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-transform group-hover:scale-105"
+                  style={{ background: `${srv.color}15`, color: srv.color }}
+                >
+                  {srv.icon}
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold m-0 flex items-center justify-between" style={{ color: 'var(--fg)' }}>
+                    <span>{srv.label}</span>
+                    <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--primary)' }} />
+                  </h3>
+                  <p className="text-[10px] m-0 mt-0.5 line-clamp-1" style={{ color: 'var(--fg-muted)' }}>
+                    {srv.desc}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ─── 3. FEATURED SERVICES SHOWCASE (BACKEND CONNECTED) ─────────────── */}
+      <section className="mb-10 sm:mb-14">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
+                Featured Experiences & Services
+              </h2>
+              {data?.isLiveBackend?.listings && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
+                  Live API
+                </span>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+              Verified stays, activities, and dining across {selectedDestination || 'Namibia'}.
+            </p>
+          </div>
+
+          {/* Category Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {['All', 'Stay', 'Activity', 'Food', 'Guide', 'Shop'].map(cat => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setServiceFilter(cat)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 cursor-pointer transition-all"
+                style={{
+                  background: serviceFilter === cat ? 'var(--primary)' : 'var(--surface)',
+                  color: serviceFilter === cat ? '#fff' : 'var(--fg-muted)',
+                  border: `1px solid ${serviceFilter === cat ? 'var(--primary)' : 'var(--border)'}`,
+                }}
+              >
+                {cat === 'All' ? 'All Services' : cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} width="100%" height={280} />
+            ))}
+          </div>
+        ) : error ? (
+          <SectionError onRetry={() => setReloadKey(k => k + 1)} />
+        ) : filteredListings.length === 0 ? (
+          <SectionEmpty
+            icon={<Search size={24} />}
+            title="No services found"
+            body="Try selecting another category or destination."
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredListings.slice(0, 6).map(listing => (
+              <article
+                key={listing.id}
+                onClick={() => onOpenListing ? onOpenListing(listing.id) : onOpenServices ? onOpenServices() : onNavigate('Services')}
+                className="overflow-hidden rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 group"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <div>
+                  <div className="relative overflow-hidden" style={{ height: 180, background: 'var(--surface-subtle)' }}>
+                    <SafeImage src={listing.coverImage} alt={listing.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" kind="listing" />
+                    <span
+                      className="absolute top-3 left-3 text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-md"
+                      style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                    >
+                      {listing.category}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation()
+                        toggleSave(listing.id)
+                      }}
+                      className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-transform active:scale-90"
+                      style={{ background: 'rgba(0,0,0,0.5)', color: savedItems.has(listing.id) ? 'var(--primary)' : '#fff', border: 'none', cursor: 'pointer' }}
+                      aria-label="Save service"
+                    >
+                      <Bookmark size={15} fill={savedItems.has(listing.id) ? 'var(--primary)' : 'none'} />
+                    </button>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium flex items-center gap-1 m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
+                        <span className="truncate">{listing.businessName}</span>
+                        {listing.verified && <CheckCircle size={12} style={{ color: '#10A760' }} className="flex-shrink-0" />}
+                      </p>
+                      {listing.rating && (
+                        <span className="text-xs font-semibold inline-flex items-center gap-1 tabular-nums" style={{ color: 'var(--fg)' }}>
+                          <Star size={11} className="fill-amber-400 text-amber-400" />
+                          <span>{listing.rating}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-base font-bold m-0 mb-1 line-clamp-1" style={{ color: 'var(--fg)' }}>
+                      {listing.title}
+                    </h3>
+
+                    {listing.subtitle && (
+                      <p className="text-xs m-0 mb-3 line-clamp-2" style={{ color: 'var(--fg-muted)' }}>
+                        {listing.subtitle}
+                      </p>
+                    )}
+
+                    <p className="text-xs m-0 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
+                      <MapPin size={11} />
+                      <span>{listing.destination}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t" style={{ borderColor: 'var(--border)' }}>
+                  <div>
+                    {listing.priceFormatted ? (
+                      <>
+                        <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--fg)' }}>
+                          {listing.priceFormatted}
+                        </span>
+                        {listing.priceBasis && (
+                          <span className="text-[11px] ml-1" style={{ color: 'var(--fg-muted)' }}>
+                            /{listing.priceBasis}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
+                        Inquire for rate
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation()
+                      if (onOpenListing) onOpenListing(listing.id)
+                      else if (onOpenServices) onOpenServices()
+                      else onNavigate('Services')
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 inline-flex items-center gap-1 cursor-pointer"
+                    style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+                  >
+                    <span>View details</span>
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={() => onOpenServices ? onOpenServices() : onNavigate('Services')}
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 cursor-pointer inline-flex items-center gap-2"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--fg)' }}
+          >
+            <span>Explore all {data?.listings.length ?? ''} services</span>
+            <ArrowRight size={15} />
+          </button>
+        </div>
+      </section>
+
+      {/* ─── 4. DEALS FOR THIS PLACE (BACKEND CONNECTED) ───────────────────── */}
+      {data?.deals && data.deals.length > 0 && (
+        <section className="mb-10 sm:mb-14">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Tag size={18} style={{ color: '#E05C1A' }} />
+                <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
+                  Deals & Resident Rates
+                </h2>
+                {data.isLiveBackend?.deals && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
+                    Live Deals
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+                Genuine savings offered directly by local operators. No intermediary fees.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('Deals')}
+              className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+              style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+            >
+              <span>View all deals</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.deals.slice(0, 3).map(deal => (
+              <div
+                key={deal.id}
+                onClick={() => onOpenDeal ? onOpenDeal(deal.id) : onNavigate('Deals')}
+                className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1 group"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <div className="relative overflow-hidden" style={{ height: 160 }}>
+                  <SafeImage src={deal.image} alt={deal.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" kind="listing" />
+                  <span
+                    className="absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-lg"
+                    style={{ background: '#E05C1A', color: '#fff' }}
+                  >
+                    {deal.discountSummary}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation()
+                      toggleSave(deal.id)
+                    }}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md"
+                    style={{ background: 'rgba(0,0,0,0.5)', color: savedItems.has(deal.id) ? 'var(--primary)' : '#fff', border: 'none', cursor: 'pointer' }}
+                  >
+                    <Bookmark size={15} fill={savedItems.has(deal.id) ? 'var(--primary)' : 'none'} />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  <p className="text-xs font-medium m-0 mb-1 flex items-center justify-between" style={{ color: 'var(--fg-muted)' }}>
+                    <span>{deal.businessName}</span>
+                    <span>{deal.destination}</span>
+                  </p>
+                  <h3 className="text-base font-bold m-0 mb-2 line-clamp-1" style={{ color: 'var(--fg)' }}>
+                    {deal.title}
+                  </h3>
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <div>
+                      {deal.currentPrice && (
+                        <span className="text-sm font-extrabold tabular-nums" style={{ color: 'var(--fg)' }}>
+                          {deal.currentPrice}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: 'var(--primary)' }}>
+                      <span>View terms</span>
+                      <ChevronRight size={13} />
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── 5. TRANSPORT DISCOVERY RAIL ───────────────────────────────────── */}
+      <section className="mb-10 sm:mb-14">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Car size={18} style={{ color: '#3B82F6' }} />
+              <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
+                Transport Options
+              </h2>
+            </div>
+            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+              From airport transfers to 4x4 rentals, community rides and intercity buses.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
+            className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+            style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+          >
+            <span>All transport</span>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {data?.transport.slice(0, 4).map(t => (
+            <div
+              key={t.id}
+              onClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
+              className="p-4 rounded-2xl flex flex-col justify-between transition-all hover:-translate-y-1 cursor-pointer"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
+                    style={{ background: 'rgba(59,130,246,0.12)', color: '#2563EB' }}
+                  >
+                    {t.transportMode === 'Airport transfer' ? <Plane size={12} /> :
+                     t.transportMode === 'Bus' || t.transportMode === 'Minibus' ? <Bus size={12} /> :
+                     <Car size={12} />}
+                    <span>{t.transportMode}</span>
+                  </span>
+                  {t.verification?.verified && (
+                    <span title="Verified operator"><CheckCircle size={14} style={{ color: '#10A760' }} /></span>
+                  )}
+                </div>
+
+                <h3 className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+                  {t.origin} → {t.destination}
+                </h3>
+                <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+                  Operated by {t.operator}
+                </p>
+
+                <div className="space-y-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={11} />
+                    <span>Duration: {t.duration}</span>
+                  </div>
+                  {t.departure && (
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={11} />
+                      <span>Departure: {t.departure}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+                <div>
+                  <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--fg)' }}>
+                    {t.currency} {t.price}
+                  </span>
+                  <span className="text-[11px] ml-1" style={{ color: 'var(--fg-muted)' }}>
+                    /{t.priceBasis}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (onOpenTransport) onOpenTransport()
+                    else onNavigate('Transport')
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+                  style={{ background: 'var(--surface-subtle)', color: 'var(--fg)', border: '1px solid var(--border)' }}
+                >
+                  Details
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 6. JOURNEYS TO BORROW ─────────────────────────────────────────── */}
+      {data?.journeys && data.journeys.length > 0 && (
+        <section className="mb-10 sm:mb-14">
+          <div className="flex items-end justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Navigation size={18} style={{ color: '#6366F1' }} />
+                <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
+                  Journeys to Borrow
+                </h2>
+                {data.isLiveBackend?.journeys && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
+                    Live API
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+                Tested itineraries shared by travelers with transparent historical costs.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('Journeys')}
+              className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+              style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+            >
+              <span>Explore all journeys</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data.journeys.slice(0, 2).map(journey => (
+              <div
+                key={journey.id}
+                onClick={() => onOpenJourney ? onOpenJourney(journey.id) : onNavigate('Journeys')}
+                className="overflow-hidden rounded-2xl flex flex-col sm:flex-row cursor-pointer transition-all hover:-translate-y-1 group"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                <div className="sm:w-2/5 relative overflow-hidden" style={{ minHeight: 180 }}>
+                  <SafeImage src={journey.coverImage} alt={journey.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" kind="journey" />
+                  <span
+                    className="absolute top-3 left-3 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md"
+                    style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                  >
+                    {journey.duration}
+                  </span>
+                </div>
+
+                <div className="p-4 sm:w-3/5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <SafeImage src={journey.creatorAvatar} alt={journey.creatorName} className="w-6 h-6 rounded-full object-cover" kind="avatar" />
+                      <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{journey.creatorName}</span>
+                    </div>
+
+                    <h3 className="text-base font-bold m-0 mb-1 line-clamp-1" style={{ color: 'var(--fg)' }}>
+                      {journey.title}
+                    </h3>
+
+                    <p className="text-xs font-medium flex items-center gap-1 m-0 mb-3" style={{ color: 'var(--primary)' }}>
+                      <Navigation size={11} />
+                      <span className="truncate">{journey.route}</span>
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-[11px] font-semibold m-0" style={{ color: 'var(--fg-muted)' }}>
+                      Historical trip cost (what this traveler spent):
+                    </p>
+                    <p className="text-sm font-bold m-0" style={{ color: 'var(--fg)' }}>
+                      {journey.historicalCost}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── 7. EASY ON THE WALLET (BUDGET PICKS) ─────────────────────────── */}
+      <section className="mb-10 sm:mb-14">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold m-0 mb-0.5" style={{ color: 'var(--fg)' }}>
+              Easy on the Wallet
+            </h2>
+            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+              High-value experiences and self-guided highlights under N$ 600 or with local rates.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {budgetListings.map(item => (
+            <div
+              key={`budget-${item.id}`}
+              onClick={() => onOpenListing ? onOpenListing(item.id) : onOpenServices ? onOpenServices() : onNavigate('Services')}
+              className="p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
+                    Great Value
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{item.destination}</span>
+                </div>
+                <h3 className="text-sm font-bold m-0 mb-1 line-clamp-1" style={{ color: 'var(--fg)' }}>
+                  {item.title}
+                </h3>
+                <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+                  {item.businessName}
+                </p>
+              </div>
+
+              <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+                <span className="text-sm font-bold" style={{ color: 'var(--fg)' }}>
+                  {item.priceFormatted || 'Free access'}
+                </span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
+                  Details →
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 8. ASK LOCALS (COMMUNITY ADVICE) ──────────────────────────────── */}
+      <section className="mb-10 sm:mb-14">
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <MessageSquare size={18} style={{ color: '#14B8A6' }} />
+              <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
+                Ask Locals
+              </h2>
+            </div>
+            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
+              Real travel questions answered by Namibian hosts, drivers, and local guides.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('Communities')}
+            className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+            style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+          >
+            <span>Browse Q&A</span>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 sm:p-5 rounded-2xl flex flex-col justify-between" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}>
+                  Swakopmund • Road conditions
+                </span>
+                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                  <Check size={12} /> Answered
+                </span>
+              </div>
+              <h3 className="text-sm sm:text-base font-bold m-0 mb-2" style={{ color: 'var(--fg)' }}>
+                "Can you drive a 2WD sedan from Windhoek to Swakopmund via the B2?"
+              </h3>
+              <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--fg-muted)' }}>
+                <strong className="text-[var(--fg)]">Local answer:</strong> Yes, 100%. The B2 is fully tarred from Windhoek all the way through Okahandja and Usakos to Swakopmund. No 4x4 needed unless you branch off onto C-gravel roads.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border)' }}>
+              <span style={{ color: 'var(--fg-muted)' }}>Answered by Swakop Guide J.</span>
+              <button
+                type="button"
+                onClick={() => onNavigate('Communities')}
+                className="font-semibold cursor-pointer"
+                style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+              >
+                Join discussion
+              </button>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5 rounded-2xl flex flex-col justify-between" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}>
+                  Sossusvlei • Best timing
+                </span>
+                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                  <Check size={12} /> Answered
+                </span>
+              </div>
+              <h3 className="text-sm sm:text-base font-bold m-0 mb-2" style={{ color: 'var(--fg)' }}>
+                "What time do Sesriem gate lines start forming for sunrise at Dune 45?"
+              </h3>
+              <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--fg-muted)' }}>
+                <strong className="text-[var(--fg)]">Local answer:</strong> Outer gate opens right at sunrise, but cars queue starting ~45 mins before. If you stay inside the park at Sesriem campsite or lodge, inner gate opens an hour earlier.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border)' }}>
+              <span style={{ color: 'var(--fg-muted)' }}>Answered by Amara Safari</span>
+              <button
+                type="button"
+                onClick={() => onNavigate('Communities')}
+                className="font-semibold cursor-pointer"
+                style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
+              >
+                Join discussion
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 9. TRUST & PLATFORM GUIDANCE (WHY DELVE) ─────────────────────── */}
+      <section
+        className="rounded-3xl p-6 sm:p-8 mb-10 sm:mb-14"
+        style={{
+          background: 'var(--surface-subtle)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <div className="max-w-[700px] mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
+            style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
+            <Award size={13} />
+            <span>Built for transparent Namibian travel</span>
+          </div>
+          <h2 className="text-lg sm:text-xl font-bold m-0 mb-1.5" style={{ color: 'var(--fg)' }}>
+            Direct provider connection. Zero hidden booking fees.
+          </h2>
+          <p className="text-xs sm:text-sm m-0 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+            Delve connects travelers directly with registered Namibian businesses, local drivers, certified safari guides, and genuine resident discounts.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
+              <ShieldCheck size={18} />
+            </div>
+            <h3 className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>Verified Businesses</h3>
+            <p className="text-xs m-0 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+              Each provider profile is reviewed for legitimacy, contact accuracy, and service registration.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
+              <Tag size={18} />
+            </div>
+            <h3 className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>Local & Resident Rates</h3>
+            <p className="text-xs m-0 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+              Discover genuine resident rates and off-peak discounts without third-party commission markups.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ background: 'rgba(59,130,246,0.12)', color: '#3B82F6' }}>
+              <Users size={18} />
+            </div>
+            <h3 className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>Real Traveler Stories</h3>
+            <p className="text-xs m-0 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+              Visual stories and honest itineraries from fellow travelers who drove the roads and paid the costs.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 10. COMPREHENSIVE FOOTER ───────────────────────────────────────── */}
+      <footer className="pt-10 border-t" style={{ borderColor: 'var(--border)' }}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-8">
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--fg)' }}>Services</h4>
+            <ul className="space-y-2 text-xs p-0 m-0 list-none" style={{ color: 'var(--fg-muted)' }}>
+              <li><button type="button" onClick={() => onNavigate('Services')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Stays & Lodges</button></li>
+              <li><button type="button" onClick={() => onNavigate('Transport')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Transport & Rentals</button></li>
+              <li><button type="button" onClick={() => onNavigate('Services')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Activities & Safaris</button></li>
+              <li><button type="button" onClick={() => onNavigate('Deals')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Deals & Discounts</button></li>
+              <li><button type="button" onClick={() => onNavigate('Journeys')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Traveler Journeys</button></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--fg)' }}>Community</h4>
+            <ul className="space-y-2 text-xs p-0 m-0 list-none" style={{ color: 'var(--fg-muted)' }}>
+              <li><button type="button" onClick={() => onNavigate('Delvers')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Delvers Stories</button></li>
+              <li><button type="button" onClick={() => onNavigate('Communities')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Local Q&A</button></li>
+              <li><button type="button" onClick={() => onNavigate('Events')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Events Calendar</button></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--fg)' }}>Providers</h4>
+            <ul className="space-y-2 text-xs p-0 m-0 list-none" style={{ color: 'var(--fg-muted)' }}>
+              <li><button type="button" onClick={() => onNavigate('Become a provider')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">List your business</button></li>
+              <li><button type="button" onClick={() => onNavigate('Provider')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Provider portal</button></li>
+              <li><button type="button" onClick={() => onNavigate('Contact')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Partner inquiries</button></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--fg)' }}>Company</h4>
+            <ul className="space-y-2 text-xs p-0 m-0 list-none" style={{ color: 'var(--fg-muted)' }}>
+              <li><button type="button" onClick={() => onNavigate('About')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">About Delve</button></li>
+              <li><button type="button" onClick={() => onNavigate('Investors')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Investors</button></li>
+              <li><button type="button" onClick={() => onNavigate('Contact')} className="hover:underline cursor-pointer bg-transparent border-none p-0 text-left text-inherit">Help & Support</button></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs" style={{ borderColor: 'var(--border)', color: 'var(--fg-muted)' }}>
+          <p className="m-0">© 2026 Delve Worldwide. Namibia Discovery & Travel Platform.</p>
+          <div className="flex items-center gap-4">
+            <span>Currency: <strong>NAD (N$)</strong></span>
+            <span>Region: <strong>Namibia</strong></span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}

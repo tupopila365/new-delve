@@ -55,29 +55,8 @@ import CreateBusinessPage from './pages/business/CreateBusinessPage'
 import PublicBusinessPage from './pages/PublicBusinessPage'
 import AuthFlow from './pages/auth/AuthFlow'
 import type { AuthRoute } from './pages/auth/AuthFlow'
-import { AuthRequiredBottomSheet, AuthRequiredModal, DelveLogo } from './components/auth'
-import type { GuestAction } from './components/auth/AuthRequiredModal'
-import BookingSetupPage from './pages/booking/BookingSetupPage'
-import TravelerDetailsPage from './pages/booking/TravelerDetailsPage'
-import CheckoutPage from './pages/booking/CheckoutPage'
-import PaymentPage from './pages/booking/PaymentPage'
-import BookingConfirmationPage from './pages/booking/BookingConfirmationPage'
-import MyBookingsPage from './pages/booking/MyBookingsPage'
-import type { BookingContext, BookingServiceType } from './pages/booking/types'
-import type { ConfirmationOutcome } from './pages/booking/BookingConfirmationPage'
-import { transportResults } from './data/transportData'
-
-function mapTransportMode(mode: string): BookingServiceType {
-  if (mode === 'Car rental') return 'vehicle'
-  if (mode === 'Community ride') return 'community'
-  if (mode === 'Private driver') return 'transfer'
-  if (mode === 'Bus' || mode === 'Minibus') return 'bus'
-  if (mode === 'Airport transfer') return 'transfer'
-  if (mode.includes('Flight') || mode.includes('Helicopter') || mode.includes('Air')) return 'flight'
-  if (mode.includes('Ferry') || mode.includes('Boat') || mode.includes('Water')) return 'ferry'
-  if (mode.includes('Charter')) return 'charter'
-  return 'other'
-}
+import { AuthRequiredBottomSheet, AuthRequiredModal, DelveLogo, type GuestAction } from './components/auth'
+import HomePage from './pages/HomePage'
 
 // ─── Theme ────────────────────────────────────────────────────────────────
 
@@ -524,12 +503,6 @@ export default function App() {
   const [createCommunityOpen, setCreateCommunityOpen] = useState(false)
   const [lastCreatedPost, setLastCreatedPost] = useState<PostDto | null>(null)
   const [businessAdminOpen, setBusinessAdminOpen] = useState(false)
-  const [bookingOpen, setBookingOpen] = useState(false)
-  const [bookingContext, setBookingContext] = useState<BookingContext | null>(null)
-  const [bookingStage, setBookingStage] = useState<'setup' | 'details' | 'checkout' | 'payment' | 'confirmation'>('setup')
-  const [confirmationOutcome, setConfirmationOutcome] = useState<ConfirmationOutcome>('confirmed')
-  const [lastBookingRef, setLastBookingRef] = useState<string | null>(null)
-  const [pendingBooking, setPendingBooking] = useState<BookingContext | null>(null)
   const [servicesCategory, setServicesCategory] = useState('All')
   const [servicesDestination, setServicesDestination] = useState<string | null>(null)
   const [servicesNeeds, setServicesNeeds] = useState<Set<string>>(new Set())
@@ -671,7 +644,6 @@ export default function App() {
     'Messages',
     'Saved',
     'Notifications',
-    'Bookings',
     'Provider',
     'Provider business',
   ])
@@ -719,56 +691,7 @@ export default function App() {
     }
   }, [location.state, location.pathname, navigate])
 
-  function openBooking(ctx: BookingContext) {
-    if (!signedIn) {
-      setPendingBooking(ctx)
-      setPendingCreatePost(false)
-      setPostAuthNav(null)
-      setGuestPrompt(null)
-      setAuthRoute('signIn')
-      return
-    }
-    setBookingContext(ctx)
-    setBookingStage('setup')
-    setBookingOpen(true)
-  }
 
-  function closeBooking() {
-    setBookingOpen(false)
-    setBookingContext(null)
-    setBookingStage('setup')
-    setConfirmationOutcome('confirmed')
-  }
-
-  function bookFromListing(_listingId: string, _draft?: unknown) {
-    // Real listings have no price/checkout yet (Day 5). Keep booking entry for transport mocks only.
-  }
-
-  function bookFromTransport(resultId: string, passengers: number) {
-    const result = transportResults.find(r => r.id === resultId) ?? transportResults[0]
-    openBooking({
-      source: 'transport',
-      serviceType: mapTransportMode(result.transportMode),
-      bookingMethod: result.bookingMethod === 'request' ? 'request' : result.bookingMethod === 'instant' ? 'instant' : 'book',
-      listingId: result.id,
-      listingName: `${result.origin} → ${result.destination}`,
-      providerName: result.operator,
-      currency: result.currency,
-      unitPrice: result.price,
-      priceBasis: result.priceBasis,
-      image: result.image,
-      quantity: passengers,
-      origin: result.origin,
-      destination: result.destination,
-      cancellationSummary: result.cancellation,
-      selectedOptionLabel: result.transportMode,
-      timeZone: 'Africa/Windhoek',
-    })
-  }
-
-  function bookFromDeal(_dealId: string) {
-    // Real deals have discount inputs but no checkout yet.
-  }
 
   function openCreate() {
     if (!signedIn) {
@@ -842,9 +765,7 @@ export default function App() {
     selectedId: servicesSelectedId,
     setSelectedId: setServicesSelectedId,
     onOpenTransport: () => setActiveNav('Transport'),
-    onBookListing: bookFromListing,
     onOpenBusiness: openBusiness,
-    onOpenBookings: () => goToNav('Bookings'),
   }
 
   function handleAuthenticated() {
@@ -861,13 +782,7 @@ export default function App() {
       } catch {
         /* ignore — never block sign-in on profile fetch failure */
       }
-      if (pendingBooking) {
-        setBookingContext(pendingBooking)
-        setBookingStage('setup')
-        setBookingOpen(true)
-        setPendingBooking(null)
-        return
-      }
+
       if (pendingCreatePost) {
         setCreatePostOpen(true)
         setPendingCreatePost(false)
@@ -997,7 +912,7 @@ export default function App() {
           destinationLabel="Delve"
           headerTrailing={<ThemeToggle theme={theme} setTheme={setTheme} />}
           onAuthenticated={handleAuthenticated}
-          onExit={() => { setAuthRoute(null); setPendingCreatePost(false); setPendingBooking(null) }}
+          onExit={() => { setAuthRoute(null); setPendingCreatePost(false) }}
         />
       </div>
     )
@@ -1051,114 +966,7 @@ export default function App() {
     )
   }
 
-  // ── Booking flow: setup → details → checkout → payment → confirmation ─
-  if (bookingOpen && bookingContext) {
-    const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))
-    const qty = Math.max(1, bookingContext.quantity ?? 2)
-    const unit = parseInt(String(bookingContext.unitPrice).replace(/[^\d]/g, ''), 10) || 0
-    const base = unit * (bookingContext.serviceType === 'stay' ? 3 : qty)
-    const isRequest = bookingContext.bookingMethod === 'request'
-      || bookingContext.serviceType === 'charter'
-      || bookingContext.serviceType === 'community'
-    const isDeposit = bookingContext.serviceType === 'vehicle' || bookingContext.serviceType === 'stay'
-    const taxes = Math.round(base * 0.08)
-    const fees = Math.round(base * 0.05)
-    const deposit = isDeposit ? Math.min(2500, Math.round(base * 0.25)) : 0
-    const subtotal = base + taxes + fees
-    const amountDueNow = isRequest ? 0 : isDeposit ? deposit + Math.round(base * 0.02) : subtotal
 
-    if (bookingStage === 'confirmation') {
-      const paid =
-        confirmationOutcome === 'request' || confirmationOutcome === 'quote'
-          ? 0
-          : amountDueNow
-      const ref = `DLV-EX-${bookingContext.listingId.slice(0, 5).toUpperCase()}`
-
-      return (
-        <BookingConfirmationPage
-          context={bookingContext}
-          outcome={confirmationOutcome}
-          amountPaid={paid}
-          resolvedTheme={resolved}
-          onToggleTheme={toggleTheme}
-          onDone={() => {
-            setLastBookingRef(ref)
-            closeBooking()
-            goToNav('Home')
-          }}
-          onViewBookings={() => {
-            setLastBookingRef(ref)
-            closeBooking()
-            setAuthStatus('authenticated')
-            goToNav('Bookings')
-          }}
-          onViewTicket={() => {
-            setLastBookingRef(ref)
-            closeBooking()
-            setAuthStatus('authenticated')
-            goToNav('Bookings')
-          }}
-        />
-      )
-    }
-
-    if (bookingStage === 'payment') {
-      return (
-        <PaymentPage
-          context={bookingContext}
-          amountDueNow={amountDueNow}
-          onBackToCheckout={() => setBookingStage('checkout')}
-          onExit={closeBooking}
-          onPaymentSuccess={() => { setConfirmationOutcome('confirmed'); setBookingStage('confirmation') }}
-          resolvedTheme={resolved}
-          onToggleTheme={toggleTheme}
-        />
-      )
-    }
-
-    if (bookingStage === 'checkout') {
-      return (
-        <CheckoutPage
-          context={bookingContext}
-          onBackToDetails={() => setBookingStage('details')}
-          onEditSetup={() => setBookingStage('setup')}
-          onExit={closeBooking}
-          onContinueToPayment={() => { setConfirmationOutcome('confirmed'); setBookingStage('payment') }}
-          onRequestComplete={() => {
-            setConfirmationOutcome(
-              bookingContext.serviceType === 'charter' ? 'quote' : 'request',
-            )
-            setBookingStage('confirmation')
-          }}
-          resolvedTheme={resolved}
-          onToggleTheme={toggleTheme}
-        />
-      )
-    }
-
-    if (bookingStage === 'details') {
-      return (
-        <TravelerDetailsPage
-          context={bookingContext}
-          onBackToSetup={() => setBookingStage('setup')}
-          onExit={closeBooking}
-          onContinueToCheckout={() => setBookingStage('checkout')}
-          resolvedTheme={resolved}
-          onToggleTheme={toggleTheme}
-        />
-      )
-    }
-
-    return (
-      <BookingSetupPage
-        context={bookingContext}
-        onExit={closeBooking}
-        onContinue={() => setBookingStage('details')}
-        resolvedTheme={resolved}
-        onToggleTheme={toggleTheme}
-      />
-    )
-  }
 
   // ── Provider dashboard (real business membership) ─────────────────────
   if (
@@ -1203,9 +1011,10 @@ export default function App() {
   const isHome = activeNav === 'Home'
   const isCompanyPage = COMPANY_ROUTES.has(activeNav)
   const showCompanyHeaderLinks = isHome || isCompanyPage
-  const isFeedLayout = isHome || activeNav === 'Delvers' || activeNav === 'Transport' || activeNav === 'Services'
+  const isFeedLayout = activeNav === 'Delvers' || activeNav === 'Transport' || activeNav === 'Services'
   const isServicesDetail = activeNav === 'Services' && !!servicesSelectedId
   const mainMaxClass =
+    isHome ? 'max-w-[1280px] w-full' :
     isServicesDetail ? 'max-w-none w-full' :
     activeNav === 'Messages' ? 'max-w-[1100px] w-full' :
     isCompanyPage ? 'max-w-[1160px] w-full' :
@@ -1215,7 +1024,7 @@ export default function App() {
 
   function isSidebarActive(label: string) {
     if (label === 'Explore') return activeNav === 'Explore' || activeNav === 'Search'
-    if (label === 'Account') return activeNav === 'Account' || activeNav === 'Profile' || activeNav === 'Notifications' || activeNav === 'Bookings'
+    if (label === 'Account') return activeNav === 'Account' || activeNav === 'Profile' || activeNav === 'Notifications'
     return activeNav === label
   }
 
@@ -1388,7 +1197,6 @@ export default function App() {
       return (
         <DealsPage
           key={dealsSelectedId || 'deals-browse'}
-          onBookDeal={bookFromDeal}
           onOpenBusiness={openBusiness}
           initialDealId={dealsSelectedId}
           onClearInitialDeal={() => setDealsSelectedId(null)}
@@ -1399,21 +1207,8 @@ export default function App() {
           }}
         />
       )
-    if (activeNav === 'Transport') return <TransportPage onBookResult={bookFromTransport} />
+    if (activeNav === 'Transport') return <TransportPage />
     if (HUB_ROUTES.has(activeNav) && signedIn) {
-      if (activeNav === 'Bookings') {
-        return (
-          <MyBookingsPage
-            onBack={openAccountHub}
-            highlightRef={lastBookingRef ?? undefined}
-            onOpenBusiness={openBusiness}
-            onOpenDeal={id => {
-              setDealsSelectedId(id)
-              goToNav('Deals')
-            }}
-          />
-        )
-      }
       if (activeNav === 'Profile')
         return (
           <ProfilePage
@@ -1553,58 +1348,29 @@ export default function App() {
     }
 
     return (
-      <>
-        <div className="mb-3 sm:mb-4 sm:rounded-2xl overflow-hidden min-w-0"
-          style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <div className="story-rail scroll-rail--fade">
-            {stories.map(s => (
-              <button key={s.id} type="button" onClick={() => {
-                if (s.isOwn) openCreate()
-                else setActiveStory(s.id)
-              }}
-                className="story-rail__item flex flex-col items-center gap-1 active:opacity-70 transition-opacity"
-                aria-label={s.isOwn ? 'Add your story' : `${s.name}${s.place ? `, ${s.place}` : ''}`}>
-                <div className="p-0.5 rounded-full"
-                  style={{ background: s.isOwn ? 'var(--surface-subtle)' : (s.unseen ? 'linear-gradient(135deg, #8C52FF, #E05C1A)' : 'var(--border)') }}>
-                  <Avatar src={s.avatar} size={56} ring={false} own={s.isOwn} />
-                </div>
-                <span className="story-rail__name text-xs font-medium" style={{ color: 'var(--fg)' }}>
-                  {s.isOwn ? 'Add' : s.name.split(' ')[0]}
-                </span>
-                {!s.isOwn && s.place && (
-                  <span className="story-rail__place text-xs" style={{ color: 'var(--fg-muted)' }}>{s.place}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mx-3 sm:mx-0 mb-3 sm:mb-4 min-w-0">
-          <MobileTabRail
-            ariaLabel="Feed"
-            mode="equal"
-            activeId={feedTab}
-            onChange={setFeedTab}
-            items={[
-              { id: 'following', label: 'Following', icon: <Users size={14} aria-hidden /> },
-              { id: 'foryou', label: 'For you', icon: <Flame size={14} aria-hidden /> },
-              { id: 'nearby', label: 'Nearby', icon: <MapPin size={14} aria-hidden /> },
-            ]}
-          />
-        </div>
-
-        <div className="flex flex-col gap-3 sm:gap-4">
-          {posts.map(post => (
-            <PostCard key={post.id} post={post}
-              onToggleLike={toggleLike} onToggleSave={toggleSave} onFollow={followPost} />
-          ))}
-        </div>
-
-        <button className="w-full py-4 text-sm font-medium transition-all active:opacity-70 mt-3 sm:mt-4 sm:rounded-2xl"
-          style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', color: 'var(--fg-muted)' }}>
-          Load more posts
-        </button>
-      </>
+      <HomePage
+        onNavigate={setActiveNav}
+        onOpenListing={id => {
+          setServicesSelectedId(id)
+          goToNav('Services')
+        }}
+        onOpenDeal={id => {
+          setDealsSelectedId(id)
+          goToNav('Deals')
+        }}
+        onOpenJourney={id => {
+          setJourneyDetailId(id)
+          goToNav('Journeys')
+        }}
+        onOpenTransport={() => goToNav('Transport')}
+        onOpenExplore={() => goToNav('Explore')}
+        onOpenServices={category => {
+          if (category) setServicesCategory(category)
+          goToNav('Services')
+        }}
+        signedIn={signedIn}
+        onSignIn={() => openAuth('signIn')}
+      />
     )
   }
 
@@ -1819,6 +1585,7 @@ export default function App() {
                     <button
                       key={c.label}
                       type="button"
+                      onClick={() => setActiveNav('Explore')}
                       className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80 bg-[var(--surface-subtle)] border border-[var(--border)] text-[var(--fg)] cursor-pointer"
                     >
                       <span className="flex-shrink-0 inline-flex items-center text-[var(--primary)]">{c.icon}</span>
@@ -1839,150 +1606,7 @@ export default function App() {
           {renderMain()}
         </main>
 
-        {isHome && (
-          <aside className="hidden xl:flex flex-col gap-4 flex-shrink-0" style={{ width: 300 }}>
-            <div className="sticky top-20 flex flex-col gap-4">
-              <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                {signedIn ? (
-                  <>
-                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-                      Welcome back{getStoredUser()?.username ? `, ${formatUsername(getStoredUser()?.username)}` : ''}
-                    </p>
-                    <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>You are signed in. Saving and following are unlocked.</p>
-                    <button type="button" onClick={() => setActiveNav('Account')}
-                      className="w-full py-2 rounded-xl text-sm font-semibold"
-                      style={{ background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                      Open account hub
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>Join Delve</p>
-                    <p className="text-xs mb-3" style={{ color: 'var(--fg-muted)' }}>Follow Delvers, save places, and share your own trips.</p>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => openAuth('signUp')}
-                        className="flex-1 py-2 rounded-xl text-sm font-semibold"
-                        style={{ background: 'var(--primary)', color: '#fff' }}>Sign up</button>
-                      <button type="button" onClick={() => openAuth('signIn')}
-                        className="flex-1 py-2 rounded-xl text-sm font-medium"
-                        style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>Log in</button>
-                    </div>
-                  </>
-                )}
-              </div>
 
-              <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--fg)' }}>
-                    <TrendingUp size={14} style={{ color: 'var(--primary)' }} /> Trending
-                  </p>
-                  <button type="button" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>See all</button>
-                </div>
-                <div className="flex flex-col gap-3">
-                  {trending.map((t, i) => (
-                    <button key={t.place} type="button" className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity">
-                      <img src={t.img} alt={t.place} className="w-12 h-10 rounded-lg object-cover flex-shrink-0" style={{ background: '#ccc' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{t.place}</p>
-                        <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{t.posts}</p>
-                      </div>
-                      <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--fg-muted)' }}>#{i + 1}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Suggested Delvers</p>
-                  <button type="button" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>See all</button>
-                </div>
-                <div className="flex flex-col gap-3">
-                  {suggestedDelvers.map(d => (
-                    <div key={d.id} className="flex items-center gap-3">
-                      <Avatar src={d.avatar} size={36} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <p className="text-xs font-semibold truncate" style={{ color: 'var(--fg)' }}>{d.name}</p>
-                          {d.verified && <CheckCircle size={10} style={{ color: 'var(--primary)', flexShrink: 0 }} />}
-                        </div>
-                        <p className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>
-                          {d.mutualFollowers > 0 ? `${d.mutualFollowers} mutual followers` : d.handle}
-                        </p>
-                      </div>
-                      <button type="button" onClick={() => followSuggested(d.id)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0 transition-all"
-                        style={{
-                          background: following.has(d.id) ? 'var(--surface-subtle)' : 'rgba(140,82,255,0.12)',
-                          color: following.has(d.id) ? 'var(--fg-muted)' : 'var(--primary)',
-                          border: `1px solid ${following.has(d.id) ? 'var(--border)' : 'transparent'}`,
-                        }}>
-                        {following.has(d.id) ? 'Following' : 'Follow'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="text-sm font-semibold mb-3" style={{ color: 'var(--fg)' }}>Deals nearby</p>
-                {homeDeals.length === 0 ? (
-                  <p className="text-xs m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>No live deals yet.</p>
-                ) : (
-                  homeDeals.map(deal => (
-                  <button key={deal.id} type="button"
-                    onClick={() => {
-                      setDealsSelectedId(deal.id)
-                      setActiveNav('Deals')
-                    }}
-                    className="flex items-center justify-between w-full mb-2 last:mb-0 px-3 py-2.5 rounded-xl text-left hover:opacity-80 transition-opacity"
-                    style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)' }}>
-                    <div>
-                      <p className="text-xs font-medium" style={{ color: 'var(--fg)' }}>{deal.title}</p>
-                      <p className="text-xs tabular-nums" style={{ color: 'var(--fg-muted)' }}>{deal.business.name}</p>
-                    </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                      style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
-                      {deal.discountSummary}
-                    </span>
-                  </button>
-                  ))
-                )}
-                <button type="button" onClick={() => setActiveNav('Deals')}
-                  className="w-full text-xs font-medium mt-2 py-2 rounded-xl"
-                  style={{ color: 'var(--primary)', background: 'rgba(140,82,255,0.08)', border: 'none', cursor: 'pointer' }}>
-                  See all deals
-                </button>
-              </div>
-
-              <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="text-sm font-semibold mb-3" style={{ color: 'var(--fg)' }}>Delve Worldwide</p>
-                <div className="flex flex-col gap-2">
-                  <button type="button" onClick={() => setActiveNav('Become a provider')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-sm font-semibold"
-                    style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)', border: 'none', cursor: 'pointer' }}>
-                    <Building2 size={16} /> Become a service provider
-                  </button>
-                  <button type="button" onClick={() => setActiveNav('About')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-sm font-medium"
-                    style={{ color: 'var(--fg)', background: 'var(--surface-subtle)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-                    <HelpCircle size={15} style={{ color: 'var(--fg-muted)' }} /> About Delve
-                  </button>
-                  <button type="button" onClick={() => setActiveNav('Investors')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-sm font-medium"
-                    style={{ color: 'var(--fg)', background: 'var(--surface-subtle)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-                    <Briefcase size={15} style={{ color: 'var(--fg-muted)' }} /> Invest in Delve
-                  </button>
-                  <button type="button" onClick={() => setActiveNav('Contact')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-sm font-medium"
-                    style={{ color: 'var(--fg)', background: 'var(--surface-subtle)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-                    <Mail size={15} style={{ color: 'var(--fg-muted)' }} /> Contact Worldwide
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-        )}
 
         {activeNav === 'Transport' && <TransportAside />}
         {activeNav === 'Services' && !servicesSelectedId && <ServicesAside {...servicesBrowseProps} />}

@@ -5,8 +5,6 @@ import { fetchPublicListing } from '../api/listingClient'
 import ListingMediaGallery from '../media/ListingMediaGallery'
 import { SectionError } from '../components/SectionStates'
 import { formatMoney } from '../lib/formatMoney'
-import BookingRequestForm from './booking/BookingRequestForm'
-import { getStoredAccessToken } from '../api/authClient'
 
 /** Kept for App booking wiring compatibility — checkout not connected for real listings yet. */
 export type ServiceBookingDraft = {
@@ -20,7 +18,6 @@ interface ServiceDetailPageProps {
   listingId: string
   onBack: () => void
   onOpenBusiness?: (slug: string) => void
-  onOpenBookings?: () => void
 }
 
 function locationOf(listing: ListingPublicDto) {
@@ -31,7 +28,6 @@ export default function ServiceDetailPage({
   listingId,
   onBack,
   onOpenBusiness,
-  onOpenBookings,
 }: ServiceDetailPageProps) {
   const [listing, setListing] = useState<ListingPublicDto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -157,36 +153,30 @@ export default function ServiceDetailPage({
         )}
 
         <div
-          className="rounded-2xl px-4 py-4"
+          className="rounded-2xl p-5"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
         >
-          {listing.pricing ? (
-            getStoredAccessToken() ? (
-              <BookingRequestForm
-                listingId={listing.id}
-                ctaLabel="Request to book"
-                onCreated={() => onOpenBookings?.()}
-              />
-            ) : (
-              <>
-                <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-                  Sign in to request a booking
-                </p>
-                <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-                  Price is taken from this listing on the server. This is not payment.
-                </p>
-              </>
-            )
-          ) : (
-            <>
-              <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-                Booking unavailable
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+                Direct Provider Connection
               </p>
-              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-                This listing does not have an advertised price yet.
+              <p className="text-xs m-0 leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                Contact {listing.business.name} directly for inquiries, custom arrangements, and availability. No booking fee or commission lock.
               </p>
-            </>
-          )}
+            </div>
+            {listing.business.slug && (
+              <button
+                type="button"
+                onClick={() => onOpenBusiness?.(listing.business.slug)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold cursor-pointer flex-shrink-0 inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+              >
+                <span>View Business Profile</span>
+                <ExternalLink size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

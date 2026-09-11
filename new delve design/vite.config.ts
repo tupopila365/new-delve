@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
-import siteConfiguration from './.figma/make/site.json'
+import siteConfiguration from './.figma/make/site.json' with { type: 'json' }
 import { delveBuildVersionPlugin } from './scripts/delve-build-version.ts'
 
 // Vite config — https://vitejs.dev/config/
@@ -28,15 +28,17 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
-        '@delve/contracts': path.resolve(__dirname, './packages/contracts/src/index.ts'),
+        '@': path.resolve(import.meta.dirname, './src'),
+        '@delve/contracts': path.resolve(import.meta.dirname, './packages/contracts/src/index.ts'),
       },
     },
     server: {
       host: '0.0.0.0',
       port: parseInt(process.env.PORT || '8443'),
-      strictPort: true,
-      watch: { ignored: ['**/.figma/**'] },
+      strictPort: false,
+      watch: {
+        ignored: ['**/.figma/**', '**/node_modules/**', '**/.git/**', '**/dist/**'],
+      },
     },
     preview: {
       host: '0.0.0.0',
