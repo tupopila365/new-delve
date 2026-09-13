@@ -145,7 +145,7 @@ export default function EmailVerificationScreen({
             </>
           ) : variant === 'alreadyUsed' ? (
             <>
-              This address may already be verified. Try signing in — if that does not work, request a new code for{' '}
+              This address may already be verified. Try logging in — if that does not work, request a new code for{' '}
               {masked}.
             </>
           ) : (
@@ -209,13 +209,13 @@ export default function EmailVerificationScreen({
         </div>
 
         {variant === 'alreadyUsed' ? (
-          <PrimaryButton onClick={onBackToSignIn}>Go to sign in</PrimaryButton>
+          <PrimaryButton onClick={onBackToSignIn}>Go to log in</PrimaryButton>
         ) : (
           <SecondaryButton onClick={onChangeEmail}>Use a different email address</SecondaryButton>
         )}
 
         <TextButton align="center" tone="muted" onClick={onBackToSignIn}>
-          Back to sign in
+          Back to log in
         </TextButton>
 
         <SupportLink />

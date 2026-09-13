@@ -765,9 +765,9 @@ export default function MessagesPage({
   if (!signedIn) {
     return (
       <div className="px-6 py-16 text-center sm:rounded-2xl" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <p className="text-lg font-bold m-0 mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Sign in to message</p>
+        <p className="text-lg font-bold m-0 mb-2" style={{ fontFamily: 'Syne, sans-serif' }}>Log in to message</p>
         <p className="text-sm m-0 mb-4" style={{ color: 'var(--fg-muted)' }}>
-          Direct messages between travelers are live. Sign in to start a conversation.
+          Direct messages between travelers are live. Log in to start a conversation.
         </p>
         {onSignIn && (
           <button
@@ -776,7 +776,7 @@ export default function MessagesPage({
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white"
             style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
           >
-            <LogIn size={16} /> Sign in
+            <LogIn size={16} /> Log in
           </button>
         )}
       </div>

@@ -571,10 +571,10 @@ export default function ProfilePage({
           </button>
         )}
         <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-          Sign in required
+          Log in required
         </p>
         <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-          Sign in to view and edit your profile.
+          Log in to view and edit your profile.
         </p>
       </div>
     )

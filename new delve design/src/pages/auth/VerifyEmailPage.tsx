@@ -105,7 +105,7 @@ export default function VerifyEmailPage() {
     </PrimaryButton>
   )
   const signIn = (
-    <PrimaryButton onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>Sign in</PrimaryButton>
+    <PrimaryButton onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>Log in</PrimaryButton>
   )
   const goHome = <SecondaryButton onClick={() => navigate('/')}>Back to Delve</SecondaryButton>
 
@@ -225,7 +225,7 @@ export default function VerifyEmailPage() {
             )}
 
             <TextButton align="center" onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>
-              Back to sign in
+              Back to log in
             </TextButton>
           </>
         )}

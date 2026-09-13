@@ -211,10 +211,10 @@ export default function ProviderBusinessPage({
           </button>
         )}
         <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
-          Sign in required
+          Log in required
         </p>
         <p className="text-sm m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>
-          Sign in to create or manage a business profile.
+          Log in to create or manage a business profile.
         </p>
       </div>
     )

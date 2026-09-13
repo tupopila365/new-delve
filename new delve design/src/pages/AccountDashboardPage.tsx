@@ -694,7 +694,7 @@ export default function AccountDashboardPage({
               <LogOut size={18} />
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Sign out</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>Log out</p>
               <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
                 End this session on this device
               </p>

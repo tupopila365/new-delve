@@ -173,7 +173,7 @@ function Sidebar({
             className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors"
             style={{ color: 'var(--auth-danger)' }}
           >
-            <LogOut size={15} /> Sign out
+            <LogOut size={15} /> Log out
           </button>
         </div>
       )}

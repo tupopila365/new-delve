@@ -210,7 +210,7 @@ export default function ResetPasswordPage() {
             icon={<ShieldCheck size={28} />}
             title="Password updated"
             message={message}
-            primaryAction={<PrimaryButton onClick={goSignIn}>Sign in</PrimaryButton>}
+            primaryAction={<PrimaryButton onClick={goSignIn}>Log in</PrimaryButton>}
           />
         )}
 

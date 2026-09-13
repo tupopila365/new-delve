@@ -200,9 +200,9 @@ export default function ForgotPasswordFlow({
             title="Password updated"
             message={
               statusMessage ||
-              'Your password has been changed. Other sessions were signed out. Sign in with your new password.'
+              'Your password has been changed. Other sessions were logged out. Log in with your new password.'
             }
-            primaryAction={<PrimaryButton onClick={onBackToSignIn}>Sign in</PrimaryButton>}
+            primaryAction={<PrimaryButton onClick={onBackToSignIn}>Log in</PrimaryButton>}
           />
         </div>
       </AuthShell>
@@ -309,7 +309,7 @@ export default function ForgotPasswordFlow({
 
           <TextButton onClick={() => go('request')}>Use a different email</TextButton>
           <TextButton align="center" tone="muted" onClick={onBackToSignIn}>
-            Back to sign in
+            Back to log in
           </TextButton>
           <SupportLink />
         </div>
@@ -355,7 +355,7 @@ export default function ForgotPasswordFlow({
           <p className="text-sm text-center" style={{ color: 'var(--fg-muted)' }}>
             Remembered it?{' '}
             <TextButton onClick={onBackToSignIn} disabled={sending}>
-              Sign in
+              Log in
             </TextButton>
           </p>
           <SupportLink />

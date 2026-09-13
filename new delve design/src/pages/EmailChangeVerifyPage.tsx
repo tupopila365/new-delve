@@ -44,7 +44,7 @@ export default function EmailChangeVerifyPage() {
             title="Email updated"
             message={message}
             primaryAction={
-              <PrimaryButton onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>Sign in</PrimaryButton>
+              <PrimaryButton onClick={() => navigate('/', { state: { openAuth: 'signIn' } })}>Log in</PrimaryButton>
             }
           />
         )}

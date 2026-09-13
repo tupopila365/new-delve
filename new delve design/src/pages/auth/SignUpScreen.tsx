@@ -313,8 +313,8 @@ export default function SignUpScreen({
             <SuccessPanel
               icon={<Mail size={28} />}
               title="Email verified"
-              message="Your account is ready. Sign in to continue exploring Delve."
-              primaryAction={<PrimaryButton onClick={onNavigateSignIn}>Sign in</PrimaryButton>}
+              message="Your account is ready. Log in to continue exploring Delve."
+              primaryAction={<PrimaryButton onClick={onNavigateSignIn}>Log in</PrimaryButton>}
             />
           </div>
         </AuthShell>
@@ -379,7 +379,7 @@ export default function SignUpScreen({
             label={deliveryFailed ? 'Retry sending verification email' : 'Send a new code'}
           />
 
-          <PrimaryButton onClick={onNavigateSignIn}>Back to sign in</PrimaryButton>
+          <PrimaryButton onClick={onNavigateSignIn}>Back to log in</PrimaryButton>
         </div>
       </AuthShell>
     )
@@ -487,7 +487,7 @@ export default function SignUpScreen({
           <p className="text-sm text-center" style={{ color: 'var(--fg-muted)' }}>
             Already have an account?{' '}
             <TextButton onClick={onNavigateSignIn} disabled={creating}>
-              Sign in
+              Log in
             </TextButton>
           </p>
           <TermsAndPrivacyText />

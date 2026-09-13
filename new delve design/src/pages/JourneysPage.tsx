@@ -449,12 +449,12 @@ export default function JourneysPage({
 
   const emptyCopy = useMemo(() => {
     if (tab === 'mine') {
-      if (!signedIn) return { title: 'Sign in to see your journeys', body: 'Plan trips and share travel stories.' }
+      if (!signedIn) return { title: 'Log in to see your journeys', body: 'Plan trips and share travel stories.' }
       if (mineFilter !== 'all') return { title: 'Nothing here yet', body: 'Try another filter or create a journey.' }
       return { title: "You haven't created a Journey yet", body: 'Trips worth planning. Stories worth sharing.' }
     }
     if (discoverFilter === 'following' && !signedIn) {
-      return { title: 'Sign in to see following', body: 'Follow travelers to see their journeys here.' }
+      return { title: 'Log in to see following', body: 'Follow travelers to see their journeys here.' }
     }
     if (debouncedSearch) return { title: 'No journeys found', body: 'Try another search or destination.' }
     if (discoverFilter === 'nearby' && !nearbyCity && !destinationHint) {
@@ -870,7 +870,7 @@ export default function JourneysPage({
       {tab === 'mine' && !signedIn && (
         <div className="px-6 py-14 text-center">
           <p className="text-sm font-semibold m-0 mb-3 text-neutral-300">
-            Sign in to see your journeys
+            Log in to see your journeys
           </p>
           {onSignIn && (
             <button
@@ -878,7 +878,7 @@ export default function JourneysPage({
               onClick={onSignIn}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/30"
             >
-              <LogIn size={16} /> Sign in
+              <LogIn size={16} /> Log in
             </button>
           )}
         </div>

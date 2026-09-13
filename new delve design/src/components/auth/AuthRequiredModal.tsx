@@ -21,22 +21,22 @@ export const guestActionCopy: Record<GuestAction, AuthRequiredCopy> = {
     icon: <Bookmark size={22} />,
   },
   book: {
-    title: 'Sign in to book',
+    title: 'Log in to book',
     message: 'You need an account so we can hold your booking and send you the confirmation.',
     icon: <CalendarCheck size={22} />,
   },
   join: {
     title: 'Join the community',
-    message: 'Sign in to post, answer local questions and follow other travelers.',
+    message: 'Log in to post, answer local questions and follow other travelers.',
     icon: <Users size={22} />,
   },
   message: {
-    title: 'Sign in to send a message',
-    message: 'Messaging hosts and guides is available to signed-in travelers.',
+    title: 'Log in to send a message',
+    message: 'Messaging hosts and guides is available to logged-in travelers.',
     icon: <MessageCircle size={22} />,
   },
   generic: {
-    title: 'Sign in to continue',
+    title: 'Log in to continue',
     message: "You'll come straight back to where you left off.",
     icon: <Bookmark size={22} />,
   },
@@ -95,7 +95,7 @@ export default function AuthRequiredModal({
 
       {destinationLabel && (
         <p className="text-xs mt-3" style={{ color: 'var(--fg-muted)' }}>
-          After signing in we will take you back to <span style={{ color: 'var(--fg)', fontWeight: 600 }}>{destinationLabel}</span>.
+          After logging in we will take you back to <span style={{ color: 'var(--fg)', fontWeight: 600 }}>{destinationLabel}</span>.
         </p>
       )}
 

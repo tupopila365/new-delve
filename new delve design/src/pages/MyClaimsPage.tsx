@@ -226,8 +226,8 @@ export default function MyClaimsPage({
     return (
       <SectionEmpty
         icon={<Tag size={20} />}
-        title="Sign in to see claimed deals"
-        body="Your claim codes and redemption history will appear here after you sign in."
+        title="Log in to see claimed deals"
+        body="Your claim codes and redemption history will appear here after you log in."
       />
     )
   }

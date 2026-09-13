@@ -34,7 +34,7 @@ export default function SessionExpiredScreen({
       image="dunes"
       imageSide="left"
       panelHeadline="We keep sessions short on purpose."
-      panelSupporting="Shared laptops, hostel computers, borrowed phones — signing out protects your bookings."
+      panelSupporting="Shared laptops, hostel computers, borrowed phones — logging out protects your bookings."
       header={<AuthHeader trailing={headerTrailing} />}
     >
       <AuthTitleBlock
@@ -42,14 +42,14 @@ export default function SessionExpiredScreen({
         title="Your session has expired"
         subtitle={
           destinationLabel
-            ? `Your session has expired. Sign in again to continue to ${destinationLabel}.`
-            : 'Your session has expired. Sign in again to continue.'
+            ? `Your session has expired. Log in again to continue to ${destinationLabel}.`
+            : 'Your session has expired. Log in again to continue.'
         }
       />
 
       <div className="flex flex-col gap-4">
         <InlineAlert tone="info" title="Nothing was lost">
-          Saved places, drafts and bookings stay on your account. Signing in restores them straight away.
+          Saved places, drafts and bookings stay on your account. Logging in restores them straight away.
         </InlineAlert>
 
         <div
@@ -58,12 +58,12 @@ export default function SessionExpiredScreen({
         >
           <Clock size={17} style={{ color: 'var(--fg-muted)' }} />
           <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>
-            Tip: choose <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Keep me signed in</span> on a device
+            Tip: choose <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Keep me logged in</span> on a device
             that is only yours when you trust it.
           </p>
         </div>
 
-        <PrimaryButton onClick={onSignIn}>Sign in again</PrimaryButton>
+        <PrimaryButton onClick={onSignIn}>Log in again</PrimaryButton>
         <SecondaryButton onClick={onContinueAsGuest}>Keep browsing as a guest</SecondaryButton>
 
         <SupportLink />

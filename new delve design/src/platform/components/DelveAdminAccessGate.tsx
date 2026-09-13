@@ -16,7 +16,7 @@ export function DelveAdminAccessGate({ children }: Props) {
       <p>This console is for DELVE platform administrators only.</p>
       {children ?? (
         <Link to="/login" className="da-gate__btn">
-          Sign in
+          Log in
         </Link>
       )}
     </div>

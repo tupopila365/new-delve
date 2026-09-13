@@ -295,7 +295,7 @@ function CommunityCard({
               className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
               style={{ background: 'var(--primary)', color: '#fff' }}
             >
-              Sign in to join
+              Log in to join
             </button>
           ) : (
             <button

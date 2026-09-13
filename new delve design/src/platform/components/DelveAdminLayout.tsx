@@ -101,7 +101,7 @@ export function DelveAdminLayout() {
           ) : null}
           <button type="button" className="da-sidebar__logout" onClick={onLogout}>
             <LogOut size={16} strokeWidth={2.25} aria-hidden />
-            Sign out
+            Log out
           </button>
         </div>
       </aside>

@@ -96,7 +96,7 @@ export default function SessionCard({ session, busy = false, onRevoke }: Session
           }}
           onClick={onRevoke}
         >
-          {session.isCurrent ? 'Sign out this device' : 'Revoke'}
+          {session.isCurrent ? 'Log out this device' : 'Revoke'}
         </button>
       )}
     </article>

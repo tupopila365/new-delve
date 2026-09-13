@@ -19,7 +19,7 @@ export function LoginPage() {
       await login(email.trim(), password)
       navigate('/admin', { replace: true })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Sign in failed.'
+      const msg = err instanceof Error ? err.message : 'Log in failed.'
       setError(msg.includes('admin access') ? msg : 'Invalid email or password.')
     } finally {
       setBusy(false)
@@ -34,7 +34,7 @@ export function LoginPage() {
           <span>Platform admin</span>
         </div>
         <DelveAdminPageHeader
-          title="Sign in"
+          title="Log in"
           subtitle="Staff accounts only. Use admin@delve.local / demo12345 in mock mode."
         />
         {error ? (
@@ -61,7 +61,7 @@ export function LoginPage() {
           />
         </label>
         <button type="submit" className="da-login__submit" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? 'Logging in…' : 'Log in'}
         </button>
       </form>
     </div>

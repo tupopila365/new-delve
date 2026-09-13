@@ -42,8 +42,8 @@ function feedErrorCopy(err: unknown): { title: string; body: string; kind: 'auth
     if (err.status === 401 || err.code === 'UNAUTHORIZED' || err.code === 'SESSION_EXPIRED' || err.code === 'SESSION_REVOKED') {
       return {
         kind: 'auth',
-        title: 'Sign in required',
-        body: 'Your session expired or is missing. Sign in again to see posts from people you follow.',
+        title: 'Log in required',
+        body: 'Your session expired or is missing. Log in again to see posts from people you follow.',
       }
     }
     if (err.status === 403 || err.code === 'ACCOUNT_RESTRICTED' || err.code === 'ADMIN_FORBIDDEN') {
@@ -61,11 +61,11 @@ function feedErrorCopy(err: unknown): { title: string; body: string; kind: 'auth
   }
   if (err instanceof Error) {
     const msg = err.message || ''
-    if (/sign in required/i.test(msg) || /unauthorized/i.test(msg)) {
+    if (/sign in required|log in required/i.test(msg) || /unauthorized/i.test(msg)) {
       return {
         kind: 'auth',
-        title: 'Sign in required',
-        body: 'Sign in to see posts from people you follow.',
+        title: 'Log in required',
+        body: 'Log in to see posts from people you follow.',
       }
     }
     return { kind: 'generic', title: 'Unable to load Delvers', body: msg || 'Something went wrong. Try again.' }
@@ -150,8 +150,8 @@ export default function DelversFeedPage({
       setFeed([])
       setError({
         kind: 'auth',
-        title: 'Sign in required',
-        body: 'Sign in to see posts from people you follow.',
+        title: 'Log in required',
+        body: 'Log in to see posts from people you follow.',
       })
       return
     }
@@ -296,7 +296,7 @@ export default function DelversFeedPage({
             )}
             {error.kind === 'auth' && onCreate && (
               <p className="text-xs m-0 mt-2" style={{ color: 'var(--fg-muted)' }}>
-                Use Account in the menu to sign in, then open Delvers again.
+                Use Account in the menu to log in, then open Delvers again.
               </p>
             )}
           </div>

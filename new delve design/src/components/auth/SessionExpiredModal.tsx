@@ -54,13 +54,13 @@ export default function SessionExpiredModal({
         Your session has expired
       </h2>
       <p id={bodyId} className="text-sm mt-2" style={{ color: 'var(--fg-muted)', lineHeight: 1.6 }}>
-        For your security we signed you out after {authConfig.sessionIdleTimeoutMinutes} minutes of inactivity. Sign
+        For your security we logged you out after {authConfig.sessionIdleTimeoutMinutes} minutes of inactivity. Log
         in again to pick up where you left off
         {destinationLabel ? ` on ${destinationLabel}` : ''}.
       </p>
 
       <div className="mt-6 flex flex-col gap-1">
-        <PrimaryButton onClick={onSignIn}>Sign in again</PrimaryButton>
+        <PrimaryButton onClick={onSignIn}>Log in again</PrimaryButton>
         {onDismiss && (
           <TextButton align="center" tone="muted" onClick={onDismiss}>
             Continue as a guest

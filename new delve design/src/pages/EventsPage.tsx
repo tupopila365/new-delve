@@ -147,7 +147,7 @@ export default function EventsPage({
   const emptyCopy = useMemo(() => {
     if (tab === 'hosting') return 'You have not created any events yet.'
     if (tab === 'attending') return 'Events you RSVP to will show up here.'
-    if (quickFilter === 'following' && !signedIn) return 'Sign in to see events from people you follow.'
+    if (quickFilter === 'following' && !signedIn) return 'Log in to see events from people you follow.'
     if (debouncedSearch.length >= 2) return `No events match "${debouncedSearch}".`
     if (category) return `No upcoming ${category.toLowerCase()} events yet.`
     if (quickFilter === 'today') return 'Nothing scheduled for today.'
@@ -259,7 +259,7 @@ export default function EventsPage({
       {(tab === 'hosting' || tab === 'attending') && !signedIn && (
         <div className="px-6 py-14 text-center">
           <p className="text-sm font-semibold m-0 mb-2" style={{ color: 'var(--fg)' }}>
-            Sign in to see your events
+            Log in to see your events
           </p>
           {onSignIn && (
             <button
@@ -268,7 +268,7 @@ export default function EventsPage({
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white min-h-[44px]"
               style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
             >
-              <LogIn size={16} /> Sign in
+              <LogIn size={16} /> Log in
             </button>
           )}
         </div>

@@ -63,7 +63,7 @@ export default function AuthRequiredBottomSheet({
 
       <div className="flex flex-col gap-2.5 mt-5">
         <PrimaryButton onClick={onCreateAccount}>Create free account</PrimaryButton>
-        <SecondaryButton onClick={onSignIn}>Sign in</SecondaryButton>
+        <SecondaryButton onClick={onSignIn}>Log in</SecondaryButton>
         <TextButton align="center" tone="muted" onClick={onContinueBrowsing ?? onClose}>
           Keep browsing as a guest
         </TextButton>

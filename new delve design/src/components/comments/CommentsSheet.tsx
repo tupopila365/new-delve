@@ -203,7 +203,7 @@ export default function CommentsSheet({
                 cursor: onSignIn ? 'pointer' : 'default',
               }}
             >
-              Sign in to comment
+              Log in to comment
             </button>
           ) : (
             <div className="flex items-center gap-2.5">

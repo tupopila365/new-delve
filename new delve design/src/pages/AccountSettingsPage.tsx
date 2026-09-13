@@ -435,7 +435,7 @@ export default function AccountSettingsPage({
         <section className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <h2 className="font-display text-lg font-bold m-0">Sessions and devices</h2>
           <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-            Review where you’re signed in. Revoking a session cannot be undone — that device will need to sign in again.
+            Review where you’re logged in. Revoking a session cannot be undone — that device will need to log in again.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -449,17 +449,17 @@ export default function AccountSettingsPage({
                   setError(null)
                   try {
                     const out = await logoutOtherDevices()
-                    setMessage(`Signed out ${out.revokedCount} other device${out.revokedCount === 1 ? '' : 's'}`)
+                    setMessage(`Logged out ${out.revokedCount} other device${out.revokedCount === 1 ? '' : 's'}`)
                     setSessions(await fetchSessions())
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : 'Could not sign out other devices')
+                    setError(err instanceof Error ? err.message : 'Could not log out other devices')
                   } finally {
                     setBusy(false)
                   }
                 })()
               }}
             >
-              Sign out other devices
+              Log out other devices
             </button>
             <button
               type="button"
@@ -468,7 +468,7 @@ export default function AccountSettingsPage({
               style={{ background: 'rgba(224,92,26,0.12)', color: 'var(--danger, #c2410c)', border: 'none', cursor: busy ? 'not-allowed' : 'pointer' }}
               onClick={() => setConfirmLogoutAll(true)}
             >
-              Sign out everywhere
+              Log out everywhere
             </button>
           </div>
           <div className="flex flex-col gap-3" role="list">
@@ -507,9 +507,9 @@ export default function AccountSettingsPage({
           </div>
           <ConfirmDialog
             isOpen={confirmLogoutAll}
-            title="Sign out everywhere?"
-            description="This signs you out on every device, including this one. Revocation cannot be undone — you’ll need your password to sign in again."
-            confirmLabel="Sign out everywhere"
+            title="Log out everywhere?"
+            description="This logs you out on every device, including this one. Revocation cannot be undone — you’ll need your password to log in again."
+            confirmLabel="Log out everywhere"
             cancelLabel="Keep sessions"
             variant="warning"
             isLoading={busy}
@@ -522,7 +522,7 @@ export default function AccountSettingsPage({
                 setConfirmLogoutAll(false)
                 onSignOut()
               } catch (err) {
-                setError(err instanceof Error ? err.message : 'Could not sign out everywhere')
+                setError(err instanceof Error ? err.message : 'Could not log out everywhere')
               } finally {
                 setBusy(false)
               }

@@ -1125,7 +1125,7 @@ export default function App() {
                 <button type="button" onClick={() => openAuth('signIn')}
                   className="px-3 py-2 rounded-xl text-sm font-medium hidden lg:block"
                   style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>
-                  Sign in
+                  Log in
                 </button>
                 <button type="button" onClick={() => openAuth('signUp')}
                   className="px-3 py-2 rounded-xl text-sm font-semibold hidden lg:block"

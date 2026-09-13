@@ -124,14 +124,14 @@ export default function SignInScreen({
             identifier.includes('@') ? <TextButton onClick={() => void handleResend()}>Send a new verification code</TextButton> : undefined
           }
         >
-          {errorMessage || 'Verify your email before signing in.'}
+          {errorMessage || 'Verify your email before logging in.'}
         </InlineAlert>
       )
     }
     if (errorCode === 'ACCOUNT_RESTRICTED') {
       return (
         <InlineAlert tone="security" title="This account is restricted">
-          Sign-in is unavailable for this account. Contact support for help.
+          Login is unavailable for this account. Contact support for help.
         </InlineAlert>
       )
     }
@@ -144,9 +144,9 @@ export default function SignInScreen({
     }
     if (errorMessage) {
       return (
-        <InlineAlert tone="error" title="We couldn’t sign you in">
+        <InlineAlert tone="error" title="We couldn’t log you in">
           {errorMessage === GENERIC_AUTH_FAILURE_MESSAGE
-            ? 'We couldn’t sign you in with those details.'
+            ? 'We couldn’t log you in with those details.'
             : errorMessage}
         </InlineAlert>
       )
@@ -165,7 +165,7 @@ export default function SignInScreen({
       <AuthForm onSubmit={() => void handleSubmit()} busy={submitting}>
         <AuthTitleBlock
           eyebrow="Welcome back"
-          title="Sign in to Delve"
+          title="Log in to Delve"
           subtitle="Use your email or username with your password."
         />
 
@@ -204,7 +204,7 @@ export default function SignInScreen({
               id="signin-remember"
               checked={rememberMe}
               onChange={setRememberMe}
-              label="Keep me signed in on this device"
+              label="Keep me logged in on this device"
               disabled={submitting || success}
             />
             <TextButton onClick={onNavigateForgotPassword} disabled={submitting}>
@@ -213,7 +213,7 @@ export default function SignInScreen({
           </div>
 
           <PrimaryButton type="submit" loading={submitting} disabled={success}>
-            Sign in
+            Log in
           </PrimaryButton>
 
           <p className="text-sm text-center" style={{ color: 'var(--fg-muted)' }}>
